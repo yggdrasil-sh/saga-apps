@@ -376,6 +376,26 @@ fun SettingsGeneralScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
                     )
                 }
             }
+            // 2.5 Chat-Standard: gesperrte Personen (block2), Linkvorschau (unfurl1, nur dieses Geraet)
+            val stdF = repo.chat.std
+            if (chatState == ChatSetup.READY && (stdF.block || stdF.unfurl)) {
+                val n = (if (stdF.block) 1 else 0) + (if (stdF.unfurl) 1 else 0)
+                if (stdF.block) item(key = "chat-blocks") {
+                    var open by remember { mutableStateOf(false) }
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.std_blocked_list)) },
+                        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                        colors = SEG, modifier = w.padding(top = 4.dp).sagaSegment(0, n).clickable { open = true },
+                    )
+                    if (open) io.github.yggdrasil_sh.saga.ui.chat.LocalBlocksDialog(repo) { open = false }
+                }
+                if (stdF.unfurl) item(key = "chat-unfurl") {
+                    var on by remember { mutableStateOf(repo.chat.unfurlOn) }
+                    io.github.yggdrasil_sh.saga.ui.push.SwitchRow(
+                        stringResource(R.string.std_unfurl_setting), on, w.sagaSegment(n - 1, n), hint = stringResource(R.string.std_unfurl_hint),
+                    ) { v -> repo.chat.unfurlOn = v; on = v }
+                }
+            }
             if (rcFeat || onFeat) {
                 val pv = chatMe?.privacy ?: io.github.yggdrasil_sh.saga.chat.ChatPrivacy()
                 item(key = "privacy") { SagaSectionTitle(stringResource(R.string.chat_privacy_title), w.padding(top = 4.dp)) }

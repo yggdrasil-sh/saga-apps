@@ -146,6 +146,8 @@ import io.github.yggdrasil_sh.saga.chat.ChatFormat
 import io.github.yggdrasil_sh.saga.chat.ChatMessage
 import io.github.yggdrasil_sh.saga.chat.ChatNoteRef
 import io.github.yggdrasil_sh.saga.chat.ChatSession
+import io.github.yggdrasil_sh.saga.chat.ChatStd
+import io.github.yggdrasil_sh.saga.chat.ChatLogic
 import io.github.yggdrasil_sh.saga.chat.PendingFile
 import io.github.yggdrasil_sh.saga.chat.quietly
 import io.github.yggdrasil_sh.saga.data.SagaRepository
@@ -244,6 +246,9 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         }
     }
     val list = rememberLazyListState()
+    /** angezeigte Nachrichten (neueste zuerst) - fuer den Sprung aus der Pin-Leiste */
+    val shownRef = remember(chatId) { java.util.concurrent.atomic.AtomicReference<List<ChatMessage>>(emptyList()) }
+    val unknownName = stringResource(R.string.std_unknown)
 
     // KI im Chat (2.1, nur auf Zuruf): Server-Schalter + Persona aus /api/ai/status, Chat-Schalter aus summary.ai
     val aiSt by repo.ai.status.collectAsState()
@@ -304,6 +309,35 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     PresenceWatch(svc.presence, "chat:$chatId", listOfNotNull(peerOnline))
     val presenceLine = presenceText(peerOnline?.let { presenceAll[it] }, chatMe?.statusLimits?.lastRound ?: 300)
     var readBy by remember { mutableStateOf<ChatMessage?>(null) }
+    // 2.5 Chat-Standard: Melden, Sperren, Admin-Loeschen
+    var reportMsgs by remember { mutableStateOf<List<ChatMessage>?>(null) }
+    var blockAsk by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var modDel by remember { mutableStateOf<ChatMessage?>(null) }
+    val std = svc.std
+    // 2.5 (chatmention1): gewaehlte Erwaehnungen "@Name" -> Kennung; (unfurl1) Linkvorschau beim Tippen
+    val people = remember(chatId) { androidx.compose.runtime.mutableStateMapOf<String, String>() }
+    var unfurl by remember(chatId) { mutableStateOf<io.github.yggdrasil_sh.saga.chat.UnfurlResult?>(null) }
+    /** Adresse im Text, fuer die [unfurl] geholt wurde (der Server kann sie normalisieren) */
+    var unfurlFor by remember(chatId) { mutableStateOf<String?>(null) }
+    val unfurlOff = remember(chatId) { mutableSetOf<String>() }
+    var showMedia by remember { mutableStateOf(false) }
+    LaunchedEffect(input, chatId) {
+        snapshotFlow { input.text.toString() }.collectLatest { t ->
+            if (!std.unfurl || !svc.unfurlOn) { unfurl = null; return@collectLatest }
+            val u = ChatStd.firstUrl(t)
+            if (u == null || u in unfurlOff) { unfurl = null; unfurlFor = null; return@collectLatest }
+            if (unfurlFor == u && unfurl != null) return@collectLatest
+            delay(600)
+            unfurlFor = u
+            unfurl = try {
+                svc.unfurl(u)?.let { r -> r.copy(url = r.url.ifEmpty { u }) }?.takeIf { ChatStd.firstUrl(input.text.toString()) == u }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
     // 2.5: Reaktionen (volle Emoji-Auswahl, "Reaktionen von …") und Sprachnachrichten (Aufnahme, Vorschau)
     var emojiFor by remember { mutableStateOf<ChatMessage?>(null) }
     var reactionsFor by remember { mutableStateOf<ChatMessage?>(null) }
@@ -356,6 +390,45 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 ChatAttach.Read.Failed -> repo.notify(UiText.Res(R.string.chat_file_broken))
             }
         }
+    }
+
+    // 2.5: Kamera direkt im Chat (Foto/Video) -> wie ein Bild- bzw. Video-Anhang; Dateien im Cache (camera/), alte weg
+    var camUri by remember { mutableStateOf<Uri?>(null) }
+    var camVideo by remember { mutableStateOf(false) }
+    val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        val u = camUri
+        if (ok && u != null) scope.launch {
+            val max = svc.me.value?.limits?.fileMax ?: ChatLimits().fileMax
+            when (val r = readFile(context, u, max, s.name)) {
+                is ChatAttach.Read.Ok -> files.add(r.file)
+                is ChatAttach.Read.Video -> videos.add(PendingVideo(r.uri, r.name, r.mime, r.size))
+                ChatAttach.Read.TooBig -> repo.notify(UiText.Res(R.string.chat_file_too_big, (max / 1048576).toInt()))
+                ChatAttach.Read.Failed -> repo.notify(UiText.Res(R.string.chat_file_broken))
+            }
+        }
+    }
+    val takeVideo = rememberLauncherForActivityResult(ActivityResultContracts.CaptureVideo()) { ok ->
+        val u = camUri
+        if (ok && u != null) {
+            val f = java.io.File(java.io.File(context.cacheDir, "camera"), u.lastPathSegment ?: "")
+            videos.add(PendingVideo(u.toString(), ChatAttach.niceName(f.name, "video/mp4", s.name, java.time.LocalDateTime.now()), "video/mp4", f.length().takeIf { it > 0 }))
+        }
+    }
+    fun launchCamera(video: Boolean) {
+        val dir = java.io.File(context.cacheDir, "camera").apply { mkdirs() }
+        dir.listFiles()?.filter { System.currentTimeMillis() - it.lastModified() > 24 * 3600_000L }?.forEach { it.delete() }
+        val f = java.io.File(dir, (if (video) "video-" else "photo-") + System.currentTimeMillis() + if (video) ".mp4" else ".jpg")
+        val u = androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", f)
+        camUri = u
+        if (video) takeVideo.launch(u) else takePhoto.launch(u)
+    }
+    val camPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) launchCamera(camVideo) else repo.notify(UiText.Res(R.string.std_camera_denied))
+    }
+    val openCamera: (Boolean) -> Unit = { video ->
+        camVideo = video
+        if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) launchCamera(video)
+        else camPermission.launch(android.Manifest.permission.CAMERA)
     }
 
     // 2.4: nur Videos waehlen (Galerie)
@@ -441,9 +514,15 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 // 2.5 (chatadm1): Tipp auf den Chat-Kopf -> Gruppeninfo (Direkt-Chats: Mitglieder wie bisher)
                 val infoLabel = stringResource(R.string.gi_open)
                 // aeltere Server (ohne chatadm1): Kopf wie bisher nicht klickbar
-                Column(if (!svc.groupInfoOn) Modifier else Modifier.clickable(onClickLabel = infoLabel) {
+                Row(if (!svc.groupInfoOn) Modifier else Modifier.clickable(onClickLabel = infoLabel) {
                     dialog = if (GroupInfo.usesGroupInfo(s.summary, svc.groupInfoOn)) "groupinfo" else "members"
-                }) {
+                }, verticalAlignment = Alignment.CenterVertically) {
+                // 2.5 (groupinfo2): Gruppenbild im Kopf
+                val headSum = s.summary
+                if (headSum != null && headSum.kind == "free" && std.groupInfo2 && svc.groupExtras.collectAsState().value[headSum.id]?.avatar != null) {
+                    Box(Modifier.padding(end = 8.dp)) { GroupAvatar(repo, headSum, s.name, 32.dp) }
+                }
+                Column {
                     Text(s.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     // Nr. 54: mit Online-Stand steht "Ende-zu-Ende verschluesselt" nur noch als Schloss (und fuer Bedienungshilfen),
                     // sonst schnitt die einzeilige Zeile Server und Hinweis ab
@@ -458,6 +537,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
+                }
                 }
             },
             navigationIcon = {
@@ -483,8 +563,27 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more)) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         val sum = s.summary
+                        val sum0 = sum
                         DropdownMenuItem(text = { Text(stringResource(R.string.cs_select)) }, onClick = { menu = false; selecting = true })
                         DropdownMenuItem(text = { Text(stringResource(R.string.chat_safety_number)) }, onClick = { menu = false; dialog = "safety" })
+                        // 2.5 (block2/report1): Direkt-Chat - Person sperren/entsperren, Melden
+                        if (sum0 != null && sum0.kind == "dm") {
+                            val p = sum0.members.firstOrNull { !it.me } ?: sum0.peer
+                            val tg = ChatStd.blockTarget(p)
+                            if (std.block && tg != null && !sum0.remote) {
+                                if (p?.blocked == true || sum0.blocked) DropdownMenuItem(text = { Text(stringResource(R.string.std_unblock)) }, onClick = {
+                                    menu = false
+                                    repo.launchAction { s.unblock(tg); repo.notify(UiText.Res(R.string.std_unblocked_done)) }
+                                }) else DropdownMenuItem(text = { Text(stringResource(R.string.std_block_name, p?.let { ChatLogic.shown(it) }.orEmpty()), color = MaterialTheme.colorScheme.error) }, onClick = {
+                                    menu = false
+                                    blockAsk = (p?.let { ChatLogic.shown(it) }.orEmpty()) to tg
+                                })
+                            }
+                            if (std.report) {
+                                val last = s.messages.filter { !it.mine && it.content != null && !it.tomb && it.sys == null && it.call == null }.takeLast(5)
+                                if (last.isNotEmpty()) DropdownMenuItem(text = { Text(stringResource(R.string.std_report_menu)) }, onClick = { menu = false; reportMsgs = last })
+                            }
+                        }
                         // 2.5 (chatadm1): Gruppen -> "Gruppeninfo …" (ersetzt "Mitglieder"); Direkt-Chats wie bisher
                         if (GroupInfo.usesGroupInfo(sum, svc.groupInfoOn)) {
                             DropdownMenuItem(text = { Text(stringResource(R.string.gi_menu)) }, onClick = { menu = false; dialog = "groupinfo" })
@@ -492,10 +591,18 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                             DropdownMenuItem(text = { Text(stringResource(R.string.chat_members)) }, onClick = { menu = false; dialog = "members" })
                         }
                         if (sum != null) {
-                            DropdownMenuItem(text = { Text(stringResource(if (sum.muted) R.string.chat_unmute else R.string.chat_mute)) }, onClick = {
+                            // 2.5 Chat-Alltag: Stummschalten mit Dauer/Mitteilungen, Anheften, ungelesen, ausblenden
+                            if (std.mute2 || std.chatPin || std.markUnread || std.hide) {
+                                AlltagMenuItems(repo, sum, onPatched = { c ->
+                                    s.applySummary(c)
+                                    if (c.unreadMark || c.hidden) nav.top(Dest.Chats)
+                                }) { menu = false }
+                            }
+                            if (!std.mute2) DropdownMenuItem(text = { Text(stringResource(if (sum.muted) R.string.chat_unmute else R.string.chat_mute)) }, onClick = {
                                 menu = false
                                 repo.launchAction { s.setMuted(!sum.muted) }
                             })
+                            if (std.media) DropdownMenuItem(text = { Text(stringResource(R.string.std_media_title)) }, onClick = { menu = false; showMedia = true })
                             DropdownMenuItem(text = { Text(stringResource(R.string.chat_retention)) }, onClick = { menu = false; dialog = "retention" })
                             // KI im Chat (2.1): nur fuer Berechtigte; Erlauben mit Rueckfrage (was an die KI geht)
                             if (aiServer && s.aiMayToggle == true) {
@@ -545,6 +652,21 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         )
         // Laeuft der Anruf in diesem Chat: zurueck in den Anrufbildschirm (derselbe Anruf, kein neuer Aufbau)
         io.github.yggdrasil_sh.saga.call.ReturnToCallRow(callSt, chatId)
+        // 2.5 (msgpin1): angeheftete Nachrichten oben; Tipp springt hin
+        if (std.msgPin) {
+            val pinRights = s.summary?.let { ChatStd.rights(it, std) }
+            PinBar(
+                s, pinRights?.pin == true,
+                onJump = { mid ->
+                    val idx = shownRef.get().indexOfFirst { it.id == mid }
+                    if (idx >= 0) scope.launch { list.animateScrollToItem(idx + (if (s.aiPending != null) 1 else 0)) }
+                    else repo.notify(UiText.Res(R.string.std_pin_not_loaded))
+                },
+                onUnpin = { mid -> repo.launchAction { s.pin(mid, false); repo.notify(UiText.Res(R.string.std_unpinned_done)) } },
+                nameOf = { senderName(it) },
+                textOf = { m -> previewText(m, s, unknownName) },
+            )
+        }
         if (forwarding) androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
         search?.let { q ->
             OutlinedTextField(
@@ -591,6 +713,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             val hid = s.hiddenLocal
             s.messages.toList().filter { it.id !in hid && (q.isEmpty() || it.content?.text?.lowercase()?.contains(q) == true) }.asReversed()
         }
+        shownRef.set(shown)
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
           androidx.compose.runtime.CompositionLocalProvider(LocalVideoHost provides videoHost) {
             LazyColumn(Modifier.fillMaxSize().widthIn(max = 900.dp), state = list, reverseLayout = true) {
@@ -606,7 +729,14 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     }
                     val call = m.call
                     val sys = m.sys
-                    if (sys != null) {
+                    if (m.tomb) {
+                        // 2.5 (moddel1): Grabstein
+                        val who = senderName(m)
+                        StdNoteRow("🗑 " + if (who.isNotEmpty()) stringResource(R.string.std_tomb_of, who) else stringResource(R.string.std_tomb))
+                    } else if (!m.mine && std.block && m.id !in s.unblocked && ChatStd.blockedInGroup(s.summary, m.sender, m.senderHandle)) {
+                        // 2.5 (block2): Nachricht einer gesperrten Person eingeklappt
+                        StdNoteRow("⛔ " + stringResource(R.string.std_blocked_msg), stringResource(R.string.std_show)) { s.unblocked = s.unblocked + m.id }
+                    } else if (sys != null) {
                         SysRow(m, sys, s.summary?.myHandle)
                     } else if (call != null) {
                         CallEntryRow(m, call, s.me, canCall) { startCall(it) }
@@ -648,6 +778,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                                 } else selected = ChatSelect.toggle(selected, m)
                             }) else null,
                             onMenuAction = { if (selected.size <= 1) endSelection() },
+                            extraMenu = { close -> StdMessageMenu(repo, s, m, close, onReport = { reportMsgs = listOf(m) }, onBlock = { n, t -> blockAsk = n to t }, onModDel = { modDel = m }) },
                         )
                     }
                   }
@@ -707,6 +838,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             }
             return@Column
         }
+        // 2.5 (groupinfo2/block2): Schreiben nicht erlaubt -> Hinweis statt Eingabefeld
+        s.summary?.let { ChatStd.sendBlockedText(it) }?.let { t ->
+            SendBlockedBar(t)
+            return@Column
+        }
         // 2.5: im Eingabefeld bearbeiten ("Bearbeiten · Abbrechen")
         s.editing?.let { e ->
             EditBar(e.content?.text.orEmpty()) {
@@ -718,7 +854,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
                     Text(stringResource(R.string.chat_reply_to, r.sender?.let { io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(it) }.orEmpty()), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                    Text(r.content?.text.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                    Text(previewText(r, s, unknownName), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 }
                 IconButton(onClick = { s.replyTo = null }) { Icon(Icons.Filled.Close, stringResource(R.string.action_cancel)) }
             }
@@ -776,6 +912,18 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 }
             }
         }
+        // 2.5 (chatmention1): "@" -> Mitglieder des Chats
+        if (std.mention) {
+            val at = ChatStd.atQuery(input.text.toString(), input.selection.end)
+            if (at != null) MentionPicker(ChatStd.mentionCandidates(s.summary, at.second)) { p ->
+                val label = ChatStd.mentionLabel(p.name)
+                people[label] = ChatStd.memberRef(p)
+                val end = input.selection.end.coerceIn(at.first, input.text.length)
+                input.edit { replace(at.first, end, "$label ") }
+            }
+        }
+        // 2.5 (unfurl1): Linkvorschau ueber dem Eingabefeld
+        unfurl?.let { u -> ComposePreview(u) { unfurlFor?.let { unfurlOff.add(it) }; unfurl = null } }
         if (voiceRec.phase == VoiceRecUi.Phase.PREVIEW) Box(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
             VoicePreview(voiceRec) { r ->
                 scope.launch {
@@ -795,6 +943,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 IconButton(onClick = { attach = true }) { Icon(Icons.Filled.Add, stringResource(R.string.chat_attach)) }
                 DropdownMenu(expanded = attach, onDismissRequest = { attach = false }) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_file)) }, onClick = { attach = false; pick.launch("*/*") })
+                    // 2.5: Kamera (Foto/Video) - nur mit Kamera am Geraet
+                    if (context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_CAMERA_ANY)) {
+                        DropdownMenuItem(text = { Text("📷 " + stringResource(R.string.std_camera_photo)) }, onClick = { attach = false; openCamera(false) })
+                        DropdownMenuItem(text = { Text("🎥 " + stringResource(R.string.std_camera_video)) }, onClick = { attach = false; openCamera(true) })
+                    }
                     DropdownMenuItem(text = { Text(stringResource(R.string.video_attach)) }, onClick = { attach = false; pickVideo.launch("video/*") })
                     // gleiche Pruefung wie beim Bild-Einfuegen auf Seiten: nur wenn Immich fuer mich eingerichtet ist
                     if (immichOn) DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_immich)) }, onClick = { attach = false; dialog = "immich" })
@@ -877,14 +1030,19 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 noteIds.clear()
                 // @Name in einem Chat mit erlaubter KI: nach dem normalen (verschluesselten) Senden die KI fragen
                 val toAi = aiHere && AiChatLogic.mentions(text, aiName)
+                val peopleNow = people.toMap()
+                val unfNow = unfurl?.takeIf { ChatStd.firstUrl(text) == unfurlFor }
+                people.clear()
+                unfurl = null
                 scope.launch {
                     try {
-                        val qid = s.send(text, fs, ns)
+                        val qid = s.send(text, fs, ns, people = peopleNow, unfurl = unfNow)
                         if (toAi) askAi(text, qid)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
                         input.setTextAndPlaceCursorAtEnd(text)             // nichts verlieren
+                        people.putAll(peopleNow)
                         files.addAll(fs)
                         noteIds.addAll(refs)
                         // A09: ohne Verbindung verstaendlich sagen, dass der Entwurf bleibt
@@ -903,6 +1061,25 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     }
     }
 
+    if (showMedia) MediaDialog(repo, s) { showMedia = false }
+    // 2.5 Chat-Standard: Melden, Sperren, Admin-Loeschen
+    reportMsgs?.let { ms ->
+        ReportDialog(repo, s, ms, ChatStd.reportPrefill(ms.map { senderName(it) to previewText(it, s, unknownName) })) { reportMsgs = null }
+    }
+    blockAsk?.let { (n, t) -> BlockConfirm(repo, n, t, onBlock = { s.block(it) }) { blockAsk = null } }
+    modDel?.let { m ->
+        AlertDialog(
+            onDismissRequest = { modDel = null },
+            title = { Text(stringResource(R.string.std_moddel_title)) },
+            text = { Text(stringResource(R.string.std_moddel_text, senderName(m).ifEmpty { "?" })) },
+            confirmButton = {
+                TextButton(onClick = { modDel = null; repo.launchAction { s.deleteAsAdmin(m) } }) {
+                    Text(stringResource(R.string.std_delete), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { modDel = null }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
     // 2.4: "Gelesen von" einer eigenen Nachricht (Gruppen)
     readBy?.let { m -> ReadByDialog(s.readersOf(m)) { readBy = null } }
     // 2.5: volle Emoji-Auswahl, "Reaktionen von …", Mikrofon dauerhaft abgelehnt
@@ -1138,7 +1315,7 @@ private val fileCleanup = CoroutineScope(SupervisorJob() + Dispatchers.IO)
  * Anhang laden, entschluesseln und mit einer anderen App oeffnen (share = false) oder teilen/speichern (share = true). Klartext nur kurz im Cache
  * (eigener Zufallsordner); nach ChatFiles.KEEP_MS Freigabe zuruecknehmen und loeschen (BUG-023).
  */
-private suspend fun openFile(context: Context, s: ChatSession, f: ChatFile, share: Boolean = false, onError: (io.github.yggdrasil_sh.saga.util.UiText) -> Unit) {
+internal suspend fun openFile(context: Context, s: ChatSession, f: ChatFile, share: Boolean = false, onError: (io.github.yggdrasil_sh.saga.util.UiText) -> Unit) {
     try {
         val app = context.applicationContext
         val (out, uri) = if (f.isV2) {
@@ -1181,13 +1358,22 @@ private suspend fun openFile(context: Context, s: ChatSession, f: ChatFile, shar
     }
 }
 
-/** Text mit Seitenverweisen [[note:ID]] -> "📄 Titel" (antippbar, nur mit Zugriff) */
+/**
+ * Text mit Seitenverweisen [[note:ID]] -> "📄 Titel" (antippbar, nur mit Zugriff), http(s)-Links, 2.5: Erwaehnungen
+ * <@kennung> als hervorgehobenes "@Name" (eigener Name staerker) und Formatierung (chatfmt1, ChatFmt wie chat-fmt.js -
+ * nur Stile, nie Markup aus dem Text).
+ */
 @Composable
-private fun messageText(text: String, notes: Map<Long, ChatNoteRef?>, onOpen: (Long) -> Unit): AnnotatedString {
+private fun messageText(text: String, notes: Map<Long, ChatNoteRef?>, onOpen: (Long) -> Unit, s: ChatSession? = null): AnnotatedString {
     val noAccess = stringResource(R.string.chat_page_no_access)
-    val linkColor = MaterialTheme.colorScheme.primary
+    val unknown = stringResource(R.string.std_unknown)
+    val scheme = MaterialTheme.colorScheme
+    val linkColor = scheme.primary
     val context = LocalContext.current
     val linkStyle = TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))
+    val std = s?.std
+    val sum = s?.summary
+    val mentionOn = std?.mention == true
     return buildAnnotatedString {
         // http(s)-Links antippbar - immer ueber openUrl (Standard-Browser bzw. Systemauswahl, kein Custom Tab)
         fun plain(t: String) {
@@ -1197,21 +1383,69 @@ private fun messageText(text: String, notes: Map<Long, ChatNoteRef?>, onOpen: (L
                 else withLink(LinkAnnotation.Clickable("url-$length", linkStyle) { io.github.yggdrasil_sh.saga.ui.common.openUrl(context, u) }) { append(p.text) }
             }
         }
-        var last = 0
-        for (m in ChatFormat.NOTE_REF.findAll(text)) {
-            plain(text.substring(last, m.range.first))
-            val id = m.groupValues[1].toLongOrNull()
-            val ref = id?.let { notes[it] }
-            if (id != null && ref != null) {
-                withLink(LinkAnnotation.Clickable("note-$id", linkStyle) { onOpen(id) }) {
-                    append("📄 " + ref.title)
-                }
-            } else {
-                append("📄 $noAccess")
+        fun mentions(t: String) {
+            if (!mentionOn) return plain(t)
+            var last = 0
+            for (m in ChatStd.MENTION.findAll(t)) {
+                plain(t.substring(last, m.range.first))
+                val ref = m.groupValues[1]
+                val me = ChatStd.isMe(sum, ref)
+                val name = ChatStd.mentionName(sum, ref, null) ?: unknown
+                val st = length
+                append("@$name")
+                addStyle(
+                    SpanStyle(
+                        color = scheme.primary, fontWeight = if (me) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.SemiBold,
+                        background = if (me) scheme.primary.copy(alpha = 0.16f) else androidx.compose.ui.graphics.Color.Unspecified,
+                    ),
+                    st, length,
+                )
+                last = m.range.last + 1
             }
-            last = m.range.last + 1
+            plain(t.substring(last))
         }
-        plain(text.substring(last))
+        fun leaf(t: String) {
+            var last = 0
+            for (m in ChatFormat.NOTE_REF.findAll(t)) {
+                mentions(t.substring(last, m.range.first))
+                val id = m.groupValues[1].toLongOrNull()
+                val ref = id?.let { notes[it] }
+                if (id != null && ref != null) {
+                    withLink(LinkAnnotation.Clickable("note-$id", linkStyle) { onOpen(id) }) {
+                        append("📄 " + ref.title)
+                    }
+                } else {
+                    append("📄 $noAccess")
+                }
+                last = m.range.last + 1
+            }
+            mentions(t.substring(last))
+        }
+        if (std?.fmt != true) {
+            leaf(text)
+            return@buildAnnotatedString
+        }
+        val b = this
+        io.github.yggdrasil_sh.saga.chat.ChatFmt.flatten(io.github.yggdrasil_sh.saga.chat.ChatFmt.render(text), object : io.github.yggdrasil_sh.saga.chat.ChatFmt.Sink {
+            override val length: Int get() = b.length
+            override fun text(s: String) { b.append(s) }
+            override fun leaf(s: String) { leaf(s) }
+            override fun span(start: Int, end: Int, kind: io.github.yggdrasil_sh.saga.chat.ChatFmt.Kind) {
+                val mono = androidx.compose.ui.text.font.FontFamily.Monospace
+                b.addStyle(
+                    when (kind) {
+                        io.github.yggdrasil_sh.saga.chat.ChatFmt.Kind.BOLD -> SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        io.github.yggdrasil_sh.saga.chat.ChatFmt.Kind.ITALIC -> SpanStyle(fontStyle = FontStyle.Italic)
+                        io.github.yggdrasil_sh.saga.chat.ChatFmt.Kind.STRIKE -> SpanStyle(textDecoration = TextDecoration.LineThrough)
+                        io.github.yggdrasil_sh.saga.chat.ChatFmt.Kind.CODE, io.github.yggdrasil_sh.saga.chat.ChatFmt.Kind.PRE ->
+                            SpanStyle(fontFamily = mono, background = scheme.onSurface.copy(alpha = 0.08f))
+                        io.github.yggdrasil_sh.saga.chat.ChatFmt.Kind.QUOTE -> SpanStyle(color = scheme.onSurfaceVariant, fontStyle = FontStyle.Italic)
+                        io.github.yggdrasil_sh.saga.chat.ChatFmt.Kind.BULLET -> SpanStyle(color = scheme.primary)
+                    },
+                    start, end,
+                )
+            }
+        })
     }
 }
 
@@ -1248,6 +1482,8 @@ internal fun Bubble(
     selecting: Boolean = false, selected: Boolean = false, onSelect: (() -> Unit)? = null,
     /** Eintrag im Nachrichtenmenue gewaehlt (beendet eine nur per langem Druck begonnene Auswahl) */
     onMenuAction: () -> Unit = {},
+    /** 2.5 Chat-Standard: weitere Eintraege (Anheften, Löschen (Admin), Sperren, Melden); close schliesst das Menue */
+    extraMenu: (@Composable (close: () -> Unit) -> Unit)? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     val isSel = selecting && selected
@@ -1257,7 +1493,9 @@ internal fun Bubble(
     // 2.1: bestaetigte KI-Antwort - links mit Profilbild + Name der KI, "gefragt von …" (auch die eigene)
     val isAi = m.ai == AiReplyCheck.OK
     val mineSide = m.mine && !isAi
-    val bg = if (isAi) MaterialTheme.colorScheme.tertiaryContainer else ChatUi.bubble(MaterialTheme.colorScheme, mineSide)
+    // 2.5 (chatmention1): Nachrichten, die mich erwaehnen, hervorheben
+    val mentionsMe = !m.mine && s.std.mention && ChatStd.mentionsMe(s.summary, m.content?.text)
+    val bg = if (isAi) MaterialTheme.colorScheme.tertiaryContainer else if (mentionsMe) MaterialTheme.colorScheme.secondaryContainer else ChatUi.bubble(MaterialTheme.colorScheme, mineSide)
     val fg = when {
         isAi -> MaterialTheme.colorScheme.onTertiaryContainer
         mineSide -> MaterialTheme.colorScheme.onPrimaryContainer
@@ -1366,7 +1604,9 @@ internal fun Bubble(
                         Text(stringResource(R.string.chat_undecryptable), fontStyle = FontStyle.Italic, style = MaterialTheme.typography.bodyMedium)
                     } else {
                         c.files.forEach { f -> Attachment(f, s, onOpenFile) }
-                        if (c.text.isNotEmpty()) Text(messageText(c.text, s.notes, onOpenNote), style = MaterialTheme.typography.bodyLarge)
+                        if (c.text.isNotEmpty()) Text(messageText(c.text, s.notes, onOpenNote, s), style = MaterialTheme.typography.bodyLarge)
+                        // 2.5 (unfurl1): Linkvorschau aus der Nachricht (nichts nachladen ausser dem verschluesselten Bild)
+                        c.preview?.takeIf { ChatStd.showPreview(it) }?.let { pv -> PreviewCard(pv, s) }
                         c.notes.filter { id -> !c.text.contains("[[note:$id]]") }.forEach { id ->
                             val ref = s.notes[id]
                             if (ref != null) TextButton(onClick = { onOpenNote(id) }) { Text("📄 " + ref.title) }
@@ -1445,6 +1685,7 @@ internal fun Bubble(
                 if (m.mine) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.chat_delete_all), color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; onMenuAction(); confirmDelete = true })
                 }
+                extraMenu?.invoke { menu = false; onMenuAction() }
             }
         }
         // 2.5: Reaktionen als Chips unter der Blase
@@ -1473,7 +1714,7 @@ internal fun Bubble(
  * Name/Groesse zum Oeffnen/Teilen.
  */
 @Composable
-private fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit) {
+internal fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit) {
     // 2.5: Sprachnachricht - Play, Wellenform, Dauer, Tempo (gemeinsamer Player, Quelle wie Videos)
     if (f.isVoice && !f.unsupported) {
         VoiceAttachment(f, s, androidx.compose.material3.LocalContentColor.current, LocalVideoHost.current?.sources)
@@ -1674,4 +1915,44 @@ private suspend fun chatToPage(repo: SagaRepository, target: Long?, title: Strin
             if (e.code != 409 || ++tries > 1) throw e
         }
     }
+}
+
+/** 2.5 Chat-Standard: Nachrichtenmenue - Anheften/Lösen (can_pin), Löschen (Admin) (can_moderate), Sperren, Melden */
+@Composable
+private fun StdMessageMenu(
+    repo: SagaRepository, s: ChatSession, m: ChatMessage, close: () -> Unit,
+    onReport: () -> Unit, onBlock: (String, String) -> Unit, onModDel: () -> Unit,
+) {
+    val std = repo.chat.std
+    val c = s.summary ?: return
+    if (m.tomb || m.sys != null || m.call != null) return
+    val r = ChatStd.rights(c, std)
+    if (r.pin && m.fstate == null && m.content != null) {
+        val pinned = m.id in c.pins
+        DropdownMenuItem(text = { Text("📌 " + stringResource(if (pinned) R.string.std_unpin else R.string.std_pin)) }, onClick = {
+            close()
+            repo.launchAction { s.pin(m.id, !pinned); repo.notify(UiText.Res(if (pinned) R.string.std_unpinned_done else R.string.std_pinned_done)) }
+        })
+    }
+    if (!m.mine && r.moderate) {
+        DropdownMenuItem(text = { Text(stringResource(R.string.std_moddel), color = MaterialTheme.colorScheme.error) }, onClick = { close(); onModDel() })
+    }
+    if (!m.mine && m.sender != null && c.kind != "dm") {
+        val p = ChatStd.senderOf(c, m.sender, m.senderHandle)
+        val tg = ChatStd.blockTarget(p)
+        if (std.block && tg != null && p?.blocked != true && p?.remote != true) {
+            DropdownMenuItem(text = { Text(stringResource(R.string.std_block_name, senderName(m))) }, onClick = { close(); onBlock(senderName(m), tg) })
+        }
+    }
+    if (!m.mine && m.sender != null && std.report && m.content != null) {
+        DropdownMenuItem(text = { Text(stringResource(R.string.std_report_menu)) }, onClick = { close(); onReport() })
+    }
+}
+
+/** Kurztext einer Nachricht (Pin-Leiste, Melden): Formatierung entfernt, Erwaehnungen als @Name */
+internal fun previewText(m: ChatMessage, s: ChatSession, unknown: String): String {
+    val t = m.content?.text.orEmpty()
+    if (t.isEmpty()) return m.content?.files?.firstOrNull()?.let { "📎 " + it.n }.orEmpty()
+    return ChatStd.plainMentions(io.github.yggdrasil_sh.saga.chat.ChatFmt.strip(t), s.summary, null, unknown)
+        .replace(Regex("\\[\\[note:\\d+\\]\\]"), "📄").replace(Regex("\\s+"), " ").trim()
 }

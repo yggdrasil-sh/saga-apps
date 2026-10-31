@@ -117,6 +117,8 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
     // 2.3 (E5): Personen anderer Server in der neuen Gruppe (Heim = dieser Server, bei ihnen als Anfrage)
     var pickedRemote by remember { mutableStateOf<List<io.github.yggdrasil_sh.saga.chat.FedPerson>>(emptyList()) }
     var fedFor by remember { mutableStateOf("") }        // Suche, fuer die der name@server-Hinweis gilt
+    /** 2.5: Name der neuen Gruppe (wie im Web als verschluesselte title-Nachricht direkt nach dem Anlegen) */
+    var groupName by remember { mutableStateOf("") }
     LaunchedEffect(q) {
         delay(250)
         try {
@@ -142,6 +144,10 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                     modifier = Modifier.fillMaxWidth(),
                 )
                 FilterChip(selected = multi, onClick = { multi = !multi; picked = emptyList(); pickedRemote = emptyList() }, label = { Text(stringResource(R.string.chat_kind_free)) })
+                if (multi) OutlinedTextField(
+                    value = groupName, onValueChange = { groupName = it.take(80) }, singleLine = true,
+                    label = { Text(stringResource(R.string.std_group_name)) }, modifier = Modifier.fillMaxWidth(),
+                )
                 if (multi && (picked.isNotEmpty() || pickedRemote.isNotEmpty())) {
                     // Nr. 56: gewaehlte Personen als Chips mit x (vorher nur eine Textzeile, Entfernen nur ueber den Suchtreffer)
                     val rm = stringResource(R.string.chat_remove_picked)
@@ -232,10 +238,16 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                 TextButton(
                     onClick = {
                         repo.launchAction {
-                            onOpen(
-                                if (pickedRemote.isEmpty()) svc.createFree(picked.map { it.username }).id
-                                else svc.fed.createGroup(picked.map { it.username }, pickedRemote.map { it.handle }).id,
-                            )
+                            val c = if (pickedRemote.isEmpty()) svc.createFree(picked.map { it.username })
+                                else svc.fed.createGroup(picked.map { it.username }, pickedRemote.map { it.handle })
+                            // Name als title-Nachricht (scheitert sie, bleibt die Gruppe ohne Namen - umbenennen geht spaeter)
+                            val t = groupName.trim()
+                            if (t.isNotEmpty()) io.github.yggdrasil_sh.saga.chat.quietly {
+                                val ses = io.github.yggdrasil_sh.saga.chat.ChatSession(c.id, svc)
+                                ses.prepareSend()
+                                ses.rename(t)
+                            }
+                            onOpen(c.id)
                         }
                     },
                     enabled = picked.isNotEmpty() || pickedRemote.isNotEmpty(),

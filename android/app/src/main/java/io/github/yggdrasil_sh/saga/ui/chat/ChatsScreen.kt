@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import kotlinx.serialization.json.put
+import io.github.yggdrasil_sh.saga.chat.quietly
+import io.github.yggdrasil_sh.saga.chat.ChatStd
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -139,7 +142,12 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
     var blocks by remember { mutableStateOf(false) }
     val fedV2 by svc.fed.supported.collectAsState()
     var showArchived by rememberSaveable { mutableStateOf(false) }
+    var showHidden by rememberSaveable { mutableStateOf(false) }
+    val hiddenN by svc.hiddenCount.collectAsState()
+    val hiddenList by svc.hiddenChats.collectAsState()
     var query by rememberSaveable { mutableStateOf("") }               // wie iOS: Chats durchsuchen (Name)
+    // beim Suchen auch die ausgeblendeten Chats durchsuchen
+    LaunchedEffect(query.isNotBlank(), hiddenN) { if (query.isNotBlank() && hiddenN > 0 && svc.hiddenChats.value == null) quietly { svc.loadHidden() } }
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val noBack = remember { AppNavigator() }                 // breite Ansicht: Liste ohne Zurueck-Pfeil
@@ -225,6 +233,18 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
                         ChatListEntry(repo, c, nameOf(c), c.id == selected, onlineOf(c), onOpen, onDeleted = { if (c.id == selected) nav.top(Dest.Chats) })
                     }
                 }
+                // 2.5 (chathide1): "Ausgeblendet (n)" am Ende; beim Suchen werden sie mit durchsucht
+                if (svc.std.hide && hiddenN > 0) {
+                    item(key = "hidden-header") {
+                        HiddenHeader(hiddenN, showHidden || q.isNotEmpty()) {
+                            showHidden = !showHidden
+                            if (showHidden) scope.launch { quietly { svc.loadHidden() } }
+                        }
+                    }
+                    if (showHidden || q.isNotEmpty()) items(hiddenList.orEmpty().filter { q.isEmpty() || nameOf(it).lowercase().contains(q) }, key = { "h" + it.id }) { c ->
+                        ChatListEntry(repo, c, nameOf(c), c.id == selected, false, onOpen, onDeleted = { if (c.id == selected) nav.top(Dest.Chats) })
+                    }
+                }
                 item { Box(Modifier.size(88.dp)) }
             }
         }
@@ -284,14 +304,18 @@ private fun ChatListEntry(repo: SagaRepository, c: ChatSummary, name: String, se
     }
     val row = @Composable {
         Box {
-            ChatRow(c, name, selected, online, onClick = { onOpen(c.id) }, onLongClick = if (supported) ({ menu = true }) else null)
+            val std = svc.std
+            val anyAlltag = std.mute2 || std.chatPin || std.markUnread || (std.hide && c.canHide)
+            ChatRow(repo, c, name, selected, online, onClick = { onOpen(c.id) }, onLongClick = if (supported || anyAlltag) ({ menu = true }) else null)
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                DropdownMenuItem(
+                // 2.5 Chat-Alltag: Stummschalten (Dauer, Mitteilungen), Anheften, ungelesen, ausblenden
+                AlltagMenuItems(repo, c) { menu = false }
+                if (supported) DropdownMenuItem(
                     text = { Text(stringResource(if (c.archived == true) R.string.chatdel_unarchive else R.string.chatdel_archive)) },
                     leadingIcon = { Icon(painterResource(if (c.archived == true) R.drawable.ic_unarchive else R.drawable.ic_archive), null) },
                     onClick = { menu = false; toggleArchive() },
                 )
-                DropdownMenuItem(
+                if (supported) DropdownMenuItem(
                     text = { Text(stringResource(R.string.chatdel_delete), color = MaterialTheme.colorScheme.error) },
                     leadingIcon = { Icon(Icons.Filled.Delete, null, tint = MaterialTheme.colorScheme.error) },
                     onClick = { menu = false; delete = true },
@@ -340,7 +364,9 @@ private fun ChatListEntry(repo: SagaRepository, c: ChatSummary, name: String, se
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, online: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
+private fun ChatRow(repo: SagaRepository, c: ChatSummary, name: String, selected: Boolean, online: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
+    val nowSec = System.currentTimeMillis() / 1000.0
+    val mutedNow = ChatStd.mutedNow(c, nowSec)
     val kindLabel = when (c.kind) {
         "group" -> stringResource(R.string.chat_kind_group)
         "page" -> stringResource(R.string.chat_kind_page)
@@ -348,7 +374,7 @@ private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, online: Boo
         else -> stringResource(R.string.chat_kind_dm)
     }
     val unread = c.unread > 0
-    val strong = unread && !c.muted
+    val strong = unread && !mutedNow
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(20.dp))
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)
@@ -360,10 +386,8 @@ private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, online: Boo
     ) {
         // Design 2: groesserer Profilkreis in der Tonfarbe der Person bzw. Gruppe
         WithOnlineDot(online) {
-            ChatAvatar(
-                name, 52.dp, symbol = if (c.kind == "page") "📄" else null,
-                icon = if (c.kind == "group" || c.kind == "free") R.drawable.ic_group else null, avatar = if (c.kind == "dm") c.peer?.avatar else null,
-            )
+            // 2.5 (groupinfo2): Gruppenbild freier Gruppen
+            GroupAvatar(repo, c, name, 52.dp)
         }
         Column(Modifier.weight(1f).padding(start = 14.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -373,8 +397,10 @@ private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, online: Boo
                     fontWeight = if (strong) FontWeight.Bold else FontWeight.Medium,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                 )
-                if (c.muted) {
-                    val d = stringResource(R.string.chat_muted)
+                // 2.5 (chatpin1): angeheftet
+                if (c.pinned) Text("📌", Modifier.padding(start = 4.dp), style = MaterialTheme.typography.labelMedium)
+                if (mutedNow) {
+                    val d = muteLabel(c, nowSec)
                     Icon(
                         painterResource(R.drawable.ic_notifications_off), d, Modifier.padding(start = 4.dp).size(16.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -410,13 +436,100 @@ private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, online: Boo
                 )
                 if (unread) {
                     val d = androidx.compose.ui.res.pluralStringResource(R.plurals.notifications_unread_n, c.unread, c.unread)
+                    // 2.5 (markunread1): nur markiert (keine neuen) -> Punkt ohne Zahl
+                    val dotOnly = ChatStd.unreadDot(c) && c.unread <= 1 && c.lastRead >= c.lastSeq
                     Badge(
                         Modifier.padding(start = 8.dp).semantics { contentDescription = d },
-                        containerColor = if (c.muted) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
-                        contentColor = if (c.muted) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary,
-                    ) { Text(if (c.unread > 99) "99+" else "${c.unread}", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 2.dp)) }
+                        containerColor = if (mutedNow) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
+                        contentColor = if (mutedNow) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary,
+                    ) { if (!dotOnly) Text(if (c.unread > 99) "99+" else "${c.unread}", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 2.dp)) }
                 }
             }
         }
     }
+}
+
+/** Bereich "Ausgeblendet (n)" (aufklappbar) */
+@Composable
+private fun HiddenHeader(count: Int, open: Boolean, onToggle: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).clip(RoundedCornerShape(16.dp))
+            .clickable(onClickLabel = stringResource(if (open) R.string.action_close else R.string.action_open), onClick = onToggle)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("🙈", Modifier.size(22.dp))
+        Text(stringResource(R.string.std_hidden_n, count), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f).padding(start = 16.dp))
+        Icon(if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, null, Modifier.padding(start = 8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** "Stumm bis …" / "Stummgeschaltet" bzw. Mitteilungsart */
+@Composable
+fun muteLabel(c: ChatSummary, nowSec: Double): String = when (val st = ChatStd.muteState(c, nowSec)) {
+    ChatStd.MuteState.Always -> stringResource(R.string.std_muted)
+    is ChatStd.MuteState.Until -> stringResource(
+        R.string.std_muted_until,
+        java.time.Instant.ofEpochSecond(st.epochSec).atZone(java.time.ZoneId.systemDefault())
+            .format(java.time.format.DateTimeFormatter.ofLocalizedDateTime(java.time.format.FormatStyle.SHORT).withLocale(io.github.yggdrasil_sh.saga.ui.common.appLocale())),
+    )
+    ChatStd.MuteState.Off -> when (c.notify) {
+        "mentions" -> stringResource(R.string.std_notify_mentions_short)
+        "none" -> stringResource(R.string.std_notify_off_short)
+        else -> stringResource(R.string.chat_mute)
+    }
+}
+
+/**
+ * 2.5 Chat-Alltag (mute2, chatpin1, markunread1, chathide1): Eintraege fuer Chat-Menues (Liste und Unterhaltung).
+ * Stummschalten als Untermenue (Dauer + Mitteilungen); ohne mute2 der alte Schalter.
+ */
+@Composable
+fun AlltagMenuItems(repo: SagaRepository, c: ChatSummary, onPatched: (ChatSummary) -> Unit = {}, close: () -> Unit) {
+    val svc = repo.chat
+    val std = svc.std
+    val nowSec = System.currentTimeMillis() / 1000.0
+    var sub by remember { mutableStateOf(false) }
+    val go: (kotlinx.serialization.json.JsonObject) -> Unit = { b ->
+        close()
+        repo.launchAction { onPatched(svc.patchChat(c.id, b)) }
+    }
+    if (std.mute2) {
+        DropdownMenuItem(text = { Text((if (ChatStd.mutedNow(c, nowSec)) "🔕 " else "🔔 ") + muteLabel(c, nowSec) + " …") }, onClick = { sub = true })
+        DropdownMenu(expanded = sub, onDismissRequest = { sub = false }) {
+            val now = System.currentTimeMillis() / 1000
+            if (ChatStd.mutedNow(c, nowSec)) DropdownMenuItem(text = { Text(stringResource(R.string.std_mute_off)) }, onClick = {
+                sub = false; go(kotlinx.serialization.json.buildJsonObject { put("muted_until", 0) })
+            })
+            listOf(
+                ChatStd.MuteFor.HOUR to R.string.std_mute_1h, ChatStd.MuteFor.HOURS8 to R.string.std_mute_8h,
+                ChatStd.MuteFor.WEEK to R.string.std_mute_week, ChatStd.MuteFor.ALWAYS to R.string.std_mute_always,
+            ).forEach { (d, label) ->
+                DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = {
+                    sub = false; go(kotlinx.serialization.json.buildJsonObject { put("muted_until", ChatStd.mutedUntil(d, now)) })
+                })
+            }
+            HorizontalDivider()
+            Text(stringResource(R.string.std_notify), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+            listOf("all" to R.string.std_notify_all, "mentions" to R.string.std_notify_mentions, "none" to R.string.std_notify_none).forEach { (v, label) ->
+                DropdownMenuItem(
+                    text = { Text((if ((c.notify ?: "all") == v) "✓ " else "    ") + stringResource(label)) },
+                    onClick = { sub = false; go(kotlinx.serialization.json.buildJsonObject { put("notify", v) }) },
+                )
+            }
+        }
+    }
+    if (std.chatPin) DropdownMenuItem(text = { Text("📌 " + stringResource(if (c.pinned) R.string.std_chat_unpin else R.string.std_chat_pin)) }, onClick = {
+        go(kotlinx.serialization.json.buildJsonObject { put("pinned", !c.pinned) })
+    })
+    if (std.markUnread && c.unread == 0 && !c.unreadMark) DropdownMenuItem(text = { Text("● " + stringResource(R.string.std_mark_unread)) }, onClick = {
+        go(kotlinx.serialization.json.buildJsonObject { put("unread_mark", true) })
+    })
+    if (std.hide && c.canHide) DropdownMenuItem(text = { Text(stringResource(if (c.hidden) R.string.std_unhide else R.string.std_hide)) }, onClick = {
+        close()
+        repo.launchAction {
+            onPatched(svc.patchChat(c.id, kotlinx.serialization.json.buildJsonObject { put("hidden", !c.hidden) }))
+            if (!c.hidden) repo.notify(UiText.Res(R.string.std_hidden_done))
+        }
+    })
 }

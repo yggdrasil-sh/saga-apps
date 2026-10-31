@@ -96,6 +96,11 @@ data class ChatPerson(
     val admin: Boolean = false,
     /** 2.5 (contacts1): Treffer der Personensuche ist ein Kontakt (steht vorne) */
     val contact: Boolean = false,
+    /** 2.5 (pagechatmembers1, nur bei can_manage im Seiten-Chat): Weg des Zugriffs owner|share|group|parent, entfernbar */
+    val via: String? = null,
+    val removable: Boolean? = null,
+    /** 2.5 (block2): ich habe diese Person gesperrt */
+    val blocked: Boolean = false,
 )
 
 /** 2.5 (contacts1): Kontakt aus GET /api/chat/contacts - ref lokal Such-Handle '~…', fremd '~x@host' (nie ein Anmeldename) */
@@ -176,6 +181,8 @@ data class ApiMessage(
     @SerialName("edited_at") val editedAt: Double? = null,
     @SerialName("edit_n") val editN: Int = 0,
     @SerialName("edit_of") val editOf: String? = null,
+    /** 2.5 (moddel1): Grabstein kind 'tomb' - von einem Admin geloescht */
+    @SerialName("by_admin") val byAdmin: Boolean = false,
 )
 
 /** 2.1: Beleg des Servers zu einer KI-Antwort im Chat; v2: nur der mitsignierte Hash (hashOnly) */
@@ -281,6 +288,30 @@ data class ChatSummary(
     @SerialName("can_manage") val canManage: Boolean? = null,
     @SerialName("can_admin") val canAdmin: Boolean? = null,
     @SerialName("can_rename") val canRename: Boolean? = null,
+    /** 2.5 Chat-Standard B (groupinfo2, moddel1, msgpin1, block2) - fehlen bei aelteren Servern */
+    @SerialName("perm_info") val permInfo: String? = null,
+    @SerialName("perm_send") val permSend: String? = null,
+    @SerialName("can_send") val canSend: Boolean? = null,
+    @SerialName("can_edit_info") val canEditInfo: Boolean? = null,
+    @SerialName("can_info2") val canInfo2: Boolean? = null,
+    @SerialName("can_perms") val canPerms: Boolean? = null,
+    @SerialName("can_pin") val canPin: Boolean? = null,
+    @SerialName("can_moderate") val canModerate: Boolean? = null,
+    val pins: List<String> = emptyList(),
+    @SerialName("desc_msg") val descMsg: ApiMessage? = null,
+    @SerialName("avatar_msg") val avatarMsg: ApiMessage? = null,
+    /** Direkt-Chat mit einer von mir gesperrten Person (can_send false) */
+    val blocked: Boolean = false,
+    /** 2.5 Chat-Alltag A (mute2, chatpin1, markunread1, chathide1, chatmention1) */
+    @SerialName("muted_until") val mutedUntil: Double? = null,
+    val notify: String? = null,
+    val pinned: Boolean = false,
+    @SerialName("pinned_at") val pinnedAt: Double? = null,
+    @SerialName("unread_mark") val unreadMark: Boolean = false,
+    val hidden: Boolean = false,
+    @SerialName("can_hide") val canHide: Boolean = false,
+    @SerialName("mention_seq") val mentionSeq: Long = 0,
+    @SerialName("me_ref") val meRef: String? = null,
 ) {
     /**
      * Krypto saga-chat/v2 (an Handles und chat_ref gebunden): Chats ueber Servergrenzen (v 2) und seit 2.5 auch lokale
@@ -312,6 +343,8 @@ data class ChatList(
     val unread: Int = 0,
     /** 2.3: Anzahl offener Nachrichtenanfragen (zaehlen nicht in unread) */
     val requests: Int = 0,
+    /** 2.5 (chathide1): Anzahl ausgeblendeter Chats (fehlen in der Liste; GET ?hidden=1 liefert nur sie) */
+    @SerialName("hidden_count") val hiddenCount: Int = 0,
 )
 
 @Serializable
@@ -407,6 +440,8 @@ data class ChatBlock(
     val host: String? = null,
     val label: String? = null,
     val created: Double? = null,
+    /** 2.5 (block2): Konto dieses Servers */
+    val local: Boolean = false,
 )
 
 @Serializable
@@ -436,6 +471,9 @@ data class ChatSys(
     val verify: Boolean = false,
     /** 2.5 {"type":"admin","target":{name,host,handle},"on":bool,"by":{…}|null}: Admin vergeben/entzogen */
     val target: SysPerson? = null,
+    /** 2.5 {"type":"perm","perm_info"?,"perm_send"?,"by"}: Gruppenrechte geaendert (nur die geaenderten Felder) */
+    @SerialName("perm_info") val permInfo: String? = null,
+    @SerialName("perm_send") val permSend: String? = null,
 ) {
     /** "by" als Handle (Systemzeile "ai") */
     val byHandle: String?
@@ -509,6 +547,11 @@ data class ChatContent(
      * kaputte Angabe darf die Nachricht nicht unlesbar machen (sie wird dann nur als "nicht bestaetigt" markiert).
      */
     val ai: kotlinx.serialization.json.JsonElement? = null,
+    /** 2.5 (groupinfo2): Steuer-Nachricht {"type":"desc","desc"} bzw. {"type":"avatar","file":{…}|null} */
+    val desc: String? = null,
+    val file: ChatFile? = null,
+    /** 2.5 (unfurl1): Linkvorschau des Absenders {url,title,desc,site,img?} - Empfaenger laden nichts nach */
+    val preview: ChatPreview? = null,
 ) {
     /** Beleg-Kennung aus ai.reply (null = fehlt/kaputt) */
     val aiReply: String?
@@ -520,3 +563,30 @@ data class ChatContent(
         get() = ((ai as? kotlinx.serialization.json.JsonObject)?.get("name") as? kotlinx.serialization.json.JsonPrimitive)
             ?.takeIf { it.isString }?.content?.trim()?.take(80)?.ifEmpty { null }
 }
+
+/** 2.5 (unfurl1): Linkvorschau in der Nachricht; img = verschluesselter Anhang wie ein Vorschaubild */
+@Serializable
+data class ChatPreview(
+    val url: String = "",
+    val title: String = "",
+    val desc: String = "",
+    val site: String = "",
+    val img: ChatThumb? = null,
+)
+
+/** 2.5 (unfurl1): Antwort von GET /api/chat/unfurl - leer ({}) = nichts Brauchbares */
+@Serializable
+data class UnfurlResult(
+    val url: String = "",
+    val title: String = "",
+    val desc: String = "",
+    val site: String = "",
+    val image: UnfurlImage? = null,
+)
+
+@Serializable
+data class UnfurlImage(val mime: String = "image/jpeg", val w: Int = 0, val h: Int = 0, val b64: String = "")
+
+/** 2.5 (msgpin1): Antwort auf POST/DELETE /api/chats/{cid}/pins/{mid} */
+@Serializable
+data class PinsResult(val ok: Boolean = false, val pins: List<String> = emptyList())

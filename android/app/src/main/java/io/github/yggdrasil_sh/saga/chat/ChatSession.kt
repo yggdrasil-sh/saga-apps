@@ -56,6 +56,8 @@ data class ChatMessage(
     /** 2.5: zuletzt bearbeitet (Serverzeit, s) bzw. null; wie oft */
     val editedAt: Double? = null,
     val editN: Int = 0,
+    /** 2.5 (moddel1): Grabstein - von einem Admin geloescht (kein Inhalt) */
+    val tomb: Boolean = false,
 )
 
 /** 2.1: laufende Frage an die KI (nur auf diesem Geraet sichtbar, bis die Antwort als Nachricht gesendet ist) */
@@ -205,6 +207,8 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
     private fun cryptoIdFor(f: ChatFile): String = if (isFed && f.id in legacyFiles) chatId.toString() else cryptoId
 
     val me: String get() = svc.me.value?.uid.orEmpty()
+    /** 2.5 Chat-Standard: was der Server kann */
+    val std: ChatStd.Features get() = svc.std
     val name: String get() = summary?.let { svc.displayName(it) }.orEmpty()
 
     private suspend inline fun <reified T> decode(s: String): T = withContext(Dispatchers.Default) { json.decodeFromString<T>(s) }
@@ -225,7 +229,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             loadSummary()
             // v2: Schluessel der Absender (selbst geprueft) vor dem Entschluesseln - sonst stuende kurz "Echtheit nicht bestaetigt"
             if (isFed) quietly { loadFedKeys(false) }
-            val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&limit=50&calls=1"))
+            val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&limit=50&calls=1" + tombsQ))
             messages.clear()
             messages.addAll(ChatDeleteLogic.keepAfter(decryptAll(r), summary?.clearedSeq ?: 0) { it.seq })
             more = r.more
@@ -259,7 +263,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
 
     suspend fun loadOlder() {
         val first = messages.firstOrNull()?.seq ?: return
-        val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&before=$first&limit=50&calls=1"))
+        val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&before=$first&limit=50&calls=1" + tombsQ))
         val older = ChatDeleteLogic.keepAfter(decryptAll(r), summary?.clearedSeq ?: 0) { it.seq }.filter { o -> messages.none { it.id == o.id } }
         messages.addAll(0, older)
         more = r.more
@@ -306,7 +310,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
     suspend fun loadNewer() {
         if (FedDelivery.due(messages, lastDeliveryCheck, System.currentTimeMillis())) quietly { checkDelivery() }
         val after = messages.lastOrNull()?.seq ?: lastSeq
-        val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&after=$after&limit=200&calls=1"))
+        val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&after=$after&limit=200&calls=1" + tombsQ))
         val newer = ChatDeleteLogic.keepAfter(decryptAll(r), summary?.clearedSeq ?: 0) { it.seq }.filter { n -> messages.none { it.id == n.id } }
         // Systemzeile "ab jetzt ueber Servergrenzen" (E5) bzw. "Stufe 3" (2.5) in einem noch als v1 geladenen Chat: Stand
         // holen und neu oeffnen
@@ -327,6 +331,12 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         }
     }
 
+    /** 2.5 (moddel1): Grabsteine mitladen ("Von einem Admin gelöscht") */
+    private val tombsQ: String get() = if (svc.std.modDel) "&tombs=1" else ""
+
+    private fun tombOf(m: ApiMessage): ChatMessage =
+        ChatMessage(m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, null, null, true, false, senderHandle = m.senderHandle, created = m.created, tomb = true)
+
     private suspend fun decryptAll(r: MessagesResponse): List<ChatMessage> {
         val k = keys()
         val me = me
@@ -346,6 +356,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                 r.messages.map { m ->
                     val mine = m.sender?.username == me
                     when (m.kind) {
+                        "tomb" -> tombOf(m)
                         "call" -> ChatMessage(m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, null, null, true, mine,
                             // v2: Anrufer steht als Prinzipal drin - eigener Anruf (Absender = ich) zaehlt als "von mir"
                             io.github.yggdrasil_sh.saga.call.CallLogic.parseEntry(m.bodyCt)?.let { e -> if (mine) e.copy(from = me) else e },
@@ -376,6 +387,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         }
         return withContext(Dispatchers.Default) {
             r.messages.map { m ->
+                if (m.kind == "tomb") return@map tombOf(m)
                 // Systemzeile (2.3): Klartext vom Server - auch, falls der Chat gerade erst umgestellt wurde
                 if (m.kind == "sys") {
                     return@map ChatMessage(m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, null, null, true, false,
@@ -911,7 +923,11 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
      * Text (+ Anhaenge, Seitenverweise) senden. Vorher jedes Empfaenger-Geraet (Zertifikat) und jeden Backup-Schluessel
      * gegen ident_pub pruefen - ungueltig -> nicht senden. 409 {recipients} -> neu versiegeln und einmal erneut senden.
      */
-    suspend fun send(text: String, files: List<PendingFile> = emptyList(), noteIds: List<Long> = emptyList()): String {
+    suspend fun send(
+        text: String, files: List<PendingFile> = emptyList(), noteIds: List<Long> = emptyList(),
+        /** 2.5: gewaehlte Erwaehnungen "@Name" -> Kennung, Linkvorschau (vom Server geholt) */
+        people: Map<String, String> = emptyMap(), unfurl: UnfurlResult? = null,
+    ): String {
         val k = keys()
         sending = true
         try {
@@ -949,9 +965,11 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                 file
             }
             val notesAll = (noteIds + ChatFormat.noteRefs(text)).distinct()
-            val plain = ChatLogic.content(text, uploaded, notesAll)
+            val (txt, refs) = if (svc.std.mention && people.isNotEmpty()) ChatStd.applyPeople(text, people) else text to emptyList()
+            val preview = unfurl?.let { u -> quietly2 { uploadPreview(u) } ?: ChatStd.previewOf(u, null) }
+            val plain = withPreview(ChatLogic.content(txt, uploaded, notesAll), preview)
             // alle Kennungen (Original + Vorschaubild), sonst raeumt der Server das Vorschaubild als verwaist weg
-            val id = postEncrypted(k, plain, replyTo?.id, "msg", ChatLogic.sendFileIds(uploaded))
+            val id = postEncrypted(k, plain, replyTo?.id, "msg", ChatStd.fileIds(uploaded, preview), mentions = refs)
             replyTo = null
             // gesendet ist gesendet: scheitert nur das Nachladen, holt catchUp() es nach (BUG-066, kein Doppelversand)
             behind = !quietly { loadNewer() }
@@ -1053,8 +1071,9 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
 
     private suspend fun postEncrypted(
         k: LocalChatKeys, plain: String, reply: String?, kind: String, fileIds: List<String>, aiReply: String? = null, aiHash: String? = null,
+        mentions: List<String> = emptyList(),
     ): String {
-        if (isFed) return postV2(k, plain, reply, fileIds, aiReply, aiHash, kind)
+        if (isFed) return postV2(k, plain, reply, fileIds, aiReply, aiHash, kind, mentions = mentions)
         var rc = decode<RecipientsResponse>(api.get("api/chats/$chatId/recipients")).recipients
         for (attempt in 0..1) {
             val enc = withContext(Dispatchers.Default) {
@@ -1073,6 +1092,8 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                 put("files", buildJsonArray { fileIds.forEach { add(JsonPrimitive(it)) } })
                 // 2.1: Beleg der KI-Antwort (nicht signiert, nur Verweis; der Server prueft Chat/Konto/Alter/einmalig)
                 if (aiReply != null) put("ai_reply", aiReply)
+                // 2.5 (chatmention1): Kennungen der Erwaehnten neben dem Chiffrat
+                ChatStd.mentionsJson(mentions)?.let { put("mentions", it) }
             }
             try {
                 api.post("api/chats/$chatId/messages", body)
@@ -1082,7 +1103,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                 if (e.code == 409 && e.body.contains("\"chat_changed\"")) {
                     loadSummary()
                     quietly { loadFedKeys(true) }
-                    if (isFed) return postV2(k, plain, reply, fileIds, aiReply, aiHash, kind)
+                    if (isFed) return postV2(k, plain, reply, fileIds, aiReply, aiHash, kind, mentions = mentions)
                     throw e
                 }
                 if (e.code != 409 || attempt == 1) throw e
@@ -1109,7 +1130,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
      */
     private suspend fun postV2(
         k: LocalChatKeys, plain: String, reply: String?, fileIds: List<String>, aiReply: String?, aiHash: String?, kind: String = "msg",
-        editOf: String? = null,
+        editOf: String? = null, mentions: List<String> = emptyList(),
     ): String {
         val sum = summary ?: throw UiTextException(UiText.Res(R.string.error_generic))
         val ref = sum.ref ?: throw UiTextException(UiText.Res(R.string.error_generic))
@@ -1150,6 +1171,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                 if (aiReply != null) put("ai_reply", aiReply)
                 // 2.5: Bearbeitung - Original im Klartext (der Server prueft Absender, Fenster und Anzahl)
                 if (editOf != null) put("edit_of", editOf)
+                ChatStd.mentionsJson(mentions)?.let { put("mentions", it) }
                 putJsonObject("keys") { enc.keys.forEach { (r, v) -> put(r, v) } }
                 put("files", buildJsonArray { fileIds.forEach { add(JsonPrimitive(it)) } })
             }
@@ -1444,6 +1466,119 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         loadSummary()
     }
 
+    // ---------------------------------------------------------------- 2.5 Chat-Standard: Vorschau, Gruppe, Moderation
+
+    private suspend fun <T> quietly2(block: suspend () -> T): T? = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun withPreview(plain: String, p: ChatPreview?): String {
+        if (p == null) return plain
+        val o = Json.parseToJsonElement(plain) as JsonObject
+        return JsonObject(o + ("preview" to ChatStd.previewJson(p))).toString()
+    }
+
+    /** Vorschaubild der Linkvorschau verschluesselt hochladen (wie ein Vorschaubild) */
+    private suspend fun uploadPreview(u: UnfurlResult): ChatPreview {
+        val im = u.image ?: return ChatStd.previewOf(u, null)
+        val raw = java.util.Base64.getDecoder().decode(im.b64)
+        val (blob, key) = withContext(Dispatchers.Default) { svc.encryptFileAny(cryptoId, raw) }
+        val id = decode<FileUploaded>(api.postBytes("api/chats/$chatId/files", blob)).id
+        return ChatStd.previewOf(u, ChatThumb(id, b64(key), "image/jpeg", im.w, im.h, raw.size.toLong()))
+    }
+
+    /** Gruppenbeschreibung (Steuer-Nachricht kind desc) */
+    suspend fun setDesc(text: String) {
+        postEncrypted(keys(), ChatStd.descContent(text), null, "desc", emptyList())
+        afterInfo()
+    }
+
+    /** Gruppenbild: quadratisch 256 px, verschluesselt hochladen, Steuer-Nachricht kind avatar (null = entfernen) */
+    suspend fun setAvatar(image: ByteArray?) {
+        if (image == null) {
+            postEncrypted(keys(), ChatStd.avatarContent(null), null, "avatar", emptyList())
+        } else {
+            val jpeg = withContext(Dispatchers.Default) { ChatImages.squareJpeg(image) } ?: throw UiTextException(UiText.Res(R.string.image_unsupported))
+            val (blob, key) = withContext(Dispatchers.Default) { svc.encryptFileAny(cryptoId, jpeg) }
+            val id = decode<FileUploaded>(api.postBytes("api/chats/$chatId/files", blob)).id
+            val f = ChatFile(id, b64(key), "gruppe.jpg", "image/jpeg", jpeg.size.toLong(), ChatStd.AVATAR_PX, ChatStd.AVATAR_PX)
+            postEncrypted(keys(), ChatStd.avatarContent(f), null, "avatar", listOf(id))
+        }
+        afterInfo()
+    }
+
+    private suspend fun afterInfo() {
+        loadSummary()
+        svc.loadChats()
+        summary?.let { svc.decryptExtras(listOf(it)) }
+    }
+
+    /** Gruppenrechte (perm_info / perm_send: all | admins) */
+    suspend fun setPerm(key: String, admins: Boolean) {
+        summary = decode<ChatWrap>(api.patch("api/chats/$chatId", buildJsonObject { put(key, if (admins) "admins" else "all") })).chat
+    }
+
+    /** neuer Stand von aussen (z. B. PATCH aus einem Menue) */
+    fun applySummary(c: ChatSummary) {
+        if (c.id == chatId) summary = c
+    }
+
+    /** 2.5 Alltag (muted_until, notify, pinned, unread_mark, hidden) - Stand auch in der Liste */
+    suspend fun patch(body: JsonObject) {
+        summary = svc.patchChat(chatId, body)
+    }
+
+    /** Nachricht anheften / loesen (hoechstens 3, 409 mit Meldung) */
+    suspend fun pin(mid: String, on: Boolean) {
+        val r = decode<PinsResult>(if (on) api.post("api/chats/$chatId/pins/$mid") else api.delete("api/chats/$chatId/pins/$mid"))
+        summary = summary?.copy(pins = r.pins)
+    }
+
+    /** Admin loescht eine fremde Nachricht: Grabstein */
+    suspend fun deleteAsAdmin(m: ChatMessage) {
+        api.delete("api/chats/$chatId/messages/${m.id}")
+        markTomb(m.id)
+    }
+
+    private fun markTomb(id: String) {
+        val i = messages.indexOfFirst { it.id == id }
+        if (i >= 0) messages[i] = messages[i].copy(content = null, tomb = true, replyTo = null)
+        summary = summary?.let { it.copy(pins = ChatStd.dropPin(it.pins, id)) }
+        if (editing?.id == id) editing = null
+        if (replyTo?.id == id) replyTo = null
+    }
+
+    /** eingeklappte Nachrichten gesperrter Personen, die ich angezeigt habe */
+    var unblocked by mutableStateOf<Set<String>>(emptySet())
+
+    suspend fun block(target: String) {
+        svc.block(target)
+        loadSummary()
+    }
+
+    suspend fun unblock(target: String) {
+        svc.unblock(target)
+        loadSummary()
+    }
+
+    suspend fun report(mids: List<String>, reason: String, text: String?) {
+        svc.report(ChatStd.reportBody(chatId, mids, reason, text))
+    }
+
+    /** Seiten-Chat: Person hinzufuegen = Seite teilen (Rolle) */
+    suspend fun addPageMember(ref: String, remote: Boolean, role: String) = addMemberBody(ChatStd.addPageBody(ref, remote, role))
+
+    /** Medienuebersicht: Seite mit Anhaengen (has=file) bzw. alle Nachrichten (Links) - entschluesselt */
+    suspend fun mediaPage(files: Boolean, before: Long?): Pair<List<ChatMessage>, Boolean> {
+        val q = "api/chats/$chatId/messages?device=${keys().dev.id}&limit=100" + (if (files) "&has=file" else "") + (before?.let { "&before=$it" } ?: "")
+        val r = decode<MessagesResponse>(api.get(q))
+        return decryptAll(r).filter { it.content != null } to r.more
+    }
+
     // ---------------------------------------------------------------- Archiv und Loeschen (2.1)
 
     /** Server kann Archiv/Loeschen (sonst Menue-Eintraege ausblenden) */
@@ -1600,6 +1735,11 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             if (isFed && (own || (h != null && h in handles()))) quietly { loadFedKeys(true) }
             return
         }
+        // 2.5 (block2): Sperrliste geaendert (ohne chat_id) -> blocked/can_send neu
+        if (ev.type == "chat.blocks") {
+            quietly { loadSummary() }
+            return
+        }
         if (ev.long("chat_id") != chatId) return
         when (ev.type) {
             "chat.message" -> {
@@ -1617,8 +1757,13 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             // 25.10.: auf einem anderen eigenen Geraet "fuer mich" ausgeblendet
             "chat.hidden" -> dropLocal(ChatSelect.hiddenIds(ev.data))
             "chat.deleted" -> ev.str("id")?.let { id ->
-                messages.removeAll { it.id == id }
-                if (editing?.id == id) editing = null
+                // 2.5 (moddel1): von einem Admin geloescht -> Grabstein statt entfernen
+                if (ev.bool("by_admin") && svc.std.modDel) markTomb(id)
+                else {
+                    messages.removeAll { it.id == id }
+                    if (editing?.id == id) editing = null
+                    summary = summary?.let { it.copy(pins = ChatStd.dropPin(it.pins, id)) }
+                }
             }
             // 2.5: Reaktionen (gebuendelt, je Chat hoechstens einmal je Sekunde) und Bearbeitungen
             "chat.react" -> liveReactions(ev)
@@ -1659,6 +1804,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                         return
                     }
                     loadIdents()
+                    summary?.let { svc.decryptExtras(listOf(it)) }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: ApiException) {
