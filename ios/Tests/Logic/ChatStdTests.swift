@@ -122,16 +122,16 @@ func chatStdTests() {
     if case .perm(let pi, let ps, let by) = line {
         check(ps == "admins" && pi == nil && by?.name == "Emil Test", "perm-Zeile gelesen")
         check(FedChatLogic.sysText(line, myHandle: "~zzzzzzzzzzzzzzzz@a.example") == "Emil Test hat die Gruppenrechte geändert. Nur Admins dürfen jetzt schreiben.", "perm-Text")
-        check(FedChatLogic.sysText(line, myHandle: by?.handle).hasPrefix("Du hat") == false, "ich: \"Du\"")
+        check(FedChatLogic.sysText(line, myHandle: by?.handle).hasPrefix("Du hat die Gruppenrechte"), "ich: \"Du\" (wie Web)")
     } else { check(false, "perm-Zeile erkannt") }
     check(ChatStd.permText(permInfo: "all", permSend: nil, by: nil, myHandle: nil) == "Ein Admin hat die Gruppenrechte geändert. Alle dürfen jetzt Name, Bild und Beschreibung ändern.", "perm ohne by")
     let admLine = FedChatLogic.sysLine(#"{"type":"admin","target":{"name":"B","handle":"~bbbbbbbbbbbbbbbb@a.example"},"on":true,"by":{"name":"A","handle":"~aaaaaaaaaaaaaaaa@a.example"}}"#, myHandle: nil)
-    check(FedChatLogic.sysText(admLine, myHandle: nil) == "A hat B zum Admin gemacht.", "admin-Zeile unveraendert")
+    check(FedChatLogic.sysText(admLine, myHandle: "~cccccccccccccccc@a.example") == "A hat B zum Admin gemacht.", "admin-Zeile unveraendert")
 
     // MARK: Grabsteine, Pins
     let tm = csObj("cs_messages_tombs")["messages"] as? [[String: Any]] ?? []
     let tombs = tm.filter(ChatStd.isTomb)
-    check(tombs.count == 1 && ShareJSON.bool(tombs[0]["by_admin"]) && tombs[0]["body_ct"] == nil && tombs[0]["key"] == nil, "Grabstein ohne Inhalt/Schluessel")
+    check(tombs.count == 1 && ShareJSON.bool(tombs[0]["by_admin"]) && (tombs[0]["body_ct"] as? String ?? "").isEmpty && ShareJSON.str(tombs[0]["key"]) == nil, "Grabstein ohne Inhalt/Schluessel")
     check(ChatStd.tombText(sender: "Cara") == "Nachricht von Cara – von einem Admin gelöscht" && ChatStd.tombText(sender: nil) == "Von einem Admin gelöscht", "Grabstein-Text")
     check(ShareJSON.bool(csObj("cs_moddel")["by_admin"]), "DELETE fremde: by_admin")
     check(ChatStd.canModDelete(mine: false, info: ia, f: fAll) && !ChatStd.canModDelete(mine: true, info: ia, f: fAll) && !ChatStd.canModDelete(mine: false, info: im, f: fAll),
