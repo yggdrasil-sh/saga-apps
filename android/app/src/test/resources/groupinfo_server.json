@@ -1,0 +1,359 @@
+{
+ "chat_admin": {
+  "id": 1,
+  "kind": "free",
+  "name": null,
+  "group": null,
+  "note_id": null,
+  "created": 1793467025.053536,
+  "last_at": 1793467025.053536,
+  "last_seq": 0,
+  "retention_s": 0,
+  "muted": false,
+  "role": "admin",
+  "last_read": 0,
+  "unread": 0,
+  "members": [
+   {
+    "username": "~auswsobdym7mhvx4@a.test:8191",
+    "ref": "~xk3qexciv67yveoc",
+    "name": "Cora Admin",
+    "me": false,
+    "avatar": null,
+    "sub": "~xk3qexciv67yveoc",
+    "admin": false,
+    "handle": "~auswsobdym7mhvx4@a.test:8191",
+    "host": "a.test:8191"
+   },
+   {
+    "username": "uid-a",
+    "ref": "uid-a",
+    "name": "Anna Admin",
+    "me": true,
+    "avatar": null,
+    "sub": "",
+    "admin": true,
+    "handle": "~sukrkzo2p7lb7lgs@a.test:8191",
+    "host": "a.test:8191"
+   },
+   {
+    "username": "~l2mxd2dbvdc32tb2@a.test:8191",
+    "ref": "~pqskhhmeo6jlx7va",
+    "name": "Bert Admin",
+    "me": false,
+    "avatar": null,
+    "sub": "~pqskhhmeo6jlx7va",
+    "admin": false,
+    "handle": "~l2mxd2dbvdc32tb2@a.test:8191",
+    "host": "a.test:8191"
+   }
+  ],
+  "member_count": 3,
+  "ai": false,
+  "archived": false,
+  "archived_at": null,
+  "cleared_seq": 0,
+  "delete_for_all": "chat",
+  "me_admin": true,
+  "can_manage": true,
+  "can_admin": true,
+  "can_rename": true,
+  "max_members": 50,
+  "call": {
+   "group": true,
+   "group_block": null,
+   "running": null
+  },
+  "v": 3,
+  "ref": "df39841447443d017f26dfa240de4d93@a.test:8191",
+  "fed": false,
+  "home": "a.test:8191",
+  "home_self": true,
+  "my_handle": "~sukrkzo2p7lb7lgs@a.test:8191",
+  "state": "ok",
+  "request": false,
+  "readonly": false,
+  "readonly_reason": null,
+  "big_files": true,
+  "receipts_ok": true,
+  "online_ok": true,
+  "x3_ok": true
+ },
+ "chat_member": {
+  "id": 1,
+  "kind": "free",
+  "name": null,
+  "group": null,
+  "note_id": null,
+  "created": 1793467025.053536,
+  "last_at": 1793467025.053536,
+  "last_seq": 0,
+  "retention_s": 0,
+  "muted": false,
+  "role": "member",
+  "last_read": 0,
+  "unread": 0,
+  "members": [
+   {
+    "username": "~auswsobdym7mhvx4@a.test:8191",
+    "ref": "~xk3qexciv67yveoc",
+    "name": "Cora Admin",
+    "me": false,
+    "avatar": null,
+    "sub": "~xk3qexciv67yveoc",
+    "admin": false,
+    "handle": "~auswsobdym7mhvx4@a.test:8191",
+    "host": "a.test:8191"
+   },
+   {
+    "username": "~sukrkzo2p7lb7lgs@a.test:8191",
+    "ref": "~vkxgohelruitjsjl",
+    "name": "Anna Admin",
+    "me": false,
+    "avatar": null,
+    "sub": "~vkxgohelruitjsjl",
+    "admin": true,
+    "handle": "~sukrkzo2p7lb7lgs@a.test:8191",
+    "host": "a.test:8191"
+   },
+   {
+    "username": "uid-b",
+    "ref": "uid-b",
+    "name": "Bert Admin",
+    "me": true,
+    "avatar": null,
+    "sub": "",
+    "admin": false,
+    "handle": "~l2mxd2dbvdc32tb2@a.test:8191",
+    "host": "a.test:8191"
+   }
+  ],
+  "member_count": 3,
+  "ai": false,
+  "archived": false,
+  "archived_at": null,
+  "cleared_seq": 0,
+  "delete_for_all": null,
+  "me_admin": false,
+  "can_manage": false,
+  "can_admin": false,
+  "can_rename": true,
+  "max_members": 50,
+  "call": {
+   "group": true,
+   "group_block": null,
+   "running": null
+  },
+  "v": 3,
+  "ref": "df39841447443d017f26dfa240de4d93@a.test:8191",
+  "fed": false,
+  "home": "a.test:8191",
+  "home_self": true,
+  "my_handle": "~l2mxd2dbvdc32tb2@a.test:8191",
+  "state": "ok",
+  "request": false,
+  "readonly": false,
+  "readonly_reason": null,
+  "big_files": true,
+  "receipts_ok": true,
+  "online_ok": true,
+  "x3_ok": true
+ },
+ "patch_admin": {
+  "status": 200,
+  "body": {
+   "chat": {
+    "id": 1,
+    "kind": "free",
+    "name": null,
+    "group": null,
+    "note_id": null,
+    "created": 1793467025.053536,
+    "last_at": 1793467025.053536,
+    "last_seq": 0,
+    "retention_s": 0,
+    "muted": false,
+    "role": "admin",
+    "last_read": 0,
+    "unread": 0,
+    "members": [
+     {
+      "username": "~auswsobdym7mhvx4@a.test:8191",
+      "ref": "~xk3qexciv67yveoc",
+      "name": "Cora Admin",
+      "me": false,
+      "avatar": null,
+      "sub": "~xk3qexciv67yveoc",
+      "admin": false,
+      "handle": "~auswsobdym7mhvx4@a.test:8191",
+      "host": "a.test:8191"
+     },
+     {
+      "username": "uid-a",
+      "ref": "uid-a",
+      "name": "Anna Admin",
+      "me": true,
+      "avatar": null,
+      "sub": "",
+      "admin": true,
+      "handle": "~sukrkzo2p7lb7lgs@a.test:8191",
+      "host": "a.test:8191"
+     },
+     {
+      "username": "~l2mxd2dbvdc32tb2@a.test:8191",
+      "ref": "~pqskhhmeo6jlx7va",
+      "name": "Bert Admin",
+      "me": false,
+      "avatar": null,
+      "sub": "~pqskhhmeo6jlx7va",
+      "admin": true,
+      "handle": "~l2mxd2dbvdc32tb2@a.test:8191",
+      "host": "a.test:8191"
+     }
+    ],
+    "member_count": 3,
+    "ai": false,
+    "archived": false,
+    "archived_at": null,
+    "cleared_seq": 0,
+    "delete_for_all": "chat",
+    "me_admin": true,
+    "can_manage": true,
+    "can_admin": true,
+    "can_rename": true,
+    "max_members": 50,
+    "call": {
+     "group": true,
+     "group_block": null,
+     "running": null
+    },
+    "v": 3,
+    "ref": "df39841447443d017f26dfa240de4d93@a.test:8191",
+    "fed": false,
+    "home": "a.test:8191",
+    "home_self": true,
+    "my_handle": "~sukrkzo2p7lb7lgs@a.test:8191",
+    "state": "ok",
+    "request": false,
+    "readonly": false,
+    "readonly_reason": null,
+    "big_files": true,
+    "receipts_ok": true,
+    "online_ok": true,
+    "x3_ok": true
+   }
+  }
+ },
+ "patch_last_admin": {
+  "status": 409,
+  "body": {
+   "error": "Das ist der letzte Admin der Gruppe – erst jemand anderen zum Admin machen."
+  }
+ },
+ "sys_admin": [
+  {
+   "type": "admin",
+   "target": {
+    "handle": "~l2mxd2dbvdc32tb2@a.test:8191",
+    "name": "Bert Admin",
+    "host": "a.test:8191"
+   },
+   "on": true,
+   "by": {
+    "handle": "~sukrkzo2p7lb7lgs@a.test:8191",
+    "name": "Anna Admin",
+    "host": "a.test:8191"
+   },
+   "v": 1
+  },
+  {
+   "type": "admin",
+   "target": {
+    "handle": "~l2mxd2dbvdc32tb2@a.test:8191",
+    "name": "Bert Admin",
+    "host": "a.test:8191"
+   },
+   "on": false,
+   "by": {
+    "handle": "~sukrkzo2p7lb7lgs@a.test:8191",
+    "name": "Anna Admin",
+    "host": "a.test:8191"
+   },
+   "v": 1
+  }
+ ],
+ "contacts": {
+  "contacts": [
+   {
+    "ref": "~pqskhhmeo6jlx7va",
+    "name": "Bert Admin",
+    "sub": "~pqskhhmeo6jlx7va",
+    "avatar": null,
+    "remote": false,
+    "ready": true,
+    "gone": false,
+    "last_at": 1793467025.0599833
+   },
+   {
+    "ref": "~xk3qexciv67yveoc",
+    "name": "Cora Admin",
+    "sub": "~xk3qexciv67yveoc",
+    "avatar": null,
+    "remote": false,
+    "ready": true,
+    "gone": false,
+    "last_at": 1793467025.0599833
+   }
+  ]
+ },
+ "contacts_gone": {
+  "contacts": [
+   {
+    "ref": "~pqskhhmeo6jlx7va",
+    "name": "Bert Admin",
+    "sub": "~pqskhhmeo6jlx7va",
+    "avatar": null,
+    "remote": false,
+    "ready": true,
+    "gone": false,
+    "last_at": 1793467025.0599833
+   },
+   {
+    "ref": "~xk3qexciv67yveoc",
+    "name": "Cora Admin",
+    "sub": "~xk3qexciv67yveoc",
+    "avatar": null,
+    "remote": false,
+    "ready": false,
+    "gone": true,
+    "last_at": 1793467025.0599833
+   }
+  ]
+ },
+ "people": {
+  "users": [
+   {
+    "username": "~pqskhhmeo6jlx7va",
+    "name": "Bert Admin",
+    "sub": "~pqskhhmeo6jlx7va",
+    "ready": true,
+    "avatar": null,
+    "contact": true
+   }
+  ],
+  "groups": [],
+  "remote": []
+ },
+ "contact_delete": {
+  "status": 200,
+  "body": {
+   "ok": true
+  }
+ },
+ "contact_delete_again": {
+  "status": 404,
+  "body": {
+   "error": "not found"
+  }
+ }
+}

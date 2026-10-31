@@ -16,6 +16,11 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Kontakte:** ohne Eingabe in „Neue Unterhaltung“ und „Mitglied hinzufügen“ (zuletzt zuerst, nicht erreichbare
   ausgegraut); Wischen bzw. Kontextmenü „Aus Kontakten entfernen“, auch live von anderen Geräten.
 
+### Neu – Android: Gruppeninfo und Kontakte (Saga-Server 2.5)
+- **Gruppeninfo** (Tipp auf den Chat-Kopf bzw. „Gruppeninfo …“): Name, Mitglieder mit „Admin“/„Du“ und Handle, Admins
+  vergeben/entziehen, Mitglieder hinzufügen/entfernen, Stummschalten, Archivieren, Verlassen; Systemzeile bei Admin-Wechsel.
+  **Kontakte** in „Neue Unterhaltung“ und „Mitglied hinzufügen“ (zuletzt zuerst, nicht erreichbare ausgegraut, Wischen = „Aus Kontakten entfernen“).
+
 ### Geändert – Mac/iPad: ruhigere Schreibfläche („Notion-Gefühl“, Quick Wins)
 - **Mac-Schreibfläche:** Seitentext 16 pt statt 13 pt, Titel 35 pt, Überschriften 26/21/18 pt, Zeilenabstand +3 pt
   und mehr Luft über Überschriften; die Größen folgen Dynamic Type bzw. „Kleiner Text“ der Seite.

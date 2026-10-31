@@ -102,6 +102,7 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.chat.GroupInfo
 import io.github.yggdrasil_sh.saga.ai.AiChatLogic
 import io.github.yggdrasil_sh.saga.ai.AiPersona
 import io.github.yggdrasil_sh.saga.ai.AiPersonaLogic
@@ -437,7 +438,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         ) else TopAppBar(
             expandedHeight = maxOf(TopAppBarDefaults.TopAppBarExpandedHeight, (46 * fontScale).dp),
             title = {
-                Column {
+                // 2.5 (chatadm1): Tipp auf den Chat-Kopf -> Gruppeninfo (Direkt-Chats: Mitglieder wie bisher)
+                val infoLabel = stringResource(R.string.gi_open)
+                Column(Modifier.clickable(onClickLabel = infoLabel) {
+                    dialog = if (GroupInfo.usesGroupInfo(s.summary, svc.groupInfoOn)) "groupinfo" else "members"
+                }) {
                     Text(s.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     // Nr. 54: mit Online-Stand steht "Ende-zu-Ende verschluesselt" nur noch als Schloss (und fuer Bedienungshilfen),
                     // sonst schnitt die einzeilige Zeile Server und Hinweis ab
@@ -479,7 +484,12 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                         val sum = s.summary
                         DropdownMenuItem(text = { Text(stringResource(R.string.cs_select)) }, onClick = { menu = false; selecting = true })
                         DropdownMenuItem(text = { Text(stringResource(R.string.chat_safety_number)) }, onClick = { menu = false; dialog = "safety" })
-                        DropdownMenuItem(text = { Text(stringResource(R.string.chat_members)) }, onClick = { menu = false; dialog = "members" })
+                        // 2.5 (chatadm1): Gruppen -> "Gruppeninfo …" (ersetzt "Mitglieder"); Direkt-Chats wie bisher
+                        if (GroupInfo.usesGroupInfo(sum, svc.groupInfoOn)) {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.gi_menu)) }, onClick = { menu = false; dialog = "groupinfo" })
+                        } else {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.chat_members)) }, onClick = { menu = false; dialog = "members" })
+                        }
                         if (sum != null) {
                             DropdownMenuItem(text = { Text(stringResource(if (sum.muted) R.string.chat_unmute else R.string.chat_mute)) }, onClick = {
                                 menu = false
@@ -501,7 +511,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                                 )
                             }
                             if (sum.kind == "free") {
-                                DropdownMenuItem(text = { Text(stringResource(R.string.chat_rename)) }, onClick = { menu = false; dialog = "rename" })
+                                if (sum.canRename != false) DropdownMenuItem(text = { Text(stringResource(R.string.chat_rename)) }, onClick = { menu = false; dialog = "rename" })
                                 DropdownMenuItem(text = { Text(stringResource(R.string.chat_leave), color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; dialog = "leave" })
                             }
                             // 2.1: Archiv und Loeschen (nur wenn der Server es kann)
@@ -1002,6 +1012,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     when (dialog) {
         "safety" -> SafetyDialog(s, safetyFor) { dialog = null; safetyFor = null }
         "members" -> MembersDialog(repo, s) { dialog = null }
+        "groupinfo" -> GroupInfoDialog(
+            repo, s, onDismiss = { dialog = null },
+            onSafety = { who -> safetyFor = who; dialog = "safety" },
+            onLeave = { dialog = "leave" },
+        )
         "retention" -> RetentionDialog(repo, s) { dialog = null }
         "rename" -> RenameDialog(repo, s) { dialog = null }
         "delete" -> s.summary?.let { sum ->

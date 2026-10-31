@@ -685,6 +685,23 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
     suspend fun people(q: String): PeopleResult =
         if (q.trim().length < peopleMin) PeopleResult() else decode(repo.api.get("api/chat/people?q=" + java.net.URLEncoder.encode(q.trim(), "UTF-8")))
 
+    /** 2.5 (contacts1): Server kennt Kontakte bzw. Gruppeninfo/Admins (features in /api/version) */
+    val contactsOn: Boolean get() = repo.hasFeature("contacts1")
+    val groupInfoOn: Boolean get() = repo.hasFeature("chatadm1")
+
+    /** hochgezaehlt bei chat.contacts (anderes Geraet hat einen Kontakt ausgeblendet) - offene Listen laden neu */
+    val contactsTick = MutableStateFlow(0)
+
+    /** 2.5: Kontakte (zuletzt zuerst); ohne contacts1 leer */
+    suspend fun contacts(limit: Int = Contacts.LIMIT): List<ChatContact> =
+        if (!contactsOn) emptyList() else Contacts.sorted(decode<ChatContacts>(repo.api.get("api/chat/contacts?limit=$limit")).contacts)
+
+    /** 2.5: "Aus Kontakten entfernen" (ausgeblendet bis zu einem neuen gemeinsamen Chat) */
+    suspend fun removeContact(ref: String) {
+        repo.api.delete(Contacts.deletePath(ref))
+        contactsTick.value++
+    }
+
     suspend fun create(body: JsonObject): ChatSummary {
         val c = decode<ChatWrap>(repo.api.post("api/chats", body)).chat
         loadChats()
@@ -782,6 +799,8 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
             "chat.presence" -> ev.str("username")?.let { u ->
                 presence.onEvent(u, ev.bool("online"), (ev.data["last"] as? JsonPrimitive)?.content?.toDoubleOrNull())
             }
+            // 2.5 (contacts1): Kontakt auf einem anderen Geraet ausgeblendet -> Listen neu laden
+            "chat.contacts" -> contactsTick.value++
             "chat.privacy" -> if (me.value?.privacy != null) applyPrivacy(ChatPrivacy(ev.bool("receipts"), ev.bool("online")))
         }
     }

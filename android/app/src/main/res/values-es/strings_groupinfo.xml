@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: Gruppeninfo + Admins (chatadm1) und Kontakte (contacts1) - Texte wie die Web-Oberflaeche (saga/i18n) -->
+<resources>
+    <string name="gi_title">Información del grupo</string>
+    <string name="gi_menu">Información del grupo …</string>
+    <string name="gi_open">Información del chat</string>
+    <string name="gi_make_admin">Nombrar administrador</string>
+    <string name="gi_drop_admin">Quitar administrador</string>
+    <string name="gi_remove">Quitar del grupo</string>
+    <string name="gi_add">Añadir miembro</string>
+    <string name="gi_readonly">Aquí los miembros se derivan del grupo o de los permisos de la página.</string>
+    <string name="gi_admin">Admin</string>
+    <string name="gi_you">Tú</string>
+    <string name="gi_name_note">El nombre se cifra como un mensaje.</string>
+    <string name="gi_remove_title">¿Quitar a %1$s del grupo?</string>
+    <string name="gi_remove_text">%1$s ya no recibirá mensajes nuevos de este grupo.</string>
+    <string name="gi_removed">%1$s ha sido quitado.</string>
+    <string name="gi_admin_dropped">Rol de administrador quitado.</string>
+    <string name="gi_actions">Acciones para %1$s</string>
+    <string name="gi_rename">Cambiar el nombre del grupo</string>
+    <string name="gi_remote_only_new">Las personas de otros servidores Saga solo se pueden añadir a grupos nuevos: crea un grupo nuevo.</string>
+    <string name="gi_sys_you_now_admin">Ahora eres administrador.</string>
+    <string name="gi_sys_now_admin">%1$s ahora es administrador.</string>
+    <string name="gi_sys_you_no_admin">Ya no eres administrador.</string>
+    <string name="gi_sys_no_admin">%1$s ya no es administrador.</string>
+    <string name="gi_sys_you_made_admin">Has nombrado administrador a %1$s.</string>
+    <string name="gi_sys_made_admin">%1$s ha nombrado administrador a %2$s.</string>
+    <string name="gi_sys_you_dropped_admin">Has quitado el rol de administrador a %1$s.</string>
+    <string name="gi_sys_dropped_admin">%1$s ha quitado el rol de administrador a %2$s.</string>
+    <string name="ct_contacts">Contactos</string>
+    <string name="ct_remove">Quitar de contactos</string>
+    <string name="ct_removed">%1$s quitado de contactos.</string>
+    <string name="ct_account_gone">La cuenta ya no está activa</string>
+    <string name="ct_server_gone">Servidor %1$s no conectado</string>
+    <string name="ct_person_on">Persona en %1$s</string>
+    <string name="ct_not_ready">aún no ha configurado los chats</string>
+    <string name="ct_unreachable">No disponible en este momento</string>
+    <string name="ct_sub_not_ready">%1$s · aún no ha configurado los chats</string>
+    <plurals name="gi_kind_free">
+        <item quantity="one">Grupo libre · %1$d miembro</item>
+        <item quantity="other">Grupo libre · %1$d miembros</item>
+    </plurals>
+    <plurals name="gi_kind_page">
+        <item quantity="one">Chat de página · %1$d miembro</item>
+        <item quantity="other">Chat de página · %1$d miembros</item>
+    </plurals>
+    <plurals name="gi_kind_group">
+        <item quantity="one">Chat del grupo «%2$s» · %1$d miembro</item>
+        <item quantity="other">Chat del grupo «%2$s» · %1$d miembros</item>
+    </plurals>
+    <plurals name="gi_members_n">
+        <item quantity="one">%1$d miembro</item>
+        <item quantity="other">%1$d miembros</item>
+    </plurals>
+</resources>

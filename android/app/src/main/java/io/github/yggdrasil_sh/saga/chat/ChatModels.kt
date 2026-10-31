@@ -92,7 +92,28 @@ data class ChatPerson(
     val ref: String? = null,
     /** 2.4: Unterzeile fuer Gleichnamige (Personensuche und members[]: oeffentlicher Name bzw. Handle, nie der Anmeldename) */
     val sub: String? = null,
+    /** 2.5 (chatadm1): Admin der freien Gruppe (Gruppen-, Seiten- und Direkt-Chats immer false) */
+    val admin: Boolean = false,
+    /** 2.5 (contacts1): Treffer der Personensuche ist ein Kontakt (steht vorne) */
+    val contact: Boolean = false,
 )
+
+/** 2.5 (contacts1): Kontakt aus GET /api/chat/contacts - ref lokal Such-Handle '~…', fremd '~x@host' (nie ein Anmeldename) */
+@Serializable
+data class ChatContact(
+    val ref: String = "",
+    val name: String = "",
+    val sub: String = "",
+    val host: String? = null,
+    val avatar: String? = null,
+    val remote: Boolean = false,
+    val ready: Boolean = false,
+    val gone: Boolean = false,
+    @SerialName("last_at") val lastAt: Double = 0.0,
+)
+
+@Serializable
+data class ChatContacts(val contacts: List<ChatContact> = emptyList())
 
 /** 2.3: Treffer im Adressbuch verbundener Server (GET /api/fed/people, Feld remote in /api/chat/people) */
 @Serializable
@@ -107,6 +128,8 @@ data class FedPerson(
     val target: String = "",
     val pub: String? = null,
     val avatar: String? = null,
+    /** 2.5 (contacts1): Kontakt (steht vorne) */
+    val contact: Boolean = false,
 ) {
     val shown: String get() = label.ifBlank { if (host.isNotEmpty()) "$name · $host" else name }
 }
@@ -253,6 +276,11 @@ data class ChatSummary(
     @SerialName("x3_hosts") val x3Hosts: List<String> = emptyList(),
     /** 2.5: bestehender Chat auf Stufe 3 umgestellt - Nachrichten bis seq (bzw. ohne sender_handle) im Format v1 */
     val v3: ChatV3Info? = null,
+    /** 2.5 (chatadm1): ich bin Admin; Mitglieder verwalten; Admins vergeben; Namen setzen - fehlt bei aelteren Servern */
+    @SerialName("me_admin") val meAdmin: Boolean? = null,
+    @SerialName("can_manage") val canManage: Boolean? = null,
+    @SerialName("can_admin") val canAdmin: Boolean? = null,
+    @SerialName("can_rename") val canRename: Boolean? = null,
 ) {
     /**
      * Krypto saga-chat/v2 (an Handles und chat_ref gebunden): Chats ueber Servergrenzen (v 2) und seit 2.5 auch lokale
@@ -406,6 +434,8 @@ data class ChatSys(
     /** 2.5 {"type":"crypto","level":3,"verify"?:true}: Chat auf Stufe 3 umgestellt; verify = Sicherheitsnummern neu vergleichen */
     val level: Int = 0,
     val verify: Boolean = false,
+    /** 2.5 {"type":"admin","target":{name,host,handle},"on":bool,"by":{…}|null}: Admin vergeben/entzogen */
+    val target: SysPerson? = null,
 ) {
     /** "by" als Handle (Systemzeile "ai") */
     val byHandle: String?

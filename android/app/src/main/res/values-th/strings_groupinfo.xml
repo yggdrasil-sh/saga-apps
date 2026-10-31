@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: Gruppeninfo + Admins (chatadm1) und Kontakte (contacts1) - Texte wie die Web-Oberflaeche (saga/i18n) -->
+<resources>
+    <string name="gi_title">ข้อมูลกลุ่ม</string>
+    <string name="gi_menu">ข้อมูลกลุ่ม …</string>
+    <string name="gi_open">ข้อมูลแชท</string>
+    <string name="gi_make_admin">ตั้งเป็นผู้ดูแล</string>
+    <string name="gi_drop_admin">ถอดผู้ดูแล</string>
+    <string name="gi_remove">นำออกจากกลุ่ม</string>
+    <string name="gi_add">เพิ่มสมาชิก</string>
+    <string name="gi_readonly">สมาชิกที่นี่มาจากกลุ่มหรือการแชร์ของหน้า</string>
+    <string name="gi_admin">ผู้ดูแล</string>
+    <string name="gi_you">คุณ</string>
+    <string name="gi_name_note">ชื่อจะถูกเข้ารหัสเหมือนข้อความ</string>
+    <string name="gi_remove_title">นำ %1$s ออกจากกลุ่มหรือไม่</string>
+    <string name="gi_remove_text">%1$s จะไม่ได้รับข้อความใหม่ของกลุ่มนี้อีก</string>
+    <string name="gi_removed">นำ %1$s ออกแล้ว</string>
+    <string name="gi_admin_dropped">ถอดบทบาทผู้ดูแลแล้ว</string>
+    <string name="gi_actions">การทำงานสำหรับ %1$s</string>
+    <string name="gi_rename">เปลี่ยนชื่อกลุ่ม</string>
+    <string name="gi_remote_only_new">เพิ่มผู้คนจากเซิร์ฟเวอร์ Saga อื่นได้เฉพาะในกลุ่มใหม่ – โปรดสร้างกลุ่มใหม่</string>
+    <string name="gi_sys_you_now_admin">ตอนนี้คุณเป็นผู้ดูแลแล้ว</string>
+    <string name="gi_sys_now_admin">%1$s เป็นผู้ดูแลแล้ว</string>
+    <string name="gi_sys_you_no_admin">คุณไม่ได้เป็นผู้ดูแลอีกต่อไป</string>
+    <string name="gi_sys_no_admin">%1$s ไม่ได้เป็นผู้ดูแลอีกต่อไป</string>
+    <string name="gi_sys_you_made_admin">คุณให้ %1$s เป็นผู้ดูแล</string>
+    <string name="gi_sys_made_admin">%1$s ให้ %2$s เป็นผู้ดูแล</string>
+    <string name="gi_sys_you_dropped_admin">คุณถอด %1$s ออกจากผู้ดูแล</string>
+    <string name="gi_sys_dropped_admin">%1$s ถอด %2$s ออกจากผู้ดูแล</string>
+    <string name="ct_contacts">รายชื่อติดต่อ</string>
+    <string name="ct_remove">ลบออกจากรายชื่อติดต่อ</string>
+    <string name="ct_removed">ลบ %1$s ออกจากรายชื่อติดต่อแล้ว</string>
+    <string name="ct_account_gone">บัญชีไม่ได้ใช้งานแล้ว</string>
+    <string name="ct_server_gone">ไม่ได้เชื่อมต่อกับเซิร์ฟเวอร์ %1$s</string>
+    <string name="ct_person_on">บุคคลบน %1$s</string>
+    <string name="ct_not_ready">ยังไม่ได้ตั้งค่าแชท</string>
+    <string name="ct_unreachable">ติดต่อไม่ได้ในขณะนี้</string>
+    <string name="ct_sub_not_ready">%1$s · ยังไม่ได้ตั้งค่าแชท</string>
+    <plurals name="gi_kind_free">
+        <item quantity="other">กลุ่มอิสระ · สมาชิก %1$d คน</item>
+    </plurals>
+    <plurals name="gi_kind_page">
+        <item quantity="other">แชทหน้า · สมาชิก %1$d คน</item>
+    </plurals>
+    <plurals name="gi_kind_group">
+        <item quantity="other">แชทกลุ่ม “%2$s” · สมาชิก %1$d คน</item>
+    </plurals>
+    <plurals name="gi_members_n">
+        <item quantity="other">สมาชิก %1$d คน</item>
+    </plurals>
+</resources>

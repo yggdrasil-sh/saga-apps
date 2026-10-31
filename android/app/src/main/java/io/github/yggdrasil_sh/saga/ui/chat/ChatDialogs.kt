@@ -164,6 +164,19 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                     }
                 }
                 LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                    // 2.5 (contacts1): ohne Eingabe "Kontakte" (zuletzt zuerst); gone ausgegraut, Wischen = aus Kontakten entfernen
+                    if (q.isBlank()) item(key = "contacts") {
+                        ContactsBlock(repo) { k ->
+                            when (val p = io.github.yggdrasil_sh.saga.chat.Contacts.pick(k)) {
+                                is io.github.yggdrasil_sh.saga.chat.Contacts.Pick.Local ->
+                                    if (multi) { if (picked.none { it.username == p.user }) picked = picked + io.github.yggdrasil_sh.saga.chat.Contacts.asPerson(k) }
+                                    else repo.launchAction { onOpen(svc.createDm(p.user).id) }
+                                is io.github.yggdrasil_sh.saga.chat.Contacts.Pick.Remote ->
+                                    if (multi) { if (pickedRemote.none { it.handle == p.handle }) pickedRemote = pickedRemote + io.github.yggdrasil_sh.saga.chat.Contacts.asFedPerson(k) }
+                                    else repo.launchAction { onOpen(svc.fed.createDm(p.handle).id) }
+                            }
+                        }
+                    }
                     if (fedFor.isNotEmpty() && fedFor == q) item { FedChatHint(fedV2 == true) }
                     items(users, key = { "u-" + it.username }) { u ->
                         val on = picked.any { it.username == u.username }
@@ -178,7 +191,8 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                                 if (u.ready) null else stringResource(R.string.chat_not_ready, ChatLogic.shownMarked(u) { mark.format(it) }),
                             )?.let { t -> { Text(t) } },
                             leadingContent = { Avatar(u.name, size = 32, avatar = u.avatar) },
-                            trailingContent = if (multi) ({ Checkbox(checked = on, onCheckedChange = null) }) else null,
+                            trailingContent = if (multi) ({ Checkbox(checked = on, onCheckedChange = null) })
+                                else if (u.contact) ({ ContactMore(repo, ChatLogic.shown(u), u.username) { users = users.filter { it.username != u.username } } }) else null,
                             modifier = Modifier.clickable {
                                 if (multi) picked = if (on) picked.filter { it.username != u.username } else picked + u
                                 else repo.launchAction { onOpen(svc.createDm(u.username).id) }
@@ -200,8 +214,11 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                     items(remote, key = { "r-" + it.handle }) { u ->
                         val on = pickedRemote.any { it.handle == u.handle }
                         FedPersonItem(
-                            u, stringResource(if (multi) R.string.fed_person_sub_group else R.string.fed_person_sub, u.host),
-                            trailing = if (multi) ({ Checkbox(checked = on, onCheckedChange = null) }) else null,
+                            // 2.5: Kontakte (schon miteinander geschrieben) ohne "erste Nachricht als Anfrage"
+                            u, if (u.contact && !multi) stringResource(R.string.ct_person_on, u.host)
+                                else stringResource(if (multi) R.string.fed_person_sub_group else R.string.fed_person_sub, u.host),
+                            trailing = if (multi) ({ Checkbox(checked = on, onCheckedChange = null) })
+                                else if (u.contact) ({ ContactMore(repo, u.shown, u.handle) { remote = remote.filter { it.handle != u.handle } } }) else null,
                         ) {
                             if (multi) pickedRemote = if (on) pickedRemote.filter { it.handle != u.handle } else pickedRemote + u
                             else repo.launchAction { onOpen(svc.fed.createDm(u.handle).id) }

@@ -1498,6 +1498,21 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         svc.loadChats()
     }
 
+    /**
+     * 2.5 (chatadm1): Admin vergeben/entziehen - PATCH …/members/{who} {"admin": bool}; Antwort {"chat": …} mit neuer Liste.
+     * Fehler (409 letzter Admin / Server der Gruppe zu alt, 403, 502) kommen mit der Meldung des Servers.
+     */
+    suspend fun setAdmin(m: ChatPerson, on: Boolean) {
+        val text = api.patch("api/chats/$chatId/members/" + GroupInfo.whoPath(m), buildJsonObject { put("admin", on) })
+        val c = try {
+            decode<ChatWrap>(text).chat
+        } catch (_: Exception) {
+            null
+        }
+        if (c != null) summary = c else loadSummary()
+        svc.loadChats()
+    }
+
     private suspend fun addMemberBody(body: JsonObject) {
         val text = api.post("api/chats/$chatId/members", body)
         // Gruppen ueber Servergrenzen: Antwort ggf. nur {ok} (Heim ist ein anderer Server) -> Stand neu holen
