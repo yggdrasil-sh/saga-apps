@@ -148,6 +148,12 @@ def test_mention_tokens():
     c = _mc()
     ppl = people_for(c, "")
     assert [p["ref"] for p in ppl] == [H1, H2]                    # ohne mich, ohne Kennung nicht
+    v1 = {"kind": "free", "me_ref": "~" + "q" * 16, "members": [{"me": True, "ref": "me-login", "handle": "~" + "h" * 16 + "@s"},
+                                                               {"name": "X", "ref": H1, "handle": "~" + "x" * 16 + "@s"}]}
+    assert people_for(v1, "")[0]["ref"] == H1                     # Chat v1: ref, auch wenn der Server handle mitliefert
+    v3 = dict(v1, v=3)
+    assert people_for(v3, "")[0]["ref"] == "~" + "x" * 16 + "@s"  # Stufe 3: handle
+    assert mentions_me(v1, "<@~" + "h" * 16 + "@s>") and mentions_me(v1, "<@~" + "q" * 16 + ">")
     assert [p["name"] for p in people_for(c, "ber")] == ["Bert <B>"]
     text, refs = apply_people("Hallo @Anna und @Bert <B>, @Anna!", {"@Anna": H1, "@Bert <B>": H2, "@Boese": "username"})
     assert text == f"Hallo <@{H1}> und <@{H2}>, <@{H1}>!" and refs == [H1, H2]
@@ -274,3 +280,54 @@ def test_chat_drafts(srv):
     assert len(chatdrafts.load(7)["t"]) == 20000
     chatdrafts.clear_account()
     assert chatdrafts.load(7) is None and not os.path.exists(chatdrafts.path())
+
+
+# --- Fixtures aus echten Antworten des Testservers (tests/real25std.py mit HK_STD_FIXTURES, anonymisiert) ---------------
+FIX = os.path.join(HERE, "fixtures25std")
+
+
+def _fx(name):
+    return json.load(open(os.path.join(FIX, name + ".json"), encoding="utf-8"))
+
+
+def test_fixture_rights_admin_and_page():
+    from hlidskjalf.chatstd import can_add_members, members_hint, page_member_action, rights
+    c = _fx("chat_free_admin")
+    r = rights(c, ALLF)
+    assert r["info2"] and r["perms"] and r["pin"] and r["moderate"] and r["send"] and not r["hide"]
+    assert c["perm_info"] == c["perm_send"] == "all" and c["pins"] == []
+    p = _fx("chat_page_owner")
+    assert can_add_members(p, ALLF) and members_hint(p, ALLF).startswith("Adding people shares")
+    assert all(page_member_action(p, m, ALLF) is None for m in p["members"] if m.get("me"))
+    assert p["can_hide"] is True and p["can_rename"] is False and p["can_admin"] is False
+
+
+def test_fixture_list_order_and_fields():
+    from hlidskjalf.chatstd import list_split, mute_label, unread_dot
+    lst = _fx("chats_list")["chats"]
+    assert list_split(lst)[0]["pinned"] is True
+    for c in lst:
+        assert isinstance(c["muted_until"], int) and c["notify"] in ("all", "mentions", "none")
+        mute_label(c)
+        unread_dot(c)
+
+
+def test_fixture_tombs_and_blocks():
+    from hlidskjalf.chat import ChatState
+    t = _fx("messages_tombs")["messages"]
+    assert t and all(m["kind"] == "tomb" and m["by_admin"] is True and m.get("key") in (None, "…") for m in t)
+    st = ChatState()
+    d = st._decode(1, t[0], {}, {}, {"kind": "free"})
+    assert d["state"] == "tomb" and d["by_admin"] and not d["files"]
+    bl = _fx("blocks")["blocks"]
+    assert bl[0]["local"] is True and bl[0]["target"].startswith("~") and bl[0]["name"]
+
+
+def test_fixture_unfurl_and_pins():
+    from hlidskjalf.chatstd import preview_body
+    u = _fx("unfurl")
+    assert preview_body(u)["title"] == "Ein Artikel <zum> Test" and preview_body(u)["site"] == "Testblatt"
+    p = _fx("chat_free_pins")
+    assert len(p["pins"]) == 2
+    d = _fx("chat_free_desc_avatar")
+    assert d["desc_msg"]["kind"] == "desc" and d["avatar_msg"]["kind"] == "avatar"

@@ -197,11 +197,17 @@ REF_RX = r"~[a-z2-7]{16}(?:@[a-z0-9.:\-]{1,260})?"
 MENTION_RX = re.compile(r"<@(" + REF_RX + r")>")
 
 
-def mem_ref(m):
-    """Kennung eines Mitglieds im Token: handle (Stufe 3/ueber Servergrenzen) bzw. ref (v1) - nie der Anmeldename"""
+def mem_ref(m, c=None):
+    """Kennung eines Mitglieds im Token: handle bei Stufe 3/ueber Servergrenzen, sonst ref (Chat v1; dort ist me_ref die
+    lokale Kennung - der Server liefert handle auch in v1) - nie der Anmeldename"""
+    from .chat import is_fed
     m = m if isinstance(m, dict) else {}
-    r = m.get("handle") or m.get("ref") or ""
-    return r if isinstance(r, str) and re.fullmatch(REF_RX, r) else ""
+    order = ("handle", "ref") if c is None or is_fed(c) else ("ref", "handle")
+    for k in order:
+        r = m.get(k)
+        if isinstance(r, str) and re.fullmatch(REF_RX, r):
+            return r
+    return ""
 
 
 def people_for(c, q, limit=6):
@@ -211,7 +217,7 @@ def people_for(c, q, limit=6):
     for m in (c or {}).get("members") or []:
         if not isinstance(m, dict) or m.get("me"):
             continue
-        r = mem_ref(m)
+        r = mem_ref(m, c)
         if r and r != (c or {}).get("me_ref") and ql in str(m.get("name") or "").lower():
             out.append({"name": str(m.get("name") or "?"), "ref": r, "avatar": m.get("avatar")})
     return out[:limit]
@@ -241,7 +247,7 @@ def mention_refs(text):
 def mention_name(c, r, my_name=None):
     """Kennung -> Anzeigename (ich: eigener Name), unbekannt -> None"""
     c = c if isinstance(c, dict) else {}
-    if r and r in (c.get("me_ref"), c.get("my_handle")):
+    if r and r in _my_refs(c):
         return my_name or _("You")
     for m in c.get("members") or []:
         if not isinstance(m, dict):
@@ -252,15 +258,24 @@ def mention_name(c, r, my_name=None):
     return None
 
 
+def _my_refs(c):
+    """meine Kennungen: me_ref, my_handle und Handle/ref meines Mitglieds-Eintrags (Absender anderer Apps nutzen beides)"""
+    out = [c.get("me_ref"), c.get("my_handle")]
+    for m in c.get("members") or []:
+        if isinstance(m, dict) and m.get("me"):
+            out += [m.get("handle"), m.get("ref")]
+    return {x for x in out if isinstance(x, str) and re.fullmatch(REF_RX, x)}
+
+
 def mention_is_me(c, r):
     c = c if isinstance(c, dict) else {}
-    return bool(r) and r in (c.get("me_ref"), c.get("my_handle"))
+    return bool(r) and r in _my_refs(c)
 
 
 def mentions_me(c, text):
     c = c if isinstance(c, dict) else {}
     t = text or ""
-    return any(x and "<@" + x + ">" in t for x in (c.get("me_ref"), c.get("my_handle")))
+    return any("<@" + x + ">" in t for x in _my_refs(c))
 
 
 def plain_mentions(text, c, my_name=None):

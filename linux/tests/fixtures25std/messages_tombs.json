@@ -1,0 +1,24 @@
+{
+ "messages": [
+  {
+   "body_ct": "…",
+   "by_admin": true,
+   "created": 1793490565.5478332,
+   "expires_at": null,
+   "id": "38d0c1d5c79b802b1c4c0fbe5b43a493",
+   "key": "…",
+   "key_for": null,
+   "kind": "tomb",
+   "reply_to": null,
+   "sender": {
+    "avatar": null,
+    "name": "Bert Std",
+    "username": "bert"
+   },
+   "sender_device": "efe1f8e32f4faf6a4926e9b670383da1",
+   "seq": 11,
+   "sig": "…",
+   "ts": 1793490565544
+  }
+ ]
+}

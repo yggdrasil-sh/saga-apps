@@ -886,8 +886,22 @@ class Conversation(Gtk.Box):
         self.rec_bar = None           # (2.5) Aufnahme-Leiste einer Sprachnachricht
         self.voice_views = {}         # (2.5) Datei-ID -> Spieler (bleibt ueber das Neuzeichnen erhalten)
         self._menu_pop = None
+        # (2.5) Mehrfachauswahl: Leiste statt Eingabefeld (Anzahl, Weiterleiten, Fuer mich loeschen, Abbrechen)
+        self.sel_bar = Gtk.Box(spacing=6, visible=False, margin_start=12, margin_end=12, margin_top=6, margin_bottom=10)
+        self.sel_bar.add_css_class("hk-sel-bar")
+        self.sel_label = _lbl("", ("heading",), hexpand=True, wrap=False, valign=Gtk.Align.CENTER)
+        self.sel_bar.append(self.sel_label)
+        self.sel_fwd = _button(_("Forward …"), (), self._sel_forward, valign=Gtk.Align.CENTER)
+        self.sel_bar.append(self.sel_fwd)
+        self.sel_del = _button(_("Delete for me"), ("destructive-action",), lambda: self._sel_hide(), valign=Gtk.Align.CENTER)
+        self.sel_bar.append(self.sel_del)
+        self.sel_bar.append(_button(_("Cancel"), ("flat",), self.sel_end, valign=Gtk.Align.CENTER))
+        self.append(self.sel_bar)
         self.composer_box = self._composer()
         self.append(self.composer_box)
+        kc = Gtk.EventControllerKey()
+        kc.connect("key-pressed", lambda _c, kv, _code, _st: (kv == Gdk.KEY_Escape and self.sel is not None) and (self.sel_end(), True)[1])
+        self.add_controller(kc)
         self._draft_load()                                 # (2.5) Entwurf dieses Chats (nur auf diesem Geraet)
         self.connect("unmap", lambda *_: self._draft_save())
         watch_chat(self, "messages", lambda cid: cid == self.cid and self.render())
@@ -1224,7 +1238,7 @@ class Conversation(Gtk.Box):
         p = p if isinstance(p, dict) else {}
         mute = not req and not ro and not K.rights(c)["send"]      # (2.5) nur Admins schreiben / gesperrte Person
         sig = (req, ro, c.get("readonly_reason"), p.get("name"), p.get("host"), dm, mute, bool(c.get("blocked")))
-        self.composer_box.set_visible(not (req or ro or mute))
+        self.composer_box.set_visible(not (req or ro or mute) and self.sel is None)
         if sig == self._state_sig:
             return
         self._state_sig = sig
@@ -1592,7 +1606,20 @@ class Conversation(Gtk.Box):
         if K.has(K.BLOCK2) and m["id"] not in self.unblocked and K.grp_blocked(c0, m):
             return self._blocked_row(m)
         row = self._bubble0(m, by_id, group, first)
-        return row
+        if self.sel is None or m.get("state") not in ("ok", "unverified"):
+            return row
+        # (2.5) Mehrfachauswahl: Haken vor der Nachricht
+        outer = Gtk.Box(spacing=6)
+        cb = Gtk.CheckButton(active=m["id"] in self.sel, valign=Gtk.Align.CENTER)
+        cb.update_property([Gtk.AccessibleProperty.LABEL], [_("Select message")])
+        cb.connect("toggled", lambda b: self._sel_toggle(m["id"], b.get_active()))
+        outer.append(cb)
+        row.set_hexpand(True)
+        outer.append(row)
+        for a in ("hk_tick", "hk_wrap", "hk_b", "hk_acc", "hk_rxsig"):
+            if hasattr(row, a):
+                setattr(outer, a, getattr(row, a))
+        return outer
 
     def _bubble0(self, m, by_id, group, first):
         is_ai = m.get("ai_state") == "ok"                 # KI-Antwort mit passendem Beleg (2.1): Bild + Name der KI
@@ -1892,6 +1919,8 @@ class Conversation(Gtk.Box):
             if std["pin"]:
                 pinned = m.get("id") in (c.get("pins") or [])
                 ents.append((_("Unpin") if pinned else _("Pin"), lambda: self.pin_msg(m["id"], not pinned)))
+            ents.append((_("Forward …"), lambda: SV.ForwardDialog(self, [m]).present(self.win)))
+            ents.append((_("Select"), lambda: self.sel_start(m["id"])))
         if not m.get("mine") and m.get("sender") and m.get("state") != "undecryptable":
             tg = K.block_target(c, m)
             if std["block"] and tg and c.get("kind") != "dm" and not K.grp_blocked(c, m) and not is_remote(c):
@@ -2074,6 +2103,70 @@ class Conversation(Gtk.Box):
     def voice_stop_all(self):
         for vv in self.voice_views.values():
             vv.stop()
+
+    # --- Mehrfachauswahl (2.5): Weiterleiten, Fuer mich loeschen ------------------------------------------------------
+    def sel_start(self, mid=None):
+        self.sel = {mid} if mid else set()
+        self._sel_draw()
+        self.render()
+
+    def sel_end(self):
+        self.sel = None
+        self._sel_draw()
+        self.render()
+
+    def _sel_toggle(self, mid, on):
+        if self.sel is None:
+            return
+        (self.sel.add if on else self.sel.discard)(mid)
+        self._sel_draw()
+
+    def _sel_msgs(self):
+        ids = self.sel or set()
+        return [m for m in (chat.cache.get(self.cid) or {}).get("msgs") or [] if m.get("id") in ids]
+
+    def _sel_draw(self):
+        on = self.sel is not None
+        self.sel_bar.set_visible(on)
+        if on:
+            self.composer_box.set_visible(False)
+        else:
+            self._state_sig = None
+            self._state()
+        n = len(self.sel or ())
+        self.sel_label.set_label(ngettext("{n} selected", "{n} selected", n).format(n=n))
+        self.sel_fwd.set_sensitive(0 < n <= K.FWD_MAX)
+        self.sel_del.set_sensitive(n > 0)
+
+    def _sel_forward(self):
+        lst = self._sel_msgs()
+        if len(lst) > K.FWD_MAX:
+            _toast(self.win, _("Forward at most {n} messages at once.").format(n=K.FWD_MAX))
+            return
+        if lst:
+            SV.ForwardDialog(self, lst, done=self.sel_end).present(self.win)
+
+    def _sel_hide(self, confirm=True):
+        """"Fuer mich loeschen": POST .../hide (alle meine Geraete); aelterer Server: nur hier ausblenden"""
+        lst = self._sel_msgs()
+        if not lst:
+            return
+        ids = [m["id"] for m in lst]
+        win, n = self.win, len(ids)
+
+        def go():
+            def done(all_dev):
+                self.sel_end()
+                _toast(win, ngettext("{n} message deleted for you.", "{n} messages deleted for you.", n).format(n=n) if all_dev else
+                       ngettext("{n} message hidden on this device only – the server can't do that yet.",
+                                "{n} messages hidden on this device only – the server can't do that yet.", n).format(n=n))
+            chat.hide_msgs(self.cid, ids, done=done, error=lambda e: _toast(win, str(e)))
+        if not confirm:
+            go()
+            return
+        from .publish import confirm as ask
+        ask(self.win, _("Delete for you?"), _("“Delete for me” hides the messages on all your devices – the others still see them."),
+            _("Delete for me"), go)
 
     def _ask_mod_delete(self, m):
         from .publish import confirm
@@ -4591,6 +4684,15 @@ class ChatDevicesPage(Adw.PreferencesPage):
         self.add(g)
         self.groups.append(g)
         self._privacy_group()                                # (2.4) gut auffindbar gleich nach den Geraeten
+        if chat.status == "ready" and K.has(K.UNFURL):        # (2.5) Linkvorschau beim Schreiben (nur dieses Geraet)
+            gu = Adw.PreferencesGroup()
+            ru = Adw.SwitchRow(title=_("Link previews"), active=config.settings.get("chat_unfurl") is not False,
+                               subtitle=_("When you type a link, your server fetches a preview and it is sent encrypted with the "
+                                          "message. Recipients load nothing."))
+            ru.connect("notify::active", lambda r, _p: config.settings.set("chat_unfurl", None if r.get_active() else False))
+            gu.add(ru)
+            self.add(gu)
+            self.groups.append(gu)
         if chat.ready:
             g2 = Adw.PreferencesGroup(title=_("Recovery key"),
                                       description=_("Lost it or someone may have seen it? Create a new one – the old one stops working. "
