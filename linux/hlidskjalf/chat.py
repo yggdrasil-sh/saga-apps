@@ -250,6 +250,9 @@ def sys_text(k, my_handle):
         return t + (" " + _("Please compare the safety numbers again – they're shown differently now.") if k.get("verify") else "")
     if typ == "admin":                                    # (2.5, Gruppeninfo) Admin vergeben/entzogen
         return admin_sys_text(k, my_handle)
+    if typ == "perm":                                     # (2.5, groupinfo2) Gruppenrechte geaendert
+        from .chatstd import perm_sys_text
+        return perm_sys_text(k, my_handle)
     if typ == "members":
         by = k.get("by") if isinstance(k.get("by"), dict) else None
         added = [x for x in k.get("added") or [] if isinstance(x, dict)]
@@ -1234,6 +1237,9 @@ class ChatState(GObject.Object):
             if k and fed and out["mine"]:                 # v2: Anrufer steht als Prinzipal drin - eigener Anruf = ich
                 k["from"] = self.uid
             return out
+        if m.get("kind") == "tomb":                       # (2.5, moddel1) von einem Admin geloescht: nur Grabstein
+            out["state"], out["by_admin"] = "tomb", True
+            return out
         if m.get("kind") == "sys":                        # Systemzeile (2.3): Klartext-Metadaten vom Heim
             try:
                 d = json.loads(m.get("body_ct") or "")
@@ -1370,6 +1376,8 @@ class ChatState(GObject.Object):
             return
         c = self.cache.setdefault(cid, {"msgs": [], "more": False, "last_seq": 0, "loaded": False})
         q = f"api/chats/{cid}/messages?device={self.device_id}&limit=50&calls=1"     # calls=1: Anruf-Eintraege (2.1)
+        if server_has("moddel1"):                         # (2.5) Grabsteine von Admins geloeschter Nachrichten
+            q += "&tombs=1"
         if older and c["msgs"]:
             q += f"&before={c['msgs'][0]['seq']}"
         elif c["loaded"] and c["msgs"]:
@@ -2864,8 +2872,29 @@ class ChatState(GObject.Object):
         elif typ == "chat.deleted":
             c = self.cache.get(cid)
             if c:
-                c["msgs"] = [m for m in c["msgs"] if m["id"] != d.get("id")]
+                if d.get("by_admin") and server_has("moddel1"):     # (2.5) Grabstein statt Entfernen
+                    for m in c["msgs"]:
+                        if m["id"] == d.get("id"):
+                            self._tomb(m)
+                else:
+                    c["msgs"] = [m for m in c["msgs"] if m["id"] != d.get("id")]
                 self.emit("messages", cid)
+            ch = self.chat(cid)
+            if ch is not None and d.get("id") in (ch.get("pins") or []):
+                ch["pins"] = [x for x in ch["pins"] if x != d.get("id")]
+                self.emit("chat-changed", cid)
+            self._list_soon()
+        elif typ == "chat.hidden":                        # (2.5) Nachrichten fuer mich ausgeblendet (anderes Geraet)
+            self._hidden_live(cid, [x for x in d.get("ids") or [] if isinstance(x, str)])
+        elif typ == "chat.blocks":                        # (2.5, block2) Sperrliste auf einem meiner Geraete geaendert
+            self.emit("blocks")
+            if self.ready:
+                self.load_chats()
+                if self.open_chat is not None:
+                    self.load_chat(self.open_chat, error=lambda e: None)
+        elif typ == "chat.mention":                       # (2.5) erwaehnt: Liste (ausgeblendeter Chat kommt zurueck)
+            if cid in self.cache and self.cache[cid].get("loaded"):
+                self.load_messages(cid)
             self._list_soon()
         elif typ == "chat.read":
             self._list_soon()
@@ -2915,6 +2944,131 @@ class ChatState(GObject.Object):
                 self.refresh()
         elif typ == "reset":
             self.refresh()
+
+    # --- Chat-Standard (2.5): Anheften, Admin-Loeschen, Ausblenden, Sperren, Melden, Linkvorschau, Medien ----------------
+    @staticmethod
+    def _tomb(m):
+        """Nachricht -> Grabstein (Inhalt, Anhaenge, Reaktionen weg; Absender und Zeit bleiben)"""
+        for k in ("body", "files", "notes", "rx", "rx_raw", "_k", "edited_at", "orig_text"):
+            m.pop(k, None)
+        m.update(state="tomb", by_admin=True, text="", files=[], notes=[])
+
+    def _hidden_live(self, cid, ids):
+        c = self.cache.get(cid)
+        if not c or not ids:
+            return
+        n = len(c["msgs"])
+        c["msgs"] = [m for m in c["msgs"] if m.get("id") not in ids]
+        if len(c["msgs"]) != n:
+            self.emit("messages", cid)
+
+    def pin_msg(self, cid, mid, on, done=None, error=None):
+        """POST/DELETE /api/chats/{cid}/pins/{mid} -> pins (409 hoechstens 3)"""
+        def fin(j):
+            ch = self.chat(cid)
+            pins = [x for x in (j or {}).get("pins") or [] if isinstance(x, str)]
+            if ch is not None:
+                ch["pins"] = pins
+                self.emit("chat-changed", cid)
+            if done:
+                done(pins)
+        bg(client.json, "POST" if on else "DELETE", f"api/chats/{cid}/pins/{urllib.parse.quote(str(mid), safe='')}", None,
+           done=fin, error=error)
+
+    def mod_delete(self, cid, mid, done=None, error=None):
+        """Admin loescht eine fremde Nachricht (moddel1) -> Grabstein"""
+        def fin(_r):
+            m = self._cached(cid, mid)
+            if m is not None:
+                self._tomb(m)
+            ch = self.chat(cid)
+            if ch is not None and mid in (ch.get("pins") or []):
+                ch["pins"] = [x for x in ch["pins"] if x != mid]
+                self.emit("chat-changed", cid)
+            self.emit("messages", cid)
+            if done:
+                done()
+        bg(client.request, "DELETE", f"api/chats/{cid}/messages/{urllib.parse.quote(str(mid), safe='')}", done=fin, error=error)
+
+    def hide_msgs(self, cid, ids, done=None, error=None):
+        """"Fuer mich loeschen": POST /api/chats/{cid}/hide in Teilen zu 500 -> done(True); aelterer Server (404/405 ohne
+        Saga-Fehler): nur hier ausblenden -> done(False)"""
+        from .chatstd import HIDE_MAX, chunks
+
+        def work():
+            try:
+                for part in chunks(list(ids), HIDE_MAX):
+                    client.json("POST", f"api/chats/{cid}/hide", {"ids": part})
+                return True
+            except APIError as e:
+                if e.code == 405 or (e.code == 404 and isinstance(e.data, dict) and "detail" in e.data):
+                    return False
+                raise
+
+        def fin(all_dev):
+            c = self.cache.get(cid)
+            if c:
+                c["msgs"] = [m for m in c["msgs"] if m.get("id") not in set(ids)]
+            self.emit("messages", cid)
+            if done:
+                done(all_dev)
+        bg(work, done=fin, error=error)
+
+    def block(self, target, done=None, error=None):
+        """POST /api/chat/blocks {target} (block2)"""
+        def fin(j):
+            self.load_chats()
+            if self.open_chat is not None:
+                self.load_chat(self.open_chat, error=lambda e: None)
+            self.emit("blocks")
+            if done:
+                done(j)
+        bg(client.json, "POST", "api/chat/blocks", {"target": target}, done=fin, error=error)
+
+    def report(self, body, done=None, error=None):
+        """POST /api/chat/report {chat, msgs, reason, text}"""
+        bg(client.json, "POST", "api/chat/report", body, done=done, error=error)
+
+    def load_hidden(self, done, error=None):
+        """GET /api/chats?hidden=1 -> nur ausgeblendete Chats"""
+        def fin(j):
+            lst = [c for c in (j or {}).get("chats") or [] if isinstance(c, dict)]
+            for c in lst:
+                self._note_ref(c)
+            self._free_titles(lst)
+            done(lst)
+        bg(client.get, f"api/chats?hidden=1&device={self.device_id}", done=fin, error=error)
+
+    def unfurl(self, url, done, error=None):
+        """GET /api/chat/unfurl?url= -> done(dict) ({} = nichts)"""
+        bg(client.get, "api/chat/unfurl?url=" + urllib.parse.quote(url, safe=""), done=lambda j: done(j if isinstance(j, dict) else {}),
+           error=error)
+
+    def upload_preview_img(self, cid, image):
+        """Hintergrund: Bild der Linkvorschau ({mime, w, h, b64}) verschluesselt hochladen -> img-Eintrag {id, k, m, w, h, s}"""
+        import base64
+        data = base64.b64decode(image.get("b64") or "")
+        e = self.upload_file(cid, data, "preview.jpg", "image/jpeg")
+        return {"id": e["id"], "k": e["k"], "m": "image/jpeg", "w": int(image.get("w") or 0), "h": int(image.get("h") or 0), "s": len(data)}
+
+    def media_page(self, cid, before=None, files=True):
+        """Hintergrund (chatmedia1): eine Seite Nachrichten (mit Anhaengen: has=file) entschluesseln -> (msgs, more, kleinste seq)"""
+        ch = self.chat(cid)
+        q = f"api/chats/{cid}/messages?device={self.device_id}&limit=100" + ("&has=file" if files else "")
+        if before:
+            q += f"&before={int(before)}"
+        if is_fed(ch):
+            hs = self.fed_handles(ch)
+            if any(h not in self.fk for h in hs):
+                try:
+                    self.fed_keys(hs)
+                except (APIError, ChatError):
+                    pass
+        j = client.get(q) or {}
+        raw = [m for m in j.get("messages") or [] if isinstance(m, dict)]
+        msgs = [self._decode(cid, m, j.get("devices"), j.get("idents"), ch) for m in raw]
+        low = min([m.get("seq") or 0 for m in raw] or [0])
+        return msgs, bool(j.get("more")), low
 
     def _gone(self, cid, e):
         if isinstance(e, APIError) and e.code == 404:
