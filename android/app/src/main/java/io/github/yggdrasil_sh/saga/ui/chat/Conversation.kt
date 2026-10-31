@@ -440,7 +440,8 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             title = {
                 // 2.5 (chatadm1): Tipp auf den Chat-Kopf -> Gruppeninfo (Direkt-Chats: Mitglieder wie bisher)
                 val infoLabel = stringResource(R.string.gi_open)
-                Column(Modifier.clickable(onClickLabel = infoLabel) {
+                // aeltere Server (ohne chatadm1): Kopf wie bisher nicht klickbar
+                Column(if (!svc.groupInfoOn) Modifier else Modifier.clickable(onClickLabel = infoLabel) {
                     dialog = if (GroupInfo.usesGroupInfo(s.summary, svc.groupInfoOn)) "groupinfo" else "members"
                 }) {
                     Text(s.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
