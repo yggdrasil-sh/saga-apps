@@ -506,9 +506,9 @@ struct Sidebar: View {
     let results: [Page]
     /// "Zu „Mit mir geteilt“" gewaehlt (zaehlt hoch): Bereich zeigen (auch leer) und dorthin scrollen
     var sharedJump = 0
-    /// 2.5 Notion-Gefuehl: Mac/iPad (normale Breite) - Seitenbaum oben, Werkzeuge unten und einklappbar
+    /// 2.5 Notion-Gefuehl: Mac/iPad (normale Breite) - Heute/Chats/Aufgaben/Termine oben fest, Seitenbaum darunter, "Mehr" unten einklappbar
     var desk = false
-    @AppStorage("hk.sidebarToolsOpen") private var toolsOpen = false
+    @AppStorage("hk.sidebarToolsOpen") private var moreOpen = false
     @State private var moveID: MoveTarget?
     @State private var showTrash = false
 
@@ -560,23 +560,6 @@ struct Sidebar: View {
     static let sharedAnchor = "hk-shared-section"
 }
 
-/// Kopf "Werkzeuge": beobachtet den Chat selbst (Store leitet dessen Aenderungen nicht weiter), damit der Zaehler live bleibt
-private struct ToolsFoldHeader: View {
-    @ObservedObject var chat: ChatModel
-    let expanded: Bool
-    var body: some View {
-        HStack(spacing: 6) {
-            Text("Werkzeuge")
-            let n = SidebarLayout.foldedBadge(expanded: expanded, chatUnread: chat.unread)
-            if n > 0 {
-                Text(verbatim: "\(n)").font(.caption2.bold()).foregroundStyle(Color("OnAccent"))
-                    .padding(.horizontal, 6).padding(.vertical, 1).background(Color.accentColor, in: Capsule())
-                    .accessibilityLabel(Text("Chats"))
-            }
-        }
-    }
-}
-
 /// Listenstil der Seitenleiste: Mac und iPad (normale Breite) `.sidebar`, iPhone wie bisher `.insetGrouped`
 private struct SidebarListStyle: ViewModifier {
     let desk: Bool
@@ -595,14 +578,16 @@ extension Sidebar {
         switch p {
         case .tools: toolsSection
         case .today: TodaySection(store: store)
-        case .todayRow:
-            Label("Heute", systemImage: "sun.max").badge(todayCount).tag(SidebarLayout.todayTag)
+        case .deskTop:
+            Section { ForEach(SidebarLayout.deskTopRows, id: \.self) { deskRow($0) } }
         case .favorites: favoritesSection
         case .recent: recentSection
         case .pages: pagesSection
         case .shared: sharedSection
-        case .toolsFolded:
-            Section(isExpanded: $toolsOpen) { toolRows } header: { ToolsFoldHeader(chat: store.chat, expanded: toolsOpen) }
+        case .moreFolded:
+            Section(isExpanded: $moreOpen) {
+                ForEach(SidebarLayout.moreRows(graph: store.graphSupported), id: \.self) { deskRow($0) }
+            } header: { Text("Mehr") }
         case .archive: archiveSection
         case .trash: trashSection
         }
@@ -615,12 +600,32 @@ extension Sidebar {
             : store.tasks.filter { t in let d = t.due ?? ""; return d.isEmpty || d <= today }.count
         return SidebarLayout.todayCount(events: store.events.count, tasksDueTodayOrUndated: open)
     }
+    /// Eine Zeile der Mac/iPad-Teile (Tags wie auf dem iPhone, damit Befehle und Palette gleich bleiben)
+    @ViewBuilder private func deskRow(_ r: SidebarLayout.Row) -> some View {
+        switch r {
+        case .today: Label("Heute", systemImage: "sun.max").badge(todayCount).tag(SidebarLayout.todayTag)
+        case .chats: ChatsSidebarRow(chat: store.chat).tag(FedLogic.chatsTag)
+        case .tasks: tasksRow
+        case .events: eventsRow
+        case .services: servicesRow
+        case .graph: graphRow
+        }
+    }
+    private var tasksRow: some View {
+        Label("Aufgaben", systemImage: "checklist").badge(store.features.has("tasksrc1") ? store.taskItems.count : store.tasks.count).tag(-1)
+    }
+    private var eventsRow: some View { Label("Termine", systemImage: "calendar").tag(-2) }
+    private var servicesRow: some View { Label("Dienste", systemImage: "square.grid.3x3").tag(-3) }
+    private var graphRow: some View {
+        Label { Text("Graph", tableName: "Graph") } icon: { Image(systemName: "point.3.connected.trianglepath.dotted") }.tag(FedLogic.graphTag)
+    }
+    /// iPhone: Reihenfolge wie bisher
     @ViewBuilder private var toolRows: some View {
-                    Label("Aufgaben", systemImage: "checklist").badge(store.features.has("tasksrc1") ? store.taskItems.count : store.tasks.count).tag(-1)
-                    Label("Termine", systemImage: "calendar").tag(-2)
-                    Label("Dienste", systemImage: "square.grid.3x3").tag(-3)
+                    tasksRow
+                    eventsRow
+                    servicesRow
                     ChatsSidebarRow(chat: store.chat).tag(FedLogic.chatsTag)
-                    if store.graphSupported { Label { Text("Graph", tableName: "Graph") } icon: { Image(systemName: "point.3.connected.trianglepath.dotted") }.tag(FedLogic.graphTag) }
+                    if store.graphSupported { graphRow }
     }
     private var toolsSection: some View {
         Section { toolRows }

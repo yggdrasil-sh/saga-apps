@@ -13,9 +13,9 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Mac-Schreibfläche:** Seitentext 16 pt statt 13 pt, Titel 35 pt, Überschriften 26/21/18 pt, Zeilenabstand +3 pt
   und mehr Luft über Überschriften; die Größen folgen Dynamic Type bzw. „Kleiner Text“ der Seite.
   **iPad** (normale Breite): mehr Abstand zwischen Blöcken und breiterer Rand. iPhone unverändert.
-- **Seitenleiste Mac/iPad:** „Heute“ als eine Zeile mit Zähler, darunter Favoriten und **Seitenbaum oben**;
-  Aufgaben, Termine, Dienste, Chats und Graph stehen unten im einklappbaren Abschnitt „Werkzeuge“ (ungelesene Chats
-  am zugeklappten Kopf). iPad nutzt den Seitenleisten-Stil statt gruppierter Liste.
+- **Seitenleiste Mac/iPad:** „Heute“ als eine Zeile mit Zähler, darunter Favoriten und der Seitenbaum;
+  **oben fest** (wie Notion, nicht einklappbar) stehen Heute, Chats, Aufgaben und Termine; nur Dienste und Graph liegen
+  unten im einklappbaren Abschnitt „Mehr“. iPad nutzt den Seitenleisten-Stil statt gruppierter Liste.
 - **Tastenkürzel:** ⌘N = Neue Seite (vorher ⌥⌘N), ⇧⌘N = Neues Fenster (Mac), ⌘\ = Seitenleiste ein-/ausblenden.
 - **Block-Griffe:** Symbol `⋮⋮` statt `≡` (wie im Web), senkrecht auf der ersten Textzeile; auf dem iPad erscheinen
   die Griffe beim Zeigen mit Trackpad oder Maus (oberste Ebene).
