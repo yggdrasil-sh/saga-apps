@@ -1,0 +1,862 @@
+[
+ {
+  "in": "*fett* _kursiv_ ~weg~ `x<y`\n- eins\n- zwei\n> zitiert\n```\n<b>block</b>\n```",
+  "tree": [
+   [
+    "strong",
+    [
+     "fett"
+    ]
+   ],
+   " ",
+   [
+    "em",
+    [
+     "kursiv"
+    ]
+   ],
+   " ",
+   [
+    "s",
+    [
+     "weg"
+    ]
+   ],
+   " ",
+   [
+    "code",
+    [
+     "x<y"
+    ]
+   ],
+   [
+    "ul",
+    [
+     [
+      "li",
+      [
+       "eins"
+      ]
+     ],
+     [
+      "li",
+      [
+       "zwei"
+      ]
+     ]
+    ]
+   ],
+   [
+    "blockquote",
+    [
+     "zitiert"
+    ]
+   ],
+   [
+    "pre",
+    [
+     [
+      "code",
+      [
+       "<b>block</b>"
+      ]
+     ]
+    ]
+   ]
+  ],
+  "strip": "fett kursiv weg x<y\neins\nzwei\nzitiert\n<b>block</b>\n"
+ },
+ {
+  "in": "<img src=x onerror=\"alert(1)\"> *<script>alert(2)</script>* [x](javascript:alert(3)) a_b_c 2*3*4",
+  "tree": [
+   "<img src=x onerror=\"alert(1)\"> ",
+   [
+    "strong",
+    [
+     "<script>alert(2)</script>"
+    ]
+   ],
+   " [x](javascript:alert(3)) a_b_c 2*3*4"
+  ],
+  "strip": "<img src=x onerror=\"alert(1)\"> <script>alert(2)</script> [x](javascript:alert(3)) a_b_c 2*3*4"
+ },
+ {
+  "in": "a_b_c",
+  "tree": [
+   "a_b_c"
+  ],
+  "strip": "a_b_c"
+ },
+ {
+  "in": "2*3*4",
+  "tree": [
+   "2*3*4"
+  ],
+  "strip": "2*3*4"
+ },
+ {
+  "in": "snake_case_name",
+  "tree": [
+   "snake_case_name"
+  ],
+  "strip": "snake_case_name"
+ },
+ {
+  "in": "https://example.org/~user/x_y_z",
+  "tree": [
+   "https://example.org/~user/x_y_z"
+  ],
+  "strip": "https://example.org/~user/x_y_z"
+ },
+ {
+  "in": "*a* *b*",
+  "tree": [
+   [
+    "strong",
+    [
+     "a* *b"
+    ]
+   ]
+  ],
+  "strip": "a* *b"
+ },
+ {
+  "in": "**",
+  "tree": [
+   "**"
+  ],
+  "strip": "**"
+ },
+ {
+  "in": "* nicht *",
+  "tree": [
+   "* nicht *"
+  ],
+  "strip": "* nicht *"
+ },
+ {
+  "in": "*fett\nnicht*",
+  "tree": [
+   "*fett\nnicht*"
+  ],
+  "strip": "*fett\nnicht*"
+ },
+ {
+  "in": "vor *fett*.",
+  "tree": [
+   "vor ",
+   [
+    "strong",
+    [
+     "fett"
+    ]
+   ],
+   "."
+  ],
+  "strip": "vor fett."
+ },
+ {
+  "in": "(*klammer*)",
+  "tree": [
+   "(",
+   [
+    "strong",
+    [
+     "klammer"
+    ]
+   ],
+   ")"
+  ],
+  "strip": "(klammer)"
+ },
+ {
+  "in": "\"_zitat_\"",
+  "tree": [
+   "\"",
+   [
+    "em",
+    [
+     "zitat"
+    ]
+   ],
+   "\""
+  ],
+  "strip": "\"zitat\""
+ },
+ {
+  "in": "*_fett kursiv_*",
+  "tree": [
+   "*_fett kursiv_*"
+  ],
+  "strip": "*_fett kursiv_*"
+ },
+ {
+  "in": "_*kursiv fett*_",
+  "tree": [
+   "_*kursiv fett*_"
+  ],
+  "strip": "_*kursiv fett*_"
+ },
+ {
+  "in": "~*_alle_*~",
+  "tree": [
+   "~*_alle_*~"
+  ],
+  "strip": "~*_alle_*~"
+ },
+ {
+  "in": "*a _b ~c `d` c~ b_ a*",
+  "tree": [
+   "*a _b ~c ",
+   [
+    "code",
+    [
+     "d"
+    ]
+   ],
+   " c~ b_ a*"
+  ],
+  "strip": "a _b ~c d c~ b_ a"
+ },
+ {
+  "in": "*1 *2 *3 *4 *5 tief* * * * *",
+  "tree": [
+   [
+    "strong",
+    [
+     "1 *2 *3 *4 *5 tief"
+    ]
+   ],
+   " * * * *"
+  ],
+  "strip": "1 *2 *3 *4 *5 tief * * * *"
+ },
+ {
+  "in": "`*nicht fett*`",
+  "tree": [
+   [
+    "code",
+    [
+     "*nicht fett*"
+    ]
+   ]
+  ],
+  "strip": "nicht fett"
+ },
+ {
+  "in": "x`code`y",
+  "tree": [
+   "x",
+   [
+    "code",
+    [
+     "code"
+    ]
+   ],
+   "y"
+  ],
+  "strip": "xcodey"
+ },
+ {
+  "in": "``",
+  "tree": [
+   "``"
+  ],
+  "strip": "``"
+ },
+ {
+  "in": "`a``b`",
+  "tree": [
+   [
+    "code",
+    [
+     "a"
+    ]
+   ],
+   [
+    "code",
+    [
+     "b"
+    ]
+   ]
+  ],
+  "strip": "ab"
+ },
+ {
+  "in": "text *ende*",
+  "tree": [
+   "text ",
+   [
+    "strong",
+    [
+     "ende"
+    ]
+   ]
+  ],
+  "strip": "text ende"
+ },
+ {
+  "in": "*anfang* text",
+  "tree": [
+   [
+    "strong",
+    [
+     "anfang"
+    ]
+   ],
+   " text"
+  ],
+  "strip": "anfang text"
+ },
+ {
+  "in": "*fett*!",
+  "tree": [
+   [
+    "strong",
+    [
+     "fett"
+    ]
+   ],
+   "!"
+  ],
+  "strip": "fett!"
+ },
+ {
+  "in": "*fett*,und",
+  "tree": [
+   [
+    "strong",
+    [
+     "fett"
+    ]
+   ],
+   ",und"
+  ],
+  "strip": "fett,und"
+ },
+ {
+  "in": "wort*fett*",
+  "tree": [
+   "wort*fett*"
+  ],
+  "strip": "wort*fett*"
+ },
+ {
+  "in": "- eins",
+  "tree": [
+   [
+    "ul",
+    [
+     [
+      "li",
+      [
+       "eins"
+      ]
+     ]
+    ]
+   ]
+  ],
+  "strip": "eins"
+ },
+ {
+  "in": "- ",
+  "tree": [
+   [
+    "ul",
+    [
+     [
+      "li",
+      []
+     ]
+    ]
+   ]
+  ],
+  "strip": ""
+ },
+ {
+  "in": "-nichts",
+  "tree": [
+   "-nichts"
+  ],
+  "strip": "-nichts"
+ },
+ {
+  "in": "• punkt\n• zwei",
+  "tree": [
+   [
+    "ul",
+    [
+     [
+      "li",
+      [
+       "punkt"
+      ]
+     ],
+     [
+      "li",
+      [
+       "zwei"
+      ]
+     ]
+    ]
+   ]
+  ],
+  "strip": "punkt\nzwei"
+ },
+ {
+  "in": "- *fett* in Liste",
+  "tree": [
+   [
+    "ul",
+    [
+     [
+      "li",
+      [
+       [
+        "strong",
+        [
+         "fett"
+        ]
+       ],
+       " in Liste"
+      ]
+     ]
+    ]
+   ]
+  ],
+  "strip": "fett in Liste"
+ },
+ {
+  "in": "a\n- b\nc",
+  "tree": [
+   "a",
+   [
+    "ul",
+    [
+     [
+      "li",
+      [
+       "b"
+      ]
+     ]
+    ]
+   ],
+   "c"
+  ],
+  "strip": "a\nb\nc"
+ },
+ {
+  "in": "> zitat",
+  "tree": [
+   [
+    "blockquote",
+    [
+     "zitat"
+    ]
+   ]
+  ],
+  "strip": "zitat"
+ },
+ {
+  "in": ">ohne leer",
+  "tree": [
+   [
+    "blockquote",
+    [
+     "ohne leer"
+    ]
+   ]
+  ],
+  "strip": "ohne leer"
+ },
+ {
+  "in": "> a\n> b\nc",
+  "tree": [
+   [
+    "blockquote",
+    [
+     "a\nb"
+    ]
+   ],
+   "c"
+  ],
+  "strip": "a\nb\nc"
+ },
+ {
+  "in": "x\n> q",
+  "tree": [
+   "x",
+   [
+    "blockquote",
+    [
+     "q"
+    ]
+   ]
+  ],
+  "strip": "x\nq"
+ },
+ {
+  "in": "> - liste im zitat",
+  "tree": [
+   [
+    "blockquote",
+    [
+     [
+      "ul",
+      [
+       [
+        "li",
+        [
+         "liste im zitat"
+        ]
+       ]
+      ]
+     ]
+    ]
+   ]
+  ],
+  "strip": "- liste im zitat"
+ },
+ {
+  "in": ">> doppelt",
+  "tree": [
+   [
+    "blockquote",
+    [
+     [
+      "blockquote",
+      [
+       "doppelt"
+      ]
+     ]
+    ]
+   ]
+  ],
+  "strip": "> doppelt"
+ },
+ {
+  "in": "```js\nlet x = 1;\n```",
+  "tree": [
+   [
+    "pre",
+    [
+     [
+      "code",
+      [
+       "let x = 1;"
+      ]
+     ]
+    ]
+   ]
+  ],
+  "strip": "let x = 1;\n"
+ },
+ {
+  "in": "```\noffen",
+  "tree": [
+   "```\noffen"
+  ],
+  "strip": "offen"
+ },
+ {
+  "in": "a```b```c",
+  "tree": [
+   "a",
+   [
+    "pre",
+    [
+     [
+      "code",
+      [
+       "b"
+      ]
+     ]
+    ]
+   ],
+   "c"
+  ],
+  "strip": "abc"
+ },
+ {
+  "in": "```\n*kein fett*\n```\nnach",
+  "tree": [
+   [
+    "pre",
+    [
+     [
+      "code",
+      [
+       "*kein fett*"
+      ]
+     ]
+    ]
+   ],
+   "nach"
+  ],
+  "strip": "kein fett\nnach"
+ },
+ {
+  "in": "vor\n```\ncode\n```",
+  "tree": [
+   "vor",
+   [
+    "pre",
+    [
+     [
+      "code",
+      [
+       "code"
+      ]
+     ]
+    ]
+   ]
+  ],
+  "strip": "vor\ncode\n"
+ },
+ {
+  "in": "```x y\nz```",
+  "tree": [
+   [
+    "pre",
+    [
+     [
+      "code",
+      [
+       "x y\nz"
+      ]
+     ]
+    ]
+   ]
+  ],
+  "strip": "x y\nz"
+ },
+ {
+  "in": "zeile1\nzeile2",
+  "tree": [
+   "zeile1\nzeile2"
+  ],
+  "strip": "zeile1\nzeile2"
+ },
+ {
+  "in": "\n\nleer",
+  "tree": [
+   "\n\nleer"
+  ],
+  "strip": "\n\nleer"
+ },
+ {
+  "in": "",
+  "tree": [],
+  "strip": ""
+ },
+ {
+  "in": "<@~abcdefghijklmnop> *hallo*",
+  "tree": [
+   "<@~abcdefghijklmnop> ",
+   [
+    "strong",
+    [
+     "hallo"
+    ]
+   ]
+  ],
+  "strip": "<@~abcdefghijklmnop> hallo"
+ },
+ {
+  "in": "*<@~abcdefghijklmnop>*",
+  "tree": [
+   [
+    "strong",
+    [
+     "<@~abcdefghijklmnop>"
+    ]
+   ]
+  ],
+  "strip": "<@~abcdefghijklmnop>"
+ },
+ {
+  "in": "<b>*x*</b>",
+  "tree": [
+   "<b>*x*</b>"
+  ],
+  "strip": "<b>*x*</b>"
+ },
+ {
+  "in": "&lt;b&gt;",
+  "tree": [
+   "&lt;b&gt;"
+  ],
+  "strip": "&lt;b&gt;"
+ },
+ {
+  "in": "_https://a.example/x_",
+  "tree": [
+   [
+    "em",
+    [
+     "https://a.example/x"
+    ]
+   ]
+  ],
+  "strip": "https://a.example/x"
+ },
+ {
+  "in": "*~*",
+  "tree": [
+   "*~*"
+  ],
+  "strip": "*~*"
+ },
+ {
+  "in": "_ _",
+  "tree": [
+   "_ _"
+  ],
+  "strip": "_ _"
+ },
+ {
+  "in": "*a*b*",
+  "tree": [
+   [
+    "strong",
+    [
+     "a*b"
+    ]
+   ]
+  ],
+  "strip": "a*b"
+ },
+ {
+  "in": "mehr *als* ein *mal*",
+  "tree": [
+   "mehr ",
+   [
+    "strong",
+    [
+     "als"
+    ]
+   ],
+   " ein ",
+   [
+    "strong",
+    [
+     "mal"
+    ]
+   ]
+  ],
+  "strip": "mehr als ein mal"
+ },
+ {
+  "in": "ü*ber*",
+  "tree": [
+   "ü*ber*"
+  ],
+  "strip": "ü*ber*"
+ },
+ {
+  "in": "*über*",
+  "tree": [
+   [
+    "strong",
+    [
+     "über"
+    ]
+   ]
+  ],
+  "strip": "über"
+ },
+ {
+  "in": "emoji *😀*",
+  "tree": [
+   "emoji ",
+   [
+    "strong",
+    [
+     "😀"
+    ]
+   ]
+  ],
+  "strip": "emoji 😀"
+ },
+ {
+  "in": "tab\t*x*",
+  "tree": [
+   "tab\t",
+   [
+    "strong",
+    [
+     "x"
+    ]
+   ]
+  ],
+  "strip": "tab\tx"
+ },
+ {
+  "in": "{*x*}",
+  "tree": [
+   "{",
+   [
+    "strong",
+    [
+     "x"
+    ]
+   ],
+   "}"
+  ],
+  "strip": "{x}"
+ },
+ {
+  "in": "[_y_]",
+  "tree": [
+   "[",
+   [
+    "em",
+    [
+     "y"
+    ]
+   ],
+   "]"
+  ],
+  "strip": "[y]"
+ },
+ {
+  "in": "'~z~'",
+  "tree": [
+   "'",
+   [
+    "s",
+    [
+     "z"
+    ]
+   ],
+   "'"
+  ],
+  "strip": "'z'"
+ },
+ {
+  "in": "*x*)",
+  "tree": [
+   [
+    "strong",
+    [
+     "x"
+    ]
+   ],
+   ")"
+  ],
+  "strip": "x)"
+ },
+ {
+  "in": "*x*?",
+  "tree": [
+   [
+    "strong",
+    [
+     "x"
+    ]
+   ],
+   "?"
+  ],
+  "strip": "x?"
+ }
+]

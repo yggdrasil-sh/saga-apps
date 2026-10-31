@@ -1,0 +1,29 @@
+{
+ "chat_id": 4,
+ "devices": {},
+ "idents": {},
+ "last_read": 0,
+ "last_seq": 10,
+ "messages": [
+  {
+   "ai": null,
+   "body_ct": "{\"type\":\"perm\",\"by\":{\"handle\":\"~qmc6dasajzgoch7x@a.example\",\"name\":\"Emil Test\",\"host\":\"a.example\"},\"perm_send\":\"admins\",\"v\":1}",
+   "created": 1793488219.3943915,
+   "expires_at": null,
+   "fseq": null,
+   "fstate": null,
+   "id": "7ad2fd09c6356ac8eb5da6a8f05dd11d",
+   "key": null,
+   "key_for": null,
+   "kind": "sys",
+   "reply_to": null,
+   "sender": null,
+   "sender_device": "",
+   "sender_handle": null,
+   "seq": 10,
+   "sig": "",
+   "ts": 1793488219394
+  }
+ ],
+ "more": false
+}

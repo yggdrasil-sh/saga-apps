@@ -1,0 +1,13 @@
+{
+ "blocks": [
+  {
+   "created": 1793488212.770411,
+   "host": "a.example",
+   "kind": "person",
+   "label": "Bert Test",
+   "local": true,
+   "name": "Bert Test",
+   "target": "~7wsrxxcjqzgo7pmc@a.example"
+  }
+ ]
+}

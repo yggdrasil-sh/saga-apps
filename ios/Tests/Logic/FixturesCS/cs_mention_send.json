@@ -1,0 +1,10 @@
+{
+ "created": 1793488213.1134467,
+ "expires_at": null,
+ "ok": true,
+ "sent_mentions": [
+  "~u3zm25ydvuz7mi5h@a.example"
+ ],
+ "seq": 9,
+ "status": 200
+}
