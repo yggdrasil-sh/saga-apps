@@ -85,6 +85,20 @@ Alles nur, wenn der Server die jeweilige Fähigkeit meldet; ältere Server: wie 
 - **Blöcke auf eine andere Seite verschieben** (mit Rückgängig).
 - Nicht in dieser Etappe: Zeitleiste ziehen, API-Token-Liste.
 
+### Neu – Linux: Chat-Standard (Saga-Server 2.5, Seiten-Chat-Mitglieder, Gruppen, Alltag, Nachrichten)
+- Jede Funktion nur, wenn der Server das Feature meldet (`pagechatmembers1`, `groupinfo2`, `moddel1`, `msgpin1`, `block2`,
+  `report1`, `mute2`, `chatpin1`, `markunread1`, `chathide1`, `chatmention1`, `chatfmt1`, `unfurl1`, `chatmedia1`).
+- **Seiten-Chats:** Personen hinzufügen teilt die Seite (Rolle Lesen/Kommentieren/Bearbeiten), Entfernen nur bei direkter
+  Freigabe, sonst ausgegraut mit Grund.
+- **Gruppen:** Gruppenbild und Beschreibung (verschlüsselt), Schalter „Nur Admins schreiben“/„Nur Admins ändern Infos“,
+  angeheftete Nachrichten (Leiste oben), „Löschen (Admin)“ mit Hinweis im Verlauf, Sperren (Gruppeninfo, Direkt-Chat,
+  Einstellungen) mit eingeklappten Nachrichten, „Melden …“.
+- **Chatliste:** Stummschalten mit Dauer und Mitteilungsart, Chats anheften, als ungelesen markieren, Gruppen-/Seiten-Chats
+  ausblenden (Bereich „Ausgeblendet“), Entwürfe je Chat (nur auf diesem Gerät, beim Abmelden gelöscht).
+- **Nachrichten:** @-Erwähnungen, Formatierung (*fett*, _kursiv_, ~durch~, `code`, Codeblock, Liste, Zitat – sicher ohne
+  Markup aus dem Text), Linkvorschau (abschaltbar), „Medien, Dateien, Links“, Mehrfachauswahl mit Weiterleiten und
+  „Für mich löschen“. Tests: `tests/test_chat_standard*.py`, Gegenprobe `tests/real25std.py`.
+
 ### Neu – Linux: Gruppeninfo und Kontakte (Saga-Server 2.5, `chatadm1`/`contacts1`)
 - **Gruppeninfo** (Klick auf den Chat-Kopf bzw. „Gruppeninfo …“): Name, Mitglieder mit „Du“/„Admin“ und Handle,
   Admin vergeben/entziehen, Mitglied hinzufügen/entfernen; **Kontakte** in „Neue Unterhaltung“ und „Mitglied hinzufügen“
