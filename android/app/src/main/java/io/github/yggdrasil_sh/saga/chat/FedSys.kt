@@ -32,6 +32,8 @@ object FedSysText {
         "members" -> members(k, myHandle)
         // 2.5 (chatadm1): Admin vergeben/entzogen
         "admin" -> GroupInfo.sysText(k, myHandle)
+        // 2.5 (groupinfo2): Gruppenrechte geaendert
+        "perm" -> ChatStd.permSysText(k, myHandle)
         // 2.5: Chat auf Stufe 3 umgestellt (ohne Namen); verify: Sicherheitsnummern neu vergleichen
         "crypto" -> if (k.verify) UiText.Res(R.string.x3_sys_crypto_verify) else UiText.Res(R.string.x3_sys_crypto)
         else -> UiText.Res(R.string.fed_sys_note)

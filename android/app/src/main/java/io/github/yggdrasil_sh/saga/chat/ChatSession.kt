@@ -56,6 +56,8 @@ data class ChatMessage(
     /** 2.5: zuletzt bearbeitet (Serverzeit, s) bzw. null; wie oft */
     val editedAt: Double? = null,
     val editN: Int = 0,
+    /** 2.5 (moddel1): Grabstein - von einem Admin geloescht (kein Inhalt) */
+    val tomb: Boolean = false,
 )
 
 /** 2.1: laufende Frage an die KI (nur auf diesem Geraet sichtbar, bis die Antwort als Nachricht gesendet ist) */
@@ -225,7 +227,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             loadSummary()
             // v2: Schluessel der Absender (selbst geprueft) vor dem Entschluesseln - sonst stuende kurz "Echtheit nicht bestaetigt"
             if (isFed) quietly { loadFedKeys(false) }
-            val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&limit=50&calls=1"))
+            val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&limit=50&calls=1" + tombsQ))
             messages.clear()
             messages.addAll(ChatDeleteLogic.keepAfter(decryptAll(r), summary?.clearedSeq ?: 0) { it.seq })
             more = r.more
@@ -259,7 +261,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
 
     suspend fun loadOlder() {
         val first = messages.firstOrNull()?.seq ?: return
-        val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&before=$first&limit=50&calls=1"))
+        val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&before=$first&limit=50&calls=1" + tombsQ))
         val older = ChatDeleteLogic.keepAfter(decryptAll(r), summary?.clearedSeq ?: 0) { it.seq }.filter { o -> messages.none { it.id == o.id } }
         messages.addAll(0, older)
         more = r.more
@@ -306,7 +308,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
     suspend fun loadNewer() {
         if (FedDelivery.due(messages, lastDeliveryCheck, System.currentTimeMillis())) quietly { checkDelivery() }
         val after = messages.lastOrNull()?.seq ?: lastSeq
-        val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&after=$after&limit=200&calls=1"))
+        val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&after=$after&limit=200&calls=1" + tombsQ))
         val newer = ChatDeleteLogic.keepAfter(decryptAll(r), summary?.clearedSeq ?: 0) { it.seq }.filter { n -> messages.none { it.id == n.id } }
         // Systemzeile "ab jetzt ueber Servergrenzen" (E5) bzw. "Stufe 3" (2.5) in einem noch als v1 geladenen Chat: Stand
         // holen und neu oeffnen
@@ -327,6 +329,12 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         }
     }
 
+    /** 2.5 (moddel1): Grabsteine mitladen ("Von einem Admin gelöscht") */
+    private val tombsQ: String get() = if (svc.std.modDel) "&tombs=1" else ""
+
+    private fun tombOf(m: ApiMessage): ChatMessage =
+        ChatMessage(m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, null, null, true, false, senderHandle = m.senderHandle, created = m.created, tomb = true)
+
     private suspend fun decryptAll(r: MessagesResponse): List<ChatMessage> {
         val k = keys()
         val me = me
@@ -346,6 +354,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                 r.messages.map { m ->
                     val mine = m.sender?.username == me
                     when (m.kind) {
+                        "tomb" -> tombOf(m)
                         "call" -> ChatMessage(m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, null, null, true, mine,
                             // v2: Anrufer steht als Prinzipal drin - eigener Anruf (Absender = ich) zaehlt als "von mir"
                             io.github.yggdrasil_sh.saga.call.CallLogic.parseEntry(m.bodyCt)?.let { e -> if (mine) e.copy(from = me) else e },
@@ -376,6 +385,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         }
         return withContext(Dispatchers.Default) {
             r.messages.map { m ->
+                if (m.kind == "tomb") return@map tombOf(m)
                 // Systemzeile (2.3): Klartext vom Server - auch, falls der Chat gerade erst umgestellt wurde
                 if (m.kind == "sys") {
                     return@map ChatMessage(m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, null, null, true, false,

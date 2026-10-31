@@ -1,0 +1,330 @@
+{
+ "source": "static/chat-fmt.js",
+ "vectors": [
+  {
+   "in": "hallo",
+   "html": "hallo",
+   "strip": "hallo"
+  },
+  {
+   "in": "",
+   "html": "",
+   "strip": ""
+  },
+  {
+   "in": "*fett*",
+   "html": "<strong>fett</strong>",
+   "strip": "fett"
+  },
+  {
+   "in": "_kursiv_",
+   "html": "<em>kursiv</em>",
+   "strip": "kursiv"
+  },
+  {
+   "in": "~durch~",
+   "html": "<s>durch</s>",
+   "strip": "durch"
+  },
+  {
+   "in": "`code`",
+   "html": "<code>code</code>",
+   "strip": "code"
+  },
+  {
+   "in": "*fett* _kursiv_ ~weg~ `x<y`",
+   "html": "<strong>fett</strong> <em>kursiv</em> <s>weg</s> <code>x&lt;y</code>",
+   "strip": "fett kursiv weg x<y"
+  },
+  {
+   "in": "a_b_c 2*3*4",
+   "html": "a_b_c 2*3*4",
+   "strip": "a_b_c 2*3*4"
+  },
+  {
+   "in": "x*y* z",
+   "html": "x*y* z",
+   "strip": "x*y* z"
+  },
+  {
+   "in": "*a*b",
+   "html": "*a*b",
+   "strip": "*a*b"
+  },
+  {
+   "in": "(*in Klammern*)",
+   "html": "(<strong>in Klammern</strong>)",
+   "strip": "(in Klammern)"
+  },
+  {
+   "in": "\"*zitiert*\"",
+   "html": "\"<strong>zitiert</strong>\"",
+   "strip": "\"zitiert\""
+  },
+  {
+   "in": "*ende*.",
+   "html": "<strong>ende</strong>.",
+   "strip": "ende."
+  },
+  {
+   "in": "*ende*!?",
+   "html": "<strong>ende</strong>!?",
+   "strip": "ende!?"
+  },
+  {
+   "in": "* nicht*",
+   "html": "* nicht*",
+   "strip": "* nicht*"
+  },
+  {
+   "in": "*nicht *",
+   "html": "*nicht *",
+   "strip": "*nicht *"
+  },
+  {
+   "in": "**",
+   "html": "**",
+   "strip": "**"
+  },
+  {
+   "in": "*a**b*",
+   "html": "<strong>a**b</strong>",
+   "strip": "a**b"
+  },
+  {
+   "in": "*fett _kursiv_ drin*",
+   "html": "<strong>fett <em>kursiv</em> drin</strong>",
+   "strip": "fett _kursiv_ drin"
+  },
+  {
+   "in": "*_~tief~_*",
+   "html": "*_~tief~_*",
+   "strip": "*_~tief~_*"
+  },
+  {
+   "in": "*1 _2 ~3 `4` 3~ 2_ 1*",
+   "html": "*1 _2 ~3 <code>4</code> 3~ 2_ 1*",
+   "strip": "1 _2 ~3 4 3~ 2_ 1"
+  },
+  {
+   "in": "*a _b ~c *d _e_ d* c~ b_ a*",
+   "html": "<strong>a <em>b ~c *d _e</em> d</strong> c~ b_ a*",
+   "strip": "a _b ~c *d _e_ d c~ b_ a*"
+  },
+  {
+   "in": "`*nicht fett*`",
+   "html": "<code>*nicht fett*</code>",
+   "strip": "nicht fett"
+  },
+  {
+   "in": "*vor `code` nach*",
+   "html": "*vor <code>code</code> nach*",
+   "strip": "vor code nach"
+  },
+  {
+   "in": "``",
+   "html": "``",
+   "strip": "``"
+  },
+  {
+   "in": "`a` `b`",
+   "html": "<code>a</code> <code>b</code>",
+   "strip": "a b"
+  },
+  {
+   "in": "- eins\n- zwei",
+   "html": "<ul><li>eins</li><li>zwei</li></ul>",
+   "strip": "eins\nzwei"
+  },
+  {
+   "in": "• punkt\n- strich",
+   "html": "<ul><li>punkt</li><li>strich</li></ul>",
+   "strip": "punkt\nstrich"
+  },
+  {
+   "in": "-kein Punkt",
+   "html": "-kein Punkt",
+   "strip": "-kein Punkt"
+  },
+  {
+   "in": "text\n- eins\n- zwei\nweiter",
+   "html": "text<ul><li>eins</li><li>zwei</li></ul>weiter",
+   "strip": "text\neins\nzwei\nweiter"
+  },
+  {
+   "in": "> zitiert",
+   "html": "<blockquote>zitiert</blockquote>",
+   "strip": "zitiert"
+  },
+  {
+   "in": ">ohne Leer",
+   "html": "<blockquote>ohne Leer</blockquote>",
+   "strip": "ohne Leer"
+  },
+  {
+   "in": "> a\n> b\nc",
+   "html": "<blockquote>a\nb</blockquote>c",
+   "strip": "a\nb\nc"
+  },
+  {
+   "in": "vorher\n> zitiert\nnachher",
+   "html": "vorher<blockquote>zitiert</blockquote>nachher",
+   "strip": "vorher\nzitiert\nnachher"
+  },
+  {
+   "in": "> *fett im Zitat*\n> - liste",
+   "html": "<blockquote><strong>fett im Zitat</strong><ul><li>liste</li></ul></blockquote>",
+   "strip": "fett im Zitat\n- liste"
+  },
+  {
+   "in": "```\n<b>block</b>\n```",
+   "html": "<pre><code>&lt;b&gt;block&lt;/b&gt;</code></pre>",
+   "strip": "<b>block</b>\n"
+  },
+  {
+   "in": "```js\nlet a = 1;\n```",
+   "html": "<pre><code>let a = 1;</code></pre>",
+   "strip": "let a = 1;\n"
+  },
+  {
+   "in": "vor\n```\ncode\n```\nnach",
+   "html": "vor<pre><code>code</code></pre>nach",
+   "strip": "vor\ncode\nnach"
+  },
+  {
+   "in": "```inline```",
+   "html": "<pre><code>inline</code></pre>",
+   "strip": "inline"
+  },
+  {
+   "in": "```\nnie zu",
+   "html": "```\nnie zu",
+   "strip": "nie zu"
+  },
+  {
+   "in": "```\na\n```\n```\nb\n```",
+   "html": "<pre><code>a</code></pre><pre><code>b</code></pre>",
+   "strip": "a\nb\n"
+  },
+  {
+   "in": "zeile1\nzeile2",
+   "html": "zeile1\nzeile2",
+   "strip": "zeile1\nzeile2"
+  },
+  {
+   "in": "a\n\nb",
+   "html": "a\n\nb",
+   "strip": "a\n\nb"
+  },
+  {
+   "in": "\n",
+   "html": "\n",
+   "strip": "\n"
+  },
+  {
+   "in": "end\n",
+   "html": "end\n",
+   "strip": "end\n"
+  },
+  {
+   "in": "<img src=x onerror=\"alert(1)\"> *<script>alert(2)</script>* [x](javascript:alert(3)) a_b_c 2*3*4",
+   "html": "&lt;img src=x onerror=\"alert(1)\"&gt; <strong>&lt;script&gt;alert(2)&lt;/script&gt;</strong> [x](javascript:alert(3)) a_b_c 2*3*4",
+   "strip": "<img src=x onerror=\"alert(1)\"> <script>alert(2)</script> [x](javascript:alert(3)) a_b_c 2*3*4"
+  },
+  {
+   "in": "<b>fett?</b>",
+   "html": "&lt;b&gt;fett?&lt;/b&gt;",
+   "strip": "<b>fett?</b>"
+  },
+  {
+   "in": "&amp; &lt;",
+   "html": "&amp;amp; &amp;lt;",
+   "strip": "&amp; &lt;"
+  },
+  {
+   "in": "*<a href=\"javascript:alert(1)\">x</a>*",
+   "html": "<strong>&lt;a href=\"javascript:alert(1)\"&gt;x&lt;/a&gt;</strong>",
+   "strip": "<a href=\"javascript:alert(1)\">x</a>"
+  },
+  {
+   "in": "`<script>`",
+   "html": "<code>&lt;script&gt;</code>",
+   "strip": "<script>"
+  },
+  {
+   "in": "> <iframe src=//x>",
+   "html": "<blockquote>&lt;iframe src=//x&gt;</blockquote>",
+   "strip": "<iframe src=//x>"
+  },
+  {
+   "in": "- <svg onload=alert(1)>",
+   "html": "<ul><li>&lt;svg onload=alert(1)&gt;</li></ul>",
+   "strip": "<svg onload=alert(1)>"
+  },
+  {
+   "in": "```\n</code></pre><script>alert(1)</script>\n```",
+   "html": "<pre><code>&lt;/code&gt;&lt;/pre&gt;&lt;script&gt;alert(1)&lt;/script&gt;</code></pre>",
+   "strip": "</code></pre><script>alert(1)</script>\n"
+  },
+  {
+   "in": "https://example.org/a_b_c_ und ~user/x~y",
+   "html": "https://example.org/a_b_c_ und ~user/x~y",
+   "strip": "https://example.org/a_b_c_ und ~user/x~y"
+  },
+  {
+   "in": "mail@x.org *ok*",
+   "html": "mail@x.org <strong>ok</strong>",
+   "strip": "mail@x.org ok"
+  },
+  {
+   "in": "_a_b_",
+   "html": "<em>a_b</em>",
+   "strip": "a_b"
+  },
+  {
+   "in": "x *fett* y",
+   "html": "x <strong>fett</strong> y",
+   "strip": "x fett y"
+  },
+  {
+   "in": "*a* b",
+   "html": "<strong>a</strong> b",
+   "strip": "a b"
+  },
+  {
+   "in": "*mehr\nzeilig*",
+   "html": "*mehr\nzeilig*",
+   "strip": "*mehr\nzeilig*"
+  },
+  {
+   "in": "~~doppelt~~",
+   "html": "~~doppelt~~",
+   "strip": "~~doppelt~~"
+  },
+  {
+   "in": "_ _",
+   "html": "_ _",
+   "strip": "_ _"
+  },
+  {
+   "in": "*x*",
+   "html": "<strong>x</strong>",
+   "strip": "x"
+  },
+  {
+   "in": "ä*ö*ü",
+   "html": "ä*ö*ü",
+   "strip": "ä*ö*ü"
+  },
+  {
+   "in": "　*cjk*　",
+   "html": "　<strong>cjk</strong>　",
+   "strip": "　cjk　"
+  },
+  {
+   "in": "<@~abcdefghijklmnop> *hi*",
+   "html": "&lt;@~abcdefghijklmnop&gt; <strong>hi</strong>",
+   "strip": "<@~abcdefghijklmnop> hi"
+  }
+ ]
+}

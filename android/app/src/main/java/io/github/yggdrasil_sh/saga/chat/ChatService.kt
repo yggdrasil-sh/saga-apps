@@ -688,6 +688,8 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
     /** 2.5 (contacts1): Server kennt Kontakte bzw. Gruppeninfo/Admins (features in /api/version) */
     val contactsOn: Boolean get() = repo.hasFeature("contacts1")
     val groupInfoOn: Boolean get() = repo.hasFeature("chatadm1")
+    /** 2.5 Chat-Standard (Seiten-Chat-Mitglieder, Gruppen B, Alltag A, Nachrichten C): was der Server kann */
+    val std: ChatStd.Features get() = ChatStd.Features.of(repo.serverFeatures.value)
 
     /** hochgezaehlt bei chat.contacts (anderes Geraet hat einen Kontakt ausgeblendet) - offene Listen laden neu */
     val contactsTick = MutableStateFlow(0)
