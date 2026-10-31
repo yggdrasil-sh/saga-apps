@@ -479,3 +479,5 @@ window.hk-dark label.hk-pres-red { color: #f28585; }
 /* 2.5 (timeline1): Ende des Balkens ziehen */
 .hk-tl-handle { background: alpha(currentColor, 0.25); border-radius: 0 6px 6px 0; }
 .hk-tl-handle:hover { background: alpha(var(--accent-bg-color), 0.6); }
+/* 2.5 Kontakte: nicht anschreibbar (Konto deaktiviert bzw. Server getrennt) */
+row.hk-gone { opacity: 0.55; }

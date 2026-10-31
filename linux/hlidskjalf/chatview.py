@@ -17,7 +17,8 @@ from . import chatx3, voice
 from .chat import (FED_CHECK_EVERY_S, NOTE_RX, RETENTIONS, ChatError, FedNotDelivered, SafetyChanged, chat, fmt_recovery, is_fed,
                    is_remote, can_edit, can_react, has_feature, rx_groups, voice_file, x3_limits, x3_ok,
                    keys_persistent, recovery_lines, remote_label, retention_label, fed_guide_url, fed_hint_show, fed_hint_texts, safety_for,
-                   safety_qr_text, sys_text, chat_home_hint, trust_accept, trust_get, trust_verified)
+                   safety_qr_text, sys_text, chat_home_hint, trust_accept, trust_get, trust_verified,
+                   contact_item, contact_keep_for, gi_actions, gi_members, gi_mine, gi_rights, gi_sub, server_has)
 from .i18n import _, ngettext, pgettext, ui_language
 from .sharing import person_mark, same_host
 from .util import Debounce, bg, date_short, esc, human_size, rel_time, time_text, weekday_day_text
@@ -423,6 +424,14 @@ class ChatsScreen(Gtk.Box):
 
     def has_menu(self):
         return self.conv is not None and chat.chat(self.cid) is not None
+
+    def title_clicked(self):
+        """Klick auf den Chat-Kopf (Titel der Kopfleiste, 2.5) -> Gruppeninfo bzw. Mitglieder (nur mit chatadm1)"""
+        if self.has_menu() and server_has("chatadm1"):
+            self.conv.open_info()
+
+    def title_tip(self):
+        return _("Chat info") if self.has_menu() and server_has("chatadm1") else None
 
     def call_chat(self):
         """Direkt-Chat mit eingeschalteten Anrufen -> Chat-ID (Knopf "Anrufen" in der Kopfleiste), sonst None"""
@@ -2344,6 +2353,16 @@ class Conversation(Gtk.Box):
             _toast(self.win, _("{name} is still answering – please wait a moment.").format(name=name))
 
     # --- Menue ---------------------------------------------------------------------------------------------------------
+    def open_info(self):
+        """Chat-Kopf angeklickt bzw. "Gruppeninfo …" (2.5): Gruppen -> Gruppeninfo, Direkt-Chats wie bisher "Mitglieder" """
+        c = chat.chat(self.cid)
+        if not c:
+            return
+        if c.get("kind") != "dm" and server_has("chatadm1"):
+            GroupInfoDialog(self.win, self.cid).present(self.win)
+        else:
+            ChatInfoDialog(self.win, self.cid).present(self.win)
+
     def menu(self, parent):
         c = chat.chat(self.cid)
         if not c:
@@ -2357,7 +2376,10 @@ class Conversation(Gtk.Box):
                 ents.append((_("Safety number"), lambda: open_safety_v2(self.win, self.cid, peer)))
             else:
                 ents.append((_("Safety number"), lambda: open_safety(self.win, self.cid, peer.get("username"))))
-        ents.append((_("Members") + " …", lambda: ChatInfoDialog(self.win, self.cid).present(self.win)))
+        if c.get("kind") != "dm" and server_has("chatadm1"):        # 2.5: Gruppeninfo ersetzt "Mitglieder" bei Gruppen
+            ents.append((_("Group info …"), self.open_info))
+        else:
+            ents.append((_("Members") + " …", lambda: ChatInfoDialog(self.win, self.cid).present(self.win)))
         from .assistant import ai, ai_name
         if ai.chat_allowed and aichat.may_toggle(c):     # KI im Chat (2.1): erlauben / nicht mehr erlauben
             ents.append(((_("Stop allowing {name} here") if c.get("ai") else _("Allow {name} in this chat")).format(
@@ -2375,7 +2397,8 @@ class Conversation(Gtk.Box):
         ents.append((_("Delete messages automatically after"), sub))
         if c.get("kind") == "free":
             ents.append(None)
-            ents.append((_("Rename …"), lambda: rename_group(self.win, self.cid)))
+            if gi_rights(c)["rename"]:                     # 2.5: can_rename (schreibgeschuetzt: nein)
+                ents.append((_("Rename …"), lambda: rename_group(self.win, self.cid)))
             ents.append((_("Leave group"), lambda: leave_group(self.win, self.cid), True))
         ents += manage_entries(self.win, c)                # (2.1) Archivieren, Chat loeschen …
         menu_popover(parent, ents).popup()
@@ -3076,6 +3099,349 @@ class ChatInfoDialog(Adw.Dialog):
            error=lambda e: self.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(e)))))
 
 
+# --- Kontakte (2.5, contacts1) -----------------------------------------------------------------------------------
+def _more_button(tooltip, entries_fn):
+    """flacher Knopf "⋯" mit Menue (entries_fn() -> Eintraege fuer menu_popover)"""
+    b = Gtk.Button(icon_name="view-more-symbolic", tooltip_text=tooltip, valign=Gtk.Align.CENTER)
+    b.add_css_class("flat")
+    b.update_property([Gtk.AccessibleProperty.LABEL], [tooltip])
+    b.connect("clicked", lambda bb: menu_popover(bb, entries_fn()).popup())
+    return b
+
+
+def contact_menu(row, ref, name, toaster, removed=None):
+    """Menue "Aus Kontakten entfernen" an einer Zeile: Knopf "⋯" und Rechtsklick (Kontextmenue)"""
+    def drop():
+        def fin():
+            toaster(_("{name} removed from contacts.").format(name=name))
+            if row.get_parent() is not None and isinstance(row.get_parent(), Gtk.ListBox):
+                row.get_parent().remove(row)
+            if removed:
+                removed(ref)
+        chat.drop_contact(ref, done=fin, error=lambda e: toaster(str(e)))
+    ents = lambda: [(_("Remove from contacts"), drop, True)]      # noqa: E731
+    row.add_suffix(_more_button(_("Options for {name}").format(name=name), ents))
+    gc = Gtk.GestureClick(button=Gdk.BUTTON_SECONDARY)
+    gc.connect("pressed", lambda g, *_: (g.set_state(Gtk.EventSequenceState.CLAIMED), menu_popover(row, ents()).popup()))
+    row.add_controller(gc)
+    row.hk_contact_drop = drop                             # Tests: wie "Aus Kontakten entfernen"
+    return row
+
+
+def contact_row(k, pick, toaster, removed=None):
+    """Zeile eines Kontakts (GET /api/chat/contacts): Avatar, Name, Unterzeile; gone ausgegraut und nicht waehlbar"""
+    it = contact_item(k)
+    r = Adw.ActionRow(title=GLib.markup_escape_text(it["name"]), subtitle=GLib.markup_escape_text(it["sub"]), activatable=not it["gone"])
+    r.add_prefix(avatars.person(it, 32, text=it["name"]))
+    r.add_css_class("hk-contact")
+    if it["remote"]:
+        r.add_css_class("hk-remote-hit")
+    if it["gone"]:
+        r.add_css_class("hk-gone")
+        r.set_tooltip_text(_("Currently unreachable"))
+    else:
+        r.connect("activated", lambda *_: pick(it))
+    r.hk_contact = it
+    return contact_menu(r, it["ref"], it["name"], toaster, removed)
+
+
+class ContactList:
+    """Ueberschrift "Kontakte" + Zeilen in einer Gtk.ListBox (ohne Eingabe in "Neue Unterhaltung" bzw. "Mitglied hinzufuegen")"""
+
+    def __init__(self, head, lb, toaster):
+        self.head, self.lb, self.toaster = head, lb, toaster
+        self.gen = 0
+
+    def show(self, pick, keep=None, still=lambda: True):
+        self.gen += 1
+        gen = self.gen
+
+        def fin(ks):
+            if gen != self.gen or not still():
+                return
+            ks = [k for k in ks if keep is None or keep(k)]
+            self.lb.remove_all()
+            self.head.set_visible(bool(ks))
+            for k in ks:
+                self.lb.append(contact_row(k, pick, self.toaster, removed=lambda _r: self.head.set_visible(self.lb.get_first_child() is not None)))
+        chat.load_contacts(fin)
+
+    def hide(self):
+        self.gen += 1
+        self.head.set_visible(False)
+
+
+# --- Gruppeninfo (2.5, chatadm1) ---------------------------------------------------------------------------------
+class GroupInfoDialog(ChatInfoDialog):
+    """Gruppeninfo (Klick auf den Chat-Kopf bzw. "Gruppeninfo …"): Name (bearbeitbar bei can_rename), Mitglieder mit Avatar,
+    Name, Handle, "Admin"/"Du"; bei can_manage Hinzufuegen (Kontakte/Personensuche) und je Mitglied Menue (Admin
+    vergeben/entziehen bei can_admin, Aus Gruppe entfernen mit Rueckfrage, Sicherheitsnummer); unten Stummschalten,
+    Archivieren, Gruppe verlassen. group/page: nur lesend mit Hinweis. Live: chat.changed zeichnet neu."""
+    __gtype_name__ = "HKGroupInfoDialog"
+    head_group = members_group = foot_group = add_box = name_row = None
+
+    def __init__(self, win, cid):
+        super().__init__(win, cid)
+        self.set_title(_("Group info"))
+        watch_chat(self, "chat-changed", lambda c: c == self.cid and self._live())
+        watch_chat(self, "contacts", lambda: self._contacts_live())
+
+    def _toast(self, text):
+        if text:
+            self.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(text))))
+
+    def _live(self):
+        if chat.chat(self.cid) is None:
+            self.close()
+            return
+        self.fill()
+
+    def _contacts_live(self):
+        if self.add_box is not None and self.add_box.get_visible() and not self.add_en.get_text().strip():
+            self._add_contacts()
+
+    def fill(self):
+        for g in (self.head_group, self.members_group, self.add_group, self.foot_group):
+            if g is not None and g.get_parent() is not None:
+                self.page.remove(g)
+        c = chat.chat(self.cid) or {}
+        kind = c.get("kind")
+        rights = gi_rights(c)
+        n = int(c.get("member_count") or len(c.get("members") or []))
+        # Kopf: Avatar, Name, Art
+        self.head_group = Adw.PreferencesGroup()
+        hb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, halign=Gtk.Align.CENTER, margin_bottom=6)
+        from .sharing import people_icon
+        av = Adw.Avatar(size=64, text=chat.title(c), show_initials=kind == "free")
+        if kind != "free":
+            av.set_icon_name(people_icon())
+        hb.append(av)
+        self.title_lbl = _lbl(chat.title(c), ("title-2",), xalign=0.5, justify=Gtk.Justification.CENTER)
+        hb.append(self.title_lbl)
+        kl = chat.kind_label(c) + (" „" + str(c.get("group")) + "“" if kind == "group" and c.get("group") else "")
+        hb.append(_lbl(kl + " · " + ngettext("{n} member", "{n} members", n).format(n=n), ("dim-label",), xalign=0.5,
+                       justify=Gtk.Justification.CENTER))
+        self.head_group.add(hb)
+        if kind == "free" and rights["rename"]:
+            self.name_row = Adw.EntryRow(title=_("Group name"), show_apply_button=True, text=c.get("_title") or "")
+            self.name_row.connect("apply", lambda *_: self._rename())
+            lb = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+            lb.add_css_class("boxed-list")
+            lb.append(self.name_row)
+            self.head_group.add(lb)
+            self.head_group.add(_lbl(_("The name is encrypted like a message."), ("dim-label", "caption"), margin_top=6))
+        else:
+            self.name_row = None
+        notes = []
+        if kind in ("group", "page"):
+            notes.append(_("Here, members come from the group or from the page's shares."))
+        home = chat_home_hint(c)
+        if home:
+            notes.append(home)
+        if c.get("readonly"):
+            notes.append("🔒 " + (c.get("readonly_reason") or _("read-only")))
+        for t in notes:
+            nl = _lbl(t, ("dim-label", "caption", "hk-gi-note"), margin_top=6)
+            self.head_group.add(nl)
+        self.page.add(self.head_group)
+        # Mitglieder
+        self.members_group = Adw.PreferencesGroup(title=GLib.markup_escape_text(ngettext("{n} member", "{n} members", n).format(n=n)))
+        if kind == "free" and rights["manage"]:
+            add = _button(None, ("flat",), self._toggle_add, valign=Gtk.Align.CENTER,
+                          child=Adw.ButtonContent(icon_name="list-add-symbolic", label=_("Add member")))
+            self.add_btn = add
+            self.members_group.set_header_suffix(add)
+        fed = is_fed(c)
+        for m in gi_members(c):
+            self.members_group.add(self._member_row(c, m, fed))
+        self.page.add(self.members_group)
+        # Mitglied hinzufuegen (bleibt beim Neuzeichnen samt Eingabe erhalten)
+        if kind == "free" and rights["manage"]:
+            if self.add_group is None:
+                self._make_add()
+            self.page.add(self.add_group)
+        else:
+            self.add_group = None
+        # unten: Stummschalten, Archivieren, Verlassen
+        from .publish import button_row
+        self.foot_group = Adw.PreferencesGroup()
+        self.foot_group.add(button_row(_("Unmute") if c.get("muted") else _("Mute"), self._mute))
+        if chat.can_archive(c):
+            self.foot_group.add(button_row(_("Unarchive") if c.get("archived") else _("Archive"), self._archive))
+        if kind == "free":
+            self.foot_group.add(button_row(_("Leave group"), lambda: leave_group(self.win, self.cid), destructive=True))
+        self.page.add(self.foot_group)
+
+    def _member_row(self, c, m, fed):
+        mine = gi_mine(c, m)
+        name = m.get("name") or "?"
+        row = Adw.ActionRow(title=GLib.markup_escape_text(name), subtitle=GLib.markup_escape_text(gi_sub(c, m)))
+        row.add_prefix(avatars.person(m, 32, text=name))
+        row.add_css_class("hk-gi-member")
+        if mine:
+            b = _lbl(_("You"), ("hk-badge", "hk-gi-me"), wrap=False, valign=Gtk.Align.CENTER)
+            row.add_suffix(b)
+        if m.get("admin"):
+            b = _lbl(_("Admin"), ("hk-badge", "hk-badge-accent", "hk-gi-admin"), wrap=False, valign=Gtk.Align.CENTER)
+            row.add_suffix(b)
+        ents = []
+        if not mine:
+            if fed and m.get("handle") and (chat.fk.get(m["handle"]) or {}).get("keys"):
+                ents.append((_("Safety number"), lambda m=m: open_safety_v2(self.win, self.cid, m)))
+            elif not fed and (self.rc.get(m.get("username")) or {}).get("ready"):
+                ents.append((_("Safety number"), lambda u=m.get("username"): open_safety(self.win, self.cid, u)))
+        acts = gi_actions(c, m)
+        if "admin_on" in acts:
+            ents.append((_("Make admin"), lambda m=m: self._admin(m, True)))
+        if "admin_off" in acts:
+            ents.append((_("Remove as admin"), lambda m=m: self._admin(m, False)))
+        if "remove" in acts:
+            ents.append((_("Remove from group"), lambda m=m: self._ask_remove(m), True))
+        row.hk_actions = acts
+        if ents:
+            row.add_suffix(_more_button(_("Actions for {name}").format(name=name), lambda e=ents: e))
+        return row
+
+    # --- Aktionen ---
+    def _rename(self):
+        name = (self.name_row.get_text() if self.name_row else "").strip()[:100]
+        c = chat.chat(self.cid) or {}
+        if not name or name == c.get("_title"):
+            return
+
+        def done(_r):
+            cc = chat.chat(self.cid)
+            if cc is not None:
+                cc["_title"] = name
+            chat.load_chat(self.cid)
+            chat.emit("changed")
+        bg(chat.send, self.cid, {"v": 1, "type": "title", "title": name}, None, "title", done=done,
+           error=lambda e: self._toast(_("Not sent: {err}").format(err=e)))
+
+    def _admin(self, m, on):
+        name = _("You") if gi_mine(chat.chat(self.cid), m) else (m.get("name") or "?")
+        chat.set_admin(self.cid, m.get("username"), on,
+                       done=lambda _ch: self._toast(_("{name} is now an admin.").format(name=name) if on else _("Admin role removed.")),
+                       error=lambda e: self._toast(e))
+
+    def _ask_remove(self, m):
+        from .publish import confirm
+        name = m.get("name") or "?"
+
+        def go():
+            def fin(_r):
+                self._toast(_("{name} was removed.").format(name=name))
+                chat.load_chat(self.cid)
+            bg(client.request, "DELETE", f"api/chats/{self.cid}/members/{GLib.Uri.escape_string(m['username'], None, True)}", done=fin,
+               error=lambda e: self._toast(e))
+        confirm(self, _("Remove {name} from the group?").format(name=name),
+                _("{name} will no longer receive new messages from this group.").format(name=name), _("Remove"), go)
+
+    def _mute(self):
+        c = chat.chat(self.cid) or {}
+        chat.patch(self.cid, {"muted": not c.get("muted")}, error=lambda e: self._toast(e))
+
+    def _archive(self):
+        c = chat.chat(self.cid) or {}
+        on = not c.get("archived")
+        chat.set_archived(self.cid, on, done=lambda _ch: chat.load_chat(self.cid), error=lambda e: self._toast(e))
+
+    # --- Mitglied hinzufuegen ---
+    def _make_add(self):
+        from .sharing import search_min
+        self.add_group = Adw.PreferencesGroup(title=_("Add member"))
+        self.add_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, visible=False)
+        lb0 = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        lb0.add_css_class("boxed-list")
+        self.add_en = Adw.EntryRow(title=_("Search person") if search_min() == 1 else _("Add person (3+ characters)"))
+        lb0.append(self.add_en)
+        self.add_box.append(lb0)
+        self.add_info = _lbl("", ("dim-label", "caption"), visible=False)
+        self.add_box.append(self.add_info)
+        self.ct_head = _lbl(_("Contacts"), ("heading",), visible=False, margin_top=4)
+        self.add_box.append(self.ct_head)
+        self.add_res = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        self.add_res.add_css_class("boxed-list")
+        self.add_box.append(self.add_res)
+        self.add_group.add(self.add_box)
+        self.contacts = ContactList(self.ct_head, self.add_res, self._toast)
+        self.add_q = ""
+        soon = Debounce(250, self._add_search)
+        self.add_en.connect("changed", lambda *_: soon())
+
+    def _toggle_add(self):
+        if self.add_box is None:
+            return
+        on = not self.add_box.get_visible()
+        self.add_box.set_visible(on)
+        if on:
+            self._add_search()
+            self.add_en.grab_focus()
+
+    def _pick(self, it):
+        self._add(None, handle=it["ref"]) if it.get("remote") else self._add(it["ref"])
+
+    def _add_contacts(self):
+        c = chat.chat(self.cid) or {}
+        self.add_res.remove_all()
+        if server_has("contacts1"):
+            self.contacts.show(self._pick, keep=contact_keep_for(c), still=lambda: not self.add_en.get_text().strip())
+        else:
+            self.contacts.hide()
+
+    def _add_search(self):
+        from .sharing import is_member, search_min
+        q = self.add_en.get_text().strip()
+        self.add_q = q
+        self.add_info.set_visible(False)
+        if not q:
+            self._add_contacts()
+            return
+        self.contacts.hide()
+        self.add_res.remove_all()
+        if len(q) < search_min():
+            return
+        c = chat.chat(self.cid) or {}
+
+        def show(j):
+            if self.add_en.get_text().strip() != q:
+                return
+            self.add_res.remove_all()
+            j = j or {}
+            users = [u for u in j.get("users") or [] if isinstance(u, dict) and u.get("username") and not is_member(u["username"], c.get("members"))]
+            have = {m.get("handle") for m in c.get("members") or [] if isinstance(m, dict) and m.get("handle")}
+            rem = [u for u in j.get("remote") or [] if isinstance(u, dict) and u.get("handle") and u["handle"] not in have]
+            if not is_fed(c) and rem:
+                self.add_info.set_label(_("People on other Saga servers can only be added to new groups – please create a new group."))
+                self.add_info.set_visible(True)
+                rem = []
+            if not users and not rem and fed_hint_show(q, 0):
+                self.add_res.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=fed_hint()))
+            for u in users[:8]:
+                sub = [x for x in (person_mark(u), "" if u.get("ready", True) else _("hasn't set up chats yet")) if x]
+                r = Adw.ActionRow(title=GLib.markup_escape_text(u.get("name") or "?"), subtitle=GLib.markup_escape_text(" · ".join(sub)), activatable=True)
+                r.add_prefix(avatars.person(u, 32, text=u.get("name") or "?"))
+                r.connect("activated", lambda *_, u=u["username"]: self._add(u))
+                if u.get("contact"):
+                    contact_menu(r, u["username"], u.get("name") or "?", self._toast)
+                self.add_res.append(r)
+            for u in rem[:5]:
+                r = Adw.ActionRow(title=GLib.markup_escape_text(remote_label(u)),
+                                  subtitle=GLib.markup_escape_text(_("Person on {host}").format(host=u.get("host") or "?")), activatable=True)
+                r.add_prefix(avatars.person(u, 32, text=u.get("name") or "?"))
+                r.add_css_class("hk-remote-hit")
+                r.connect("activated", lambda *_, h=u["handle"]: self._add(None, handle=h))
+                if u.get("contact"):
+                    contact_menu(r, u["handle"], remote_label(u), self._toast)
+                self.add_res.append(r)
+        bg(client.get, "api/chat/people?q=" + GLib.Uri.escape_string(q, None, True), done=show, error=lambda e: self._toast(e))
+
+    def _add(self, u, handle=None):
+        super()._add(u, handle)
+        if self.add_box is not None:
+            self.add_en.set_text("")
+
+
 class NewChatDialog(Adw.Dialog):
     """Neue Unterhaltung: Person (Direkt-Chat), Gruppe (Gruppen-Chat) oder freie Gruppe mit mehreren Personen"""
 
@@ -3111,7 +3477,11 @@ class NewChatDialog(Adw.Dialog):
         self.results = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
         self.results.add_css_class("boxed-list")
         self.results.set_valign(Gtk.Align.START)
-        sw.set_child(self.results)
+        rbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.ct_head = _lbl(_("Contacts"), ("heading",), visible=False, margin_start=2)    # 2.5: ohne Eingabe die Kontakte
+        rbox.append(self.ct_head)
+        rbox.append(self.results)
+        sw.set_child(rbox)
         box.append(sw)
         self.multi_btn = _button(_("+ Group with several people …"), ("flat",), self._toggle_multi, halign=Gtk.Align.START)
         box.append(self.multi_btn)
@@ -3120,6 +3490,9 @@ class NewChatDialog(Adw.Dialog):
         self.set_child(self.toasts)
         self._update()
         self.q = ""
+        self.contacts = ContactList(self.ct_head, self.results, lambda t: t and self.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(t)))))
+        self._search()
+        watch_chat(self, "contacts", lambda: not self.q and self._search())
         GLib.idle_add(lambda: (self.search.grab_focus(), False)[1])
 
     def add_toast(self, t):
@@ -3148,6 +3521,10 @@ class NewChatDialog(Adw.Dialog):
         self.q = q
         self.results.remove_all()
         from .sharing import search_min
+        if not q and server_has("contacts1"):              # 2.5: Kontakte (zuletzt zuerst)
+            self.contacts.show(self._pick_contact, still=lambda: not self.q)
+            return
+        self.contacts.hide()
         if len(q) < search_min():                          # Server ab 2.3: ab 1 Zeichen (bei 1-2 nur genaue Treffer), sonst ab 3
             return
         bg(client.get, "api/chat/people?q=" + GLib.Uri.escape_string(q, None, True), done=lambda j: self._show(q, j),
@@ -3167,6 +3544,8 @@ class NewChatDialog(Adw.Dialog):
                               activatable=True)
             r.add_prefix(avatars.person(u, 32, text=u.get("name") or u["username"]))
             r.connect("activated", lambda *_, u=u: self._pick_user(u))
+            if u.get("contact"):                           # 2.5: Kontakte stehen vorne - Menue "Aus Kontakten entfernen"
+                contact_menu(r, u["username"], u.get("name") or "?", self.contacts.toaster)
             self.results.append(r)
         for g in groups:
             from .sharing import people_icon
@@ -3184,6 +3563,8 @@ class NewChatDialog(Adw.Dialog):
             r.add_prefix(avatars.person(u, 32, text=u.get("name") or "?"))
             r.add_css_class("hk-remote-hit")
             r.connect("activated", lambda *_, u=u: self._pick_remote(u))
+            if u.get("contact"):
+                contact_menu(r, u["handle"], remote_label(u), self.contacts.toaster)
             self.results.append(r)
         if not users and not groups and not remote:
             if not (j or {}).get("error") and fed_hint_show(q, 0):      # name@server/E-Mail: Hinweis statt "Keine Treffer"
@@ -3199,6 +3580,15 @@ class NewChatDialog(Adw.Dialog):
             self._update()
             return
         self._open({"kind": "dm", "user": u["username"]})
+
+    def _pick_contact(self, it):
+        """Kontakt gewaehlt: lokal ref = Such-Handle ({user}), fremd ref = '~x@host' ({handle})"""
+        if it.get("remote"):
+            self._pick_remote({"handle": it["ref"], "name": it["name"], "host": it.get("host"), "label": it["name"] + (" · " + it["host"] if it.get("host") else "")})
+        else:
+            self._pick_user({"username": it["ref"], "name": it["name"]})
+        if self.multi:
+            self._search()
 
     def _pick_remote(self, u):
         if self.multi:                                     # 2.3: Gruppe mit Personen anderer Server (Heim = dieser Server)

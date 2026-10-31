@@ -222,6 +222,13 @@ def new_chat(s, kind, members, **kw):
     return cid
 
 
+def admins(ch):
+    """(2.5) Admins einer freien Gruppe: ch["admins"] (Menge) bzw. frueher nur ch["admin"]"""
+    if "admins" not in ch:
+        ch["admins"] = {ch["admin"]} if ch.get("admin") else set()
+    return ch["admins"]
+
+
 # --- Archivieren und Loeschen (2.1, wie saga/chat.py) -------------------------------------------------------------------
 def _pref(ch, uid):
     return ch.setdefault("prefs", {}).setdefault(uid, {"archived": None, "cleared": 0, "hidden": False})
@@ -380,6 +387,16 @@ def _chat_dict(s, ch, me, device=None):
          "retention_s": ch["retention_s"], "muted": me in ch["muted"], "role": "admin" if ch.get("admin") == me else "member",
          "last_read": lr, "unread": sum(1 for m in msgs if m["seq"] > lr and m["sender"] != me),
          "members": [{"username": u, "name": nm(u), "me": u == me} for u in ch["members"]], "member_count": len(ch["members"])}
+    if getattr(s, "chatadm", False):                       # (2.5) Gruppeninfo: admin je Mitglied, can_*
+        adm = admins(ch) if ch["kind"] == "free" else set()
+        for x in d["members"]:
+            x["admin"] = x["username"] in adm
+            x["ref"] = x["username"] if x["me"] else "~" + x["username"]
+        me_admin = me in adm
+        ro = bool(ch.get("readonly"))
+        d.update(me_admin=me_admin, can_manage=me_admin and not ro, can_admin=me_admin and not ro and not ch.get("old_home"),
+                 can_rename=ch["kind"] == "free" and not ro)
+        d["role"] = "admin" if me_admin else "member"
     if s.chat_manage_api:                                  # (2.1) Archiv und Loeschen
         p = _pref(ch, me)
         d.update(archived=p["archived"] is not None, archived_at=p["archived"], cleared_seq=p["cleared"],
@@ -512,8 +529,9 @@ def _chat_api(s, method, path, parts, q, b, raw):
     if path == "api/chats" and method == "POST":
         k = b.get("kind")
         if k == "dm":
-            ex = next((c for c in s.chats.values() if c["kind"] == "dm" and set(c["members"]) == {me, b["user"]}), None)
-            cid = ex["id"] if ex else new_chat(s, "dm", [me, b["user"]])
+            peer = b["user"][1:] if str(b.get("user") or "").startswith("~") else b["user"]     # (2.5) Kontakt: Such-Handle
+            ex = next((c for c in s.chats.values() if c["kind"] == "dm" and set(c["members"]) == {me, peer}), None)
+            cid = ex["id"] if ex else new_chat(s, "dm", [me, peer])
             _pref(s.chats[cid], me)["hidden"] = False      # bewusst wieder geoeffnet (2.1)
         elif k == "group":
             ex = next((c for c in s.chats.values() if c["kind"] == "group" and c["group"] == b["group"]), None)
@@ -601,12 +619,16 @@ def _chat_api(s, method, path, parts, q, b, raw):
         if rest == ["typing"]:
             return s._reply(200, {"ok": True})
         if rest == ["members"] and method == "POST":
-            if ch["kind"] != "free" or ch.get("admin") != me:
+            if ch["kind"] != "free" or me not in admins(ch):
                 return s._reply(403, {"error": "Dafür fehlt dir die Berechtigung."})
-            ch["members"].append(b["user"])
+            s.member_adds = getattr(s, "member_adds", []) + [dict(b)]
+            if b.get("user"):
+                ch["members"].append(b["user"][1:] if b["user"].startswith("~") else b["user"])
             return s._reply(200, {"chat": _chat_dict(s, ch, me)})
         if len(rest) == 2 and rest[0] == "members" and method == "DELETE":
-            ch["members"] = [u for u in ch["members"] if u != rest[1]]
+            who = rest[1][1:] if rest[1].startswith("~") else rest[1]
+            ch["members"] = [u for u in ch["members"] if u != who]
+            admins(ch).discard(who)
             return s._reply(200, {"ok": True})
         if rest == ["files"] and method == "POST":
             fid = secrets.token_urlsafe(18)
