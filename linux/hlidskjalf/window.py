@@ -711,6 +711,9 @@ class MainWindow(Adw.ApplicationWindow):
         self.chb.pack_start(self.fwd_btn)
         self.wtitle = Adw.WindowTitle(title="")
         self.chb.set_title_widget(self.wtitle)
+        tgc = Gtk.GestureClick()                          # 2.5: Chat-Kopf anklicken -> Gruppeninfo (Chats)
+        tgc.connect("released", lambda *_: getattr(self.current, "title_clicked", lambda: None)())
+        self.wtitle.add_controller(tgc)
         self.menu_btn = flat_button(icon="view-more-symbolic", tooltip=_("Page menu"))
         self.menu_btn.connect("clicked", lambda b: hasattr(self.current, "page_menu") and self.current.page_menu(b))
         self.star_btn = flat_button(icon="non-starred-symbolic", tooltip=_("Add to favorites"), cb=lambda: isinstance(self.current, PageView) and self.current.toggle_fav())
@@ -1143,6 +1146,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.menu_btn.set_visible(is_page)
         self.star_btn.set_visible(is_page)
         self.call_btn.set_visible(False)
+        self.wtitle.set_tooltip_text(None)
         if is_page:
             from .comments import count_tooltip
             from .sharing import allowed, can_comment, header_button
@@ -1196,6 +1200,7 @@ class MainWindow(Adw.ApplicationWindow):
                 self.wtitle.set_title(t)
                 self.wtitle.set_subtitle(sub)
                 self.menu_btn.set_visible(self.current.has_menu())
+                self.wtitle.set_tooltip_text(getattr(self.current, "title_tip", lambda: None)())
                 self.call_btn.set_visible(bool(getattr(self.current, "call_chat", lambda: None)()))
                 self.set_title(f"{t} – Saga")
                 return

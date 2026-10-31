@@ -10,6 +10,12 @@ FEATURES = ["formula1", "rollup1", "dbgroup1", "person1", "file1", "move1", "ren
 
 def init(s):
     s.v25 = False
+    s.chatadm = False          # 2.5 Gruppeninfo (Feature chatadm1 nur mit extra_features)
+    s.admin_log = []           # [(cid, who, body)]
+    s.admin_fail = None        # (code, meldung) fuer PATCH .../members/{who}
+    s.contacts_on = False      # 2.5 Kontakte (Feature contacts1)
+    s.contacts = []            # [{ref, name, sub, avatar, remote, host?, ready, gone, last_at, hidden?}]
+    s.contacts_log = []
     s.v25_people = {}          # Kennung -> {name, avatar, me, remote, gone?}
     s.v25_calc = {}            # Zeile -> {pid: wert} (Formel-/Rollup-Werte, "rechnet der Server")
     s.v25_fx_err = {}          # Zeile -> {pid: code}
@@ -107,7 +113,63 @@ def patch_row(s, nid, body, out):
     return out
 
 
+def _chatadm(s, method, path, parts, q, body):
+    """(2.5) Gruppeninfo: PATCH /api/chats/{cid}/members/{who} {admin}; Kontakte: GET/DELETE /api/chat/contacts"""
+    import mockv2
+    me = s.me
+    if path == "api/chat/contacts" and method == "GET" and getattr(s, "contacts_on", False):
+        s.contacts_log.append(("GET", dict(q)))
+        lim = int(q.get("limit") or 50)
+        out = [dict(k) for k in s.contacts if not k.get("hidden")]
+        out.sort(key=lambda k: -k.get("last_at", 0))
+        for k in out:
+            k.pop("hidden", None)
+        return s._reply(200, {"contacts": out[:lim]})
+    if parts[:3] == ["api", "chat", "contacts"] and len(parts) == 4 and method == "DELETE" and getattr(s, "contacts_on", False):
+        import urllib.parse
+        ref = urllib.parse.unquote(parts[3])
+        s.contacts_log.append(("DELETE", ref))
+        k = next((x for x in s.contacts if x["ref"] == ref and not x.get("hidden")), None)
+        if k is None:
+            return s._reply(404, {"error": "not found"})
+        k["hidden"] = True
+        return s._reply(200, {"ok": True})
+    if path == "api/chat/people" and getattr(s, "contacts_on", False):     # Kontakte vorne (contact: true), jede Laenge
+        qq = (q.get("q") or "").lower()
+        ks = [k for k in s.contacts if not k.get("hidden") and not k.get("gone") and qq and qq in k["name"].lower()]
+        users = [{"username": k["ref"], "name": k["name"], "ready": True, "contact": True} for k in ks if not k.get("remote")]
+        remote = [{"handle": k["ref"], "name": k["name"], "host": k.get("host"), "contact": True} for k in ks if k.get("remote")]
+        have = {u["name"] for u in users}
+        if len(qq) >= 3:
+            users += [{"username": "~" + u, "name": n, "ready": u in s.idents} for u, n in s.names.items()
+                      if u != me and (u.startswith(qq) or qq in n.lower()) and n not in have]
+        return s._reply(200, {"users": users, "groups": [], "remote": remote})
+    if (getattr(s, "chatadm", False) and parts[:2] == ["api", "chats"] and len(parts) == 5 and parts[2].isdigit()
+            and parts[3] == "members" and method == "PATCH"):
+        ch = s.chats.get(int(parts[2]))
+        who = parts[4][1:] if parts[4].startswith("~") else parts[4]
+        s.admin_log.append((int(parts[2]), parts[4], body))
+        if ch is None or me not in ch["members"] or who not in ch["members"]:
+            return s._reply(404, {"error": "not found"})
+        if ch["kind"] != "free" or not isinstance(body.get("admin"), bool):
+            return s._reply(400, {"error": "Nur in freien Gruppen."})
+        if s.admin_fail:
+            code, msg = s.admin_fail
+            return s._reply(code, {"error": msg})
+        adm = mockv2.admins(ch)
+        if me not in adm:
+            return s._reply(403, {"error": "Dafür fehlt dir die Berechtigung."})
+        if not body["admin"] and adm == {who}:
+            return s._reply(409, {"error": "Das ist der letzte Admin der Gruppe – erst jemand anderen zum Admin machen."})
+        (adm.add if body["admin"] else adm.discard)(who)
+        return s._reply(200, {"chat": mockv2._chat_dict(s, ch, me)})
+    return None
+
+
 def handle(s, method, path, parts, q, body):
+    r = _chatadm(s, method, path, parts, q, body)
+    if r is not None:
+        return r
     if not s.v25:
         return None
     r = _tasksrc(s, method, path, parts, q, body)

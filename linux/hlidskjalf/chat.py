@@ -248,6 +248,8 @@ def sys_text(k, my_handle):
     if typ == "crypto":                                   # (2.5) Umstellung auf Stufe 3 (ohne Namen)
         t = _("This chat is now bound to the stable Saga addresses (new encryption level).")
         return t + (" " + _("Please compare the safety numbers again – they're shown differently now.") if k.get("verify") else "")
+    if typ == "admin":                                    # (2.5, Gruppeninfo) Admin vergeben/entzogen
+        return admin_sys_text(k, my_handle)
     if typ == "members":
         by = k.get("by") if isinstance(k.get("by"), dict) else None
         added = [x for x in k.get("added") or [] if isinstance(x, dict)]
@@ -277,6 +279,126 @@ def sys_text(k, my_handle):
                 out.append(_("{names} is no longer here.").format(names=plain))
         return " ".join(out) or _("Notice")
     return _("Notice")
+
+
+def admin_sys_text(k, my_handle):
+    """Systemzeile {type:'admin', target, on, by} (wie Web sysText): "{by} hat {name} zum Admin gemacht." bzw. "... die
+    Admin-Rolle entzogen."; by == target: "... ist jetzt Admin." / "... ist kein Admin mehr."; ohne by ohne Urheber"""
+    tg = k.get("target") if isinstance(k.get("target"), dict) else None
+    by = k.get("by") if isinstance(k.get("by"), dict) else None
+    on = bool(k.get("on"))
+    me_by = bool(by and by.get("handle") and by.get("handle") == my_handle)
+    if by and tg and by.get("handle") and by.get("handle") == tg.get("handle"):
+        if me_by:
+            return _("You are now an admin.") if on else _("You are no longer an admin.")
+        name = sys_who(by, my_handle)
+        return (_("{name} is now an admin.") if on else _("{name} is no longer an admin.")).format(name=name)
+    if not tg:
+        return _("Notice")
+    if me_by:
+        return (_("You made {name} an admin.") if on else _("You removed {name} as admin.")).format(
+            name=sys_who(tg, my_handle, acc=True))
+    if by:
+        return (_("{by} made {name} an admin.") if on else _("{by} removed {name} as admin.")).format(
+            by=sys_who(by, my_handle), name=sys_who(tg, my_handle, acc=True))
+    return (_("{name} is now an admin.") if on else _("{name} is no longer an admin.")).format(name=sys_who(tg, my_handle))
+
+
+# --- Gruppeninfo (2.5, chatadm1) und Kontakte (2.5, contacts1) - docs/APP-API-CHAT.md 6 und 7 ---------------------------
+def server_has(feature):
+    """Server meldet die Faehigkeit in /api/version -> features (aeltere Server: nie)"""
+    from .store import store
+    return store.has(feature)
+
+
+def gi_rights(c):
+    """Rechte in der Gruppeninfo -> {manage, admin, rename}. Nur freie Gruppen; Server ohne can_*-Felder (vor chatadm1):
+    manage = ich bin Admin, admin = nie, rename = jedes Mitglied (wie bisher)"""
+    c = c if isinstance(c, dict) else {}
+    if c.get("kind") != "free":
+        return {"manage": False, "admin": False, "rename": False}
+    old_admin = c.get("role") == "admin"
+    manage = c.get("can_manage") if isinstance(c.get("can_manage"), bool) else old_admin
+    admin = c.get("can_admin") is True
+    rename = c.get("can_rename") if isinstance(c.get("can_rename"), bool) else True
+    return {"manage": bool(manage), "admin": bool(admin and manage), "rename": bool(rename)}
+
+
+def gi_mine(c, m):
+    return bool(isinstance(m, dict) and (m.get("me") or (m.get("handle") and m.get("handle") == (c or {}).get("my_handle"))))
+
+
+def gi_handle(m):
+    """Handle eines Mitglieds '~x@host' bzw. '~x' (ref bei Chats v1) - nie der Anmeldename"""
+    m = m if isinstance(m, dict) else {}
+    h = m.get("handle") if isinstance(m.get("handle"), str) else ""
+    if not h and isinstance(m.get("ref"), str) and m["ref"].startswith("~"):
+        h = m["ref"]
+    return h[1:] if h.startswith("@") else h
+
+
+def gi_members(c):
+    """Mitglieder sortiert: ich zuerst, dann Admins, dann nach Name"""
+    c = c if isinstance(c, dict) else {}
+    ms = [m for m in c.get("members") or [] if isinstance(m, dict)]
+    return sorted(ms, key=lambda m: (not gi_mine(c, m), not m.get("admin"), str(m.get("name") or "").lower()))
+
+
+def gi_sub(c, m):
+    """Unterzeile eines Mitglieds: Handle (eigener Server ohne '@host'), bei Personen anderer Server "auf host · ~x";
+    sonst sub vom Server. Nie der Anmeldename anderer"""
+    mine_host = _host_of((c or {}).get("my_handle"))
+    hh = gi_handle(m)
+    sub = (hh.split("@", 1)[0] if "@" in hh and hh.split("@", 1)[1] == mine_host else hh) if hh else str(m.get("sub") or "")
+    host = m.get("host")
+    if m.get("handle") and host and host != mine_host and is_remote(c):
+        sub = _("on {host}").format(host=host) + (" · " + hh.split("@", 1)[0] if hh else "")
+    return sub
+
+
+def gi_actions(c, m):
+    """Menue je Mitglied -> Liste der Aktionen: 'admin_on' | 'admin_off' | 'remove' (ohne Sicherheitsnummer)"""
+    r = gi_rights(c)
+    out = []
+    mine = gi_mine(c, m)
+    if r["admin"] and (not mine or m.get("admin")):
+        out.append("admin_off" if m.get("admin") else "admin_on")
+    if r["manage"] and not mine and m.get("username"):
+        out.append("remove")
+    return out
+
+
+def contact_item(k):
+    """Eintrag von GET /api/chat/contacts -> Zeile {ref, name, sub, avatar, remote, host, gone} (wie Web contactItem)"""
+    k = k if isinstance(k, dict) else {}
+    remote = bool(k.get("remote"))
+    host = k.get("host") or k.get("sub") or ""
+    if k.get("gone"):
+        sub = _("Server {host} not connected").format(host=host) if remote else _("Account no longer active")
+    elif remote:
+        sub = _("Person on {host}").format(host=host)
+    else:
+        sub = " · ".join(x for x in (str(k.get("sub") or ""), "" if k.get("ready", True) else _("hasn't set up chats yet")) if x)
+    return {"ref": k.get("ref"), "name": str(k.get("name") or "?"), "sub": sub, "avatar": k.get("avatar"), "remote": remote,
+            "host": host if remote else None, "gone": bool(k.get("gone")), "last_at": k.get("last_at") or 0}
+
+
+def contacts_sorted(lst):
+    """gueltige Kontakte, zuletzt zuerst (der Server sortiert schon so - zur Sicherheit stabil nachsortiert)"""
+    ks = [k for k in lst or [] if isinstance(k, dict) and isinstance(k.get("ref"), str) and k["ref"]]
+    return sorted(ks, key=lambda k: -(k.get("last_at") or 0) if isinstance(k.get("last_at"), (int, float)) else 0)
+
+
+def contact_keep_for(c):
+    """Filter fuer "Mitglied hinzufuegen": nicht schon dabei, fremde nur in Chats im Format v2/v3 (wie Web)"""
+    mem = [m for m in (c or {}).get("members") or [] if isinstance(m, dict)]
+
+    def keep(k):
+        ref = k.get("ref")
+        if any(ref in (m.get("ref"), m.get("handle"), m.get("username")) for m in mem):
+            return False
+        return not k.get("remote") or is_fed(c)
+    return keep
 
 
 def chat_home_hint(c):
@@ -598,6 +720,7 @@ class ChatState(GObject.Object):
         # geloescht) | "cleared" (Verlauf geleert, Chat bleibt); Name: wer es getan hat ("" = ich bzw. unbekannt)
         "chat-gone": (GObject.SignalFlags.RUN_FIRST, None, (int, str, str)),
         "receipts": (GObject.SignalFlags.RUN_FIRST, None, (int,)),          # (2.4) Gelesen-Bestaetigungen eines Chats
+        "contacts": (GObject.SignalFlags.RUN_FIRST, None, ()),              # (2.5) Kontakte geaendert (anderes Geraet)
         "reactions": (GObject.SignalFlags.RUN_FIRST, None, (int,)),         # (2.5) Reaktionen in einem Chat geaendert
         "presence": (GObject.SignalFlags.RUN_FIRST, None, ()),              # (2.4) Online-Status geaendert
     }
@@ -2429,6 +2552,29 @@ class ChatState(GObject.Object):
             done(ch)
         bg(client.json, "POST", "api/chats", dict(body, device=self.device_id), done=fin, error=error)
 
+    # --- Gruppeninfo und Kontakte (2.5, docs/APP-API-CHAT.md 6 und 7) ---------------------------------------------------
+    def set_admin(self, cid, who, on, done=None, error=None):
+        """PATCH /api/chats/{cid}/members/{who} {admin} -> 200 {chat} (neue Liste); who = members[].username"""
+        def fin(j):
+            ch = (j or {}).get("chat")
+            if isinstance(ch, dict):
+                self._free_titles([ch])
+                self._merge(ch)
+            if done:
+                done(ch)
+        bg(client.json, "PATCH", f"api/chats/{cid}/members/{urllib.parse.quote(str(who), safe='')}", {"admin": bool(on)},
+           done=fin, error=error)
+
+    def load_contacts(self, done, error=None, limit=30):
+        """GET /api/chat/contacts?limit= -> done([kontakt, ...]) (zuletzt zuerst)"""
+        bg(client.get, f"api/chat/contacts?limit={int(limit)}", done=lambda j: done(contacts_sorted((j or {}).get("contacts"))),
+           error=error or (lambda e: done([])))
+
+    def drop_contact(self, ref, done=None, error=None):
+        """DELETE /api/chat/contacts/{ref} (URL-kodiert, '@' erlaubt) - ausgeblendet bis zu einem neuen gemeinsamen Chat"""
+        bg(client.request, "DELETE", "api/chat/contacts/" + urllib.parse.quote(str(ref), safe="@~"),
+           done=lambda _r: done and done(), error=error)
+
     # --- Archivieren und Loeschen (2.1, docs/APP-API-CHAT.md) -----------------------------------------------------------
     @staticmethod
     def can_archive(c):
@@ -2697,6 +2843,8 @@ class ChatState(GObject.Object):
             self._react_live(cid, d)
         elif typ == "chat.edited":                            # (2.5) Nachricht bearbeitet
             self._edited_live(cid, d)
+        elif typ == "chat.contacts":                          # (2.5) Kontakt auf einem anderen Geraet ausgeblendet
+            self.emit("contacts")
         elif typ == "chat.request":                           # (2.3) neue Nachrichtenanfrage - still, nur die Liste
             self._list_soon()
         elif typ == "chat.keys.changed":                      # (2.3) Schluessel einer Person bzw. die eigenen geaendert
