@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: Gruppeninfo + Admins (chatadm1) und Kontakte (contacts1) - Texte wie die Web-Oberflaeche (saga/i18n) -->
+<resources>
+    <string name="gi_title">Gruppeninfo</string>
+    <string name="gi_menu">Gruppeninfo …</string>
+    <string name="gi_open">Infos zum Chat</string>
+    <string name="gi_make_admin">Zum Admin machen</string>
+    <string name="gi_drop_admin">Admin entziehen</string>
+    <string name="gi_remove">Aus Gruppe entfernen</string>
+    <string name="gi_add">Mitglied hinzufügen</string>
+    <string name="gi_readonly">Mitglieder ergeben sich hier aus der Gruppe bzw. den Freigaben der Seite.</string>
+    <string name="gi_admin">Admin</string>
+    <string name="gi_you">Du</string>
+    <string name="gi_name_note">Der Name wird wie eine Nachricht verschlüsselt.</string>
+    <string name="gi_remove_title">%1$s aus der Gruppe entfernen?</string>
+    <string name="gi_remove_text">%1$s bekommt keine neuen Nachrichten dieser Gruppe mehr.</string>
+    <string name="gi_removed">%1$s wurde entfernt.</string>
+    <string name="gi_admin_dropped">Admin-Rolle entzogen.</string>
+    <string name="gi_actions">Aktionen für %1$s</string>
+    <string name="gi_rename">Gruppe umbenennen</string>
+    <string name="gi_remote_only_new">Personen anderer Saga-Server lassen sich nur zu neuen Gruppen hinzufügen – bitte eine neue Gruppe anlegen.</string>
+    <string name="gi_sys_you_now_admin">Du bist jetzt Admin.</string>
+    <string name="gi_sys_now_admin">%1$s ist jetzt Admin.</string>
+    <string name="gi_sys_you_no_admin">Du bist kein Admin mehr.</string>
+    <string name="gi_sys_no_admin">%1$s ist kein Admin mehr.</string>
+    <string name="gi_sys_you_made_admin">Du hast %1$s zum Admin gemacht.</string>
+    <string name="gi_sys_made_admin">%1$s hat %2$s zum Admin gemacht.</string>
+    <string name="gi_sys_you_dropped_admin">Du hast %1$s die Admin-Rolle entzogen.</string>
+    <string name="gi_sys_dropped_admin">%1$s hat %2$s die Admin-Rolle entzogen.</string>
+    <string name="ct_contacts">Kontakte</string>
+    <string name="ct_remove">Aus Kontakten entfernen</string>
+    <string name="ct_removed">%1$s aus den Kontakten entfernt.</string>
+    <string name="ct_account_gone">Konto nicht mehr aktiv</string>
+    <string name="ct_server_gone">Server %1$s nicht verbunden</string>
+    <string name="ct_person_on">Person auf %1$s</string>
+    <string name="ct_not_ready">hat Chats noch nicht eingerichtet</string>
+    <string name="ct_unreachable">Gerade nicht erreichbar</string>
+    <string name="ct_sub_not_ready">%1$s · hat Chats noch nicht eingerichtet</string>
+    <plurals name="gi_kind_free">
+        <item quantity="one">Freie Gruppe · %1$d Mitglied</item>
+        <item quantity="other">Freie Gruppe · %1$d Mitglieder</item>
+    </plurals>
+    <plurals name="gi_kind_page">
+        <item quantity="one">Seiten-Chat · %1$d Mitglied</item>
+        <item quantity="other">Seiten-Chat · %1$d Mitglieder</item>
+    </plurals>
+    <plurals name="gi_kind_group">
+        <item quantity="one">Gruppen-Chat „%2$s“ · %1$d Mitglied</item>
+        <item quantity="other">Gruppen-Chat „%2$s“ · %1$d Mitglieder</item>
+    </plurals>
+    <plurals name="gi_members_n">
+        <item quantity="one">%1$d Mitglied</item>
+        <item quantity="other">%1$d Mitglieder</item>
+    </plurals>
+</resources>

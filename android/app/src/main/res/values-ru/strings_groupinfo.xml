@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: Gruppeninfo + Admins (chatadm1) und Kontakte (contacts1) - Texte wie die Web-Oberflaeche (saga/i18n) -->
+<resources>
+    <string name="gi_title">О группе</string>
+    <string name="gi_menu">О группе …</string>
+    <string name="gi_open">О чате</string>
+    <string name="gi_make_admin">Сделать администратором</string>
+    <string name="gi_drop_admin">Снять администратора</string>
+    <string name="gi_remove">Удалить из группы</string>
+    <string name="gi_add">Добавить участника</string>
+    <string name="gi_readonly">Здесь участники определяются группой или общим доступом к странице.</string>
+    <string name="gi_admin">Админ</string>
+    <string name="gi_you">Ты</string>
+    <string name="gi_name_note">Название шифруется так же, как сообщение.</string>
+    <string name="gi_remove_title">Удалить %1$s из группы?</string>
+    <string name="gi_remove_text">%1$s больше не будет получать новые сообщения этой группы.</string>
+    <string name="gi_removed">%1$s удален(а).</string>
+    <string name="gi_admin_dropped">Роль администратора снята.</string>
+    <string name="gi_actions">Действия для %1$s</string>
+    <string name="gi_rename">Переименовать группу</string>
+    <string name="gi_remote_only_new">Людей с других серверов Saga можно добавлять только в новые группы – создайте новую группу.</string>
+    <string name="gi_sys_you_now_admin">Теперь вы администратор.</string>
+    <string name="gi_sys_now_admin">%1$s теперь администратор.</string>
+    <string name="gi_sys_you_no_admin">Вы больше не администратор.</string>
+    <string name="gi_sys_no_admin">%1$s больше не администратор.</string>
+    <string name="gi_sys_you_made_admin">Вы назначили %1$s администратором.</string>
+    <string name="gi_sys_made_admin">%1$s назначил(а) %2$s администратором.</string>
+    <string name="gi_sys_you_dropped_admin">Вы сняли с %1$s роль администратора.</string>
+    <string name="gi_sys_dropped_admin">%1$s снял(а) с %2$s роль администратора.</string>
+    <string name="ct_contacts">Контакты</string>
+    <string name="ct_remove">Удалить из контактов</string>
+    <string name="ct_removed">%1$s удалён(а) из контактов.</string>
+    <string name="ct_account_gone">Учётная запись больше не активна</string>
+    <string name="ct_server_gone">Сервер %1$s не подключён</string>
+    <string name="ct_person_on">Человек на %1$s</string>
+    <string name="ct_not_ready">ещё не настроил(а) чаты</string>
+    <string name="ct_unreachable">Сейчас недоступен</string>
+    <string name="ct_sub_not_ready">%1$s · ещё не настроил(а) чаты</string>
+    <plurals name="gi_kind_free">
+        <item quantity="one">Группа · %1$d участник</item>
+        <item quantity="few">Группа · %1$d участника</item>
+        <item quantity="many">Группа · %1$d участников</item>
+        <item quantity="other">Группа · %1$d участника</item>
+    </plurals>
+    <plurals name="gi_kind_page">
+        <item quantity="one">Чат страницы · %1$d участник</item>
+        <item quantity="few">Чат страницы · %1$d участника</item>
+        <item quantity="many">Чат страницы · %1$d участников</item>
+        <item quantity="other">Чат страницы · %1$d участника</item>
+    </plurals>
+    <plurals name="gi_kind_group">
+        <item quantity="one">Чат группы «%2$s» · %1$d участник</item>
+        <item quantity="few">Чат группы «%2$s» · %1$d участника</item>
+        <item quantity="many">Чат группы «%2$s» · %1$d участников</item>
+        <item quantity="other">Чат группы «%2$s» · %1$d участника</item>
+    </plurals>
+    <plurals name="gi_members_n">
+        <item quantity="one">%1$d участник</item>
+        <item quantity="few">%1$d участника</item>
+        <item quantity="many">%1$d участников</item>
+        <item quantity="other">%1$d участника</item>
+    </plurals>
+</resources>
