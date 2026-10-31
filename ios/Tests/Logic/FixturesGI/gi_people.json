@@ -1,0 +1,22 @@
+{
+ "groups": [],
+ "remote": [],
+ "users": [
+  {
+   "avatar": null,
+   "contact": true,
+   "name": "Bert Test",
+   "ready": true,
+   "sub": "~c6k3y2zp5cnkr43h",
+   "username": "~c6k3y2zp5cnkr43h"
+  },
+  {
+   "avatar": null,
+   "contact": true,
+   "name": "Cara Test",
+   "ready": true,
+   "sub": "~t4tndwkherfyru3v",
+   "username": "~t4tndwkherfyru3v"
+  }
+ ]
+}

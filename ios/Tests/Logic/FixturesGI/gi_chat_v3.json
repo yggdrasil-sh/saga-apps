@@ -1,0 +1,82 @@
+{
+ "chat": {
+  "ai": false,
+  "archived": false,
+  "archived_at": null,
+  "big_files": true,
+  "call": {
+   "group": true,
+   "group_block": null,
+   "running": null
+  },
+  "can_admin": false,
+  "can_manage": false,
+  "can_rename": true,
+  "cleared_seq": 0,
+  "created": 1793467428.0196693,
+  "delete_for_all": null,
+  "fed": false,
+  "group": null,
+  "home": "a.example",
+  "home_self": true,
+  "id": 14,
+  "kind": "free",
+  "last_at": 1793467428.0662813,
+  "last_read": 0,
+  "last_seq": 6,
+  "max_members": 50,
+  "me_admin": false,
+  "member_count": 3,
+  "members": [
+   {
+    "admin": true,
+    "avatar": null,
+    "handle": "~kwkrvbg6cuw4jovd@a.example",
+    "host": "a.example",
+    "me": false,
+    "name": "Anna Test",
+    "ref": "~scrclbcpbtvc4msp",
+    "sub": "~scrclbcpbtvc4msp",
+    "username": "~kwkrvbg6cuw4jovd@a.example"
+   },
+   {
+    "admin": false,
+    "avatar": null,
+    "handle": "~owk4krdjkjrxiejm@a.example",
+    "host": "a.example",
+    "me": true,
+    "name": "Bert Test",
+    "ref": "gi-bert",
+    "sub": "",
+    "username": "gi-bert"
+   },
+   {
+    "admin": false,
+    "avatar": null,
+    "handle": "~kpoinxeexejqsjdb@a.example",
+    "host": "a.example",
+    "me": false,
+    "name": "Cara Test",
+    "ref": "~t4tndwkherfyru3v",
+    "sub": "~t4tndwkherfyru3v",
+    "username": "~kpoinxeexejqsjdb@a.example"
+   }
+  ],
+  "muted": false,
+  "my_handle": "~owk4krdjkjrxiejm@a.example",
+  "name": null,
+  "note_id": null,
+  "online_ok": true,
+  "readonly": false,
+  "readonly_reason": null,
+  "receipts_ok": true,
+  "ref": "7e02cd686c43bcde0f8e00fc3c037fd2@a.example",
+  "request": false,
+  "retention_s": 0,
+  "role": "member",
+  "state": "ok",
+  "unread": 0,
+  "v": 3,
+  "x3_ok": true
+ }
+}

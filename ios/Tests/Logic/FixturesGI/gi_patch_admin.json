@@ -1,0 +1,64 @@
+{
+ "chat": {
+  "ai": false,
+  "archived": false,
+  "archived_at": null,
+  "call": {
+   "group": true,
+   "group_block": null,
+   "running": null
+  },
+  "can_admin": true,
+  "can_manage": true,
+  "can_rename": true,
+  "cleared_seq": 0,
+  "created": 1793467421.181604,
+  "delete_for_all": "chat",
+  "group": null,
+  "id": 12,
+  "kind": "free",
+  "last_at": 1793467421.181604,
+  "last_read": 0,
+  "last_seq": 0,
+  "max_members": 50,
+  "me_admin": true,
+  "member_count": 3,
+  "members": [
+   {
+    "admin": true,
+    "avatar": null,
+    "me": true,
+    "name": "Anna Test",
+    "ref": "gi-anna",
+    "sub": "",
+    "username": "gi-anna"
+   },
+   {
+    "admin": true,
+    "avatar": null,
+    "me": false,
+    "name": "Bert Test",
+    "ref": "~c6k3y2zp5cnkr43h",
+    "sub": "~c6k3y2zp5cnkr43h",
+    "username": "gi-bert"
+   },
+   {
+    "admin": false,
+    "avatar": null,
+    "me": false,
+    "name": "Cara Test",
+    "ref": "~t4tndwkherfyru3v",
+    "sub": "~t4tndwkherfyru3v",
+    "username": "gi-cara"
+   }
+  ],
+  "muted": false,
+  "name": null,
+  "note_id": null,
+  "retention_s": 0,
+  "role": "admin",
+  "unread": 0,
+  "x3_ok": false,
+  "x3_why": "setting"
+ }
+}

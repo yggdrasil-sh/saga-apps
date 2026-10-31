@@ -1,0 +1,6 @@
+{
+ "body": {
+  "error": "Dafür fehlt dir die Berechtigung."
+ },
+ "status": 403
+}

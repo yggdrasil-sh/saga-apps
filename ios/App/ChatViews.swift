@@ -423,6 +423,11 @@ struct NewChatSheet: View {
                         }
                     }
                 } footer: { if !multi { Button("+ Gruppe mit mehreren Personen …") { multi = true; q = "" }.font(.footnote) } }
+                if showContacts {                                                 // 2.5 (contacts1): ohne Eingabe die Kontakte
+                    ContactsSection(chat: chat, list: chat.contacts, picked: { k in
+                        picked.contains { $0.username == k.ref } || pickedRemote.contains { $0.handle == k.ref }
+                    }, disabled: busy) { k in pickContact(k) }
+                }
                 if multi {
                     Section {
                         TextField("Name der Gruppe", text: $groupName)
@@ -446,8 +451,16 @@ struct NewChatSheet: View {
             #endif
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } } }
             .task(id: q) { await search() }
+            .task { await chat.loadContacts() }
         }
         .macFrame(minWidth: 420, idealWidth: 460, minHeight: 460, idealHeight: 560)
+    }
+    private var showContacts: Bool { q.trimmingCharacters(in: .whitespaces).isEmpty && store.features.has(ContactsLogic.feature) }
+    /// Kontakt: lokal wie ein Treffer aus people (user = ref), fremd wie ein Treffer anderer Server (handle = ref)
+    private func pickContact(_ k: ChatContact) {
+        guard ContactsLogic.selectable(k) else { return }
+        if k.remote { pickRemote(k.fedPerson) }
+        else { pick((k.ref, k.name, k.ready, k.avatar, k.sub)) }
     }
     private func search() async {
         guard FedChatLogic.searchReady(q, server: store.serverVersion) else { users = []; groups = []; remote = []; searched = q; return }   // 2.3: ab 1 Zeichen (1-2 nur genau), sonst ab 3

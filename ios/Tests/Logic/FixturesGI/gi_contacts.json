@@ -1,0 +1,34 @@
+{
+ "contacts": [
+  {
+   "avatar": null,
+   "gone": true,
+   "last_at": 1793467421.2611394,
+   "name": "Dora Test",
+   "ready": false,
+   "ref": "~tphdshfq7dzfi25r",
+   "remote": false,
+   "sub": "~tphdshfq7dzfi25r"
+  },
+  {
+   "avatar": null,
+   "gone": false,
+   "last_at": 1793467421.1861768,
+   "name": "Bert Test",
+   "ready": true,
+   "ref": "~c6k3y2zp5cnkr43h",
+   "remote": false,
+   "sub": "~c6k3y2zp5cnkr43h"
+  },
+  {
+   "avatar": null,
+   "gone": false,
+   "last_at": 1793467421.1861768,
+   "name": "Cara Test",
+   "ready": true,
+   "ref": "~t4tndwkherfyru3v",
+   "remote": false,
+   "sub": "~t4tndwkherfyru3v"
+  }
+ ]
+}

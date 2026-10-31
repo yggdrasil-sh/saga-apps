@@ -169,7 +169,7 @@ struct ChatMe: Equatable {
     var hasIdentity: Bool { identPub != nil }
 }
 
-struct ChatMember: Equatable, Identifiable {
+struct ChatMember: Equatable, Identifiable, GroupMemberLike {
     var username: String; var name: String; var me: Bool
     /// Profilbild (2.1): relative Adresse /api/avatar/... oder nil
     var avatar: String? = nil
@@ -179,6 +179,8 @@ struct ChatMember: Equatable, Identifiable {
     var sub: String? = nil
     /// 2.5: Handle '~x@host' (Chats v1 liefern ihn Clients der Stufe 3 fuer die Vertrauens-Uebernahme; Stufe 3: = username)
     var handle: String? = nil
+    /// 2.5 (chatadm1): Admin der freien Gruppe
+    var admin = false
     var id: String { username }
 }
 
@@ -212,6 +214,11 @@ struct ChatSummary: Identifiable, Equatable {
     var callRunning: String?
     /// 2.5: warum (noch) keine Reaktionen/Bearbeiten (x3_why; nil = geht bzw. Server meldet es nicht)
     var x3Why: ChatSelectLogic.Why?
+    /// 2.5 (chatadm1): Rechte in der Gruppeninfo (nil = Server meldet sie nicht)
+    var canManage: Bool?
+    var canAdmin: Bool?
+    var canRename: Bool?
+    var meAdmin = false
     var statusFlags: ReceiptLogic.ChatFlags {
         ReceiptLogic.ChatFlags(kind: kind, fed: isFed, request: fed?.request ?? false, readonly: fed?.readonly ?? false, receiptsOK: receiptsOK, onlineOK: onlineOK)
     }
@@ -221,6 +228,7 @@ struct ChatSummary: Identifiable, Equatable {
             && a.canArchive == b.canArchive && a.archived == b.archived && a.clearedSeq == b.clearedSeq && a.deleteForAll == b.deleteForAll && a.fed == b.fed
             && a.receiptsOK == b.receiptsOK && a.onlineOK == b.onlineOK && a.bigFiles == b.bigFiles
             && a.callGroup == b.callGroup && a.callGroupBlock == b.callGroupBlock && a.callRunning == b.callRunning && a.x3Why == b.x3Why
+            && a.canManage == b.canManage && a.canAdmin == b.canAdmin && a.canRename == b.canRename && a.meAdmin == b.meAdmin
     }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let i = ShareJSON.int(d["id"]) else { return nil }
@@ -230,7 +238,7 @@ struct ChatSummary: Identifiable, Equatable {
             let ref = ShareJSON.str(m["ref"])
             return ChatMember(username: u, name: PersonRef.display(name: m["name"] as? String, ref: ref, id: u), me: ShareJSON.bool(m["me"]),
                               avatar: ShareJSON.str(m["avatar"]), ref: ref, sub: PersonRef.sub(m["sub"]),
-                              handle: ShareJSON.str(m["handle"]).flatMap { FedChatLogic.isHandle($0) ? $0 : nil })
+                              handle: ShareJSON.str(m["handle"]).flatMap { FedChatLogic.isHandle($0) ? $0 : nil }, admin: ShareJSON.bool(m["admin"]))
         }
         memberCount = ShareJSON.int(d["member_count"]) ?? members.count
         unread = ShareJSON.int(d["unread"]) ?? 0; muted = ShareJSON.bool(d["muted"]); retention = ShareJSON.int(d["retention_s"]) ?? 0
@@ -245,10 +253,17 @@ struct ChatSummary: Identifiable, Equatable {
         (receiptsOK, onlineOK) = ReceiptLogic.flags(d)
         bigFiles = d["big_files"] as? Bool
         x3Why = ChatSelectLogic.why(d)
+        canManage = d["can_manage"] as? Bool; canAdmin = d["can_admin"] as? Bool; canRename = d["can_rename"] as? Bool
+        meAdmin = ShareJSON.bool(d["me_admin"])
         if let k = d["call"] as? [String: Any] {
             callGroup = k["group"] as? Bool; callGroupBlock = ShareJSON.str(k["group_block"])
             if let r = k["running"] as? [String: Any], (r["state"] as? String) != "ended", (r["kind"] as? String) == "group" { callRunning = r["id"] as? String }
         }
+    }
+    /// 2.5: Rechte fuer die Gruppeninfo (GroupInfoLogic.rights)
+    func rights(feature: Bool) -> GroupRights {
+        GroupInfoLogic.rights(kind: kind, role: role, canManage: canManage, canAdmin: canAdmin, canRename: canRename,
+                              readonly: fed?.readonly ?? false, feature: feature)
     }
     var title: String {
         switch kind {
@@ -293,6 +308,8 @@ final class ChatModel: ObservableObject {
     @Published var approval: ChatLinkRequest?
     /// Hinweis nach Aktionen ("Geraet bestaetigt.")
     @Published var toast: String?
+    /// 2.5 (contacts1): Kontakte (zuletzt zuerst, GroupInfo.swift loadContacts)
+    @Published var contacts: [ChatContact] = []
     /// Kopplung dieses (neuen) Geraets laeuft: Code + Ablauf
     @Published var linking: (id: String, code: String, expires: Date)?
     @Published var linkError: String?
@@ -657,6 +674,9 @@ final class ChatModel: ObservableObject {
             if let o = open, o.chatID == cid { o.live(type, d) }
         case "chat.receipt", "chat.presence", "chat.privacy":           // 2.4: Gelesen-Bestaetigungen, Online-Status
             statusLive(type, d)
+        case "chat.contacts":                                           // 2.5: auf einem anderen Geraet aus den Kontakten entfernt
+            if let r = ShareJSON.str(d["ref"]), ShareJSON.bool(d["hidden"]) { contacts.removeAll { $0.ref == r } }
+            Task { await loadContacts() }
         case "chat.request":                                            // 2.3: neue Nachrichtenanfrage (still)
             Task { await loadList() }
         case "chat.keys.changed":                                       // 2.3: Schluessel einer Person bzw. die eigenen

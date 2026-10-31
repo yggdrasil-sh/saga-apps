@@ -24,6 +24,7 @@ struct ConversationView: View {
     @State private var immichOn = false              // "Aus Immich" nur, wenn Immich fuer mich eingerichtet ist
     @State private var safetyPeer: ChatMember?
     @State private var showMembers = false
+    @State private var showInfo = false                    // 2.5 (chatadm1): Gruppeninfo
     @State private var askDelete: ChatMessage?
     @State private var askLeave = false
     @State private var rename = false
@@ -88,6 +89,17 @@ struct ConversationView: View {
             #if os(iOS)
             if let s = presenceText, let t = conv.info?.title {                   // 2.4: Name, darunter online / zuletzt online
                 ToolbarItem(placement: .principal) { ChatTitleWithPresence(title: t, status: s, online: chat.presenceOf(conv.info)?.online == true) }
+            } else if hasGroupInfo, let t = conv.info?.title {                   // 2.5: Tipp auf den Kopf -> Gruppeninfo
+                ToolbarItem(placement: .principal) {
+                    Button { showInfo = true } label: { Text(verbatim: t).font(.headline).lineLimit(1).foregroundStyle(.primary) }
+                        .buttonStyle(.plain).accessibilityLabel(Text("Infos zum Chat")).accessibilityValue(Text(verbatim: t))
+                }
+            }
+            #else
+            if hasGroupInfo {                                                    // 2.5: Mac - Knopf im Kopf (Titel ist der Fenstertitel)
+                ToolbarItem(placement: .navigation) {
+                    Button { showInfo = true } label: { Label("Gruppeninfo", systemImage: "info.circle") }.help(Text("Infos zum Chat"))
+                }
             }
             #endif
             // Anrufen (2.1): nur im Direkt-Chat
@@ -125,6 +137,7 @@ struct ConversationView: View {
             if ChatPerf.on { await perfRun() }
             if UserDefaults.standard.bool(forKey: "hkChatSafety"), let p = conv.info?.peer { try? await Task.sleep(for: .seconds(2.5)); safetyPeer = p }   // nur fuer Tests
             if UserDefaults.standard.bool(forKey: "hkChatMembers") { try? await Task.sleep(for: .seconds(2.5)); showMembers = true }
+            if UserDefaults.standard.bool(forKey: "hkChatGroupInfo") { try? await Task.sleep(for: .seconds(2.5)); showInfo = true }   // nur fuer Bilder
             if let t = UserDefaults.standard.string(forKey: "hkChatSend") {                 // nur fuer Tests: Nachricht (+ Bild) senden
                 var f: [ChatPendingFile] = []
                 if UserDefaults.standard.bool(forKey: "hkChatSendImage"), let png = Self.testImage() { f.append(ChatPendingFile(name: "garten.png", mime: "image/png", data: png)) }
@@ -172,6 +185,7 @@ struct ConversationView: View {
             }
         }
         .sheet(isPresented: $showMembers) { MembersSheet(conv: conv) { p in showMembers = false; safetyPeer = p } }
+        .sheet(isPresented: $showInfo) { GroupInfoSheet(conv: conv, safety: { p in showInfo = false; safetyPeer = p }, left: { nav.back() }) }
         .sheet(isPresented: $pickPage) { PagePickSheet { id, title in text += (text.isEmpty || text.hasSuffix(" ") ? "" : " ") + "[[note:\(id)]] "; conv.notes[id] = (title, "") } }
         .photosPicker(isPresented: $pickPhotos, selection: $photoItems, maxSelectionCount: 5, matching: .any(of: [.images, .videos]))
         .onChange(of: photoItems) { _, items in addPhotos(items) }
@@ -387,6 +401,8 @@ struct ConversationView: View {
         }
     }
     /// 2.4: "online" bzw. "zuletzt online …" im Direkt-Chat (nil = nichts zeigen)
+    /// 2.5: Gruppeninfo statt "Mitglieder" (Gruppen-, freie und Seiten-Chats; Server mit chatadm1)
+    private var hasGroupInfo: Bool { store.features.has(GroupInfoLogic.feature) && (conv.info.map { $0.kind != "dm" } ?? false) }
     private var presenceText: String? { PresenceText.text(chat.presenceOf(conv.info)) }
     /// Anrufe: Server kann es; ueber Servergrenzen nur aus angenommenen, beschreibbaren Chats (Anfragen klingeln nie)
     private var canCall: Bool { store.calls.enabled && (conv.fed?.callable ?? true) }
@@ -571,7 +587,8 @@ struct ConversationView: View {
             Divider()
             if let i = conv.info {
                 if i.kind == "dm", let p = i.peer { Button { safetyPeer = p } label: { Label("Sicherheitsnummer", systemImage: "checkmark.shield") } }
-                Button { showMembers = true } label: { Label("Mitglieder", systemImage: "person.2") }
+                if hasGroupInfo { Button { showInfo = true } label: { Label("Gruppeninfo …", systemImage: "person.2") } }   // 2.5: ersetzt "Mitglieder"
+                else { Button { showMembers = true } label: { Label("Mitglieder", systemImage: "person.2") } }
                 Button { Task { await conv.patch(["muted": !i.muted]) } } label: {
                     Label(i.muted ? "Benachrichtigungen an" : "Stummschalten", systemImage: i.muted ? "bell" : "bell.slash")
                 }
@@ -589,7 +606,9 @@ struct ConversationView: View {
                 if i.kind == "page", let n = i.noteID { Button { nav.push(PageRoute(id: n)) } label: { Label("Seite öffnen", systemImage: "doc.text") } }
                 if i.kind == "free" {
                     Divider()
-                    Button { newName = i.decryptedTitle ?? ""; rename = true } label: { Label("Umbenennen …", systemImage: "pencil") }
+                    if i.rights(feature: store.features.has(GroupInfoLogic.feature)).rename {   // 2.5: can_rename (schreibgeschuetzt: nein)
+                        Button { newName = i.decryptedTitle ?? ""; rename = true } label: { Label("Umbenennen …", systemImage: "pencil") }
+                    }
                     Button(role: .destructive) { askLeave = true } label: { Label("Gruppe verlassen", systemImage: "rectangle.portrait.and.arrow.right") }
                 }
                 if i.canArchive {                                            // Archiv und Loeschen (2.1)
