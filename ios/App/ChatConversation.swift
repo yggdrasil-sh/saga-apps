@@ -581,8 +581,9 @@ final class ConversationModel: ObservableObject {
     }
     /// Person hinzufuegen: Konto hier (`user`) bzw. Person eines anderen Servers (`handle`, nur Gruppen ueber Servergrenzen);
     /// danach den Gruppennamen erneut senden, damit Neue ihn lesen koennen (sie sehen nur Nachrichten ab dem Beitritt)
-    func addMember(_ user: String) async { await addMember(["user": user]) }
-    func addMember(handle: String) async { await addMember(["handle": handle]) }
+    /// 2.5 (pagechatmembers1): im Seiten-Chat mit Rolle der Freigabe (Standard view)
+    func addMember(_ user: String, role: ShareRole? = nil) async { await addMember(role.map { ChatStd.pageAddBody(["user": user], role: $0) } ?? ["user": user]) }
+    func addMember(handle: String, role: ShareRole? = nil) async { await addMember(role.map { ChatStd.pageAddBody(["handle": handle], role: $0) } ?? ["handle": handle]) }
     private func addMember(_ body: [String: Any]) async {
         guard let store else { return }
         do {

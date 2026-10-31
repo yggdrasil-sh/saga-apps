@@ -38,6 +38,18 @@ struct ConversationView: View {
     @State private var voiceProgress: Double?             // 2.5: Sprachnachricht wird hochgeladen
     @StateObject private var rec = VoiceRecorder()        // 2.5: Aufnahme einer Sprachnachricht
     @StateObject private var sel = ChatSelection()        // 2.5: Mehrfachauswahl (ChatSelect.swift)
+    @State private var reporting: [ChatMessage]?          // 2.5 (report1): Melden
+    @State private var askModDel: ChatMessage?            // 2.5 (moddel1): Loeschen (Admin)
+    @State private var askBlockPeer = false               // 2.5 (block2): Direkt-Chat sperren
+    @State private var unblocked: Set<String> = []        // eingeklappte Nachrichten gesperrter Personen, hier aufgeklappt
+    @State private var showMedia = false                  // 2.5 (chatmedia1)
+    @State private var jumpTo: String?                    // Pins-Leiste: zur Nachricht springen
+    @State private var people: [String: String] = [:]     // 2.5 (chatmention1): "@Name" -> Kennung
+    @State private var unf: ChatStd.Unfurl?               // 2.5 (unfurl1): Vorschau ueber dem Eingabefeld
+    @State private var unfOff: Set<String> = []
+    @State private var unfImage: CGImage?
+    @State private var draftLoaded = false
+    @State private var camera = false                     // 2.5: Kamera direkt im Chat (iOS)
     @FocusState private var focused: Bool
 
     init(chatID: Int, chat: ChatModel) {
@@ -61,10 +73,14 @@ struct ConversationView: View {
             } else {
                 ChatCallBanner(calls: store.calls, chatID: chatID)              // 2.3.1: laufender Anruf in diesem Chat
                 banners
+                PinnedBar(conv: conv) { id in jumpTo = id }                       // 2.5 (msgpin1)
                 FedChatBanners(conv: conv) { m in safetyPeer = ChatMember(username: m.username, name: m.name, me: false) }   // 2.3: Herkunft, TOFU
                 messagesList
                 if let f = conv.fed, f.request || f.readonly {
                     FedStateBar(conv: conv, fed: f) { nav.back() }               // Nachrichtenanfrage bzw. schreibgeschuetzt
+                } else if let i = conv.info, let why = ChatStd.composerBlock(info: i.std, f: store.chatStd), !sel.on {
+                    Label { Text(verbatim: why) } icon: { Image(systemName: i.std.blocked ? "hand.raised.fill" : "lock.fill") }   // 2.5: nur Admins / gesperrt
+                        .font(.callout).foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(14).background(.bar)
                 } else if sel.on {
                     ChatSelectBar(count: selectedCount, busy: sel.busy, copy: selCopy, forward: selForward,
                                   toPage: { sel.askPage = true }, delete: { sel.askDelete = true })
@@ -231,6 +247,16 @@ struct ConversationView: View {
         } message: {
             Text("Dann kann jede Person im Chat \(conv.aiName) mit @\(conv.aiName) fragen. Nur diese Nachricht und bis zu \(AIChatLogic.historyMax) Nachrichten davor gehen im Klartext an die KI (\(aiHost)) – der Server speichert sie nicht. Alle Mitglieder sehen einen Hinweis.")
         }
+        .alert("Nachricht für alle löschen?", isPresented: Binding(get: { askModDel != nil }, set: { if !$0 { askModDel = nil } }), presenting: askModDel) { m in
+            Button("Löschen", role: .destructive) { Task { await conv.modDelete(m) } }
+            Button("Abbrechen", role: .cancel) {}
+        } message: { m in Text("Als Admin löschst du die Nachricht von \(m.senderName) für alle. Im Chat bleibt der Hinweis „Von einem Admin gelöscht“.") }
+        .alert(Text("\(conv.info?.peer?.name ?? "") sperren?"), isPresented: $askBlockPeer) {
+            Button("Sperren", role: .destructive) { if let t = dmBlockTarget { Task { await chat.block(t, name: conv.info?.peer?.name ?? "") } } }
+            Button("Abbrechen", role: .cancel) {}
+        } message: { Text("\(conv.info?.peer?.name ?? "") kann dir keine Direktnachrichten mehr schicken und dich nicht anrufen. In Gruppen werden die Nachrichten eingeklappt. \(conv.info?.peer?.name ?? "") erfährt davon nichts.") }
+        .sheet(item: Binding(get: { reporting.map { ReportItems(list: $0) } }, set: { reporting = $0?.list })) { r in ReportSheet(chatID: chatID, messages: r.list, conv: conv) }
+        .sheet(isPresented: $showMedia) { ChatMediaSheet(conv: conv) }
         .alert("Gruppe verlassen?", isPresented: $askLeave) {
             Button("Verlassen", role: .destructive) { Task { if await conv.leave() { nav.back() } } }
             Button("Abbrechen", role: .cancel) {}
@@ -306,6 +332,11 @@ struct ConversationView: View {
                                 if e.group, let i = conv.info, canGroupCall(i) { store.calls.startGroup(i, video: e.media == "video") }   // 2.4 E5
                                 else if let p = conv.info?.peer, canCall { store.calls.start(chatID: chatID, peer: p, video: e.media == "video", fed: conv.info?.fed) }
                             }.id(m.id)
+                        } else if m.tomb {
+                            TombRow(m: m).id(m.id)                                       // 2.5 (moddel1): Grabstein
+                        } else if conv.info.map({ ChatStd.collapsed(kind: $0.kind, senderBlocked: conv.senderBlocked(m), mine: m.mine, f: store.chatStd) }) == true,
+                                  !unblocked.contains(m.id) {
+                            BlockedMessageRow { unblocked.insert(m.id) }.id(m.id)         // 2.5 (block2): eingeklappt
                         } else if let s = m.sys {
                             FedSysRow(line: s, date: m.date, myHandle: conv.fed?.myHandle).id(m.id)   // 2.3: Systemzeile
                         } else {
@@ -316,7 +347,8 @@ struct ConversationView: View {
                                       edit: { startEdit(m) },
                                       select: conv.selectable(m) ? { startSelect(m) } : nil,
                                       openPage: { id in nav.push(PageRoute(id: id)) },
-                                      checkSafety: { safetyPeer = ChatMember(username: m.sender, name: m.senderName, me: false) })
+                                      checkSafety: { safetyPeer = ChatMember(username: m.sender, name: m.senderName, me: false) },
+                                      std: stdActions(m))
                             .id(m.id)
                             .onAppear { conv.saw(m) }                                   // 2.4: Bestaetigung erst, wenn sichtbar
                         }
@@ -350,6 +382,12 @@ struct ConversationView: View {
                 Task { try? await Task.sleep(for: .milliseconds(80)); withAnimation { proxy.scrollTo("end", anchor: .bottom) } }
             }
             .onChange(of: perfScroll) { _, id in if let id { proxy.scrollTo(id, anchor: .center) } }
+            .onChange(of: jumpTo) { _, id in                                    // 2.5: Pins-Leiste
+                guard let id else { return }
+                if conv.messages.contains(where: { $0.id == id }) { withAnimation { proxy.scrollTo(id, anchor: .center) } }
+                else { chat.toast = String(localized: "Die Nachricht ist noch nicht geladen – weiter nach oben blättern.") }
+                jumpTo = nil
+            }
             .overlay { if conv.loading && conv.messages.isEmpty { ProgressView() } }
         }
     }
@@ -399,6 +437,29 @@ struct ConversationView: View {
         } else {
             row()
         }
+    }
+    /// 2.5 Chat-Standard: Aktionen je Nachricht (Anheften, Loeschen (Admin), sperren, melden) - nur mit den Features
+    private func stdActions(_ m: ChatMessage) -> [BubbleAction] {
+        guard let i = conv.info, m.content != nil, m.call == nil, m.aiState != .ok || !m.mine else { return [] }
+        let f = store.chatStd
+        var a: [BubbleAction] = []
+        if let on = ChatStd.pinAction(id: m.id, info: i.std, f: f, delivered: m.delivery == .delivered) {
+            a.append(BubbleAction(id: "pin", title: on ? "Anheften" : "Lösen", icon: on ? "pin" : "pin.slash") { Task { await conv.pin(m, on) } })
+        }
+        if ChatStd.canModDelete(mine: m.mine, info: i.std, f: f) {
+            a.append(BubbleAction(id: "moddel", title: "Löschen (Admin)", icon: "trash.slash", destructive: true, sheet: true) { askModDel = m })
+        }
+        if !m.mine, f.block, i.kind != "dm", !conv.senderBlocked(m), i.fed?.remote != true, let t = conv.blockTarget(m) {
+            let n = m.senderName
+            a.append(BubbleAction(id: "block", title: "Person sperren", icon: "hand.raised", destructive: true) { Task { await chat.block(t, name: n) } })
+        }
+        if !m.mine, f.report { a.append(BubbleAction(id: "report", title: "Melden …", icon: "exclamationmark.bubble", sheet: true) { reporting = [m] }) }
+        return a
+    }
+    /// Direkt-Chat: Kennung des Gegenuebers zum Sperren (Handle, nie Anmeldename)
+    private var dmBlockTarget: String? {
+        guard let i = conv.info, i.kind == "dm", let p = i.members.first(where: { !$0.me }) else { return nil }
+        return ChatStd.blockTarget(senderHandle: nil, member: (p.handle, p.ref))
     }
     /// 2.4: "online" bzw. "zuletzt online …" im Direkt-Chat (nil = nichts zeigen)
     /// 2.5: Gruppeninfo statt "Mitglieder" (Gruppen-, freie und Seiten-Chats; Server mit chatadm1)
@@ -589,8 +650,15 @@ struct ConversationView: View {
                 if i.kind == "dm", let p = i.peer { Button { safetyPeer = p } label: { Label("Sicherheitsnummer", systemImage: "checkmark.shield") } }
                 if hasGroupInfo { Button { showInfo = true } label: { Label("Gruppeninfo …", systemImage: "person.2") } }   // 2.5: ersetzt "Mitglieder"
                 else { Button { showMembers = true } label: { Label("Mitglieder", systemImage: "person.2") } }
-                Button { Task { await conv.patch(["muted": !i.muted]) } } label: {
-                    Label(i.muted ? "Benachrichtigungen an" : "Stummschalten", systemImage: i.muted ? "bell" : "bell.slash")
+                ChatAlltagItems(chat: chat, c: i) { nav.back() }                 // 2.5: Stumm (Dauer), Anheften, ungelesen, ausblenden
+                if store.chatStd.media { Button { showMedia = true } label: { Label("Medien und Dateien", systemImage: "photo.on.rectangle") } }
+                if i.kind == "dm", store.chatStd.block, i.fed?.remote != true, let p = i.members.first(where: { !$0.me }) {
+                    if p.blocked, let t = dmBlockTarget { Button { Task { await chat.unblock(t) } } label: { Label("Entsperren", systemImage: "hand.raised.slash") } }
+                    else if dmBlockTarget != nil { Button(role: .destructive) { askBlockPeer = true } label: { Label("\(p.name) sperren", systemImage: "hand.raised") } }
+                }
+                if i.kind == "dm", store.chatStd.report {
+                    let last = Array(conv.messages.filter { !$0.mine && $0.content != nil && !$0.tomb }.suffix(5))
+                    if !last.isEmpty { Button { reporting = last } label: { Label("Melden …", systemImage: "exclamationmark.bubble") } }
                 }
                 Menu {
                     Picker("Nachrichten automatisch löschen nach", selection: Binding(get: { i.retention }, set: { v in Task { await conv.patch(["retention_s": v]) } })) {
@@ -606,7 +674,7 @@ struct ConversationView: View {
                 if i.kind == "page", let n = i.noteID { Button { nav.push(PageRoute(id: n)) } label: { Label("Seite öffnen", systemImage: "doc.text") } }
                 if i.kind == "free" {
                     Divider()
-                    if i.rights(feature: store.features.has(GroupInfoLogic.feature)).rename {   // 2.5: can_rename (schreibgeschuetzt: nein)
+                    if ChatStd.canRename(base: i.rights(feature: store.features.has(GroupInfoLogic.feature)).rename, info: i.std, f: store.chatStd) {   // 2.5: can_rename (schreibgeschuetzt: nein)
                         Button { newName = i.decryptedTitle ?? ""; rename = true } label: { Label("Umbenennen …", systemImage: "pencil") }
                     }
                     Button(role: .destructive) { askLeave = true } label: { Label("Gruppe verlassen", systemImage: "rectangle.portrait.and.arrow.right") }
@@ -749,6 +817,8 @@ struct MessageBubble: View {
     var select: (() -> Void)? = nil
     var openPage: (Int) -> Void
     var checkSafety: () -> Void = {}
+    /// 2.5 Chat-Standard: Anheften, Loeschen (Admin), sperren, melden
+    var std: [BubbleAction] = []
     @State private var info = false
     @State private var readBy = false                             // 2.4: "Gelesen von" (Gruppen)
     @State private var pickEmoji = false                          // 2.5: "+" (System-Emoji-Auswahl)
@@ -783,7 +853,10 @@ struct MessageBubble: View {
                     if m.aiState == .bad { aiUnconfirmed }
                     if hasReply { quote }
                     if let c = m.content {
-                        if !c.text.isEmpty { textView(c.text) }
+                        if !c.text.isEmpty {
+                            if conv.std.fmt || conv.std.mention { ChatRichText(text: c.text, conv: conv, openPage: openPage) } else { textView(c.text) }
+                        }
+                        if conv.std.unfurl || c.preview != nil, let p = c.preview { MessagePreviewCard(p: p, conv: conv) }   // 2.5 (unfurl1)
                         ForEach(c.files) { f in ChatAttachmentView(file: f, conv: conv) }
                     } else {
                         Label("Nicht entschlüsselbar", systemImage: "lock.trianglebadge.exclamationmark").font(.callout.italic())
@@ -795,6 +868,9 @@ struct MessageBubble: View {
                 .background(bubbleColor, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(isAI ? Color.gold.opacity(0.55) : .clear, lineWidth: 1))
                 .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(highlight ? Color.gold : .clear, lineWidth: 2))
+                .overlay(alignment: .leading) {                                 // 2.5 (chatmention1): ich wurde erwaehnt
+                    if conv.mentionsMe(m) { Rectangle().fill(Color.gold).frame(width: 3).padding(.vertical, 6).accessibilityLabel(Text("Erwähnt dich")) }
+                }
                 .overlay(alignment: mine ? .topLeading : .topTrailing) { hoverReact }  // 2.5: Mac - Reagieren beim Ueberfahren
                 let chips = conv.chips(m)
                 if !chips.isEmpty {                                             // 2.5: Reaktionen unter der Blase
@@ -867,7 +943,7 @@ struct MessageBubble: View {
             a.append(BubbleAction(id: "read", title: "Gelesen von …", icon: "checkmark.circle", sheet: true) { readBy = true })
         }
         if m.mine { a.append(BubbleAction(id: "delete", title: "Für alle löschen", icon: "trash", destructive: true, sheet: true) { delete() }) }
-        return a
+        return a + std
     }
     /// Blatt erst oeffnen, wenn die schwebende Leiste zu ist
     private func later(_ f: @escaping () -> Void) { DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: f) }
@@ -955,7 +1031,7 @@ struct MessageBubble: View {
             VStack(alignment: .leading, spacing: 1) {
                 if let q = quoted {
                     Text(verbatim: q.aiState == .ok ? (store.aiName ?? q.content?.aiName ?? String(localized: "Saga KI")) : q.mine ? String(localized: "du") : q.senderName).font(.caption.weight(.semibold))
-                    Text(verbatim: q.text.isEmpty ? (q.content?.files.first?.name ?? "") : q.text).font(.caption).lineLimit(2).foregroundStyle(.secondary)
+                    Text(verbatim: q.text.isEmpty ? (q.content?.files.first?.name ?? "") : conv.plainText(q.text)).font(.caption).lineLimit(2).foregroundStyle(.secondary)
                 } else { Text("Nachricht nicht mehr da").font(.caption.italic()).foregroundStyle(.secondary) }
             }
         }.fixedSize(horizontal: false, vertical: true)
@@ -1373,3 +1449,6 @@ struct PendingFileIcon: View {
     }
 }
 
+
+/// Liste gemeldeter Nachrichten als Blatt-Kennung
+struct ReportItems: Identifiable { let list: [ChatMessage]; var id: String { list.map(\.id).joined(separator: ",") } }
