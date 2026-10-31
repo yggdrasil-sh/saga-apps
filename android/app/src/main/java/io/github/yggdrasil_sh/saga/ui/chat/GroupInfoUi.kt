@@ -137,7 +137,10 @@ fun GroupInfoDialog(
                 // 2.5 (pagechatmembers1): Hinweise nach Chat-Art und Recht wie im Web
                 val mh = ChatStd.membersHint(c, std)
                 if (mh != null) hint("h-ro", mh.asString(res)) else if (r.readOnly) hint("h-ro", res.getString(R.string.gi_readonly))
-                // MEDIA-ITEM
+                // 2.5 (chatmedia1): Medien, Dateien, Links
+                if (std.media) item(key = "media") {
+                    TextButton(onClick = { media = true }, modifier = Modifier.padding(start = 8.dp)) { Text("🖼 " + stringResource(R.string.std_media_title)) }
+                }
                 if (c.remote) hint("h-home", if (c.homeSelf) res.getString(R.string.fed_members_home_self) else res.getString(R.string.fed_members_home_other, c.home ?: "?"))
                 if (c.readonly) hint("h-lock", "🔒 " + (c.readonlyReason ?: ""))
                 item(key = "mh") {
@@ -183,7 +186,7 @@ fun GroupInfoDialog(
         }
     }
     if (renaming) RenameDialog(repo, s) { renaming = false }
-    // MEDIA-DIALOG
+    if (media) MediaDialog(repo, s) { media = false }
     blockOf?.let { m ->
         val t = ChatStd.blockTarget(m)
         if (t == null) blockOf = null

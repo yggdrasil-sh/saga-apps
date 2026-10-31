@@ -314,6 +314,30 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     var blockAsk by remember { mutableStateOf<Pair<String, String>?>(null) }
     var modDel by remember { mutableStateOf<ChatMessage?>(null) }
     val std = svc.std
+    // 2.5 (chatmention1): gewaehlte Erwaehnungen "@Name" -> Kennung; (unfurl1) Linkvorschau beim Tippen
+    val people = remember(chatId) { androidx.compose.runtime.mutableStateMapOf<String, String>() }
+    var unfurl by remember(chatId) { mutableStateOf<io.github.yggdrasil_sh.saga.chat.UnfurlResult?>(null) }
+    /** Adresse im Text, fuer die [unfurl] geholt wurde (der Server kann sie normalisieren) */
+    var unfurlFor by remember(chatId) { mutableStateOf<String?>(null) }
+    val unfurlOff = remember(chatId) { mutableSetOf<String>() }
+    var showMedia by remember { mutableStateOf(false) }
+    LaunchedEffect(input, chatId) {
+        snapshotFlow { input.text.toString() }.collectLatest { t ->
+            if (!std.unfurl || !svc.unfurlOn) { unfurl = null; return@collectLatest }
+            val u = ChatStd.firstUrl(t)
+            if (u == null || u in unfurlOff) { unfurl = null; unfurlFor = null; return@collectLatest }
+            if (unfurlFor == u && unfurl != null) return@collectLatest
+            delay(600)
+            unfurlFor = u
+            unfurl = try {
+                svc.unfurl(u)?.let { r -> r.copy(url = r.url.ifEmpty { u }) }?.takeIf { ChatStd.firstUrl(input.text.toString()) == u }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
     // 2.5: Reaktionen (volle Emoji-Auswahl, "Reaktionen von …") und Sprachnachrichten (Aufnahme, Vorschau)
     var emojiFor by remember { mutableStateOf<ChatMessage?>(null) }
     var reactionsFor by remember { mutableStateOf<ChatMessage?>(null) }
@@ -539,7 +563,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                                 menu = false
                                 repo.launchAction { s.setMuted(!sum.muted) }
                             })
-                            // MEDIA-MENU
+                            if (std.media) DropdownMenuItem(text = { Text(stringResource(R.string.std_media_title)) }, onClick = { menu = false; showMedia = true })
                             DropdownMenuItem(text = { Text(stringResource(R.string.chat_retention)) }, onClick = { menu = false; dialog = "retention" })
                             // KI im Chat (2.1): nur fuer Berechtigte; Erlauben mit Rueckfrage (was an die KI geht)
                             if (aiServer && s.aiMayToggle == true) {
@@ -791,7 +815,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
                     Text(stringResource(R.string.chat_reply_to, r.sender?.let { io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(it) }.orEmpty()), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                    Text(r.content?.text.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                    Text(previewText(r, s, unknownName), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 }
                 IconButton(onClick = { s.replyTo = null }) { Icon(Icons.Filled.Close, stringResource(R.string.action_cancel)) }
             }
@@ -849,6 +873,18 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 }
             }
         }
+        // 2.5 (chatmention1): "@" -> Mitglieder des Chats
+        if (std.mention) {
+            val at = ChatStd.atQuery(input.text.toString(), input.selection.end)
+            if (at != null) MentionPicker(ChatStd.mentionCandidates(s.summary, at.second)) { p ->
+                val label = ChatStd.mentionLabel(p.name)
+                people[label] = ChatStd.memberRef(p)
+                val end = input.selection.end.coerceIn(at.first, input.text.length)
+                input.edit { replace(at.first, end, "$label ") }
+            }
+        }
+        // 2.5 (unfurl1): Linkvorschau ueber dem Eingabefeld
+        unfurl?.let { u -> ComposePreview(u) { unfurlFor?.let { unfurlOff.add(it) }; unfurl = null } }
         if (voiceRec.phase == VoiceRecUi.Phase.PREVIEW) Box(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
             VoicePreview(voiceRec) { r ->
                 scope.launch {
@@ -950,14 +986,19 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 noteIds.clear()
                 // @Name in einem Chat mit erlaubter KI: nach dem normalen (verschluesselten) Senden die KI fragen
                 val toAi = aiHere && AiChatLogic.mentions(text, aiName)
+                val peopleNow = people.toMap()
+                val unfNow = unfurl?.takeIf { ChatStd.firstUrl(text) == unfurlFor }
+                people.clear()
+                unfurl = null
                 scope.launch {
                     try {
-                        val qid = s.send(text, fs, ns)
+                        val qid = s.send(text, fs, ns, people = peopleNow, unfurl = unfNow)
                         if (toAi) askAi(text, qid)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
                         input.setTextAndPlaceCursorAtEnd(text)             // nichts verlieren
+                        people.putAll(peopleNow)
                         files.addAll(fs)
                         noteIds.addAll(refs)
                         // A09: ohne Verbindung verstaendlich sagen, dass der Entwurf bleibt
@@ -976,6 +1017,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     }
     }
 
+    if (showMedia) MediaDialog(repo, s) { showMedia = false }
     // 2.5 Chat-Standard: Melden, Sperren, Admin-Loeschen
     reportMsgs?.let { ms ->
         ReportDialog(repo, s, ms, ChatStd.reportPrefill(ms.map { senderName(it) to previewText(it, s, unknownName) })) { reportMsgs = null }
@@ -1229,7 +1271,7 @@ private val fileCleanup = CoroutineScope(SupervisorJob() + Dispatchers.IO)
  * Anhang laden, entschluesseln und mit einer anderen App oeffnen (share = false) oder teilen/speichern (share = true). Klartext nur kurz im Cache
  * (eigener Zufallsordner); nach ChatFiles.KEEP_MS Freigabe zuruecknehmen und loeschen (BUG-023).
  */
-private suspend fun openFile(context: Context, s: ChatSession, f: ChatFile, share: Boolean = false, onError: (io.github.yggdrasil_sh.saga.util.UiText) -> Unit) {
+internal suspend fun openFile(context: Context, s: ChatSession, f: ChatFile, share: Boolean = false, onError: (io.github.yggdrasil_sh.saga.util.UiText) -> Unit) {
     try {
         val app = context.applicationContext
         val (out, uri) = if (f.isV2) {
@@ -1272,13 +1314,22 @@ private suspend fun openFile(context: Context, s: ChatSession, f: ChatFile, shar
     }
 }
 
-/** Text mit Seitenverweisen [[note:ID]] -> "📄 Titel" (antippbar, nur mit Zugriff) */
+/**
+ * Text mit Seitenverweisen [[note:ID]] -> "📄 Titel" (antippbar, nur mit Zugriff), http(s)-Links, 2.5: Erwaehnungen
+ * <@kennung> als hervorgehobenes "@Name" (eigener Name staerker) und Formatierung (chatfmt1, ChatFmt wie chat-fmt.js -
+ * nur Stile, nie Markup aus dem Text).
+ */
 @Composable
-private fun messageText(text: String, notes: Map<Long, ChatNoteRef?>, onOpen: (Long) -> Unit): AnnotatedString {
+private fun messageText(text: String, notes: Map<Long, ChatNoteRef?>, onOpen: (Long) -> Unit, s: ChatSession? = null): AnnotatedString {
     val noAccess = stringResource(R.string.chat_page_no_access)
-    val linkColor = MaterialTheme.colorScheme.primary
+    val unknown = stringResource(R.string.std_unknown)
+    val scheme = MaterialTheme.colorScheme
+    val linkColor = scheme.primary
     val context = LocalContext.current
     val linkStyle = TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))
+    val std = s?.std
+    val sum = s?.summary
+    val mentionOn = std?.mention == true
     return buildAnnotatedString {
         // http(s)-Links antippbar - immer ueber openUrl (Standard-Browser bzw. Systemauswahl, kein Custom Tab)
         fun plain(t: String) {
@@ -1288,21 +1339,69 @@ private fun messageText(text: String, notes: Map<Long, ChatNoteRef?>, onOpen: (L
                 else withLink(LinkAnnotation.Clickable("url-$length", linkStyle) { io.github.yggdrasil_sh.saga.ui.common.openUrl(context, u) }) { append(p.text) }
             }
         }
-        var last = 0
-        for (m in ChatFormat.NOTE_REF.findAll(text)) {
-            plain(text.substring(last, m.range.first))
-            val id = m.groupValues[1].toLongOrNull()
-            val ref = id?.let { notes[it] }
-            if (id != null && ref != null) {
-                withLink(LinkAnnotation.Clickable("note-$id", linkStyle) { onOpen(id) }) {
-                    append("📄 " + ref.title)
-                }
-            } else {
-                append("📄 $noAccess")
+        fun mentions(t: String) {
+            if (!mentionOn) return plain(t)
+            var last = 0
+            for (m in ChatStd.MENTION.findAll(t)) {
+                plain(t.substring(last, m.range.first))
+                val ref = m.groupValues[1]
+                val me = ChatStd.isMe(sum, ref)
+                val name = ChatStd.mentionName(sum, ref, null) ?: unknown
+                val st = length
+                append("@$name")
+                addStyle(
+                    SpanStyle(
+                        color = scheme.primary, fontWeight = if (me) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.SemiBold,
+                        background = if (me) scheme.primary.copy(alpha = 0.16f) else androidx.compose.ui.graphics.Color.Unspecified,
+                    ),
+                    st, length,
+                )
+                last = m.range.last + 1
             }
-            last = m.range.last + 1
+            plain(t.substring(last))
         }
-        plain(text.substring(last))
+        fun leaf(t: String) {
+            var last = 0
+            for (m in ChatFormat.NOTE_REF.findAll(t)) {
+                mentions(t.substring(last, m.range.first))
+                val id = m.groupValues[1].toLongOrNull()
+                val ref = id?.let { notes[it] }
+                if (id != null && ref != null) {
+                    withLink(LinkAnnotation.Clickable("note-$id", linkStyle) { onOpen(id) }) {
+                        append("📄 " + ref.title)
+                    }
+                } else {
+                    append("📄 $noAccess")
+                }
+                last = m.range.last + 1
+            }
+            mentions(t.substring(last))
+        }
+        if (std?.fmt != true) {
+            leaf(text)
+            return@buildAnnotatedString
+        }
+        val b = this
+        io.github.yggdrasil_sh.saga.chat.ChatFmt.flatten(io.github.yggdrasil_sh.saga.chat.ChatFmt.render(text), object : io.github.yggdrasil_sh.saga.chat.ChatFmt.Sink {
+            override val length: Int get() = b.length
+            override fun text(s: String) { b.append(s) }
+            override fun leaf(s: String) { leaf(s) }
+            override fun span(start: Int, end: Int, kind: io.github.yggdrasil_sh.saga.chat.ChatFmt.Kind) {
+                val mono = androidx.compose.ui.text.font.FontFamily.Monospace
+                b.addStyle(
+                    when (kind) {
+                        io.github.yggdrasil_sh.saga.chat.ChatFmt.Kind.BOLD -> SpanStyle(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        io.github.yggdrasil_sh.saga.chat.ChatFmt.Kind.ITALIC -> SpanStyle(fontStyle = FontStyle.Italic)
+                        io.github.yggdrasil_sh.saga.chat.ChatFmt.Kind.STRIKE -> SpanStyle(textDecoration = TextDecoration.LineThrough)
+                        io.github.yggdrasil_sh.saga.chat.ChatFmt.Kind.CODE, io.github.yggdrasil_sh.saga.chat.ChatFmt.Kind.PRE ->
+                            SpanStyle(fontFamily = mono, background = scheme.onSurface.copy(alpha = 0.08f))
+                        io.github.yggdrasil_sh.saga.chat.ChatFmt.Kind.QUOTE -> SpanStyle(color = scheme.onSurfaceVariant, fontStyle = FontStyle.Italic)
+                        io.github.yggdrasil_sh.saga.chat.ChatFmt.Kind.BULLET -> SpanStyle(color = scheme.primary)
+                    },
+                    start, end,
+                )
+            }
+        })
     }
 }
 
@@ -1350,7 +1449,9 @@ internal fun Bubble(
     // 2.1: bestaetigte KI-Antwort - links mit Profilbild + Name der KI, "gefragt von …" (auch die eigene)
     val isAi = m.ai == AiReplyCheck.OK
     val mineSide = m.mine && !isAi
-    val bg = if (isAi) MaterialTheme.colorScheme.tertiaryContainer else ChatUi.bubble(MaterialTheme.colorScheme, mineSide)
+    // 2.5 (chatmention1): Nachrichten, die mich erwaehnen, hervorheben
+    val mentionsMe = !m.mine && s.std.mention && ChatStd.mentionsMe(s.summary, m.content?.text)
+    val bg = if (isAi) MaterialTheme.colorScheme.tertiaryContainer else if (mentionsMe) MaterialTheme.colorScheme.secondaryContainer else ChatUi.bubble(MaterialTheme.colorScheme, mineSide)
     val fg = when {
         isAi -> MaterialTheme.colorScheme.onTertiaryContainer
         mineSide -> MaterialTheme.colorScheme.onPrimaryContainer
@@ -1459,7 +1560,9 @@ internal fun Bubble(
                         Text(stringResource(R.string.chat_undecryptable), fontStyle = FontStyle.Italic, style = MaterialTheme.typography.bodyMedium)
                     } else {
                         c.files.forEach { f -> Attachment(f, s, onOpenFile) }
-                        if (c.text.isNotEmpty()) Text(messageText(c.text, s.notes, onOpenNote), style = MaterialTheme.typography.bodyLarge)
+                        if (c.text.isNotEmpty()) Text(messageText(c.text, s.notes, onOpenNote, s), style = MaterialTheme.typography.bodyLarge)
+                        // 2.5 (unfurl1): Linkvorschau aus der Nachricht (nichts nachladen ausser dem verschluesselten Bild)
+                        c.preview?.takeIf { ChatStd.showPreview(it) }?.let { pv -> PreviewCard(pv, s) }
                         c.notes.filter { id -> !c.text.contains("[[note:$id]]") }.forEach { id ->
                             val ref = s.notes[id]
                             if (ref != null) TextButton(onClick = { onOpenNote(id) }) { Text("📄 " + ref.title) }
@@ -1567,7 +1670,7 @@ internal fun Bubble(
  * Name/Groesse zum Oeffnen/Teilen.
  */
 @Composable
-private fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit) {
+internal fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit) {
     // 2.5: Sprachnachricht - Play, Wellenform, Dauer, Tempo (gemeinsamer Player, Quelle wie Videos)
     if (f.isVoice && !f.unsupported) {
         VoiceAttachment(f, s, androidx.compose.material3.LocalContentColor.current, LocalVideoHost.current?.sources)

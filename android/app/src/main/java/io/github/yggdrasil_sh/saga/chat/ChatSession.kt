@@ -207,6 +207,8 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
     private fun cryptoIdFor(f: ChatFile): String = if (isFed && f.id in legacyFiles) chatId.toString() else cryptoId
 
     val me: String get() = svc.me.value?.uid.orEmpty()
+    /** 2.5 Chat-Standard: was der Server kann */
+    val std: ChatStd.Features get() = svc.std
     val name: String get() = summary?.let { svc.displayName(it) }.orEmpty()
 
     private suspend inline fun <reified T> decode(s: String): T = withContext(Dispatchers.Default) { json.decodeFromString<T>(s) }
