@@ -613,7 +613,7 @@ def _chat_api(s, method, path, parts, q, b, raw):
             if bad is not None:
                 return bad
             m = _store_msg(s, cid, me, b, b.get("kind") or "msg", b.get("files"))
-            mockstd.after_store(s, ch, m, b.get("kind") or "msg")
+            mockstd.after_store(s, ch, m, b.get("kind") or "msg", b.get("files"))
             if ai_meta:
                 m["ai"] = ai_meta
             return s._reply(200, {"ok": True, "seq": m["seq"], "created": m["created"], "expires_at": None})

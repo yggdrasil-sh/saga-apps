@@ -888,6 +888,8 @@ class Conversation(Gtk.Box):
         self._menu_pop = None
         self.composer_box = self._composer()
         self.append(self.composer_box)
+        self._draft_load()                                 # (2.5) Entwurf dieses Chats (nur auf diesem Geraet)
+        self.connect("unmap", lambda *_: self._draft_save())
         watch_chat(self, "messages", lambda cid: cid == self.cid and self.render())
         watch_chat(self, "typing", lambda cid: cid == self.cid and self._typing())
         watch_chat(self, "chat-changed", lambda cid: cid == self.cid and self._chat_changed())
@@ -980,7 +982,8 @@ class Conversation(Gtk.Box):
         self.files = []
         self._files_bar()
         self.entry.get_buffer().set_text("")
-        self.mentions = {}
+        self.mentions, self.people = {}, {}
+        chatdrafts.drop(self.cid)
         self.sig = None
         self.render()
 
@@ -2230,6 +2233,23 @@ class Conversation(Gtk.Box):
         self.ai_hint = Gtk.Box(spacing=6, visible=False, margin_start=14, margin_end=12, margin_top=4)
         self.ai_hint.add_css_class("hk-ai-hint")
         outer.append(self.ai_hint)
+        # (2.5, chatmention1) "@" im Eingabefeld: Mitglieder des Chats (Anzeigename) - Tab/Klick uebernimmt den ersten
+        self.people_pop = None
+        self.people_items = []
+        self.people = {}             # eingefuegtes "@Name" -> Kennung (Token beim Senden)
+        self.people_box = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, visible=False, margin_start=12, margin_end=12,
+                                      max_children_per_line=6, row_spacing=2, column_spacing=4)
+        self.people_box.add_css_class("hk-people-pick")
+        self.people_box.update_property([Gtk.AccessibleProperty.LABEL], [_("Mention a person")])
+        outer.append(self.people_box)
+        # (2.5, unfurl1) Linkvorschau ueber dem Eingabefeld (mit ✕)
+        self.unf_box = Gtk.Box(visible=False, margin_start=12, margin_end=12, margin_top=4)
+        outer.append(self.unf_box)
+        self.unf_url = self.unf_data = None
+        self.unf_off = set()
+        self.unf_req = 0
+        self._unf_soon = Debounce(600, self._unf_check)
+        self._draft_soon = Debounce(400, self._draft_save)
         row = Gtk.Box(spacing=6, margin_start=10, margin_end=10, margin_top=6, margin_bottom=10)
         att = Gtk.Button(icon_name="mail-attachment-symbolic", tooltip_text=_("Attach file"), valign=Gtk.Align.END)
         att.add_css_class("flat")
@@ -2289,8 +2309,144 @@ class Conversation(Gtk.Box):
             chat.send_typing(self.cid)
         self._ai_typing(buf)
         self._mic_update()
+        if not hasattr(self, "people_box"):
+            return
+        self._people_typing(buf)
+        if self.editing is None:
+            self._unf_soon()
+            if not getattr(self, "_draft_loading", False):
+                self._draft_soon()
+
+    # --- Erwaehnungen (2.5, chatmention1) ------------------------------------------------------------------------------
+    def _people_typing(self, buf):
+        c = chat.chat(self.cid) or {}
+        items = []
+        if K.has(K.MENTION) and self.editing is None:
+            it = buf.get_iter_at_mark(buf.get_insert())
+            before = buf.get_text(buf.get_start_iter(), it, False)
+            m = re.search(r"(?:^|\s)@([^\s@]{0,30})$", before)
+            if m:
+                items = K.people_for(c, m.group(1))
+                self.people_q = m.group(1)
+        self.people_items = items
+        self.people_pop = items or None
+        while (w := self.people_box.get_first_child()):
+            self.people_box.remove(w)
+        for p in items:
+            b = Gtk.Button()
+            b.add_css_class("flat")
+            bx = Gtk.Box(spacing=6)
+            av = Adw.Avatar(size=20, text=avatars.initials_text(p["name"]), show_initials=True)
+            avatars.attach(av, p.get("avatar"), 20)
+            bx.append(av)
+            bx.append(_lbl("@" + p["name"], (), wrap=False))
+            b.set_child(bx)
+            b.connect("clicked", lambda *_, p=p: self._people_pick(p))
+            self.people_box.append(b)
+        self.people_box.set_visible(bool(items))
+
+    def _people_pick(self, p):
+        buf = self.entry.get_buffer()
+        it = buf.get_iter_at_mark(buf.get_insert())
+        q = getattr(self, "people_q", "") or ""
+        start = buf.get_iter_at_offset(it.get_offset() - len(q) - 1)
+        buf.delete(start, it)
+        label = "@" + p["name"]
+        buf.insert_at_cursor(label + " ")
+        self.people[label] = p["ref"]
+        self.people_items = []
+        self.people_pop = None
+        self.people_box.set_visible(False)
+        self.entry.grab_focus()
+        return True
+
+    # --- Linkvorschau (2.5, unfurl1) -------------------------------------------------------------------------------------
+    def _unf_check(self):
+        buf = self.entry.get_buffer()
+        text = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), False)
+        u = K.first_url(text) if K.unfurl_enabled() and self.editing is None else None
+        if u == self.unf_url:
+            return
+        self.unf_url, self.unf_data = u, None
+        self._unf_draw()
+        if not u or u in self.unf_off:
+            return
+        self.unf_req += 1
+        my = self.unf_req
+
+        def got(d):
+            if my != self.unf_req or self.unf_url != u:
+                return
+            self.unf_data = d if d and (d.get("title") or d.get("desc")) else None
+            self._unf_draw()
+        chat.unfurl(u, got, error=lambda e: None)
+
+    def _unf_draw(self):
+        while (w := self.unf_box.get_first_child()):
+            self.unf_box.remove(w)
+        d = self.unf_data
+        self.unf_box.set_visible(d is not None)
+        if d is None:
+            return
+        pv = K.preview_body(dict(d, url=self.unf_url)) or {}
+        img = d.get("image") if isinstance(d.get("image"), dict) else None
+        if img and img.get("b64"):
+            try:
+                import base64
+                pv["tex"] = Gdk.Texture.new_from_bytes(GLib.Bytes.new(base64.b64decode(img["b64"])))
+            except (GLib.Error, ValueError):
+                pass
+        card = self._preview_card(pv, closable=self._unf_close)
+        card.set_hexpand(True)
+        self.unf_box.append(card)
+
+    def _unf_close(self):
+        if self.unf_url:
+            self.unf_off.add(self.unf_url)
+        self.unf_data = None
+        self._unf_draw()
+        self.entry.grab_focus()
+
+    def _unf_for(self, text):
+        """Vorschau fuer den gesendeten Text (nur, wenn sie zur ersten Adresse passt und nicht entfernt wurde)"""
+        u = K.first_url(text)
+        if u and self.unf_data and self.unf_url == u and u not in self.unf_off:
+            return dict(self.unf_data, url=u)
+        return None
+
+    def _unf_reset(self):
+        self.unf_url = self.unf_data = None
+        self.unf_off = set()
+        self.unf_req += 1
+        self._unf_draw()
+
+    # --- Entwuerfe (2.5, nur auf diesem Geraet) ------------------------------------------------------------------------
+    def _draft_save(self):
+        if self.editing is not None or getattr(self, "_draft_loading", False):
+            return
+        buf = self.entry.get_buffer()
+        t = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), False)
+        if chatdrafts.save(self.cid, t, self.people):
+            chat.emit("changed")
+
+    def _draft_load(self):
+        d = chatdrafts.load(self.cid)
+        if not d:
+            return
+        self._draft_loading = True
+        try:
+            self.entry.get_buffer().set_text(d["t"])
+            self.people = dict(d["p"])
+        finally:
+            self._draft_loading = False
 
     def _key(self, c, kv, code, state):
+        if kv in (Gdk.KEY_Tab, Gdk.KEY_ISO_Left_Tab) and self.people_items and not state & Gdk.ModifierType.SHIFT_MASK:
+            return self._people_pick(self.people_items[0])
+        if kv == Gdk.KEY_Escape and self.people_items:
+            self.people_items = []
+            self.people_box.set_visible(False)
+            return True
         if kv in (Gdk.KEY_Tab, Gdk.KEY_ISO_Left_Tab) and self.ai_pref and not state & Gdk.ModifierType.SHIFT_MASK:
             return self._ai_apply()
         if kv in (Gdk.KEY_Return, Gdk.KEY_KP_Enter) and not state & (Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.CONTROL_MASK):
@@ -2534,6 +2690,10 @@ class Conversation(Gtk.Box):
             if t in text:
                 text = text.replace(t, f"[[note:{nid}]]")
                 notes.append(nid)
+        refs = []
+        if K.has(K.MENTION):                               # (2.5) "@Name" -> <@kennung>, Kennungen unverschluesselt dazu
+            text, refs = K.apply_people(text, self.people)
+        unf = self._unf_for(text) if K.unfurl_enabled() else None
         reply = self.reply["id"] if self.reply else None
         cid = self.cid
         self.send_btn.set_sensitive(False)
@@ -2552,7 +2712,18 @@ class Conversation(Gtk.Box):
                 body["files"] = fobjs
             if notes:
                 body["notes"] = notes
-            r = chat.send(cid, body, reply_to=reply, file_ids=fids)
+            if unf:                                        # (2.5) Linkvorschau verschluesselt in der Nachricht
+                pv = K.preview_body(unf)
+                if pv:
+                    img = unf.get("image") if isinstance(unf.get("image"), dict) else None
+                    if img and img.get("b64"):
+                        try:
+                            pv["img"] = chat.upload_preview_img(cid, img)
+                            fids = list(fids) + [pv["img"]["id"]]
+                        except Exception:  # noqa: BLE001 - ohne Bild senden
+                            pass
+                    body["preview"] = pv
+            r = chat.send(cid, body, reply_to=reply, file_ids=fids, extra={"mentions": refs} if refs else None)
             for p in pending:                              # gesendet: Fortsetzungsdaten (K, Praefix) vergessen
                 chatvideo.pending_drop(p)
             return r
@@ -2567,7 +2738,9 @@ class Conversation(Gtk.Box):
             done_sending()
             resp, missing = r
             buf.set_text("")
-            self.files, self.mentions = [], {}
+            self.files, self.mentions, self.people = [], {}, {}
+            chatdrafts.drop(cid)
+            self._unf_reset()
             self._files_bar()
             self.set_reply(None)
             self.entry.set_sensitive(True)

@@ -17,6 +17,11 @@ def init(s):
     s.hidden_msgs = {}         # uid -> {msg_id}
 
 
+def ref_of(u):
+    """Such-Handle wie beim echten Server: '~' + 16 Zeichen base32 (nie der Anmeldename)"""
+    return "~" + (u * 16)[:16]
+
+
 def _p(ch, me):
     return ch.setdefault("std", {}).setdefault(me, {"muted_until": 0, "notify": "all", "pinned": False, "pinned_at": 0,
                                                      "unread_mark": False, "hidden": False})
@@ -46,8 +51,8 @@ def chat_fields(s, ch, me, d, device=None):
                                                   ident_pub=ids.get(tm["sender"]))
     blocked = {b["target"] for b in s.blocks}
     for x in d["members"]:
-        x["blocked"] = ("~" + x["username"]) in blocked or x["username"] in blocked
-        x.setdefault("ref", x["username"] if x.get("me") else "~" + x["username"])
+        x["blocked"] = bool({"~" + x["username"], ref_of(x["username"]), x["username"]} & blocked)
+        x["ref"] = ref_of(x["username"])
     if ch["kind"] == "page":
         owner = ch.get("note_id") in s.notes
         d["can_manage"] = owner
@@ -68,7 +73,7 @@ def chat_fields(s, ch, me, d, device=None):
         mu = p["muted_until"] = 0
     d.update(muted=mu != 0, muted_until=mu, notify=p["notify"], pinned=p["pinned"], pinned_at=p["pinned_at"],
              unread_mark=p["unread_mark"], hidden=p["hidden"], can_hide=ch["kind"] in ("group", "page"),
-             me_ref="~" + me if not ch.get("fed") else None)
+             me_ref=ref_of(me))
     if p["unread_mark"]:
         d["unread"] = max(1, d.get("unread") or 0)
     return d
@@ -162,7 +167,8 @@ def handle(s, method, path, parts, q, b):
             if not isinstance(tg, str) or not tg.startswith("~"):
                 return s._reply(400, {"error": "ungültig"})
             if all(x["target"] != tg for x in s.blocks):
-                s.blocks.append({"target": tg, "name": s.names.get(tg[1:].split("@")[0], "?"), "local": True})
+                u = next((n for n in s.names if tg in ("~" + n, ref_of(n))), tg[1:])
+                s.blocks.append({"target": tg, "name": s.names.get(u, "?"), "local": True})
             mockv2.push_event(s, "chat.blocks", {"target": tg, "blocked": True})
             return s._reply(200, {"ok": True, "target": tg})
         if method == "DELETE":
@@ -246,9 +252,10 @@ def on_send(s, ch, b, kind):
     return None
 
 
-def after_store(s, ch, m, kind):
+def after_store(s, ch, m, kind, files=None):
     if not getattr(s, "chatstd", False):
         return
+    m["files"] = list(files or [])
     if kind in ("desc", "avatar"):
         key = kind + "_seq"
         ch["msgs"] = [x for x in ch["msgs"] if x["seq"] != ch.get(key)]

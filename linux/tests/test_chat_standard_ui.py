@@ -354,13 +354,16 @@ def test_chat_pin_limit_409(win, srv):
 def test_format_mention_render(win, srv):
     chat = _setup(srv)
     g = srv.new_chat("free", ["test", "anna"], admin="test")
-    srv.peer_send(g, "anna", "*fett* `<b>x</b>` <@~test> und <@~anna> und <@~zzzzzzzzzzzzzzzz>")
+    from mockstd import ref_of
+    srv.peer_send(g, "anna", f"*fett* `<b>x</b>` <@{ref_of('test')}> und <@{ref_of('anna')}> und <@~zzzzzzzzzzzzzzzz>")
     _load(chat, g)
     conv = _open(win, g)
     pump(lambda: conv.rows_by_id, 3)
     lb = next(w for w in _walk(conv.msgs) if isinstance(w, Gtk.Label) and w.has_css_class("hk-bubble-text"))
     assert lb.get_text().startswith("fett <b>x</b> @") and "@Anna Beispiel" in lb.get_text() and "@Unknown" in lb.get_text()
-    assert lb.get_attributes() is not None
+    assert "<@" not in lb.get_text()
+    assert any(w.has_css_class("hk-mention-me") for w in _walk(conv.msgs) if isinstance(w, Gtk.Widget))
+    assert lb.get_label().startswith("<b>fett</b> <tt>&lt;b&gt;x&lt;/b&gt;</tt>") and 'weight="bold"' in lb.get_label()
 
 
 def test_mentions_sent_and_preview(win, srv, monkeypatch):
@@ -381,10 +384,11 @@ def test_mentions_sent_and_preview(win, srv, monkeypatch):
     conv.send()
     pump(lambda: any(x[0] == "SEND" and x[2]["mentions"] for x in srv.std_log), 4)
     sent = [x for x in srv.std_log if x[0] == "SEND"][-1]
-    assert sent[2]["mentions"] == ["~anna"]
+    from mockstd import ref_of
+    assert sent[2]["mentions"] == [ref_of("anna")]
     pump(lambda: any(m.get("mine") for m in (chat.cache.get(g) or {}).get("msgs") or []), 4)
     mine = [m for m in chat.cache[g]["msgs"] if m.get("mine")][-1]
-    assert mine["text"] == "<@~anna> siehe https://news.example/a"
+    assert mine["text"] == f"<@{ref_of('anna')}> siehe https://news.example/a"
     assert mine["body"]["preview"] == {"url": "https://news.example/a", "title": "Ein Artikel <b>", "desc": "Kurz", "site": "News"}
     pump(lambda: any(w.has_css_class("hk-unf-msg") for w in _walk(conv.msgs) if isinstance(w, Gtk.Widget)), 3)
     # Vorschau entfernen: beim naechsten Senden keine
