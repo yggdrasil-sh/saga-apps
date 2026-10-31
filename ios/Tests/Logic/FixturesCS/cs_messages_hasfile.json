@@ -1,0 +1,39 @@
+{
+ "chat_id": 1,
+ "devices": {
+  "c13a78c6038e642a80c839c2bcb0fb0a": {
+   "enc_pub": "n/dWAfw0IrrVnMBQnd84+qhGSw097NsGEsvyziQZWCQ=",
+   "revoked": false,
+   "sig": "ONK/X89plJ8a1KzF/J9U5a6LhIPp6LSQaMGac+iqT1MwUI9aA2GdftPHRsN3TGuj5lc0NX51107zuv5+KKPiDg==",
+   "sign_pub": "bKTqtqiwvPQ3EYbvTwJbgTNzCABuoeP4lJzAEafLO/w=",
+   "uid": "cx-anna"
+  }
+ },
+ "idents": {
+  "cx-anna": "SPQx5REEk5lykSfI+PjN+17o7GdB0XqNlCtr2B0G+B0="
+ },
+ "last_read": 6,
+ "last_seq": 7,
+ "messages": [
+  {
+   "body_ct": "uIcZ2pyKnDb7mrK0PBwjBp9WOkiTBCPzFmKG841zQ2QddEBttXO6e84V5FHcDgFBg0/SCE6p9q2WSNJrVs+ebMaFmWPN0JcNv1/pL+GJ/pe13j8CkVG9IKEZXt1HTJtxI//mzwnmWdcndvE41DmdPtQT0ZN7TCmvmG7EMmccWVHz5UCCEytPvQ9Et7ugqpnSCQMbqXs02DniDu2Pm4BsBr89k2tIbq9q8SzsAr8lIojbRUa/",
+   "created": 1793488212.67999,
+   "expires_at": null,
+   "id": "bf73d442041c0061074ec6712d6e402a",
+   "key": "wts558ePafxCFaPftG28Eef0utWbrgf9tkLMaVny4i3hijq6+CR0wEfWnCz13NVXw+rmiLsHs0NtuEUe0hPeszUK1xXXDy2y3QnRvQhjp0c=",
+   "key_for": "device",
+   "kind": "msg",
+   "reply_to": null,
+   "sender": {
+    "avatar": null,
+    "name": "Anna Test",
+    "username": "cx-anna"
+   },
+   "sender_device": "c13a78c6038e642a80c839c2bcb0fb0a",
+   "seq": 7,
+   "sig": "1eEdgVsEiOkAYfli6oRBCqj55xXo7NUEa4DdFRuuQbD63HXqoFyGSwQ4xsdxhWolZRmjEcHbSuiTE6VBXZvCDQ==",
+   "ts": 1793488212676
+  }
+ ],
+ "more": false
+}

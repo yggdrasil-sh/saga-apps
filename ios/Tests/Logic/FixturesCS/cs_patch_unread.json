@@ -1,0 +1,142 @@
+{
+ "chat": {
+  "ai": false,
+  "archived": false,
+  "archived_at": null,
+  "avatar_msg": {
+   "body_ct": "XEFkmZpJUT5sH2wxoQgGDKjgPeQQBpcjCbYihSeIat47abhQHHbtTx4Xm2SJQj5myp2NhKIB9lyrfVnYnsl+BTldWov88WXYvCFmVDAgz1wH3EwwyJBP7nid5i145Te5N5EXfBpqUeg4iju5MNwut944jzvVL8eYMnCymy/XJUUfcuBW0n4N3CWmm5RMe2m3CvLJWEYrr2Qly2w0V9gwVRM2Jx/DQTlX8RI600POxReIK9oKbHk4VApPGhM=",
+   "created": 1793488212.4194036,
+   "device": {
+    "enc_pub": "n/dWAfw0IrrVnMBQnd84+qhGSw097NsGEsvyziQZWCQ=",
+    "revoked": false,
+    "sig": "ONK/X89plJ8a1KzF/J9U5a6LhIPp6LSQaMGac+iqT1MwUI9aA2GdftPHRsN3TGuj5lc0NX51107zuv5+KKPiDg==",
+    "sign_pub": "bKTqtqiwvPQ3EYbvTwJbgTNzCABuoeP4lJzAEafLO/w=",
+    "uid": "cx-anna"
+   },
+   "expires_at": null,
+   "id": "e17e2c54bb720d90e734142fa272d007",
+   "ident_pub": "SPQx5REEk5lykSfI+PjN+17o7GdB0XqNlCtr2B0G+B0=",
+   "key": "9nid/IlL/+jzkce0sjOqgX4qrwfskbhknPcFYAIzkngcLfVIA1s0jNgDRY6e1+oVpMJs+LL31oBHu8fHI3aZi51+16wFbqTg3RubqWwAYso=",
+   "key_for": "backup",
+   "kind": "avatar",
+   "reply_to": null,
+   "sender": {
+    "avatar": null,
+    "name": "Anna Test",
+    "username": "cx-anna"
+   },
+   "sender_device": "c13a78c6038e642a80c839c2bcb0fb0a",
+   "seq": 2,
+   "sig": "OOJOK7kMVdI9+IfYf82ZEfjshNKAsBlkfXA2e90mbtvMgo/LKkxW/N04U41J1VyHChgjy9RsdFEQAWTVsZDRAQ==",
+   "ts": 1793488212416
+  },
+  "call": {
+   "group": true,
+   "group_block": null,
+   "running": null
+  },
+  "can_admin": true,
+  "can_edit_info": true,
+  "can_hide": false,
+  "can_info2": true,
+  "can_manage": true,
+  "can_moderate": true,
+  "can_perms": true,
+  "can_pin": true,
+  "can_rename": true,
+  "can_send": true,
+  "cleared_seq": 0,
+  "created": 1793488212.3564842,
+  "delete_for_all": "chat",
+  "desc_msg": {
+   "body_ct": "BkPjbvr4vG+s1JsfF2pBbub+psey661bzCZBJdAn8eBGoB3UtW9LXdqXTtQRj9fjv5jwn4e+YC9xOBSwpjIkArvfWTjr2M/lGBGtbUWHl9AMToEtaFzXaLU=",
+   "created": 1793488212.3912897,
+   "device": {
+    "enc_pub": "n/dWAfw0IrrVnMBQnd84+qhGSw097NsGEsvyziQZWCQ=",
+    "revoked": false,
+    "sig": "ONK/X89plJ8a1KzF/J9U5a6LhIPp6LSQaMGac+iqT1MwUI9aA2GdftPHRsN3TGuj5lc0NX51107zuv5+KKPiDg==",
+    "sign_pub": "bKTqtqiwvPQ3EYbvTwJbgTNzCABuoeP4lJzAEafLO/w=",
+    "uid": "cx-anna"
+   },
+   "expires_at": null,
+   "id": "56677c31695e197d93992e3ad6f174af",
+   "ident_pub": "SPQx5REEk5lykSfI+PjN+17o7GdB0XqNlCtr2B0G+B0=",
+   "key": "l4NztlEIP/FZeRpVYajbkp4NAaHkw66rw6kpM44oqxJ4Ou0sg0gErXtBORcp3FuUpLsOBF+MhlQBKiEB/+SJ0xfVLHung92cG3ulKAeksDc=",
+   "key_for": "backup",
+   "kind": "desc",
+   "reply_to": null,
+   "sender": {
+    "avatar": null,
+    "name": "Anna Test",
+    "username": "cx-anna"
+   },
+   "sender_device": "c13a78c6038e642a80c839c2bcb0fb0a",
+   "seq": 1,
+   "sig": "1SeGLMtF1RiXWHpG9odJTBD/qHHYXT+2rbnYZviXB66kXRhLsyOMqNMSdTz1i0metdkAWBAMzGig1ONmcenOAw==",
+   "ts": 1793488212386
+  },
+  "group": null,
+  "hidden": false,
+  "id": 1,
+  "kind": "free",
+  "last_at": 1793488212.67999,
+  "last_read": 7,
+  "last_seq": 7,
+  "max_members": 50,
+  "me_admin": true,
+  "me_ref": "~4ygj4mjb67aza6od",
+  "member_count": 3,
+  "members": [
+   {
+    "admin": true,
+    "avatar": null,
+    "handle": "~u3zm25ydvuz7mi5h@a.example",
+    "me": true,
+    "name": "Anna Test",
+    "ref": "cx-anna",
+    "sub": "",
+    "username": "cx-anna"
+   },
+   {
+    "admin": false,
+    "avatar": null,
+    "handle": "~7wsrxxcjqzgo7pmc@a.example",
+    "me": false,
+    "name": "Bert Test",
+    "ref": "~m25ownheodbx7bhk",
+    "sub": "~m25ownheodbx7bhk",
+    "username": "cx-bert"
+   },
+   {
+    "admin": false,
+    "avatar": null,
+    "handle": "~z5wggmfd2qxpb4wn@a.example",
+    "me": false,
+    "name": "Cara Test",
+    "ref": "~qptlwles5xmtdpvu",
+    "sub": "~qptlwles5xmtdpvu",
+    "username": "cx-cara"
+   }
+  ],
+  "mention_seq": 0,
+  "muted": false,
+  "muted_until": 0,
+  "name": null,
+  "note_id": null,
+  "notify": "all",
+  "perm_info": "admins",
+  "perm_send": "admins",
+  "pinned": false,
+  "pinned_at": null,
+  "pins": [
+   "78fe971d55beea7936f7614e884e4ac8",
+   "21272583717d326190d2dd632c8386c7"
+  ],
+  "retention_s": 0,
+  "role": "admin",
+  "unread": 1,
+  "unread_mark": true,
+  "x3_ok": false,
+  "x3_why": "setting"
+ }
+}

@@ -9,6 +9,17 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – iOS/Mac: Chat-Standard (Saga-Server 2.5; je Funktion nur, wenn der Server sie meldet)
+- **Seiten-Chats:** Mitglieder hinzufügen teilt die Seite (Rolle Lesen/Kommentieren/Bearbeiten), Entfernen entzieht die
+  Freigabe; über Gruppe/übergeordnete Seite ausgegraut mit Begründung.
+- **Gruppen:** Gruppenbild und Beschreibung (verschlüsselt), „Nur Admins schreiben/ändern Infos“, angeheftete Nachrichten
+  (Leiste oben), „Löschen (Admin)“ mit Hinweis „Von einem Admin gelöscht“, Personen sperren (Sperrliste in den
+  Einstellungen, Nachrichten gesperrter Personen eingeklappt), Nachrichten melden.
+- **Chatliste:** Stummschalten für 1 Stunde/8 Stunden/1 Woche/immer, Mitteilungen Alle/Nur Erwähnungen/Keine, Chats
+  anheften, als ungelesen markieren, Gruppen-/Seiten-Chats ausblenden („Ausgeblendet (n)“), Hinweis „Entwurf“.
+- **Nachrichten:** @-Erwähnungen von Mitgliedern, Formatierung (*fett*, _kursiv_, ~durch~, `Code`, Listen, Zitate),
+  Linkvorschau (abschaltbar), „Medien und Dateien“; Entwürfe bleiben je Chat auf dem Gerät; Kamera direkt im Chat (iPhone/iPad).
+
 ### Neu – iOS/Mac: Gruppeninfo und Kontakte (Saga-Server 2.5, `chatadm1`/`contacts1`)
 - **Gruppeninfo:** Tipp auf den Chat-Kopf (Mac: Info-Knopf) bzw. „Gruppeninfo …“ im Menü statt „Mitglieder“ – Name
   bearbeitbar, Mitglieder mit „Du“/„Admin“ und Handle, Admin vergeben/entziehen, entfernen, stummschalten, archivieren,

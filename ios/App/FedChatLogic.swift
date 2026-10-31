@@ -126,7 +126,8 @@ enum FedChatLogic {
     /// 2.5: {"type":"crypto","level":3,"verify"?:true} - Chat auf Stufe 3 umgestellt (Handles statt Anmeldenamen)
     /// 2.5 (chatadm1): Admin vergeben/entzogen {"type":"admin","target":{…},"on":bool,"by":{…}|null}
     struct AdminLine: Equatable { var target: SysWho?; var on: Bool; var by: SysWho? }
-    enum SysLine: Equatable { case ai(on: Bool, byMe: Bool, name: String), members(MembersLine), fed(aiOff: Bool), crypto(verify: Bool), admin(AdminLine), other }
+    enum SysLine: Equatable { case ai(on: Bool, byMe: Bool, name: String), members(MembersLine), fed(aiOff: Bool), crypto(verify: Bool), admin(AdminLine),
+                         perm(info: String?, send: String?, by: SysWho?), other }
     static func sysLine(_ bodyCT: String?, myHandle: String?) -> SysLine {
         guard let j = bodyCT.flatMap({ ShareJSON.obj(Data($0.utf8)) }) else { return .other }
         switch j["type"] as? String {
@@ -139,6 +140,9 @@ enum FedChatLogic {
         case "fed": return .fed(aiOff: ShareJSON.bool(j["ai_off"]))
         case "crypto": return .crypto(verify: ShareJSON.bool(j["verify"]))
         case "admin": return .admin(AdminLine(target: SysWho(j["target"]), on: ShareJSON.bool(j["on"]), by: SysWho(j["by"])))
+        case "perm":                                                    // 2.5 (groupinfo2): nur die geaenderten Felder
+            func pv(_ k: String) -> String? { (j[k] as? String).flatMap { ["all", "admins"].contains($0) ? $0 : nil } }
+            return .perm(info: pv("perm_info"), send: pv("perm_send"), by: SysWho(j["by"]))
         default: return .other
         }
     }
@@ -156,6 +160,7 @@ enum FedChatLogic {
             let t = String(localized: "Dieser Chat ist jetzt an die stabilen Saga-Adressen gebunden (neue Verschlüsselungsstufe).")
             return verify ? t + " " + String(localized: "Bitte die Sicherheitsnummern neu vergleichen – sie werden jetzt anders angezeigt.") : t
         case .admin(let a): return adminText(a, myHandle: myHandle)
+        case .perm(let i, let s, let by): return ChatStd.permText(permInfo: i, permSend: s, by: by, myHandle: myHandle)
         case .other: return String(localized: "Hinweis")
         }
     }

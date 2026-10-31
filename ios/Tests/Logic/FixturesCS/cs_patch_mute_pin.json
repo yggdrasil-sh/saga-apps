@@ -1,0 +1,80 @@
+{
+ "chat": {
+  "ai": false,
+  "archived": false,
+  "archived_at": null,
+  "call": {
+   "group": false,
+   "group_block": null,
+   "running": null
+  },
+  "can_admin": false,
+  "can_edit_info": false,
+  "can_hide": false,
+  "can_info2": false,
+  "can_manage": false,
+  "can_moderate": false,
+  "can_perms": false,
+  "can_pin": true,
+  "can_rename": false,
+  "can_send": true,
+  "cleared_seq": 0,
+  "created": 1793488212.7168622,
+  "delete_for_all": "chat",
+  "group": null,
+  "hidden": false,
+  "id": 2,
+  "kind": "dm",
+  "last_at": 1793488212.7381802,
+  "last_read": 0,
+  "last_seq": 8,
+  "max_members": 50,
+  "me_admin": false,
+  "me_ref": "~4ygj4mjb67aza6od",
+  "member_count": 2,
+  "members": [
+   {
+    "admin": false,
+    "avatar": null,
+    "handle": "~u3zm25ydvuz7mi5h@a.example",
+    "me": true,
+    "name": "Anna Test",
+    "ref": "cx-anna",
+    "sub": "",
+    "username": "cx-anna"
+   },
+   {
+    "admin": false,
+    "avatar": null,
+    "handle": "~7wsrxxcjqzgo7pmc@a.example",
+    "me": false,
+    "name": "Bert Test",
+    "ref": "~m25ownheodbx7bhk",
+    "sub": "",
+    "username": "cx-bert"
+   }
+  ],
+  "mention_seq": 0,
+  "muted": true,
+  "muted_until": 1793491812.0,
+  "name": "Bert Test",
+  "note_id": null,
+  "notify": "mentions",
+  "peer": {
+   "avatar": null,
+   "name": "Bert Test",
+   "username": "cx-bert"
+  },
+  "perm_info": "all",
+  "perm_send": "all",
+  "pinned": true,
+  "pinned_at": 1793488212.8128114,
+  "pins": [],
+  "retention_s": 0,
+  "role": "member",
+  "unread": 1,
+  "unread_mark": false,
+  "x3_ok": false,
+  "x3_why": "setting"
+ }
+}

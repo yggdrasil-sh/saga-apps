@@ -42,8 +42,8 @@ extension ConversationModel {
         } catch { sendError = error.localizedDescription; return nil }
     }
     /// Kontakt hinzufuegen (lokal user, fremd handle)
-    func addMember(contact k: ChatContact) async {
-        if k.remote { await addMember(handle: k.ref) } else { await addMember(k.ref) }
+    func addMember(contact k: ChatContact, role: ShareRole? = nil) async {
+        if k.remote { await addMember(handle: k.ref, role: role) } else { await addMember(k.ref, role: role) }
     }
 }
 
@@ -115,6 +115,9 @@ struct GroupInfoSheet: View {
     @State private var askLeave = false
     @State private var notice: String?
     @State private var busy = false
+    @State private var pageRole: ShareRole = .view                     // 2.5 (pagechatmembers1): Rolle der Freigabe
+    @State private var askBlock: ChatMember?
+    @State private var showMedia = false                           // 2.5 (block2)
 
     private var feature: Bool { store.features.has(GroupInfoLogic.feature) }
     private var contactsOn: Bool { store.features.has(ContactsLogic.feature) }
@@ -125,8 +128,9 @@ struct GroupInfoSheet: View {
                 if let i = conv.info {
                     let r = i.rights(feature: feature)
                     head(i, r)
+                    GroupInfo2Section(i: i, conv: conv)                       // 2.5 (groupinfo2): Beschreibung, Rechte
                     membersSection(i, r)
-                    if i.kind == "free" && r.manage && adding { addSection(i) }
+                    if ChatStd.canAdd(kind: i.kind, rights: r, canManage: i.canManage, f: store.chatStd) && adding { addSection(i) }
                     if let e = conv.sendError { Text(verbatim: e).font(.footnote).foregroundStyle(.red) }
                     if let n = notice { Text(verbatim: n).font(.footnote).foregroundStyle(.secondary) }
                     footer(i)
@@ -142,26 +146,33 @@ struct GroupInfoSheet: View {
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
             .task(id: q) { await search() }
             .task { conv.sendError = nil; if contactsOn { await conv.model.loadContacts() } }
-            .alert(Text("\(removing?.name ?? "") aus der Gruppe entfernen?"), isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+            .alert(conv.info?.kind == "page" ? Text("\(removing?.name ?? "") aus dem Seiten-Chat entfernen?") : Text("\(removing?.name ?? "") aus der Gruppe entfernen?"), isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
                    presenting: removing) { m in
                 Button("Entfernen", role: .destructive) {
                     Task { await conv.removeMember(m.username); if conv.sendError == nil { notice = String(localized: "\(m.name) wurde entfernt.") } }
                 }
                 Button("Abbrechen", role: .cancel) {}
-            } message: { m in Text("\(m.name) bekommt keine neuen Nachrichten dieser Gruppe mehr.") }
+            } message: { m in conv.info?.kind == "page" ? Text("Die Freigabe der Seite für \(m.name) wird entzogen.") : Text("\(m.name) bekommt keine neuen Nachrichten dieser Gruppe mehr.") }
             .alert("Gruppe verlassen?", isPresented: $askLeave) {
                 Button("Verlassen", role: .destructive) { Task { if await conv.leave() { dismiss(); left() } } }
                 Button("Abbrechen", role: .cancel) {}
             } message: { Text("Du bekommst keine neuen Nachrichten mehr.") }
+            .alert(Text("\(askBlock?.name ?? "") sperren?"), isPresented: Binding(get: { askBlock != nil }, set: { if !$0 { askBlock = nil } }), presenting: askBlock) { m in
+                Button("Sperren", role: .destructive) {
+                    if let t = ChatStd.blockTarget(senderHandle: nil, member: (m.handle, m.ref)) { Task { await conv.model.block(t, name: m.name) } }
+                }
+                Button("Abbrechen", role: .cancel) {}
+            } message: { m in Text("\(m.name) kann dir keine Direktnachrichten mehr schicken und dich nicht anrufen. In Gruppen werden die Nachrichten eingeklappt. \(m.name) erfährt davon nichts.") }
         }
         .macFrame(minWidth: 440, idealWidth: 480, minHeight: 480, idealHeight: 600)
+        .sheet(isPresented: $showMedia) { ChatMediaSheet(conv: conv) }
     }
 
     // Kopf: Bild, Name (bearbeitbar bei can_rename), Art und Anzahl, Hinweise
     @ViewBuilder private func head(_ i: ChatSummary, _ r: GroupRights) -> some View {
         Section {
             HStack(spacing: 12) {
-                ShareAvatar(name: i.title, group: true)
+                if store.chatStd.groupInfo2 && i.kind == "free" { GroupAvatarView(c: i, conv: conv) } else { ShareAvatar(name: i.title, group: true) }
                 VStack(alignment: .leading, spacing: 2) {
                     if editing {
                         TextField("Name der Gruppe", text: $newName).onSubmit { saveName(i) }
@@ -172,7 +183,7 @@ struct GroupInfoSheet: View {
                     Text(verbatim: kindLine(i)).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                if i.kind == "free" && r.rename {
+                if i.kind == "free" && ChatStd.canRename(base: r.rename, info: i.std, f: store.chatStd) {
                     if editing {
                         Button("Speichern") { saveName(i) }.buttonStyle(.borderless).disabled(busy || newName.trimmingCharacters(in: .whitespaces).isEmpty)
                         Button("Abbrechen") { editing = false }.buttonStyle(.borderless)
@@ -185,7 +196,8 @@ struct GroupInfoSheet: View {
         } footer: {
             VStack(alignment: .leading, spacing: 4) {
                 if i.kind == "free" && r.rename { Text("Der Name wird wie eine Nachricht verschlüsselt.") }
-                if r.readOnlyMembers { Text("Mitglieder ergeben sich hier aus der Gruppe bzw. den Freigaben der Seite.") }
+                if let h = ChatStd.membersHint(kind: i.kind, canManage: i.canManage, f: store.chatStd) { Text(verbatim: h) }
+                else if r.readOnlyMembers { Text("Mitglieder ergeben sich hier aus der Gruppe bzw. den Freigaben der Seite.") }
                 if let f = i.fed, f.remote {
                     if f.homeSelf { Text("Dieser Chat liegt auf diesem Server; Personen anderer Saga-Server sind über ihren Server dabei.") }
                     else { Text("Dieser Chat liegt auf \(f.home). Mitglieder ändert man dort (über diesen Server).") }
@@ -215,7 +227,7 @@ struct GroupInfoSheet: View {
     // Mitglieder: ich, Admins, Name; Kennzeichen "Du"/"Admin", Handle (nie Anmeldename), Menue je Mitglied
     @ViewBuilder private func membersSection(_ i: ChatSummary, _ r: GroupRights) -> some View {
         Section {
-            if i.kind == "free" && r.manage {
+            if ChatStd.canAdd(kind: i.kind, rights: r, canManage: i.canManage, f: store.chatStd) {
                 Button { adding.toggle(); if !adding { q = "" } } label: {
                     Label(adding ? String(localized: "Abbrechen") : String(localized: "Mitglied hinzufügen"), systemImage: adding ? "xmark" : "person.badge.plus")
                 }
@@ -239,9 +251,20 @@ struct GroupInfoSheet: View {
             Spacer()
             if !m.me, verified(m) { Image(systemName: "checkmark.seal.fill").foregroundStyle(.green).accessibilityLabel(Text("überprüft")) }
             let acts = GroupInfoLogic.actions(me: m.me, admin: m.admin, kind: i.kind, rights: r)
-            if !acts.isEmpty {
+            let pr = i.kind == "page" ? ChatStd.pageRemove(me: m.me, member: m.page, canManage: i.canManage, f: store.chatStd) : .none
+            let canBlock = store.chatStd.block && !m.me && !m.blocked && i.fed?.remote != true && ChatStd.blockTarget(senderHandle: nil, member: (m.handle, m.ref)) != nil
+            if m.blocked { Image(systemName: "hand.raised.fill").foregroundStyle(.secondary).accessibilityLabel(Text("gesperrt")) }
+            if !acts.isEmpty || pr != .none || canBlock {
                 Menu {
                     ForEach(acts, id: \.self) { a in actionButton(a, m) }
+                    switch pr {
+                    case .remove: Button(role: .destructive) { removing = m } label: { Label("Aus Chat entfernen", systemImage: "person.badge.minus") }
+                    case .disabled(let why):
+                        Button {} label: { Label("Aus Chat entfernen", systemImage: "person.badge.minus") }.disabled(true)
+                        Text(verbatim: why)
+                    case .none: EmptyView()
+                    }
+                    if canBlock { Button(role: .destructive) { askBlock = m } label: { Label("\(m.name) sperren", systemImage: "hand.raised") } }
                 } label: { Image(systemName: "ellipsis.circle") }
                 .menuStyle(.borderlessButton).fixedSize()
                 .accessibilityLabel(Text("Aktionen für \(m.name)")).help(Text("Aktionen für \(m.name)"))
@@ -268,6 +291,12 @@ struct GroupInfoSheet: View {
     // Mitglied hinzufuegen: ohne Eingabe Kontakte (ohne Mitglieder; fremde nur in Gruppen ueber Servergrenzen), sonst Suche
     @ViewBuilder private func addSection(_ i: ChatSummary) -> some View {
         Section {
+            if i.kind == "page" {                                       // 2.5: Hinzufuegen teilt die Seite (mit Rolle)
+                Text("Die Seite wird mit dieser Person geteilt.").font(.footnote).foregroundStyle(.secondary)
+                Picker("Rolle", selection: $pageRole) {
+                    Text("Lesen").tag(ShareRole.view); Text("Kommentieren").tag(ShareRole.comment); Text("Bearbeiten").tag(ShareRole.edit)
+                }
+            }
             TextField("Person hinzufügen", text: $q).autocorrectionDisabled()
                 #if os(iOS)
                 .textInputAutocapitalization(.never)
@@ -278,7 +307,7 @@ struct GroupInfoSheet: View {
                         .font(.footnote).foregroundStyle(.secondary)
                 } else if ChatFedHint.show(q, hits: hits.count + remoteHits.count) { FedChatHint(federated: conv.model.myHandle != nil) }
                 ForEach(hits, id: \.0) { h in
-                    Button { add { await conv.addMember(h.0) } } label: {
+                    Button { add { await conv.addMember(h.0, role: role(i)) } } label: {
                         VStack(alignment: .leading) {
                             Text(verbatim: h.1)
                             if let s = h.2 { Text(verbatim: s).font(.caption).foregroundStyle(.secondary) }
@@ -286,17 +315,18 @@ struct GroupInfoSheet: View {
                     }.buttonStyle(.plain).disabled(busy)
                 }
                 ForEach(remoteHits) { p in
-                    Button { if let h = p.handle { add { await conv.addMember(handle: h) } } } label: { FedPersonRow(p: p) }
+                    Button { if let h = p.handle { add { await conv.addMember(handle: h, role: role(i)) } } } label: { FedPersonRow(p: p) }
                         .buttonStyle(.plain).disabled(busy)
                 }
             }
         } header: { Text("Mitglied hinzufügen") }
         if q.trimmingCharacters(in: .whitespaces).isEmpty && contactsOn {
             ContactsSection(chat: conv.model, list: ContactsLogic.forAdd(conv.model.contacts, members: i.members, fedChat: i.isFed), disabled: busy) { k in
-                add { await conv.addMember(contact: k) }
+                add { await conv.addMember(contact: k, role: role(i)) }
             }
         }
     }
+    private func role(_ i: ChatSummary) -> ShareRole? { i.kind == "page" ? pageRole : nil }
     private func add(_ op: @escaping () async -> Void) {
         busy = true
         Task { await op(); busy = false; q = ""; if conv.sendError == nil { await conv.model.loadContacts() } }
@@ -321,9 +351,8 @@ struct GroupInfoSheet: View {
     // unten: Stummschalten, Archivieren, Gruppe verlassen (freie Gruppe)
     @ViewBuilder private func footer(_ i: ChatSummary) -> some View {
         Section {
-            Button { Task { await conv.patch(["muted": !i.muted]) } } label: {
-                Label(i.muted ? "Benachrichtigungen an" : "Stummschalten", systemImage: i.muted ? "bell" : "bell.slash")
-            }
+            ChatAlltagItems(chat: conv.model, c: i)                        // 2.5: Stumm (Dauer), Anheften, ungelesen, ausblenden
+            if store.chatStd.media { Button { showMedia = true } label: { Label("Medien und Dateien", systemImage: "photo.on.rectangle") } }
             if i.canArchive {
                 Button { let on = !i.archived; conv.info?.archived = on; Task { await conv.model.setArchived(i.id, on) } } label: {
                     Label(i.archived ? "Aus Archiv holen" : "Archivieren", systemImage: i.archived ? "tray.and.arrow.up" : "archivebox")

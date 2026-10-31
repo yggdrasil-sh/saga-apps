@@ -72,6 +72,8 @@ struct ChatContent: Equatable {
     /// KI-Antwort (2.1): {"reply": Beleg-Kennung, "name": Name der KI} - nur mit passendem Server-Beleg als KI zeigen
     var aiReply: String?
     var aiName: String?
+    /// 2.5 (unfurl1): Linkvorschau des Absenders (verschluesselt im Inhalt; Empfaenger laden nichts nach)
+    var preview: ChatStd.Preview?
     init(type: String = "text", text: String = "", title: String? = nil, files: [ChatFileRef] = [], notes: [Int] = [], aiReply: String? = nil, aiName: String? = nil) {
         self.type = type; self.text = text; self.title = title; self.files = files; self.notes = notes; self.aiReply = aiReply; self.aiName = aiName
     }
@@ -85,6 +87,7 @@ struct ChatContent: Equatable {
         if let a = j["ai"] as? [String: Any] {                           // auch kaputte Angaben merken: dann Warnung statt KI
             aiReply = (a["reply"] as? String) ?? ""; aiName = a["name"] as? String
         }
+        preview = ChatStd.Preview(j["preview"])
     }
     func json() -> Data {
         var j: [String: Any] = ["v": 1, "type": type]
@@ -92,6 +95,7 @@ struct ChatContent: Equatable {
         if !files.isEmpty { j["files"] = files.map(\.dict) }
         if !notes.isEmpty { j["notes"] = notes }
         if let r = aiReply { var a: [String: Any] = ["reply": r]; if let n = aiName { a["name"] = n }; j["ai"] = a }
+        if let p = preview, type == "text" { j["preview"] = p.dict }
         return (try? JSONSerialization.data(withJSONObject: j, options: [.sortedKeys])) ?? Data()
     }
 }

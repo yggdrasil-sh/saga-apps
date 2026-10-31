@@ -81,6 +81,7 @@ struct ChatListView: View {
     @State private var q = ""
     @State private var showArchive = false                    // Bereich "Archiviert" aufgeklappt
     @State private var deleting: ChatSummary?
+    @State private var showHidden = false                     // 2.5 (chathide1): Bereich "Ausgeblendet"
     var body: some View {
         List(selection: $selection) {
             #if os(macOS)
@@ -126,6 +127,27 @@ struct ChatListView: View {
                 .selectionDisabled()
                 if open { ForEach(parts.archived) { c in row(c) } }
             }
+            if chat.std.hide && chat.hiddenCount > 0 {                      // 2.5: ausgeblendete Chats am Ende
+                let open = showHidden || !q.isEmpty
+                Button {
+                    withAnimation { showHidden.toggle() }
+                    chat.hiddenOpen = showHidden
+                    if showHidden { Task { await chat.loadHidden() } }
+                } label: {
+                    HStack {
+                        Label("Ausgeblendet (\(chat.hiddenCount))", systemImage: "eye.slash")
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(open ? 90 : 0)).accessibilityHidden(true)
+                    }.foregroundStyle(.secondary).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).selectionDisabled()
+                .accessibilityValue(Text(open ? "aufgeklappt" : "zugeklappt"))
+                .task(id: q) { if !q.isEmpty && chat.hiddenChats.isEmpty { await chat.loadHidden() } }
+                if open {
+                    ForEach(q.isEmpty ? chat.hiddenChats : chat.hiddenChats.filter { ChatLogic.matches($0.title, q) }) { c in row(c).opacity(0.75) }
+                }
+            }
         }
         #if os(macOS)
         .listStyle(.inset)
@@ -161,7 +183,8 @@ struct ChatListView: View {
     /// Zeile mit Wischgesten (iPhone/iPad) und Kontextmenue (Mac, iPad, langes Druecken) - nur, wenn der Server es kann
     @ViewBuilder private func row(_ c: ChatSummary) -> some View {
         if c.canArchive {
-            ChatRow(c: c, online: chat.presenceOf(c)?.online == true).tag(c.id)
+            ChatRow(c: c, online: chat.presenceOf(c)?.online == true, draft: hasDraft(c)).tag(c.id)
+                .swipeActions(edge: .leading, allowsFullSwipe: true) { leadingSwipe(c) }     // 2.5: Anheften, ungelesen
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button { deleting = c } label: { Label("Löschen", systemImage: "trash") }.tint(.red)
                     Button { Task { await chat.setArchived(c.id, !c.archived) } } label: {
@@ -169,6 +192,8 @@ struct ChatListView: View {
                     }.tint(.indigo)
                 }
                 .contextMenu {
+                    ChatAlltagItems(chat: chat, c: c) { if selection == c.id { selection = nil } }   // 2.5
+                    Divider()
                     Button { Task { await chat.setArchived(c.id, !c.archived) } } label: {
                         Label(c.archived ? "Aus Archiv holen" : "Archivieren", systemImage: c.archived ? "tray.and.arrow.up" : "archivebox")
                     }
@@ -176,9 +201,23 @@ struct ChatListView: View {
                     Button(role: .destructive) { deleting = c } label: { Label("Chat löschen …", systemImage: "trash") }
                 }
         } else {
-            ChatRow(c: c, online: chat.presenceOf(c)?.online == true).tag(c.id)
+            ChatRow(c: c, online: chat.presenceOf(c)?.online == true, draft: hasDraft(c)).tag(c.id)
+                .swipeActions(edge: .leading, allowsFullSwipe: true) { leadingSwipe(c) }
+                .contextMenu { ChatAlltagItems(chat: chat, c: c) { if selection == c.id { selection = nil } } }
         }
     }
+    /// 2.5: Wischen nach rechts - Anheften (chatpin1), als ungelesen markieren (markunread1)
+    @ViewBuilder private func leadingSwipe(_ c: ChatSummary) -> some View {
+        if chat.std.chatPin {
+            Button { Task { await chat.setPinned(c, !c.std.pinned) } } label: {
+                Label(c.std.pinned ? "Loslösen" : "Anheften", systemImage: c.std.pinned ? "pin.slash" : "pin")
+            }.tint(Color.gold)
+        }
+        if ChatStd.offerMarkUnread(unread: c.unread, mark: c.std.unreadMark, f: chat.std) {
+            Button { Task { await chat.markUnread(c) } } label: { Label("Als ungelesen markieren", systemImage: "circle.fill") }.tint(.blue)
+        }
+    }
+    private func hasDraft(_ c: ChatSummary) -> Bool { _ = chat.draftTick; return ChatDraftStore.has(account: chat.me.uid, chatID: c.id) }
 }
 
 // MARK: - Chat loeschen (2.1)
@@ -291,6 +330,8 @@ struct ChatRow: View {
     let c: ChatSummary
     /// 2.4: Gegenueber gerade online (gruener Punkt)
     var online = false
+    /// 2.5: Entwurf liegt auf diesem Geraet
+    var draft = false
     @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         // Grosse Schrift (Bedienungshilfen): Zeit und Zaehler unter den Namen statt daneben - nebeneinander blieb fuer
@@ -301,7 +342,14 @@ struct ChatRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(verbatim: c.title).font(.body.weight(c.unread > 0 ? .semibold : .regular)).lineLimit(big ? 3 : 1)
-                    if c.muted { Image(systemName: "bell.slash").font(.caption).foregroundStyle(.secondary).accessibilityLabel(Text("Stummschalten")) }
+                    if c.muted { Image(systemName: "bell.slash").font(.caption).foregroundStyle(.secondary).accessibilityLabel(Text("Stummgeschaltet")) }
+                    else if c.std.notify != "all" { Image(systemName: c.std.notify == "none" ? "bell.slash" : "at").font(.caption).foregroundStyle(.secondary)
+                        .accessibilityLabel(Text(c.std.notify == "none" ? "Mitteilungen aus" : "Nur Erwähnungen")) }
+                    if c.std.pinned { Image(systemName: "pin.fill").font(.caption).foregroundStyle(Color.gold).accessibilityLabel(Text("Angeheftet")) }
+                }
+                if draft { Text("Entwurf").font(.caption.weight(.semibold)).foregroundStyle(.orange) }
+                else if let u = c.std.mutedUntil, u > Date().timeIntervalSince1970 {
+                    Text(verbatim: ChatStd.muteLabel(.until(Date(timeIntervalSince1970: u)), format: ChatMuteMenu.fmt)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Text(verbatim: ChatSubtitle.text(c)).font(.caption).foregroundStyle(.secondary).lineLimit(2)   // schmale Liste (iPad quer): umbrechen statt "…" (N15)   // 2.3: "Direkt-Chat · auf host · Anfrage"
                 if big { HStack(spacing: 8) { meta } }
@@ -315,7 +363,9 @@ struct ChatRow: View {
     }
     @ViewBuilder private var meta: some View {
         if c.lastAt > 0 { Text(Date(timeIntervalSince1970: c.lastAt), format: SagaDate.relative).font(.caption2).foregroundStyle(.secondary).lineLimit(1) }
-        if c.unread > 0 {
+        if c.std.unreadMark && c.unread <= 1 {                              // 2.5: als ungelesen markiert -> Punkt
+            Circle().fill(Color.gold).frame(width: 10, height: 10).accessibilityLabel(Text("Als ungelesen markiert"))
+        } else if c.unread > 0 {
             Text(verbatim: "\(c.unread)").font(.caption2.bold()).foregroundStyle(Color("OnAccent"))
                 .padding(.horizontal, 6).padding(.vertical, 1).background(Color.gold, in: Capsule())
                 .accessibilityLabel(Text("\(c.unread) ungelesen"))
@@ -330,6 +380,7 @@ struct ChatAvatar: View {
             Circle().fill(Color.gold.opacity(0.16))
             switch c.kind {
             case "dm": AvatarView(name: c.title, avatar: c.peer?.avatar, size: 36)
+            case "free" where c.avatarFile != nil: ListGroupAvatar(c: c)     // 2.5 (groupinfo2): Gruppenbild
             case "page": Image(systemName: "doc.text").font(.subheadline)
             default: Image(systemName: "person.2.fill").font(.caption)
             }
