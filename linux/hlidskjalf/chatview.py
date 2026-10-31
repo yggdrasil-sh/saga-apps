@@ -3183,6 +3183,8 @@ class GroupInfoDialog(ChatInfoDialog):
     def __init__(self, win, cid):
         super().__init__(win, cid)
         self.set_title(_("Group info"))
+        self.set_content_height(640)
+        self.connect("map", lambda *_: GLib.idle_add(lambda: (self.set_focus(None), False)[1]))   # Name nicht markiert
         watch_chat(self, "chat-changed", lambda c: c == self.cid and self._live())
         watch_chat(self, "contacts", lambda: self._contacts_live())
 
