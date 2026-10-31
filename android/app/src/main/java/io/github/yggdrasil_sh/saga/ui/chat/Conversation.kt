@@ -528,10 +528,18 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                             DropdownMenuItem(text = { Text(stringResource(R.string.chat_members)) }, onClick = { menu = false; dialog = "members" })
                         }
                         if (sum != null) {
-                            DropdownMenuItem(text = { Text(stringResource(if (sum.muted) R.string.chat_unmute else R.string.chat_mute)) }, onClick = {
+                            // 2.5 Chat-Alltag: Stummschalten mit Dauer/Mitteilungen, Anheften, ungelesen, ausblenden
+                            if (std.mute2 || std.chatPin || std.markUnread || std.hide) {
+                                AlltagMenuItems(repo, sum, onPatched = { c ->
+                                    s.applySummary(c)
+                                    if (c.unreadMark || c.hidden) nav.top(Dest.Chats)
+                                }) { menu = false }
+                            }
+                            if (!std.mute2) DropdownMenuItem(text = { Text(stringResource(if (sum.muted) R.string.chat_unmute else R.string.chat_mute)) }, onClick = {
                                 menu = false
                                 repo.launchAction { s.setMuted(!sum.muted) }
                             })
+                            // MEDIA-MENU
                             DropdownMenuItem(text = { Text(stringResource(R.string.chat_retention)) }, onClick = { menu = false; dialog = "retention" })
                             // KI im Chat (2.1): nur fuer Berechtigte; Erlauben mit Rueckfrage (was an die KI geht)
                             if (aiServer && s.aiMayToggle == true) {

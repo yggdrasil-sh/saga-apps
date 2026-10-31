@@ -159,7 +159,13 @@ fun GroupInfoDialog(
                     androidx.compose.foundation.layout.FlowRow(
                         Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        OutlinedButton(onClick = { repo.launchAction { s.setMuted(!c.muted) } }) {
+                        if (std.mute2) Box {
+                            var mm by remember { mutableStateOf(false) }
+                            OutlinedButton(onClick = { mm = true }) { Text(muteLabel(c, System.currentTimeMillis() / 1000.0)) }
+                            DropdownMenu(expanded = mm, onDismissRequest = { mm = false }) {
+                                AlltagMenuItems(repo, c, onPatched = { s.applySummary(it) }) { mm = false }
+                            }
+                        } else OutlinedButton(onClick = { repo.launchAction { s.setMuted(!c.muted) } }) {
                             Text(stringResource(if (c.muted) R.string.chat_unmute else R.string.chat_mute))
                         }
                         if (s.canArchive) {

@@ -1520,6 +1520,11 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         summary = decode<ChatWrap>(api.patch("api/chats/$chatId", buildJsonObject { put(key, if (admins) "admins" else "all") })).chat
     }
 
+    /** neuer Stand von aussen (z. B. PATCH aus einem Menue) */
+    fun applySummary(c: ChatSummary) {
+        if (c.id == chatId) summary = c
+    }
+
     /** 2.5 Alltag (muted_until, notify, pinned, unread_mark, hidden) - Stand auch in der Liste */
     suspend fun patch(body: JsonObject) {
         summary = svc.patchChat(chatId, body)
