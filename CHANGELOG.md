@@ -73,6 +73,11 @@ Alles nur, wenn der Server die jeweilige Fähigkeit meldet; ältere Server: wie 
 - **Blöcke auf eine andere Seite verschieben** (mit Rückgängig).
 - Nicht in dieser Etappe: Zeitleiste ziehen, API-Token-Liste.
 
+### Neu – Linux: Gruppeninfo und Kontakte (Saga-Server 2.5, `chatadm1`/`contacts1`)
+- **Gruppeninfo** (Klick auf den Chat-Kopf bzw. „Gruppeninfo …“): Name, Mitglieder mit „Du“/„Admin“ und Handle,
+  Admin vergeben/entziehen, Mitglied hinzufügen/entfernen; **Kontakte** in „Neue Unterhaltung“ und „Mitglied hinzufügen“
+  (Kontextmenü „Aus Kontakten entfernen“). Ältere Server: wie bisher. Tests: `tests/test_gruppeninfo_kontakte.py`.
+
 ### Neu – Linux: Gleichzeitig bearbeiten, Aufgabenquellen, Editor (Saga-Server 2.5, App-Runde Etappe 2)
 Alles nur, wenn der Server die jeweilige Fähigkeit meldet; ältere Server: wie bisher (Konfliktdialog bleibt als Rückfall).
 - **Zusammenführen statt Konfliktdialog:** Speichern mit `merge: 1`; die zusammengeführte Antwort wird blockweise
