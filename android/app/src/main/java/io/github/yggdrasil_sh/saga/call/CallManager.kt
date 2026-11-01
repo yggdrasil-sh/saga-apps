@@ -2984,7 +2984,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 c.path = p
                 applyLimits(c)
                 if (changed) {
-                    if (main) diagEvent(r, "path", "${pathBefore?.wire ?: "-"} -> ${p.wire}")
+                    if (main) diagEvent(c, "path", "${pathBefore?.wire ?: "-"} -> ${p.wire}")
                     log("path $p")
                     scope.launch { if (live(c)) stateOut(c) }   // `state.path` an das Gegenueber
                 }
