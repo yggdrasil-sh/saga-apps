@@ -124,6 +124,17 @@ object CallDiag {
         null -> "?"
     }
 
+    private val SRC_BAD = Regex("""[^A-Za-z0-9_\-:.]""")
+    private val ENC_BAD = Regex("""[^A-Za-z0-9 _()\[\].,:+/\-]""")
+    private val RIDS = setOf("l", "m", "h")
+
+    /** Zeichensatz des Servers (saga/calldiag.py _SRC/_ENC) */
+    fun src(s: String): String = SRC_BAD.replace(s, "").take(16)
+    fun enc(s: String): String = ENC_BAD.replace(s, "").take(60)
+
+    /** Zahl fuer den Server: endlich, >= 0, ganzzahlig */
+    fun int(v: Double?): Int = if (v == null || !v.isFinite() || v <= 0) 0 else if (v >= 1e9) 1_000_000_000 else Math.round(v).toInt()
+
     private fun n(v: Any?): Double? = (v as? Number)?.toDouble() ?: v?.toString()?.toDoubleOrNull()
 
     class Buffer(val call: String, val plat: String, val app: String, val t0: Long) {
@@ -141,22 +152,22 @@ object CallDiag {
 
         fun ms(now: Long): Long = maxOf(0L, now - t0)
 
-        /** Geraete-ID -> p1, p2 ... (je Anruf fest) */
+        /** Geraete-ID -> p1, p2 ... (je Anruf fest); unbekannt -> "" (Server nimmt fuer src nur [A-Za-z0-9_-:.] an - "?" verwarf die Meldung) */
         fun alias(dev: String?): String {
-            if (dev.isNullOrEmpty()) return "?"
+            if (dev.isNullOrEmpty()) return ""
             return aliases.getOrPut(dev) { "p${aliases.size + 1}" }
         }
 
         private fun delta(key: String, v: Double): Int {
             val p = prev[key]
             prev[key] = v
-            return if (p == null || v < p) 0 else Math.round(v - p).toInt()
+            return if (p == null || v < p) 0 else int(v - p)
         }
 
         private fun kbps(key: String, bytes: Double, t: Long): Int {
             val p = rate[key]
             rate[key] = bytes to t
-            return if (p == null || t <= p.second || bytes < p.first) 0 else Math.round((bytes - p.first) * 8 / (t - p.second)).toInt()
+            return if (p == null || t <= p.second || bytes < p.first) 0 else int((bytes - p.first) * 8 / (t - p.second))
         }
 
         /** hoechstens eine Probe je Spur und [every] ms */
@@ -175,19 +186,19 @@ object CallDiag {
             val out = type == "outbound-rtp"
             val q = m["qualityLimitationReason"]?.toString().orEmpty()
             return Sample(
-                t = ms(now), dir = if (out) "out" else "in", src = src,
-                rid = if (out) m["rid"]?.toString().orEmpty().take(2) else "",
-                fps = Math.round(n(m["framesPerSecond"]) ?: 0.0).toInt(),
-                h = (n(m["frameHeight"]) ?: 0.0).toInt(),
+                t = ms(now), dir = if (out) "out" else "in", src = CallDiag.src(src),
+                rid = if (out) m["rid"]?.toString().orEmpty().takeIf { it in RIDS }.orEmpty() else "",
+                fps = int(n(m["framesPerSecond"])),
+                h = int(n(m["frameHeight"])),
                 kbps = kbps(key, n(m[if (out) "bytesSent" else "bytesReceived"]) ?: 0.0, now),
                 lost = if (out) 0 else delta("$key.lost", n(m["packetsLost"]) ?: 0.0),
                 nack = delta("$key.nack", n(m["nackCount"]) ?: 0.0),
                 pli = delta("$key.pli", n(m["pliCount"]) ?: 0.0),
                 freeze = if (out) 0 else delta("$key.fz", n(m["freezeCount"]) ?: 0.0),
                 kf = delta("$key.kf", n(m[if (out) "keyFramesEncoded" else "keyFramesDecoded"]) ?: 0.0),
-                rtt = Math.round(rtt ?: 0.0).toInt(),
+                rtt = int(rtt),
                 qlr = if (!out || q.isEmpty()) "" else if (q in QLRS) q else "other",
-                enc = if (out) m["encoderImplementation"]?.toString().orEmpty().take(60) else "",
+                enc = if (out) CallDiag.enc(m["encoderImplementation"]?.toString().orEmpty()) else "",
             )
         }
 

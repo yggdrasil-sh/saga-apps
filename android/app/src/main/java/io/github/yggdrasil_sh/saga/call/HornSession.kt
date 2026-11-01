@@ -112,7 +112,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         /** 2.5 Anruf-Diagnose (calldiag1): Ereignis, Probe aus getStats, Kuerzel einer Quelle, Weg/Knoten */
         fun diagEvent(k: String, d: String) {}
         fun diagSample(type: String, m: Map<String, Any?>, src: String, key: String, rtt: Double?) {}
-        fun diagAlias(dev: String?): String = "?"
+        fun diagAlias(dev: String?): String = ""
         fun diagWay(path: String, node: String) {}
         /** Video-Senke einer Kachel bzw. des grossen Bildes (Sprecher/Bildschirm) */
         fun tileSink(dev: String): ProxySink

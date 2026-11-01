@@ -28,7 +28,7 @@ extension CallManager {
         }
         return true
     }
-    func diagAlias(_ dev: String?) -> String { diagEnsure() ? (diag?.alias(dev) ?? "?") : "?" }
+    func diagAlias(_ dev: String?) -> String { diagEnsure() ? (diag?.alias(dev) ?? "") : "" }
     func diagSample(type: String, values: [String: Any], src: String, key: String, rtt: Double?) {
         guard diagEnsure() else { return }
         let now = Self.hornNow()
@@ -52,7 +52,7 @@ extension CallManager {
         diag = nil
         let wait = b.wait(now: Self.hornNow())
         Task {
-            if wait > 0 { try? await Task.sleep(for: .milliseconds(Int(wait) + 50)) }
+            if wait > 0 { try? await Task.sleep(for: .milliseconds(Int(wait) + 1500)) }   // Puffer: die vorige Meldung kam ggf. spaeter an
             guard let body = b.take(now: Self.hornNow()) else { return }
             _ = try? await store.apiResponse(CallDiag.path, method: "POST", body: body, timeout: 10)
         }

@@ -3805,7 +3805,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         override fun thermal(): Int = this@CallManager.thermal()
         override fun diagEvent(k: String, d: String) = this@CallManager.diagEvent(r, k, d)
         override fun diagSample(type: String, m: Map<String, Any?>, src: String, key: String, rtt: Double?) = this@CallManager.diagSample(r, type, m, src, key, rtt)
-        override fun diagAlias(dev: String?): String = diagOf(r)?.alias(dev) ?: "?"
+        override fun diagAlias(dev: String?): String = diagOf(r)?.alias(dev) ?: ""
         override fun diagWay(path: String, node: String) {
             diagOf(r)?.let { it.path = "horn"; it.transport = CallDiag.transportHorn(path); it.node = node }
         }
@@ -4320,7 +4320,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         scope.launch {
             try {
                 val w = d.wait(System.currentTimeMillis())
-                if (w > 0) delay(w + 50)
+                if (w > 0) delay(w + 1500)                 // Puffer: die vorige Meldung kam ggf. spaeter an (Server: 429)
                 d.take(System.currentTimeMillis())?.let { api.post(CallDiag.PATH, it) }
             } catch (e: CancellationException) {
                 throw e

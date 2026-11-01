@@ -93,7 +93,7 @@ class CallDiagTest {
     fun bufferSamplesEvents() {
         val b = CallDiag.Buffer("c1", "android", "2.5.0", 1000)
         b.path = "horn"; b.transport = CallDiag.transportHorn("turn"); b.node = "horn-1.example.org"
-        assertEquals("p1", b.alias("devA")); assertEquals("p2", b.alias("devB")); assertEquals("p1", b.alias("devA")); assertEquals("?", b.alias(null))
+        assertEquals("p1", b.alias("devA")); assertEquals("p2", b.alias("devB")); assertEquals("p1", b.alias("devA")); assertEquals("unbekannt: leer (Server-Zeichensatz)", "", b.alias(null))
         assertFalse(b.due(20_000)); assertTrue(b.due(31_000))
         assertNull(b.take(2000))
         assertNull(b.sample("outbound-rtp", mapOf("kind" to "audio"), "me", "a", 2000, null))
@@ -154,5 +154,21 @@ class CallDiagTest {
         assertEquals("udp", CallDiag.transportHorn("udp")); assertEquals("tcp", CallDiag.transportHorn("tcp")); assertEquals("?", CallDiag.transportHorn(""))
         assertEquals("udp", CallDiag.transportP2p(CallV3.Path.DIRECT)); assertEquals("tcp", CallDiag.transportP2p(CallV3.Path.RELAY_TCP))
         assertEquals("?", CallDiag.transportP2p(null))
+    }
+
+    /** Vertrag saga/calldiag.py (Pruefer 1.11.): src/enc nur im Server-Zeichensatz, rid nur l/m/h, Zahlen endlich und >= 0 */
+    @Test
+    fun serverContract() {
+        val b = CallDiag.Buffer("c3", "android", "2.5.0-rc.3-debug", 0)
+        val odd = mapOf<String, Any?>("kind" to "video", "rid" to "f", "framesPerSecond" to Double.NaN, "frameHeight" to -1,
+            "bytesSent" to Double.POSITIVE_INFINITY, "encoderImplementation" to "Encoder \u00e4\"x\"\n{1}", "qualityLimitationReason" to "none")
+        val s = b.sample("outbound-rtp", odd, "me?<x>", "o", 1000, Double.NEGATIVE_INFINITY)!!
+        assertEquals("mex", s.src); assertEquals("", s.rid); assertEquals(0, s.fps); assertEquals(0, s.h); assertEquals(0, s.kbps)
+        assertEquals(0, s.rtt); assertEquals("Encoder x1", s.enc)
+        assertEquals(0, CallDiag.int(Double.NaN)); assertEquals(0, CallDiag.int(-3.0)); assertEquals(3, CallDiag.int(2.6))
+        assertEquals(1_000_000_000, CallDiag.int(1e12))
+        b.add(s); b.add(CallDiag.Sample(1000, "in", b.alias(null), ""))
+        val body = b.take(2000)!!
+        println("PRUEFER-BODY\t" + body.toString())
     }
 }

@@ -55,7 +55,7 @@ func callDiagTests() {
     // Puffer
     var b = CallDiag.Buffer(call: "c1", plat: "ios", app: "2.5.0", t0: 1000)
     b.path = "horn"; b.transport = CallDiag.transport(horn: "turn"); b.node = "horn-1.example.org"
-    check(b.alias("devA") == "p1" && b.alias("devB") == "p2" && b.alias("devA") == "p1" && b.alias(nil) == "?", "Kuerzel je Geraet")
+    check(b.alias("devA") == "p1" && b.alias("devB") == "p2" && b.alias("devA") == "p1" && b.alias(nil) == "", "Kuerzel je Geraet (unbekannt: leer, Server-Zeichensatz)")
     check(!b.due(now: 20_000) && b.due(now: 31_000), "alle 30 s ab Anrufbeginn")
     check(b.take(now: 2000) == nil, "leer: nichts senden")
     let out: [String: Any] = ["kind": "video", "rid": "h", "framesPerSecond": NSNumber(value: 29.6), "frameHeight": NSNumber(value: 720),
@@ -103,5 +103,13 @@ func callDiagTests() {
     check(n <= 200 && ne <= 100 && sz <= 32 * 1024 && sz > 20_000, "gekuerzt: \(n) Proben, \(ne) Ereignisse, \(sz) Bytes")
     check((bb["samples"] as! [[String: Any]]).last?["t"] as? Int == 499, "neueste Proben bleiben")
     check(CallDiag.transport(horn: "udp") == "udp" && CallDiag.transport(horn: "tcp") == "tcp" && CallDiag.transport(horn: "") == "?", "Weg Knoten")
+    // Vertrag saga/calldiag.py (Pruefer 1.11.): src/enc nur im Server-Zeichensatz, rid nur l/m/h, Zahlen endlich und >= 0
+    var w = CallDiag.Buffer(call: "c3", plat: "ios", app: "2.5.0", t0: 0)
+    let odd: [String: Any] = ["kind": "video", "rid": "f", "framesPerSecond": NSNumber(value: Double.nan), "frameHeight": NSNumber(value: -1),
+                              "bytesSent": NSNumber(value: Double.infinity), "encoderImplementation": "Encoder \u{00e4}\"x\"\n{1}", "qualityLimitationReason": "none"]
+    let so = w.sample(type: "outbound-rtp", values: odd, src: "me?<x>", key: "o", now: 1000, rtt: -.infinity)
+    check(so?.src == "mex" && so?.rid == "" && so?.fps == 0 && so?.h == 0 && so?.kbps == 0 && so?.rtt == 0 && so?.enc == "Encoder x1",
+          "ungewoehnliche Stats: \(String(describing: so))")
+    check(CallDiag.int(.nan) == 0 && CallDiag.int(-3) == 0 && CallDiag.int(2.6) == 3 && CallDiag.int(1e12) == 1_000_000_000, "Zahlen begrenzt")
     check(CallDiag.transport(p2p: "direct") == "udp" && CallDiag.transport(p2p: "relay-tcp") == "tcp" && CallDiag.transport(p2p: nil) == "?", "Weg P2P")
 }

@@ -97,8 +97,14 @@ enum CallDiag {
         for p in [#"\b\d{1,3}(\.\d{1,3}){3}\b"#, #"\b[0-9a-fA-F]{1,4}(:[0-9a-fA-F]{0,4}){3,7}\b"#] {
             x = x.replacingOccurrences(of: p, with: "*", options: .regularExpression)
         }
-        return String(x.prefix(maxText))
+        return String(String.UnicodeScalarView(x.unicodeScalars.prefix(maxText)))   // Server zaehlt Codepunkte, nicht Zeichen
     }
+    /// Zeichensatz des Servers (saga/calldiag.py _SRC/_ENC): andere Zeichen weg, Laenge begrenzt
+    static func keep(_ s: String, _ extra: String, _ n: Int) -> String {
+        String(String(s.unicodeScalars.filter { ($0.isASCII && (CharacterSet.alphanumerics.contains($0))) || extra.unicodeScalars.contains($0) }).prefix(n))
+    }
+    /// Zahl fuer den Server: endlich, >= 0, ganzzahlig (Int(NaN/inf) wuerde abstuerzen)
+    static func int(_ v: Double?) -> Int { guard let v, v.isFinite, v > 0 else { return 0 }; return v >= 1e9 ? 1_000_000_000 : Int(v.rounded()) }
     static func transport(horn path: String) -> String { path == "udp" ? "udp" : path == "tcp" ? "tcp" : path == "turn" ? "tls" : "?" }
     /// P2P: Weg aus CallV3.Path (direct, relay-udp, relay-tcp)
     static func transport(p2p wire: String?) -> String {
@@ -119,9 +125,10 @@ enum CallDiag {
         init(call: String, plat: String, app: String, t0: Double) { self.call = call; self.plat = plat; self.app = app; self.t0 = t0 }
 
         func ms(_ now: Double) -> Int { max(0, Int((now - t0).rounded())) }
-        /// Geraete-ID -> p1, p2 ... (je Anruf fest; nie Name oder ID im Inhalt)
+        /// Geraete-ID -> p1, p2 ... (je Anruf fest; nie Name oder ID im Inhalt); unbekannt -> "" (der Server nimmt fuer src nur
+        /// [A-Za-z0-9_-:.] an - "?" verwarf die ganze Meldung)
         mutating func alias(_ dev: String?) -> String {
-            guard let dev, !dev.isEmpty else { return "?" }
+            guard let dev, !dev.isEmpty else { return "" }
             if let a = aliases[dev] { return a }
             let a = "p\(aliases.count + 1)"; aliases[dev] = a; return a
         }
@@ -129,12 +136,12 @@ enum CallDiag {
         mutating func delta(_ key: String, _ v: Double) -> Int {
             defer { prev[key] = v }
             guard let p = prev[key], v >= p else { return 0 }
-            return Int((v - p).rounded())
+            return CallDiag.int(v - p)
         }
         mutating func kbps(_ key: String, bytes: Double, t: Double) -> Int {
             defer { rate[key] = (bytes, t) }
             guard let p = rate[key], t > p.t, bytes >= p.b else { return 0 }
-            return Int(((bytes - p.b) * 8 / (t - p.t)).rounded())          // Bytes je ms * 8 = kbit/s
+            return CallDiag.int((bytes - p.b) * 8 / (t - p.t))              // Bytes je ms * 8 = kbit/s
         }
         /// hoechstens eine Probe je Quelle und `every` ms (P2P-Statistik laeuft im 1-2-s-Takt)
         mutating func sampleDue(_ key: String, now: Double, every: Double = 3000) -> Bool {
@@ -152,18 +159,19 @@ enum CallDiag {
             let kind = (v["kind"] as? String) ?? (v["mediaType"] as? String) ?? ""
             guard kind == "video" else { return nil }
             let out = type == "outbound-rtp"
-            var s = Sample(t: ms(now), dir: out ? "out" : "in", src: src, rid: out ? String(((v["rid"] as? String) ?? "").prefix(2)) : "")
-            s.fps = Int((n("framesPerSecond") ?? 0).rounded())
-            s.h = Int(n("frameHeight") ?? 0)
+            let rid = (v["rid"] as? String) ?? ""
+            var s = Sample(t: ms(now), dir: out ? "out" : "in", src: CallDiag.keep(src, "_-:.", 16), rid: out && ["l", "m", "h"].contains(rid) ? rid : "")
+            s.fps = CallDiag.int(n("framesPerSecond"))
+            s.h = CallDiag.int(n("frameHeight"))
             s.kbps = kbps(key, bytes: n(out ? "bytesSent" : "bytesReceived") ?? 0, t: now)
             s.nack = delta(key + ".nack", n("nackCount") ?? 0)
             s.pli = delta(key + ".pli", n("pliCount") ?? 0)
             s.kf = delta(key + ".kf", n(out ? "keyFramesEncoded" : "keyFramesDecoded") ?? 0)
-            s.rtt = Int((rtt ?? 0).rounded())
+            s.rtt = CallDiag.int(rtt)
             if out {
                 let q = (v["qualityLimitationReason"] as? String) ?? ""
                 s.qlr = q.isEmpty ? "" : (qlrs.contains(q) ? q : "other")
-                s.enc = String(((v["encoderImplementation"] as? String) ?? "").prefix(60))
+                s.enc = CallDiag.keep((v["encoderImplementation"] as? String) ?? "", " _()[].,:+/-", 60)
             } else {
                 s.lost = delta(key + ".lost", n("packetsLost") ?? 0)
                 s.freeze = delta(key + ".fz", n("freezeCount") ?? 0)
