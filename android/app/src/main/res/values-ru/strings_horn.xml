@@ -11,7 +11,7 @@
     <string name="horn_path_udp">UDP (самый быстрый путь)</string>
     <string name="horn_path_tcp">TCP через порт 443</string>
     <string name="horn_path_tls">TLS через порт 443 (запасной путь)</string>
-    <string name="horn_path_desc">Путь к узлу %1$s: %2$s · %3$s</string>
+    <string name="horn_path_desc">Путь к узлу %1$s: %2$s · Качество приёма: %3$s</string>
     <string name="horn_loss">потери %1$.1f %%</string>
     <string name="horn_q_good">хорошая связь</string>
     <string name="horn_q_mid">средняя связь</string>

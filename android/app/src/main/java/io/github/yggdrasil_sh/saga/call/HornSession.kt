@@ -107,6 +107,13 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         fun refreshRoster()
         /** 2.5 Akku: Energiesparmodus an oder Geraet heiss -> weniger kodieren */
         fun lowPower(): Boolean = false
+        /** Waermestufe (PowerManager.THERMAL_STATUS_*) fuer Diagnose/Protokoll; -1 = unbekannt */
+        fun thermal(): Int = -1
+        /** 2.5 Anruf-Diagnose (calldiag1): Ereignis, Probe aus getStats, Kuerzel einer Quelle, Weg/Knoten */
+        fun diagEvent(k: String, d: String) {}
+        fun diagSample(type: String, m: Map<String, Any?>, src: String, key: String, rtt: Double?) {}
+        fun diagAlias(dev: String?): String = "?"
+        fun diagWay(path: String, node: String) {}
         /** Video-Senke einer Kachel bzw. des grossen Bildes (Sprecher/Bildschirm) */
         fun tileSink(dev: String): ProxySink
         val bigSink: ProxySink
@@ -259,6 +266,9 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         var onUp: CompletableDeferred<Boolean>? = null
         var net: HornLogic.Net? = null
         var q = ""
+        /** 1.11.: Empfangsqualitaet ueber 30 s, Anzeige erst nach zwei gleichen Messungen (CallDiag) */
+        val gauge = CallDiag.Gauge()
+        var shown: CallDiag.Debounce<String>? = null
         var q5: LongArray? = null
         var q5t = 0L
         var bytesIn = 0L
@@ -850,6 +860,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
 
     private var rosterAt = 0L
     private var tuneAt = 0L
+    private var tuneLine = ""
 
     /** 2.5 Akku: Kamera-Schichten nach Zahl der anderen und Energiesparen (HornLogic.camActive) - nur bei Aenderung */
     private fun tune(conn: Conn) {
@@ -858,6 +869,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         val others = conn.peers.keys.count { it !in mine }
         val (on, fps) = HornLogic.camActive(conn.path, others, host.lowPower())
         val f = HornLogic.camMaxFps(fps)                              // gemeinsam fuer alle Schichten, nie je Schicht
+        val line = "schichten ${on.sorted()} fps ${fps ?: "-"} (andere $others) waerme ${host.thermal()}"
+        if (line != tuneLine) { tuneLine = line; host.diagEvent("layers", line) }
         for (L in conn.legs.values) {
             val s = L.cam?.sender ?: continue
             try {
@@ -868,7 +881,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                     if (e.active != a) { e.active = a; diff = true }
                     if (e.maxFramerate != f) { e.maxFramerate = f; diff = true }
                 }
-                if (diff) { s.parameters = p; log("schichten ${on.sorted()} fps ${fps ?: "-"} (andere $others)") }
+                if (diff) { s.parameters = p; log(line) }
             } catch (e: Exception) {
                 log("schichten: ${e.message}")
             }
@@ -1021,6 +1034,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             }
         }
         syncTracks(conn)
+        if (prev?.path != conn.path) host.diagEvent("path", "${prev?.path ?: "-"} -> ${conn.path}")
+        host.diagWay(conn.path, conn.node)
         val s = sw
         if (s == null) sw = HornLogic.Switcher(conn.node, conn.path, now) else s.moved(now, conn.node, conn.path, why)
         retryJob?.cancel()
@@ -1074,6 +1089,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         val c = cur
         val hard = why == "lost" || why == "draining"
         switching = true
+        host.diagEvent("switch", why + (path?.let { " -> $it" } ?: ""))
+        log("switch $why ${path ?: ""}")
         val now = System.currentTimeMillis()
         if (why == "lost" && c != null) bad[c.node] = now + HornLogic.BAD_MS
         if (hard && c != null) leaving = c.node to now + HornLogic.BAD_MS
@@ -1301,6 +1318,10 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             val byTrack = L.recv.associateBy { it.track?.id() }
             for (s in r.statsMap.values) {
                 val m = s.members
+                if (s.type == "inbound-rtp" || s.type == "outbound-rtp") {
+                    val src = if (s.type == "outbound-rtp") "me" else host.diagAlias(byTrack[m["trackIdentifier"]?.toString()]?.owner)
+                    host.diagSample(s.type, m, src, L.role + "." + s.id, c.net?.rtt)
+                }
                 if (s.type == "candidate-pair" && m["nominated"] == true && m["state"] == "succeeded") {
                     dbl(m["currentRoundTripTime"])?.let { rtt = maxOf(rtt ?: 0.0, it * 1000) }
                 }
@@ -1332,16 +1353,24 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             }
         }
         val p = c.q5 ?: longArrayOf(lost, recv, fz)
-        val pt = if (c.q5t > 0) c.q5t else now
         val dl = lost - p[0]
         val dr = recv - p[1]
-        val loss = if (dl + dr > 0) maxOf(0L, dl).toDouble() / (dl + dr) else 0.0
-        val mins = maxOf(1.0 / 60, (now - pt) / 60000.0)
+        val loss = if (dl + dr > 0) maxOf(0L, dl).toDouble() / (dl + dr) else 0.0      // 3 s: nur fuer die UDP-Regel
         c.q5 = longArrayOf(lost, recv, fz)
         c.q5t = now
         if (rtt == null && c.rtts.isNotEmpty()) rtt = HornLogic.median(c.rtts)
-        c.net = HornLogic.Net(rtt?.let { Math.round(it).toDouble() }, Math.round(loss * 1000) / 1000.0, Math.round((fz - p[2]) / mins * 10) / 10.0)
-        c.q = HornLogic.quality(c.net)
+        // Anzeige: gleitendes 30-s-Fenster, Wechsel erst nach zwei gleichen Messungen (Analyse 1.11.)
+        val w = c.gauge.push(now, lost, recv, fz)
+        c.net = HornLogic.Net(rtt?.let { Math.round(it).toDouble() }, Math.round(w.loss * 1000) / 1000.0, Math.round(w.freezes * 10) / 10.0)
+        val before = c.q
+        val raw = HornLogic.quality(c.net)
+        c.q = c.shown?.push(raw) ?: raw.also { c.shown = CallDiag.Debounce(it) }   // erste Messung sofort
+        if (cur === c && c.q != before) {
+            val n = c.net
+            val d = "${before.ifEmpty { "-" }} -> ${c.q} rtt ${n?.rtt?.toInt() ?: 0} verlust ${n?.loss ?: 0.0} fz/min ${n?.freezes ?: 0.0}"
+            host.diagEvent("quality", d)
+            log("qualitaet $d")
+        }
         c.bytesIn = bytes
         // Sprechring (Pegel der Tonplaetze), 600 ms Nachlauf; stumme Geraete nie
         levelsNow.clear()

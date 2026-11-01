@@ -173,7 +173,7 @@ object CallScreen {
         return Pair(even(w * f), even(h * f))
     }
 
-    /** Bildrate der Aufnahme: 15 fps, ueber Relais TCP 8 fps; heiss (THERMAL_STATUS_MODERATE+) 5 fps */
+    /** Bildrate der Aufnahme: 15 fps, ueber Relais TCP 8 fps; heiss (ab THERMAL_STATUS_SEVERE, 60 s Hysterese) 5 fps */
     fun captureFps(path: CallV3.Path?, hot: Boolean = false): Int = when {
         hot -> 5
         path == CallV3.Path.RELAY_TCP -> 8

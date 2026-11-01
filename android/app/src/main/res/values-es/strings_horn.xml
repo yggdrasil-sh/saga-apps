@@ -11,7 +11,7 @@
     <string name="horn_path_udp">UDP (camino más rápido)</string>
     <string name="horn_path_tcp">TCP por el puerto 443</string>
     <string name="horn_path_tls">TLS por el puerto 443 (alternativa)</string>
-    <string name="horn_path_desc">Camino al nodo %1$s: %2$s · %3$s</string>
+    <string name="horn_path_desc">Camino al nodo %1$s: %2$s · Calidad de recepción: %3$s</string>
     <string name="horn_loss">pérdida %1$.1f %%</string>
     <string name="horn_q_good">buena conexión</string>
     <string name="horn_q_mid">conexión regular</string>

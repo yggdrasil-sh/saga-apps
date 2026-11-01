@@ -212,6 +212,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val seen = HashSet<Long>()
         val early = ArrayList<CallSignalDto>()
         var t0 = 0L
+        /** 2.5 Anruf-Diagnose (calldiag1): Proben/Ereignisse dieses Anrufs */
+        var diag: CallDiag.Buffer? = null
         var jobs = ArrayList<Job>()
         var done = false
         var ending = false
@@ -1547,11 +1549,26 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         log("limits path=$p want=${c.peerWant} -> cam=$cam screen=$scr audio=$a ok=$ok")
     }
 
-    /** Geraet heiss (THERMAL_STATUS_MODERATE oder mehr): Bildschirm nur mit 5 fps aufnehmen (Konzept §4.5) */
-    private fun hot(): Boolean = Build.VERSION.SDK_INT >= 29 && try {
-        (app.getSystemService(android.os.PowerManager::class.java)?.currentThermalStatus ?: 0) >= android.os.PowerManager.THERMAL_STATUS_MODERATE
+    /** Waermestufe (PowerManager.THERMAL_STATUS_*), -1 = unbekannt (vor Android 10) */
+    private fun thermal(): Int = if (Build.VERSION.SDK_INT >= 29) try {
+        app.getSystemService(android.os.PowerManager::class.java)?.currentThermalStatus ?: -1
     } catch (_: Exception) {
-        false
+        -1
+    } else -1
+
+    private val hotHold = CallDiag.Hold()
+
+    /**
+     * Geraet heiss: Bildschirm nur mit 5 fps, am Knoten ohne h-Schicht und hoechstens 15 fps (Konzept §4.5). 1.11.: erst ab
+     * THERMAL_STATUS_SEVERE (wie iOS .serious; MODERATE drosselte zu frueh) und mit Hysterese - einmal heiss mindestens
+     * 60 s, zurueck erst nach 60 s am Stueck darunter ([CallDiag.Hold]); sonst pendelten die Schichten alle 5 s.
+     */
+    private fun hot(): Boolean {
+        val t = thermal()
+        val was = hotHold.on
+        val h = hotHold.update(System.currentTimeMillis(), CallDiag.hotRaw(t))
+        if (h != was) cur?.let { diagEvent(it, "thermal", "${if (h) "heiss" else "normal"} (Stufe $t)") }
+        return h
     }
 
     /** Oberflaeche: Bild-im-Bild an/aus, Anrufbildschirm sichtbar? -> `want` an das Gegenueber (nur bei Aenderung) */
@@ -2962,15 +2979,24 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 r?.members?.get("candidateType") as? String, l?.members?.get("protocol") as? String)
             if (p != null) {
                 path = CallV3.pathLabel(p)
+                val pathBefore = c.path
                 val changed = p != c.path
                 c.path = p
                 applyLimits(c)
                 if (changed) {
+                    if (main) diagEvent(r, "path", "${pathBefore?.wire ?: "-"} -> ${p.wire}")
                     log("path $p")
                     scope.launch { if (live(c)) stateOut(c) }   // `state.path` an das Gegenueber
                 }
             }
             rtt = (pair.members["currentRoundTripTime"] as? Number)?.toDouble()
+        }
+        if (r.rs.horn == null) diagOf(r)?.let { d ->           // 2.5 Diagnose auch fuer P2P (Knoten: HornSession.quality)
+            if (main) { d.path = "p2p"; d.transport = CallDiag.transportP2p(c.path); d.node = "" }
+            val key = System.identityHashCode(c).toString(16)
+            for (s in byId.values) if (s.type == "inbound-rtp" || s.type == "outbound-rtp") {
+                diagSample(r, s.type, s.members, if (s.type == "outbound-rtp") "me" else d.alias(c.peerDevice), key + s.id, rtt?.let { it * 1000 })
+            }
         }
         var lost = 0L
         var recv = 0L
@@ -3537,6 +3563,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (c.done) return
         c.done = true
         c.ending = true
+        diagFinal(c)                                        // letzte Diagnose (nie blockierend)
         c.jobs.forEach { it.cancel() }
         c.rs.horn?.let { h ->                               // 2.5: Beine zum Knoten zu, bevor die eigenen Spuren freigegeben werden
             h.close()
@@ -3775,6 +3802,13 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         override fun myDev(): String = myDevId()
         override fun mobile(): Boolean = hornMobile()
         override fun lowPower(): Boolean = hot() || (app.getSystemService(android.os.PowerManager::class.java)?.isPowerSaveMode == true)
+        override fun thermal(): Int = this@CallManager.thermal()
+        override fun diagEvent(k: String, d: String) = this@CallManager.diagEvent(r, k, d)
+        override fun diagSample(type: String, m: Map<String, Any?>, src: String, key: String, rtt: Double?) = this@CallManager.diagSample(r, type, m, src, key, rtt)
+        override fun diagAlias(dev: String?): String = diagOf(r)?.alias(dev) ?: "?"
+        override fun diagWay(path: String, node: String) {
+            diagOf(r)?.let { it.path = "horn"; it.transport = CallDiag.transportHorn(path); it.node = node }
+        }
         override fun legs(): List<CallLeg> = r.rs.roster.legs
         override fun audioTrack(): AudioTrack? = r.audioTrack
         override fun camTrack(): VideoTrack? = r.videoTrack
@@ -4240,6 +4274,59 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         } catch (_: Exception) {
         }
         tone = null
+    }
+
+    // ---- 2.5 Anruf-Diagnose (Server-Feature calldiag1, CallDiag) ---------------------------------------------------
+
+    /** Puffer des Anrufs (angelegt beim ersten Eintrag eines verbundenen Anrufs, mit Sendeschleife alle 30 s) */
+    private fun diagOf(c0: Call): CallDiag.Buffer? {
+        val c = roomOf(c0)
+        val id = c.id ?: return null
+        if (CallDiag.FEATURE !in repo.serverFeatures.value || c.ending || c.done) return null
+        c.rs.diag?.let { if (it.call == id) return it }
+        val d = CallDiag.Buffer(id, "android", BuildConfig.VERSION_NAME, if (c.t0 > 0) c.t0 else System.currentTimeMillis())
+        c.rs.diag = d
+        c.jobs += scope.launch {
+            while (live(c) && !c.done) {
+                delay(5000)
+                if (c.rs.diag === d && d.due(System.currentTimeMillis())) diagSend(d)
+            }
+        }
+        return d
+    }
+
+    private fun diagEvent(c: Call, k: String, d: String) {
+        diagOf(c)?.event(k, d, System.currentTimeMillis())
+    }
+
+    private fun diagSample(c: Call, type: String, m: Map<String, Any?>, src: String, key: String, rtt: Double?) {
+        val d = diagOf(c) ?: return
+        val now = System.currentTimeMillis()
+        if (!d.sampleDue(key, now)) return
+        d.sample(type, m, src, key, now, rtt)?.let { d.add(it) }
+    }
+
+    /** senden, wenn erlaubt (hoechstens 1 je 15 s); Fehler still */
+    private fun diagSend(d: CallDiag.Buffer) {
+        val body = d.take(System.currentTimeMillis()) ?: return
+        quietPost(CallDiag.PATH, body)
+    }
+
+    /** beim Auflegen/Ende: letzter POST (nach der 15-s-Grenze), dann Puffer weg */
+    private fun diagFinal(c: Call) {
+        val d = c.rs.diag ?: return
+        c.rs.diag = null
+        if (d.isEmpty || CallDiag.FEATURE !in repo.serverFeatures.value) return
+        scope.launch {
+            try {
+                val w = d.wait(System.currentTimeMillis())
+                if (w > 0) delay(w + 50)
+                d.take(System.currentTimeMillis())?.let { api.post(CallDiag.PATH, it) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
+        }
     }
 
     private fun quietPost(path: String, body: JsonObject) {

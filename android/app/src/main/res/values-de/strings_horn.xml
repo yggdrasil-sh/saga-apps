@@ -11,7 +11,7 @@
     <string name="horn_path_udp">UDP (schnellster Weg)</string>
     <string name="horn_path_tcp">TCP über Port 443</string>
     <string name="horn_path_tls">TLS über Port 443 (Rückfall)</string>
-    <string name="horn_path_desc">Weg zum Knoten %1$s: %2$s · %3$s</string>
+    <string name="horn_path_desc">Weg zum Knoten %1$s: %2$s · Empfangsqualität: %3$s</string>
     <string name="horn_loss">Verlust %1$.1f %%</string>
     <string name="horn_q_good">gute Verbindung</string>
     <string name="horn_q_mid">mittlere Verbindung</string>

@@ -11,7 +11,7 @@
     <string name="horn_path_udp">UDP (fastest path)</string>
     <string name="horn_path_tcp">TCP via port 443</string>
     <string name="horn_path_tls">TLS via port 443 (fallback)</string>
-    <string name="horn_path_desc">Path to node %1$s: %2$s · %3$s</string>
+    <string name="horn_path_desc">Path to node %1$s: %2$s · Reception quality: %3$s</string>
     <string name="horn_loss">loss %1$.1f %%</string>
     <string name="horn_q_good">good connection</string>
     <string name="horn_q_mid">fair connection</string>

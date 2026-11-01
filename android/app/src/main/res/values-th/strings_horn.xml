@@ -11,7 +11,7 @@
     <string name="horn_path_udp">UDP (เส้นทางเร็วที่สุด)</string>
     <string name="horn_path_tcp">TCP ผ่านพอร์ต 443</string>
     <string name="horn_path_tls">TLS ผ่านพอร์ต 443 (สำรอง)</string>
-    <string name="horn_path_desc">เส้นทางไปยังโหนด %1$s: %2$s · %3$s</string>
+    <string name="horn_path_desc">เส้นทางไปยังโหนด %1$s: %2$s · คุณภาพการรับสัญญาณ: %3$s</string>
     <string name="horn_loss">สูญหาย %1$.1f %%</string>
     <string name="horn_q_good">การเชื่อมต่อดี</string>
     <string name="horn_q_mid">การเชื่อมต่อปานกลาง</string>
