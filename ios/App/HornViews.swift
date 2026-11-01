@@ -64,7 +64,7 @@ struct HornInfoLine: View {
         horn.quality == .good ? String(localized: "gute Verbindung") : horn.quality == .mid ? String(localized: "mittlere Verbindung") : String(localized: "schwache Verbindung")
     }
     private var pathText: String {
-        var s = String(localized: "Weg zum Knoten \(horn.node): \(way)") + " · " + qualityText
+        var s = String(localized: "Weg zum Knoten \(horn.node): \(way)") + " · " + String(localized: "Empfangsqualität") + ": " + qualityText
         if let r = horn.rtt { s += " · RTT \(Int(r)) ms" }
         if horn.loss > 0 { let pct = String(format: "%.1f %%", horn.loss * 100); s += " · " + String(localized: "Verlust \(pct)") }
         return s
@@ -88,8 +88,9 @@ struct HornPathCard: View {
                     GridRow { Text("Verlust").foregroundStyle(.secondary); Text(verbatim: String(format: "%.1f %%", horn.loss * 100)).monospacedDigit() }
                 }
                 GridRow {
-                    Text("Qualität").foregroundStyle(.secondary)
+                    Text("Empfangsqualität").foregroundStyle(.secondary)
                     HStack(spacing: 6) { Circle().fill(dot).frame(width: 8, height: 8).accessibilityHidden(true); Text(verbatim: qualityText) }
+                        .accessibilityElement(children: .combine).accessibilityLabel(Text("Empfangsqualität")).accessibilityValue(Text(verbatim: qualityText))
                 }
             }
             .font(.callout)

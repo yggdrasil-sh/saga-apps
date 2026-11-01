@@ -165,6 +165,9 @@ final class CallManager: NSObject, ObservableObject {
     var camera: CallCamera?
     var aliveTask: Task<Void, Never>?
     var statsTask: Task<Void, Never>?
+    /// 2.5 Anruf-Diagnose (Server-Feature calldiag1): Proben/Ereignisse und Sendeschleife (CallDiag.swift)
+    var diag: CallDiag.Buffer?
+    var diagTask: Task<Void, Never>?
     var cfg: [String: Any] = [:]
     /// Schluessel je Person schon einmal frisch geholt (unbekanntes Geraet)
     var keysRefreshed = Set<String>()
@@ -1412,8 +1415,17 @@ final class CallManager: NSObject, ObservableObject {
                         let l = (pair.values["localCandidateId"] as? String).flatMap { byID[$0] }, r = (pair.values["remoteCandidateId"] as? String).flatMap { byID[$0] }
                         L.relay = (l?.values["candidateType"] as? String) == "relay" || (r?.values["candidateType"] as? String) == "relay"
                         let p = CallV3.path(local: l?.values as [String: Any]?, remote: r?.values as [String: Any]?)
-                        if p != L.path { L.path = p; CallEnv.log("pfad \(p?.rawValue ?? "-")"); self.stateOut(L) }   // path an das Gegenueber
+                        if p != L.path { if L === self.primary { self.diagEvent("path", "\(L.path?.rawValue ?? "-") -> \(p?.rawValue ?? "-")") }; L.path = p; CallEnv.log("pfad \(p?.rawValue ?? "-")"); self.stateOut(L) }   // path an das Gegenueber
                         self.applyLimits(L)
+                    }
+                    if self.horn == nil {                                    // 2.5 Diagnose auch fuer P2P (Knoten: hornStats)
+                        let rtt = (tr?.values["selectedCandidatePairId"] as? String).flatMap { byID[$0] }
+                            .flatMap { ($0.values["currentRoundTripTime"] as? NSNumber)?.doubleValue }.map { $0 * 1000 }
+                        if L === self.primary { self.diag?.path = "p2p"; self.diag?.transport = CallDiag.transport(p2p: L.path?.rawValue); self.diag?.node = "" }
+                        for st in rep.statistics.values where st.type == "inbound-rtp" || st.type == "outbound-rtp" {
+                            self.diagSample(type: st.type, values: st.values, src: st.type == "outbound-rtp" ? "me" : self.diagAlias(L.dev),
+                                            key: ObjectIdentifier(L).debugDescription + st.id, rtt: rtt)
+                        }
                     }
                     let au = CallLogic.AudioSample.from(rep.statistics.values.map { (type: $0.type, values: $0.values as [String: Any]) })
                     L.level = au.levelIn
@@ -1595,6 +1607,7 @@ final class CallManager: NSObject, ObservableObject {
         ending = true
         let cid = id ?? incoming?.id
         if let cid { done.insert(cid) }
+        diagFinal()                                                         // letzte Diagnose (nie blockierend)
         aliveTask?.cancel(); statsTask?.cancel(); hoTask?.cancel()
         net?.cancel(); net = nil
         #if os(iOS)

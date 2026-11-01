@@ -79,6 +79,9 @@ final class HornConn {
     var loss = 0.0
     var freezes = 0.0
     var quality = HornLogic.Quality.good
+    /// 1.11.: Empfangsqualitaet ueber 30 s, Anzeige erst nach zwei gleichen Messungen (CallDiagLogic.swift)
+    var gauge = CallDiag.Gauge()
+    var shown = CallDiag.Debounce(HornLogic.Quality.good)
     var onUp: ((Bool) -> Void)?
     init(key: String, cand: HornLogic.Candidate, path: String, now: Double) {
         self.key = key; self.cand = cand; node = cand.node; url = cand.url; self.path = path; created = now
@@ -161,6 +164,9 @@ final class HornSession: ObservableObject {
     let provider = HornCryptor.keyProvider()
     var monTask: Task<Void, Never>?
     var candT = 0.0, statT = 0.0, udpProbeAt = 0.0, rosterT = 0.0, tuneT = 0.0
+    /// Geraet heiss (thermalState >= .serious) mit Hysterese: mindestens 60 s, zurueck nach 60 s kuehl
+    var hot = CallDiag.Hold()
+    var tuneKey = ""
     var levels: [String: Double] = [:]
     /// Meeting-Ansicht: Kamerabild je Geraet (hornDraw)
     var vid: [String: RTCVideoTrack] = [:]
@@ -587,6 +593,8 @@ extension CallManager {
         if H.sw == nil { H.sw = HornLogic.Switcher(node: conn.node, path: conn.path, now: now) }
         else { H.sw?.moved(now, node: conn.node, path: conn.path, why: why) }
         if prev != nil { H.trace("adopt \(prev!.node)->\(conn.node) \(conn.path) \(why.rawValue)") }
+        if prev?.path != conn.path { diagEvent("path", "\(prev?.path ?? "-") -> \(conn.path)") }
+        diag?.path = "horn"; diag?.transport = CallDiag.transport(horn: conn.path); diag?.node = conn.node
         H.retryTask?.cancel(); H.retryTask = nil; H.retry0 = 0; H.retryN = 0
         H.note(""); H.node = conn.node; H.path = conn.path; H.moving = !H.olds.isEmpty
         if !connected {
@@ -615,6 +623,7 @@ extension CallManager {
     func hornSwitch(_ why: HornLogic.Why, to: String? = nil, path: String? = nil) {
         guard let H = horn, hornLive(H), !H.switching else { return }
         H.trace("switch \(why.rawValue)")
+        diagEvent("switch", "\(why.rawValue)\(path.map { " -> " + $0 } ?? "")")
         let cur = H.cur, hard = why == .lost || why == .draining || why == .moved, now = Self.hornNow()
         H.switching = true
         if why == .lost, let c = cur { H.bad[c.node] = now + HornLogic.badMs }   // Leeren ist kein Fehler
@@ -695,9 +704,15 @@ extension CallManager {
         horn?.tuneT = Self.hornNow()
         let mine = Set(hornMyRefs() + [hornMyRef(conn)])
         let others = conn.peers.keys.filter { !mine.contains($0) }.count
-        let low = ProcessInfo.processInfo.isLowPowerModeEnabled || ProcessInfo.processInfo.thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue
+        let th = ProcessInfo.processInfo.thermalState
+        let wasHot = horn?.hot.on ?? false
+        let hot = horn?.hot.update(now: Self.hornNow(), raw: th.rawValue >= ProcessInfo.ThermalState.serious.rawValue) ?? false
+        if hot != wasHot { diagEvent("thermal", "\(hot ? "heiss" : "normal") (Stufe \(th.rawValue))") }
+        let low = ProcessInfo.processInfo.isLowPowerModeEnabled || hot
         let (on, fps) = HornLogic.camActive(path: conn.path, others: others, lowPower: low)
-        for L in conn.legs.values where L.tuneCam(on: on, fps: fps) { horn?.trace("schichten \(on.sorted()) fps \(fps.map(String.init) ?? "-") (andere \(others))") }
+        let line = "schichten \(on.sorted()) fps \(fps.map(String.init) ?? "-") (andere \(others)) waerme \(th.rawValue)"
+        for L in conn.legs.values where L.tuneCam(on: on, fps: fps) { horn?.trace(line) }
+        if let H = horn, H.tuneKey != line { H.tuneKey = line; diagEvent("layers", line) }
     }
     func hornMon() {
         guard let H = horn, hornLive(H) else { return }
@@ -825,6 +840,11 @@ extension CallManager {
             for i in L.recv.indices { if let t = L.track(i)?.trackId { tracks[t] = i } }
             for s in rep.statistics.values {
                 let v = s.values
+                if s.type == "inbound-rtp" || s.type == "outbound-rtp" {
+                    let src = s.type == "outbound-rtp" ? "me"
+                        : diagAlias((v["trackIdentifier"] as? String).flatMap { tracks[$0] }.flatMap { L.ownerOfCryptor($0) })
+                    diagSample(type: s.type, values: v, src: src, key: L.role + "." + s.id, rtt: conn.rtt)
+                }
                 if s.type == "candidate-pair", (v["nominated"] as? NSNumber)?.boolValue == true, (v["state"] as? String) == "succeeded",
                    let r = (v["currentRoundTripTime"] as? NSNumber)?.doubleValue { rtt = max(rtt ?? 0, r * 1000) }
                 guard s.type == "inbound-rtp" else { continue }
@@ -845,12 +865,17 @@ extension CallManager {
         let p = conn.q5 ?? (lost, recv, fz, t)
         let dl = lost - p.lost, dr = recv - p.recv
         let loss = dl + dr > 0 ? Double(max(0, dl)) / Double(dl + dr) : 0
-        let mins = max(1.0 / 60, (t - p.t) / 60_000)
         conn.q5 = (lost, recv, fz, t)
         if rtt == nil && !conn.rtts.isEmpty { rtt = HornLogic.median(conn.rtts) }
-        conn.rtt = rtt.map { $0.rounded() }; conn.loss = (loss * 1000).rounded() / 1000; conn.freezes = (Double(fz - p.fz) / mins * 10).rounded() / 10
-        conn.quality = HornLogic.quality(rtt: conn.rtt, loss: conn.loss, freezes: conn.freezes)
+        // Anzeige: gleitendes 30-s-Fenster, Wechsel erst nach zwei gleichen Messungen (Analyse 1.11.); die UDP-Regel
+        // unten bleibt beim 3-s-Verlust (UDP-Verlust > 20 % fuer 3 s -> TCP)
+        let w = conn.gauge.push(t: t, lost: lost, recv: recv, fz: fz)
+        conn.rtt = rtt.map { $0.rounded() }; conn.loss = (w.loss * 1000).rounded() / 1000; conn.freezes = (w.freezes * 10).rounded() / 10
+        let raw = HornLogic.quality(rtt: conn.rtt, loss: conn.loss, freezes: conn.freezes)
+        let before = conn.quality
+        conn.quality = conn.shown.push(raw)
         if H.cur === conn {
+            if conn.quality != before { diagEvent("quality", "\(before.rawValue) -> \(conn.quality.rawValue) rtt \(Int(conn.rtt ?? 0)) verlust \(conn.loss) fz/min \(conn.freezes)") }
             if H.quality != conn.quality { H.quality = conn.quality }
             if H.rtt != conn.rtt { H.rtt = conn.rtt }
             if H.loss != conn.loss { H.loss = conn.loss }
