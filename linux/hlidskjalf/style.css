@@ -481,3 +481,14 @@ window.hk-dark label.hk-pres-red { color: #f28585; }
 .hk-tl-handle:hover { background: alpha(var(--accent-bg-color), 0.6); }
 /* 2.5 Kontakte: nicht anschreibbar (Konto deaktiviert bzw. Server getrennt) */
 row.hk-gone { opacity: 0.55; }
+/* 2.5 Chat-Standard: ungelesen-Punkt, Entwurf, angeheftete Nachrichten, Linkvorschau, Erwaehnung, Grabstein, Auswahl */
+.hk-unread-dot { background: var(--accent-bg-color); border-radius: 999px; min-width: 10px; min-height: 10px; }
+.hk-draft-mark { color: var(--error-color); }
+.hk-pin-bar { background: alpha(var(--accent-bg-color), 0.10); border-radius: 8px; padding: 2px 4px; }
+.hk-unf-card { background: alpha(var(--view-fg-color), 0.05); border-radius: 8px; padding: 6px 8px; border-left: 3px solid var(--accent-bg-color); }
+.hk-unf-msg { padding: 0; }
+.hk-bubble.hk-mention-me { box-shadow: inset 3px 0 0 var(--accent-bg-color); }
+.hk-flash { background: alpha(var(--accent-bg-color), 0.20); border-radius: 8px; }
+.hk-sel-bar { background: alpha(var(--accent-bg-color), 0.12); border-radius: 8px; padding: 4px 8px; }
+.hk-md-tile { padding: 0; border-radius: 8px; }
+.hk-gi-blocked { background: alpha(var(--error-bg-color), 0.25); }

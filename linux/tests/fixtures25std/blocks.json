@@ -1,0 +1,13 @@
+{
+ "blocks": [
+  {
+   "created": 1793490565.9437456,
+   "host": "saga.test",
+   "kind": "person",
+   "label": "Cora Std",
+   "local": true,
+   "name": "Cora Std",
+   "target": "~vhcrv3ruyj73mueg@saga.test"
+  }
+ ]
+}

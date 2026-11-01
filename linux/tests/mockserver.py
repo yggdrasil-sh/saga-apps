@@ -14,6 +14,7 @@ import urllib.parse
 
 import mockv2
 import mockv21
+import mockstd
 import mockv25
 import mockki
 
@@ -162,6 +163,7 @@ class MockServer:
         mockv21.init(self)                   # Saga 2.1: Profilbilder, 2FA-Stand, Anrufe
         mockki.init(self)                    # Saga 2.1: KI-Persona, KI im Chat
         mockv25.init(self)                   # Saga 2.5: Etappe 1 der Apps (Formeln, Personen, Diagramme ...)
+        mockstd.init(self)                   # Saga 2.5: Chat-Standard
 
     def _graph(self):
         """api/graph wie saga/graph.py: eigene Seiten, Unterseiten-Kanten, Zeilen unter Datenbanken"""

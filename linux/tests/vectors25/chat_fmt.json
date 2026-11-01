@@ -1,0 +1,372 @@
+[
+ {
+  "text": "*fett* _kursiv_ ~weg~ `x<y`\n- eins\n- zwei\n> zitiert\n```\n<b>block</b>\n```",
+  "html": "<strong class=\"ct-f-strong\">fett</strong> <em class=\"ct-f-em\">kursiv</em> <s class=\"ct-f-s\">weg</s> <code class=\"ct-f-code\">x&lt;y</code><ul class=\"ct-f-list\"><li>eins</li><li>zwei</li></ul><blockquote class=\"ct-f-quote\">zitiert</blockquote><pre class=\"ct-f-pre\"><code>&lt;b&gt;block&lt;/b&gt;</code></pre>",
+  "strip": "fett kursiv weg x<y\neins\nzwei\nzitiert\n<b>block</b>\n"
+ },
+ {
+  "text": "<img src=x onerror=\"alert(1)\"> *<script>alert(2)</script>* [x](javascript:alert(3)) a_b_c 2*3*4",
+  "html": "&lt;img src=x onerror=\"alert(1)\"&gt; <strong class=\"ct-f-strong\">&lt;script&gt;alert(2)&lt;/script&gt;</strong> [x](javascript:alert(3)) a_b_c 2*3*4",
+  "strip": "<img src=x onerror=\"alert(1)\"> <script>alert(2)</script> [x](javascript:alert(3)) a_b_c 2*3*4"
+ },
+ {
+  "text": "plain text",
+  "html": "plain text",
+  "strip": "plain text"
+ },
+ {
+  "text": "",
+  "html": "",
+  "strip": ""
+ },
+ {
+  "text": "*a*",
+  "html": "<strong class=\"ct-f-strong\">a</strong>",
+  "strip": "a"
+ },
+ {
+  "text": "**",
+  "html": "**",
+  "strip": "**"
+ },
+ {
+  "text": "* a *",
+  "html": "* a *",
+  "strip": "* a *"
+ },
+ {
+  "text": "*a *",
+  "html": "*a *",
+  "strip": "*a *"
+ },
+ {
+  "text": "x*a*",
+  "html": "x*a*",
+  "strip": "x*a*"
+ },
+ {
+  "text": "(*a*)",
+  "html": "(<strong class=\"ct-f-strong\">a</strong>)",
+  "strip": "(a)"
+ },
+ {
+  "text": "*a*.",
+  "html": "<strong class=\"ct-f-strong\">a</strong>.",
+  "strip": "a."
+ },
+ {
+  "text": "*a*b",
+  "html": "*a*b",
+  "strip": "*a*b"
+ },
+ {
+  "text": "_a_b_c_",
+  "html": "<em class=\"ct-f-em\">a_b_c</em>",
+  "strip": "a_b_c"
+ },
+ {
+  "text": "a_b_c",
+  "html": "a_b_c",
+  "strip": "a_b_c"
+ },
+ {
+  "text": "2*3*4",
+  "html": "2*3*4",
+  "strip": "2*3*4"
+ },
+ {
+  "text": "~/home/user~",
+  "html": "<s class=\"ct-f-s\">/home/user</s>",
+  "strip": "/home/user"
+ },
+ {
+  "text": "https://ex.org/~a~b",
+  "html": "https://ex.org/~a~b",
+  "strip": "https://ex.org/~a~b"
+ },
+ {
+  "text": "*fett _kursiv ~durch~_*",
+  "html": "<strong class=\"ct-f-strong\">fett <em class=\"ct-f-em\">kursiv <s class=\"ct-f-s\">durch</s></em></strong>",
+  "strip": "fett _kursiv ~durch~_"
+ },
+ {
+  "text": "*a* *b* _c_",
+  "html": "<strong class=\"ct-f-strong\">a* *b</strong> <em class=\"ct-f-em\">c</em>",
+  "strip": "a* *b c"
+ },
+ {
+  "text": "*1 *2 *3 *4 *5 deep* * * *",
+  "html": "<strong class=\"ct-f-strong\">1 *2 *3 *4 *5 deep</strong> * * *",
+  "strip": "1 *2 *3 *4 *5 deep * * *"
+ },
+ {
+  "text": "*a _b ~c `d` c~ b_ a*",
+  "html": "*a _b ~c <code class=\"ct-f-code\">d</code> c~ b_ a*",
+  "strip": "a _b ~c d c~ b_ a"
+ },
+ {
+  "text": "`*nicht fett*`",
+  "html": "<code class=\"ct-f-code\">*nicht fett*</code>",
+  "strip": "nicht fett"
+ },
+ {
+  "text": "`` leer",
+  "html": "`` leer",
+  "strip": "`` leer"
+ },
+ {
+  "text": "`a\nb`",
+  "html": "`a\nb`",
+  "strip": "`a\nb`"
+ },
+ {
+  "text": "*a\nb*",
+  "html": "*a\nb*",
+  "strip": "*a\nb*"
+ },
+ {
+  "text": "\"*q*\"",
+  "html": "\"<strong class=\"ct-f-strong\">q</strong>\"",
+  "strip": "\"q\""
+ },
+ {
+  "text": "'_q_'",
+  "html": "'<em class=\"ct-f-em\">q</em>'",
+  "strip": "'q'"
+ },
+ {
+  "text": "[*b*]",
+  "html": "[<strong class=\"ct-f-strong\">b</strong>]",
+  "strip": "[b]"
+ },
+ {
+  "text": "{~s~}",
+  "html": "{<s class=\"ct-f-s\">s</s>}",
+  "strip": "{s}"
+ },
+ {
+  "text": "- a\n- b\nc",
+  "html": "<ul class=\"ct-f-list\"><li>a</li><li>b</li></ul>c",
+  "strip": "a\nb\nc"
+ },
+ {
+  "text": "• a\n• b",
+  "html": "<ul class=\"ct-f-list\"><li>a</li><li>b</li></ul>",
+  "strip": "a\nb"
+ },
+ {
+  "text": "-a",
+  "html": "-a",
+  "strip": "-a"
+ },
+ {
+  "text": "- ",
+  "html": "<ul class=\"ct-f-list\"><li></li></ul>",
+  "strip": ""
+ },
+ {
+  "text": "> a\n> b\nc",
+  "html": "<blockquote class=\"ct-f-quote\">a\nb</blockquote>c",
+  "strip": "a\nb\nc"
+ },
+ {
+  "text": ">a",
+  "html": "<blockquote class=\"ct-f-quote\">a</blockquote>",
+  "strip": "a"
+ },
+ {
+  "text": "> *f*\n> - l",
+  "html": "<blockquote class=\"ct-f-quote\"><strong class=\"ct-f-strong\">f</strong><ul class=\"ct-f-list\"><li>l</li></ul></blockquote>",
+  "strip": "f\n- l"
+ },
+ {
+  "text": "a\n> q\nb",
+  "html": "a<blockquote class=\"ct-f-quote\">q</blockquote>b",
+  "strip": "a\nq\nb"
+ },
+ {
+  "text": "a\n\nb",
+  "html": "a\n\nb",
+  "strip": "a\n\nb"
+ },
+ {
+  "text": "a\n- x\nb",
+  "html": "a<ul class=\"ct-f-list\"><li>x</li></ul>b",
+  "strip": "a\nx\nb"
+ },
+ {
+  "text": "```js\ncode()\n```",
+  "html": "<pre class=\"ct-f-pre\"><code>code()</code></pre>",
+  "strip": "code()\n"
+ },
+ {
+  "text": "```\na\n```b",
+  "html": "<pre class=\"ct-f-pre\"><code>a</code></pre>b",
+  "strip": "a\nb"
+ },
+ {
+  "text": "x\n```\ny\n```\nz",
+  "html": "x<pre class=\"ct-f-pre\"><code>y</code></pre>z",
+  "strip": "x\ny\nz"
+ },
+ {
+  "text": "```unclosed",
+  "html": "```unclosed",
+  "strip": "unclosed"
+ },
+ {
+  "text": "``` a ``` b ```c```",
+  "html": "<pre class=\"ct-f-pre\"><code> a </code></pre> b <pre class=\"ct-f-pre\"><code>c</code></pre>",
+  "strip": " a  b c"
+ },
+ {
+  "text": "```verylonglanguagenamexx\nx\n```",
+  "html": "<pre class=\"ct-f-pre\"><code>verylonglanguagenamexx\nx</code></pre>",
+  "strip": "verylonglanguagenamexx\nx\n"
+ },
+ {
+  "text": "</span><span foreground=\"red\">rot</span>",
+  "html": "&lt;/span&gt;&lt;span foreground=\"red\"&gt;rot&lt;/span&gt;",
+  "strip": "</span><span foreground=\"red\">rot</span>"
+ },
+ {
+  "text": "&amp; &lt; & <",
+  "html": "&amp;amp; &amp;lt; &amp; &lt;",
+  "strip": "&amp; &lt; & <"
+ },
+ {
+  "text": "*<b>x</b>*",
+  "html": "<strong class=\"ct-f-strong\">&lt;b&gt;x&lt;/b&gt;</strong>",
+  "strip": "<b>x</b>"
+ },
+ {
+  "text": "_</i>_",
+  "html": "<em class=\"ct-f-em\">&lt;/i&gt;</em>",
+  "strip": "</i>"
+ },
+ {
+  "text": "`</tt><b>`",
+  "html": "<code class=\"ct-f-code\">&lt;/tt&gt;&lt;b&gt;</code>",
+  "strip": "</tt><b>"
+ },
+ {
+  "text": "> </span>",
+  "html": "<blockquote class=\"ct-f-quote\">&lt;/span&gt;</blockquote>",
+  "strip": "</span>"
+ },
+ {
+  "text": "- <a href=\"x\">l</a>",
+  "html": "<ul class=\"ct-f-list\"><li>&lt;a href=\"x\"&gt;l&lt;/a&gt;</li></ul>",
+  "strip": "<a href=\"x\">l</a>"
+ },
+ {
+  "text": "```\n</tt></span>\n```",
+  "html": "<pre class=\"ct-f-pre\"><code>&lt;/tt&gt;&lt;/span&gt;</code></pre>",
+  "strip": "</tt></span>\n"
+ },
+ {
+  "text": "\u0001steuer\u0007",
+  "html": "\u0001steuer\u0007",
+  "strip": "\u0001steuer\u0007"
+ },
+ {
+  "text": "*ä* _ö_ ~ü~",
+  "html": "<strong class=\"ct-f-strong\">ä</strong> <em class=\"ct-f-em\">ö</em> <s class=\"ct-f-s\">ü</s>",
+  "strip": "ä ö ü"
+ },
+ {
+  "text": "a *b*\n*c* d",
+  "html": "a <strong class=\"ct-f-strong\">b</strong>\n<strong class=\"ct-f-strong\">c</strong> d",
+  "strip": "a b\nc d"
+ },
+ {
+  "text": "*x*!",
+  "html": "<strong class=\"ct-f-strong\">x</strong>!",
+  "strip": "x!"
+ },
+ {
+  "text": "*x*?",
+  "html": "<strong class=\"ct-f-strong\">x</strong>?",
+  "strip": "x?"
+ },
+ {
+  "text": "*x*,y",
+  "html": "<strong class=\"ct-f-strong\">x</strong>,y",
+  "strip": "x,y"
+ },
+ {
+  "text": "Hallo <@~abcdefghijklmnop>",
+  "html": "Hallo &lt;@~abcdefghijklmnop&gt;",
+  "strip": "Hallo <@~abcdefghijklmnop>"
+ },
+ {
+  "text": "*<@~abcdefghijklmnop>*",
+  "html": "<strong class=\"ct-f-strong\">&lt;@~abcdefghijklmnop&gt;</strong>",
+  "strip": "<@~abcdefghijklmnop>"
+ },
+ {
+  "text": "https://a.de/x_y_z *https://b.de*",
+  "html": "https://a.de/x_y_z <strong class=\"ct-f-strong\">https://b.de</strong>",
+  "strip": "https://a.de/x_y_z https://b.de"
+ },
+ {
+  "text": "**fett**",
+  "html": "**fett**",
+  "strip": "**fett**"
+ },
+ {
+  "text": "__a__",
+  "html": "__a__",
+  "strip": "__a__"
+ },
+ {
+  "text": "~~a~~",
+  "html": "~~a~~",
+  "strip": "~~a~~"
+ },
+ {
+  "text": "* *",
+  "html": "* *",
+  "strip": "* *"
+ },
+ {
+  "text": "* a*",
+  "html": "* a*",
+  "strip": "* a*"
+ },
+ {
+  "text": "a *b*",
+  "html": "a <strong class=\"ct-f-strong\">b</strong>",
+  "strip": "a b"
+ },
+ {
+  "text": "\t*t*",
+  "html": "\t<strong class=\"ct-f-strong\">t</strong>",
+  "strip": "\tt"
+ },
+ {
+  "text": "*a*\n*b*",
+  "html": "<strong class=\"ct-f-strong\">a</strong>\n<strong class=\"ct-f-strong\">b</strong>",
+  "strip": "a\nb"
+ },
+ {
+  "text": "> > doppelt",
+  "html": "<blockquote class=\"ct-f-quote\"><blockquote class=\"ct-f-quote\">doppelt</blockquote></blockquote>",
+  "strip": "> doppelt"
+ },
+ {
+  "text": ">\n>",
+  "html": "<blockquote class=\"ct-f-quote\">\n</blockquote>",
+  "strip": "\n"
+ },
+ {
+  "text": "- *a*\n- _b_",
+  "html": "<ul class=\"ct-f-list\"><li><strong class=\"ct-f-strong\">a</strong></li><li><em class=\"ct-f-em\">b</em></li></ul>",
+  "strip": "a\nb"
+ },
+ {
+  "text": "*a*　x",
+  "html": "<strong class=\"ct-f-strong\">a</strong>　x",
+  "strip": "a　x"
+ }
+]
