@@ -9,6 +9,19 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Anrufe über Knoten: ruhigere Qualitätsanzeige, Wärme, Diagnose (iOS/Mac und Android)
+- **Empfangsqualität** (Punkt an der Weg-Anzeige, jetzt so beschriftet und vorgelesen): bewertet über die letzten 30 s
+  statt 3 s; Rot erst nach zwei schlechten Messungen in Folge, zurück zu Grün nach zwei guten. Schwellen unverändert
+  (RTT > 400 ms, Verlust > 8 %, > 3 Einfrierer/min). Ein einzelnes Ruckeln färbt den Punkt nicht mehr sofort rot.
+- **Android drosselt bei Wärme später und ohne Pendeln:** erst ab Wärmestufe „schwer“ (`THERMAL_STATUS_SEVERE`, wie iOS
+  „ernst“) statt schon ab „mäßig“; einmal heiß bleibt die Drosselung mindestens 60 s und endet erst nach 60 s am Stück
+  darunter. Vorher wechselte das Handy alle paar Sekunden zwischen voller Qualität und „nur mittlere Schicht, 15 fps“ –
+  bei den anderen ruckelte das Bild mit Artefakten. iOS/Mac bekommt dieselbe 60-s-Hysterese.
+- **Anruf-Diagnose an den eigenen Server** (nur mit Saga-Server, der `calldiag1` meldet): alle 30 s und beim Auflegen
+  Bildrate, Höhe, Bitrate, Verluste, NACK/PLI, Einfrierer, RTT und Kodierer-Grenze je Bildschicht bzw. empfangener Quelle
+  sowie Ereignisse (Schichtwechsel, Wärme, Knoten-/Wegwechsel, Qualitätsanzeige) – ohne Namen und Adressen, Quellen nur als
+  Kürzel. Auch für Direktanrufe. Fehler werden still ignoriert.
+
 ### Neu – iOS/Mac: Chat-Standard (Saga-Server 2.5; je Funktion nur, wenn der Server sie meldet)
 - **Seiten-Chats:** Mitglieder hinzufügen teilt die Seite (Rolle Lesen/Kommentieren/Bearbeiten), Entfernen entzieht die
   Freigabe; über Gruppe/übergeordnete Seite ausgegraut mit Begründung.
