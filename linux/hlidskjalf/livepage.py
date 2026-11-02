@@ -119,6 +119,12 @@ class LivePage:
         return self.session is not None and self.session.state in ("live", "offline", "lock") and self.mode is not None
 
     @property
+    def pending(self):
+        """eigene Live-Aenderungen, die der Server noch nicht bestaetigt hat (unterwegs bzw. offline geschrieben)"""
+        s = self.session
+        return s is not None and (bool(s.unacked) or bool(s.offline_dirty))
+
+    @property
     def can_write(self):
         return self.session is not None and self.session.editable
 

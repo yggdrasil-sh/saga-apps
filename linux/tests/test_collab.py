@@ -577,3 +577,35 @@ def test_ws_url_and_headers(srv):
     h = livepage._ws_headers()
     assert h["Authorization"] == "Bearer hkd_abc" and "Origin" not in h
     config.set_device_token(None, "https://saga.test")
+
+
+def test_flush_all_rescues_unconfirmed_live_changes(srv):
+    """Schliessen/Kontowechsel (_flush_all) waehrend Live offline: eigene, noch nicht bestaetigte Eingaben gehen auf
+    Stufe 1 (PATCH bzw. Entwurf) - sonst haelt das Fenster nichts fuer ungespeichert und die Eingabe ginge verloren"""
+    from hlidskjalf import livepage
+    from hlidskjalf.window import MainWindow
+
+    class Sess:
+        unacked, offline_dirty = [], True
+
+    class LP:
+        stopped = 0
+        session = Sess()
+        pending = livepage.LivePage.pending
+
+        def stop(self):
+            self.stopped += 1
+
+    class View:
+        livep = LP()
+
+    class Win:
+        current, peek = None, None
+
+    v, w = View(), Win()
+    w._views = lambda: [v]
+    MainWindow._flush_all(w)
+    assert v.livep.stopped == 1
+    v.livep.session.offline_dirty = False
+    MainWindow._flush_all(w)
+    assert v.livep.stopped == 1                                     # nichts offen: Live bleibt

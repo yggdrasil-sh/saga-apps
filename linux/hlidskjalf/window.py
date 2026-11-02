@@ -509,6 +509,9 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _flush_all(self):
         """alle offenen Seiten sofort speichern"""
+        for v in self._views():
+            if v.livep.pending:          # Live: Unbestaetigtes (z. B. offline getippt) zuerst auf Stufe 1 - PATCH bzw. Entwurf
+                v.livep.stop()
         if isinstance(self.current, PageView):
             self.current.editor.flush()
         if self.peek is not None:
