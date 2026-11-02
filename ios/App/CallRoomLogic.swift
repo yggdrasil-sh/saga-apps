@@ -32,6 +32,8 @@ enum CallRoom {
         var hp: String? = nil
         var hpn: [String: String] = [:]
         var avatar: String? = nil
+        /// 2.5 handover2: Beitrittsgeneration (ms, steigt mit jedem erneuten Beitritt) - bedingtes /leave {gen}
+        var gen: Int? = nil
         var companion: Bool { role == "companion" }
         var multi: Bool { caps.contains("multi") }
     }
@@ -53,9 +55,18 @@ enum CallRoom {
                            replaces: (d["replaces"] as? String).flatMap { validDevice($0) ? $0 : nil },
                            hp: (d["hp"] as? String).flatMap { $0.isEmpty || $0.count > 64 ? nil : $0 },
                            hpn: (d["hpn"] as? [String: Any] ?? [:]).reduce(into: [String: String]()) { r, x in if let v = x.value as? String, !v.isEmpty, v.count <= 64 { r[x.key] = v } },
-                           avatar: (d["avatar"] as? String).flatMap { $0.isEmpty ? nil : $0 }))
+                           avatar: (d["avatar"] as? String).flatMap { $0.isEmpty ? nil : $0 },
+                           gen: gen(d["gen"])))
         }
         return out
+    }
+
+    /// Generation aus JSON: positive ganze Zahl (ms) unter 2^53, sonst nil (kein Bool, kein Text)
+    static func gen(_ v: Any?) -> Int? {
+        guard let n = v as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID() else { return nil }
+        let d = n.doubleValue
+        guard d.isFinite, d > 0, d < 9_007_199_254_740_992, d == d.rounded() else { return nil }
+        return Int(d)
     }
 
     /// Stand der Liste: rv aus dem Ereignis (Foederation) bzw. lokal - Live-Ereignis = Ankunftszeit, GET-Antwort =
@@ -115,7 +126,7 @@ enum CallRoom {
     static func streams(links: Int) -> Int { max(1, links) }
 
     /// Warum Beitreten nicht geht (join_block)
-    enum Block: String, Equatable { case old, full, ended, none, other }
+    enum Block: String, Equatable { case old, full, ended, none, other, handoverBusy = "handover_busy" }
     static func block(_ s: String?) -> Block? {
         guard let s, !s.isEmpty else { return nil }
         return Block(rawValue: s) ?? .other
@@ -141,6 +152,17 @@ enum CallRoom {
     /// Auflegen: im 1:1 beendet das Hauptgeraet den Anruf fuer alle (Server), ein Begleitgeraet bzw. eine Gruppe
     /// verlaesst ihn nur
     static func hangupEndsAll(kind: String, companion: Bool) -> Bool { kind != "group" && !companion }
+    /// Dieses Geraet fehlt in der neuen Liste, ein anderes eigenes Geraet fuehrt (role != companion) und hat die Fuehrung
+    /// gerade uebernommen (neu dabei, vorher Begleitgeraet oder 2.5 vorher handover) -> hier beenden ("uebernommen").
+    /// Ein Begleitgeraet, das Begleitgeraet bleibt, heisst nur: dieses Geraet ist kurz aus der Liste gefallen (R09).
+    static func takenElsewhere(old: [Leg]?, new: [Leg], here: String, me: String) -> Leg? {
+        guard let old, old.contains(where: { $0.device == here }), !new.contains(where: { $0.device == here }) else { return nil }
+        return new.first { x in
+            guard x.who == me, x.device != here, !x.companion else { return false }
+            guard let o = old.first(where: { $0.device == x.device }) else { return true }
+            return o.companion || o.role == "handover"
+        }
+    }
     /// Altes Geraet: state.ready mit replaces == dieses Geraet, von einem EIGENEN Geraet -> abgeben
     static func handoverOut(ready: Bool, replaces: String?, here: String, fromOwn: Bool) -> Bool { ready && fromOwn && replaces == here }
 
@@ -151,23 +173,114 @@ enum CallRoom {
         private(set) var phase = Phase.idle
         private(set) var rep: String?
         private(set) var deadline = 0.0
+        /// 2.5 (L3): Begleitgeraet ueber Knoten - erst befoerdern (POST /promote) und Ton-Bein neu, dann state.ready
+        private(set) var promo = false
+        /// Befoerderung eingetragen (bei Fehlschlag/Abbruch zuruecknehmen: promote {device: rep})
+        private(set) var promoted = false
+        /// Zaehler je Versuch: spaete Antworten eines frueheren Versuchs erkennen
+        private(set) var attempt = 0
         enum Step: Equatable { case none, wait, takeOver(String), fail }
         /// rep = bisheriges eigenes Geraet; false = keins da (dann sofort selbst Hauptgeraet)
         @discardableResult
-        mutating func begin(rep r: String?, now: Double, timeout: Double = CallRoom.handoverSeconds) -> Bool {
+        mutating func begin(rep r: String?, now: Double, timeout: Double = CallRoom.handoverSeconds, promote: Bool = false) -> Bool {
+            attempt += 1; promo = false; promoted = false
             guard let r else { phase = .done; rep = nil; return false }
-            phase = .waiting; rep = r; deadline = now + timeout
+            phase = .waiting; rep = r; deadline = now + timeout; promo = promote
             return true
         }
+        /// Befoerderung eingetragen (already = war schon Hauptgeraet: nichts zuruecknehmen)
+        mutating func promotedNow(already: Bool) { if phase == .waiting { promoted = !already } }
+        /// Ton-Bein steht (bzw. Server ohne promote): ab jetzt gilt die normale Pruefung
+        mutating func promoReady() { if phase == .waiting { promo = false } }
         /// others = verbunden je Verbindung zu einer anderen Person
         mutating func check(others: [Bool], now: Double) -> Step {
             guard phase == .waiting, let rep else { return .none }
-            if !others.isEmpty && others.allSatisfy({ $0 }) { phase = .done; return .takeOver(rep) }
+            if !promo && !others.isEmpty && others.allSatisfy({ $0 }) { phase = .done; return .takeOver(rep) }
             if now >= deadline { phase = .failed; return .fail }
             return .wait
         }
-        mutating func cancel() { if phase == .waiting { phase = .idle; rep = nil } }
+        /// abbrechen; -> Geraet, dessen Befoerderung zurueckzunehmen ist (promote {device: rep})
+        @discardableResult
+        mutating func cancel() -> String? {
+            guard phase == .waiting else { return nil }
+            let undo = promoted ? rep : nil
+            phase = .idle; rep = nil; promo = false; promoted = false
+            return undo
+        }
+        /// nach .fail: zuruecknehmen?
+        var undo: String? { phase == .failed && promoted ? rep : nil }
         var active: Bool { phase == .waiting }
+    }
+
+    // MARK: 2.5 Uebergabe hin und her (handover2, Vertrag APP-API "Geraete-Uebergabe hin und her")
+
+    static let featureHandover2 = "handover2"
+    /// Rueckfall des neuen Geraets nach state.ready: ueber Knoten nach 3 s, im Mesh (neu) nach handover_s/2
+    static func fallbackDelay(horn: Bool, handoverS: Double) -> Double { horn ? 3 : max(1, handoverS / 2) }
+    /// Body fuer /leave: mit handover2 immer gen (aus der Liste) und beim Rueckfall by = eigenes Geraet
+    static func leaveBody(device: String, reason: String?, by: String?, legs: [Leg], v2: Bool) -> [String: Any] {
+        var b: [String: Any] = ["device": device]
+        if let reason { b["reason"] = reason }
+        guard v2 else { return b }
+        if let by, by != device { b["by"] = by }
+        if let g = legs.first(where: { $0.device == device })?.gen { b["gen"] = g }
+        return b
+    }
+    enum LeaveResult: Equatable { case left, stale, already, failed }
+    static func leaveResult(code: Int?, body: [String: Any]?) -> LeaveResult {
+        guard let code, (200..<300).contains(code) else { return .failed }
+        if (body?["stale"] as? Bool) == true { return .stale }
+        if (body?["already"] as? Bool) == true { return .already }
+        return .left
+    }
+    /// Beitritt trotz joinable false? Nur "Hierher uebernehmen" mit takeover (voller Anruf, E6)
+    static func joinAllowed(role: String, joinable: Bool?, takeover: Bool?) -> Bool {
+        joinable != false || (role == "handover" && takeover == true)
+    }
+    /// Antwort auf POST /join
+    enum JoinOutcome: Equatable {
+        case ok(gen: Int?)
+        case busy(String?)          // 409 handover_busy: Hinweis, NICHT wiederholen
+        case reoffer                // 409 mit legs ohne join_block: Liste veraltet, einmal neu anbieten
+        case blocked(Block, String?)
+        case failed(Int, String?)
+    }
+    static func joinOutcome(code: Int, body: [String: Any]?) -> JoinOutcome {
+        let err = (body?["error"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        if (200..<300).contains(code) { return .ok(gen: gen(body?["gen"])) }
+        let blk = block(body?["join_block"] as? String)
+        if code == 409, blk == .handoverBusy { return .busy(err) }
+        if code == 409, blk == nil, body?["legs"] != nil { return .reoffer }
+        if code == 409, let blk { return .blocked(blk, err) }
+        return .failed(code, err)
+    }
+    /// Antwort auf POST /promote
+    enum PromoteOutcome: Equatable {
+        case ok(already: Bool)      // horn/call stehen in der Antwort
+        case old                    // foederiert ohne promote: wie bisher ohne Befoerderung uebernehmen
+        case failed(String?)
+    }
+    static func promoteOutcome(code: Int?, body: [String: Any]?) -> PromoteOutcome {
+        guard let code else { return .failed(nil) }
+        if (200..<300).contains(code) { return .ok(already: (body?["already"] as? Bool) == true) }
+        if code == 409, (body?["join_block"] as? String) == "old" { return .old }
+        return .failed((body?["error"] as? String).flatMap { $0.isEmpty ? nil : $0 })
+    }
+    static func promoteBody(device: String, devClass: String?) -> [String: Any] {
+        var b: [String: Any] = ["device": device]
+        if let devClass { b["dev_class"] = devClass }
+        return b
+    }
+    /// Begleitgeraet uebernimmt im Anruf: ueber Knoten mit handover2 erst befoerdern (Ton-Recht), im Mesh nicht noetig
+    static func needsPromote(horn: Bool, v2: Bool) -> Bool { horn && v2 }
+    /// call.mod {action: mute, why: handover} fuer dieses Geraet: ein anderes eigenes fuehrt - still als Begleitgeraet weiter
+    enum Mod: Equatable { case none, mute(by: String), handoverMute, remove }
+    static func mod(_ d: [String: Any], here: String) -> Mod {
+        let a = d["action"] as? String
+        if a == "mute", (d["device"] as? String) == here {
+            return (d["why"] as? String) == "handover" ? .handoverMute : .mute(by: (d["by"] as? String) ?? "?")
+        }
+        return a == "remove" ? .remove : .none
     }
 
     // MARK: Ansicht: Kacheln, Sprecher
@@ -231,6 +344,8 @@ enum CallRoom {
         var peerName: String
         var role: String
         var silent = false
+        /// 2.5 handover2: "Hierher uebernehmen" geht (auch bei vollem Anruf, joinable false/full)
+        var takeover = false
     }
     static func running(_ any: Any?) -> Running? {
         guard let d = any as? [String: Any], let id = d["id"] as? String, id.count == 32 else { return nil }
@@ -241,7 +356,8 @@ enum CallRoom {
                        joinable: (d["joinable"] as? Bool) == true, block: block(d["join_block"] as? String),
                        limit: limit(media: (d["media"] as? String) ?? "audio", server: (d["limit"] as? NSNumber)?.intValue),
                        invite: d["invite"] as? String, created: (d["created"] as? NSNumber)?.doubleValue ?? 0,
-                       ringS: (d["ring_s"] as? NSNumber)?.doubleValue ?? 45, peerName: (peer["name"] as? String) ?? "", role: (d["role"] as? String) ?? "")
+                       ringS: (d["ring_s"] as? NSNumber)?.doubleValue ?? 45, peerName: (peer["name"] as? String) ?? "", role: (d["role"] as? String) ?? "",
+                       takeover: (d["takeover"] as? Bool) == true)
     }
     enum Bar: Equatable {
         case none
@@ -260,6 +376,17 @@ enum CallRoom {
         }
         if x.kind == "group" && x.mine.isEmpty { return .group(devices: x.legs.count) }
         return .none
+    }
+
+    /// Knoepfe der Leiste: Hinzufuegen (Begleitgeraet), Hierher uebernehmen, Beitreten (Gruppe ohne eigenes Geraet).
+    /// 2.5 (L4/E6): voller Anruf mit takeover - nur "Hierher uebernehmen"
+    struct BarActions: Equatable { var add = false; var takeover = false; var join = false }
+    static func barActions(_ x: Running, bar b: Bar) -> BarActions {
+        switch b {
+        case .none: return BarActions()
+        case .elsewhere: return x.joinable ? BarActions(add: true, takeover: true) : BarActions(takeover: x.takeover)
+        case .group: return BarActions(join: x.joinable)
+        }
     }
 
     // MARK: Gruppenanruf: Knopf, Klingeln

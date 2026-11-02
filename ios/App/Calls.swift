@@ -1424,7 +1424,7 @@ final class CallManager: NSObject, ObservableObject {
                         if L === self.primary { self.diag?.path = "p2p"; self.diag?.transport = CallDiag.transport(p2p: L.path?.rawValue); self.diag?.node = "" }
                         for st in rep.statistics.values where st.type == "inbound-rtp" || st.type == "outbound-rtp" {
                             self.diagSample(type: st.type, values: st.values, src: st.type == "outbound-rtp" ? "me" : self.diagAlias(L.dev),
-                                            key: ObjectIdentifier(L).debugDescription + st.id, rtt: rtt)
+                                            key: ObjectIdentifier(L).debugDescription + st.id, rtt: rtt, report: rep)
                         }
                     }
                     let au = CallLogic.AudioSample.from(rep.statistics.values.map { (type: $0.type, values: $0.values as [String: Any]) })

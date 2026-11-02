@@ -68,9 +68,59 @@ enum GalleryLogic {
         validID(id) ? "api/gallery/\(id)/use" : nil
     }
 
-    /// Body fuer "Verwenden": parent_id immer gesetzt (null = oberste Ebene), examples als echtes Bool
-    static func useBody(parent: Int?, examples: Bool) -> [String: Any] {
-        ["parent_id": parent.map { $0 as Any } ?? NSNull(), "examples": examples]
+    /// Body fuer "Verwenden": parent_id immer gesetzt (null = oberste Ebene), examples als echtes Bool; 2.5 weather_place
+    /// (Ort fuer Wetter-Widgets der Vorlage ohne Ort) nur, wenn einer gewaehlt wurde ("Ueberspringen" = ohne)
+    static func useBody(parent: Int?, examples: Bool, place: Place? = nil) -> [String: Any] {
+        var b: [String: Any] = ["parent_id": parent.map { $0 as Any } ?? NSNull(), "examples": examples]
+        if let place { b["weather_place"] = ["place": place.name, "lat": place.lat, "lon": place.lon] }
+        return b
+    }
+
+    // MARK: 2.5 Wetter-Ort beim Anlegen (ask_weather, GET /api/widgets/geocode)
+
+    /// Vorschau GET /api/gallery/{id}?lang= (fuer ask_weather)
+    static func previewPath(_ id: String, lang: String) -> String? {
+        validID(id) ? "api/gallery/\(id)?lang=" + (langs.contains(lang) ? lang : "en") : nil
+    }
+    /// Vorschau: hat die Vorlage ein Wetter-Widget ohne Ort (und Wetter ist an)? Dann vor dem Anlegen nach dem Ort fragen
+    static func askWeather(_ data: Data) -> Bool {
+        (((try? JSONSerialization.jsonObject(with: data)) as? [String: Any])?["ask_weather"] as? Bool) == true
+    }
+    struct Place: Equatable, Identifiable {
+        var name: String
+        var admin: String
+        var country: String
+        var lat: Double
+        var lon: Double
+        var id: String { "\(name)|\(admin)|\(country)|\(lat)|\(lon)" }
+        /// Anzeige wie im Web: "Name, Region (Land)"
+        var label: String { name + (!admin.isEmpty && admin != name ? ", " + admin : "") + (country.isEmpty ? "" : " (\(country))") }
+    }
+    /// Suchtext: 2-80 Zeichen nach dem Kuerzen, sonst nil (nicht suchen)
+    static func geocodePath(_ q: String) -> String? {
+        let t = q.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard t.count >= 2, t.count <= 80, let e = t.addingPercentEncoding(withAllowedCharacters: CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")) else { return nil }
+        return "api/widgets/geocode?q=" + e
+    }
+    private static func coord(_ v: Any?, max m: Double) -> Double? {
+        guard let n = v as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID() else { return nil }
+        let d = n.doubleValue
+        return d.isFinite && abs(d) <= m ? d : nil
+    }
+    /// Treffer der Ortssuche (hoechstens 8, ohne Name/Koordinaten verworfen); nil = nicht lesbar
+    static func places(_ data: Data) -> [Place]? {
+        guard let j = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+        let rows = (j["results"] as? [Any]) ?? []
+        return Array(rows.compactMap { r -> Place? in
+            guard let d = r as? [String: Any], let lat = coord(d["lat"], max: 90), let lon = coord(d["lon"], max: 180) else { return nil }
+            let name = text(d["name"], max: 80)
+            return name.isEmpty ? nil : Place(name: name, admin: text(d["admin"], max: 80), country: text(d["country"], max: 80), lat: lat, lon: lon)
+        }.prefix(8))
+    }
+    enum GeoFailure: Equatable { case none, rateLimited, unavailable }
+    static func geoFailure(code: Int) -> GeoFailure {
+        if (200..<300).contains(code) { return .none }
+        return code == 429 ? .rateLimited : .unavailable
     }
 
     // MARK: Antworten lesen

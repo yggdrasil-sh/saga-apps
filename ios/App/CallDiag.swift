@@ -1,4 +1,5 @@
 import Foundation
+import WebRTC
 
 // 2.5 Anruf-Diagnose an den Server (nur wenn /api/version features "calldiag1" meldet): POST /api/calls/diag alle 30 s
 // waehrend eines Anrufs und einmal beim Auflegen, hoechstens einer je 15 s, Fehler still, nie blockierend. Inhalt:
@@ -29,11 +30,13 @@ extension CallManager {
         return true
     }
     func diagAlias(_ dev: String?) -> String { diagEnsure() ? (diag?.alias(dev) ?? "") : "" }
-    func diagSample(type: String, values: [String: Any], src: String, key: String, rtt: Double?) {
+    func diagSample(type: String, values: [String: Any], src: String, key: String, rtt: Double?, report: RTCStatisticsReport? = nil) {
         guard diagEnsure() else { return }
         let now = Self.hornNow()
         guard diag?.sampleDue(key, now: now, every: 2500) == true else { return }      // je Spur hoechstens alle ~3 s
-        if let s = diag?.sample(type: type, values: values, src: src, key: key, now: now, rtt: rtt) { diag?.add(s) }
+        // 2.5: Rahmen der Kamera (media-source.frames) fuer fdrop beim Senden
+        let frames = type == "outbound-rtp" ? (values["mediaSourceId"] as? String).flatMap { report?.statistics[$0]?.values["frames"] as? NSNumber }?.doubleValue : nil
+        if let s = diag?.sample(type: type, values: values, src: src, key: key, now: now, rtt: rtt, srcFrames: frames) { diag?.add(s) }
     }
     func diagEvent(_ k: String, _ d: String) {
         guard diagEnsure() else { return }

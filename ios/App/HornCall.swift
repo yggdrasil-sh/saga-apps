@@ -91,7 +91,7 @@ final class HornConn {
     var all: [HornLeg] { ["audio", "video", "both"].compactMap { legs[$0] } }
     func worst() -> String {
         var w = "connected"
-        for L in all {
+        for L in all where !L.pend {                                        // L3: Ton-Bein wird gerade ersetzt
             switch L.state {
             case .failed: w = "failed"
             case .closed: if w != "failed" { w = "closed" }
@@ -235,16 +235,13 @@ extension CallManager {
         guard let store, let id, let dev = myDevice else { return }
         guard myCaps.contains("horn") else { throw APIError.other(String(localized: "Dafür braucht dieses Gerät Saga 2.5.")) }
         var body: [String: Any] = ["device": dev, "role": r, "caps": myCaps, "dev_class": hornDevClass]
-        if r == "handover", let rep { body["replaces"] = rep }
+        if r == "handover", let rep { body["replaces"] = rep; hoArm(rep) }
         let asked = Date().timeIntervalSince1970
         let (d, code) = try await store.apiResponse("api/calls/\(id)/join", method: "POST", body: body)
         let j = ShareJSON.obj(d)
-        guard (200..<300).contains(code) else {
-            let blk = j?["join_block"] as? String
-            throw APIError.other(ShareJSON.str(j?["error"]) ?? hornBlockText(blk) ?? blockText(CallRoom.block(blk), limit: limit))
-        }
+        guard (200..<300).contains(code) else { try joinThrow(code: code, j) }   // 2.5: handover_busy nur als Hinweis
         guard !ending, self.id == id else {
-            _ = try? await store.apiResponse("api/calls/\(id)/leave", method: "POST", body: ["device": dev])
+            postLeave(id, CallRoom.leaveBody(device: dev, reason: nil, by: nil, legs: CallRoom.legs((j?["call"] as? [String: Any])?["legs"]), v2: ho2))
             return
         }
         ready = true; inRoom = true
@@ -258,6 +255,7 @@ extension CallManager {
         if r == "handover", let rep {
             ho.begin(rep: rep, now: Date().timeIntervalSince1970, timeout: handoverSeconds)
             handingOver = true
+            hoTimer()                                                       // Frist auch ueber Knoten (bisher nur bei hornAdopt geprueft)
         }
         let pending = early; early = []
         for s in pending { await handleRaw(s) }
@@ -424,9 +422,10 @@ extension CallManager {
             throw hornLive(H) ? error : HornFail.cancelled
         }
     }
-    private func hornLeg(_ conn: HornConn, role: String, turn: HornLeg.Turn?) async throws {
+    private func hornLeg(_ conn: HornConn, role: String, turn: HornLeg.Turn?, pend: Bool = false) async throws {
         guard let H = horn, let me = myDevice else { throw HornFail.cancelled }
         let L = HornLeg(role: role, path: conn.path, me: me, tiles: HornLogic.tileSlots(mobile: hornMobile), factory: CallRTC.factory, provider: H.provider)
+        L.pend = pend
         conn.legs[role] = L
         if scrSid.isEmpty { scrSid = "k" + ChatCrypto.hexID().prefix(8) }
         let sid = "s" + (id ?? "0").prefix(8)
@@ -458,6 +457,48 @@ extension CallManager {
         hornMap(); hornDraw()
     }
 
+    /// 2.5 Uebergabe (L3): Ton-Bein der aktuellen Verbindung mit frischen Token neu aufbauen (nach POST /promote mit
+    /// Ton-Recht). Gleiche leg_ref (im Token) -> der Knoten ersetzt das alte Bein; das alte bekommt "closed ersetzt" (kein
+    /// Verbindungsverlust) und wird hier erst geschlossen, wenn das neue verbunden ist (<= 8 s). blk = horn der promote-Antwort.
+    /// Kennungen (hp/hpn) nie zwischenspeichern: kommen aus der Liste bzw. dem neuen Kandidaten.
+    func hornReAudio(_ blk: Any?) async throws {
+        guard let H = horn, let conn = H.cur, !conn.dead else { return }
+        let role = conn.legs["both"] != nil ? "both" : "audio"
+        guard let old = conn.legs[role] else { return }
+        var cand: HornLogic.Candidate
+        if let c = HornLogic.candidates(blk).first(where: { $0.node == conn.node && !$0.used }) { cand = c }
+        else { cand = try await hornFresh(conn.cand, avoid: H.avoid(now: Self.hornNow())) }
+        guard hornLive(H), H.cur === conn, !conn.dead else { throw HornFail.cancelled }
+        cand.used = true
+        conn.cand = cand
+        var turn: HornLeg.Turn?
+        if conn.path == "turn", let tok = cand.tokens["audio"], let hp = cand.hostPort {
+            let t = try await HornNet.turn(cand.url, token: tok)
+            turn = HornLeg.Turn(url: "turns:\(hp.host):\(hp.port)?transport=tcp", user: t.user, pass: t.pass)
+        }
+        old.replaced = true
+        H.trace("ton neu \(conn.node) \(role)")
+        do {
+            try await hornLeg(conn, role: role, turn: turn, pend: true)
+            guard let L = conn.legs[role], L !== old else { throw HornFail.failed }
+            let t0 = Self.hornNow()
+            while L.state != .connected {
+                if L.state == .failed || L.state == .closed || Self.hornNow() - t0 > 8000 || !hornLive(H) || conn.dead { throw HornFail.timeout }
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            L.pend = false
+            old.close()                                                     // kein DELETE: der Knoten hat es schon ersetzt
+            hornMap(); hornMic(); hornAudioRoute(); hornDraw()
+            hornConnState(conn)
+        } catch {
+            // neues Bein ging nicht: altes behalten (der Knoten hat es nur ersetzt, wenn das neue angenommen wurde)
+            if let L = conn.legs[role], L !== old { L.close() }
+            conn.legs[role] = old; old.replaced = false
+            H.trace("ton neu fehlgeschlagen \(error.localizedDescription)")
+            throw error is HornFail ? APIError.other(String(localized: "Verbindung nicht aufgebaut: \("audio")")) : error
+        }
+    }
+
     // MARK: Ereigniskanal
 
     private func hornEventsOpen(_ conn: HornConn, _ L: HornLeg, again: Bool) {
@@ -465,7 +506,7 @@ extension CallManager {
         L.events = ev
         ev.onEvent = { [weak self, weak conn, weak L] e in guard let self, let conn, let L else { return }; self.hornEvent(conn, L, e) }
         ev.onClose = { [weak self, weak conn, weak L] opened in
-            guard let self, let conn, let L, let H = self.horn, self.hornLive(H), !conn.dead, conn.closed == nil else { return }
+            guard let self, let conn, let L, !L.replaced, let H = self.horn, self.hornLive(H), !conn.dead, conn.closed == nil else { return }
             L.events = nil
             if again && !opened {                                           // Knoten nimmt nichts mehr an: nicht auf ICE warten
                 if H.cur === conn { H.trace("events weg"); self.hornSwitch(.lost) }
@@ -480,7 +521,7 @@ extension CallManager {
         ev.start()
     }
     private func hornEvent(_ conn: HornConn, _ L: HornLeg, _ e: HornLogic.Event) {
-        guard let H = horn, hornLive(H), !conn.dead else { return }
+        guard let H = horn, hornLive(H), !conn.dead, !L.replaced else { return }   // L3: ersetztes Bein ("closed ersetzt") ist kein Verlust
         switch e {
         case .hello(_, let peers, let slots, let est, let state):
             hornPeersIn(conn, peers)
@@ -570,7 +611,7 @@ extension CallManager {
     }
     func hornConnState(_ conn: HornConn) {
         guard let H = horn, hornLive(H) else { return }
-        let ls = conn.all
+        let ls = conn.all.filter { !$0.pend }                               // L3: Ersatz-Bein zaehlt erst, wenn es steht
         let up = !ls.isEmpty && ls.allSatisfy { $0.state == .connected }
         let bad = ls.contains { $0.state == .failed || $0.state == .closed }
         if up && conn.up == 0 { conn.up = Self.hornNow() }
@@ -843,7 +884,7 @@ extension CallManager {
                 if s.type == "inbound-rtp" || s.type == "outbound-rtp" {
                     let src = s.type == "outbound-rtp" ? "me"
                         : diagAlias((v["trackIdentifier"] as? String).flatMap { tracks[$0] }.flatMap { L.ownerOfCryptor($0) })
-                    diagSample(type: s.type, values: v, src: src, key: L.role + "." + s.id, rtt: conn.rtt)
+                    diagSample(type: s.type, values: v, src: src, key: L.role + "." + s.id, rtt: conn.rtt, report: rep)
                 }
                 if s.type == "candidate-pair", (v["nominated"] as? NSNumber)?.boolValue == true, (v["state"] as? String) == "succeeded",
                    let r = (v["currentRoundTripTime"] as? NSNumber)?.doubleValue { rtt = max(rtt ?? 0, r * 1000) }
@@ -1196,6 +1237,7 @@ extension CallManager {
     func hornModIn(_ d: [String: Any]) {
         guard (d["call_id"] as? String) == id, !ending, let me = myDevice else { return }
         let by = ShareJSON.str(d["by"]) ?? "?"
+        if CallRoom.mod(d, here: me) == .handoverMute { handoverMuted(); return }   // 2.5 (L2): anderes eigenes Geraet fuehrt
         if (d["action"] as? String) == "mute", (d["device"] as? String) == me {
             if mic { toggleMic() }
             mutedBy = by

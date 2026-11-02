@@ -78,9 +78,17 @@ enum CallDiag {
         var t: Int, dir: String, src: String, rid: String
         var fps = 0, h = 0, kbps = 0, lost = 0, nack = 0, pli = 0, freeze = 0, kf = 0, rtt = 0
         var qlr = "", enc = ""
+        /// 2.5 Geraete-CPU (Labor 2.11.): out qcpu/qbw = ms durch CPU bzw. Bandbreite begrenzt, encms = mittlere Kodierzeit je
+        /// Rahmen, fdrop = Kamera-Rahmen ohne Kodierung; in fdrop = framesDropped, decms = mittlere Dekodierzeit, fzms =
+        /// Standbild-Dauer. Zuwaechse seit der letzten Probe; 0 wird weggelassen
+        var qcpu = 0, qbw = 0, fdrop = 0, fzms = 0
+        var encms = 0.0, decms = 0.0
         var json: [String: Any] {
-            ["t": t, "dir": dir, "src": src, "rid": rid, "fps": fps, "h": h, "kbps": kbps, "lost": lost, "nack": nack, "pli": pli,
-             "freeze": freeze, "kf": kf, "rtt": rtt, "qlr": qlr, "enc": enc]
+            var j: [String: Any] = ["t": t, "dir": dir, "src": src, "rid": rid, "fps": fps, "h": h, "kbps": kbps, "lost": lost, "nack": nack, "pli": pli,
+                                    "freeze": freeze, "kf": kf, "rtt": rtt, "qlr": qlr, "enc": enc]
+            for (k, v) in [("qcpu", qcpu), ("qbw", qbw), ("fdrop", fdrop), ("fzms", fzms)] where v > 0 { j[k] = v }
+            for (k, v) in [("encms", encms), ("decms", decms)] where v > 0 && v.isFinite { j[k] = v }
+            return j
         }
     }
     struct Event: Equatable {
@@ -133,10 +141,11 @@ enum CallDiag {
             let a = "p\(aliases.count + 1)"; aliases[dev] = a; return a
         }
         /// Zuwachs eines Zaehlers seit der letzten Probe (erste Probe: 0; Zaehler neu: 0)
-        mutating func delta(_ key: String, _ v: Double) -> Int {
+        mutating func delta(_ key: String, _ v: Double) -> Int { CallDiag.int(rawDelta(key, v)) }
+        mutating func rawDelta(_ key: String, _ v: Double) -> Double {
             defer { prev[key] = v }
-            guard let p = prev[key], v >= p else { return 0 }
-            return CallDiag.int(v - p)
+            guard v.isFinite, let p = prev[key], v >= p else { return 0 }
+            return v - p
         }
         mutating func kbps(_ key: String, bytes: Double, t: Double) -> Int {
             defer { rate[key] = (bytes, t) }
@@ -148,8 +157,9 @@ enum CallDiag {
             if let s = sampled[key], now - s < every { return false }
             sampled[key] = now; return true
         }
-        /// Probe aus einem getStats-Eintrag (inbound-rtp/outbound-rtp, nur Video); src = Kuerzel, key = eindeutig je Spur
-        mutating func sample(type: String, values v: [String: Any], src: String, key: String, now: Double, rtt: Double?) -> Sample? {
+        /// Probe aus einem getStats-Eintrag (inbound-rtp/outbound-rtp, nur Video); src = Kuerzel, key = eindeutig je Spur;
+        /// srcFrames = media-source.frames der Kamera dieses Senders (fdrop beim Senden)
+        mutating func sample(type: String, values v: [String: Any], src: String, key: String, now: Double, rtt: Double?, srcFrames: Double? = nil) -> Sample? {
             func n(_ k: String) -> Double? {
                 if let x = v[k] as? NSNumber { return x.doubleValue }
                 if let x = v[k] as? String { return Double(x) }
@@ -176,7 +186,31 @@ enum CallDiag {
                 s.lost = delta(key + ".lost", n("packetsLost") ?? 0)
                 s.freeze = delta(key + ".fz", n("freezeCount") ?? 0)
             }
+            // 2.5 Geraete-CPU (Vertrag "Anruf-Diagnose", Web diagRep)
+            let nfr = rawDelta(key + ".fr", n(out ? "framesEncoded" : "framesDecoded") ?? 0)
+            let tt = rawDelta(key + ".tt", (n(out ? "totalEncodeTime" : "totalDecodeTime") ?? 0) * 1000)
+            if nfr > 0 { let m = (tt / nfr * 10).rounded() / 10; if m.isFinite && m > 0 { if out { s.encms = m } else { s.decms = m } } }
+            if out {
+                let qd = Self.durations(v["qualityLimitationDurations"])
+                s.qcpu = delta(key + ".qcpu", (qd["cpu"] ?? 0) * 1000)
+                s.qbw = delta(key + ".qbw", (qd["bandwidth"] ?? 0) * 1000)
+                // Kamera-Rahmen, die nicht kodiert wurden - nur wenn die Schicht gerade kodiert (abgeschaltete Schicht: nichts)
+                let dsrc = rawDelta(key + ".src", srcFrames ?? 0)
+                if srcFrames != nil, nfr > 0 { s.fdrop = CallDiag.int(dsrc - nfr) }
+            } else {
+                s.fdrop = delta(key + ".drop", n("framesDropped") ?? 0)
+                s.fzms = delta(key + ".fzd", (n("totalFreezesDuration") ?? 0) * 1000)
+            }
             return s
+        }
+        /// qualityLimitationDurations (Sekunden je Grund) aus getStats: Dictionary mit NSNumber bzw. Text
+        static func durations(_ any: Any?) -> [String: Double] {
+            guard let d = any as? [String: Any] else { return [:] }
+            var o: [String: Double] = [:]
+            for (k, x) in d {
+                if let n = x as? NSNumber { o[k] = n.doubleValue } else if let t = x as? String, let v = Double(t) { o[k] = v }
+            }
+            return o
         }
         mutating func add(_ s: Sample) {
             samples.append(s)

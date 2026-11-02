@@ -871,23 +871,26 @@ struct CallRunBar: View {
         .fixedSize(horizontal: false, vertical: true)
     }
     @ViewBuilder private func buttons(_ x: CallRoom.Running, video: Bool) -> some View {
-        if x.joinable {
-            if case .elsewhere = calls.bar(x) {
-                Button(String(localized: "Hinzufügen")) { calls.join(x.id, role: "companion", video: false) }
+        // 2.5 (L4/E6): voller Anruf mit takeover - nur "Hierher uebernehmen" (das ersetzte Geraet zaehlt nicht)
+        let act = CallRoom.barActions(x, bar: calls.bar(x))
+        if act.add {
+            Button(String(localized: "Hinzufügen")) { calls.join(x.id, role: "companion", video: false) }
+                .buttonStyle(.bordered).tint(.white).controlSize(.small).fixedSize()
+                .help(Text("Dieses Gerät als Begleitgerät hinzufügen (ohne Mikrofon und Ton)"))
+        }
+        if act.takeover {
+            Button(String(localized: "Hierher übernehmen")) { calls.join(x.id, role: "handover", video: video) }
+                .buttonStyle(.borderedProminent).tint(.white).foregroundStyle(.black).controlSize(.small).fixedSize()
+                .help(Text("Anruf ohne Unterbrechung auf dieses Gerät holen"))
+        }
+        if act.join {
+            if video {
+                Button(String(localized: "Nur mit Ton")) { calls.join(x.id, role: "member", video: false) }
                     .buttonStyle(.bordered).tint(.white).controlSize(.small).fixedSize()
-                    .help(Text("Dieses Gerät als Begleitgerät hinzufügen (ohne Mikrofon und Ton)"))
-                Button(String(localized: "Hierher übernehmen")) { calls.join(x.id, role: "handover", video: video) }
-                    .buttonStyle(.borderedProminent).tint(.white).foregroundStyle(.black).controlSize(.small).fixedSize()
-                    .help(Text("Anruf ohne Unterbrechung auf dieses Gerät holen"))
-            } else {
-                if video {
-                    Button(String(localized: "Nur mit Ton")) { calls.join(x.id, role: "member", video: false) }
-                        .buttonStyle(.bordered).tint(.white).controlSize(.small).fixedSize()
-                }
-                Button(String(localized: "Beitreten")) { calls.join(x.id, role: "member", video: video) }
-                    .buttonStyle(.borderedProminent).tint(.white).foregroundStyle(.black).controlSize(.small).fixedSize()
-                    .help(Text("Dem Gruppenanruf beitreten"))
             }
+            Button(String(localized: "Beitreten")) { calls.join(x.id, role: "member", video: video) }
+                .buttonStyle(.borderedProminent).tint(.white).foregroundStyle(.black).controlSize(.small).fixedSize()
+                .help(Text("Dem Gruppenanruf beitreten"))
         }
     }
     private func blocked(_ x: CallRoom.Running) -> String {
