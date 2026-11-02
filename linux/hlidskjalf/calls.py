@@ -18,7 +18,7 @@ from gi.repository import Adw, Gio, GLib, GObject, Gtk, Pango
 
 from . import avatars, config
 from .api import APIError, client
-from .i18n import _
+from .i18n import _, ngettext, pgettext
 from .util import bg
 
 RING_FALLBACK_S = 45
@@ -34,9 +34,92 @@ def call_url(cid, media):
     return f"{config.settings.server.rstrip('/')}/chats#call-{cid}-{'video' if media == 'video' else 'audio'}"
 
 
-def join_url(cid, media):
-    """(2.4) Gruppenanruf beitreten - die Web-Oberflaeche tritt mit role "member" bei (static/calls.js route)"""
-    return f"{config.settings.server.rstrip('/')}/chats#join-{cid}-member{'-video' if media == 'video' else ''}"
+JOIN_ROLES = ("member", "companion", "handover")
+
+
+def join_url(cid, media, role="member"):
+    """(2.4) Laufendem Anruf im Browser beitreten (static/calls.js route: #join-<id>-member|companion|handover[-video]).
+    member: Gruppenanruf beitreten; (2.5, L6) companion: Begleitgeraet ohne Mikrofon und Ton (nie mit Video);
+    handover: "Hierher uebernehmen" - der Browser ersetzt das bisherige eigene Hauptgeraet (Web waehlt es aus der Liste)"""
+    role = role if role in JOIN_ROLES else "member"
+    video = "-video" if media == "video" and role != "companion" else ""
+    return f"{config.settings.server.rstrip('/')}/chats#join-{cid}-{role}{video}"
+
+
+def block_text(why, limit=None):
+    """(2.5) Warum Beitreten gerade nicht geht (join_block des Anruf-Objekts) - Wortlaut wie im Web (blockText)"""
+    if why == "old":
+        return _("Someone in the call needs Saga 2.4 for that.")
+    if why == "full":
+        return _("The call is full (at most {n} devices).").format(n=limit or "?")
+    if why == "ended":
+        return _("The call has already ended.")
+    if why == "none":
+        return _("The call has not been answered yet.")
+    if why == "handover_busy":
+        return _("Another of your devices is taking over the call right now – please wait a moment.")
+    return _("Joining is not possible right now.")
+
+
+def _mine(c):
+    m = (c or {}).get("mine")
+    return [d for d in m if isinstance(d, str)] if isinstance(m, list) else []
+
+
+def run_shown(c, here=None, ringing_id=None, local=()):
+    """(2.5, L6) Leiste "Anruf laeuft" fuer einen Eintrag aus GET /api/calls/active zeigen? Wie runBar im Web: ein anderes
+    eigenes Geraet ist im Anruf (1:1: nur wenn angenommen) bzw. Gruppenanruf in einem eigenen Chat. Nicht, solange es hier
+    klingelt (eigene Leiste), und nicht, wenn nur der Browser dieses Rechners dabei ist (local: von hier geoeffnet)."""
+    if not isinstance(c, dict) or not valid_id(c.get("id")) or c.get("state") not in ("ringing", "active"):
+        return False
+    if ringing_id and c["id"] == ringing_id:
+        return False
+    mine = _mine(c)
+    if here and here in mine:
+        return False
+    if mine and set(mine) <= set(local or ()):
+        return False
+    if c.get("kind") == "group" and not c.get("dm"):      # 2.5: 1:1 ueber Knoten (dm) wie 1:1
+        return True
+    return c.get("state") == "active" and bool(mine)
+
+
+def run_view(c):
+    """(2.5, L6) Inhalt der Leiste: {"video", "title", "sub", "note", "actions": [(role, video, kurz, voll, haupt)]}.
+    Mit eigenem Geraet im Anruf: "Hinzufuegen" (Begleitgeraet) und "Hierher uebernehmen"; voller Anruf (join_block
+    "full") mit takeover: nur "Hierher uebernehmen". Sonst (Gruppe): "Beitreten" (bei Video zusaetzlich "Nur Ton")."""
+    mine = _mine(c)
+    legs = [x for x in (c.get("legs") or []) if isinstance(x, dict)]
+    own = [x for x in legs if x.get("device") in mine]
+    main = next((x for x in own if x.get("role") != "companion"), own[0] if own else None)
+    video = c.get("media") == "video"
+    group = c.get("kind") == "group" and not c.get("dm")
+    if mine:
+        dev = (main or {}).get("dev_name") or pgettext("call in progress on", "another device")
+        title = _("Call in progress on {device}").format(device=dev)
+        sub = group_name(c) if group else caller_name(c)
+    else:
+        title = _("Group call running")
+        n = len(legs)
+        sub = " · ".join(x for x in (group_name(c), ngettext("{n} device", "{n} devices", n).format(n=n)) if x)
+    take = ("handover", video, _("Move here"),
+            _("Move the call to this computer without interruption – it continues in your browser"), True)
+    acts = []
+    if not c.get("joinable", True):
+        note = block_text(c.get("join_block"), c.get("limit"))
+        if c.get("takeover") and mine:                     # L4/E6: das ersetzte Geraet zaehlt nicht mit
+            acts = [take]
+    else:
+        note = _("Continues in your browser.")
+        if mine:
+            acts = [("companion", False, _("Add"), _("Add your browser as a companion device (without microphone and sound)"), False),
+                    take]
+        elif video:
+            acts = [("member", False, _("Audio only"), _("Join with audio only (in browser)"), False),
+                    ("member", True, _("Join"), _("Join with video (in browser)"), True)]
+        else:
+            acts = [("member", False, _("Join (in browser)"), _("Join the group call (in browser)"), True)]
+    return {"video": video, "title": title, "sub": sub, "note": note, "actions": acts}
 
 
 def is_group(c):
@@ -226,6 +309,7 @@ class Calls(GObject.Object):
     __gsignals__ = {
         "ring": (GObject.SignalFlags.RUN_FIRST, None, (object,)),
         "info": (GObject.SignalFlags.RUN_FIRST, None, (str,)),       # kurze Meldung (Toast)
+        "running": (GObject.SignalFlags.RUN_FIRST, None, (object,)),  # (2.5, L6) Liste fuer die Leiste "Anruf laeuft"
     }
 
     def __init__(self):
@@ -243,6 +327,9 @@ class Calls(GObject.Object):
         self.ringer = Ringer()
         self._timer = 0
         self._held = False
+        self.running = []               # (2.5, L6) Anrufe der Leiste "Anruf laeuft" (aus GET /api/calls/active)
+        self.local = {}                 # call_id -> {"t", "before", "devs"}: hier im Browser geoeffnet (Geraet des Browsers)
+        self._run_t = 0
 
     def reset(self):
         self._stop(withdraw=True)
@@ -252,6 +339,13 @@ class Calls(GObject.Object):
         self._invites.clear()
         self.config = None
         self._caps_sent = None
+        self.local.clear()
+        if self._run_t:
+            GLib.source_remove(self._run_t)
+            self._run_t = 0
+        if self.running:
+            self.running = []
+            self.emit("running", [])
 
     @staticmethod
     def _me():
@@ -320,6 +414,8 @@ class Calls(GObject.Object):
         if not isinstance(d, dict):
             return
         cid = str(d.get("call_id") or "")
+        if typ in ("call.invite", "call.roster", "call.state", "call.mod", "call.ended"):
+            self.run_check()                                 # (2.5, L6) Leiste "Anruf laeuft" nachziehen
         if typ == "call.ring":
             self.check(cid)
         elif typ == "call.invite":                          # (2.4) Gruppenanruf klingelt (grosse Gruppen: still)
@@ -384,10 +480,72 @@ class Calls(GObject.Object):
     def check_active(self):
         """laufende/klingelnde Anrufe (Start, Aufwachen, neuer Live-Kanal) - verpasstes Klingeln nachholen"""
         def fin(j):
-            for c in (j or {}).get("calls") or []:
-                if isinstance(c, dict) and ((c.get("state") == "ringing" and c.get("role") == "callee") or group_rings(c)):
+            lst = [c for c in ((j or {}).get("calls") or []) if isinstance(c, dict)] if isinstance(j, dict) else []
+            for c in lst:
+                if (c.get("state") == "ringing" and c.get("role") == "callee") or group_rings(c):
                     self._maybe_ring(c)
+            self._set_running(lst)
         bg(client.get, "api/calls/active", done=fin, error=lambda e: None)
+
+    # --- (2.5, L6) Leiste "Anruf laeuft" ---------------------------------------------------------------------------------
+    def run_check(self, ms=400):
+        """GET /api/calls/active bald (gebuendelt) - nach Live-Ereignissen der Anrufe und wenn das Klingeln hier endet"""
+        if self._run_t:
+            GLib.source_remove(self._run_t)
+
+        def go():
+            self._run_t = 0
+            self.check_active()
+            return False
+        self._run_t = GLib.timeout_add(ms, go)
+
+    @staticmethod
+    def _here():
+        try:
+            from .chat import chat
+            return chat.device_id
+        except (ImportError, AttributeError):
+            return None
+
+    def _learn_local(self, c):
+        """Der Browser dieses Rechners, den die App eben geoeffnet hat, ist das erste eigene Geraet, das danach (binnen
+        90 s) neu in "mine" auftaucht - fuer ihn zeigt die Leiste nichts (sonst "Anruf laeuft auf <Browser>" hier)"""
+        L = self.local.get(c.get("id"))
+        if not L:
+            return
+        new = [d for d in _mine(c) if d not in L["before"] and d not in L["devs"]]
+        if new and not L["devs"] and time.time() - L["t"] < 90:
+            L["devs"].add(new[0])
+
+    def _set_running(self, lst):
+        for k in [k for k, L in self.local.items() if time.time() - L["t"] > 6 * 3600]:
+            self.local.pop(k, None)
+        here, rid = self._here(), (self.ringing or {}).get("id")
+        out = []
+        for c in lst:
+            self._learn_local(c)
+            if run_shown(c, here, rid, (self.local.get(c.get("id")) or {}).get("devs", ())):
+                out.append(c)
+        if out != self.running:
+            self.running = out
+            self.emit("running", out)
+
+    def _opened(self, cid):
+        """Anruf wurde von hier im Browser geoeffnet: eigene Geraete bis jetzt merken (siehe _learn_local)"""
+        prev = next((c for c in self.running if c.get("id") == cid), None)
+        L = self.local.setdefault(cid, {"t": 0, "before": set(), "devs": set()})
+        L["t"] = time.time()
+        L["before"] = (set(_mine(prev)) if prev else set()) - L["devs"]
+        self.run_check(3000)
+
+    def join_here(self, cid, role, video=False, parent=None):
+        """(2.5, L6) "Hinzufuegen" / "Hierher uebernehmen" / "Beitreten": im Browser (#join-<id>-<role>[-video]) - die
+        Web-Oberflaeche tritt mit diesem Rechner bei (Uebergabe, Rueckfall und gen regelt sie, APP-API handover2)"""
+        if not valid_id(cid):
+            return
+        self._opened(cid)
+        open_in_browser(join_url(cid, "video" if video else "audio", role), parent)
+        self.emit("info", _("The call opens in your browser …"))
 
     def check(self, cid):
         if not valid_id(cid) or cid in self.done or cid in self.checking or (self.ringing and self.ringing["id"] == cid):
@@ -458,6 +616,7 @@ class Calls(GObject.Object):
         group = bool((r or {}).get("group")) or cid in self._push_group
         self._push_group.discard(cid)
         self._done(cid)
+        self._opened(cid)
         open_in_browser(join_url(cid, media) if group else call_url(cid, media), parent)
         self.emit("info", _("The call opens in your browser …"))
 
@@ -483,6 +642,7 @@ class Calls(GObject.Object):
             self.done.pop(k, None)
         if self.ringing and self.ringing["id"] == cid:
             self._stop(withdraw=True)
+            self.run_check()                                 # (2.5, L6) laeuft der Anruf weiter -> Leiste
 
     def _stop(self, withdraw=False):
         r, self.ringing = self.ringing, None
@@ -671,4 +831,95 @@ class CallBar(Gtk.Revealer):
         self.acc_a.set_tooltip_text(full)
         self.acc_a.update_property([Gtk.AccessibleProperty.LABEL], [full])
         self.acc_v.set_visible(video)
+        self.set_reveal_child(True)
+
+
+class RunBar(Gtk.Revealer):
+    """(2.5, L6) Leiste "Anruf laeuft": ein anderes eigenes Geraet ist im Anruf ("Anruf laeuft auf <Geraet>",
+    "Hinzufuegen", "Hierher uebernehmen") bzw. ein Gruppenanruf in einem eigenen Chat ("Beitreten"). Die Knoepfe oeffnen
+    den Anruf im Browser (#join-<id>-companion|handover|member[-video]). Zeigt den neuesten Anruf der Liste."""
+    __gtype_name__ = "HKCallRunBar"
+
+    def __init__(self, win):
+        super().__init__(transition_type=Gtk.RevealerTransitionType.SLIDE_DOWN, reveal_child=False, visible=False)
+        self.win = win
+        self.cid = None
+        self.compact = False
+        self.buttons = []
+        box = Gtk.Box(spacing=12, margin_start=12, margin_end=12, margin_top=6, margin_bottom=6)
+        box.add_css_class("hk-callbar")
+        box.add_css_class("hk-runbar")
+        self.icon = Gtk.Image(icon_name="call-start-symbolic", valign=Gtk.Align.CENTER)
+        box.append(self.icon)
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, hexpand=True, valign=Gtk.Align.CENTER)
+        self.title = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.title.add_css_class("heading")
+        col.append(self.title)
+        self.sub = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.sub.add_css_class("caption")
+        col.append(self.sub)
+        self.note = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.note.add_css_class("dim-label")
+        self.note.add_css_class("caption")
+        col.append(self.note)
+        box.append(col)
+        self.btns = Gtk.Box(spacing=8, valign=Gtk.Align.CENTER)
+        box.append(self.btns)
+        self.set_child(box)
+        self.update_property([Gtk.AccessibleProperty.LABEL], [_("Call running")])
+        self._h = [calls.connect("running", lambda o, lst: self.show(lst))]
+        self.connect("destroy", lambda *_: [calls.disconnect(h) for h in self._h])
+        if calls.running:
+            self.show(calls.running)
+
+    def set_compact(self, on):
+        self.compact = on
+        self.get_child().set_spacing(8 if on else 12)
+        for b in self.buttons:
+            self._style(b)
+        self.note.set_visible(not on and bool(self.note.get_label()))
+
+    def _style(self, b):
+        b.get_child().set_label("" if self.compact else b.short)
+        (b.add_css_class if self.compact else b.remove_css_class)("circular")
+        (b.remove_css_class if self.compact else b.add_css_class)("pill")
+
+    def show(self, lst):
+        c = (lst or [None])[0]
+        if not c:
+            self.cid = None
+            self.set_reveal_child(False)
+            self.set_visible(False)
+            return
+        v = run_view(c)
+        self.cid = c["id"]
+        self.icon.set_from_icon_name("camera-video-symbolic" if v["video"] else "call-start-symbolic")
+        self.title.set_label(v["title"])
+        self.title.set_tooltip_text(v["title"])
+        self.sub.set_label(v["sub"] or "")
+        self.sub.set_visible(bool(v["sub"]))
+        self.note.set_label(v["note"] or "")
+        self.note.set_tooltip_text(v["note"] or None)
+        self.note.set_visible(bool(v["note"]) and not self.compact)
+        while (ch := self.btns.get_first_child()) is not None:
+            self.btns.remove(ch)
+        self.buttons = []
+        icons = {"companion": "list-add-symbolic", "handover": "call-start-symbolic", "member": "call-start-symbolic"}
+        for role, video, short, full, main in v["actions"]:
+            b = Gtk.Button(valign=Gtk.Align.CENTER, tooltip_text=full)
+            b.short, b.role, b.video = short, role, video
+            ic = "camera-video-symbolic" if video else icons.get(role, "call-start-symbolic")
+            bc = Adw.ButtonContent(icon_name=ic, label=short)
+            if hasattr(bc, "set_can_shrink"):
+                bc.set_can_shrink(True)
+            b.set_child(bc)
+            if main:
+                b.add_css_class("suggested-action")
+            b.connect("clicked", lambda _b, cid=c["id"], r=role, vid=video: calls.join_here(cid, r, vid, self.win))
+            b.update_property([Gtk.AccessibleProperty.LABEL], [full])
+            self._style(b)
+            self.btns.append(b)
+            self.buttons.append(b)
+        self.update_property([Gtk.AccessibleProperty.LABEL], [" · ".join(x for x in (v["title"], v["sub"]) if x)])
+        self.set_visible(True)
         self.set_reveal_child(True)

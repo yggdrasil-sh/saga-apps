@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: saga\n"
 "Report-Msgid-Bugs-To: https://github.com/yggdrasil-sh/saga-apps/issues\n"
-"POT-Creation-Date: 2026-11-02 17:42+0100\n"
+"POT-Creation-Date: 2026-11-02 17:46+0100\n"
 "PO-Revision-Date: 2026-10-14 14:30+0200\n"
 "Last-Translator: Saga-Projekt\n"
 "Language-Team: Español\n"
@@ -79,12 +79,12 @@ msgstr "Base de datos"
 #: hlidskjalf/database.py:759 hlidskjalf/database.py:838
 #: hlidskjalf/database.py:839 hlidskjalf/database.py:1110
 #: hlidskjalf/graphview.py:821 hlidskjalf/graphview.py:1171
-#: hlidskjalf/publish.py:529 hlidskjalf/window.py:1964
+#: hlidskjalf/publish.py:529 hlidskjalf/window.py:1967
 msgid "Open"
 msgstr "Abrir"
 
 #: hlidskjalf/agenda.py:183 hlidskjalf/comments.py:713 hlidskjalf/page.py:1859
-#: hlidskjalf/page.py:2170 hlidskjalf/window.py:1881 hlidskjalf/window.py:1886
+#: hlidskjalf/page.py:2170 hlidskjalf/window.py:1884 hlidskjalf/window.py:1889
 msgid "Undo"
 msgstr "Deshacer"
 
@@ -117,7 +117,7 @@ msgstr "Vencidas"
 #: hlidskjalf/database.py:704 hlidskjalf/database.py:1395
 #: hlidskjalf/dbcells.py:333 hlidskjalf/pagewidgets.py:317
 #: hlidskjalf/pwcard2.py:185 hlidskjalf/richtext.py:495
-#: hlidskjalf/window.py:264 hlidskjalf/window.py:1213 hlidskjalf/window.py:1633
+#: hlidskjalf/window.py:264 hlidskjalf/window.py:1216 hlidskjalf/window.py:1636
 msgid "Today"
 msgstr "Hoy"
 
@@ -165,7 +165,7 @@ msgstr "Tarea"
 #: hlidskjalf/settings.py:501 hlidskjalf/settings.py:624
 #: hlidskjalf/settings.py:698 hlidskjalf/userbackup.py:257
 #: hlidskjalf/userbackup.py:335 hlidskjalf/userbackup.py:380
-#: hlidskjalf/window.py:943 hlidskjalf/window.py:1943 hlidskjalf/window.py:2027
+#: hlidskjalf/window.py:946 hlidskjalf/window.py:1946 hlidskjalf/window.py:2030
 msgid "Cancel"
 msgstr "Cancelar"
 
@@ -310,12 +310,12 @@ msgstr ""
 
 #: hlidskjalf/agenda.py:716 hlidskjalf/agenda.py:869 hlidskjalf/blocks.py:867
 #: hlidskjalf/editor.py:36 hlidskjalf/userbackup.py:20 hlidskjalf/window.py:248
-#: hlidskjalf/window.py:1213 hlidskjalf/window.py:1634
+#: hlidskjalf/window.py:1216 hlidskjalf/window.py:1637
 msgid "Tasks"
 msgstr "Tareas"
 
-#: hlidskjalf/agenda.py:723 hlidskjalf/window.py:249 hlidskjalf/window.py:1213
-#: hlidskjalf/window.py:1635
+#: hlidskjalf/agenda.py:723 hlidskjalf/window.py:249 hlidskjalf/window.py:1216
+#: hlidskjalf/window.py:1638
 msgid "Events"
 msgstr "Eventos"
 
@@ -376,7 +376,7 @@ msgstr ""
 "propiedad significa «hecho» (menú de la base de datos → «Usar como fuente de "
 "tareas»)."
 
-#: hlidskjalf/agenda.py:850 hlidskjalf/dialogs.py:655 hlidskjalf/window.py:1772
+#: hlidskjalf/agenda.py:850 hlidskjalf/dialogs.py:655 hlidskjalf/window.py:1775
 msgid "OK"
 msgstr "Aceptar"
 
@@ -469,7 +469,7 @@ msgid "Assistant"
 msgstr "Asistente"
 
 #: hlidskjalf/assistant.py:113 hlidskjalf/page.py:1651 hlidskjalf/window.py:754
-#: hlidskjalf/window.py:1507 hlidskjalf/window.py:1651
+#: hlidskjalf/window.py:1510 hlidskjalf/window.py:1654
 msgid "AI assistant"
 msgstr "Asistente de IA"
 
@@ -927,7 +927,7 @@ msgid "More"
 msgstr "Más"
 
 #: hlidskjalf/blocks.py:182 hlidskjalf/nextcloud.py:455
-#: hlidskjalf/window.py:1638
+#: hlidskjalf/window.py:1641
 msgid "Back"
 msgstr "Atrás"
 
@@ -963,7 +963,7 @@ msgstr "Aceptar"
 msgid "Discard"
 msgstr "Descartar"
 
-#: hlidskjalf/blocks.py:560 hlidskjalf/window.py:1426 hlidskjalf/window.py:1438
+#: hlidskjalf/blocks.py:560 hlidskjalf/window.py:1429 hlidskjalf/window.py:1441
 #, python-brace-format
 msgid "{name} is editing"
 msgstr "{name} está editando"
@@ -1011,7 +1011,7 @@ msgstr "Fórmula TeX"
 msgid "Mermaid diagram"
 msgstr "Diagrama Mermaid"
 
-#: hlidskjalf/blocks.py:844 hlidskjalf/editor.py:29 hlidskjalf/window.py:1744
+#: hlidskjalf/blocks.py:844 hlidskjalf/editor.py:29 hlidskjalf/window.py:1747
 msgid "Code"
 msgstr "Código"
 
@@ -1235,7 +1235,7 @@ msgstr "Mover a otra página …"
 
 #: hlidskjalf/blocks.py:1458 hlidskjalf/database.py:840
 #: hlidskjalf/dbedit.py:262 hlidskjalf/dbedit.py:844 hlidskjalf/page.py:1674
-#: hlidskjalf/window.py:1804
+#: hlidskjalf/window.py:1807
 msgid "Duplicate"
 msgstr "Duplicar"
 
@@ -1274,7 +1274,7 @@ msgstr "Persona"
 msgid "me"
 msgstr "yo"
 
-#: hlidskjalf/blocks.py:1584 hlidskjalf/window.py:1173
+#: hlidskjalf/blocks.py:1584 hlidskjalf/window.py:1176
 msgid "No access"
 msgstr "Sin acceso"
 
@@ -1289,97 +1289,196 @@ msgstr "Recordatorio: {date}"
 
 #: hlidskjalf/blocks.py:1636 hlidskjalf/chat.py:1271 hlidskjalf/dialogs.py:620
 #: hlidskjalf/dialogs.py:623 hlidskjalf/editor.py:33 hlidskjalf/graphview.py:43
-#: hlidskjalf/graphview.py:1071 hlidskjalf/window.py:781
-#: hlidskjalf/window.py:1980
+#: hlidskjalf/graphview.py:1071 hlidskjalf/window.py:784
+#: hlidskjalf/window.py:1983
 msgid "Page"
 msgstr "Página"
 
-#: hlidskjalf/calls.py:86
+#: hlidskjalf/calls.py:52
+msgid "Someone in the call needs Saga 2.4 for that."
+msgstr "Para eso, alguien de la llamada necesita Saga 2.4."
+
+#: hlidskjalf/calls.py:54
+#, python-brace-format
+msgid "The call is full (at most {n} devices)."
+msgstr "La llamada está llena (como máximo {n} dispositivos)."
+
+#: hlidskjalf/calls.py:56
+msgid "The call has already ended."
+msgstr "La llamada ya terminó."
+
+#: hlidskjalf/calls.py:58
+msgid "The call has not been answered yet."
+msgstr "La llamada aún no se ha contestado."
+
+#: hlidskjalf/calls.py:60
+msgid ""
+"Another of your devices is taking over the call right now – please wait a "
+"moment."
+msgstr ""
+"Otro de tus dispositivos está tomando la llamada ahora mismo; espera un "
+"momento."
+
+#: hlidskjalf/calls.py:61
+msgid "Joining is not possible right now."
+msgstr "Ahora mismo no es posible unirse."
+
+#: hlidskjalf/calls.py:98
+msgctxt "call in progress on"
+msgid "another device"
+msgstr "otro dispositivo"
+
+#: hlidskjalf/calls.py:99
+#, python-brace-format
+msgid "Call in progress on {device}"
+msgstr "Llamada en curso en {device}"
+
+#: hlidskjalf/calls.py:102 hlidskjalf/calls.py:797
+msgid "Group call running"
+msgstr "Llamada grupal en curso"
+
+#: hlidskjalf/calls.py:104
+#, python-brace-format
+msgid "{n} device"
+msgid_plural "{n} devices"
+msgstr[0] "{n} dispositivo"
+msgstr[1] "{n} dispositivos"
+
+#: hlidskjalf/calls.py:105
+msgid "Move here"
+msgstr "Pasar aquí"
+
+#: hlidskjalf/calls.py:106
+msgid ""
+"Move the call to this computer without interruption – it continues in your "
+"browser"
+msgstr ""
+"Pasar la llamada a este ordenador sin interrupción: continúa en tu navegador"
+
+#: hlidskjalf/calls.py:113
+msgid "Continues in your browser."
+msgstr "Continúa en tu navegador."
+
+#: hlidskjalf/calls.py:115
+msgid "Add"
+msgstr "Añadir"
+
+#: hlidskjalf/calls.py:115
+msgid "Add your browser as a companion device (without microphone and sound)"
+msgstr ""
+"Añadir el navegador como dispositivo acompañante (sin micrófono ni sonido)"
+
+#: hlidskjalf/calls.py:118 hlidskjalf/calls.py:825 hlidskjalf/calls.py:828
+msgid "Audio only"
+msgstr "Solo audio"
+
+#: hlidskjalf/calls.py:118 hlidskjalf/calls.py:824
+msgid "Join with audio only (in browser)"
+msgstr "Unirse solo con audio (en el navegador)"
+
+#: hlidskjalf/calls.py:119 hlidskjalf/calls.py:818
+msgid "Join"
+msgstr "Unirse"
+
+#: hlidskjalf/calls.py:119 hlidskjalf/calls.py:817
+msgid "Join with video (in browser)"
+msgstr "Unirse con vídeo (en el navegador)"
+
+#: hlidskjalf/calls.py:121 hlidskjalf/calls.py:682 hlidskjalf/calls.py:824
+#: hlidskjalf/calls.py:825
+msgid "Join (in browser)"
+msgstr "Unirse (en el navegador)"
+
+#: hlidskjalf/calls.py:121
+msgid "Join the group call (in browser)"
+msgstr "Unirse a la llamada en grupo (en el navegador)"
+
+#: hlidskjalf/calls.py:169
 #, python-brace-format
 msgid "Group call in {group}"
 msgstr "Llamada grupal en {group}"
 
-#: hlidskjalf/calls.py:86
+#: hlidskjalf/calls.py:169
 #, python-brace-format
 msgid "Group video call in {group}"
 msgstr "Videollamada grupal en {group}"
 
-#: hlidskjalf/calls.py:88
+#: hlidskjalf/calls.py:171
 #, python-brace-format
 msgid "Group call from {name}"
 msgstr "Llamada grupal de {name}"
 
-#: hlidskjalf/calls.py:88
+#: hlidskjalf/calls.py:171
 #, python-brace-format
 msgid "Group video call from {name}"
 msgstr "Videollamada grupal de {name}"
 
-#: hlidskjalf/calls.py:89 hlidskjalf/calls.py:641
+#: hlidskjalf/calls.py:172 hlidskjalf/calls.py:801
 msgid "Group call"
 msgstr "Llamada grupal"
 
-#: hlidskjalf/calls.py:89 hlidskjalf/calls.py:641
+#: hlidskjalf/calls.py:172 hlidskjalf/calls.py:801
 msgid "Group video call"
 msgstr "Videollamada grupal"
 
-#: hlidskjalf/calls.py:91
+#: hlidskjalf/calls.py:174
 #, python-brace-format
 msgid "Call from {name}"
 msgstr "Llamada de {name}"
 
-#: hlidskjalf/calls.py:91
+#: hlidskjalf/calls.py:174
 #, python-brace-format
 msgid "Video call from {name}"
 msgstr "Videollamada de {name}"
 
-#: hlidskjalf/calls.py:92 hlidskjalf/calls.py:643
+#: hlidskjalf/calls.py:175 hlidskjalf/calls.py:803
 msgid "Incoming call"
 msgstr "Llamada entrante"
 
-#: hlidskjalf/calls.py:92 hlidskjalf/calls.py:643
+#: hlidskjalf/calls.py:175 hlidskjalf/calls.py:803
 msgid "Incoming video call"
 msgstr "Videollamada entrante"
 
-#: hlidskjalf/calls.py:123
+#: hlidskjalf/calls.py:206
 msgid "Call"
 msgstr "Llamada"
 
-#: hlidskjalf/calls.py:123
+#: hlidskjalf/calls.py:206
 msgid "Video call"
 msgstr "Videollamada"
 
-#: hlidskjalf/calls.py:128
+#: hlidskjalf/calls.py:211
 #, python-brace-format
 msgid "{what} declined"
 msgstr "{what} rechazada"
 
-#: hlidskjalf/calls.py:130
+#: hlidskjalf/calls.py:213
 msgid "Busy"
 msgstr "Ocupado"
 
-#: hlidskjalf/calls.py:130
+#: hlidskjalf/calls.py:213
 msgid "Missed call (you were on another call)"
 msgstr "Llamada perdida (estabas en otra llamada)"
 
-#: hlidskjalf/calls.py:132
+#: hlidskjalf/calls.py:215
 #, python-brace-format
 msgid "{what} – no connection"
 msgstr "{what}: sin conexión"
 
-#: hlidskjalf/calls.py:134
+#: hlidskjalf/calls.py:217
 #, python-brace-format
 msgid "{what} – not answered"
 msgstr "{what}: no contestada"
 
-#: hlidskjalf/calls.py:135
+#: hlidskjalf/calls.py:218
 msgid "Missed call"
 msgstr "Llamada perdida"
 
-#: hlidskjalf/calls.py:135
+#: hlidskjalf/calls.py:218
 msgid "Missed video call"
 msgstr "Videollamada perdida"
 
-#: hlidskjalf/calls.py:313
+#: hlidskjalf/calls.py:407
 msgid ""
 "Answering opens the call in your browser – picture-in-picture and screen "
 "sharing work there."
@@ -1387,86 +1486,66 @@ msgstr ""
 "Al contestar, la llamada se abre en tu navegador; allí también funcionan "
 "imagen en imagen y compartir pantalla."
 
-#: hlidskjalf/calls.py:315
+#: hlidskjalf/calls.py:409
 msgid ""
 "Answering opens the call in your browser – picture-in-picture works there."
 msgstr ""
 "Al contestar, la llamada se abre en tu navegador; allí también funciona "
 "imagen en imagen."
 
-#: hlidskjalf/calls.py:316 hlidskjalf/calls.py:578
+#: hlidskjalf/calls.py:410 hlidskjalf/calls.py:738
 msgid "Answering opens the call in your browser."
 msgstr "Al responder, la llamada se abre en el navegador."
 
-#: hlidskjalf/calls.py:343
+#: hlidskjalf/calls.py:439
 msgid "The call was answered on another device."
 msgstr "La llamada se respondió en otro dispositivo."
 
-#: hlidskjalf/calls.py:374 hlidskjalf/calls.py:521 hlidskjalf/calls.py:583
-#: hlidskjalf/calls.py:653 hlidskjalf/chatview.py:1265
+#: hlidskjalf/calls.py:470 hlidskjalf/calls.py:681 hlidskjalf/calls.py:743
+#: hlidskjalf/calls.py:813 hlidskjalf/chatview.py:1265
 #: hlidskjalf/chatview.py:4613
 msgid "Decline"
 msgstr "Rechazar"
 
-#: hlidskjalf/calls.py:378 hlidskjalf/calls.py:522 hlidskjalf/calls.py:585
-#: hlidskjalf/calls.py:588 hlidskjalf/calls.py:658 hlidskjalf/calls.py:667
-#: hlidskjalf/calls.py:668
+#: hlidskjalf/calls.py:474 hlidskjalf/calls.py:682 hlidskjalf/calls.py:745
+#: hlidskjalf/calls.py:748 hlidskjalf/calls.py:818 hlidskjalf/calls.py:827
+#: hlidskjalf/calls.py:828
 msgid "Answer"
 msgstr "Responder"
 
-#: hlidskjalf/calls.py:462
+#: hlidskjalf/calls.py:548 hlidskjalf/calls.py:621
 msgid "The call opens in your browser …"
 msgstr "La llamada se abre en el navegador …"
 
-#: hlidskjalf/calls.py:514 hlidskjalf/calls.py:648
+#: hlidskjalf/calls.py:674 hlidskjalf/calls.py:808
 msgid "Joining opens the call in your browser."
 msgstr "Al unirte, la llamada se abre en el navegador."
 
-#: hlidskjalf/calls.py:522 hlidskjalf/calls.py:664 hlidskjalf/calls.py:665
-msgid "Join (in browser)"
-msgstr "Unirse (en el navegador)"
-
-#: hlidskjalf/calls.py:587 hlidskjalf/calls.py:657
+#: hlidskjalf/calls.py:747 hlidskjalf/calls.py:817
 msgid "Answer with video"
 msgstr "Responder con vídeo"
 
-#: hlidskjalf/calls.py:637
-msgid "Group call running"
-msgstr "Llamada grupal en curso"
-
-#: hlidskjalf/calls.py:639
+#: hlidskjalf/calls.py:799
 #, python-brace-format
 msgid "{name} started a group call"
 msgstr "{name} inició una llamada grupal"
 
-#: hlidskjalf/calls.py:639
+#: hlidskjalf/calls.py:799
 #, python-brace-format
 msgid "{name} started a group video call"
 msgstr "{name} inició una videollamada grupal"
 
-#: hlidskjalf/calls.py:653
+#: hlidskjalf/calls.py:813
 msgid "Ignore"
 msgstr "Ignorar"
 
-#: hlidskjalf/calls.py:657
-msgid "Join with video (in browser)"
-msgstr "Unirse con vídeo (en el navegador)"
-
-#: hlidskjalf/calls.py:658
-msgid "Join"
-msgstr "Unirse"
-
-#: hlidskjalf/calls.py:664
-msgid "Join with audio only (in browser)"
-msgstr "Unirse solo con audio (en el navegador)"
-
-#: hlidskjalf/calls.py:665 hlidskjalf/calls.py:668
-msgid "Audio only"
-msgstr "Solo audio"
-
-#: hlidskjalf/calls.py:667
+#: hlidskjalf/calls.py:827
 msgid "Answer with audio only"
 msgstr "Responder solo con audio"
+
+#: hlidskjalf/calls.py:869
+msgid "Call running"
+msgstr "Llamada en curso"
 
 #: hlidskjalf/chart.py:60 hlidskjalf/chart.py:376 hlidskjalf/database.py:726
 #: hlidskjalf/database.py:766 hlidskjalf/dbedit.py:21
@@ -2233,7 +2312,7 @@ msgstr "Buscar chat"
 #: hlidskjalf/chatstdview.py:542 hlidskjalf/chatview.py:322
 #: hlidskjalf/chatview.py:342 hlidskjalf/chatview.py:345
 #: hlidskjalf/chatview.py:394 hlidskjalf/chatview.py:476
-#: hlidskjalf/window.py:260 hlidskjalf/window.py:1645
+#: hlidskjalf/window.py:260 hlidskjalf/window.py:1648
 msgid "Chats"
 msgstr "Chats"
 
@@ -2252,7 +2331,7 @@ msgstr[1] "¿Reenviar {n} mensajes a “{chat}”?"
 msgid "Forward?"
 msgstr "¿Reenviar?"
 
-#: hlidskjalf/chatstdview.py:566 hlidskjalf/window.py:1639
+#: hlidskjalf/chatstdview.py:566 hlidskjalf/window.py:1642
 msgid "Forward"
 msgstr "Adelante"
 
@@ -3022,7 +3101,7 @@ msgstr "Abrir imagen: {name}"
 
 #: hlidskjalf/chatview.py:2222 hlidskjalf/chatview.py:2251
 #: hlidskjalf/chatview.py:3153 hlidskjalf/chatview.py:3203
-#: hlidskjalf/window.py:1930
+#: hlidskjalf/window.py:1933
 msgid "Save attachment"
 msgstr "Guardar adjunto"
 
@@ -3036,7 +3115,7 @@ msgid "Play video: {name}"
 msgstr "Reproducir vídeo: {name}"
 
 #: hlidskjalf/chatview.py:2282 hlidskjalf/chatview.py:4301
-#: hlidskjalf/userbackup.py:651 hlidskjalf/window.py:1964
+#: hlidskjalf/userbackup.py:651 hlidskjalf/window.py:1967
 #, python-brace-format
 msgid "Saved: {name}"
 msgstr "Guardado: {name}"
@@ -3203,7 +3282,7 @@ msgid "Leave group"
 msgstr "Salir del grupo"
 
 #: hlidskjalf/chatview.py:2946 hlidskjalf/chatview.py:3830
-#: hlidskjalf/page.py:1687 hlidskjalf/window.py:1806
+#: hlidskjalf/page.py:1687 hlidskjalf/window.py:1809
 msgid "Archive"
 msgstr "Archivar"
 
@@ -3650,7 +3729,7 @@ msgstr "Últimos cuatro caracteres"
 msgid "Confirm recovery key"
 msgstr "Confirmar la clave de recuperación"
 
-#: hlidskjalf/chatview.py:4291 hlidskjalf/window.py:1341
+#: hlidskjalf/chatview.py:4291 hlidskjalf/window.py:1344
 #, python-brace-format
 msgid "Account: {name}"
 msgstr "Cuenta: {name}"
@@ -4192,7 +4271,7 @@ msgid "{n} of {max}"
 msgstr "{n} de {max}"
 
 #: hlidskjalf/comments.py:398 hlidskjalf/comments.py:427
-#: hlidskjalf/page.py:1628 hlidskjalf/window.py:1665
+#: hlidskjalf/page.py:1628 hlidskjalf/window.py:1668
 msgid "Comments"
 msgstr "Comentarios"
 
@@ -4321,12 +4400,12 @@ msgstr "Buscar entradas"
 #: hlidskjalf/database.py:838 hlidskjalf/database.py:841
 #: hlidskjalf/page.py:1678 hlidskjalf/publish.py:513 hlidskjalf/publish.py:528
 #: hlidskjalf/publish.py:533 hlidskjalf/sharing.py:717
-#: hlidskjalf/window.py:1793 hlidskjalf/window.py:1805
+#: hlidskjalf/window.py:1796 hlidskjalf/window.py:1808
 msgid "Copy link"
 msgstr "Copiar enlace"
 
 #: hlidskjalf/database.py:842 hlidskjalf/dbedit.py:848 hlidskjalf/dbedit.py:857
-#: hlidskjalf/page.py:1690 hlidskjalf/window.py:1807
+#: hlidskjalf/page.py:1690 hlidskjalf/window.py:1810
 msgid "Move to trash"
 msgstr "Mover a la papelera"
 
@@ -4453,7 +4532,7 @@ msgstr "Selección múltiple"
 msgid "Number"
 msgstr "Número"
 
-#: hlidskjalf/dbedit.py:13 hlidskjalf/editor.py:18 hlidskjalf/window.py:1743
+#: hlidskjalf/dbedit.py:13 hlidskjalf/editor.py:18 hlidskjalf/window.py:1746
 msgid "Text"
 msgstr "Texto"
 
@@ -5067,7 +5146,7 @@ msgid "Nothing found"
 msgstr "No se encontró nada"
 
 #: hlidskjalf/dialogs.py:138 hlidskjalf/userbackup.py:18
-#: hlidskjalf/window.py:313 hlidskjalf/window.py:684 hlidskjalf/window.py:1636
+#: hlidskjalf/window.py:313 hlidskjalf/window.py:684 hlidskjalf/window.py:1639
 msgid "Trash"
 msgstr "Papelera"
 
@@ -5092,7 +5171,7 @@ msgid "will be deleted on {date}"
 msgstr "se eliminará el {date}"
 
 #: hlidskjalf/dialogs.py:172 hlidskjalf/dialogs.py:352 hlidskjalf/page.py:1238
-#: hlidskjalf/window.py:1797
+#: hlidskjalf/window.py:1800
 msgid "Restore"
 msgstr "Restaurar"
 
@@ -5295,7 +5374,7 @@ msgstr "Icono (emoji)"
 msgid "New database entry"
 msgstr "Nueva entrada en la base de datos"
 
-#: hlidskjalf/dialogs.py:605 hlidskjalf/window.py:1863
+#: hlidskjalf/dialogs.py:605 hlidskjalf/window.py:1866
 msgid "New task"
 msgstr "Nueva tarea"
 
@@ -5346,8 +5425,8 @@ msgstr "Botón {n}: elige la base de datos para las nuevas entradas."
 msgid "Button {n}: choose the page to open."
 msgstr "Botón {n}: elige la página que se abrirá."
 
-#: hlidskjalf/dialogs.py:741 hlidskjalf/window.py:250 hlidskjalf/window.py:1213
-#: hlidskjalf/window.py:1636
+#: hlidskjalf/dialogs.py:741 hlidskjalf/window.py:250 hlidskjalf/window.py:1216
+#: hlidskjalf/window.py:1639
 msgid "Services"
 msgstr "Servicios"
 
@@ -5721,12 +5800,12 @@ msgid "Reload"
 msgstr "Recargar"
 
 #: hlidskjalf/graphview.py:829 hlidskjalf/window.py:251
-#: hlidskjalf/window.py:1637
+#: hlidskjalf/window.py:1640
 msgid "Graph"
 msgstr "Grafo"
 
 #: hlidskjalf/graphview.py:829 hlidskjalf/page.py:1658
-#: hlidskjalf/window.py:1657
+#: hlidskjalf/window.py:1660
 msgid "Local graph"
 msgstr "Grafo local"
 
@@ -6242,7 +6321,7 @@ msgstr "Ya no tienes acceso"
 
 #: hlidskjalf/notifications.py:312 hlidskjalf/notifications.py:325
 #: hlidskjalf/notifications.py:341 hlidskjalf/notifications.py:428
-#: hlidskjalf/window.py:1648
+#: hlidskjalf/window.py:1651
 msgid "Notifications"
 msgstr "Notificaciones"
 
@@ -6345,8 +6424,8 @@ msgstr "Entrada anterior (Ctrl+Mayús+K)"
 msgid "Next entry (Ctrl+Shift+J)"
 msgstr "Entrada siguiente (Ctrl+Mayús+J)"
 
-#: hlidskjalf/page.py:382 hlidskjalf/window.py:722 hlidskjalf/window.py:1171
-#: hlidskjalf/window.py:1799
+#: hlidskjalf/page.py:382 hlidskjalf/window.py:722 hlidskjalf/window.py:1174
+#: hlidskjalf/window.py:1802
 msgid "Add to favorites"
 msgstr "Añadir a favoritos"
 
@@ -6373,7 +6452,7 @@ msgid "Page could not be loaded"
 msgstr "No se pudo cargar la página"
 
 #: hlidskjalf/page.py:429 hlidskjalf/settings.py:35 hlidskjalf/settings.py:88
-#: hlidskjalf/window.py:686 hlidskjalf/window.py:1641 hlidskjalf/window.py:1738
+#: hlidskjalf/window.py:686 hlidskjalf/window.py:1644 hlidskjalf/window.py:1741
 msgid "Settings"
 msgstr "Ajustes"
 
@@ -6526,11 +6605,11 @@ msgstr "Dejar de usar como página de inicio"
 msgid "Set as home page"
 msgstr "Establecer como página de inicio"
 
-#: hlidskjalf/page.py:1643 hlidskjalf/window.py:1663
+#: hlidskjalf/page.py:1643 hlidskjalf/window.py:1666
 msgid "Share …"
 msgstr "Compartir …"
 
-#: hlidskjalf/page.py:1661 hlidskjalf/window.py:1792 hlidskjalf/window.py:1804
+#: hlidskjalf/page.py:1661 hlidskjalf/window.py:1795 hlidskjalf/window.py:1807
 msgid "Move to …"
 msgstr "Mover a…"
 
@@ -6542,7 +6621,7 @@ msgstr "Historial de versiones…"
 msgid "As Markdown (.md)"
 msgstr "Como Markdown (.md)"
 
-#: hlidskjalf/page.py:1667 hlidskjalf/window.py:1981
+#: hlidskjalf/page.py:1667 hlidskjalf/window.py:1984
 msgid "Export"
 msgstr "Exportar"
 
@@ -6558,7 +6637,7 @@ msgstr "Como plantilla"
 msgid "Use as task source"
 msgstr "Usar como fuente de tareas"
 
-#: hlidskjalf/page.py:1681 hlidskjalf/window.py:1660
+#: hlidskjalf/page.py:1681 hlidskjalf/window.py:1663
 msgid "Publish …"
 msgstr "Publicar …"
 
@@ -7112,7 +7191,7 @@ msgid "✓ New address saved"
 msgstr "✓ Nueva dirección guardada"
 
 #: hlidskjalf/publish.py:736 hlidskjalf/sharing.py:757
-#: hlidskjalf/window.py:1708
+#: hlidskjalf/window.py:1711
 msgid "Link copied"
 msgstr "Enlace copiado"
 
@@ -7508,7 +7587,7 @@ msgstr "Gestionar en el navegador"
 msgid "Opened in your browser – sign in there if asked."
 msgstr "Abierto en el navegador: inicia sesión allí si se te pide."
 
-#: hlidskjalf/settings.py:51 hlidskjalf/window.py:1341
+#: hlidskjalf/settings.py:51 hlidskjalf/window.py:1344
 msgid "Account"
 msgstr "Cuenta"
 
@@ -7943,7 +8022,7 @@ msgstr ""
 msgid "Live editing uses pycrdt and anyio (MIT license)."
 msgstr "La edición en directo usa pycrdt y anyio (licencia MIT)."
 
-#: hlidskjalf/settings.py:764 hlidskjalf/window.py:688 hlidskjalf/window.py:826
+#: hlidskjalf/settings.py:764 hlidskjalf/window.py:688 hlidskjalf/window.py:829
 msgid "About Saga"
 msgstr "Acerca de Saga"
 
@@ -9057,11 +9136,11 @@ msgstr ""
 msgid "New page (Ctrl+N)"
 msgstr "Nueva página (Ctrl+N)"
 
-#: hlidskjalf/window.py:673 hlidskjalf/window.py:1631 hlidskjalf/window.py:1737
+#: hlidskjalf/window.py:673 hlidskjalf/window.py:1634 hlidskjalf/window.py:1740
 msgid "New page"
 msgstr "Nueva página"
 
-#: hlidskjalf/window.py:674 hlidskjalf/window.py:1632
+#: hlidskjalf/window.py:674 hlidskjalf/window.py:1635
 msgid "From template …"
 msgstr "Desde plantilla …"
 
@@ -9069,20 +9148,20 @@ msgstr "Desde plantilla …"
 msgid "More ways to create"
 msgstr "Más formas de crear"
 
-#: hlidskjalf/window.py:681 hlidskjalf/window.py:823
+#: hlidskjalf/window.py:681 hlidskjalf/window.py:826
 msgid "Menu"
 msgstr "Menú"
 
-#: hlidskjalf/window.py:683 hlidskjalf/window.py:1737
+#: hlidskjalf/window.py:683 hlidskjalf/window.py:1740
 msgid "Command palette"
 msgstr "Paleta de comandos"
 
-#: hlidskjalf/window.py:685 hlidskjalf/window.py:1638 hlidskjalf/window.py:1738
+#: hlidskjalf/window.py:685 hlidskjalf/window.py:1641 hlidskjalf/window.py:1741
 msgid "Refresh"
 msgstr "Actualizar"
 
-#: hlidskjalf/window.py:687 hlidskjalf/window.py:825 hlidskjalf/window.py:1742
-#: hlidskjalf/window.py:1771
+#: hlidskjalf/window.py:687 hlidskjalf/window.py:828 hlidskjalf/window.py:1745
+#: hlidskjalf/window.py:1774
 msgid "Keyboard shortcuts"
 msgstr "Atajos de teclado"
 
@@ -9102,11 +9181,11 @@ msgstr "Adelante (Alt+→)"
 msgid "Call – opens the chat in your browser"
 msgstr "Llamar: abre el chat en el navegador"
 
-#: hlidskjalf/window.py:827 hlidskjalf/window.py:1742
+#: hlidskjalf/window.py:830 hlidskjalf/window.py:1745
 msgid "Quit"
 msgstr "Salir"
 
-#: hlidskjalf/window.py:831
+#: hlidskjalf/window.py:834
 msgid ""
 "Sign in with a passkey, security key or password.\n"
 "Sign-in opens in your browser."
@@ -9115,21 +9194,21 @@ msgstr ""
 "contraseña.\n"
 "El inicio de sesión se abre en el navegador."
 
-#: hlidskjalf/window.py:837
+#: hlidskjalf/window.py:840
 msgid "Server address"
 msgstr "Dirección del servidor"
 
-#: hlidskjalf/window.py:842
+#: hlidskjalf/window.py:845
 msgid "Sign in"
 msgstr "Iniciar sesión"
 
-#: hlidskjalf/window.py:850
+#: hlidskjalf/window.py:853
 msgid "Enter the server address or sign in with a pairing link"
 msgstr ""
 "Introduce la dirección del servidor o inicia sesión con un enlace de "
 "vinculación"
 
-#: hlidskjalf/window.py:852
+#: hlidskjalf/window.py:855
 msgid ""
 "With two-factor sign-in, the browser then asks for your passkey or a code "
 "from your authenticator app."
@@ -9137,11 +9216,11 @@ msgstr ""
 "Con el inicio de sesión en dos pasos, el navegador te pedirá después tu "
 "llave de acceso o un código de la app de autenticación."
 
-#: hlidskjalf/window.py:857
+#: hlidskjalf/window.py:860
 msgid "Sign in with a pairing link (QR code from the web)"
 msgstr "Iniciar sesión con un enlace de vinculación (código QR de la web)"
 
-#: hlidskjalf/window.py:859
+#: hlidskjalf/window.py:862
 msgid ""
 "In the browser: 👤 → Settings → “Apps & devices” → “Sign in with QR code”. "
 "Paste the link below the QR code (…/app/pair?c=…) here:"
@@ -9150,11 +9229,11 @@ msgstr ""
 "código QR». Pega aquí el enlace que aparece bajo el código QR (…/app/pair?"
 "c=…):"
 
-#: hlidskjalf/window.py:866
+#: hlidskjalf/window.py:869
 msgid "Browser doesn't return to the app?"
 msgstr "¿El navegador no vuelve a la app?"
 
-#: hlidskjalf/window.py:868
+#: hlidskjalf/window.py:871
 msgid ""
 "Paste the address from the browser's error message (hlidskjalf://auth?"
 "code=…) here:"
@@ -9162,24 +9241,24 @@ msgstr ""
 "Pega aquí la dirección del mensaje de error del navegador (hlidskjalf://auth?"
 "code=…):"
 
-#: hlidskjalf/window.py:891
+#: hlidskjalf/window.py:894
 msgid "Please enter an https address, e.g. https://saga.example.org"
 msgstr "Introduce una dirección https, p. ej. https://saga.example.org"
 
-#: hlidskjalf/window.py:922
+#: hlidskjalf/window.py:925
 msgid "This is not a valid pairing link."
 msgstr "Este no es un enlace de vinculación válido."
 
-#: hlidskjalf/window.py:925
+#: hlidskjalf/window.py:928
 msgid "Pairing links must use https."
 msgstr "Los enlaces de vinculación deben usar https."
 
-#: hlidskjalf/window.py:938
+#: hlidskjalf/window.py:941
 #, python-brace-format
 msgid "Saga will sign in to {host}."
 msgstr "Saga iniciará sesión en {host}."
 
-#: hlidskjalf/window.py:939
+#: hlidskjalf/window.py:942
 msgid ""
 "Only continue if you created this QR code or link yourself in Saga (Settings "
 "→ Apps & devices)."
@@ -9187,244 +9266,244 @@ msgstr ""
 "Continúa solo si has creado tú este código QR o enlace en Saga (Ajustes → "
 "Apps y dispositivos)."
 
-#: hlidskjalf/window.py:941
+#: hlidskjalf/window.py:944
 #, python-brace-format
 msgid "You're currently signed in to {alt} and will be signed out there."
 msgstr "Ahora tienes la sesión iniciada en {alt} y se cerrará allí."
 
-#: hlidskjalf/window.py:942
+#: hlidskjalf/window.py:945
 msgid "Pair with this server?"
 msgstr "¿Vincular con este servidor?"
 
-#: hlidskjalf/window.py:944
+#: hlidskjalf/window.py:947
 msgid "Pair"
 msgstr "Vincular"
 
-#: hlidskjalf/window.py:953 hlidskjalf/window.py:1006
+#: hlidskjalf/window.py:956 hlidskjalf/window.py:1009
 msgid "Signing in …"
 msgstr "Iniciando sesión…"
 
-#: hlidskjalf/window.py:978
+#: hlidskjalf/window.py:981
 #, python-brace-format
 msgid "Signed in as {name} – stays signed in on “{device}”"
 msgstr "Sesión iniciada como {name}: se mantiene en «{device}»"
 
-#: hlidskjalf/window.py:988
+#: hlidskjalf/window.py:991
 msgid "Please sign in in your browser …"
 msgstr "Inicia sesión en el navegador…"
 
-#: hlidskjalf/window.py:1004
+#: hlidskjalf/window.py:1007
 msgid "Please start signing in here in the app."
 msgstr "Inicia el proceso de inicio de sesión aquí, en la app."
 
-#: hlidskjalf/window.py:1171 hlidskjalf/window.py:1799
+#: hlidskjalf/window.py:1174 hlidskjalf/window.py:1802
 msgid "Remove from favorites"
 msgstr "Quitar de favoritos"
 
-#: hlidskjalf/window.py:1271
+#: hlidskjalf/window.py:1274
 msgid "The chat opens in your browser – start the call there."
 msgstr "El chat se abre en el navegador: inicia allí la llamada."
 
-#: hlidskjalf/window.py:1426 hlidskjalf/window.py:1438
+#: hlidskjalf/window.py:1429 hlidskjalf/window.py:1441
 #, python-brace-format
 msgid "{name} is also here"
 msgstr "{name} también está aquí"
 
-#: hlidskjalf/window.py:1440
+#: hlidskjalf/window.py:1443
 msgid "On this page right now"
 msgstr "En esta página ahora mismo"
 
-#: hlidskjalf/window.py:1639
+#: hlidskjalf/window.py:1642
 msgid "Search in the sidebar"
 msgstr "Buscar en la barra lateral"
 
-#: hlidskjalf/window.py:1640 hlidskjalf/window.py:1740
+#: hlidskjalf/window.py:1643 hlidskjalf/window.py:1743
 msgid "Show/hide sidebar"
 msgstr "Mostrar u ocultar la barra lateral"
 
-#: hlidskjalf/window.py:1654 hlidskjalf/window.py:1739
+#: hlidskjalf/window.py:1657 hlidskjalf/window.py:1742
 msgid "Copy link to page"
 msgstr "Copiar enlace a la página"
 
-#: hlidskjalf/window.py:1737
+#: hlidskjalf/window.py:1740
 msgid "General"
 msgstr "General"
 
-#: hlidskjalf/window.py:1738
+#: hlidskjalf/window.py:1741
 msgid "Back / Forward"
 msgstr "Atrás / Adelante"
 
-#: hlidskjalf/window.py:1739
+#: hlidskjalf/window.py:1742
 msgid "Search the sidebar"
 msgstr "Buscar en la barra lateral"
 
-#: hlidskjalf/window.py:1740
+#: hlidskjalf/window.py:1743
 msgid "Today / Tasks / Events"
 msgstr "Hoy / Tareas / Eventos"
 
-#: hlidskjalf/window.py:1741
+#: hlidskjalf/window.py:1744
 msgid "Browse in peek"
 msgstr "Navegar en la vista lateral"
 
-#: hlidskjalf/window.py:1741
+#: hlidskjalf/window.py:1744
 msgid "Close peek"
 msgstr "Cerrar la vista lateral"
 
-#: hlidskjalf/window.py:1742
+#: hlidskjalf/window.py:1745
 msgid "Context menu"
 msgstr "Menú contextual"
 
-#: hlidskjalf/window.py:1743
+#: hlidskjalf/window.py:1746
 msgid "Bold, italic, underline"
 msgstr "Negrita, cursiva, subrayado"
 
-#: hlidskjalf/window.py:1743
+#: hlidskjalf/window.py:1746
 msgid "Strikethrough"
 msgstr "Tachado"
 
-#: hlidskjalf/window.py:1744
+#: hlidskjalf/window.py:1747
 msgid "Highlight"
 msgstr "Resaltar"
 
-#: hlidskjalf/window.py:1744
+#: hlidskjalf/window.py:1747
 msgid "Link (with a selection)"
 msgstr "Enlace (con una selección)"
 
-#: hlidskjalf/window.py:1745
+#: hlidskjalf/window.py:1748
 msgid "Undo / redo typing"
 msgstr "Deshacer / rehacer escritura"
 
-#: hlidskjalf/window.py:1746
+#: hlidskjalf/window.py:1749
 msgid "Block types"
 msgstr "Tipos de bloque"
 
-#: hlidskjalf/window.py:1746
+#: hlidskjalf/window.py:1749
 msgid "Date, reminder, page"
 msgstr "Fecha, recordatorio, página"
 
-#: hlidskjalf/window.py:1746
+#: hlidskjalf/window.py:1749
 msgid "Emoji"
 msgstr "Emoji"
 
-#: hlidskjalf/window.py:1747
+#: hlidskjalf/window.py:1750
 msgid "Blocks"
 msgstr "Bloques"
 
-#: hlidskjalf/window.py:1747
+#: hlidskjalf/window.py:1750
 msgid "Text, Heading 1–3"
 msgstr "Texto, encabezado 1–3"
 
-#: hlidskjalf/window.py:1748
+#: hlidskjalf/window.py:1751
 msgid "Checklist, bulleted list, numbered list"
 msgstr "Lista de verificación, lista con viñetas, lista numerada"
 
-#: hlidskjalf/window.py:1749
+#: hlidskjalf/window.py:1752
 msgid "Move block"
 msgstr "Mover bloque"
 
-#: hlidskjalf/window.py:1749
+#: hlidskjalf/window.py:1752
 msgid "Toggle, code"
 msgstr "Desplegable, código"
 
-#: hlidskjalf/window.py:1750
+#: hlidskjalf/window.py:1753
 msgid "Duplicate block"
 msgstr "Duplicar bloque"
 
-#: hlidskjalf/window.py:1750
+#: hlidskjalf/window.py:1753
 msgid "New block below"
 msgstr "Bloque nuevo debajo"
 
-#: hlidskjalf/window.py:1751
+#: hlidskjalf/window.py:1754
 msgid "Block menu"
 msgstr "Menú del bloque"
 
-#: hlidskjalf/window.py:1751
+#: hlidskjalf/window.py:1754
 msgid "Indent/outdent list item"
 msgstr "Aumentar/reducir sangría del elemento"
 
-#: hlidskjalf/window.py:1778
+#: hlidskjalf/window.py:1781
 msgid "Notes, databases, tasks and events – self-hosted."
 msgstr "Notas, bases de datos, tareas y eventos, en tu propio servidor."
 
-#: hlidskjalf/window.py:1778
+#: hlidskjalf/window.py:1781
 msgid "Saga project"
 msgstr "Proyecto Saga"
 
-#: hlidskjalf/window.py:1779
+#: hlidskjalf/window.py:1782
 msgid "translator-credits"
 msgstr "Proyecto Saga"
 
-#: hlidskjalf/window.py:1790 hlidskjalf/window.py:1801
+#: hlidskjalf/window.py:1793 hlidskjalf/window.py:1804
 msgid "New subpage"
 msgstr "Nueva subpágina"
 
-#: hlidskjalf/window.py:1803
+#: hlidskjalf/window.py:1806
 msgid "New subpage from template …"
 msgstr "Subpágina desde plantilla …"
 
-#: hlidskjalf/window.py:1864
+#: hlidskjalf/window.py:1867
 msgid "Task created"
 msgstr "Tarea creada"
 
-#: hlidskjalf/window.py:1866
+#: hlidskjalf/window.py:1869
 msgid "This button has no target yet – choose one in the button settings."
 msgstr "Este botón aún no tiene destino: elige uno en los ajustes del botón."
 
-#: hlidskjalf/window.py:1868
+#: hlidskjalf/window.py:1871
 msgid "This button has no action yet – choose one in the button settings."
 msgstr "Este botón aún no tiene acción: elige una en los ajustes del botón."
 
-#: hlidskjalf/window.py:1881
+#: hlidskjalf/window.py:1884
 #, python-brace-format
 msgid "“{title}” moved to trash"
 msgstr "«{title}» se movió a la papelera"
 
-#: hlidskjalf/window.py:1886
+#: hlidskjalf/window.py:1889
 #, python-brace-format
 msgid "Task “{title}” deleted"
 msgstr "Tarea «{title}» eliminada"
 
-#: hlidskjalf/window.py:1903
+#: hlidskjalf/window.py:1906
 msgid ""
 "No browser could be opened. The address was copied – paste it into a browser."
 msgstr ""
 "No se pudo abrir ningún navegador. La dirección se ha copiado: pégala en un "
 "navegador."
 
-#: hlidskjalf/window.py:1905
+#: hlidskjalf/window.py:1908
 #, python-brace-format
 msgid "No browser could be opened. Open this address in a browser: {url}"
 msgstr ""
 "No se pudo abrir ningún navegador. Abre esta dirección en un navegador: {url}"
 
-#: hlidskjalf/window.py:1943
+#: hlidskjalf/window.py:1946
 #, python-brace-format
 msgid "Downloading “{name}” …"
 msgstr "Descargando «{name}»…"
 
-#: hlidskjalf/window.py:1976
+#: hlidskjalf/window.py:1979
 #, python-brace-format
 msgid "Download failed: {error}"
 msgstr "Error en la descarga: {error}"
 
-#: hlidskjalf/window.py:1992
+#: hlidskjalf/window.py:1995
 #, python-brace-format
 msgid "Export failed: {error}"
 msgstr "Error al exportar: {error}"
 
-#: hlidskjalf/window.py:1992
+#: hlidskjalf/window.py:1995
 msgid "Exported"
 msgstr "Exportado"
 
-#: hlidskjalf/window.py:2025
+#: hlidskjalf/window.py:2028
 msgid "Create a new page?"
 msgstr "¿Crear una página nueva?"
 
-#: hlidskjalf/window.py:2026
+#: hlidskjalf/window.py:2029
 msgid "A link wants to create a new page in Saga."
 msgstr "Un enlace quiere crear una página nueva en Saga."
 
-#: hlidskjalf/window.py:2028
+#: hlidskjalf/window.py:2031
 msgid "Create page"
 msgstr "Crear página"
 

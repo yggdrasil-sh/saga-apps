@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: saga\n"
 "Report-Msgid-Bugs-To: https://github.com/yggdrasil-sh/saga-apps/issues\n"
-"POT-Creation-Date: 2026-11-02 17:42+0100\n"
+"POT-Creation-Date: 2026-11-02 17:46+0100\n"
 "PO-Revision-Date: 2026-10-18 18:00+0200\n"
 "Last-Translator: Saga-Projekt\n"
 "Language-Team: ไทย\n"
@@ -80,12 +80,12 @@ msgstr "ฐานข้อมูล"
 #: hlidskjalf/database.py:759 hlidskjalf/database.py:838
 #: hlidskjalf/database.py:839 hlidskjalf/database.py:1110
 #: hlidskjalf/graphview.py:821 hlidskjalf/graphview.py:1171
-#: hlidskjalf/publish.py:529 hlidskjalf/window.py:1964
+#: hlidskjalf/publish.py:529 hlidskjalf/window.py:1967
 msgid "Open"
 msgstr "เปิด"
 
 #: hlidskjalf/agenda.py:183 hlidskjalf/comments.py:713 hlidskjalf/page.py:1859
-#: hlidskjalf/page.py:2170 hlidskjalf/window.py:1881 hlidskjalf/window.py:1886
+#: hlidskjalf/page.py:2170 hlidskjalf/window.py:1884 hlidskjalf/window.py:1889
 msgid "Undo"
 msgstr "เลิกทำ"
 
@@ -118,7 +118,7 @@ msgstr "เลยกำหนด"
 #: hlidskjalf/database.py:704 hlidskjalf/database.py:1395
 #: hlidskjalf/dbcells.py:333 hlidskjalf/pagewidgets.py:317
 #: hlidskjalf/pwcard2.py:185 hlidskjalf/richtext.py:495
-#: hlidskjalf/window.py:264 hlidskjalf/window.py:1213 hlidskjalf/window.py:1633
+#: hlidskjalf/window.py:264 hlidskjalf/window.py:1216 hlidskjalf/window.py:1636
 msgid "Today"
 msgstr "วันนี้"
 
@@ -165,7 +165,7 @@ msgstr "งาน"
 #: hlidskjalf/settings.py:501 hlidskjalf/settings.py:624
 #: hlidskjalf/settings.py:698 hlidskjalf/userbackup.py:257
 #: hlidskjalf/userbackup.py:335 hlidskjalf/userbackup.py:380
-#: hlidskjalf/window.py:943 hlidskjalf/window.py:1943 hlidskjalf/window.py:2027
+#: hlidskjalf/window.py:946 hlidskjalf/window.py:1946 hlidskjalf/window.py:2030
 msgid "Cancel"
 msgstr "ยกเลิก"
 
@@ -305,12 +305,12 @@ msgstr "ยังไม่ได้เชื่อมต่อปฏิทิน
 
 #: hlidskjalf/agenda.py:716 hlidskjalf/agenda.py:869 hlidskjalf/blocks.py:867
 #: hlidskjalf/editor.py:36 hlidskjalf/userbackup.py:20 hlidskjalf/window.py:248
-#: hlidskjalf/window.py:1213 hlidskjalf/window.py:1634
+#: hlidskjalf/window.py:1216 hlidskjalf/window.py:1637
 msgid "Tasks"
 msgstr "งาน"
 
-#: hlidskjalf/agenda.py:723 hlidskjalf/window.py:249 hlidskjalf/window.py:1213
-#: hlidskjalf/window.py:1635
+#: hlidskjalf/agenda.py:723 hlidskjalf/window.py:249 hlidskjalf/window.py:1216
+#: hlidskjalf/window.py:1638
 msgid "Events"
 msgstr "นัดหมาย"
 
@@ -368,7 +368,7 @@ msgstr ""
 "ฐานข้อมูลนี้ยังไม่ได้เป็นแหล่งงาน เลือกบนเว็บว่าคุณสมบัติใดหมายถึง “เสร็จแล้ว” (เมนูฐานข้อมูล → "
 "“ใช้เป็นแหล่งงาน”)"
 
-#: hlidskjalf/agenda.py:850 hlidskjalf/dialogs.py:655 hlidskjalf/window.py:1772
+#: hlidskjalf/agenda.py:850 hlidskjalf/dialogs.py:655 hlidskjalf/window.py:1775
 msgid "OK"
 msgstr "ตกลง"
 
@@ -461,7 +461,7 @@ msgid "Assistant"
 msgstr "ผู้ช่วย"
 
 #: hlidskjalf/assistant.py:113 hlidskjalf/page.py:1651 hlidskjalf/window.py:754
-#: hlidskjalf/window.py:1507 hlidskjalf/window.py:1651
+#: hlidskjalf/window.py:1510 hlidskjalf/window.py:1654
 msgid "AI assistant"
 msgstr "ผู้ช่วย AI"
 
@@ -908,7 +908,7 @@ msgid "More"
 msgstr "เพิ่มเติม"
 
 #: hlidskjalf/blocks.py:182 hlidskjalf/nextcloud.py:455
-#: hlidskjalf/window.py:1638
+#: hlidskjalf/window.py:1641
 msgid "Back"
 msgstr "กลับ"
 
@@ -942,7 +942,7 @@ msgstr "ยอมรับ"
 msgid "Discard"
 msgstr "ทิ้ง"
 
-#: hlidskjalf/blocks.py:560 hlidskjalf/window.py:1426 hlidskjalf/window.py:1438
+#: hlidskjalf/blocks.py:560 hlidskjalf/window.py:1429 hlidskjalf/window.py:1441
 #, python-brace-format
 msgid "{name} is editing"
 msgstr "{name} กำลังแก้ไข"
@@ -988,7 +988,7 @@ msgstr "สูตร TeX"
 msgid "Mermaid diagram"
 msgstr "แผนภาพ Mermaid"
 
-#: hlidskjalf/blocks.py:844 hlidskjalf/editor.py:29 hlidskjalf/window.py:1744
+#: hlidskjalf/blocks.py:844 hlidskjalf/editor.py:29 hlidskjalf/window.py:1747
 msgid "Code"
 msgstr "โค้ด"
 
@@ -1211,7 +1211,7 @@ msgstr "ย้ายไปหน้าอื่น …"
 
 #: hlidskjalf/blocks.py:1458 hlidskjalf/database.py:840
 #: hlidskjalf/dbedit.py:262 hlidskjalf/dbedit.py:844 hlidskjalf/page.py:1674
-#: hlidskjalf/window.py:1804
+#: hlidskjalf/window.py:1807
 msgid "Duplicate"
 msgstr "ทำสำเนา"
 
@@ -1250,7 +1250,7 @@ msgstr "บุคคล"
 msgid "me"
 msgstr "ฉัน"
 
-#: hlidskjalf/blocks.py:1584 hlidskjalf/window.py:1173
+#: hlidskjalf/blocks.py:1584 hlidskjalf/window.py:1176
 msgid "No access"
 msgstr "ไม่มีสิทธิ์เข้าถึง"
 
@@ -1265,180 +1265,254 @@ msgstr "แจ้งเตือนความจำ: {date}"
 
 #: hlidskjalf/blocks.py:1636 hlidskjalf/chat.py:1271 hlidskjalf/dialogs.py:620
 #: hlidskjalf/dialogs.py:623 hlidskjalf/editor.py:33 hlidskjalf/graphview.py:43
-#: hlidskjalf/graphview.py:1071 hlidskjalf/window.py:781
-#: hlidskjalf/window.py:1980
+#: hlidskjalf/graphview.py:1071 hlidskjalf/window.py:784
+#: hlidskjalf/window.py:1983
 msgid "Page"
 msgstr "หน้า"
 
-#: hlidskjalf/calls.py:86
+#: hlidskjalf/calls.py:52
+msgid "Someone in the call needs Saga 2.4 for that."
+msgstr "มีผู้อยู่ในสายที่ต้องใช้ Saga 2.4 สำหรับฟังก์ชันนี้"
+
+#: hlidskjalf/calls.py:54
+#, python-brace-format
+msgid "The call is full (at most {n} devices)."
+msgstr "สายเต็มแล้ว (สูงสุด {n} อุปกรณ์)"
+
+#: hlidskjalf/calls.py:56
+msgid "The call has already ended."
+msgstr "สายสิ้นสุดแล้ว"
+
+#: hlidskjalf/calls.py:58
+msgid "The call has not been answered yet."
+msgstr "ยังไม่มีผู้รับสาย"
+
+#: hlidskjalf/calls.py:60
+msgid ""
+"Another of your devices is taking over the call right now – please wait a "
+"moment."
+msgstr "อุปกรณ์อื่นของคุณกำลังรับสายนี้อยู่ – โปรดรอสักครู่"
+
+#: hlidskjalf/calls.py:61
+msgid "Joining is not possible right now."
+msgstr "ขณะนี้เข้าร่วมไม่ได้"
+
+#: hlidskjalf/calls.py:98
+msgctxt "call in progress on"
+msgid "another device"
+msgstr "อุปกรณ์อื่น"
+
+#: hlidskjalf/calls.py:99
+#, python-brace-format
+msgid "Call in progress on {device}"
+msgstr "กำลังโทรอยู่บน {device}"
+
+#: hlidskjalf/calls.py:102 hlidskjalf/calls.py:797
+msgid "Group call running"
+msgstr "การโทรกลุ่มกำลังดำเนินอยู่"
+
+#: hlidskjalf/calls.py:104
+#, python-brace-format
+msgid "{n} device"
+msgid_plural "{n} devices"
+msgstr[0] "{n} อุปกรณ์"
+
+#: hlidskjalf/calls.py:105
+msgid "Move here"
+msgstr "ย้ายมาที่นี่"
+
+#: hlidskjalf/calls.py:106
+msgid ""
+"Move the call to this computer without interruption – it continues in your "
+"browser"
+msgstr "ย้ายสายมาที่คอมพิวเตอร์เครื่องนี้โดยไม่ขาดตอน – สายจะดำเนินต่อในเบราว์เซอร์"
+
+#: hlidskjalf/calls.py:113
+msgid "Continues in your browser."
+msgstr "ดำเนินต่อในเบราว์เซอร์"
+
+#: hlidskjalf/calls.py:115
+msgid "Add"
+msgstr "เพิ่ม"
+
+#: hlidskjalf/calls.py:115
+msgid "Add your browser as a companion device (without microphone and sound)"
+msgstr "เพิ่มเบราว์เซอร์เป็นอุปกรณ์เสริม (ไม่มีไมโครโฟนและเสียง)"
+
+#: hlidskjalf/calls.py:118 hlidskjalf/calls.py:825 hlidskjalf/calls.py:828
+msgid "Audio only"
+msgstr "เฉพาะเสียง"
+
+#: hlidskjalf/calls.py:118 hlidskjalf/calls.py:824
+msgid "Join with audio only (in browser)"
+msgstr "เข้าร่วมด้วยเสียงเท่านั้น (ในเบราว์เซอร์)"
+
+#: hlidskjalf/calls.py:119 hlidskjalf/calls.py:818
+msgid "Join"
+msgstr "เข้าร่วม"
+
+#: hlidskjalf/calls.py:119 hlidskjalf/calls.py:817
+msgid "Join with video (in browser)"
+msgstr "เข้าร่วมพร้อมวิดีโอ (ในเบราว์เซอร์)"
+
+#: hlidskjalf/calls.py:121 hlidskjalf/calls.py:682 hlidskjalf/calls.py:824
+#: hlidskjalf/calls.py:825
+msgid "Join (in browser)"
+msgstr "เข้าร่วม (ในเบราว์เซอร์)"
+
+#: hlidskjalf/calls.py:121
+msgid "Join the group call (in browser)"
+msgstr "เข้าร่วมการโทรแบบกลุ่ม (ในเบราว์เซอร์)"
+
+#: hlidskjalf/calls.py:169
 #, python-brace-format
 msgid "Group call in {group}"
 msgstr "การโทรกลุ่มใน {group}"
 
-#: hlidskjalf/calls.py:86
+#: hlidskjalf/calls.py:169
 #, python-brace-format
 msgid "Group video call in {group}"
 msgstr "วิดีโอคอลกลุ่มใน {group}"
 
-#: hlidskjalf/calls.py:88
+#: hlidskjalf/calls.py:171
 #, python-brace-format
 msgid "Group call from {name}"
 msgstr "การโทรกลุ่มจาก {name}"
 
-#: hlidskjalf/calls.py:88
+#: hlidskjalf/calls.py:171
 #, python-brace-format
 msgid "Group video call from {name}"
 msgstr "วิดีโอคอลกลุ่มจาก {name}"
 
-#: hlidskjalf/calls.py:89 hlidskjalf/calls.py:641
+#: hlidskjalf/calls.py:172 hlidskjalf/calls.py:801
 msgid "Group call"
 msgstr "การโทรกลุ่ม"
 
-#: hlidskjalf/calls.py:89 hlidskjalf/calls.py:641
+#: hlidskjalf/calls.py:172 hlidskjalf/calls.py:801
 msgid "Group video call"
 msgstr "วิดีโอคอลกลุ่ม"
 
-#: hlidskjalf/calls.py:91
+#: hlidskjalf/calls.py:174
 #, python-brace-format
 msgid "Call from {name}"
 msgstr "สายเรียกเข้าจาก {name}"
 
-#: hlidskjalf/calls.py:91
+#: hlidskjalf/calls.py:174
 #, python-brace-format
 msgid "Video call from {name}"
 msgstr "สายวิดีโอจาก {name}"
 
-#: hlidskjalf/calls.py:92 hlidskjalf/calls.py:643
+#: hlidskjalf/calls.py:175 hlidskjalf/calls.py:803
 msgid "Incoming call"
 msgstr "สายเรียกเข้า"
 
-#: hlidskjalf/calls.py:92 hlidskjalf/calls.py:643
+#: hlidskjalf/calls.py:175 hlidskjalf/calls.py:803
 msgid "Incoming video call"
 msgstr "สายวิดีโอเรียกเข้า"
 
-#: hlidskjalf/calls.py:123
+#: hlidskjalf/calls.py:206
 msgid "Call"
 msgstr "โทร"
 
-#: hlidskjalf/calls.py:123
+#: hlidskjalf/calls.py:206
 msgid "Video call"
 msgstr "สายวิดีโอ"
 
-#: hlidskjalf/calls.py:128
+#: hlidskjalf/calls.py:211
 #, python-brace-format
 msgid "{what} declined"
 msgstr "{what} ถูกปฏิเสธ"
 
-#: hlidskjalf/calls.py:130
+#: hlidskjalf/calls.py:213
 msgid "Busy"
 msgstr "สายไม่ว่าง"
 
-#: hlidskjalf/calls.py:130
+#: hlidskjalf/calls.py:213
 msgid "Missed call (you were on another call)"
 msgstr "สายที่ไม่ได้รับ (คุณอยู่ในสายอื่น)"
 
-#: hlidskjalf/calls.py:132
+#: hlidskjalf/calls.py:215
 #, python-brace-format
 msgid "{what} – no connection"
 msgstr "{what} – เชื่อมต่อไม่ได้"
 
-#: hlidskjalf/calls.py:134
+#: hlidskjalf/calls.py:217
 #, python-brace-format
 msgid "{what} – not answered"
 msgstr "{what} – ไม่มีผู้รับสาย"
 
-#: hlidskjalf/calls.py:135
+#: hlidskjalf/calls.py:218
 msgid "Missed call"
 msgstr "สายที่ไม่ได้รับ"
 
-#: hlidskjalf/calls.py:135
+#: hlidskjalf/calls.py:218
 msgid "Missed video call"
 msgstr "สายวิดีโอที่ไม่ได้รับ"
 
-#: hlidskjalf/calls.py:313
+#: hlidskjalf/calls.py:407
 msgid ""
 "Answering opens the call in your browser – picture-in-picture and screen "
 "sharing work there."
 msgstr "การรับสายจะเปิดการโทรในเบราว์เซอร์ ซึ่งใช้ภาพซ้อนภาพและแชร์หน้าจอได้ด้วย"
 
-#: hlidskjalf/calls.py:315
+#: hlidskjalf/calls.py:409
 msgid ""
 "Answering opens the call in your browser – picture-in-picture works there."
 msgstr "การรับสายจะเปิดการโทรในเบราว์เซอร์ ซึ่งใช้ภาพซ้อนภาพได้ด้วย"
 
-#: hlidskjalf/calls.py:316 hlidskjalf/calls.py:578
+#: hlidskjalf/calls.py:410 hlidskjalf/calls.py:738
 msgid "Answering opens the call in your browser."
 msgstr "การรับสายจะเปิดสายในเบราว์เซอร์ของคุณ"
 
-#: hlidskjalf/calls.py:343
+#: hlidskjalf/calls.py:439
 msgid "The call was answered on another device."
 msgstr "รับสายบนอุปกรณ์อื่นแล้ว"
 
-#: hlidskjalf/calls.py:374 hlidskjalf/calls.py:521 hlidskjalf/calls.py:583
-#: hlidskjalf/calls.py:653 hlidskjalf/chatview.py:1265
+#: hlidskjalf/calls.py:470 hlidskjalf/calls.py:681 hlidskjalf/calls.py:743
+#: hlidskjalf/calls.py:813 hlidskjalf/chatview.py:1265
 #: hlidskjalf/chatview.py:4613
 msgid "Decline"
 msgstr "ปฏิเสธ"
 
-#: hlidskjalf/calls.py:378 hlidskjalf/calls.py:522 hlidskjalf/calls.py:585
-#: hlidskjalf/calls.py:588 hlidskjalf/calls.py:658 hlidskjalf/calls.py:667
-#: hlidskjalf/calls.py:668
+#: hlidskjalf/calls.py:474 hlidskjalf/calls.py:682 hlidskjalf/calls.py:745
+#: hlidskjalf/calls.py:748 hlidskjalf/calls.py:818 hlidskjalf/calls.py:827
+#: hlidskjalf/calls.py:828
 msgid "Answer"
 msgstr "รับสาย"
 
-#: hlidskjalf/calls.py:462
+#: hlidskjalf/calls.py:548 hlidskjalf/calls.py:621
 msgid "The call opens in your browser …"
 msgstr "สายจะเปิดในเบราว์เซอร์ของคุณ …"
 
-#: hlidskjalf/calls.py:514 hlidskjalf/calls.py:648
+#: hlidskjalf/calls.py:674 hlidskjalf/calls.py:808
 msgid "Joining opens the call in your browser."
 msgstr "การเข้าร่วมจะเปิดการโทรในเบราว์เซอร์"
 
-#: hlidskjalf/calls.py:522 hlidskjalf/calls.py:664 hlidskjalf/calls.py:665
-msgid "Join (in browser)"
-msgstr "เข้าร่วม (ในเบราว์เซอร์)"
-
-#: hlidskjalf/calls.py:587 hlidskjalf/calls.py:657
+#: hlidskjalf/calls.py:747 hlidskjalf/calls.py:817
 msgid "Answer with video"
 msgstr "รับสายพร้อมวิดีโอ"
 
-#: hlidskjalf/calls.py:637
-msgid "Group call running"
-msgstr "การโทรกลุ่มกำลังดำเนินอยู่"
-
-#: hlidskjalf/calls.py:639
+#: hlidskjalf/calls.py:799
 #, python-brace-format
 msgid "{name} started a group call"
 msgstr "{name} เริ่มการโทรกลุ่ม"
 
-#: hlidskjalf/calls.py:639
+#: hlidskjalf/calls.py:799
 #, python-brace-format
 msgid "{name} started a group video call"
 msgstr "{name} เริ่มวิดีโอคอลกลุ่ม"
 
-#: hlidskjalf/calls.py:653
+#: hlidskjalf/calls.py:813
 msgid "Ignore"
 msgstr "เพิกเฉย"
 
-#: hlidskjalf/calls.py:657
-msgid "Join with video (in browser)"
-msgstr "เข้าร่วมพร้อมวิดีโอ (ในเบราว์เซอร์)"
-
-#: hlidskjalf/calls.py:658
-msgid "Join"
-msgstr "เข้าร่วม"
-
-#: hlidskjalf/calls.py:664
-msgid "Join with audio only (in browser)"
-msgstr "เข้าร่วมด้วยเสียงเท่านั้น (ในเบราว์เซอร์)"
-
-#: hlidskjalf/calls.py:665 hlidskjalf/calls.py:668
-msgid "Audio only"
-msgstr "เฉพาะเสียง"
-
-#: hlidskjalf/calls.py:667
+#: hlidskjalf/calls.py:827
 msgid "Answer with audio only"
 msgstr "รับสายด้วยเสียงอย่างเดียว"
+
+#: hlidskjalf/calls.py:869
+msgid "Call running"
+msgstr "กำลังโทรอยู่"
 
 #: hlidskjalf/chart.py:60 hlidskjalf/chart.py:376 hlidskjalf/database.py:726
 #: hlidskjalf/database.py:766 hlidskjalf/dbedit.py:21
@@ -2177,7 +2251,7 @@ msgstr "ค้นหาแชท"
 #: hlidskjalf/chatstdview.py:542 hlidskjalf/chatview.py:322
 #: hlidskjalf/chatview.py:342 hlidskjalf/chatview.py:345
 #: hlidskjalf/chatview.py:394 hlidskjalf/chatview.py:476
-#: hlidskjalf/window.py:260 hlidskjalf/window.py:1645
+#: hlidskjalf/window.py:260 hlidskjalf/window.py:1648
 msgid "Chats"
 msgstr "แชท"
 
@@ -2195,7 +2269,7 @@ msgstr[0] "ส่งต่อ {n} ข้อความไปยัง “{chat}
 msgid "Forward?"
 msgstr "ส่งต่อหรือไม่"
 
-#: hlidskjalf/chatstdview.py:566 hlidskjalf/window.py:1639
+#: hlidskjalf/chatstdview.py:566 hlidskjalf/window.py:1642
 msgid "Forward"
 msgstr "ไปข้างหน้า"
 
@@ -2925,7 +2999,7 @@ msgstr "เปิดรูปภาพ: {name}"
 
 #: hlidskjalf/chatview.py:2222 hlidskjalf/chatview.py:2251
 #: hlidskjalf/chatview.py:3153 hlidskjalf/chatview.py:3203
-#: hlidskjalf/window.py:1930
+#: hlidskjalf/window.py:1933
 msgid "Save attachment"
 msgstr "บันทึกไฟล์แนบ"
 
@@ -2939,7 +3013,7 @@ msgid "Play video: {name}"
 msgstr "เล่นวิดีโอ: {name}"
 
 #: hlidskjalf/chatview.py:2282 hlidskjalf/chatview.py:4301
-#: hlidskjalf/userbackup.py:651 hlidskjalf/window.py:1964
+#: hlidskjalf/userbackup.py:651 hlidskjalf/window.py:1967
 #, python-brace-format
 msgid "Saved: {name}"
 msgstr "บันทึกแล้ว: {name}"
@@ -3101,7 +3175,7 @@ msgid "Leave group"
 msgstr "ออกจากกลุ่ม"
 
 #: hlidskjalf/chatview.py:2946 hlidskjalf/chatview.py:3830
-#: hlidskjalf/page.py:1687 hlidskjalf/window.py:1806
+#: hlidskjalf/page.py:1687 hlidskjalf/window.py:1809
 msgid "Archive"
 msgstr "เก็บเข้าคลัง"
 
@@ -3524,7 +3598,7 @@ msgstr "อักขระสี่ตัวสุดท้าย"
 msgid "Confirm recovery key"
 msgstr "ยืนยันคีย์กู้คืน"
 
-#: hlidskjalf/chatview.py:4291 hlidskjalf/window.py:1341
+#: hlidskjalf/chatview.py:4291 hlidskjalf/window.py:1344
 #, python-brace-format
 msgid "Account: {name}"
 msgstr "บัญชี: {name}"
@@ -4042,7 +4116,7 @@ msgid "{n} of {max}"
 msgstr "{n} จาก {max}"
 
 #: hlidskjalf/comments.py:398 hlidskjalf/comments.py:427
-#: hlidskjalf/page.py:1628 hlidskjalf/window.py:1665
+#: hlidskjalf/page.py:1628 hlidskjalf/window.py:1668
 msgid "Comments"
 msgstr "ความคิดเห็น"
 
@@ -4170,12 +4244,12 @@ msgstr "ค้นหารายการ"
 #: hlidskjalf/database.py:838 hlidskjalf/database.py:841
 #: hlidskjalf/page.py:1678 hlidskjalf/publish.py:513 hlidskjalf/publish.py:528
 #: hlidskjalf/publish.py:533 hlidskjalf/sharing.py:717
-#: hlidskjalf/window.py:1793 hlidskjalf/window.py:1805
+#: hlidskjalf/window.py:1796 hlidskjalf/window.py:1808
 msgid "Copy link"
 msgstr "คัดลอกลิงก์"
 
 #: hlidskjalf/database.py:842 hlidskjalf/dbedit.py:848 hlidskjalf/dbedit.py:857
-#: hlidskjalf/page.py:1690 hlidskjalf/window.py:1807
+#: hlidskjalf/page.py:1690 hlidskjalf/window.py:1810
 msgid "Move to trash"
 msgstr "ย้ายไปถังขยะ"
 
@@ -4302,7 +4376,7 @@ msgstr "ตัวเลือกหลายรายการ"
 msgid "Number"
 msgstr "ตัวเลข"
 
-#: hlidskjalf/dbedit.py:13 hlidskjalf/editor.py:18 hlidskjalf/window.py:1743
+#: hlidskjalf/dbedit.py:13 hlidskjalf/editor.py:18 hlidskjalf/window.py:1746
 msgid "Text"
 msgstr "ข้อความ"
 
@@ -4915,7 +4989,7 @@ msgid "Nothing found"
 msgstr "ไม่พบสิ่งใด"
 
 #: hlidskjalf/dialogs.py:138 hlidskjalf/userbackup.py:18
-#: hlidskjalf/window.py:313 hlidskjalf/window.py:684 hlidskjalf/window.py:1636
+#: hlidskjalf/window.py:313 hlidskjalf/window.py:684 hlidskjalf/window.py:1639
 msgid "Trash"
 msgstr "ถังขยะ"
 
@@ -4939,7 +5013,7 @@ msgid "will be deleted on {date}"
 msgstr "จะถูกลบในวันที่ {date}"
 
 #: hlidskjalf/dialogs.py:172 hlidskjalf/dialogs.py:352 hlidskjalf/page.py:1238
-#: hlidskjalf/window.py:1797
+#: hlidskjalf/window.py:1800
 msgid "Restore"
 msgstr "กู้คืน"
 
@@ -5138,7 +5212,7 @@ msgstr "ไอคอน (อีโมจิ)"
 msgid "New database entry"
 msgstr "รายการใหม่ในฐานข้อมูล"
 
-#: hlidskjalf/dialogs.py:605 hlidskjalf/window.py:1863
+#: hlidskjalf/dialogs.py:605 hlidskjalf/window.py:1866
 msgid "New task"
 msgstr "งานใหม่"
 
@@ -5189,8 +5263,8 @@ msgstr "ปุ่ม {n}: เลือกฐานข้อมูลสำหร
 msgid "Button {n}: choose the page to open."
 msgstr "ปุ่ม {n}: เลือกหน้าที่จะเปิด"
 
-#: hlidskjalf/dialogs.py:741 hlidskjalf/window.py:250 hlidskjalf/window.py:1213
-#: hlidskjalf/window.py:1636
+#: hlidskjalf/dialogs.py:741 hlidskjalf/window.py:250 hlidskjalf/window.py:1216
+#: hlidskjalf/window.py:1639
 msgid "Services"
 msgstr "บริการ"
 
@@ -5547,12 +5621,12 @@ msgid "Reload"
 msgstr "โหลดใหม่"
 
 #: hlidskjalf/graphview.py:829 hlidskjalf/window.py:251
-#: hlidskjalf/window.py:1637
+#: hlidskjalf/window.py:1640
 msgid "Graph"
 msgstr "กราฟ"
 
 #: hlidskjalf/graphview.py:829 hlidskjalf/page.py:1658
-#: hlidskjalf/window.py:1657
+#: hlidskjalf/window.py:1660
 msgid "Local graph"
 msgstr "กราฟเฉพาะที่"
 
@@ -6044,7 +6118,7 @@ msgstr "ไม่มีสิทธิ์เข้าถึงแล้ว"
 
 #: hlidskjalf/notifications.py:312 hlidskjalf/notifications.py:325
 #: hlidskjalf/notifications.py:341 hlidskjalf/notifications.py:428
-#: hlidskjalf/window.py:1648
+#: hlidskjalf/window.py:1651
 msgid "Notifications"
 msgstr "การแจ้งเตือน"
 
@@ -6145,8 +6219,8 @@ msgstr "รายการก่อนหน้า (Ctrl+Shift+K)"
 msgid "Next entry (Ctrl+Shift+J)"
 msgstr "รายการถัดไป (Ctrl+Shift+J)"
 
-#: hlidskjalf/page.py:382 hlidskjalf/window.py:722 hlidskjalf/window.py:1171
-#: hlidskjalf/window.py:1799
+#: hlidskjalf/page.py:382 hlidskjalf/window.py:722 hlidskjalf/window.py:1174
+#: hlidskjalf/window.py:1802
 msgid "Add to favorites"
 msgstr "เพิ่มในรายการโปรด"
 
@@ -6173,7 +6247,7 @@ msgid "Page could not be loaded"
 msgstr "โหลดหน้าไม่ได้"
 
 #: hlidskjalf/page.py:429 hlidskjalf/settings.py:35 hlidskjalf/settings.py:88
-#: hlidskjalf/window.py:686 hlidskjalf/window.py:1641 hlidskjalf/window.py:1738
+#: hlidskjalf/window.py:686 hlidskjalf/window.py:1644 hlidskjalf/window.py:1741
 msgid "Settings"
 msgstr "การตั้งค่า"
 
@@ -6313,11 +6387,11 @@ msgstr "เลิกตั้งเป็นหน้าแรก"
 msgid "Set as home page"
 msgstr "ตั้งเป็นหน้าแรก"
 
-#: hlidskjalf/page.py:1643 hlidskjalf/window.py:1663
+#: hlidskjalf/page.py:1643 hlidskjalf/window.py:1666
 msgid "Share …"
 msgstr "แชร์ …"
 
-#: hlidskjalf/page.py:1661 hlidskjalf/window.py:1792 hlidskjalf/window.py:1804
+#: hlidskjalf/page.py:1661 hlidskjalf/window.py:1795 hlidskjalf/window.py:1807
 msgid "Move to …"
 msgstr "ย้ายไปที่ …"
 
@@ -6329,7 +6403,7 @@ msgstr "ประวัติเวอร์ชัน …"
 msgid "As Markdown (.md)"
 msgstr "เป็น Markdown (.md)"
 
-#: hlidskjalf/page.py:1667 hlidskjalf/window.py:1981
+#: hlidskjalf/page.py:1667 hlidskjalf/window.py:1984
 msgid "Export"
 msgstr "ส่งออก"
 
@@ -6345,7 +6419,7 @@ msgstr "เป็นเทมเพลต"
 msgid "Use as task source"
 msgstr "ใช้เป็นแหล่งงาน"
 
-#: hlidskjalf/page.py:1681 hlidskjalf/window.py:1660
+#: hlidskjalf/page.py:1681 hlidskjalf/window.py:1663
 msgid "Publish …"
 msgstr "เผยแพร่ …"
 
@@ -6874,7 +6948,7 @@ msgid "✓ New address saved"
 msgstr "✓ บันทึกที่อยู่ใหม่แล้ว"
 
 #: hlidskjalf/publish.py:736 hlidskjalf/sharing.py:757
-#: hlidskjalf/window.py:1708
+#: hlidskjalf/window.py:1711
 msgid "Link copied"
 msgstr "คัดลอกลิงก์แล้ว"
 
@@ -7252,7 +7326,7 @@ msgstr "จัดการในเบราว์เซอร์"
 msgid "Opened in your browser – sign in there if asked."
 msgstr "เปิดในเบราว์เซอร์แล้ว – เข้าสู่ระบบที่นั่นหากถูกขอ"
 
-#: hlidskjalf/settings.py:51 hlidskjalf/window.py:1341
+#: hlidskjalf/settings.py:51 hlidskjalf/window.py:1344
 msgid "Account"
 msgstr "บัญชี"
 
@@ -7671,7 +7745,7 @@ msgstr ""
 msgid "Live editing uses pycrdt and anyio (MIT license)."
 msgstr "การแก้ไขพร้อมกันแบบสดใช้ pycrdt และ anyio (สัญญาอนุญาต MIT)"
 
-#: hlidskjalf/settings.py:764 hlidskjalf/window.py:688 hlidskjalf/window.py:826
+#: hlidskjalf/settings.py:764 hlidskjalf/window.py:688 hlidskjalf/window.py:829
 msgid "About Saga"
 msgstr "เกี่ยวกับ Saga"
 
@@ -8742,11 +8816,11 @@ msgstr "แอปนี้เก่าเกินไปสำหรับเซ
 msgid "New page (Ctrl+N)"
 msgstr "หน้าใหม่ (Ctrl+N)"
 
-#: hlidskjalf/window.py:673 hlidskjalf/window.py:1631 hlidskjalf/window.py:1737
+#: hlidskjalf/window.py:673 hlidskjalf/window.py:1634 hlidskjalf/window.py:1740
 msgid "New page"
 msgstr "หน้าใหม่"
 
-#: hlidskjalf/window.py:674 hlidskjalf/window.py:1632
+#: hlidskjalf/window.py:674 hlidskjalf/window.py:1635
 msgid "From template …"
 msgstr "จากเทมเพลต …"
 
@@ -8754,20 +8828,20 @@ msgstr "จากเทมเพลต …"
 msgid "More ways to create"
 msgstr "วิธีสร้างอื่น ๆ"
 
-#: hlidskjalf/window.py:681 hlidskjalf/window.py:823
+#: hlidskjalf/window.py:681 hlidskjalf/window.py:826
 msgid "Menu"
 msgstr "เมนู"
 
-#: hlidskjalf/window.py:683 hlidskjalf/window.py:1737
+#: hlidskjalf/window.py:683 hlidskjalf/window.py:1740
 msgid "Command palette"
 msgstr "แผงคำสั่ง"
 
-#: hlidskjalf/window.py:685 hlidskjalf/window.py:1638 hlidskjalf/window.py:1738
+#: hlidskjalf/window.py:685 hlidskjalf/window.py:1641 hlidskjalf/window.py:1741
 msgid "Refresh"
 msgstr "รีเฟรช"
 
-#: hlidskjalf/window.py:687 hlidskjalf/window.py:825 hlidskjalf/window.py:1742
-#: hlidskjalf/window.py:1771
+#: hlidskjalf/window.py:687 hlidskjalf/window.py:828 hlidskjalf/window.py:1745
+#: hlidskjalf/window.py:1774
 msgid "Keyboard shortcuts"
 msgstr "แป้นพิมพ์ลัด"
 
@@ -8787,11 +8861,11 @@ msgstr "ไปข้างหน้า (Alt+→)"
 msgid "Call – opens the chat in your browser"
 msgstr "โทร – เปิดแชทในเบราว์เซอร์ของคุณ"
 
-#: hlidskjalf/window.py:827 hlidskjalf/window.py:1742
+#: hlidskjalf/window.py:830 hlidskjalf/window.py:1745
 msgid "Quit"
 msgstr "ออก"
 
-#: hlidskjalf/window.py:831
+#: hlidskjalf/window.py:834
 msgid ""
 "Sign in with a passkey, security key or password.\n"
 "Sign-in opens in your browser."
@@ -8799,29 +8873,29 @@ msgstr ""
 "เข้าสู่ระบบด้วยพาสคีย์ กุญแจความปลอดภัย หรือรหัสผ่าน\n"
 "การเข้าสู่ระบบจะเปิดในเบราว์เซอร์ของคุณ"
 
-#: hlidskjalf/window.py:837
+#: hlidskjalf/window.py:840
 msgid "Server address"
 msgstr "ที่อยู่เซิร์ฟเวอร์"
 
-#: hlidskjalf/window.py:842
+#: hlidskjalf/window.py:845
 msgid "Sign in"
 msgstr "เข้าสู่ระบบ"
 
-#: hlidskjalf/window.py:850
+#: hlidskjalf/window.py:853
 msgid "Enter the server address or sign in with a pairing link"
 msgstr "ป้อนที่อยู่เซิร์ฟเวอร์หรือเข้าสู่ระบบด้วยลิงก์จับคู่"
 
-#: hlidskjalf/window.py:852
+#: hlidskjalf/window.py:855
 msgid ""
 "With two-factor sign-in, the browser then asks for your passkey or a code "
 "from your authenticator app."
 msgstr "หากใช้การเข้าสู่ระบบสองขั้นตอน เบราว์เซอร์จะขอพาสคีย์หรือรหัสจากแอปยืนยันตัวตนของคุณ"
 
-#: hlidskjalf/window.py:857
+#: hlidskjalf/window.py:860
 msgid "Sign in with a pairing link (QR code from the web)"
 msgstr "เข้าสู่ระบบด้วยลิงก์จับคู่ (คิวอาร์โค้ดจากเว็บ)"
 
-#: hlidskjalf/window.py:859
+#: hlidskjalf/window.py:862
 msgid ""
 "In the browser: 👤 → Settings → “Apps & devices” → “Sign in with QR code”. "
 "Paste the link below the QR code (…/app/pair?c=…) here:"
@@ -8829,275 +8903,275 @@ msgstr ""
 "ในเบราว์เซอร์: 👤 → การตั้งค่า → “แอปและอุปกรณ์” → “เข้าสู่ระบบด้วยคิวอาร์โค้ด” "
 "วางลิงก์ใต้คิวอาร์โค้ด (…/app/pair?c=…) ที่นี่:"
 
-#: hlidskjalf/window.py:866
+#: hlidskjalf/window.py:869
 msgid "Browser doesn't return to the app?"
 msgstr "เบราว์เซอร์ไม่กลับมาที่แอปใช่ไหม"
 
-#: hlidskjalf/window.py:868
+#: hlidskjalf/window.py:871
 msgid ""
 "Paste the address from the browser's error message (hlidskjalf://auth?"
 "code=…) here:"
 msgstr "วางที่อยู่จากข้อความแสดงข้อผิดพลาดของเบราว์เซอร์ (hlidskjalf://auth?code=…) ที่นี่:"
 
-#: hlidskjalf/window.py:891
+#: hlidskjalf/window.py:894
 msgid "Please enter an https address, e.g. https://saga.example.org"
 msgstr "โปรดป้อนที่อยู่ https เช่น https://saga.example.org"
 
-#: hlidskjalf/window.py:922
+#: hlidskjalf/window.py:925
 msgid "This is not a valid pairing link."
 msgstr "นี่ไม่ใช่ลิงก์จับคู่ที่ถูกต้อง"
 
-#: hlidskjalf/window.py:925
+#: hlidskjalf/window.py:928
 msgid "Pairing links must use https."
 msgstr "ลิงก์จับคู่ต้องใช้ https"
 
-#: hlidskjalf/window.py:938
+#: hlidskjalf/window.py:941
 #, python-brace-format
 msgid "Saga will sign in to {host}."
 msgstr "Saga จะเข้าสู่ระบบ {host}"
 
-#: hlidskjalf/window.py:939
+#: hlidskjalf/window.py:942
 msgid ""
 "Only continue if you created this QR code or link yourself in Saga (Settings "
 "→ Apps & devices)."
 msgstr ""
 "ดำเนินการต่อเฉพาะเมื่อคุณสร้างคิวอาร์โค้ดหรือลิงก์นี้เองใน Saga (การตั้งค่า → แอปและอุปกรณ์)"
 
-#: hlidskjalf/window.py:941
+#: hlidskjalf/window.py:944
 #, python-brace-format
 msgid "You're currently signed in to {alt} and will be signed out there."
 msgstr "ขณะนี้คุณเข้าสู่ระบบ {alt} อยู่และจะถูกออกจากระบบที่นั่น"
 
-#: hlidskjalf/window.py:942
+#: hlidskjalf/window.py:945
 msgid "Pair with this server?"
 msgstr "จับคู่กับเซิร์ฟเวอร์นี้หรือไม่"
 
-#: hlidskjalf/window.py:944
+#: hlidskjalf/window.py:947
 msgid "Pair"
 msgstr "จับคู่"
 
-#: hlidskjalf/window.py:953 hlidskjalf/window.py:1006
+#: hlidskjalf/window.py:956 hlidskjalf/window.py:1009
 msgid "Signing in …"
 msgstr "กำลังเข้าสู่ระบบ …"
 
-#: hlidskjalf/window.py:978
+#: hlidskjalf/window.py:981
 #, python-brace-format
 msgid "Signed in as {name} – stays signed in on “{device}”"
 msgstr "เข้าสู่ระบบในชื่อ {name} – จะยังคงอยู่ในระบบบน “{device}”"
 
-#: hlidskjalf/window.py:988
+#: hlidskjalf/window.py:991
 msgid "Please sign in in your browser …"
 msgstr "โปรดเข้าสู่ระบบในเบราว์เซอร์ของคุณ …"
 
-#: hlidskjalf/window.py:1004
+#: hlidskjalf/window.py:1007
 msgid "Please start signing in here in the app."
 msgstr "โปรดเริ่มเข้าสู่ระบบที่นี่ในแอป"
 
-#: hlidskjalf/window.py:1171 hlidskjalf/window.py:1799
+#: hlidskjalf/window.py:1174 hlidskjalf/window.py:1802
 msgid "Remove from favorites"
 msgstr "นำออกจากรายการโปรด"
 
-#: hlidskjalf/window.py:1271
+#: hlidskjalf/window.py:1274
 msgid "The chat opens in your browser – start the call there."
 msgstr "แชทจะเปิดในเบราว์เซอร์ของคุณ – เริ่มการโทรที่นั่น"
 
-#: hlidskjalf/window.py:1426 hlidskjalf/window.py:1438
+#: hlidskjalf/window.py:1429 hlidskjalf/window.py:1441
 #, python-brace-format
 msgid "{name} is also here"
 msgstr "{name} อยู่ที่นี่ด้วย"
 
-#: hlidskjalf/window.py:1440
+#: hlidskjalf/window.py:1443
 msgid "On this page right now"
 msgstr "กำลังอยู่ในหน้านี้"
 
-#: hlidskjalf/window.py:1639
+#: hlidskjalf/window.py:1642
 msgid "Search in the sidebar"
 msgstr "ค้นหาในแถบด้านข้าง"
 
-#: hlidskjalf/window.py:1640 hlidskjalf/window.py:1740
+#: hlidskjalf/window.py:1643 hlidskjalf/window.py:1743
 msgid "Show/hide sidebar"
 msgstr "แสดง/ซ่อนแถบด้านข้าง"
 
-#: hlidskjalf/window.py:1654 hlidskjalf/window.py:1739
+#: hlidskjalf/window.py:1657 hlidskjalf/window.py:1742
 msgid "Copy link to page"
 msgstr "คัดลอกลิงก์ไปยังหน้า"
 
-#: hlidskjalf/window.py:1737
+#: hlidskjalf/window.py:1740
 msgid "General"
 msgstr "ทั่วไป"
 
-#: hlidskjalf/window.py:1738
+#: hlidskjalf/window.py:1741
 msgid "Back / Forward"
 msgstr "กลับ / ไปข้างหน้า"
 
-#: hlidskjalf/window.py:1739
+#: hlidskjalf/window.py:1742
 msgid "Search the sidebar"
 msgstr "ค้นหาแถบด้านข้าง"
 
-#: hlidskjalf/window.py:1740
+#: hlidskjalf/window.py:1743
 msgid "Today / Tasks / Events"
 msgstr "วันนี้ / งาน / นัดหมาย"
 
-#: hlidskjalf/window.py:1741
+#: hlidskjalf/window.py:1744
 msgid "Browse in peek"
 msgstr "เรียกดูในแผงแสดงตัวอย่าง"
 
-#: hlidskjalf/window.py:1741
+#: hlidskjalf/window.py:1744
 msgid "Close peek"
 msgstr "ปิดแผงแสดงตัวอย่าง"
 
-#: hlidskjalf/window.py:1742
+#: hlidskjalf/window.py:1745
 msgid "Context menu"
 msgstr "เมนูบริบท"
 
-#: hlidskjalf/window.py:1743
+#: hlidskjalf/window.py:1746
 msgid "Bold, italic, underline"
 msgstr "ตัวหนา ตัวเอียง ขีดเส้นใต้"
 
-#: hlidskjalf/window.py:1743
+#: hlidskjalf/window.py:1746
 msgid "Strikethrough"
 msgstr "ขีดทับ"
 
-#: hlidskjalf/window.py:1744
+#: hlidskjalf/window.py:1747
 msgid "Highlight"
 msgstr "ไฮไลต์"
 
-#: hlidskjalf/window.py:1744
+#: hlidskjalf/window.py:1747
 msgid "Link (with a selection)"
 msgstr "ลิงก์ (เมื่อมีการเลือก)"
 
-#: hlidskjalf/window.py:1745
+#: hlidskjalf/window.py:1748
 msgid "Undo / redo typing"
 msgstr "เลิกทำ / ทำซ้ำการพิมพ์"
 
-#: hlidskjalf/window.py:1746
+#: hlidskjalf/window.py:1749
 msgid "Block types"
 msgstr "ประเภทบล็อก"
 
-#: hlidskjalf/window.py:1746
+#: hlidskjalf/window.py:1749
 msgid "Date, reminder, page"
 msgstr "วันที่ การแจ้งเตือนความจำ หน้า"
 
-#: hlidskjalf/window.py:1746
+#: hlidskjalf/window.py:1749
 msgid "Emoji"
 msgstr "อีโมจิ"
 
-#: hlidskjalf/window.py:1747
+#: hlidskjalf/window.py:1750
 msgid "Blocks"
 msgstr "บล็อก"
 
-#: hlidskjalf/window.py:1747
+#: hlidskjalf/window.py:1750
 msgid "Text, Heading 1–3"
 msgstr "ข้อความ หัวเรื่อง 1–3"
 
-#: hlidskjalf/window.py:1748
+#: hlidskjalf/window.py:1751
 msgid "Checklist, bulleted list, numbered list"
 msgstr "รายการตรวจสอบ รายการสัญลักษณ์แสดงหัวข้อย่อย รายการลำดับเลข"
 
-#: hlidskjalf/window.py:1749
+#: hlidskjalf/window.py:1752
 msgid "Move block"
 msgstr "ย้ายบล็อก"
 
-#: hlidskjalf/window.py:1749
+#: hlidskjalf/window.py:1752
 msgid "Toggle, code"
 msgstr "แบบพับได้ โค้ด"
 
-#: hlidskjalf/window.py:1750
+#: hlidskjalf/window.py:1753
 msgid "Duplicate block"
 msgstr "ทำสำเนาบล็อก"
 
-#: hlidskjalf/window.py:1750
+#: hlidskjalf/window.py:1753
 msgid "New block below"
 msgstr "บล็อกใหม่ด้านล่าง"
 
-#: hlidskjalf/window.py:1751
+#: hlidskjalf/window.py:1754
 msgid "Block menu"
 msgstr "เมนูบล็อก"
 
-#: hlidskjalf/window.py:1751
+#: hlidskjalf/window.py:1754
 msgid "Indent/outdent list item"
 msgstr "เพิ่ม/ลดการเยื้องรายการ"
 
-#: hlidskjalf/window.py:1778
+#: hlidskjalf/window.py:1781
 msgid "Notes, databases, tasks and events – self-hosted."
 msgstr "โน้ต ฐานข้อมูล งาน และนัดหมาย – โฮสต์ด้วยตัวเอง"
 
-#: hlidskjalf/window.py:1778
+#: hlidskjalf/window.py:1781
 msgid "Saga project"
 msgstr "โครงการ Saga"
 
-#: hlidskjalf/window.py:1779
+#: hlidskjalf/window.py:1782
 msgid "translator-credits"
 msgstr "โครงการ Saga (แปลด้วยเครื่อง)"
 
-#: hlidskjalf/window.py:1790 hlidskjalf/window.py:1801
+#: hlidskjalf/window.py:1793 hlidskjalf/window.py:1804
 msgid "New subpage"
 msgstr "หน้าย่อยใหม่"
 
-#: hlidskjalf/window.py:1803
+#: hlidskjalf/window.py:1806
 msgid "New subpage from template …"
 msgstr "หน้าย่อยจากเทมเพลต …"
 
-#: hlidskjalf/window.py:1864
+#: hlidskjalf/window.py:1867
 msgid "Task created"
 msgstr "สร้างงานแล้ว"
 
-#: hlidskjalf/window.py:1866
+#: hlidskjalf/window.py:1869
 msgid "This button has no target yet – choose one in the button settings."
 msgstr "ปุ่มนี้ยังไม่มีเป้าหมาย – เลือกได้ในการตั้งค่าปุ่ม"
 
-#: hlidskjalf/window.py:1868
+#: hlidskjalf/window.py:1871
 msgid "This button has no action yet – choose one in the button settings."
 msgstr "ปุ่มนี้ยังไม่มีการทำงาน – เลือกได้ในการตั้งค่าปุ่ม"
 
-#: hlidskjalf/window.py:1881
+#: hlidskjalf/window.py:1884
 #, python-brace-format
 msgid "“{title}” moved to trash"
 msgstr "ย้าย “{title}” ไปถังขยะแล้ว"
 
-#: hlidskjalf/window.py:1886
+#: hlidskjalf/window.py:1889
 #, python-brace-format
 msgid "Task “{title}” deleted"
 msgstr "ลบงาน “{title}” แล้ว"
 
-#: hlidskjalf/window.py:1903
+#: hlidskjalf/window.py:1906
 msgid ""
 "No browser could be opened. The address was copied – paste it into a browser."
 msgstr "ไม่สามารถเปิดเบราว์เซอร์ได้ คัดลอกที่อยู่แล้ว – วางลงในเบราว์เซอร์"
 
-#: hlidskjalf/window.py:1905
+#: hlidskjalf/window.py:1908
 #, python-brace-format
 msgid "No browser could be opened. Open this address in a browser: {url}"
 msgstr "ไม่สามารถเปิดเบราว์เซอร์ได้ เปิดที่อยู่นี้ในเบราว์เซอร์: {url}"
 
-#: hlidskjalf/window.py:1943
+#: hlidskjalf/window.py:1946
 #, python-brace-format
 msgid "Downloading “{name}” …"
 msgstr "กำลังดาวน์โหลด “{name}” …"
 
-#: hlidskjalf/window.py:1976
+#: hlidskjalf/window.py:1979
 #, python-brace-format
 msgid "Download failed: {error}"
 msgstr "ดาวน์โหลดไม่สำเร็จ: {error}"
 
-#: hlidskjalf/window.py:1992
+#: hlidskjalf/window.py:1995
 #, python-brace-format
 msgid "Export failed: {error}"
 msgstr "ส่งออกไม่สำเร็จ: {error}"
 
-#: hlidskjalf/window.py:1992
+#: hlidskjalf/window.py:1995
 msgid "Exported"
 msgstr "ส่งออกแล้ว"
 
-#: hlidskjalf/window.py:2025
+#: hlidskjalf/window.py:2028
 msgid "Create a new page?"
 msgstr "สร้างหน้าใหม่หรือไม่"
 
-#: hlidskjalf/window.py:2026
+#: hlidskjalf/window.py:2029
 msgid "A link wants to create a new page in Saga."
 msgstr "ลิงก์ต้องการสร้างหน้าใหม่ใน Saga"
 
-#: hlidskjalf/window.py:2028
+#: hlidskjalf/window.py:2031
 msgid "Create page"
 msgstr "สร้างหน้า"
 
