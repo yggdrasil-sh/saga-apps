@@ -220,6 +220,7 @@ class PageDoc:
         # (kein PATCH) und Laden/Abgleich ersetzen den Inhalt nicht (er kommt als Update)
         self.live_guard = None
         self.on_live_meta = None       # () -> None: Kopf neu geladen, Inhalt live (Rolle, Sperre ... pruefen)
+        self.on_live_dirty = None      # () -> None: Live, aber Inhalt/Titel ohne Editor geaendert -> ins gemeinsame Dokument
         self.live_refetch = False      # Rueckfall Live -> Stufe 1: erst den Stand des Servers als Basis holen, dann speichern
         store.docs.add(self)
 
@@ -594,6 +595,8 @@ class PageDoc:
             self._release()
             return
         if self.live:                                        # Live: jede Eingabe ist schon als Update beim Server
+            if self.dirty and self.on_live_dirty:            # von aussen geaendert (Umbenennen, Kopie wiederherstellen ...):
+                self.on_live_dirty()                         # als Live-Aenderung hinaus statt still verworfen
             self.dirty = False
             self._release()
             return

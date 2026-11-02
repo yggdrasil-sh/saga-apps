@@ -248,6 +248,7 @@ class PageView(Gtk.Box):
         self.livep = LivePage(self)
         self.doc.live_guard = lambda: self.livep.active
         self.doc.on_live_meta = self._live_meta
+        self.doc.on_live_dirty = lambda: self.livep.local()
         self._live_shown = None                 # zuletzt gezeigter Live-Modus (Neuaufbau bei Wechsel nur lesen <-> bearbeiten)
         self._shown_trash = False
         self._conflict_dlg = None

@@ -609,3 +609,20 @@ def test_flush_all_rescues_unconfirmed_live_changes(srv):
     v.livep.session.offline_dirty = False
     MainWindow._flush_all(w)
     assert v.livep.stopped == 1                                     # nichts offen: Live bleibt
+
+
+def test_live_save_hands_outside_changes_to_live(srv):
+    """Live: save() nach einer Aenderung ohne Editor (Umbenennen in der Tabelle, lokale Kopie wiederherstellen) verwirft
+    sie nicht still, sondern gibt sie an das gemeinsame Dokument weiter; ohne Aenderung passiert nichts"""
+    from hlidskjalf.editor import PageDoc
+    d = PageDoc(1)
+    d.load()
+    assert pump(lambda: d.fetched)
+    calls = []
+    d.live_guard = lambda: True
+    d.on_live_dirty = lambda: calls.append(1)
+    d.save()
+    assert calls == []
+    d.set_title("Neu")
+    d.save()
+    assert calls == [1] and not d.dirty
