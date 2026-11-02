@@ -169,6 +169,8 @@ final class CallManager: NSObject, ObservableObject {
     var diag: CallDiag.Buffer?
     var diagTask: Task<Void, Never>?
     var cfg: [String: Any] = [:]
+    /// pt2 A4: Saga-Server im lokalen Netz (IceFilter: private Adressen erlaubt)
+    var iceLocal = false
     /// Schluessel je Person schon einmal frisch geholt (unbekanntes Geraet)
     var keysRefreshed = Set<String>()
     /// 2.3: Anruf ueber Servergrenzen (saga-call/v2): Handles statt Benutzernamen (1:1: eigener, Gegenueber)
@@ -284,6 +286,9 @@ final class CallManager: NSObject, ObservableObject {
         if code == 404 || code == 405 { enabled = false; return false }
         guard code == 200, let j = ShareJSON.obj(d) else { return false }
         cfg = j
+        // pt2 A4: Server im lokalen Netz? (private ICE-/Knoten-Adressen nur dann)
+        let sh = AppConfig.server.host ?? ""
+        iceLocal = await Task.detached { IceFilter.serverLocal(host: sh) }.value
         let f = (j["features"] as? [Any] ?? []).compactMap { $0 as? String }
         if f != serverFeatures { serverFeatures = f; store.objectWillChange.send() }   // Chat-Ansicht: Gruppenanruf-Knoepfe neu zeigen
         let on = ShareJSON.bool(j["enabled"])
@@ -735,8 +740,10 @@ final class CallManager: NSObject, ObservableObject {
         c.sdpSemantics = .unifiedPlan
         c.bundlePolicy = .maxBundle
         c.iceTransportPolicy = ShareJSON.bool(cfg["relay_only"]) ? .relay : .all
-        c.iceServers = (cfg["ice_servers"] as? [[String: Any]] ?? []).compactMap { s in
-            let urls = (s["urls"] as? [String]) ?? ((s["urls"] as? String).map { [$0] } ?? [])
+        // pt2 A4: nur stun/turn, nie Loopback/Link-Local; private Adressen nur bei Server im lokalen Netz
+        c.iceServers = (cfg["ice_servers"] as? [[String: Any]] ?? []).prefix(8).compactMap { s in
+            let raw = (s["urls"] as? [Any])?.compactMap { $0 as? String } ?? ((s["urls"] as? String).map { [$0] } ?? [])
+            let urls = IceFilter.filter(raw, serverLocal: iceLocal)
             guard !urls.isEmpty else { return nil }
             return RTCIceServer(urlStrings: urls, username: s["username"] as? String, credential: s["credential"] as? String)
         }

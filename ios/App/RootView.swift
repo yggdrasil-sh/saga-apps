@@ -185,7 +185,8 @@ struct RootView: View {
         .environment(\.openURL, OpenURLAction { url in          // Seitenverweise im Text -> nativ oeffnen
             if url.scheme == "hkpage", let id = Int(url.host ?? "") { nav.push(PageRoute(id: id)); return .handled }
             if url.scheme == "hkdate" || url.scheme == "hkna" { return .handled }   // @-Datum, Seite ohne Zugriff: nichts oeffnen
-            return .systemAction
+            // pt2 A2: nur http(s)/mailto ans System; tel:, sms:, hlidskjalf://, saga://pair ... aus fremden Inhalten verwerfen
+            return LinkPolicy.external(url) ? .systemAction : .discarded
         })
         .focusedSceneValue(\.hk, HKCommands(                            // Menue-Befehle (Mac/iPad-Tastatur)
             back: { nav.peek = nil; nav.back() }, forward: { nav.goForward() },

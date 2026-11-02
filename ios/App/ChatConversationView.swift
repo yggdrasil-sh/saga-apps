@@ -642,7 +642,7 @@ struct ConversationView: View {
         try? await Task.sleep(for: .milliseconds(600))
         guard !Task.isCancelled, let r = await conv.unfurl(u), unfKey == u else { return }
         unf = r
-        unfImage = r.image.flatMap { ChatImageIO.decode($0.data) }
+        unfImage = r.image.flatMap { ChatImageIO.decode($0.data, maxPixel: ChatImageIO.previewMax) }   // pt2 V2i: Mass-Deckel
     }
     private var aiHost: String { store.aiHost.isEmpty ? "?" : store.aiHost }
 

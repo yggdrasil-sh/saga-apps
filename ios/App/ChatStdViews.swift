@@ -18,7 +18,7 @@ struct ChatRichText: View {
         }
         .environment(\.openURL, OpenURLAction { u in
             if u.scheme == "hkchatnote", let id = Int(u.host ?? "") { openPage(id); return .handled }
-            if u.scheme == "http" || u.scheme == "https" { return .systemAction }
+            if LinkPolicy.external(u) { return .systemAction }
             return .discarded
         })
     }
@@ -131,7 +131,8 @@ struct MessagePreviewCard: View {
     @State private var img: CGImage?
     @Environment(\.openURL) private var openURL
     var body: some View {
-        Button { if let u = URL(string: p.url) { openURL(u) } } label: {
+        // pt2 A2: nur http(s)/mailto ans System (Inhalt kommt vom Gegenueber)
+        Button { if let u = URL(string: p.url), LinkPolicy.external(u) { openURL(u) } } label: {
             LinkPreviewCard(title: p.title, desc: p.desc, site: p.site.isEmpty ? (URL(string: p.url)?.host ?? "") : p.site, image: img)
         }
         .buttonStyle(.plain).frame(maxWidth: 320)

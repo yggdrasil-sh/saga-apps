@@ -48,6 +48,21 @@ enum ChatImageIO {
         return (clean, img, ow, oh)
     }
 
+    /// pt2 V2i: Linkvorschau-Bild (fremde Seite ueber den Server) - laengste Seite hoechstens so viele Pixel
+    static let previewMax = 1024
+
+    /// pt2 V2i: Bild auf hoechstens maxPixel verkleinert neu als JPEG (ohne Metadaten) - fuer das Vorschaubild, das mit der
+    /// Nachricht verschickt wird. Masse aus dem dekodierten Bild, nicht aus der Serverangabe. nil = nicht lesbar/unplausibel.
+    static func boundedJPEG(_ d: Data, maxPixel: Int = previewMax) -> (jpeg: Data, w: Int, h: Int)? {
+        guard let (w, h) = size(d), ChatMediaLogic.plausible(w: w, h: h), let cg = decode(d, maxPixel: maxPixel),
+              max(cg.width, cg.height) <= maxPixel else { return nil }
+        let out = NSMutableData()
+        guard let dst = CGImageDestinationCreateWithData(out, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(dst, cg, [kCGImageDestinationLossyCompressionQuality: 0.8] as CFDictionary)
+        guard CGImageDestinationFinalize(dst), let clean = ChatMediaLogic.stripJPEG(out as Data) else { return nil }
+        return (clean, cg.width, cg.height)
+    }
+
     /// Dekodieren (sofort, nicht erst beim Zeichnen im UI-Thread); maxPixel = laengste Seite (Original verkleinert)
     static func decode(_ d: Data, maxPixel: Int? = nil) -> CGImage? {
         guard let src = CGImageSourceCreateWithData(d as CFData, [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
@@ -276,14 +291,15 @@ actor ChatMedia {
         if let th = f.thumb, let k = ChatCrypto.unb64(th.key, 32) {
             let b = try await blob(th.id, fetch: fetch)
             guard let jpg = ChatCrypto.decryptChatFile(chatID, blob: b, key: k) else { throw ChatMediaError.undecryptable }
-            guard let cg = ChatImageIO.decode(jpg) else { throw ChatMediaError.undecodable }
+            // pt2 V2i: th kommt vom Gegenueber - nie unbegrenzt dekodieren (normal 320 px)
+            guard let cg = ChatImageIO.decode(jpg, maxPixel: 1280) else { throw ChatMediaError.undecodable }
             let img = ChatImage(cg, w: f.w ?? th.w, h: f.h ?? th.h)
             remember(img, for: f.id); return img
         }
         guard let k = ChatCrypto.unb64(f.key, 32) else { throw ChatMediaError.undecryptable }
         let local = ChatMediaLogic.cacheName(f.id, local: true)
         if let local, let b = ChatBlobCache.shared.read(local), let jpg = ChatCrypto.decryptChatFile(chatID, blob: b, key: k),
-           let cg = ChatImageIO.decode(jpg) {
+           let cg = ChatImageIO.decode(jpg, maxPixel: 1280) {
             let img = ChatImage(cg, w: f.w, h: f.h); remember(img, for: f.id); return img
         }
         let b = try await blob(f.id, keep: false, fetch: fetch)

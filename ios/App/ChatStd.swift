@@ -220,10 +220,12 @@ extension ConversationModel {
     }
     /// Bild der Vorschau verschluesselt hochladen (wie ein Vorschaubild); scheitert es, geht die Karte ohne Bild
     func previewForSend(_ u: ChatStd.Unfurl) async -> ChatStd.Preview {
-        guard let store, let im = u.image, let e = ChatCrypto.encryptChatFile(info?.fileCID ?? String(chatID), data: im.data),
+        // pt2 V2i: Bild vor dem Versand selbst verkleinern (max 1024 px), Masse aus dem Bild statt aus der Serverantwort
+        guard let store, let raw = u.image, let im = await Task.detached(operation: { ChatImageIO.boundedJPEG(raw.data) }).value,
+              let e = ChatCrypto.encryptChatFile(info?.fileCID ?? String(chatID), data: im.jpeg),
               let d = try? await store.apiRaw("api/chats/\(chatID)/files", data: e.blob), let id = ShareJSON.obj(d)?["id"] as? String
         else { return ChatStd.Preview(u, img: nil) }
-        return ChatStd.Preview(u, img: ChatThumbRef(id: id, key: ChatCrypto.b64(e.key), w: im.w, h: im.h, size: im.data.count))
+        return ChatStd.Preview(u, img: ChatThumbRef(id: id, key: ChatCrypto.b64(e.key), w: im.w, h: im.h, size: im.jpeg.count))
     }
 
     // Medienuebersicht (chatmedia1): Seite mit Anhaengen entschluesseln

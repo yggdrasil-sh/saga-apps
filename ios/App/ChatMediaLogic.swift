@@ -20,6 +20,12 @@ enum ChatMediaLogic {
     /// Vorschaubild fuer diesen Typ versuchen? (alles image/*; was ImageIO nicht kennt, faellt spaeter heraus)
     static func canThumb(_ mime: String) -> Bool { mime.lowercased().hasPrefix("image/") && mime.lowercased() != "image/svg+xml" }
 
+    /// pt2 V2i: plausible Bildmasse (Linkvorschau): beide > 0, keine Seite ueber 16384, Seitenverhaeltnis hoechstens 50:1
+    static func plausible(w: Int, h: Int) -> Bool {
+        guard w > 0, h > 0, w <= 16384, h <= 16384 else { return false }
+        return max(w, h) / min(w, h) <= 50
+    }
+
     /// Pixelgroesse des Vorschaubilds: laengste Seite <= 320, nie hochskalieren, mindestens 1 px
     static func thumbSize(w: Int, h: Int, side: Int = thumbSide) -> (w: Int, h: Int) {
         guard w > 0, h > 0 else { return (0, 0) }

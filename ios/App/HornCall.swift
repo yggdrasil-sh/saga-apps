@@ -398,7 +398,9 @@ extension CallManager {
             var turn: HornLeg.Turn?
             if path == "turn", let tok = cand.tokens["audio"], let hp = cand.hostPort {
                 let t = try await HornNet.turn(cand.url, token: tok)
-                turn = HornLeg.Turn(url: "turns:\(hp.host):\(hp.port)?transport=tcp", user: t.user, pass: t.pass)
+                let tu = IceFilter.turnsURL(host: hp.host, port: hp.port)
+                guard IceFilter.allowed(tu, serverLocal: iceLocal) else { throw HornFail.failed }        // pt2 A4: naechster Weg/Knoten
+                turn = HornLeg.Turn(url: tu, user: t.user, pass: t.pass)
             }
             let roles = path == "udp" ? ["both"] : ["audio", "video"]
             try await withThrowingTaskGroup(of: Void.self) { g in
@@ -477,7 +479,9 @@ extension CallManager {
         var turn: HornLeg.Turn?
         if conn.path == "turn", let tok = cand.tokens["audio"], let hp = cand.hostPort {
             let t = try await HornNet.turn(cand.url, token: tok)
-            turn = HornLeg.Turn(url: "turns:\(hp.host):\(hp.port)?transport=tcp", user: t.user, pass: t.pass)
+            let tu = IceFilter.turnsURL(host: hp.host, port: hp.port)
+            guard IceFilter.allowed(tu, serverLocal: iceLocal) else { throw HornFail.failed }        // pt2 A4: naechster Weg/Knoten
+            turn = HornLeg.Turn(url: tu, user: t.user, pass: t.pass)
         }
         old.replaced = true
         H.trace("ton neu \(conn.node) \(role)")

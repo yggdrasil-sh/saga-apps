@@ -361,8 +361,10 @@ enum ChatStd {
             url = String(u.prefix(2000)); title = String((j["title"] as? String ?? "").prefix(200)); desc = String((j["desc"] as? String ?? "").prefix(300))
             site = String((j["site"] as? String ?? "").prefix(80))
             guard !title.isEmpty || !desc.isEmpty else { return nil }
-            if let im = j["image"] as? [String: Any], let b = ShareJSON.str(im["b64"]), let d = Data(base64Encoded: b) {
-                image = UnfurlImage(mime: "image/jpeg", w: ShareJSON.int(im["w"]) ?? 0, h: ShareJSON.int(im["h"]) ?? 0, data: d)
+            // pt2 V2i: unplausible Masse (<= 0, > 16384, Seitenverhaeltnis > 50:1) oder > 2 MB -> ohne Bild
+            if let im = j["image"] as? [String: Any], let b = ShareJSON.str(im["b64"]), b.count <= 2_800_000, let d = Data(base64Encoded: b),
+               let w = ShareJSON.int(im["w"]), let h = ShareJSON.int(im["h"]), ChatMediaLogic.plausible(w: w, h: h) {
+                image = UnfurlImage(mime: "image/jpeg", w: w, h: h, data: d)
             }
         }
     }
