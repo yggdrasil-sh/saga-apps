@@ -59,6 +59,7 @@ final class Store: ObservableObject {
               let j = (try? JSONSerialization.jsonObject(with: res.0)) as? [String: Any] else { serverVersion = nil; minApp = nil; features = ServerFeatures(); return }
         serverVersion = j["version"] as? String; minApp = j["min_app"] as? String
         let f = ServerFeatures.parse(j); if f != features { features = f }
+        AppConfig.store.set(f.has(CaptureTargetLogic.feature), forKey: CaptureTargetLogic.featureKey)   // Kurzbefehl offline
     }
     @Published var loading = false
     /// Eigenes Profilbild (2.1, aus /api/account): relative Adresse oder nil
@@ -527,6 +528,7 @@ final class Store: ObservableObject {
             let items = applyQueue(s?.items ?? [])
             if taskItems != items { taskItems = items }
             if taskSources != (s?.sources ?? []) { taskSources = s?.sources ?? [] }
+            if let srcs = s?.sources { AppConfig.store.set(CaptureTargetLogic.encodeTargets(srcs), forKey: CaptureTargetLogic.targetsKey) }   // Kurzbefehl: erlaubte Ziele
             if taskPeople != (s?.people ?? [:]) { taskPeople = s?.people ?? [:] }
         }
         if events.isEmpty, let c = cachedEvents(days: 1), !c.isEmpty { events = c }   // sofort anzeigen
@@ -1213,6 +1215,7 @@ final class Store: ObservableObject {
         cursorEpoch += 1; noteCursor = nil; savedCursor = nil; listUnsaved = false; cacheLoad?.cancel(); cacheLoad = nil   // Abgleich-Stand gehoert zum Konto
         pages = []; archivedPages = []; list = PageList(); listGen += 1; shared = []; fedShared = []; aiEnabled = false; aiPersona = nil; aiChat = false; aiHost = ""; fedUnreachable = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
         AppConfig.store.removeObject(forKey: "w.tasks")                 // Widget: eben abgehakte Aufgaben (IDs des alten Kontos)
+        for k in [CaptureTargetLogic.targetsKey, CaptureTargetLogic.featureKey, CaptureTargetLogic.lastKey] { AppConfig.store.removeObject(forKey: k) }   // Kurzbefehl-Ziele des alten Kontos
         // Startseite immer vergessen: die naechste Anmeldung kann ein anderes Konto sein - dessen Start sonst die
         // Seiten-ID des alten Kontos an den Server schickte (BUG-060)
         setHome(nil); startPageSupported = false; fresh = [:]                 // fix27 E2/E4: gehoeren zum Konto

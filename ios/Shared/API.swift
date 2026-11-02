@@ -79,6 +79,22 @@ enum API {
         _ = try await request("api/app/bookmarks", method: "POST", body: body)
     }
 
+    /// 2.5 capsrc1: Aufgabe ablegen, optional als Zeile in einer Aufgabenquelle (src nur, wenn der Server es kann)
+    static func captureTask(title: String, due: Date?, src: Int?, capsrc: Bool) async throws {
+        let d = due.map { DateFormatter.isoDay().string(from: $0) }
+        _ = try await request("api/app/capture", method: "POST", body: CaptureTargetLogic.body(title: title, due: d, src: src, capsrc: capsrc))
+    }
+    /// Faehigkeiten des Servers (/api/version, oeffentlich) - nil, wenn nicht abrufbar
+    static func features() async -> Set<String>? {
+        guard AppConfig.hasServer, AppConfig.isAllowedServer(AppConfig.server),
+              let url = URL(string: AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/api/version") else { return nil }
+        guard let (d, r) = try? await URLSession.shared.data(for: URLRequest(url: url, timeoutInterval: 10)),
+              (r as? HTTPURLResponse)?.statusCode == 200, let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { return nil }
+        return Set((j["features"] as? [Any] ?? []).compactMap { $0 as? String })
+    }
+    /// Aktuell abonnierte Quellen (nur db/title/icon) ueber den App-Schluessel - nil, wenn nicht abrufbar
+    static func todaySources() async -> [TaskSource]? { (try? await today())?.sources }
+
     /// Link/Text ablegen: kind "page" (Seite im Eingang) oder "task" (Aufgabe).
     static func capture(kind: String, title: String, text: String, url: String?, due: Date? = nil) async throws {
         var b: [String: Any] = ["kind": kind, "title": title, "text": text]

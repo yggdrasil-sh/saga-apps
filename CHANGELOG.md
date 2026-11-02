@@ -9,6 +9,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – iOS/Mac: Kurzbefehl „Aufgabe anlegen“ mit Ziel (nur mit Saga-Server, der `capsrc1` meldet)
+
+- Optionaler Parameter **Ziel**: Inbox oder eine Aufgabenquelle mit Bearbeiten-Recht; ohne Angabe gilt das zuletzt
+  gewählte Ziel. Läuft über den App-Schlüssel (`POST /api/app/capture` mit `src`), auch ohne geöffnete App.
+- Ältere Server: nur Inbox wie bisher (kein `src`). Quelle weg oder nur Lesen (`403`/`404`/`400`): verständliche Meldung
+  im Kurzbefehl, das gemerkte Ziel fällt auf Inbox zurück.
+- Android und Linux legen Aufgaben mit Ziel weiter über die Sitzung an (`tasksrc1`), keine Änderung nötig.
+
 ### Neu – iOS/Mac: Fehlerberichte und „Diagnose senden“ (nur mit Saga-Server, der `clientlog1` meldet)
 - **Absturzberichte:** stürzt die App ab (nicht abgefangene Ausnahme oder Signal), schreibt sie eine kurze Notiz
   (Signal bzw. Ausnahmeart, Stack nur als Modul, Symbol und Offset – keine Pfade, kein Speicherabbild) und sendet sie beim

@@ -14,14 +14,79 @@ struct AddTaskIntent: AppIntent {
     static var description = IntentDescription("Legt eine Aufgabe in Saga an – optional mit Fälligkeit.")
     @Parameter(title: "Aufgabe", requestValueDialog: "Was soll auf die Liste?") var text: String
     @Parameter(title: "Fällig am") var due: Date?
-    static var parameterSummary: some ParameterSummary { Summary("Aufgabe \(\.$text) anlegen") { \.$due } }
+    /// 2.5 capsrc1: Inbox oder eine Aufgabenquelle; leer = zuletzt gewaehltes Ziel. Server ohne capsrc1: nur Inbox.
+    @Parameter(title: "Aufgabenziel") var target: HKTaskTargetEntity?
+    static var parameterSummary: some ParameterSummary { Summary("Aufgabe \(\.$text) anlegen") { \.$due; \.$target } }
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        try await API.capture(kind: "task", title: text, text: "", url: nil, due: due)
+        let st = AppConfig.store
+        let cap = CaptureTargetLogic.capsrc(live: await API.features(), cached: st.bool(forKey: CaptureTargetLogic.featureKey))
+        let chosen: Int?
+        if let target { chosen = target.id }
+        else { chosen = cap ? CaptureTargetLogic.defaultTarget(last: st.object(forKey: CaptureTargetLogic.lastKey) as? Int, choices: CaptureTargets.cached() ?? []) : nil }
+        let src = CaptureTargetLogic.src(target: chosen, capsrc: cap)
+        let name = target.map(\.label) ?? src.flatMap { s in CaptureTargets.cached()?.first { $0.db == s }?.name } ?? String(localized: "Aufgabenquelle")
+        do {
+            try await API.captureTask(title: text, due: due, src: src, capsrc: cap)
+        } catch APIError.http(let code, let msg) {
+            let f = CaptureTargetLogic.failure(code: code, message: msg, src: src)
+            if CaptureTargetLogic.forgetLast(f) { st.removeObject(forKey: CaptureTargetLogic.lastKey) }
+            if let m = CaptureTargetLogic.message(f, name: name) { throw APIError.other(m) }
+            throw APIError.http(code, msg)
+        }
+        if cap, let chosen { st.set(chosen, forKey: CaptureTargetLogic.lastKey) }   // zuletzt gewaehlt = naechste Vorgabe
+        if let src {
+            return .result(dialog: "Aufgabe „\(text)“ in „\(name)“ angelegt.")
+        }
         if let due {
             let when = due.formatted(SagaDate.dateTime().weekday(.wide).day().month(.wide))
             return .result(dialog: "Aufgabe „\(text)“ angelegt – fällig \(when).")
         }
         return .result(dialog: "Aufgabe „\(text)“ angelegt.")
+    }
+}
+
+/// Ziel fuer "Aufgabe anlegen": Inbox (id 0) oder eine Aufgabenquelle (Datenbank-ID)
+struct HKTaskTargetEntity: AppEntity {
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Aufgabenziel"
+    static var defaultQuery = HKTaskTargetQuery()
+    let id: Int
+    let name: String
+    let icon: String?
+    /// Name fuer Meldungen (Inbox uebersetzt, Quellen wie geliefert)
+    var label: String { id == CaptureTargetLogic.inbox ? String(localized: "Inbox") : name }
+    var displayRepresentation: DisplayRepresentation {
+        id == CaptureTargetLogic.inbox ? DisplayRepresentation(title: "Inbox", image: .init(systemName: "tray"))
+            : DisplayRepresentation(title: "\(icon.map { $0 + " " } ?? "")\(name)")
+    }
+    static let inbox = HKTaskTargetEntity(id: CaptureTargetLogic.inbox, name: "", icon: nil)
+    init(id: Int, name: String, icon: String?) { self.id = id; self.name = name; self.icon = icon }
+    init(_ s: TaskSource) { self.init(id: s.db, name: s.name, icon: s.emoji) }
+}
+
+/// Gemerkte Ziele (von der App beim Laden der Aufgabenliste geschrieben); ohne sie die abonnierten Quellen vom Server
+enum CaptureTargets {
+    static func cached() -> [TaskSource]? { CaptureTargetLogic.decodeTargets(AppConfig.store.data(forKey: CaptureTargetLogic.targetsKey)) }
+    static func load() async -> [HKTaskTargetEntity] {
+        let cap = CaptureTargetLogic.capsrc(live: await API.features(), cached: AppConfig.store.bool(forKey: CaptureTargetLogic.featureKey))
+        guard cap else { return [.inbox] }                                   // aelterer Server: nur Inbox
+        let c = cached()
+        let list = CaptureTargetLogic.choices(cached: c, current: c == nil ? await API.todaySources() : nil)
+        return [.inbox] + list.map(HKTaskTargetEntity.init)
+    }
+}
+
+struct HKTaskTargetQuery: EntityQuery {
+    func entities(for identifiers: [Int]) async throws -> [HKTaskTargetEntity] {
+        let all = await CaptureTargets.load()
+        // im Kurzbefehl gespeichertes Ziel, das es nicht mehr gibt: trotzdem aufloesen (perform meldet dann den Fehler)
+        return identifiers.map { i in all.first { $0.id == i } ?? HKTaskTargetEntity(id: i, name: String(localized: "Aufgabenquelle"), icon: nil) }
+    }
+    func suggestedEntities() async throws -> [HKTaskTargetEntity] { await CaptureTargets.load() }
+    func defaultResult() async -> HKTaskTargetEntity? {
+        let all = await CaptureTargets.load()
+        let d = CaptureTargetLogic.defaultTarget(last: AppConfig.store.object(forKey: CaptureTargetLogic.lastKey) as? Int,
+                                                 choices: all.filter { $0.id != CaptureTargetLogic.inbox }.map { TaskSource(db: $0.id) })
+        return all.first { $0.id == d } ?? .inbox
     }
 }
 

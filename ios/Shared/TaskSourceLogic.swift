@@ -116,6 +116,80 @@ enum TaskSourceLogic {
     static func targets(_ sources: [TaskSource]) -> [TaskSource] { sources.filter(\.canAdd) }
 }
 
+// MARK: - Kurzbefehl "Neue Aufgabe" mit Ziel (capsrc1, APP-API "Teilen und Kurzbefehle")
+
+/// Ziel-Auswahl fuer den Kurzbefehl (App-Schluessel, laeuft auch ohne geoeffnete App). Der App-Schluessel sieht keine
+/// Rollen/Zuordnungen (GET /api/tasks/sources nur mit Sitzung): die App merkt sich die erlaubten Ziele beim Laden der
+/// Aufgabenliste; /api/app/today?sources=1 (nur db/title/icon) entfernt inzwischen abbestellte Quellen.
+enum CaptureTargetLogic {
+    static let feature = "capsrc1"
+    /// gemeinsame Einstellungen (App-Gruppe): erlaubte Ziele, Server meldet capsrc1, zuletzt gewaehltes Ziel (0 = Inbox)
+    static let targetsKey = "capTargets", featureKey = "capFeature", lastKey = "capLastTarget"
+    /// Inbox als Eintrag der Auswahl
+    static let inbox = 0
+
+    /// Rumpf fuer POST /api/app/capture {kind: "task"}. src nur, wenn der Server capsrc1 kann (aeltere legten sonst
+    /// stillschweigend eine Inbox-Aufgabe an) und ein Ziel gewaehlt ist.
+    static func body(title: String, text: String = "", url: String? = nil, due: String? = nil, src: Int?, capsrc: Bool) -> [String: Any] {
+        var b: [String: Any] = ["kind": "task", "title": title, "text": text]
+        if let url, !url.isEmpty { b["url"] = url }
+        if let due { b["due"] = due }
+        if capsrc, let src, src > 0 { b["src"] = src }
+        return b
+    }
+    /// Ziel, das wirklich gesendet wird (nil = Inbox)
+    static func src(target: Int?, capsrc: Bool) -> Int? { capsrc ? target.flatMap { $0 > 0 ? $0 : nil } : nil }
+    /// Live-Abfrage gewinnt; ohne Antwort (offline) der zuletzt von der App gemerkte Stand
+    static func capsrc(live: Set<String>?, cached: Bool) -> Bool { live.map { $0.contains(feature) } ?? cached }
+
+    /// Ziele zum Auswaehlen: gemerkte erlaubte Ziele, abgeglichen mit den aktuell abonnierten (nil = nicht abrufbar).
+    /// Ohne gemerkte Liste (App hat noch nie mit tasksrc1 geladen): die abonnierten - der Server prueft die Rechte (403).
+    static func choices(cached: [TaskSource]?, current: [TaskSource]?) -> [TaskSource] {
+        guard let cached else { return current ?? [] }
+        guard let current else { return cached }
+        let byDB = Dictionary(current.map { ($0.db, $0) }, uniquingKeysWith: { a, _ in a })
+        return cached.compactMap { c in
+            guard let n = byDB[c.db] else { return nil }
+            var x = c; if let t = n.title { x.title = t }; if let i = n.icon { x.icon = i }; return x
+        }
+    }
+    /// Vorgabe: zuletzt gewaehltes Ziel, wenn es noch waehlbar ist, sonst Inbox
+    static func defaultTarget(last: Int?, choices: [TaskSource]) -> Int {
+        guard let l = last, l > 0, choices.contains(where: { $0.db == l }) else { return inbox }
+        return l
+    }
+    /// Gemerkte Ziele: nur erlaubte (canAdd), schlank (ohne Zaehler/Personen)
+    static func encodeTargets(_ sources: [TaskSource]) -> Data? {
+        try? JSONEncoder().encode(TaskSourceLogic.targets(sources).map {
+            TaskSource(db: $0.db, title: $0.title, icon: $0.icon, role: $0.role, map: $0.map)
+        })
+    }
+    static func decodeTargets(_ d: Data?) -> [TaskSource]? { d.flatMap { try? JSONDecoder().decode([TaskSource].self, from: $0) } }
+
+    enum Failure: Equatable { case forbidden, gone, invalid(String), other }
+    /// Fehler beim Anlegen in einer Quelle (Server: 400 keine/ungueltige Quelle, 403 nur Lesen, 404 unbekannt)
+    static func failure(code: Int, message: String, src: Int?) -> Failure {
+        guard src != nil else { return .other }
+        switch code {
+        case 403: return .forbidden
+        case 404: return .gone
+        case 400: return .invalid(message)
+        default: return .other
+        }
+    }
+    /// Verstaendliche Meldung fuer den Kurzbefehl (nil = allgemeine Fehlermeldung)
+    static func message(_ f: Failure, name: String) -> String? {
+        switch f {
+        case .forbidden: return String(localized: "In „\(name)“ darfst du keine Aufgaben anlegen (nur Lesen).")
+        case .gone: return String(localized: "Die Aufgabenquelle „\(name)“ gibt es nicht mehr oder du hast keinen Zugriff.")
+        case .invalid(let m): return m.isEmpty ? String(localized: "„\(name)“ ist keine Aufgabenquelle mehr.") : m
+        case .other: return nil
+        }
+    }
+    /// Nach 403/404/400 das gemerkte Ziel vergessen (naechster Aufruf wieder Inbox)
+    static func forgetLast(_ f: Failure) -> Bool { f != .other }
+}
+
 /// Wert der Erledigt-Eigenschaft vor dem Abhaken (prev): Option-ID, Haekchen true/false oder null
 enum TaskValue: Codable, Hashable {
     case text(String), bool(Bool), null

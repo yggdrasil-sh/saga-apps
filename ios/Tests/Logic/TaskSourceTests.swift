@@ -83,4 +83,30 @@ func taskSourceTests() {
     check(td?.tasks.count == 2, "bisherige Felder bleiben")
     let old = try? JSONDecoder().decode(TodayData.self, from: Data(#"{"date":"2026-10-28","events":[],"tasks":[{"id":3,"text":"a"}]}"#.utf8))
     check(old?.items == nil && old?.tasks.first?.id == 3, "aelterer Server ohne items")
+
+    // MARK: Kurzbefehl "Neue Aufgabe" mit Ziel (capsrc1)
+    typealias C = CaptureTargetLogic
+    let b1 = C.body(title: "Milch", due: "2026-11-03", src: 77, capsrc: true)
+    check(b1["kind"] as? String == "task" && b1["title"] as? String == "Milch" && b1["src"] as? Int == 77 && b1["due"] as? String == "2026-11-03", "capsrc1: src mitsenden")
+    check(C.body(title: "Milch", src: 77, capsrc: false)["src"] == nil, "ohne capsrc1: kein src (aelterer Server -> Inbox)")
+    check(C.body(title: "Milch", src: C.inbox, capsrc: true)["src"] == nil && C.body(title: "M", src: nil, capsrc: true)["src"] == nil, "Inbox: kein src")
+    check(C.body(title: "M", url: "", src: nil, capsrc: true)["url"] == nil && C.body(title: "M", url: "https://example.org", src: nil, capsrc: true)["url"] as? String == "https://example.org", "url nur wenn gesetzt")
+    check(C.src(target: 5, capsrc: true) == 5 && C.src(target: 5, capsrc: false) == nil && C.src(target: 0, capsrc: true) == nil && C.src(target: nil, capsrc: true) == nil, "gesendetes Ziel")
+    check(C.capsrc(live: ["tasksrc1", "capsrc1"], cached: false) && !C.capsrc(live: ["tasksrc1"], cached: true) && C.capsrc(live: nil, cached: true) && !C.capsrc(live: nil, cached: false), "Feature-Abfrage: live gewinnt, offline gemerkt")
+    var own = src[0]; own.db = 6
+    var other = src[0]; other.db = 9; other.title = "Alt"
+    let cachedT = C.decodeTargets(C.encodeTargets([own, other, viewer, inactive]))
+    check(cachedT?.map(\.db) == [6, 9] && cachedT?.first?.canAdd == true && cachedT?.first?.count == nil, "gemerkte Ziele: nur erlaubte, schlank")
+    let cur = [TaskSource(db: 9, title: "Neu", icon: "📌"), TaskSource(db: 42, title: "Nur abonniert")]
+    let ch = C.choices(cached: cachedT, current: cur)
+    check(ch.map(\.db) == [9] && ch[0].title == "Neu" && ch[0].icon == "📌", "Auswahl: abbestellte weg, Titel aktuell, nicht erlaubte bleiben draussen")
+    check(C.choices(cached: cachedT, current: nil).map(\.db) == [6, 9], "offline: gemerkte Ziele")
+    check(C.choices(cached: nil, current: cur).map(\.db) == [9, 42] && C.choices(cached: nil, current: nil).isEmpty, "ohne gemerkte Liste: abonnierte")
+    check(C.defaultTarget(last: 9, choices: ch) == 9 && C.defaultTarget(last: 6, choices: ch) == C.inbox && C.defaultTarget(last: nil, choices: ch) == C.inbox, "Vorgabe: zuletzt gewaehlt, sonst Inbox")
+    check(C.decodeTargets(nil) == nil && C.decodeTargets(Data("x".utf8)) == nil, "kaputte gemerkte Liste")
+    check(C.failure(code: 403, message: "", src: 9) == .forbidden && C.failure(code: 404, message: "not found", src: 9) == .gone, "403/404")
+    check(C.failure(code: 400, message: "Diese Datenbank ist keine Aufgabenquelle.", src: 9) == .invalid("Diese Datenbank ist keine Aufgabenquelle."), "400 mit Servertext")
+    check(C.failure(code: 404, message: "", src: nil) == .other && C.failure(code: 500, message: "", src: 9) == .other, "Inbox bzw. 5xx: allgemeiner Fehler")
+    check(C.message(.forbidden, name: "Projekt")?.contains("Projekt") == true && C.message(.gone, name: "P") != nil && C.message(.invalid("Text"), name: "P") == "Text" && C.message(.other, name: "P") == nil, "Meldungen")
+    check(C.forgetLast(.gone) && C.forgetLast(.forbidden) && !C.forgetLast(.other), "nach 403/404 Ziel vergessen")
 }

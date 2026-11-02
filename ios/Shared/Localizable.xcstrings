@@ -74951,6 +74951,176 @@
           }
         }
       }
+    },
+    "Aufgabe „%@“ in „%@“ angelegt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aufgabe „%1$@“ in „%2$@“ angelegt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task “%1$@” added to “%2$@”."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tarea «%1$@» creada en «%2$@»."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Задача «%1$@» добавлена в «%2$@»."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพิ่มงาน “%1$@” ใน “%2$@” แล้ว"
+          }
+        }
+      }
+    },
+    "In „%@“ darfst du keine Aufgaben anlegen (nur Lesen)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In „%@“ darfst du keine Aufgaben anlegen (nur Lesen)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can’t add tasks to “%@” (read only)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No puedes crear tareas en «%@» (solo lectura)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В «%@» нельзя добавлять задачи (только чтение)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณเพิ่มงานใน “%@” ไม่ได้ (อ่านอย่างเดียว)"
+          }
+        }
+      }
+    },
+    "Die Aufgabenquelle „%@“ gibt es nicht mehr oder du hast keinen Zugriff." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Aufgabenquelle „%@“ gibt es nicht mehr oder du hast keinen Zugriff."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The task source “%@” no longer exists or you no longer have access."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La fuente de tareas «%@» ya no existe o no tienes acceso."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Источник задач «%@» больше не существует или у вас нет доступа."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แหล่งงาน “%@” ไม่มีอยู่แล้วหรือคุณไม่มีสิทธิ์เข้าถึง"
+          }
+        }
+      }
+    },
+    "„%@“ ist keine Aufgabenquelle mehr." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ ist keine Aufgabenquelle mehr."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” is no longer a task source."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» ya no es una fuente de tareas."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%@» больше не является источником задач."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” ไม่ใช่แหล่งงานแล้ว"
+          }
+        }
+      }
+    },
+    "Aufgabenziel" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ziel"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Destination"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Destino"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Куда"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปลายทาง"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
