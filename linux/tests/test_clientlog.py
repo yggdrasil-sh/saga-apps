@@ -115,7 +115,9 @@ def test_scrub_matches_server():
             "ValueError: https://cloud.example.net/s/abc?token=1 failed", "OSError: [Errno 2] '/home/u/x.pdf'",
             "TypeError: Geheimprojekt Phoenix kaputt", "HTTPError.status5xx: http.PATCH api.notes.ID",
             "socket error at nas-01.fritz.box port 8443", "KeyError: 'title'",
-            "Hostname cloud.mueller.family not verified", "gw.home.arpa failed"]
+            "Hostname cloud.mueller.family not verified", "gw.home.arpa failed",
+            "ModuleNotFoundError: No module named hlidskjalf.api", "JSONDecodeError: http.GET api.app.today",
+            "OSError: Failed to resolve nas.fritz.box [Errno -2]", "urllib.error.URLError: timed out"]
     env = {k: v for k, v in os.environ.items() if k in ("PATH", "HOME", "LANG")}
     env.update({"SECRET_KEY": "x" * 32, "SESSION_SECRET": "x" * 32, "BASE_URL": "https://saga.test",
                 "DATABASE_URL": "postgresql://saga@/nicht_benutzt?host=/nonexistent", "STATE_DIR": "/tmp/st-clog-linux"})
