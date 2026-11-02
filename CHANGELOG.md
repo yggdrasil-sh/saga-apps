@@ -38,6 +38,8 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Einstellungen → Info → Hilfe → „Diagnose senden“:** letzte 200 Ereignisse (Statuscodes, Speichern, grobe Ansicht,
   Live-Kanal) mit optionalem Freitext; die Kennung `D-XXXXX` wird angezeigt und lässt sich kopieren. Ohne Feature
   ausgegraut mit Hinweis.
+- **Bereinigung (Linux und iOS/Mac):** Rechnernamen mit beliebiger Endung (z. B. `.family`, `.fritz.box`, `.home.arpa`) werden
+  wie unter Android zu `<host>`, auch im Freitext; Programmbezeichner, Code-Dateien und Versionen bleiben lesbar.
 
 ### Geändert – Anrufe über Knoten: ruhigere Qualitätsanzeige, Wärme, Diagnose (iOS/Mac und Android)
 - **Empfangsqualität** (Punkt an der Weg-Anzeige, jetzt so beschriftet und vorgelesen): bewertet über die letzten 30 s
