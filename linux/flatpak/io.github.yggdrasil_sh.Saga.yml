@@ -71,6 +71,32 @@ modules:
         url: https://files.pythonhosted.org/packages/1e/b4/e927e0653ba63b02a4ca5b4d852a8d1d678afbf69b3dbf9c4d0785ac905c/pynacl-1.6.2-cp38-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl
         sha256: 8845c0631c0be43abdd865511c41eab235e0be69c81dc66a50911594198679b0
 
+  # Live mitschreiben (2.5, WS /api/collab): pycrdt 0.14.8 (Yjs-Format, MIT; wie der Server) mit anyio (MIT), idna
+  # (BSD-3-Clause), typing_extensions (PSF-2.0) als fertige Wheels von PyPI. Fehlt es, bleibt die App bei Stufe 1.
+  - name: python3-pycrdt
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} --no-build-isolation --no-deps pycrdt anyio idna typing_extensions
+    sources:
+      - type: file
+        only-arches: [x86_64]
+        url: https://files.pythonhosted.org/packages/d5/e8/92157ef5b99eb66b23decb289e78b0dbe9be42424ecabf32053a8387514d/pycrdt-0.14.8-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+        sha256: 6702cee212b5a93501c4d545fc30ece0f6eb5b7d3e5c67c335365f456e4d98d9
+      - type: file
+        only-arches: [aarch64]
+        url: https://files.pythonhosted.org/packages/f4/35/98d6b8cf2b4145abb103a2c68bf3cd68584ec7e0c0e245e994618eb43fc1/pycrdt-0.14.8-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
+        sha256: 69d186d5737e9dc24b04cc45eaebbaf4765d258fbca49866595d829da8131864
+      - type: file
+        url: https://files.pythonhosted.org/packages/a9/16/7757fb84c819accc7d7e9af5291b261e4abb8627ee040f99e7d35ef2457a/anyio-4.16.0-py3-none-any.whl
+        sha256: c66ae634e0b8228396b801741beb3294326d4b6102f7bba4041c0dfb58c29026
+      - type: file
+        url: https://files.pythonhosted.org/packages/58/a2/bb081bab032533a855d44de1d56f8e8426114ff1ba5d1f07a438a0a654f8/idna-3.20-py3-none-any.whl
+        sha256: ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c
+      - type: file
+        url: https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl
+        sha256: 481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8
+
   - name: saga
     buildsystem: simple
     build-commands:

@@ -66,6 +66,10 @@ Benötigt: gtk4 ≥ 4.16, libadwaita ≥ 1.6, python3-gobject, gobject-introspec
 python3-pynacl ≥ 1.5 (Chats; AlmaLinux/RHEL 10 aus EPEL),
 google-noto-color-emoji-fonts (Seitensymbole sind Emoji; fehlt die Schrift, zeigt die App ein einfarbiges Ersatzsymbol);
 empfohlen für Thai: eine Thai-Schrift (`font(notosansthai)`, Fedora/AlmaLinux: Noto Sans Thai).
+Live mitschreiben (Server 2.5 mit Admin-Schalter „Gleichzeitig bearbeiten live“): [pycrdt](https://github.com/y-crdt/pycrdt)
+0.14.8 (MIT, wie der Server) – im Flatpak enthalten, für das RPM optional (Fedora/EPEL haben kein Paket):
+`pip install --target ~/.local/share/hlidskjalf/pylib pycrdt==0.14.8`. Ohne pycrdt führt die App gleichzeitige
+Änderungen wie bisher beim Speichern zusammen (Stufe 1).
 Release-Nummer und angezeigte Version kommen aus `../tools/version-label.sh`: das offizielle Release
 (`SAGA_RELEASE=1`) wird `saga-2.2.0-1`, alle anderen Builds `saga-2.2.0-0.rcN` (zeigt `2.2.0-rc.N`, sortiert vor
 `2.2.0-1`; steht `VERSION` noch auf dem letzten Release, z. B. `saga-2.1.1-0.rcN`); `HK_RELEASE=2 sh build-rpm.sh` erzwingt eine Release-Nummer. Die Version steht in `hlidskjalf/__init__.py`

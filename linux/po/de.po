@@ -9404,3 +9404,23 @@ msgstr "Seite anlegen"
 #, python-brace-format
 #~ msgid "€{value}"
 #~ msgstr "{value} €"
+
+#: hlidskjalf/livepage.py:217
+msgid "Change not applied – you can’t edit this page right now."
+msgstr "Änderung nicht übernommen – du kannst diese Seite gerade nicht bearbeiten."
+
+#: hlidskjalf/livepage.py:218
+msgid "Change not applied."
+msgstr "Änderung nicht übernommen."
+
+#: hlidskjalf/livepage.py:219
+msgid "Change not applied – your latest input could not be kept."
+msgstr "Änderung nicht übernommen – deine letzten Eingaben ließen sich nicht behalten."
+
+#: hlidskjalf/page.py:1250
+msgid "This page uses a different editor version – reload it (or update the app). Until then read-only."
+msgstr "Diese Seite nutzt eine andere Editor-Version – bitte neu laden (oder die App aktualisieren). Bis dahin nur lesen."
+
+#: hlidskjalf/settings.py:763
+msgid "Live editing uses pycrdt and anyio (MIT license)."
+msgstr "Live mitschreiben nutzt pycrdt und anyio (MIT-Lizenz)."

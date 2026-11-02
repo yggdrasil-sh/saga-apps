@@ -39,10 +39,21 @@ _M = None                        # collabmodel (lazy: braucht pycrdt)
 _M_ERR = None
 
 
+def _extra_path():
+    """Starter laufen mit python3 -sP (ohne Nutzer-site-packages): optional nachinstalliertes pycrdt aus einem eigenen
+    Ordner (z. B. pip install --target ~/.local/share/hlidskjalf/pylib pycrdt==0.14.8) bzw. HK_PYLIB"""
+    import os
+    import sys
+    for p in (os.environ.get("HK_PYLIB"), os.path.join(os.path.expanduser("~"), ".local", "share", "hlidskjalf", "pylib")):
+        if p and os.path.isdir(p) and p not in sys.path:
+            sys.path.append(p)
+
+
 def model():
     """collabmodel oder None (pycrdt fehlt bzw. passt nicht) - dann bleibt die App bei Stufe 1"""
     global _M, _M_ERR
     if _M is None and _M_ERR is None:
+        _extra_path()
         try:
             from . import collabmodel as m
             m.Doc  # noqa: B018 - pycrdt wirklich geladen

@@ -31,6 +31,12 @@ Requires:       google-noto-color-emoji-fonts
 # Funktionen, die es seit PyNaCl 1.5 gibt (Testvektoren tests/test_chat_vectors.py laufen mit 1.5.0); EPEL 10 hat nur 1.5.0
 # (BUG-026). Die Krypto selbst kommt aus der System-libsodium, nicht aus PyNaCl.
 Requires:       python3dist(pynacl) >= 1.5
+# Live mitschreiben (2.5, WS /api/collab, Admin-Schalter notes.live): pycrdt (Yjs-Format, MIT) in derselben Version wie
+# der Server (0.14.8). Fedora/EPEL liefern (noch) kein python3-pycrdt - daher nur empfohlen: ohne pycrdt bleibt die App
+# bei Stufe 1 (Zusammenfuehren per PATCH), alles andere laeuft. Nachinstallieren (der Starter nutzt python3 -sP, also
+# nicht ~/.local/lib): pip install --target ~/.local/share/hlidskjalf/pylib pycrdt==0.14.8
+# (pycrdt ist eine native Erweiterung - kein Teil dieses noarch-RPMs; im Flatpak ist es enthalten).
+Recommends:     python3dist(pycrdt)
 # Anrufe (2.1): Klingelton als WAV ueber GStreamer (playbin; gstreamer1 samt Gst-Typelib kommt mit gtk4, WAV lesen kann
 # erst wavparse aus plugins-good). Ohne das Paket klingelt es still (Mitteilung + Leiste bleiben) - daher nur empfohlen.
 # Das Gespraech selbst laeuft im Standardbrowser (Linux v1, keine WebRTC-Bibliothek noetig).
@@ -131,6 +137,11 @@ test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/avatars.py
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/profile.py
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/security.py
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/calls.py
+# 2.5: Live mitschreiben (pycrdt optional)
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/collab.py
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/collabmodel.py
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/collabws.py
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/livepage.py
 
 # Desktop-Datenbank und Symbol-Zwischenspeicher aktualisieren Fedora/RHEL selbst (Datei-Trigger) - keine Scriptlets noetig
 

@@ -9059,3 +9059,23 @@ msgstr "สร้างหน้า"
 #, python-brace-format
 #~ msgid "€{value}"
 #~ msgstr "€{value}"
+
+#: hlidskjalf/livepage.py:217
+msgid "Change not applied – you can’t edit this page right now."
+msgstr "ไม่ได้นำการเปลี่ยนแปลงไปใช้ – ขณะนี้คุณแก้ไขหน้านี้ไม่ได้"
+
+#: hlidskjalf/livepage.py:218
+msgid "Change not applied."
+msgstr "ไม่ได้นำการเปลี่ยนแปลงไปใช้"
+
+#: hlidskjalf/livepage.py:219
+msgid "Change not applied – your latest input could not be kept."
+msgstr "ไม่ได้นำการเปลี่ยนแปลงไปใช้ – เก็บสิ่งที่คุณพิมพ์ล่าสุดไว้ไม่ได้"
+
+#: hlidskjalf/page.py:1250
+msgid "This page uses a different editor version – reload it (or update the app). Until then read-only."
+msgstr "หน้านี้ใช้ตัวแก้ไขรุ่นอื่น – โปรดโหลดใหม่ (หรืออัปเดตแอป) ระหว่างนี้อ่านได้อย่างเดียว"
+
+#: hlidskjalf/settings.py:763
+msgid "Live editing uses pycrdt and anyio (MIT license)."
+msgstr "การแก้ไขพร้อมกันแบบสดใช้ pycrdt และ anyio (สัญญาอนุญาต MIT)"
