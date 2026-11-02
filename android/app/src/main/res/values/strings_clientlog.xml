@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 clientlog1: Einstellungen -> Info -> Hilfe ("Diagnose senden") -->
+<resources>
+    <string name="diag_title">Help</string>
+    <string name="diag_send">Send diagnostics</string>
+    <string name="diag_hint">Sends a short technical log of the last actions in the app (error types, status codes, timings - no page or chat content, no names) to the administrator of your Saga server.</string>
+    <string name="diag_off">Your Saga server does not accept diagnostics.</string>
+    <string name="diag_note">Description (optional)</string>
+    <string name="diag_note_hint">What happened? Your text is sent to the administrator as written – please do not include passwords or personal data.</string>
+    <string name="diag_sending">Sending …</string>
+    <string name="diag_sent">Diagnostics sent. Reference: %1$s</string>
+    <string name="diag_copy">Copy reference</string>
+    <string name="diag_copied">Reference copied</string>
+    <string name="diag_failed">Diagnostics could not be sent (%1$s).</string>
+    <string name="diag_too_many">Too many diagnostics in the last hour. Please try again later.</string>
+    <string name="diag_net">Server not reachable</string>
+</resources>

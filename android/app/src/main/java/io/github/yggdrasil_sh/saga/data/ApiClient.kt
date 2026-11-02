@@ -80,7 +80,16 @@ class ApiClient(
     private val onAccount: (String) -> Unit = {},
     /** Sprache der App-Oberflaeche (BCP 47, z. B. "de") - der Server uebersetzt damit seine Fehlermeldungen */
     private val language: () -> String = { "" },
+    /** 2.5 clientlog1: Status je Anfrage an den eigenen Server (Methode, Pfad, Status - 0 = keine Antwort, ms) */
+    private val onNet: (String, String, Int, Long) -> Unit = { _, _, _, _ -> },
 ) {
+    private fun net(method: String, path: String, code: Int, t0: Long) {
+        try {
+            onNet(method, path, code, System.currentTimeMillis() - t0)
+        } catch (_: Throwable) {
+        }
+    }
+
     val cookies = MemoryCookieJar()
     private val jsonType = "application/json; charset=utf-8".toMediaType()
 
@@ -210,7 +219,14 @@ class ApiClient(
         if (bearer != null) rq.header("Authorization", "Bearer $bearer")
         headers.forEach { (k, v) -> rq.header(k, v) }
         val req = rq.build()
-        val (code, text) = execute(if (auth || base != null || bearer != null) authClient else client, req)
+        val t0 = System.currentTimeMillis()
+        val (code, text) = try {
+            execute(if (auth || base != null || bearer != null) authClient else client, req)
+        } catch (e: IOException) {
+            if (base == null) net(method, path, 0, t0)
+            throw e
+        }
+        if (base == null) net(method, path, code, t0)
         if (code !in 200..299) throw ApiException(code, errorText(code, text), text)
         return text
     }
@@ -286,6 +302,18 @@ class ApiClient(
     suspend fun raw(method: String, path: String, body: okhttp3.RequestBody? = null, headers: Map<String, String> = emptyMap()): RawResponse {
         val rq = Request.Builder().url(url(path)).method(method, body).header("X-Saga", "1")
         headers.forEach { (k, v) -> rq.header(k, v) }
+        val t0 = System.currentTimeMillis()
+        val r = try {
+            rawCall(rq)
+        } catch (e: IOException) {
+            net(method, path, 0, t0)
+            throw e
+        }
+        net(method, path, r.code, t0)
+        return r
+    }
+
+    private suspend fun rawCall(rq: Request.Builder): RawResponse {
         return suspendCancellableCoroutine { cont ->
             val call = client.newCall(rq.build())
             cont.invokeOnCancellation { call.cancel() }

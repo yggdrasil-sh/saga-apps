@@ -471,6 +471,7 @@ fun SettingsInfoScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) 
                 }
             }
             item(key = "update") { UpdateHintSection(w) }
+            item(key = "diag") { DiagSection(w) }
             item(key = "licenses") { SagaSectionTitle(stringResource(R.string.settings_licenses), w.padding(top = 12.dp)) }
             item(key = "license-text") {
                 Text(
@@ -479,6 +480,99 @@ fun SettingsInfoScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) 
                 )
             }
         }
+    }
+}
+
+/**
+ * 2.5 clientlog1: Info -> Hilfe -> "Diagnose senden" - Ringpuffer der letzten Ereignisse und optional ein Freitext an den
+ * Server (POST api/client/diag); Antwort-Kennung D-XXXXX zum Kopieren. Ohne Feature ausgegraut mit Hinweis.
+ */
+@Composable
+private fun DiagSection(modifier: Modifier) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val on by io.github.yggdrasil_sh.saga.diag.ClientLogger.on.collectAsState()
+    var open by remember { mutableStateOf(false) }
+    var note by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<io.github.yggdrasil_sh.saga.diag.ClientLogger.DiagResult?>(null) }
+    val enabled = on == true
+    Column(modifier) {
+        SagaSectionTitle(stringResource(R.string.diag_title), Modifier.padding(top = 12.dp))
+        Column(
+            Modifier.sagaSegment(0, 1).padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                stringResource(if (on == false) R.string.diag_off else R.string.diag_hint), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                FilledTonalButton(onClick = { result = null; open = true }, enabled = enabled) { Text(stringResource(R.string.diag_send)) }
+            }
+        }
+    }
+    if (open) {
+        val r = result
+        AlertDialog(
+            onDismissRequest = { if (!busy) { open = false; if (r is io.github.yggdrasil_sh.saga.diag.ClientLogger.DiagResult.Ok) note = "" } },
+            title = { Text(stringResource(R.string.diag_send)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    when (r) {
+                        is io.github.yggdrasil_sh.saga.diag.ClientLogger.DiagResult.Ok -> {
+                            androidx.compose.foundation.text.selection.SelectionContainer {
+                                Text(stringResource(R.string.diag_sent, r.id), style = MaterialTheme.typography.titleSmall)
+                            }
+                        }
+                        else -> {
+                            Text(stringResource(R.string.diag_hint), style = MaterialTheme.typography.bodySmall)
+                            androidx.compose.material3.OutlinedTextField(
+                                value = note, onValueChange = { note = it.take(io.github.yggdrasil_sh.saga.diag.ClientLog.NOTE_MAX) },
+                                label = { Text(stringResource(R.string.diag_note)) }, enabled = !busy, minLines = 3, maxLines = 6,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Text(stringResource(R.string.diag_note_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (busy) Text(stringResource(R.string.diag_sending), style = MaterialTheme.typography.bodySmall)
+                            (r as? io.github.yggdrasil_sh.saga.diag.ClientLogger.DiagResult.Failed)?.let { f ->
+                                Text(
+                                    when (f.code) {
+                                        429 -> stringResource(R.string.diag_too_many)
+                                        404 -> stringResource(R.string.diag_off)
+                                        0 -> stringResource(R.string.diag_failed, stringResource(R.string.diag_net))
+                                        else -> stringResource(R.string.diag_failed, "HTTP ${f.code}")
+                                    },
+                                    color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                if (r is io.github.yggdrasil_sh.saga.diag.ClientLogger.DiagResult.Ok) {
+                    val copied = stringResource(R.string.diag_copied)
+                    TextButton(onClick = {
+                        val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("Saga", r.id))
+                        if (android.os.Build.VERSION.SDK_INT < 33) android.widget.Toast.makeText(context, copied, android.widget.Toast.LENGTH_SHORT).show()
+                    }) { Text(stringResource(R.string.diag_copy)) }
+                } else {
+                    TextButton(enabled = !busy && enabled, onClick = {
+                        busy = true
+                        scope.launch {
+                            result = io.github.yggdrasil_sh.saga.diag.ClientLogger.diag(note)
+                            busy = false
+                        }
+                    }) { Text(stringResource(R.string.diag_send)) }
+                }
+            },
+            dismissButton = {
+                TextButton(enabled = !busy, onClick = { open = false; if (r is io.github.yggdrasil_sh.saga.diag.ClientLogger.DiagResult.Ok) note = "" }) {
+                    Text(stringResource(if (r is io.github.yggdrasil_sh.saga.diag.ClientLogger.DiagResult.Ok) R.string.action_done else R.string.action_cancel))
+                }
+            },
+        )
     }
 }
 

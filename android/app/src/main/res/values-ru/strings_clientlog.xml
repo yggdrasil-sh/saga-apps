@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 clientlog1: Einstellungen -> Info -> Hilfe ("Diagnose senden") -->
+<resources>
+    <string name="diag_title">Справка</string>
+    <string name="diag_send">Отправить диагностику</string>
+    <string name="diag_hint">Отправляет администратору вашего сервера Saga краткий технический журнал последних действий в приложении (типы ошибок, коды состояния, время — без содержимого страниц и чатов, без имён).</string>
+    <string name="diag_off">Ваш сервер Saga не принимает диагностику.</string>
+    <string name="diag_note">Описание (необязательно)</string>
+    <string name="diag_note_hint">Что произошло? Ваш текст попадёт к администратору в том виде, в котором вы его напишете, — не указывайте пароли и личные данные.</string>
+    <string name="diag_sending">Отправка …</string>
+    <string name="diag_sent">Диагностика отправлена. Код: %1$s</string>
+    <string name="diag_copy">Скопировать код</string>
+    <string name="diag_copied">Код скопирован</string>
+    <string name="diag_failed">Не удалось отправить диагностику (%1$s).</string>
+    <string name="diag_too_many">Слишком много диагностик за последний час. Повторите попытку позже.</string>
+    <string name="diag_net">Сервер недоступен</string>
+</resources>

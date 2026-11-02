@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 clientlog1: Einstellungen -> Info -> Hilfe ("Diagnose senden") -->
+<resources>
+    <string name="diag_title">Ayuda</string>
+    <string name="diag_send">Enviar diagnóstico</string>
+    <string name="diag_hint">Envía un breve registro técnico de las últimas acciones en la app (tipos de error, códigos de estado, tiempos; sin contenido de páginas o chats, sin nombres) al administrador de tu servidor Saga.</string>
+    <string name="diag_off">Tu servidor Saga no acepta diagnósticos.</string>
+    <string name="diag_note">Descripción (opcional)</string>
+    <string name="diag_note_hint">¿Qué ha pasado? Tu texto llega al administrador tal como lo escribes; no incluyas contraseñas ni datos personales.</string>
+    <string name="diag_sending">Enviando …</string>
+    <string name="diag_sent">Diagnóstico enviado. Referencia: %1$s</string>
+    <string name="diag_copy">Copiar referencia</string>
+    <string name="diag_copied">Referencia copiada</string>
+    <string name="diag_failed">No se pudo enviar el diagnóstico (%1$s).</string>
+    <string name="diag_too_many">Demasiados diagnósticos en la última hora. Inténtalo de nuevo más tarde.</string>
+    <string name="diag_net">Servidor no disponible</string>
+</resources>
