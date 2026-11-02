@@ -1315,6 +1315,7 @@ class BlockKit:
         def save():
             # nur content aendern - headCol, colWidths, colors und Unbekanntes bleiben unveraendert (Regel 0)
             d["content"] = [[cell_html(r, c) for c in range(len(rows[r]))] for r in range(len(rows))]
+            self.editor.live_hint = (b, None)                  # Live: nur diesen Block abgleichen
             self.editor.text_changed()
 
         def shift_rows(i):
@@ -1485,6 +1486,10 @@ class BlockKit:
         else:
             b.setdefault("data", {})[field] = html
         self.synced(rt)
+        # Live (2.5): Eingabe genau an der Schreibmarke ins gemeinsame Dokument (Felder mit einem Text je Block)
+        one = rt.hk_item is None and (b.get("type"), field) in (("paragraph", "text"), ("header", "text"), ("callout", "text"),
+                                                                ("code", "code"))
+        self.editor.live_hint = (b, rt.cursor_offset() if one else None)
         self.editor.text_changed()
         if rt.raw:
             return

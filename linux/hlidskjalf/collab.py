@@ -245,8 +245,8 @@ def write_local(doc, blocks, title, hint=None, caret=None):
     m = model()
     frag = doc.get(m.FRAGMENT, type=m.XmlFragment)
     with doc.transaction(origin=LOCAL):
-        done = False
-        if hint is not None and isinstance(hint.get("id"), str):
+        done = hint == "title"                          # nur der Titel wurde getippt
+        if not done and isinstance(hint, dict) and isinstance(hint.get("id"), str):
             r = _find_el(frag, hint["id"])
             if r is not None:
                 parent, idx, el = r
@@ -368,7 +368,12 @@ class Connection:
         self.open = False
         self.hello = None
         self.ws = "connecting"
-        threading.Thread(target=self._run, args=(gen,), daemon=True, name="hk-collab").start()
+        try:
+            url, hdrs = self.url(), self.headers()
+        except Exception:  # noqa: BLE001 - kein Server eingetragen o. ae.
+            self.ws = None
+            return
+        threading.Thread(target=self._run, args=(gen, url, hdrs), daemon=True, name="hk-collab").start()
 
     def reset(self):
         """Server/Konto gewechselt bzw. /api/version neu: Schalter wieder pruefen"""
@@ -423,9 +428,9 @@ class Connection:
         return False
 
     # --- Hintergrund ---
-    def _run(self, gen):
+    def _run(self, gen, url, hdrs):
         try:
-            ws = W.WebSocket(self.url(), self.headers(), timeout=15).connect()
+            ws = W.WebSocket(url, hdrs, timeout=15).connect()
         except (Closed, OSError, ValueError) as e:
             code = getattr(e, "code", 1006)
             st = None
@@ -548,7 +553,9 @@ class Session:
         live_fallback(pending)  zurueck auf Stufe 1; pending: eigene, noch nicht bestaetigte Aenderungen -> per PATCH
         live_notice(code)  Hinweis (reject ...)
         live_gone(reason)  Zugriff weg
-        live_aw(states)  {sid: {name, color, block}} der anderen"""
+        live_aw(states)  {sid: {name, color, block}} der anderen
+        live_focus() -> fokussierter Block (ID) bzw. None
+        live_hold() -> True: fremde Aenderungen kurz zurueckhalten (IME-Eingabe laeuft im fokussierten Feld)"""
 
     def __init__(self, conn, nid, host, resolver):
         self.conn, self.nid, self.host, self.resolver = conn, nid, host, resolver
@@ -569,7 +576,12 @@ class Session:
         self.bind_src = 0
         self.grace_src = 0
         self.retry_src = 0
+        self.hold_src = 0
         self.leaving = False
+        self.lock_why = None
+        self.why = None
+        self._resume = False
+        self._aw_want = None
         self.loaddrops = 0
         self.sent = 0
         self.dropped = 0
@@ -615,7 +627,7 @@ class Session:
             self.host.live_fallback(True)
 
     def _clear_timers(self):
-        for k in ("aw_src", "bind_src", "grace_src", "retry_src"):
+        for k in ("aw_src", "bind_src", "grace_src", "retry_src", "hold_src"):
             v = getattr(self, k)
             if v:
                 GLib.source_remove(v)
@@ -784,7 +796,7 @@ class Session:
                 self.host.live_mode("ro" if self.ro else "live")
                 self._refresh()
                 self.aw_sent = None
-                self.aw_out(self.host_focus() if hasattr(self, "host_focus") else None)
+                self.aw_out(self.host.live_focus())
             return
         if self.state == "sub":
             self._try_bind()
@@ -838,6 +850,10 @@ class Session:
         """Y -> Ansicht (nur geaenderte Bloecke)"""
         if self.doc is None or self.state not in ("live", "offline"):
             return
+        if self.host.live_hold():                            # IME-Vorschau im Feld: erst nach dem Abschluss zeigen
+            if not self.hold_src:
+                self.hold_src = GLib.timeout_add(150, self._hold_due)
+            return
         m = model()
         cur = self.host.live_blocks()
         try:
@@ -853,6 +869,11 @@ class Session:
         bad = pending_changes(self.doc, self.host.live_blocks(), self.resolver, None, only=changed)
         if bad and self.state in ("live", "offline"):
             self._lock("show:" + ",".join(str(x) for x in bad[:5]))
+
+    def _hold_due(self):
+        self.hold_src = 0
+        self._refresh()
+        return False
 
     # --- eigene Aenderungen ---
     def local(self, hint=None, caret=None):
