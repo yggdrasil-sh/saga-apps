@@ -75,7 +75,7 @@ object ClientLog {
     private val TOKEN = Regex("""(?<![\w~])(?=[A-Za-z_\-+=]*\d)[A-Za-z0-9_\-+=]{20,}""")
     private val NUM = Regex("""(^|[^\w$<])\d+(?:[.,]\d+)*""")
     private val WORD = Regex("""<[a-z]+>|'[a-z_$][\w$.]{0,39}'|[^\W\d_][\w$]*(?:\.[\w$]+)*""")
-    private val PROGRAM = Regex("""[.$_\d]|[a-z][A-Z]|(?:Error|Exception)$""")
+    private val PROGRAM = Regex("""[._\d${'$'}]|[a-z][A-Z]|(?:Error|Exception)$""")
     private val ALLOW = Regex("""[^\w\s.,:;()\[\]{}<>#'"=+\-*/!?&|%$~^]""")
     private val SPACES = Regex("""\s{2,}""")
 
@@ -216,11 +216,11 @@ object ClientLog {
         }
         var cur: Throwable? = e
         var depth = 0
-        while (cur != null && depth < 4) {
-            if (depth > 0 && !add("Caused by: " + cur.javaClass.simpleName.ifEmpty { "Throwable" })) break
-            val fs = frames(cur)
-            for (f in fs.take(if (depth == 0) STACK_LINES else 4)) if (!add(frameLine(f))) break
-            cur = cur.cause?.takeIf { it !== cur }
+        while (depth < 4) {
+            val x = cur ?: break
+            if (depth > 0 && !add("Caused by: " + x.javaClass.simpleName.ifEmpty { "Throwable" })) break
+            for (f in frames(x).take(if (depth == 0) STACK_LINES else 4)) if (!add(frameLine(f))) break
+            cur = x.cause?.takeIf { it !== x }
             depth++
         }
         return out.joinToString("\n")
