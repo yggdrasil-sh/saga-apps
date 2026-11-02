@@ -292,11 +292,11 @@ def test_without_feature_nothing_sent(srv, fresh_log):
     _with_clientlog(srv, feature=False)
     store.check_version()
     pump(lambda: store.server_version == "2.5.0")
-    fresh_log.crash_note = "EXC ValueError: x\n"
+    fresh_log.crash_notes = ["EXC ValueError: x\n"]
     fresh_log.ready()
     fresh_log.report("error", "TypeError: x")
     pump(timeout=2.0)
-    assert srv.clog == [] and fresh_log.reporter.pending == [] and fresh_log.crash_note is None
+    assert srv.clog == [] and fresh_log.reporter.pending == [] and fresh_log.crash_notes == []
     got = []
     fresh_log.send_diag("hallo", lambda k, v: got.append(k))
     assert got == ["off"] and srv.cdiag == []
@@ -350,45 +350,48 @@ def test_log_404_quiet_and_429(srv, fresh_log, monkeypatch):
 def test_crash_note_sent_once(srv, fresh_log):
     from hlidskjalf.store import store
     _with_clientlog(srv)
-    fresh_log.crash_note = 'Fatal Python error: Aborted\n  File "/home/nutzer/a/window.py", line 5 in run\n'
+    fresh_log.crash_notes = ['Fatal Python error: Aborted\n  File "/home/nutzer/a/window.py", line 5 in run\n',
+                             'Fatal Python error: Aborted\n  File "/home/nutzer/a/window.py", line 5 in run\n']
     store.check_version()
     assert pump(lambda: srv.clog, 8.0)
     it = srv.clog[0]["items"][0]
     assert it["k"] == "crash" and it["msg"] == "Signal.SIGABRT" and it["stack"] == "window.py:5 window.run"
-    assert fresh_log.crash_note is None
+    assert it["n"] == 2 and len(srv.clog[0]["items"]) == 1 and fresh_log.crash_notes == []
 
 
 def test_install_writes_and_reads_note(tmp_path, monkeypatch):
-    """Notiz-Datei: Ausnahme beim Beenden -> beim naechsten Start gelesen (Dateirechte 0600, nur Dateinamen)"""
+    """Notiz-Datei je Prozess: Ausnahme beim Beenden -> beim naechsten Start gelesen und entfernt (0600, nur Dateinamen);
+    Dateien laufender Prozesse bleiben unberuehrt"""
     import faulthandler
-    monkeypatch.setattr(C, "_note_path", lambda: str(tmp_path / "crash-note.txt"))
+    import threading
+    monkeypatch.setattr(C, "_note_dir", lambda: str(tmp_path))
     monkeypatch.setattr(C, "_note_file", None)
     monkeypatch.setattr(C, "_keep", False)
     log = C.ClientLog()
     monkeypatch.setattr(C, "log", log)
-    hook, thook = sys.excepthook, __import__("threading").excepthook
+    hook, thook = sys.excepthook, threading.excepthook
+    mine = tmp_path / f"crash-{os.getpid()}.txt"
     try:
+        (tmp_path / "crash-1.txt").write_text("EXC ValueError: andere Instanz\n")       # pid 1 laeuft: bleibt
         C.install()
-        assert oct(os.stat(tmp_path / "crash-note.txt").st_mode & 0o777) == "0o600"
+        assert oct(os.stat(mine).st_mode & 0o777) == "0o600"
         try:
             _boom()
         except ValueError as e:
             C.note_exception(e, e.__traceback__)
-        text = (tmp_path / "crash-note.txt").read_text()
+        text = mine.read_text()
         assert text.startswith("EXC ValueError") and "nutzer" not in text and "/" not in text.split("\n", 1)[1]
-        # excepthook meldet in den Ringpuffer
-        sys.excepthook(ValueError, ValueError("x"), None)
+        sys.excepthook(ValueError, ValueError("x"), None)                               # excepthook -> Ringpuffer
         assert any(e["k"] == "err" and e["msg"].startswith("ValueError") for e in log.ring.events)
-        # naechster Start: Notiz wird gelesen
-        monkeypatch.setattr(C, "_note_file", None)
-        log2 = C.ClientLog()
-        monkeypatch.setattr(C, "log", log2)
-        sys.excepthook, __import__("threading").excepthook = hook, thook
-        C.install()
-        assert log2.crash_note and log2.crash_note.startswith("EXC ValueError")
+        # "naechster Start": Datei eines beendeten Prozesses
+        os.rename(mine, tmp_path / "crash-999999999.txt")
+        (tmp_path / "crash-999999998.txt").write_text("")                              # leer (SIGKILL): nur weg
+        notes = C.read_notes(str(tmp_path))
+        assert len(notes) == 1 and notes[0].startswith("EXC ValueError")
+        assert sorted(os.listdir(tmp_path)) == ["crash-1.txt"]
     finally:
         faulthandler.disable()
-        sys.excepthook, __import__("threading").excepthook = hook, thook
+        sys.excepthook, threading.excepthook = hook, thook
         if C._note_file is not None:
             C._note_file.close()
 

@@ -506,7 +506,7 @@ class ClientLog:
         self._timer = 0
         self._sending = False
         self._os = None
-        self.crash_note = None          # Notiz des letzten Laufs (beim Start gelesen)
+        self.crash_notes = []           # Notizen frueherer Laeufe (beim Start gelesen)
         self.ring.push("life", 0, st="start")
 
     def now_ms(self):
@@ -593,13 +593,14 @@ class ClientLog:
 
     def ready(self):
         """/api/version ist bekannt: Absturz-Notiz senden (mit Feature) bzw. verwerfen (ohne)"""
-        note, self.crash_note = self.crash_note, None
+        notes, self.crash_notes = self.crash_notes, []
         if not self.on():
             return
-        it = crash_item(note, self.now_ms()) if note else None
-        if it is not None:
-            with self.lock:
-                self.reporter.add(it)
+        with self.lock:                                  # alle Notizen in EINEM Bericht (gleiche gezaehlt)
+            for note in notes:
+                it = crash_item(note, self.now_ms())
+                if it is not None:
+                    self.reporter.add(it)
         self._later()
 
     def _later(self):
@@ -701,28 +702,57 @@ _note_file = None
 _keep = False                       # Notiz geschrieben: beim Beenden nicht loeschen
 
 
-def _note_path():
+def _note_dir():
     from gi.repository import GLib
     get = getattr(GLib, "get_user_state_dir", None) or GLib.get_user_cache_dir
     d = os.path.join(get(), "hlidskjalf")
-    os.makedirs(d, exist_ok=True)
-    return os.path.join(d, "crash-note.txt")
+    os.makedirs(d, mode=0o700, exist_ok=True)
+    return d
+
+
+def _alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:                    # anderer Nutzer o. ae.: lieber nicht anfassen
+        return True
+    return True
+
+
+def read_notes(d):
+    """Notizen frueherer Laeufe (crash-<pid>.txt, Prozess beendet) einlesen und entfernen -> [text]. Je Prozess eine
+    eigene Datei: eine zweite Instanz (z. B. --new-page an die laufende App) leert nie die Notiz der ersten."""
+    out = []
+    try:
+        names = sorted(os.listdir(d))
+    except OSError:
+        return out
+    for n in names:
+        m = re.fullmatch(r"crash-(\d{1,10})\.txt", n)
+        if not m or int(m.group(1)) == os.getpid() or _alive(int(m.group(1))):
+            continue
+        path = os.path.join(d, n)
+        try:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                text = f.read(32000)
+            os.unlink(path)
+        except OSError:
+            continue
+        if text.strip():
+            out.append(text)
+    return out[-5:]
 
 
 def install():
-    """frueh beim Start: Notiz des letzten Laufs einlesen, Datei leer neu oeffnen, faulthandler + excepthooks setzen"""
+    """frueh beim Start: Notizen frueherer Laeufe einlesen, eigene Datei oeffnen, faulthandler + excepthooks setzen"""
     global _note_file
     if _note_file is not None:
         return
     try:
-        path = _note_path()
-        try:
-            with open(path, encoding="utf-8", errors="replace") as f:
-                text = f.read(32000)
-            if text.strip():
-                log.crash_note = text
-        except OSError:
-            pass
+        d = _note_dir()
+        log.crash_notes = read_notes(d)
+        path = os.path.join(d, f"crash-{os.getpid()}.txt")
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         _note_file = os.fdopen(fd, "w", encoding="utf-8")
         import faulthandler
