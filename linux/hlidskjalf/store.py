@@ -193,6 +193,8 @@ class Store(GObject.Object):
         self.server_version = self.min_app = None
         self.merge_seen = False
         self.features = frozenset()
+        from .clientlog import log
+        log.reset()                                         # 2.5 clientlog1: nichts aus der alten Anmeldung mitnehmen
         from . import pagewidgets
         pagewidgets.FEATURES = None
         self.emit("server-changed")
@@ -833,6 +835,8 @@ class Store(GObject.Object):
                     self.load_today()                                # 2.5: Aufgaben mit Quellen nachladen
                 if "tasksrc1" in self.features and len(self.tqueue):
                     self.flush_task_queue()
+                from .clientlog import log
+                log.ready()                                          # 2.5 clientlog1: Absturz-Notiz senden bzw. verwerfen
         bg(client.get, "api/version", done=fin, error=lambda e: None)
 
     def has(self, feature):

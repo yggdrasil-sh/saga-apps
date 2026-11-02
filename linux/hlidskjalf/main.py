@@ -129,10 +129,17 @@ def main():
     if "--search-provider" in sys.argv:                  # GNOME-Suche (per D-Bus gestartet)
         from .searchprovider import Provider
         return Provider().run()
+    from . import clientlog
+    clientlog.install()                                  # 2.5 clientlog1: Ausnahmen/Abbrueche (gesendet nur mit Feature)
     app = App()
     if "--gapplication-service" in sys.argv:             # per D-Bus geweckt (UnifiedPush): Mitteilung zeigen, dann beenden
         app.set_inactivity_timeout(10000)
-    r = app.run(sys.argv)
+    try:
+        r = app.run(sys.argv)
+    except BaseException as e:                           # beendet die App: Notiz fuer den naechsten Start
+        if not isinstance(e, (KeyboardInterrupt, SystemExit)):
+            clientlog.note_exception(e, e.__traceback__)
+        raise
     if app.restart_requested:
         argv = list(getattr(sys, "orig_argv", None) or [sys.executable] + sys.argv)
         argv = [a for a in argv if a not in ("--gapplication-service", "--new-page", "--new-task") and not a.startswith("hlidskjalf:")]

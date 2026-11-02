@@ -1039,6 +1039,8 @@ class MainWindow(Adw.ApplicationWindow):
         if route[0] == "page":
             self.last_page_id = route[1]                        # Graph: zuletzt offene Seite markieren / lokal zeigen
         self.route = route
+        from .clientlog import log
+        log.view(route)                                         # 2.5 clientlog1: grober Ort (nie Titel oder ID)
         while (c := self.slot.get_first_child()):
             self.slot.remove(c)
         self.current = self._make(route)

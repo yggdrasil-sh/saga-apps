@@ -113,6 +113,23 @@ def _unreachable(e):
     return _("Server not reachable")
 
 
+def _clientlog_net(method, path, code, t0):
+    """2.5 clientlog1: Status je Endpunkt-Muster in den Ringpuffer, 5xx als Fehlerbericht (nie Server-Text oder -Adresse)"""
+    try:
+        from .clientlog import log
+        log.net(method, path, code, (time.monotonic() - t0) * 1000)
+    except Exception:  # noqa: BLE001 - Diagnose darf nie eine Anfrage stoeren
+        pass
+
+
+def _clientlog_json(method, path):
+    try:
+        from .clientlog import log
+        log.json_failed(method, path)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 class APIError(Exception):
     def __init__(self, code, msg=""):
         super().__init__(msg or f"HTTP {code}")
@@ -299,8 +316,15 @@ class Client:
                 raise APIError(SWITCHED)
         for attempt in range(2):
             check()
-            code, out = self._send(method, path, data, ctype, timeout, headers=headers) if headers else \
-                self._send(method, path, data, ctype, timeout)
+            t0 = time.monotonic()
+            try:
+                code, out = self._send(method, path, data, ctype, timeout, headers=headers) if headers else \
+                    self._send(method, path, data, ctype, timeout)
+            except APIError as e:
+                if e.code == 0:
+                    _clientlog_net(method, path, 0, t0)
+                raise
+            _clientlog_net(method, path, code, t0)
             if code != 401:
                 break
             if attempt == 0:
@@ -327,7 +351,12 @@ class Client:
 
     def json(self, method, path, body=None, **kw):
         out = self.request(method, path, body, **kw)
-        return readable_names(json.loads(out)) if out else None
+        try:
+            j = json.loads(out) if out else None
+        except ValueError:
+            _clientlog_json(method, path)                # 2.5 clientlog1: unlesbare Antwort (nur Endpunkt-Muster)
+            raise
+        return readable_names(j) if j is not None else None
 
     def get(self, path):
         return self.json("GET", path)

@@ -144,6 +144,25 @@ def _blocks_key(blocks):
         return None
 
 
+def _clientlog_save(e):
+    """Speichern fehlgeschlagen -> Ringpuffer (conflict/offline/error mit Status); abgelehnt (4xx ausser 401/409) auch als
+    Fehlerbericht - 5xx meldet schon der API-Client"""
+    from .clientlog import log, save_message
+    code = e.code if isinstance(e, APIError) else None
+    if code == SWITCHED:
+        return
+    if code == 409:
+        log.save("conflict", 409)
+    elif code == 0:
+        log.save("offline", 0)
+    else:
+        log.save("error", code if isinstance(code, int) and code > 0 else None)
+        if isinstance(code, int) and 400 <= code < 500 and code != 401:
+            log.report("error", save_message(code))
+        elif not isinstance(e, APIError):                    # Programmfehler beim Speichern
+            log.exception(e, e.__traceback__)
+
+
 class PageDoc:
     """Eine Seite: Kopf (Titel, Icon, ...) + Bloecke. Speichern mit Revision; nichts geht verloren:
     - 409 (woanders geaendert): Server-Fassung holen, eigene behalten, on_conflict fragt (sonst Konfliktkopie)
@@ -578,6 +597,8 @@ class PageDoc:
             self.nc_error = None
             if isinstance(r, dict) and r.get("rev") is not None:
                 self.rev = r["rev"]
+            from .clientlog import log
+            log.save("merged" if isinstance(r, dict) and isinstance(r.get("merged"), dict) else "ok")   # 2.5 clientlog1
             if isinstance(r, dict) and isinstance(r.get("merged"), dict):
                 store.merge_seen = True
                 self._merged_reply(r, sent, sent_blocks, title)
@@ -608,6 +629,7 @@ class PageDoc:
 
         def err(e):
             self._saving = False
+            _clientlog_save(e)                                  # 2.5 clientlog1: nur Art und Status
             if self._nc_rejected(e, sent_nc):                   # neuer Nextcloud-Block abgelehnt (fremd, nicht verbunden ...)
                 return
             if isinstance(e, APIError) and e.code == 409:

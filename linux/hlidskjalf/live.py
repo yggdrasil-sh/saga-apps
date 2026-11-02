@@ -85,6 +85,8 @@ class Live(GObject.Object):
     def _set_connected(self, on):
         if self.connected != on:
             self.connected = on
+            from .clientlog import log
+            log.conn("sse", "open" if on else "closed")         # 2.5 clientlog1: Ringpuffer
             self.emit("state", on)
 
     # --- Hintergrund-Thread -----------------------------------------------------------------------------
