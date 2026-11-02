@@ -25,7 +25,7 @@ func clientLogTests() {
     check(L.saveMessage(code: 503) == "SaveError.status5xx", "Speicher-Meldung")
     // Freitext
     check(L.note("Hallo\nMeine Adresse a@b.de, Schluessel hk_abcdefgh1 https://x.y/z") == "Hallo\nMeine Adresse <email>, Schluessel <secret> <url>", "Freitext maskiert: \(L.note("Hallo\nMeine Adresse a@b.de, Schluessel hk_abcdefgh1 https://x.y/z"))")
-    check(L.note(String(repeating: "ab", count: 900)).count == 1000, "Freitext <= 1000")
+    check(L.note(String(repeating: "ab ", count: 900)).count == 1000, "Freitext <= 1000")
 
     // Endpunkt-Muster
     check(L.endpoint("api/notes/123/comments?x=1") == "/api/notes/:id/comments", "Muster mit ID und Query")

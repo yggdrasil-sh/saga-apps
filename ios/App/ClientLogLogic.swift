@@ -409,13 +409,13 @@ enum ClientLogLogic {
 /// Grober Ort fuer Fehler und Ansichtswechsel (nie Titel oder ID): Seitenleisten-Auswahl -> Bezeichnung
 enum ClientLogScreen {
     static func of(selection: Int?) -> String {
-        switch selection {
-        case nil: return "dashboard"
-        case -1?: return "tasks"
-        case -2?: return "calendar"
-        case -3?: return "services"
-        case -4?: return "chat"
-        case -5?: return "graph"
+        guard let s = selection else { return "dashboard" }
+        switch s {
+        case -1: return "tasks"
+        case -2: return "calendar"
+        case -3: return "services"
+        case -4: return "chat"
+        case -5: return "graph"
         default: return "pages"
         }
     }
@@ -430,4 +430,3 @@ enum ClientLogScreen {
         }
     }
 }
-
