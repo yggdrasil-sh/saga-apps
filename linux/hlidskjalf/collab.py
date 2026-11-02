@@ -238,6 +238,17 @@ def _hinted(el, cur, tgt, caret):
     return False
 
 
+def _norm(n):
+    """Zielknoten in der Form, die y_to_pm liest (leere attrs fehlen dort): sonst haelt _sync_inline gleiche Inhalte fuer
+    verschieden und schreibt alle Kinder neu - gleichzeitige Eingaben im Absatz gingen verloren"""
+    if isinstance(n, dict):
+        out = {k: _norm(v) for k, v in n.items() if not (k == "attrs" and v == {})}
+        return out
+    if isinstance(n, list):
+        return [_norm(x) for x in n]
+    return n
+
+
 def write_local(doc, blocks, title, hint=None, caret=None):
     """Eigenen Stand in EINER Transaktion (Herkunft LOCAL) ins Doc. hint: der Block (dict), in dem getippt wurde - dann nur
     dieser Knoten (schnell, bei grossen Seiten), caret: Zeichenposition nach der Eingabe im Feld (Textfelder mit einem
@@ -250,7 +261,7 @@ def write_local(doc, blocks, title, hint=None, caret=None):
             r = _find_el(frag, hint["id"])
             if r is not None:
                 parent, idx, el = r
-                tgt = m.block_to_pm(hint)
+                tgt = _norm(m.block_to_pm(hint))
                 cur = m.y_to_pm(el)
                 if cur.get("type") == tgt.get("type"):
                     if tgt["type"] in m.INLINE_CONTENT and caret is not None and \
@@ -260,7 +271,7 @@ def write_local(doc, blocks, title, hint=None, caret=None):
                     m._sync_el(parent, idx, el, cur, tgt, _depth_of(frag, el))
                     done = True
         if not done:
-            m._sync_list(frag, m.doc_to_pm({"blocks": blocks})["content"], 0)
+            m._sync_list(frag, _norm(m.doc_to_pm({"blocks": blocks})["content"]), 0)
         if title is not None:
             tt = doc.get("title", type=m.Text)
             cur = str(tt)
