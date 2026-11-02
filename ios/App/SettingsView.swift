@@ -21,6 +21,8 @@ struct SettingsView: View {
         content
             .task { if store.chat.state == .loading { await store.chat.load() } }
             .task { jump(initial()) }
+            .onAppear { ClientLog.shared.overlay("settings", true) }         // 2.5 clientlog1: grober Ort
+            .onDisappear { ClientLog.shared.overlay("settings", false) }
             .onReceive(NotificationCenter.default.publisher(for: .hkOpenSettings)) { n in jump(n.object as? String) }
             .onReceive(NotificationCenter.default.publisher(for: .hkOpenBackup)) { _ in jump("backup") }
     }
@@ -364,6 +366,7 @@ struct InfoSettings: View {
                 }
             }
             UpdateHintSection()
+            DiagnoseSection()                                  // 2.5 clientlog1: "Diagnose senden"
             Section("Lizenzen") {
                 Text("Anrufe nutzen WebRTC (libwebrtc, © The WebRTC project authors, BSD-Lizenz) und libsodium (ISC-Lizenz).")
                     .font(.footnote).foregroundStyle(.secondary)

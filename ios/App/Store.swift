@@ -121,6 +121,7 @@ final class Store: ObservableObject {
         live.store = self; notifs.store = self; chat.store = self; push.store = self
         AvatarCache.shared.store = self
         calls.store = self; CallSystem.shared.manager = calls
+        ClientLog.shared.store = self                                  // 2.5 Fehlerberichte/Diagnose (clientlog1)
         ChatVideoUploads.shared.attach(self)                           // 2.4: Video-Uploads (auch nach Neustart fortsetzen)
     }
 
@@ -248,8 +249,12 @@ final class Store: ObservableObject {
             if let url = req.url { for (k, v) in await cookies(for: url) { req.setValue(v, forHTTPHeaderField: k) } }
             req.setValue(AppConfig.appLanguage, forHTTPHeaderField: "Accept-Language")   // Fehlertexte des Servers in der App-Sprache
             req.setValue("3", forHTTPHeaderField: "X-Saga-Chat")          // 2 = saga-chat/v2 (2.3), 3 = Chat-Stufe 3 (Handles, 2.5)
-            let (data, resp) = try await run(req)
+            let t0 = Date()
+            let data: Data, resp: URLResponse
+            do { (data, resp) = try await run(req) }
+            catch { if !Store.isCancel(error) { ClientLog.shared.net(url: req.url, method: req.httpMethod ?? "GET", status: 0, ms: Date().timeIntervalSince(t0) * 1000) }; throw error }
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            ClientLog.shared.net(url: req.url, method: req.httpMethod ?? "GET", status: code, ms: Date().timeIntervalSince(t0) * 1000)   // 2.5 clientlog1: Ringpuffer, 5xx als Fehler
             guard code == 401 else { return (data, code) }
             cookieHeader = nil
             guard attempt == 0 else { break }
@@ -390,10 +395,13 @@ final class Store: ObservableObject {
             }
             // Dekodieren, Einarbeiten, Vergleich und Index im Hintergrund; auf dem Main-Thread nur noch zuweisen
             let prev = list
-            let (o, u) = try await Task.detached(priority: .userInitiated) { () throws -> (NoteSync.Outcome, PageList.Update?) in
-                let o = NoteSync.outcome(try NoteSync.parse(d), base: prev.all, sentSince: since != nil)
-                return (o, o.pages.flatMap { PageList.update($0, previous: prev) })
-            }.value
+            let (o, u): (NoteSync.Outcome, PageList.Update?)
+            do {
+                (o, u) = try await Task.detached(priority: .userInitiated) { () throws -> (NoteSync.Outcome, PageList.Update?) in
+                    let o = NoteSync.outcome(try NoteSync.parse(d), base: prev.all, sentSince: since != nil)
+                    return (o, o.pages.flatMap { PageList.update($0, previous: prev) })
+                }.value
+            } catch { ClientLog.shared.decodeFailed(error, path: "api/notes"); throw error }   // 2.5 clientlog1
             guard !Task.isCancelled, !gate.stale(startedAt: ge) else { return }        // neue Anmeldung: die holt selbst ab
             guard gen == sessionGen, AppConfig.serverOrigin == origin else { return }   // inzwischen abgemeldet/anderes Konto/anderer Server
             // waehrend der Anfrage lokal eine Seite angelegt: diese Antwort kennt sie evtl. noch nicht - nicht uebernehmen
@@ -433,6 +441,7 @@ final class Store: ObservableObject {
             Task { await notifs.loadCount(); await chat.refreshUnread(); await loadAIStatus() }
             if error != nil, error != Store.keychainFailedText { error = nil }   // Schluesselbund-Problem bleibt sichtbar (BUG-104)
             if serverVersion == nil { await checkVersion() }
+            ClientLog.shared.ready()                              // 2.5 clientlog1: Absturz-Notiz des letzten Laufs senden
             if galleryOrigin != AppConfig.serverOrigin { Task { await probeGallery() } }   // 2.5: einmal je Server
             await loadToday()
             await ensureDeviceKey()

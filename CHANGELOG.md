@@ -9,6 +9,17 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – iOS/Mac: Fehlerberichte und „Diagnose senden“ (nur mit Saga-Server, der `clientlog1` meldet)
+- **Absturzberichte:** stürzt die App ab (nicht abgefangene Ausnahme oder Signal), schreibt sie eine kurze Notiz
+  (Signal bzw. Ausnahmeart, Stack nur als Modul, Symbol und Offset – keine Pfade, kein Speicherabbild) und sendet sie beim
+  nächsten Start an den eigenen Server.
+- **Fehler an zentralen Stellen** (Server-Fehler 5xx und unlesbare Antworten der API – Endpunkt nur als Muster wie
+  `/api/notes/:id` –, Speichern abgelehnt, Anruf kam nicht zustande) werden gesammelt, gleiche gezählt, höchstens ein
+  Bericht je 30 s. Nie Inhalte, Titel, Namen oder Adressen; Texte werden vor dem Senden bereinigt.
+- **Einstellungen → Info → Hilfe → „Diagnose senden“:** schickt die letzten 200 Ereignisse (Statuscodes je Endpunkt-Muster,
+  Speichern ok/Konflikt/offline, grobe Ansichtswechsel, Live-Kanal-Status) mit optionalem Freitext und zeigt die Kennung
+  `D-XXXXX` zum Kopieren. Ohne das Server-Feature ausgegraut mit Hinweis; dann wird auch nichts gesendet.
+
 ### Geändert – Anrufe über Knoten: ruhigere Qualitätsanzeige, Wärme, Diagnose (iOS/Mac und Android)
 - **Empfangsqualität** (Punkt an der Weg-Anzeige, jetzt so beschriftet und vorgelesen): bewertet über die letzten 30 s
   statt 3 s; Rot erst nach zwei schlechten Messungen in Folge, zurück zu Grün nach zwei guten. Schwellen unverändert

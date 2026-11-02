@@ -87,8 +87,10 @@ final class LiveHub: ObservableObject {
             if let r = try await withTaskCancellationHandler(operation: { try await reader.value }, onCancel: { reader.cancel() }) { outcome = r }
             else { fails += 1; outcome = .after(LiveReconnect.backoff(fails)) }
             connected = false
+            ClientLog.shared.conn("sse", "retry")
             return outcome
         } catch {
+            if !Task.isCancelled { ClientLog.shared.conn("sse", "error") }
             connected = false
             fails += 1
             return .after(LiveReconnect.backoff(fails))
@@ -102,6 +104,7 @@ final class LiveHub: ObservableObject {
         switch e.event {
         case "hello":
             connected = true; fails = 0
+            ClientLog.shared.conn("sse", "open")                            // 2.5 clientlog1
             Task { await store?.calls.checkActive() }                     // verpasstes Klingeln nachholen
             Task { await store?.liveConnected() }                         // (wieder) verbunden: verpasste Seitenaenderungen nachholen
         case "bye": return LiveReconnect.after(bye: d["reason"] as? String ?? "closed")

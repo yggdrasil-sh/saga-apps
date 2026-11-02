@@ -49,7 +49,7 @@ struct CallTile: Identifiable, Equatable {
 final class CallManager: NSObject, ObservableObject {
     weak var store: Store?
     enum Phase: String, Equatable { case idle, preparing, ringingOut, incoming, connecting, active, ended }
-    @Published var phase: Phase = .idle { didSet { if phase != oldValue { pipRefresh(); if phase != .idle && phase != .ended { VoicePlayer.shared.pauseForCall() } } } }   // 2.5: Sprachnachricht pausiert beim Anruf
+    @Published var phase: Phase = .idle { didSet { if phase != oldValue { ClientLog.shared.overlay("calls", phase != .idle && phase != .ended); pipRefresh(); if phase != .idle && phase != .ended { VoicePlayer.shared.pauseForCall() } } } }   // 2.5: Sprachnachricht pausiert beim Anruf
     @Published var status = ""
     @Published var peerName = ""
     @Published var peerAvatar: String?
@@ -1584,6 +1584,8 @@ final class CallManager: NSObject, ObservableObject {
             Task { _ = try? await store?.apiResponse("api/calls/\(id)/end", method: "POST", body: b) }
         }
         CallEnv.log("failed: \(reason)")
+        if !connected { ClientLog.shared.report("error", ClientLogLogic.callMessage(phase: phase.rawValue, reason: reason)) }   // 2.5 clientlog1: Aufbau fehlgeschlagen (ohne Text/Namen)
+        ClientLog.shared.conn("call", connected ? "closed" : "error")
         failed = true
         finish(nil, message: msg)
     }

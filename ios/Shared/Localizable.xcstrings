@@ -74611,6 +74611,346 @@
           }
         }
       }
+    },
+    "Hilfe" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hilfe"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Help"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ayuda"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Помощь"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ความช่วยเหลือ"
+          }
+        }
+      }
+    },
+    "Was ist passiert? (optional)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Was ist passiert? (optional)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What happened? (optional)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Qué ha pasado? (opcional)"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Что произошло? (необязательно)"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เกิดอะไรขึ้น (ไม่บังคับ)"
+          }
+        }
+      }
+    },
+    "Diagnose senden" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnose senden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send diagnostics"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar diagnóstico"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отправить диагностику"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งข้อมูลวินิจฉัย"
+          }
+        }
+      }
+    },
+    "Schickt die letzten Ereignisse dieser App (Fehler, Statuscodes, Ansichtswechsel – ohne Inhalte, Titel oder Namen) an deinen Saga-Server. Dein Text oben geht so an den Admin, wie du ihn schreibst." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schickt die letzten Ereignisse dieser App (Fehler, Statuscodes, Ansichtswechsel – ohne Inhalte, Titel oder Namen) an deinen Saga-Server. Dein Text oben geht so an den Admin, wie du ihn schreibst."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sends this app's recent events (errors, status codes, view changes – no content, titles or names) to your Saga server. Your text above reaches the admin exactly as you write it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envía los últimos eventos de esta app (errores, códigos de estado, cambios de vista; sin contenidos, títulos ni nombres) a tu servidor Saga. Tu texto de arriba llega al administrador tal como lo escribes."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отправляет последние события этого приложения (ошибки, коды состояния, смена экранов – без содержимого, заголовков и имён) на ваш сервер Saga. Ваш текст выше попадёт к администратору в том виде, в каком вы его напишете."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งเหตุการณ์ล่าสุดของแอปนี้ (ข้อผิดพลาด รหัสสถานะ การเปลี่ยนมุมมอง – ไม่มีเนื้อหา ชื่อเรื่อง หรือชื่อบุคคล) ไปยังเซิร์ฟเวอร์ Saga ของคุณ ข้อความด้านบนจะถึงผู้ดูแลตามที่คุณเขียน"
+          }
+        }
+      }
+    },
+    "Dieser Server nimmt keine Diagnose an (ab Saga-Server 2.5, vom Admin abschaltbar)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Server nimmt keine Diagnose an (ab Saga-Server 2.5, vom Admin abschaltbar)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This server does not accept diagnostics (Saga server 2.5 or later, can be turned off by the admin)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este servidor no acepta diagnósticos (a partir de Saga Server 2.5; el administrador puede desactivarlo)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот сервер не принимает диагностику (с Saga Server 2.5, администратор может отключить)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เซิร์ฟเวอร์นี้ไม่รับข้อมูลวินิจฉัย (ตั้งแต่ Saga Server 2.5 ผู้ดูแลปิดได้)"
+          }
+        }
+      }
+    },
+    "Gesendet. Nenne dem Admin diese Kennung:" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gesendet. Nenne dem Admin diese Kennung:"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sent. Give the admin this reference:"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviado. Indica al administrador esta referencia:"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отправлено. Сообщите администратору этот код:"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งแล้ว แจ้งรหัสนี้แก่ผู้ดูแล:"
+          }
+        }
+      }
+    },
+    "Kennung kopieren" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kennung kopieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy reference"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copiar referencia"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Скопировать код"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คัดลอกรหัส"
+          }
+        }
+      }
+    },
+    "Zu viele Diagnosen – bitte später erneut versuchen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zu viele Diagnosen – bitte später erneut versuchen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Too many diagnostics – please try again later."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Demasiados diagnósticos: inténtalo de nuevo más tarde."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Слишком много диагностик – повторите попытку позже."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งข้อมูลวินิจฉัยบ่อยเกินไป – โปรดลองอีกครั้งภายหลัง"
+          }
+        }
+      }
+    },
+    "Diagnose nicht gesendet: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnose nicht gesendet: %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnostics not sent: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnóstico no enviado: %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Диагностика не отправлена: %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่ได้ส่งข้อมูลวินิจฉัย: %@"
+          }
+        }
+      }
+    },
+    "Diagnose zu groß." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnose zu groß."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnostics too large."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnóstico demasiado grande."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Диагностика слишком велика."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อมูลวินิจฉัยใหญ่เกินไป"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
