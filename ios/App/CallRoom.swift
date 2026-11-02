@@ -606,7 +606,7 @@ extension CallManager {
         if runBars != bars { runBars = bars }
     }
     func bar(_ x: CallRoom.Running) -> CallRoom.Bar {
-        CallRoom.bar(x, here: myDevice ?? "", current: busy ? id : nil, ringing: incoming?.id == x.id)
+        CallRoom.bar(x, here: myDevice ?? "", current: busy ? id : nil, ringing: incoming?.id == x.id, rejoin: ho2)
     }
 
     // MARK: Faehigkeiten melden

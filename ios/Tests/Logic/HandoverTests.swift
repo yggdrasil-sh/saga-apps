@@ -58,6 +58,14 @@ func handoverTests() {
     run["joinable"] = true; run["join_block"] = NSNull()
     check(CallRoom.barActions(CallRoom.running(run)!, bar: bar) == CallRoom.BarActions(add: true, takeover: true), "frei: Hinzufuegen und Uebernehmen")
     check(CallRoom.barActions(x, bar: .group(devices: 3)) == CallRoom.BarActions(), "Gruppe voll: kein Beitreten")
+    // schneller Rueckwechsel: dieses Geraet steht noch in der Liste (Verlassen unterwegs), ein anderes eigenes fuehrt
+    let stale = CallRoom.running(["id": String(repeating: "2", count: 32), "kind": "dm", "state": "active", "mine": [a, b],
+                                  "legs": [leg(a), leg(b), leg(p, who: "bert")], "joinable": true, "takeover": true])!
+    check(CallRoom.bar(stale, here: a, current: nil, ringing: false, rejoin: true) == .elsewhere(device: "Mac", peer: ""), "Wiedereintritt: Leiste zeigt das andere Geraet")
+    check(CallRoom.bar(stale, here: a, current: nil, ringing: false, rejoin: false) == .none, "ohne handover2: wie bisher keine Leiste")
+    check(CallRoom.bar(stale, here: a, current: stale.id, ringing: false, rejoin: true) == .none, "laufender Anruf hier: keine Leiste")
+    let alone = CallRoom.running(["id": String(repeating: "3", count: 32), "kind": "dm", "state": "active", "mine": [a], "legs": [leg(a), leg(p, who: "bert")], "joinable": true])!
+    check(CallRoom.bar(alone, here: a, current: nil, ringing: false, rejoin: true) == .none, "nur dieses Geraet: keine Leiste")
 
     // R09 + 2.5: ein Geraet, das vorher handover war, fuehrt -> hier beenden; Begleitgeraet bleibt Begleitgeraet -> nicht
     let o1 = CallRoom.legs([leg(a), leg(b, role: "handover"), leg(p, who: "bert")])
@@ -87,7 +95,9 @@ func handoverTests() {
     // Server-Sicht nachgespielt: ein /leave gilt nur, wenn gen noch die aktuelle ist (leave_stale)
     let applied = pendingLeaves.filter { l in (l["gen"] as? Int) == gens[l["device"] as! String] }
     check(pendingLeaves.count == 6 && pendingLeaves.allSatisfy { $0["gen"] != nil && $0["by"] != nil }, "jede Runde: by und gen")
-    check(applied.isEmpty, "6x hin und her: kein spaeter Rueckfall wirft das zurueckgekehrte Geraet hinaus (\(applied.count))")
+    // nur das letzte Verlassen gilt (das zuletzt abgebende Geraet b), keines trifft das aktuelle Geraet a
+    check(applied.count == 1 && applied[0]["device"] as? String == b && !applied.contains { ($0["device"] as? String) == a },
+          "6x hin und her: kein spaeter Rueckfall wirft das zurueckgekehrte Geraet hinaus (\(applied.count))")
 
     // Uebernahme mit promote (Begleitgeraet ueber Knoten) und Ruecknahme
     var h = CallRoom.Handover()
@@ -128,18 +138,18 @@ func handoverTests() {
 
     // Diagnose: Geraete-CPU aus WebRTC-Stats (Zuwaechse, 0 weglassen)
     var d = CallDiag.Buffer(call: "c1", plat: "ios", app: "2.5.0", t0: 0)
-    let o0: [String: Any] = ["kind": "video", "rid": "m", "framesEncoded": NSNumber(value: 100), "totalEncodeTime": NSNumber(value: 0.5),
+    let so0: [String: Any] = ["kind": "video", "rid": "m", "framesEncoded": NSNumber(value: 100), "totalEncodeTime": NSNumber(value: 0.5),
                              "qualityLimitationDurations": ["cpu": NSNumber(value: 1.0), "bandwidth": NSNumber(value: 0), "none": NSNumber(value: 9)]]
-    let s0 = d.sample(type: "outbound-rtp", values: o0, src: "me", key: "o", now: 1000, rtt: nil, srcFrames: 110)
+    let s0 = d.sample(type: "outbound-rtp", values: so0, src: "me", key: "o", now: 1000, rtt: nil, srcFrames: 110)
     check(s0?.qcpu == 0 && s0?.encms == 0 && s0?.fdrop == 0, "erste Probe: keine Zuwaechse")
-    let o1: [String: Any] = ["kind": "video", "rid": "m", "framesEncoded": NSNumber(value: 190), "totalEncodeTime": NSNumber(value: 0.95),
+    let so1: [String: Any] = ["kind": "video", "rid": "m", "framesEncoded": NSNumber(value: 190), "totalEncodeTime": NSNumber(value: 0.95),
                              "qualityLimitationDurations": ["cpu": NSNumber(value: 2.5), "bandwidth": NSNumber(value: 0.25)]]
-    let s1 = d.sample(type: "outbound-rtp", values: o1, src: "me", key: "o", now: 4000, rtt: nil, srcFrames: 210)
+    let s1 = d.sample(type: "outbound-rtp", values: so1, src: "me", key: "o", now: 4000, rtt: nil, srcFrames: 210)
     check(s1?.qcpu == 1500 && s1?.qbw == 250 && s1?.encms == 5 && s1?.fdrop == 10, "out: qcpu/qbw ms, encms je Rahmen, fdrop = Kamera - kodiert: \(String(describing: s1))")
     let j1 = s1?.json ?? [:]
     check(j1["qcpu"] as? Int == 1500 && j1["encms"] as? Double == 5 && j1["decms"] == nil && j1["fzms"] == nil, "JSON: nur Werte > 0")
-    let o2: [String: Any] = ["kind": "video", "rid": "l", "framesEncoded": NSNumber(value: 190), "totalEncodeTime": NSNumber(value: 0.95)]
-    let s2 = d.sample(type: "outbound-rtp", values: o2, src: "me", key: "o", now: 7000, rtt: nil, srcFrames: 300)
+    let so2: [String: Any] = ["kind": "video", "rid": "l", "framesEncoded": NSNumber(value: 190), "totalEncodeTime": NSNumber(value: 0.95)]
+    let s2 = d.sample(type: "outbound-rtp", values: so2, src: "me", key: "o", now: 7000, rtt: nil, srcFrames: 300)
     check(s2?.fdrop == 0 && s2?.encms == 0, "Schicht kodiert gerade nicht: kein fdrop")
     _ = d.sample(type: "inbound-rtp", values: ["kind": "video", "framesDecoded": NSNumber(value: 10), "totalDecodeTime": NSNumber(value: 0.02),
                                                "framesDropped": NSNumber(value: 1), "totalFreezesDuration": NSNumber(value: 0.1)], src: "p1", key: "i", now: 1000, rtt: nil)

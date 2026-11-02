@@ -117,7 +117,7 @@ enum GalleryLogic {
             return name.isEmpty ? nil : Place(name: name, admin: text(d["admin"], max: 80), country: text(d["country"], max: 80), lat: lat, lon: lon)
         }.prefix(8))
     }
-    enum GeoFailure: Equatable { case none, rateLimited, unavailable }
+    enum GeoFailure: Error, Equatable { case none, rateLimited, unavailable }
     static func geoFailure(code: Int) -> GeoFailure {
         if (200..<300).contains(code) { return .none }
         return code == 429 ? .rateLimited : .unavailable

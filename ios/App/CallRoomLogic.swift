@@ -367,10 +367,15 @@ enum CallRoom {
         case group(devices: Int)
     }
     /// Leiste zeigen? Nicht fuer den eigenen laufenden Anruf, nicht waehrend er hier klingelt, nicht wenn dieses Geraet dabei ist
-    static func bar(_ x: Running, here: String, current: String?, ringing: Bool) -> Bar {
-        if x.id == current || x.state == "ended" || ringing || x.mine.contains(here) { return .none }
-        if !x.mine.isEmpty && (x.kind == "group" || x.state == "active") {
-            let own = x.legs.filter { x.mine.contains($0.device) }
+    /// 2.5 rejoin (handover2): steht dieses Geraet noch in der Liste, obwohl es hier keinen Anruf mehr gibt (schneller
+    /// Rueckwechsel: sein Verlassen ist noch unterwegs, bzw. App neu gestartet), und fuehrt ein anderes eigenes Geraet,
+    /// trotzdem "Hierher uebernehmen" anbieten - der Server nimmt es als Wiedereintritt
+    static func bar(_ x: Running, here: String, current: String?, ringing: Bool, rejoin: Bool = false) -> Bar {
+        if x.id == current || x.state == "ended" || ringing { return .none }
+        let others = x.mine.filter { $0 != here }
+        if x.mine.contains(here) && !(rejoin && !others.isEmpty) { return .none }
+        if !others.isEmpty && (x.kind == "group" || x.state == "active") {
+            let own = x.legs.filter { others.contains($0.device) }
             let main = own.first { !$0.companion } ?? own.first
             return .elsewhere(device: main?.devName ?? "", peer: x.kind == "group" ? "" : x.peerName)
         }
