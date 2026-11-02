@@ -28,6 +28,7 @@ def bg(fn, *args, done=None, error=None, media=False):
         except Exception as e:  # noqa: BLE001
             if error is None:
                 traceback.print_exc(file=sys.stderr)
+                report_exception(e)
             GLib.idle_add(_call, error, e)
             return
         GLib.idle_add(_call, done, r)
@@ -135,9 +136,23 @@ def _call(cb, v):
     if cb:
         try:
             cb(v)
-        except Exception:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             traceback.print_exc(file=sys.stderr)
+            report_exception(e)
     return False
+
+
+def report_exception(e):
+    """2.5 clientlog1: abgefangener Programmfehler -> Fehlerbericht (nur mit Server-Feature; Netzfehler nicht)"""
+    try:
+        from .api import APIError
+        import json
+        if isinstance(e, (APIError, json.JSONDecodeError)):     # unlesbares JSON meldet schon api.Client.json
+            return
+        from .clientlog import log
+        log.exception(e, e.__traceback__)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def later(ms, fn, *a):

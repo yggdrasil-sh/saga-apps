@@ -42,6 +42,9 @@ class SettingsDialog(Adw.PreferencesDialog):
         self.add(self._info_page())
         # Fokus beim Oeffnen nicht ins Adressfeld (markiert - ein Tastendruck haette die Adresse ersetzt, Testbericht 090)
         self.connect("map", lambda *_: (GLib.idle_add(self._initial_focus), GLib.timeout_add(250, self._initial_focus)))
+        from .clientlog import log                 # 2.5 clientlog1: grober Ort fuer Fehler und Diagnose
+        self.connect("map", lambda *_: log.overlay("settings", True))
+        self.connect("unmap", lambda *_: log.overlay("settings", False))
 
     # --- Konto ------------------------------------------------------------------------------------------------------
     def _account_page(self):
@@ -749,6 +752,8 @@ class InfoPage(Adw.PreferencesPage):
         gu.add(self.st_row)
         self.dev = ch is None                      # Entwickler-Build: keine Pruefung, nur der Hinweis unter der Gruppe
         self.add(gu)
+        self.diag = DiagnoseGroup(dlg)             # 2.5 clientlog1: "Diagnose senden"
+        self.add(self.diag)
         gl = Adw.PreferencesGroup(title=_("Licenses"))
         gl.set_description(_("Saga is free software under the GNU AGPL 3.0. Chat encryption uses libsodium (ISC license) via PyNaCl "
                              "(Apache License 2.0)."))
@@ -763,6 +768,7 @@ class InfoPage(Adw.PreferencesPage):
         self.refresh()
 
     def _mapped(self):
+        self.diag.refresh()
         if not self._h:
             self._h = self.hint.connect("changed", lambda *_: self.refresh())
         self.refresh()
@@ -813,3 +819,97 @@ class InfoPage(Adw.PreferencesPage):
                 self.dlg.win.open_uri(u)            # Release-Seite im Browser (Flatpak/RPM: dort die passende Datei)
         elif st == "check":
             h.check(manual=True)
+
+
+class DiagnoseGroup(Adw.PreferencesGroup):
+    """Einstellungen -> Info -> Hilfe: "Diagnose senden" (2.5, nur wenn der Server clientlog1 meldet). Schickt die letzten
+    Ereignisse (Ringpuffer, ohne Inhalte) und optional einen Freitext; zeigt die Kennung D-XXXXX zum Kopieren."""
+
+    def __init__(self, dlg):
+        super().__init__(title=_("Help"))
+        self.dlg = dlg
+        self.note = Adw.EntryRow(title=_("What happened? (optional)"))
+        self.note.connect("changed", self._limit)
+        self.add(self.note)
+        self.send_row = Adw.ActionRow(title=_("Send diagnostics"))
+        self.btn = Gtk.Button(label=_("Send"), valign=Gtk.Align.CENTER)
+        self.btn.connect("clicked", lambda *_: self.send())
+        self.send_row.add_suffix(self.btn)
+        self.send_row.set_activatable_widget(self.btn)
+        self.add(self.send_row)
+        self.res = Adw.ActionRow()
+        self.res.set_title_lines(0)
+        self.res.add_css_class("property")
+        self.res.set_subtitle_selectable(True)
+        self.copy = Gtk.Button(icon_name="edit-copy-symbolic", valign=Gtk.Align.CENTER, tooltip_text=_("Copy ID"))
+        self.copy.add_css_class("flat")
+        self.copy.update_property([Gtk.AccessibleProperty.LABEL], [_("Copy ID")])
+        self.copy.connect("clicked", lambda *_: self._copy())
+        self.res.add_suffix(self.copy)
+        self.res.set_visible(False)
+        self.add(self.res)
+        self.busy, self.sent_id = False, None
+        self.refresh()
+
+    @staticmethod
+    def available():
+        from .clientlog import FEATURE
+        return store.has(FEATURE)
+
+    def refresh(self):
+        on = self.available()
+        self.set_description(_("Sends the latest events of this app (errors, status codes, view changes – without contents, "
+                               "titles or names) to your Saga server. Your text above reaches the admin as you write it.")
+                             if on else _("This server does not accept diagnostics (Saga server 2.5 or later, can be turned off by the admin)."))
+        self.note.set_sensitive(on and not self.busy)
+        self.btn.set_sensitive(on and not self.busy)
+        self.send_row.set_sensitive(on)
+
+    def _limit(self, row):
+        from .clientlog import NOTE_MAX
+        t = row.get_text()
+        if len(t) > NOTE_MAX:
+            row.set_text(t[:NOTE_MAX])
+            row.set_position(-1)
+
+    def send(self):
+        if self.busy or not self.available():
+            return
+        from .clientlog import log
+        self.busy = True
+        self.btn.set_label(_("Sending …"))
+        self.refresh()
+        log.send_diag(self.note.get_text(), self._done)
+
+    def _done(self, kind, val):
+        self.busy = False
+        self.btn.set_label(_("Send"))
+        self.sent_id = val if kind == "sent" else None
+        self.copy.set_visible(kind == "sent")
+        for c in ("success", "warning", "error"):
+            self.res.remove_css_class(c)
+        if kind == "sent":
+            self.res.set_title(_("Sent. Give the admin this ID:"))
+            self.res.set_subtitle(val)
+            self.note.set_text("")
+        elif kind == "off":
+            self.res.set_title(_("This server does not accept diagnostics (Saga server 2.5 or later, can be turned off by the admin)."))
+            self.res.set_subtitle("")
+            self.res.add_css_class("warning")
+        elif kind == "too_many":
+            self.res.set_title(_("Too many diagnostics – please try again later."))
+            self.res.set_subtitle("")
+            self.res.add_css_class("warning")
+        else:
+            self.res.set_title(_("Diagnostics not sent: {error}").format(error=GLib.markup_escape_text(val or "–")))
+            self.res.set_subtitle("")
+            self.res.add_css_class("error")
+        self.res.set_visible(True)
+        self.refresh()
+
+    def _copy(self):
+        if not self.sent_id:
+            return
+        Gdk.Display.get_default().get_clipboard().set(self.sent_id)
+        if hasattr(self.dlg, "add_toast"):
+            self.dlg.add_toast(Adw.Toast(title=_("Copied")))
