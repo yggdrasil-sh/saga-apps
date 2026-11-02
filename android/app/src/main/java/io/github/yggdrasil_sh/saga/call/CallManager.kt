@@ -519,8 +519,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     // ---------------------------------------------------------------- Konfiguration, Schluessel
 
+    /** pt2 A4: Saga-Server im lokalen Netz? Dann duerfen ICE-/Knoten-Adressen privat sein (IceFilter) */
+    @Volatile private var iceLocal = false
+
     private suspend fun loadConfig(): CallConfig {
         val c = json.decodeFromString(CallConfig.serializer(), api.get("api/calls/config"))
+        iceLocal = withContext(Dispatchers.IO) { io.github.yggdrasil_sh.saga.util.LocalNetwork.isLocalServer(repo.server.value) }
         config = c
         enabled.value = c.enabled
         return c
@@ -719,8 +723,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     }
 
     private fun makePc(c: Call, cfg: CallConfig): PeerConnection {
-        val ice = cfg.iceServers.filter { it.urlList.isNotEmpty() }.map {
-            PeerConnection.IceServer.builder(it.urlList).setUsername(it.username.orEmpty()).setPassword(it.credential.orEmpty()).createIceServer()
+        // pt2 A4: nur stun/turn-Adressen, nie Loopback/Link-Local; privat nur bei Server im lokalen Netz
+        val ice = cfg.iceServers.take(8).mapNotNull { s -> IceFilter.filter(s.urlList, iceLocal).takeIf { it.isNotEmpty() }?.let { s to it } }.map { (s, u) ->
+            PeerConnection.IceServer.builder(u).setUsername(s.username.orEmpty()).setPassword(s.credential.orEmpty()).createIceServer()
         }
         val rtc = PeerConnection.RTCConfiguration(ice).apply {
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
@@ -3926,6 +3931,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         override val scope: kotlinx.coroutines.CoroutineScope get() = this@CallManager.scope
         override val factory: PeerConnectionFactory get() = this@CallManager.factory()
         override fun myDev(): String = myDevId()
+        override fun iceLocal(): Boolean = this@CallManager.iceLocal
         override fun mobile(): Boolean = hornMobile()
         override fun lowPower(): Boolean = hot() || (app.getSystemService(android.os.PowerManager::class.java)?.isPowerSaveMode == true)
         override fun thermal(): Int = this@CallManager.thermal()

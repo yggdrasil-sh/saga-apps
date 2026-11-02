@@ -107,6 +107,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         fun refreshRoster()
         /** 2.5 Akku: Energiesparmodus an oder Geraet heiss -> weniger kodieren */
         fun lowPower(): Boolean = false
+        /** pt2 A4: Saga-Server im lokalen Netz (private Knoten-Adressen fuer TURN erlaubt) */
+        fun iceLocal(): Boolean = false
         /** Waermestufe (PowerManager.THERMAL_STATUS_*) fuer Diagnose/Protokoll; -1 = unbekannt */
         fun thermal(): Int = -1
         /** A1: Hoehe (kurze Kante) von Kamera bzw. geteiltem Bildschirm fuer die Deckel auf TCP/TLS; 0 = unbekannt */
@@ -591,9 +593,10 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     }
 
     private fun rtcConfig(cand: HornLogic.Cand, turn: Pair<String, String>?): PeerConnection.RTCConfiguration {
-        val ice = if (turn != null) listOf(
-            PeerConnection.IceServer.builder("turns:${cand.host}:${cand.port}?transport=tcp").setUsername(turn.first).setPassword(turn.second)
-                .createIceServer(),
+        // pt2 A4: TURN-Adresse aus dem Knoten-Kandidaten pruefen (Loopback/Link-Local nie, privat nur im Heimnetz-Betrieb)
+        val tu = "turns:${if (cand.host.contains(':')) "[${cand.host}]" else cand.host}:${cand.port}?transport=tcp"
+        val ice = if (turn != null && IceFilter.allowed(tu, host.iceLocal())) listOf(
+            PeerConnection.IceServer.builder(tu).setUsername(turn.first).setPassword(turn.second).createIceServer(),
         ) else emptyList()
         return PeerConnection.RTCConfiguration(ice).apply {
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
