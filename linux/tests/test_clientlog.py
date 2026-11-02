@@ -78,6 +78,14 @@ def test_scrub_hosts_keep_identifiers(raw, keep):
     assert keep in s and "<host>" not in s, (raw, s)
 
 
+def test_scrub_long_chains_fast():
+    import time
+    t0 = time.monotonic()
+    for big in ("a." * 8000, "ab." * 5000 + "1", "x@" * 8000):
+        C.scrub(big), C.scrub_note(big)
+    assert time.monotonic() - t0 < 1.0
+
+
 def test_scrub_host_rule_order():
     assert C.scrub("brief.final.pdf fehlt") == "<file> <w>"                 # Datei-Regel, nicht <host>
     assert C.scrub("x https://cloud.mueller.family/s/1 y") == "x <url> y"

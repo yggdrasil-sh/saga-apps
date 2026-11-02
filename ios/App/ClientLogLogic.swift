@@ -21,13 +21,13 @@ enum ClientLogLogic {
     private static func rx(_ p: String, _ o: NSRegularExpression.Options = []) -> NSRegularExpression { try! NSRegularExpression(pattern: p, options: o) }
     private static let reCtrl = rx("[\\x{0}-\\x{1f}\\x{7f}-\\x{9f}\\x{200b}-\\x{200f}\\x{202a}-\\x{202e}\\x{2066}-\\x{2069}\\x{feff}]")
     private static let reURL = rx("\\b[a-z][a-z0-9+.\\-]{1,15}://[^\\s\"'<>()]*|\\bwww\\.[^\\s\"'<>()]+|\\b(?:blob|data|javascript|mailto|tel):[^\\s\"'<>()]*", .caseInsensitive)
-    private static let reEmail = rx("[\\w.+\\-]+@[\\w\\-]+(?:\\.[\\w\\-]+)+")
+    private static let reEmail = rx("(?<![\\w.+\\-])[\\w.+\\-]+@[\\w\\-]+(?:\\.[\\w\\-]+)+")
     private static let reSecret = rx("\\b(?:hkd?|sga|hk_test)_[A-Za-z0-9_\\-]{6,}|\\bBearer\\s+\\S+", .caseInsensitive)
     private static let reQuote = rx("'([^'\\n]{0,200})'|\"([^\"\\n]{0,200})\"|`([^`\\n]{0,200})`|\u{201e}([^\u{201c}\u{201d}\\n]{0,200})[\u{201c}\u{201d}]|\u{201c}([^\u{201d}\\n]{0,200})\u{201d}|\u{00ab}([^\u{00bb}\\n]{0,200})\u{00bb}|\u{2018}([^\u{2019}\\n]{0,200})\u{2019}")
     // Dateinamen von Nutzerdateien (Endung): nie stehen lassen, auch wenn sie nach Bezeichner aussehen ("Brief_2.pdf")
     private static let fileExt = "pdf|docx?|xlsx?|xlsm|pptx?|od[tspg]|rtf|txt|csv|md|zip|rar|7z|tar|gz|png|jpe?g|gif|webp|hei[cf]|bmp|svg|tiff?|mp[34]|m4[av]|wav|ogg|opus|flac|mov|webm|mkv|avi|epub|eml|vcf|ics|kdbx"
     private static let reFileExt = rx("^(?:" + fileExt + ")$", .caseInsensitive)
-    private static let reFile = rx("[^\\s\"'`<>()\\[\\]{}:;,\u{201e}\u{201c}\u{201d}\u{00ab}\u{00bb}]*\\.(?:" + fileExt + ")(?![\\w\\-])", .caseInsensitive)
+    private static let reFile = rx("(?<![^\\s\"'`<>()\\[\\]{}:;,\u{201e}\u{201c}\u{201d}\u{00ab}\u{00bb}])[^\\s\"'`<>()\\[\\]{}:;,\u{201e}\u{201c}\u{201d}\u{00ab}\u{00bb}]*\\.(?:" + fileExt + ")(?![\\w\\-])", .caseInsensitive)
     // Hostnamen (Server, NAS, ...) mit beliebiger Endung (.family, .fritz.box, .lan, .home.arpa, xn--...) wie ClientLog.kt
     // der Android-App. Bleiben (siehe host): letzte Endung ist Datei-/Code-Endung (NativePage.swift; Nutzerdateien nimmt
     // danach die Datei-Regel), Treffer mit Grossbuchstaben (Foundation.URLError, Saga.PageDoc.save), Versionen (2.5.beta),

@@ -34,6 +34,11 @@ func clientLogTests() {
         let x = L.scrub(raw)
         check(x.contains(keep) && !x.contains("<host>"), "Bezeichner bleibt: \(raw) -> \(x)")
     }
+    do {   // lange Punkt-Ketten (16 KB): keine quadratische Laufzeit der Datei-/E-Mail-Regel
+        let t0 = Date()
+        for big in [String(repeating: "a.", count: 8000), String(repeating: "ab.", count: 5000) + "1", String(repeating: "x@", count: 8000)] { _ = L.scrub(big); _ = L.note(big) }
+        check(Date().timeIntervalSince(t0) < 1.0, "lange Ketten schnell: \(Date().timeIntervalSince(t0)) s")
+    }
     check(L.scrub("brief.final.pdf fehlt") == "<file> <w>", "Datei-Regel statt Host: \(L.scrub("brief.final.pdf fehlt"))")
     check(L.scrub("x https://cloud.mueller.family/s/1 y") == "x <url> y" && L.scrub("an anna@cloud.mueller.family") == "an <email>", "URL/E-Mail vor Host")
     check(L.scrub("x /var/mobile/nas.fritz.box/a y") == "x <path> y", "Pfad mit Host -> <path>: \(L.scrub("x /var/mobile/nas.fritz.box/a y"))")

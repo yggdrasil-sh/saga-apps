@@ -44,13 +44,13 @@ _DIAG_ID = re.compile("D-[" + DIAG_ALPHA + "]{5}")
 # --- Bereinigung (wie saga/clientlog.py scrub, ohne Saga-Kataloge) ---------------------------------------------------
 _CTRL = re.compile("[\\x00-\\x1f\\x7f-\\x9f\\u200b-\\u200f\\u2028\\u2029\\u202a-\\u202e\\u2066-\\u2069\\ufeff]")
 _URL = re.compile(r"\b[a-z][a-z0-9+.\-]{1,15}://[^\s\"'<>()]*|\bwww\.[^\s\"'<>()]+|\b(?:blob|data|javascript|mailto|tel):[^\s\"'<>()]*", re.I)
-_EMAIL = re.compile(r"[\w.+\-]+@[\w\-]+(?:\.[\w\-]+)+")
+_EMAIL = re.compile(r"(?<![\w.+\-])[\w.+\-]+@[\w\-]+(?:\.[\w\-]+)+")
 _SECRET = re.compile(r"\b(?:hkd?|sga|hk_test)_[A-Za-z0-9_\-]{6,}|\bBearer\s+\S+", re.I)
 # Dateinamen von Nutzerdateien (Endung): nie stehen lassen
 _FILE_EXT = ("pdf|docx?|xlsx?|xlsm|pptx?|od[tspg]|rtf|txt|csv|md|zip|rar|7z|tar|gz|png|"
              "jpe?g|gif|webp|hei[cf]|bmp|svg|tiff?|mp[34]|m4[av]|wav|ogg|opus|flac|mov|webm|mkv|avi|epub|eml|vcf|ics|kdbx")
 _FILE_EXT_RE = re.compile(_FILE_EXT, re.I)
-_FILE = re.compile(r"[^\s\"'`<>()\[\]{}:;,\u201e\u201c\u201d\u00ab\u00bb]*\.(?:" + _FILE_EXT + r")(?![\w\-])", re.I)
+_FILE = re.compile(r"(?<![^\s\"'`<>()\[\]{}:;,\u201e\u201c\u201d\u00ab\u00bb])[^\s\"'`<>()\[\]{}:;,\u201e\u201c\u201d\u00ab\u00bb]*\.(?:" + _FILE_EXT + r")(?![\w\-])", re.I)
 # Hostnamen (Server, NAS, ...) mit beliebiger Endung (.family, .fritz.box, .lan, .home.arpa, xn--...) wie ClientLog.kt der
 # Android-App. Bleiben (siehe _host): letzte Endung ist Datei-/Code-Endung (editor.py:120; Nutzerdateien nimmt danach die
 # Datei-Regel), Treffer mit Grossbuchstaben (gi.repository.Gtk, urllib.error.URLError), Versionen (2.5.beta), Modulpfade
