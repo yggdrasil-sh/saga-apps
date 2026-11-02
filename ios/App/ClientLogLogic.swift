@@ -3,7 +3,7 @@ import Foundation
 // 2.5 Fehlerberichte und "Diagnose senden" (Server-Feature clientlog1, Vertrag docs/APP-API.md "Fehlerberichte und
 // Diagnose"). Reine Logik ohne UI und ohne Netz (Tests/Logic/ClientLogTests.swift):
 // - scrub: Fehlertexte ohne Inhalte (wie saga/clientlog.py bzw. static/clientlog.js) - URLs, E-Mail, Schluessel, Zitate,
-//   Pfade, Handles, UUIDs, Hex, Zufallsfolgen, Zahlen -> Platzhalter; Woerter, die nicht nach Programm aussehen -> <w>
+//   Hosts, Dateien, Pfade, Handles, UUIDs, Hex, Zufallsfolgen, Zahlen -> Platzhalter; Woerter, die nicht nach Programm aussehen -> <w>
 // - endpoint: Endpunkt-Muster (/api/notes/:id/comments) - nur bekannte feste Pfadwoerter bleiben stehen
 // - Reporter: Eintraege sammeln, gleiche zaehlen (n), hoechstens 20 je Bericht, 1 Bericht je 30 s, 429/404 beachten
 // - Ring: die letzten 200 Ereignisse fuer "Diagnose senden" (nur im Speicher)
@@ -24,6 +24,33 @@ enum ClientLogLogic {
     private static let reEmail = rx("[\\w.+\\-]+@[\\w\\-]+(?:\\.[\\w\\-]+)+")
     private static let reSecret = rx("\\b(?:hkd?|sga|hk_test)_[A-Za-z0-9_\\-]{6,}|\\bBearer\\s+\\S+", .caseInsensitive)
     private static let reQuote = rx("'([^'\\n]{0,200})'|\"([^\"\\n]{0,200})\"|`([^`\\n]{0,200})`|\u{201e}([^\u{201c}\u{201d}\\n]{0,200})[\u{201c}\u{201d}]|\u{201c}([^\u{201d}\\n]{0,200})\u{201d}|\u{00ab}([^\u{00bb}\\n]{0,200})\u{00bb}|\u{2018}([^\u{2019}\\n]{0,200})\u{2019}")
+    // Dateinamen von Nutzerdateien (Endung): nie stehen lassen, auch wenn sie nach Bezeichner aussehen ("Brief_2.pdf")
+    private static let fileExt = "pdf|docx?|xlsx?|xlsm|pptx?|od[tspg]|rtf|txt|csv|md|zip|rar|7z|tar|gz|png|jpe?g|gif|webp|hei[cf]|bmp|svg|tiff?|mp[34]|m4[av]|wav|ogg|opus|flac|mov|webm|mkv|avi|epub|eml|vcf|ics|kdbx"
+    private static let reFileExt = rx("^(?:" + fileExt + ")$", .caseInsensitive)
+    private static let reFile = rx("[^\\s\"'`<>()\\[\\]{}:;,\u{201e}\u{201c}\u{201d}\u{00ab}\u{00bb}]*\\.(?:" + fileExt + ")(?![\\w\\-])", .caseInsensitive)
+    // Hostnamen (Server, NAS, ...) mit beliebiger Endung (.family, .fritz.box, .lan, .home.arpa, xn--...) wie ClientLog.kt
+    // der Android-App. Bleiben (siehe host): letzte Endung ist Datei-/Code-Endung (NativePage.swift; Nutzerdateien nimmt
+    // danach die Datei-Regel), Treffer mit Grossbuchstaben (Foundation.URLError, Saga.PageDoc.save), Versionen (2.5.beta),
+    // Ketten ab bekannter Wurzel bzw. einem Buchstaben (self.store.page, e.target) und eigene Muster nach "http.GET ".
+    private static let reHost = rx("(?<![\\w.$/\\-])(?:[^\\W_](?:[^\\W_]|-)*\\.)+([^\\W\\d_]{2,24}|xn--[a-z0-9\\-]{1,59})(?![\\w$(\\-]|\\.\\w)", .caseInsensitive)
+    private static let codeExt: Set<String> = Set("swift m mm h c cc cpp js mjs css html htm json xml plist strings stringsdict dylib so a o framework app appex bundle xib storyboard nib car log sh py kt java".split(separator: " ").map(String.init))
+    private static let hostRoots: Set<String> = Set("self super os dispatch foundation swift darwin libsystem libdispatch libswiftcore sodium".split(separator: " ").map(String.init))
+    private static let reOwnPattern = rx("http\\.[A-Z]{3,7} $")
+
+    private static func host(_ m: NSTextCheckingResult, _ ns: NSString, strict: Bool) -> String {
+        let h = ns.substring(with: m.range), tld = ns.substring(with: m.range(at: 1)).lowercased()
+        if codeExt.contains(tld) || reFileExt.firstMatch(in: tld, range: NSRange(location: 0, length: (tld as NSString).length)) != nil { return h }
+        let labels = h.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
+        if labels.dropLast().allSatisfy({ !$0.isEmpty && $0.allSatisfy(\.isASCII) && $0.allSatisfy(\.isNumber) }) { return h }   // Version 2.5.beta
+        if !strict {
+            let first = labels[0].lowercased()
+            let before = ns.substring(to: m.range.location)
+            if h != h.lowercased() || hostRoots.contains(first) || (first.count == 1 && first.allSatisfy(\.isLetter))
+                || reOwnPattern.firstMatch(in: before, range: NSRange(location: 0, length: (before as NSString).length)) != nil { return h }
+        }
+        return "<host>"
+    }
+
     private static let reIdent = rx("^[A-Za-z_$][\\w$.]{0,39}$")
     private static let rePath = rx("(?<![\\w.:<])/[^\\s\"'<>()]+")
     private static let reHandle = rx("[~@][\\w.\\-]{2,}")
@@ -94,6 +121,8 @@ enum ClientLogLogic {
             }
             return ascii ? String(whole.first!) + "<str>" + String(whole.first!) : "\"<str>\""
         }
+        s = sub(reHost, s) { m, ns in host(m, ns, strict: false) }
+        s = sub(reFile, s, "<file>")
         s = sub(rePath, s, "<path>")
         s = sub(reHandle, s, "<id>")
         s = sub(reUUID, s, "<uuid>")
@@ -115,13 +144,14 @@ enum ClientLogLogic {
         return String(s.prefix(max))
     }
 
-    /// Freitext der Person (nur Diagnose): Steuerzeichen weg, Schluessel/Adressen/E-Mail maskiert, gekuerzt
+    /// Freitext der Person (nur Diagnose): Steuerzeichen weg, Schluessel/Adressen/E-Mail/Hostnamen maskiert, gekuerzt
     static func note(_ input: String) -> String {
         var s = input.replacingOccurrences(of: "\r\n", with: "\n")
         s = sub(rx("[\\x{0}-\\x{9}\\x{b}-\\x{1f}\\x{7f}-\\x{9f}\\x{200b}-\\x{200f}\\x{202a}-\\x{202e}\\x{2066}-\\x{2069}\\x{feff}]"), s, " ")
         s = sub(reSecret, s, "<secret>")
         s = sub(reURL, s, "<url>")
         s = sub(reEmail, s, "<email>")
+        s = sub(reHost, s) { m, ns in host(m, ns, strict: true) }   // Freitext: auch Grossschreibung/Modulwurzeln -> <host>
         s = sub(rx("(?<![\\w-])[A-Za-z0-9_\\-+/=]{32,}"), s, "<tok>")
         return String(s.trimmingCharacters(in: .whitespacesAndNewlines).prefix(noteMax))
     }

@@ -16,6 +16,29 @@ func clientLogTests() {
     check(L.scrub("token ~abcdef12 und sgaABCDEFGHIJKLMNOPQRSTU1") == "token <id> <w> <tok>", "Handle und Zufallsfolge: \(L.scrub("token ~abcdef12 und sgaABCDEFGHIJKLMNOPQRSTU1"))")
     check(L.scrub("a\u{202e}b\u{0007}c") == "a b c", "Steuer- und Richtungszeichen weg")
     check(L.scrub(String(repeating: "x.y ", count: 200)).count <= 300, "auf 300 gekuerzt")
+    // Hostnamen mit beliebiger Endung (wie Android ClientLog.kt): weg; Bezeichner, Module, Dateien, Versionen bleiben lesbar
+    for (raw, host) in [("Hostname cloud.mueller.family not verified", "cloud.mueller.family"), ("URLError: nas.fritz.box timed out", "nas.fritz.box"),
+                        ("ssl error saga.meinheim.family:8443", "saga.meinheim.family"), ("connect to router.lan failed", "router.lan"),
+                        ("db.internal refused", "db.internal"), ("resolve gw.home.arpa failed.", "gw.home.arpa"),
+                        ("host xn--mller-kva.example unreachable", "xn--mller-kva"), ("host shop.xn--p1ai unreachable", "shop.xn--p1ai"),
+                        ("srv2.my-home.family down", "my-home"), ("at nas-01.fritz.box port 1", "nas-01")] {
+        let x = L.scrub(raw)
+        check(!x.contains(host) && x.contains("<host>") && L.scrub(x) == x, "Host weg: \(raw) -> \(x)")
+    }
+    for (raw, keep) in [("Error Domain=NSURLErrorDomain Code=-1200 Foundation.URLError", "Foundation.URLError"),
+                        ("Saga.PageDoc.save failed", "Saga.PageDoc.save"), ("self.store.page is nil", "self.store.page"),
+                        ("e.target.value undefined", "e.target.value"), ("NativePage.swift line 88", "NativePage.swift"),
+                        ("load editor.js failed", "editor.js"), ("DecodingError.keyNotFound: http.GET api.app.today", "http.GET api.app.today"),
+                        ("HTTPError.status5xx: http.PATCH api.notes.ID", "http.PATCH api.notes.ID"), ("version 2.5.0 und 2.5.beta", "<n>.<w>"),
+                        ("Swift.DecodingError.dataCorrupted", "Swift.DecodingError.dataCorrupted"), ("dispatch.main.queue stalled", "dispatch.main.queue")] {
+        let x = L.scrub(raw)
+        check(x.contains(keep) && !x.contains("<host>"), "Bezeichner bleibt: \(raw) -> \(x)")
+    }
+    check(L.scrub("brief.final.pdf fehlt") == "<file> <w>", "Datei-Regel statt Host: \(L.scrub("brief.final.pdf fehlt"))")
+    check(L.scrub("x https://cloud.mueller.family/s/1 y") == "x <url> y" && L.scrub("an anna@cloud.mueller.family") == "an <email>", "URL/E-Mail vor Host")
+    check(L.scrub("x /var/mobile/nas.fritz.box/a y") == "x <path> y", "Pfad mit Host -> <path>: \(L.scrub("x /var/mobile/nas.fritz.box/a y"))")
+    let nh = L.note("Mein Server cloud.Mueller.family und NAS.fritz.box, gw.home.arpa. Version 2.5.0, Datei a.pdf")
+    check(nh == "Mein Server <host> und <host>, <host>. Version 2.5.0, Datei a.pdf", "Freitext: Hosts weg: \(nh)")
     // eigene Meldungen ueberstehen die Server-Bereinigung (Punkt-Bezeichner)
     check(L.scrub(L.httpMessage(code: 503, method: "PATCH", pattern: "/api/notes/:id")) == "HTTPError.status5xx: http.PATCH api.notes.ID", "5xx-Meldung: \(L.httpMessage(code: 503, method: "PATCH", pattern: "/api/notes/:id"))")
     let dec = L.decodeMessage(DecodingError.keyNotFound(CodingKeysProbe.x, .init(codingPath: [], debugDescription: "Geheim")), pattern: "/api/app/today")
