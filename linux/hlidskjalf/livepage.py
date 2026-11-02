@@ -203,6 +203,8 @@ class LivePage:
         """zurueck auf Stufe 1; eigene, nicht bestaetigte Aenderungen per PATCH (merge: 1, base: sent) speichern"""
         was = self.mode
         self.mode = None
+        if self.session is not None and self.session.state == "idle":
+            self.session = None                                 # nicht endgueltig: beim naechsten Aufbau neu versuchen
         d = self.doc
         if pending and d.fetched and not d.read_only:
             d.base_sent = d.base_blocks is not None

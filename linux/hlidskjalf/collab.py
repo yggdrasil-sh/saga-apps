@@ -625,6 +625,9 @@ class Session:
     def start(self):
         if self.state != "idle":
             return
+        old = self.conn.sessions.get(self.nid)
+        if old is not None and old is not self:
+            old.stop()                                       # dieselbe Seite neu geoeffnet: erst das alte Abo beenden
         self.state = "sub"
         self.conn.add(self)
         if self.conn.open:
@@ -672,8 +675,8 @@ class Session:
         if self.state == "sub":
             if code in PERMANENT:
                 self.fallback("closed-%d" % code, final=True)
-            elif self.conn.fails >= 2:
-                self.fallback("closed-%d" % code, final=False)
+            elif self.conn.fails >= 3:                       # mehrfach kein Aufbau (z. B. Proxy ohne Upgrade)
+                self.fallback("closed-%d" % code, final=True)
             return
         if self.state == "live":
             if code in PERMANENT:

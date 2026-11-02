@@ -233,7 +233,8 @@ class PageView(Gtk.Box):
         self.blocks_box = None
         self.doc.on_loaded = lambda d: (self.rebuild(), self.load_widgets(first=True))
         self.doc.on_error = self._error
-        self.doc.on_saved = lambda: (self.header_changed and self.header_changed(), self.update_banners())
+        self.doc.on_saved = lambda: (self.header_changed and self.header_changed(), self.update_banners(),
+                                     self._start_live())      # 2.5: erst gespeichert (Entwurf, Stufe 1) -> dann live
         self.doc.on_conflict = self._conflict
         self.doc.on_notice = self._error
         self.doc.on_title = lambda t: self.rebuild()
