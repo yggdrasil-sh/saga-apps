@@ -23,7 +23,10 @@ def kind_label(kind):
             "share.role": _("My role on a shared page changes"),
             "comment.new": _("New comments on my pages"),
             "comment.reply": _("Replies in threads I'm part of"),
-            "comment.mention": _("Someone mentions me"),
+            "comment.mention": _("Someone mentions me in a comment"),
+            "page.mention": _("Someone mentions me on a page"),
+            "chat.mention": _("Someone mentions me in a chat"),
+            "db.assigned": _("Someone assigns me in a database (person)"),
             "publish.withdrawn": _("An admin withdraws one of my published pages"),
             "chat.message": _("New chat messages (without content; never for muted chats)"),
             "call.missed": _("Missed calls"),
@@ -50,7 +53,15 @@ def item_text(it):
             return _("{name} replied in a thread").format(name=name)
         return ngettext("{n} new reply in a thread", "{n} new replies in a thread", n).format(n=n)
     if k == "comment.mention":
+        return _("{name} mentioned you in a comment").format(name=name)
+    if k == "page.mention":
         return _("{name} mentioned you").format(name=name)
+    if k == "chat.mention":
+        return _("{name} mentioned you in a chat").format(name=name)
+    if k == "db.assigned":
+        if n <= 1:
+            return _("{name} assigned you").format(name=name)
+        return ngettext("{name} assigned you {n} time", "{name} assigned you {n} times", n).format(name=name, n=n)
     if k == "publish.withdrawn":
         return _("An admin withdrew your published page")
     if k == "chat.message":
@@ -68,6 +79,7 @@ def item_text(it):
 
 
 SYSTEM_KINDS = ("backup.failed", "userbackup.failed")
+CHAT_KINDS = ("chat.message", "chat.mention", "call.missed")      # Titel = Chat, Desktop-Mitteilung ohne zweite Zeile
 
 
 def item_title(it):
@@ -77,7 +89,7 @@ def item_title(it):
         return it.get("title") or _("My backup")
     if it.get("access") is False:
         return _("No access anymore")
-    if it.get("kind") in ("chat.message", "call.missed"):
+    if it.get("kind") in CHAT_KINDS or isinstance(it.get("chat"), dict):
         return it.get("title") or _("Chat")
     note = it.get("note") if isinstance(it.get("note"), dict) else None
     if note:
@@ -249,13 +261,13 @@ def show_desktop(app, it):
     if app is None or not desktop_enabled() or not isinstance(it, dict):
         return False
     n = Gio.Notification.new(item_text(it) or "Saga")
-    body = item_title(it) if it.get("kind") not in ("chat.message", "call.missed") else ""
+    body = item_title(it) if it.get("kind") not in CHAT_KINDS else ""
     if body:
         n.set_body(body)
     url = it.get("url") or ("/chats#c%s" % it["chat"]["id"] if isinstance(it.get("chat"), dict) else "")
     if url and it.get("access") is not False:
         n.set_default_action_and_target("app.open-url", GLib.Variant("s", url))
-    n.set_category({"chat.message": "im.received", "call.missed": "call.unanswered"}.get(it.get("kind"), "presence"))
+    n.set_category({"chat.message": "im.received", "chat.mention": "im.received", "call.missed": "call.unanswered"}.get(it.get("kind"), "presence"))
     try:
         app.send_notification(item_tag(it), n)
     except GLib.Error:

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: saga\n"
 "Report-Msgid-Bugs-To: https://github.com/yggdrasil-sh/saga-apps/issues\n"
-"POT-Creation-Date: 2026-11-02 08:34+0100\n"
+"POT-Creation-Date: 2026-11-02 17:42+0100\n"
 "PO-Revision-Date: 2026-10-18 18:00+0200\n"
 "Last-Translator: Saga-Projekt\n"
 "Language-Team: Русский\n"
@@ -56,7 +56,7 @@ msgid "Edit …"
 msgstr "Изменить…"
 
 #: hlidskjalf/agenda.py:62 hlidskjalf/agenda.py:155 hlidskjalf/assistant.py:947
-#: hlidskjalf/blocks.py:1458 hlidskjalf/chatview.py:2176
+#: hlidskjalf/blocks.py:1459 hlidskjalf/chatview.py:2176
 #: hlidskjalf/chatview.py:2182 hlidskjalf/comments.py:667
 #: hlidskjalf/comments.py:726
 msgid "Delete"
@@ -81,12 +81,12 @@ msgstr "База данных"
 #: hlidskjalf/database.py:759 hlidskjalf/database.py:838
 #: hlidskjalf/database.py:839 hlidskjalf/database.py:1110
 #: hlidskjalf/graphview.py:821 hlidskjalf/graphview.py:1171
-#: hlidskjalf/publish.py:529 hlidskjalf/window.py:1950
+#: hlidskjalf/publish.py:529 hlidskjalf/window.py:1964
 msgid "Open"
 msgstr "Открыть"
 
-#: hlidskjalf/agenda.py:183 hlidskjalf/comments.py:713 hlidskjalf/page.py:1725
-#: hlidskjalf/page.py:2019 hlidskjalf/window.py:1867 hlidskjalf/window.py:1872
+#: hlidskjalf/agenda.py:183 hlidskjalf/comments.py:713 hlidskjalf/page.py:1859
+#: hlidskjalf/page.py:2170 hlidskjalf/window.py:1881 hlidskjalf/window.py:1886
 msgid "Undo"
 msgstr "Отменить"
 
@@ -119,7 +119,7 @@ msgstr "Просрочено"
 #: hlidskjalf/database.py:704 hlidskjalf/database.py:1395
 #: hlidskjalf/dbcells.py:333 hlidskjalf/pagewidgets.py:317
 #: hlidskjalf/pwcard2.py:185 hlidskjalf/richtext.py:495
-#: hlidskjalf/window.py:264 hlidskjalf/window.py:1209 hlidskjalf/window.py:1619
+#: hlidskjalf/window.py:264 hlidskjalf/window.py:1213 hlidskjalf/window.py:1633
 msgid "Today"
 msgstr "Сегодня"
 
@@ -161,14 +161,14 @@ msgstr "Задача"
 #: hlidskjalf/dialogs.py:188 hlidskjalf/dialogs.py:198
 #: hlidskjalf/dialogs.py:351 hlidskjalf/dialogs.py:577
 #: hlidskjalf/galeriedialog.py:126 hlidskjalf/nextcloud.py:723
-#: hlidskjalf/nextcloud.py:775 hlidskjalf/page.py:124 hlidskjalf/page.py:1587
-#: hlidskjalf/page.py:1774 hlidskjalf/page.py:1823 hlidskjalf/page.py:1924
+#: hlidskjalf/nextcloud.py:775 hlidskjalf/page.py:124 hlidskjalf/page.py:1721
+#: hlidskjalf/page.py:1908 hlidskjalf/page.py:1957 hlidskjalf/page.py:2058
 #: hlidskjalf/profile.py:162 hlidskjalf/publish.py:217
 #: hlidskjalf/settings.py:253 hlidskjalf/settings.py:286
 #: hlidskjalf/settings.py:501 hlidskjalf/settings.py:624
 #: hlidskjalf/settings.py:698 hlidskjalf/userbackup.py:257
 #: hlidskjalf/userbackup.py:335 hlidskjalf/userbackup.py:380
-#: hlidskjalf/window.py:939 hlidskjalf/window.py:1929 hlidskjalf/window.py:2013
+#: hlidskjalf/window.py:943 hlidskjalf/window.py:1943 hlidskjalf/window.py:2027
 msgid "Cancel"
 msgstr "Отмена"
 
@@ -184,7 +184,7 @@ msgstr "Сохранить"
 msgid "Due"
 msgstr "Срок"
 
-#: hlidskjalf/agenda.py:442 hlidskjalf/blocks.py:1614 hlidskjalf/blocks.py:1619
+#: hlidskjalf/agenda.py:442 hlidskjalf/blocks.py:1619 hlidskjalf/blocks.py:1624
 #: hlidskjalf/dbedit.py:13 hlidskjalf/dbedit.py:329 hlidskjalf/dbedit.py:423
 msgid "Date"
 msgstr "Дата"
@@ -314,12 +314,12 @@ msgstr ""
 
 #: hlidskjalf/agenda.py:716 hlidskjalf/agenda.py:869 hlidskjalf/blocks.py:867
 #: hlidskjalf/editor.py:36 hlidskjalf/userbackup.py:20 hlidskjalf/window.py:248
-#: hlidskjalf/window.py:1209 hlidskjalf/window.py:1620
+#: hlidskjalf/window.py:1213 hlidskjalf/window.py:1634
 msgid "Tasks"
 msgstr "Задачи"
 
-#: hlidskjalf/agenda.py:723 hlidskjalf/window.py:249 hlidskjalf/window.py:1209
-#: hlidskjalf/window.py:1621
+#: hlidskjalf/agenda.py:723 hlidskjalf/window.py:249 hlidskjalf/window.py:1213
+#: hlidskjalf/window.py:1635
 msgid "Events"
 msgstr "События"
 
@@ -379,11 +379,11 @@ msgstr ""
 "Эта база данных ещё не источник задач. Выбери в браузере, какое свойство "
 "означает «выполнено» (меню базы данных → «Использовать как источник задач»)."
 
-#: hlidskjalf/agenda.py:850 hlidskjalf/dialogs.py:655 hlidskjalf/window.py:1758
+#: hlidskjalf/agenda.py:850 hlidskjalf/dialogs.py:655 hlidskjalf/window.py:1772
 msgid "OK"
 msgstr "ОК"
 
-#: hlidskjalf/agenda.py:851 hlidskjalf/page.py:1545
+#: hlidskjalf/agenda.py:851 hlidskjalf/page.py:1679
 #: hlidskjalf/userbackup.py:559
 msgid "Open in browser"
 msgstr "Открыть в браузере"
@@ -467,12 +467,12 @@ msgstr "Saga ИИ"
 msgid "Ask {name}"
 msgstr "Спросить {name}"
 
-#: hlidskjalf/assistant.py:109 hlidskjalf/window.py:748
+#: hlidskjalf/assistant.py:109 hlidskjalf/window.py:751
 msgid "Assistant"
 msgstr "Ассистент"
 
-#: hlidskjalf/assistant.py:113 hlidskjalf/page.py:1517 hlidskjalf/window.py:751
-#: hlidskjalf/window.py:1493 hlidskjalf/window.py:1637
+#: hlidskjalf/assistant.py:113 hlidskjalf/page.py:1651 hlidskjalf/window.py:754
+#: hlidskjalf/window.py:1507 hlidskjalf/window.py:1651
 msgid "AI assistant"
 msgstr "ИИ-ассистент"
 
@@ -494,7 +494,7 @@ msgid "History"
 msgstr "История"
 
 #: hlidskjalf/assistant.py:260 hlidskjalf/assistant.py:304
-#: hlidskjalf/page.py:1521
+#: hlidskjalf/page.py:1655
 msgid "Ask your pages"
 msgstr "Спроси свои страницы"
 
@@ -557,17 +557,17 @@ msgid "The assistant does not work on pages from other Saga instances."
 msgstr "Ассистент не работает со страницами других экземпляров Saga."
 
 #: hlidskjalf/assistant.py:430 hlidskjalf/assistant.py:578
-#: hlidskjalf/page.py:1520
+#: hlidskjalf/page.py:1654
 msgid "Improve selected text"
 msgstr "Улучшить выделенный текст"
 
 #: hlidskjalf/assistant.py:430 hlidskjalf/assistant.py:578
-#: hlidskjalf/page.py:1519
+#: hlidskjalf/page.py:1653
 msgid "Suggest tasks"
 msgstr "Предложить задачи"
 
 #: hlidskjalf/assistant.py:430 hlidskjalf/assistant.py:578
-#: hlidskjalf/page.py:1518
+#: hlidskjalf/page.py:1652
 msgid "Summarize"
 msgstr "Кратко изложить"
 
@@ -751,14 +751,14 @@ msgstr "«{name}» для {n} записей:"
 #: hlidskjalf/dbedit.py:828 hlidskjalf/dbedit.py:854
 #: hlidskjalf/dbviews25.py:196 hlidskjalf/dbviews25.py:253
 #: hlidskjalf/dialogs.py:179 hlidskjalf/dialogs.py:184
-#: hlidskjalf/dialogs.py:322 hlidskjalf/dialogs.py:334 hlidskjalf/editor.py:280
-#: hlidskjalf/editor.py:974 hlidskjalf/graphview.py:989
-#: hlidskjalf/graphview.py:997 hlidskjalf/notifications.py:84
-#: hlidskjalf/page.py:455 hlidskjalf/page.py:1226 hlidskjalf/page.py:1725
+#: hlidskjalf/dialogs.py:322 hlidskjalf/dialogs.py:334 hlidskjalf/editor.py:290
+#: hlidskjalf/editor.py:1029 hlidskjalf/graphview.py:989
+#: hlidskjalf/graphview.py:997 hlidskjalf/notifications.py:96
+#: hlidskjalf/page.py:465 hlidskjalf/page.py:1360 hlidskjalf/page.py:1859
 #: hlidskjalf/pwcard2.py:203 hlidskjalf/searchprovider.py:48
 #: hlidskjalf/searchprovider.py:85 hlidskjalf/sharing.py:232
 #: hlidskjalf/sharing.py:279 hlidskjalf/store.py:21
-#: hlidskjalf/userbackup.py:461 hlidskjalf/window.py:577
+#: hlidskjalf/userbackup.py:461 hlidskjalf/window.py:580
 msgid "Untitled"
 msgstr "Без названия"
 
@@ -935,7 +935,7 @@ msgid "More"
 msgstr "Ещё"
 
 #: hlidskjalf/blocks.py:182 hlidskjalf/nextcloud.py:455
-#: hlidskjalf/window.py:1624
+#: hlidskjalf/window.py:1638
 msgid "Back"
 msgstr "Назад"
 
@@ -971,13 +971,13 @@ msgstr "Принять"
 msgid "Discard"
 msgstr "Отменить"
 
-#: hlidskjalf/blocks.py:560 hlidskjalf/window.py:1412 hlidskjalf/window.py:1424
+#: hlidskjalf/blocks.py:560 hlidskjalf/window.py:1426 hlidskjalf/window.py:1438
 #, python-brace-format
 msgid "{name} is editing"
 msgstr "{name} сейчас редактирует"
 
-#: hlidskjalf/blocks.py:599 hlidskjalf/blocks.py:602 hlidskjalf/blocks.py:1405
-#: hlidskjalf/blocks.py:1434 hlidskjalf/chatstd.py:121
+#: hlidskjalf/blocks.py:599 hlidskjalf/blocks.py:602 hlidskjalf/blocks.py:1406
+#: hlidskjalf/blocks.py:1435 hlidskjalf/chatstd.py:121
 #: hlidskjalf/comments.py:543
 msgid "Comment"
 msgstr "Комментировать"
@@ -1019,7 +1019,7 @@ msgstr "Формула TeX"
 msgid "Mermaid diagram"
 msgstr "Диаграмма Mermaid"
 
-#: hlidskjalf/blocks.py:844 hlidskjalf/editor.py:29 hlidskjalf/window.py:1730
+#: hlidskjalf/blocks.py:844 hlidskjalf/editor.py:29 hlidskjalf/window.py:1744
 msgid "Code"
 msgstr "Код"
 
@@ -1027,7 +1027,7 @@ msgstr "Код"
 msgid "No database selected"
 msgstr "База данных не выбрана"
 
-#: hlidskjalf/blocks.py:869 hlidskjalf/page.py:1566
+#: hlidskjalf/blocks.py:869 hlidskjalf/livepage.py:100 hlidskjalf/page.py:1700
 msgid "Page without access"
 msgstr "Страница без доступа"
 
@@ -1104,7 +1104,7 @@ msgid "Empty toggle – click to write"
 msgstr "Пустой раскрывающийся блок – нажми, чтобы писать"
 
 #: hlidskjalf/blocks.py:1138 hlidskjalf/chatstdview.py:326
-#: hlidskjalf/page.py:1088
+#: hlidskjalf/page.py:1214
 msgid "Block"
 msgstr "Блок"
 
@@ -1132,174 +1132,174 @@ msgstr "Видео YouTube"
 msgid "Set up buttons"
 msgstr "Настроить кнопки"
 
-#: hlidskjalf/blocks.py:1333
+#: hlidskjalf/blocks.py:1334
 msgid "Insert row above"
 msgstr "Вставить строку выше"
 
-#: hlidskjalf/blocks.py:1334
+#: hlidskjalf/blocks.py:1335
 msgid "Insert row below"
 msgstr "Вставить строку ниже"
 
-#: hlidskjalf/blocks.py:1335
+#: hlidskjalf/blocks.py:1336
 msgid "Insert column left"
 msgstr "Вставить столбец слева"
 
-#: hlidskjalf/blocks.py:1336
+#: hlidskjalf/blocks.py:1337
 msgid "Insert column right"
 msgstr "Вставить столбец справа"
 
-#: hlidskjalf/blocks.py:1338
+#: hlidskjalf/blocks.py:1339
 msgid "Delete row"
 msgstr "Удалить строку"
 
-#: hlidskjalf/blocks.py:1340 hlidskjalf/dbedit.py:592
+#: hlidskjalf/blocks.py:1341 hlidskjalf/dbedit.py:592
 msgid "Delete column"
 msgstr "Удалить столбец"
 
-#: hlidskjalf/blocks.py:1356
+#: hlidskjalf/blocks.py:1357
 #, python-brace-format
 msgid "Row {row}, column {col}"
 msgstr "Строка {row}, столбец {col}"
 
-#: hlidskjalf/blocks.py:1381
+#: hlidskjalf/blocks.py:1382
 msgid "Row"
 msgstr "Строка"
 
-#: hlidskjalf/blocks.py:1383
+#: hlidskjalf/blocks.py:1384
 msgid "Column"
 msgstr "Столбец"
 
-#: hlidskjalf/blocks.py:1385
+#: hlidskjalf/blocks.py:1386
 msgid "Header row"
 msgstr "Строка заголовка"
 
-#: hlidskjalf/blocks.py:1389
+#: hlidskjalf/blocks.py:1390
 msgid "Row and column of the selected cell"
 msgstr "Строка и столбец выбранной ячейки"
 
-#: hlidskjalf/blocks.py:1401 hlidskjalf/blocks.py:1432
+#: hlidskjalf/blocks.py:1402 hlidskjalf/blocks.py:1433
 msgid "Copy link to block"
 msgstr "Копировать ссылку на блок"
 
-#: hlidskjalf/blocks.py:1403 hlidskjalf/blocks.py:1453
+#: hlidskjalf/blocks.py:1404 hlidskjalf/blocks.py:1454
 msgid "Copy block"
 msgstr "Копировать блок"
 
-#: hlidskjalf/blocks.py:1415
+#: hlidskjalf/blocks.py:1416
 msgid "Mark for the assistant"
 msgstr "Отметить для ассистента"
 
-#: hlidskjalf/blocks.py:1423 hlidskjalf/dbcells.py:466
+#: hlidskjalf/blocks.py:1424 hlidskjalf/dbcells.py:466
 msgid "Edit on the web"
 msgstr "Изменить в веб-версии"
 
-#: hlidskjalf/blocks.py:1424
+#: hlidskjalf/blocks.py:1425
 msgid "Turn into"
 msgstr "Превратить в"
 
-#: hlidskjalf/blocks.py:1426
+#: hlidskjalf/blocks.py:1427
 msgid "Color"
 msgstr "Цвет"
 
-#: hlidskjalf/blocks.py:1430
+#: hlidskjalf/blocks.py:1431
 msgid "Color of selected text …"
 msgstr "Цвет выделенного текста …"
 
-#: hlidskjalf/blocks.py:1431
+#: hlidskjalf/blocks.py:1432
 msgid "Inline math …"
 msgstr "Формула в строке …"
 
-#: hlidskjalf/blocks.py:1437 hlidskjalf/blocks.py:1448
+#: hlidskjalf/blocks.py:1438 hlidskjalf/blocks.py:1449
 #, python-brace-format
 msgid "Column {n}"
 msgstr "Столбец {n}"
 
-#: hlidskjalf/blocks.py:1439
+#: hlidskjalf/blocks.py:1440
 msgid "To another column"
 msgstr "В другой столбец"
 
-#: hlidskjalf/blocks.py:1440
+#: hlidskjalf/blocks.py:1441
 msgid "Take out of the columns"
 msgstr "Вынуть из колонок"
 
-#: hlidskjalf/blocks.py:1445
+#: hlidskjalf/blocks.py:1446
 msgid "Merge with the columns above"
 msgstr "Объединить со столбцами выше"
 
-#: hlidskjalf/blocks.py:1447
+#: hlidskjalf/blocks.py:1448
 msgid "Move into the columns above"
 msgstr "Переместить в столбцы выше"
 
-#: hlidskjalf/blocks.py:1450
+#: hlidskjalf/blocks.py:1451
 msgid "Merge with the columns below"
 msgstr "Объединить со столбцами ниже"
 
-#: hlidskjalf/blocks.py:1453
+#: hlidskjalf/blocks.py:1454
 msgid "Cut block"
 msgstr "Вырезать блок"
 
-#: hlidskjalf/blocks.py:1456
+#: hlidskjalf/blocks.py:1457
 msgid "Move to another page …"
 msgstr "Переместить на другую страницу …"
 
-#: hlidskjalf/blocks.py:1457 hlidskjalf/database.py:840
-#: hlidskjalf/dbedit.py:262 hlidskjalf/dbedit.py:844 hlidskjalf/page.py:1540
-#: hlidskjalf/window.py:1790
+#: hlidskjalf/blocks.py:1458 hlidskjalf/database.py:840
+#: hlidskjalf/dbedit.py:262 hlidskjalf/dbedit.py:844 hlidskjalf/page.py:1674
+#: hlidskjalf/window.py:1804
 msgid "Duplicate"
 msgstr "Дублировать"
 
-#: hlidskjalf/blocks.py:1457
+#: hlidskjalf/blocks.py:1458
 msgid "Move up"
 msgstr "Вверх"
 
-#: hlidskjalf/blocks.py:1458
+#: hlidskjalf/blocks.py:1459
 msgid "Move down"
 msgstr "Вниз"
 
-#: hlidskjalf/blocks.py:1476 hlidskjalf/dbedit.py:836 hlidskjalf/page.py:1502
-#: hlidskjalf/page.py:1629
+#: hlidskjalf/blocks.py:1477 hlidskjalf/dbedit.py:836 hlidskjalf/page.py:1636
+#: hlidskjalf/page.py:1763
 msgid "Default"
 msgstr "По умолчанию"
 
-#: hlidskjalf/blocks.py:1477 hlidskjalf/page.py:1623
+#: hlidskjalf/blocks.py:1478 hlidskjalf/page.py:1757
 msgid "Background"
 msgstr "Фон"
 
-#: hlidskjalf/blocks.py:1477 hlidskjalf/page.py:1623
+#: hlidskjalf/blocks.py:1478 hlidskjalf/page.py:1757
 msgid "Text color"
 msgstr "Цвет текста"
 
-#: hlidskjalf/blocks.py:1514
+#: hlidskjalf/blocks.py:1519
 #, python-brace-format
 msgid "No block type for “{query}”"
 msgstr "Нет типа блока для «{query}»"
 
-#: hlidskjalf/blocks.py:1573 hlidskjalf/chatview.py:4731
+#: hlidskjalf/blocks.py:1578 hlidskjalf/chatview.py:4731
 #: hlidskjalf/sharing.py:254 hlidskjalf/sharing.py:278
 msgid "Person"
 msgstr "Человек"
 
-#: hlidskjalf/blocks.py:1573
+#: hlidskjalf/blocks.py:1578
 msgid "me"
 msgstr "я"
 
-#: hlidskjalf/blocks.py:1579 hlidskjalf/window.py:1169
+#: hlidskjalf/blocks.py:1584 hlidskjalf/window.py:1173
 msgid "No access"
 msgstr "Нет доступа"
 
-#: hlidskjalf/blocks.py:1615 hlidskjalf/blocks.py:1621
+#: hlidskjalf/blocks.py:1620 hlidskjalf/blocks.py:1626
 msgid "Reminder"
 msgstr "Напоминание"
 
-#: hlidskjalf/blocks.py:1615 hlidskjalf/blocks.py:1621
+#: hlidskjalf/blocks.py:1620 hlidskjalf/blocks.py:1626
 #, python-brace-format
 msgid "Reminder: {date}"
 msgstr "Напоминание: {date}"
 
-#: hlidskjalf/blocks.py:1631 hlidskjalf/chat.py:1271 hlidskjalf/dialogs.py:620
+#: hlidskjalf/blocks.py:1636 hlidskjalf/chat.py:1271 hlidskjalf/dialogs.py:620
 #: hlidskjalf/dialogs.py:623 hlidskjalf/editor.py:33 hlidskjalf/graphview.py:43
-#: hlidskjalf/graphview.py:1071 hlidskjalf/window.py:777
-#: hlidskjalf/window.py:1966
+#: hlidskjalf/graphview.py:1071 hlidskjalf/window.py:781
+#: hlidskjalf/window.py:1980
 msgid "Page"
 msgstr "Страница"
 
@@ -1772,7 +1772,7 @@ msgid "Group"
 msgstr "Группа"
 
 #: hlidskjalf/chat.py:1271 hlidskjalf/chat.py:1275
-#: hlidskjalf/notifications.py:81 hlidskjalf/settings.py:115
+#: hlidskjalf/notifications.py:93 hlidskjalf/settings.py:115
 msgid "Chat"
 msgstr "Чат"
 
@@ -1788,7 +1788,7 @@ msgstr "Личный чат"
 msgid "Group chat"
 msgstr "Групповой чат"
 
-#: hlidskjalf/chat.py:1274 hlidskjalf/page.py:1514
+#: hlidskjalf/chat.py:1274 hlidskjalf/page.py:1648
 msgid "Page chat"
 msgstr "Чат страницы"
 
@@ -2043,7 +2043,7 @@ msgstr "Не удаётся прочитать изображение."
 msgid "Change group picture"
 msgstr "Изменить изображение группы"
 
-#: hlidskjalf/chatstdview.py:123 hlidskjalf/page.py:1855
+#: hlidskjalf/chatstdview.py:123 hlidskjalf/page.py:1989
 #: hlidskjalf/profile.py:329
 msgid "Images"
 msgstr "Изображения"
@@ -2212,7 +2212,7 @@ msgstr "Медиа"
 msgid "Links"
 msgstr "Ссылки"
 
-#: hlidskjalf/chatstdview.py:428 hlidskjalf/notifications.py:348
+#: hlidskjalf/chatstdview.py:428 hlidskjalf/notifications.py:360
 msgid "Load older"
 msgstr "Загрузить более ранние"
 
@@ -2231,7 +2231,7 @@ msgstr "Найти чат"
 #: hlidskjalf/chatstdview.py:542 hlidskjalf/chatview.py:322
 #: hlidskjalf/chatview.py:342 hlidskjalf/chatview.py:345
 #: hlidskjalf/chatview.py:394 hlidskjalf/chatview.py:476
-#: hlidskjalf/window.py:260 hlidskjalf/window.py:1631
+#: hlidskjalf/window.py:260 hlidskjalf/window.py:1645
 msgid "Chats"
 msgstr "Чаты"
 
@@ -2251,7 +2251,7 @@ msgstr[2] "Переслать {n} сообщений в «{chat}»?"
 msgid "Forward?"
 msgstr "Переслать?"
 
-#: hlidskjalf/chatstdview.py:566 hlidskjalf/window.py:1625
+#: hlidskjalf/chatstdview.py:566 hlidskjalf/window.py:1639
 msgid "Forward"
 msgstr "Вперёд"
 
@@ -2530,7 +2530,7 @@ msgid "Archived ({n})"
 msgstr "Архив ({n})"
 
 #: hlidskjalf/chatview.py:609 hlidskjalf/chatview.py:720
-#: hlidskjalf/comments.py:100 hlidskjalf/notifications.py:300
+#: hlidskjalf/comments.py:100 hlidskjalf/notifications.py:312
 #, python-brace-format
 msgid "{n} unread"
 msgid_plural "{n} unread"
@@ -2792,7 +2792,7 @@ msgstr "Показать"
 msgid "Select message"
 msgstr "Выбрать сообщение"
 
-#: hlidskjalf/chatview.py:1629 hlidskjalf/notifications.py:38
+#: hlidskjalf/chatview.py:1629 hlidskjalf/notifications.py:41
 msgid "Deleted account"
 msgstr "Удалённый аккаунт"
 
@@ -3017,7 +3017,7 @@ msgstr "Открыть изображение: {name}"
 
 #: hlidskjalf/chatview.py:2222 hlidskjalf/chatview.py:2251
 #: hlidskjalf/chatview.py:3153 hlidskjalf/chatview.py:3203
-#: hlidskjalf/window.py:1916
+#: hlidskjalf/window.py:1930
 msgid "Save attachment"
 msgstr "Сохранить вложение"
 
@@ -3031,7 +3031,7 @@ msgid "Play video: {name}"
 msgstr "Воспроизвести видео: {name}"
 
 #: hlidskjalf/chatview.py:2282 hlidskjalf/chatview.py:4301
-#: hlidskjalf/userbackup.py:651 hlidskjalf/window.py:1950
+#: hlidskjalf/userbackup.py:651 hlidskjalf/window.py:1964
 #, python-brace-format
 msgid "Saved: {name}"
 msgstr "Сохранено: {name}"
@@ -3051,7 +3051,7 @@ msgid "Mention a person"
 msgstr "Упомянуть человека"
 
 #: hlidskjalf/chatview.py:2347 hlidskjalf/chatview.py:2349
-#: hlidskjalf/chatview.py:2616 hlidskjalf/page.py:1942
+#: hlidskjalf/chatview.py:2616 hlidskjalf/page.py:2076
 msgid "Attach file"
 msgstr "Прикрепить файл"
 
@@ -3064,8 +3064,8 @@ msgid "Message …"
 msgstr "Сообщение …"
 
 #: hlidskjalf/chatview.py:2378 hlidskjalf/chatview.py:2381
-#: hlidskjalf/chatx3.py:512 hlidskjalf/settings.py:835
-#: hlidskjalf/settings.py:886
+#: hlidskjalf/chatx3.py:512 hlidskjalf/settings.py:839
+#: hlidskjalf/settings.py:890
 msgid "Send"
 msgstr "Отправить"
 
@@ -3078,11 +3078,11 @@ msgstr "Записать голосовое сообщение"
 msgid "Reply to {name}"
 msgstr "Ответ для {name}"
 
-#: hlidskjalf/chatview.py:2597 hlidskjalf/page.py:95 hlidskjalf/page.py:1259
+#: hlidskjalf/chatview.py:2597 hlidskjalf/page.py:95 hlidskjalf/page.py:1393
 msgid "File …"
 msgstr "Файл…"
 
-#: hlidskjalf/chatview.py:2597 hlidskjalf/page.py:96 hlidskjalf/page.py:1260
+#: hlidskjalf/chatview.py:2597 hlidskjalf/page.py:96 hlidskjalf/page.py:1394
 msgid "From Immich …"
 msgstr "Из Immich …"
 
@@ -3110,7 +3110,7 @@ msgstr ""
 #: hlidskjalf/chatview.py:3601 hlidskjalf/chatview.py:3918
 #: hlidskjalf/chatview.py:3932 hlidskjalf/chatview.py:4118
 #: hlidskjalf/chatview.py:4673 hlidskjalf/chatview.py:4830
-#: hlidskjalf/dbcells.py:263 hlidskjalf/page.py:113 hlidskjalf/page.py:1825
+#: hlidskjalf/dbcells.py:263 hlidskjalf/page.py:113 hlidskjalf/page.py:1959
 #: hlidskjalf/push.py:450 hlidskjalf/push.py:452 hlidskjalf/push.py:482
 #: hlidskjalf/settings.py:485 hlidskjalf/settings.py:502
 #: hlidskjalf/sharing.py:952 hlidskjalf/userbackup.py:354
@@ -3199,7 +3199,7 @@ msgid "Leave group"
 msgstr "Покинуть группу"
 
 #: hlidskjalf/chatview.py:2946 hlidskjalf/chatview.py:3830
-#: hlidskjalf/page.py:1553 hlidskjalf/window.py:1792
+#: hlidskjalf/page.py:1687 hlidskjalf/window.py:1806
 msgid "Archive"
 msgstr "Архивировать"
 
@@ -3341,7 +3341,7 @@ msgid "not loaded"
 msgstr "не загружено"
 
 #: hlidskjalf/chatview.py:3149 hlidskjalf/clipimg.py:76 hlidskjalf/editor.py:31
-#: hlidskjalf/page.py:158 hlidskjalf/page.py:1088
+#: hlidskjalf/page.py:158 hlidskjalf/page.py:1214
 msgid "Image"
 msgstr "Изображение"
 
@@ -3642,7 +3642,7 @@ msgstr "Последние четыре символа"
 msgid "Confirm recovery key"
 msgstr "Подтвердить ключ восстановления"
 
-#: hlidskjalf/chatview.py:4291 hlidskjalf/window.py:1327
+#: hlidskjalf/chatview.py:4291 hlidskjalf/window.py:1341
 #, python-brace-format
 msgid "Account: {name}"
 msgstr "Аккаунт: {name}"
@@ -3776,7 +3776,7 @@ msgstr "Разблокировать"
 
 #: hlidskjalf/chatview.py:4572 hlidskjalf/dialogs.py:429
 #: hlidskjalf/nextcloud.py:758 hlidskjalf/settings.py:275
-#: hlidskjalf/settings.py:328 hlidskjalf/settings.py:802
+#: hlidskjalf/settings.py:328 hlidskjalf/settings.py:806
 #: hlidskjalf/userbackup.py:286 hlidskjalf/userbackup.py:311
 msgid "Checking …"
 msgstr "Проверка …"
@@ -4189,7 +4189,7 @@ msgid "{n} of {max}"
 msgstr "{n} из {max}"
 
 #: hlidskjalf/comments.py:398 hlidskjalf/comments.py:427
-#: hlidskjalf/page.py:1494 hlidskjalf/window.py:1651
+#: hlidskjalf/page.py:1628 hlidskjalf/window.py:1665
 msgid "Comments"
 msgstr "Комментарии"
 
@@ -4210,7 +4210,7 @@ msgstr "Комментарии не загружены: {err}"
 msgid "Show resolved"
 msgstr "Показать решённые"
 
-#: hlidskjalf/comments.py:511 hlidskjalf/page.py:1495
+#: hlidskjalf/comments.py:511 hlidskjalf/page.py:1629
 #, python-brace-format
 msgid "{n} resolved"
 msgid_plural "{n} resolved"
@@ -4249,7 +4249,7 @@ msgstr "Снова открыть обсуждение"
 #: hlidskjalf/comments.py:647 hlidskjalf/comments.py:648
 #: hlidskjalf/database.py:1037 hlidskjalf/database.py:1277
 #: hlidskjalf/dbedit.py:205 hlidskjalf/dbedit.py:212 hlidskjalf/dbedit.py:228
-#: hlidskjalf/dialogs.py:633 hlidskjalf/editor.py:1465
+#: hlidskjalf/dialogs.py:633 hlidskjalf/editor.py:1532
 msgid "New"
 msgstr "Новое"
 
@@ -4317,14 +4317,14 @@ msgid "Search entries"
 msgstr "Поиск записей"
 
 #: hlidskjalf/database.py:838 hlidskjalf/database.py:841
-#: hlidskjalf/page.py:1544 hlidskjalf/publish.py:513 hlidskjalf/publish.py:528
+#: hlidskjalf/page.py:1678 hlidskjalf/publish.py:513 hlidskjalf/publish.py:528
 #: hlidskjalf/publish.py:533 hlidskjalf/sharing.py:717
-#: hlidskjalf/window.py:1779 hlidskjalf/window.py:1791
+#: hlidskjalf/window.py:1793 hlidskjalf/window.py:1805
 msgid "Copy link"
 msgstr "Копировать ссылку"
 
 #: hlidskjalf/database.py:842 hlidskjalf/dbedit.py:848 hlidskjalf/dbedit.py:857
-#: hlidskjalf/page.py:1556 hlidskjalf/window.py:1793
+#: hlidskjalf/page.py:1690 hlidskjalf/window.py:1807
 msgid "Move to trash"
 msgstr "В корзину"
 
@@ -4362,7 +4362,7 @@ msgstr "Для доски нужно свойство типа «Выбор»"
 msgid "A calendar needs a date property"
 msgstr "Для календаря нужно свойство типа «Дата»"
 
-#: hlidskjalf/database.py:1553 hlidskjalf/page.py:357
+#: hlidskjalf/database.py:1553 hlidskjalf/page.py:367
 msgid "Open as full page"
 msgstr "Открыть как полную страницу"
 
@@ -4451,7 +4451,7 @@ msgstr "Множественный выбор"
 msgid "Number"
 msgstr "Число"
 
-#: hlidskjalf/dbedit.py:13 hlidskjalf/editor.py:18 hlidskjalf/window.py:1729
+#: hlidskjalf/dbedit.py:13 hlidskjalf/editor.py:18 hlidskjalf/window.py:1743
 msgid "Text"
 msgstr "Текст"
 
@@ -5068,7 +5068,7 @@ msgid "Nothing found"
 msgstr "Ничего не найдено"
 
 #: hlidskjalf/dialogs.py:138 hlidskjalf/userbackup.py:18
-#: hlidskjalf/window.py:313 hlidskjalf/window.py:681 hlidskjalf/window.py:1622
+#: hlidskjalf/window.py:313 hlidskjalf/window.py:684 hlidskjalf/window.py:1636
 msgid "Trash"
 msgstr "Корзина"
 
@@ -5093,8 +5093,8 @@ msgstr[2] "с {n} подстраницами"
 msgid "will be deleted on {date}"
 msgstr "будет удалено {date}"
 
-#: hlidskjalf/dialogs.py:172 hlidskjalf/dialogs.py:352 hlidskjalf/page.py:1112
-#: hlidskjalf/window.py:1783
+#: hlidskjalf/dialogs.py:172 hlidskjalf/dialogs.py:352 hlidskjalf/page.py:1238
+#: hlidskjalf/window.py:1797
 msgid "Restore"
 msgstr "Восстановить"
 
@@ -5298,7 +5298,7 @@ msgstr "Значок (эмодзи)"
 msgid "New database entry"
 msgstr "Новая запись в базе данных"
 
-#: hlidskjalf/dialogs.py:605 hlidskjalf/window.py:1849
+#: hlidskjalf/dialogs.py:605 hlidskjalf/window.py:1863
 msgid "New task"
 msgstr "Новая задача"
 
@@ -5349,8 +5349,8 @@ msgstr "Кнопка {n}: выберите базу данных для новы
 msgid "Button {n}: choose the page to open."
 msgstr "Кнопка {n}: выберите страницу для открытия."
 
-#: hlidskjalf/dialogs.py:741 hlidskjalf/window.py:250 hlidskjalf/window.py:1209
-#: hlidskjalf/window.py:1622
+#: hlidskjalf/dialogs.py:741 hlidskjalf/window.py:250 hlidskjalf/window.py:1213
+#: hlidskjalf/window.py:1636
 msgid "Services"
 msgstr "Сервисы"
 
@@ -5415,7 +5415,7 @@ msgstr "Столбцы"
 msgid "Button"
 msgstr "Кнопка"
 
-#: hlidskjalf/editor.py:41 hlidskjalf/page.py:1921 hlidskjalf/page.py:1925
+#: hlidskjalf/editor.py:41 hlidskjalf/page.py:2055 hlidskjalf/page.py:2059
 msgid "Embed"
 msgstr "Встраивание"
 
@@ -5424,34 +5424,34 @@ msgstr "Встраивание"
 msgid "Nextcloud file"
 msgstr "Файл Nextcloud"
 
-#: hlidskjalf/editor.py:468
+#: hlidskjalf/editor.py:512
 msgid "Unsaved changes from last time were restored."
 msgstr "Несохранённые изменения с прошлого раза восстановлены."
 
-#: hlidskjalf/editor.py:739
+#: hlidskjalf/editor.py:792
 msgid "Synced block merged with a simultaneous change in the original."
 msgstr ""
 "Синхронизированный блок объединён с одновременным изменением в оригинале."
 
-#: hlidskjalf/editor.py:742
+#: hlidskjalf/editor.py:795
 msgid ""
 "The synced block could not be saved: no permission to edit the original."
 msgstr "Синхронизированный блок не сохранён: нет права редактировать оригинал."
 
-#: hlidskjalf/editor.py:743
+#: hlidskjalf/editor.py:796
 msgid "The synced block could not be saved: the original page is locked."
 msgstr "Синхронизированный блок не сохранён: страница оригинала заблокирована."
 
-#: hlidskjalf/editor.py:744
+#: hlidskjalf/editor.py:797
 msgid "The original of the synced block was deleted."
 msgstr "Оригинал синхронизированного блока удалён."
 
-#: hlidskjalf/editor.py:745
+#: hlidskjalf/editor.py:798
 msgid "The synced block was changed elsewhere – the page was reloaded."
 msgstr ""
 "Синхронизированный блок изменён в другом месте – страница перезагружена."
 
-#: hlidskjalf/editor.py:841
+#: hlidskjalf/editor.py:896
 msgid ""
 "Not saved: this page is in the trash or was deleted. Your changes stay on "
 "this device – restore the page from the trash to save them."
@@ -5459,12 +5459,12 @@ msgstr ""
 "Не сохранено: страница в корзине или удалена. Изменения остаются на этом "
 "устройстве — восстановите страницу из корзины, чтобы сохранить их."
 
-#: hlidskjalf/editor.py:867 hlidskjalf/editor.py:892
+#: hlidskjalf/editor.py:922 hlidskjalf/editor.py:947
 #, python-brace-format
 msgid "Not saved: {error}"
 msgstr "Не сохранено: {error}"
 
-#: hlidskjalf/editor.py:868
+#: hlidskjalf/editor.py:923
 msgid ""
 "Remove the Nextcloud file or insert it from your own Nextcloud (Settings → "
 "Account → Nextcloud)."
@@ -5472,7 +5472,7 @@ msgstr ""
 "Удалите файл Nextcloud или вставьте его из своего Nextcloud (Настройки → "
 "Аккаунт → Nextcloud)."
 
-#: hlidskjalf/editor.py:880 hlidskjalf/page.py:1117
+#: hlidskjalf/editor.py:935 hlidskjalf/page.py:1243
 msgid ""
 "This page is too large to save. Shorten it or split it into several pages – "
 "until then your changes are only kept on this device."
@@ -5480,29 +5480,29 @@ msgstr ""
 "Страница слишком большая для сохранения. Сократи её или раздели на несколько "
 "страниц – до тех пор изменения хранятся только на этом устройстве."
 
-#: hlidskjalf/editor.py:887
+#: hlidskjalf/editor.py:942
 msgid "Offline – changes will be saved as soon as the server is reachable."
 msgstr "Нет сети – изменения сохранятся, как только сервер станет доступен."
 
-#: hlidskjalf/editor.py:970 hlidskjalf/editor.py:993
+#: hlidskjalf/editor.py:1025 hlidskjalf/editor.py:1048
 msgid "Your version could not be saved as a copy. Nothing was discarded."
 msgstr "Не удалось сохранить твою версию как копию. Ничего не потеряно."
 
-#: hlidskjalf/editor.py:974
+#: hlidskjalf/editor.py:1029
 msgid "(conflict copy)"
 msgstr "(конфликтная копия)"
 
-#: hlidskjalf/editor.py:998
+#: hlidskjalf/editor.py:1053
 #, python-brace-format
 msgid "Your version was saved as “{title}”."
 msgstr "Твоя версия сохранена как «{title}»."
 
-#: hlidskjalf/editor.py:1005
+#: hlidskjalf/editor.py:1060
 #, python-brace-format
 msgid "Conflict copy not created: {error}"
 msgstr "Конфликтная копия не создана: {error}"
 
-#: hlidskjalf/editor.py:1493
+#: hlidskjalf/editor.py:1560
 msgid "New database"
 msgstr "Новая база данных"
 
@@ -5611,7 +5611,7 @@ msgid "Template “{title}” created"
 msgstr "Шаблон «{title}» создан"
 
 #: hlidskjalf/graphview.py:42 hlidskjalf/graphview.py:1071
-#: hlidskjalf/page.py:1283 hlidskjalf/page.py:1289
+#: hlidskjalf/page.py:1417 hlidskjalf/page.py:1423
 msgid "Tag"
 msgstr "Тег"
 
@@ -5714,17 +5714,18 @@ msgstr "Теги как узлы"
 msgid "Rearrange"
 msgstr "Перестроить"
 
-#: hlidskjalf/graphview.py:800 hlidskjalf/page.py:1121 hlidskjalf/page.py:1548
+#: hlidskjalf/graphview.py:800 hlidskjalf/page.py:1247 hlidskjalf/page.py:1253
+#: hlidskjalf/page.py:1682
 msgid "Reload"
 msgstr "Обновить"
 
 #: hlidskjalf/graphview.py:829 hlidskjalf/window.py:251
-#: hlidskjalf/window.py:1623
+#: hlidskjalf/window.py:1637
 msgid "Graph"
 msgstr "Граф"
 
-#: hlidskjalf/graphview.py:829 hlidskjalf/page.py:1524
-#: hlidskjalf/window.py:1643
+#: hlidskjalf/graphview.py:829 hlidskjalf/page.py:1658
+#: hlidskjalf/window.py:1657
 msgid "Local graph"
 msgstr "Локальный граф"
 
@@ -5749,7 +5750,7 @@ msgid "You're offline"
 msgstr "Нет подключения"
 
 #: hlidskjalf/graphview.py:981 hlidskjalf/graphview.py:983
-#: hlidskjalf/page.py:395 hlidskjalf/page.py:413
+#: hlidskjalf/page.py:405 hlidskjalf/page.py:423
 msgid "Try again"
 msgstr "Попробовать снова"
 
@@ -5842,6 +5843,20 @@ msgstr "Фильтровать"
 #: hlidskjalf/images.py:136
 msgid "python3-pillow is missing"
 msgstr "Не хватает python3-pillow"
+
+#: hlidskjalf/livepage.py:225
+msgid "Change not applied – you can’t edit this page right now."
+msgstr ""
+"Изменение не применено – сейчас вы не можете редактировать эту страницу."
+
+#: hlidskjalf/livepage.py:226
+msgid "Change not applied."
+msgstr "Изменение не применено."
+
+#: hlidskjalf/livepage.py:227
+msgid "Change not applied – your latest input could not be kept."
+msgstr ""
+"Изменение не применено – последние введённые данные сохранить не удалось."
 
 #: hlidskjalf/nextcloud.py:224
 msgid "No file selected"
@@ -6093,46 +6108,58 @@ msgid "Replies in threads I'm part of"
 msgstr "Ответы в обсуждениях, в которых я участвую"
 
 #: hlidskjalf/notifications.py:26
-msgid "Someone mentions me"
-msgstr "Кто-то упоминает меня"
+msgid "Someone mentions me in a comment"
+msgstr "Кто-то упоминает меня в комментарии"
 
 #: hlidskjalf/notifications.py:27
+msgid "Someone mentions me on a page"
+msgstr "Кто-то упоминает меня на странице"
+
+#: hlidskjalf/notifications.py:28
+msgid "Someone mentions me in a chat"
+msgstr "Кто-то упоминает меня в чате"
+
+#: hlidskjalf/notifications.py:29
+msgid "Someone assigns me in a database (person)"
+msgstr "Кто-то назначает меня в базе данных (человек)"
+
+#: hlidskjalf/notifications.py:30
 msgid "An admin withdraws one of my published pages"
 msgstr "Администратор снимает одну из моих публикаций"
 
-#: hlidskjalf/notifications.py:28
+#: hlidskjalf/notifications.py:31
 msgid "New chat messages (without content; never for muted chats)"
 msgstr ""
 "Новые сообщения в чатах (без содержимого; для чатов без звука – никогда)"
 
-#: hlidskjalf/notifications.py:29
+#: hlidskjalf/notifications.py:32
 msgid "Missed calls"
 msgstr "Пропущенные звонки"
 
-#: hlidskjalf/notifications.py:30 hlidskjalf/push.py:273
+#: hlidskjalf/notifications.py:33 hlidskjalf/push.py:273
 msgid "Admin: backup failed"
 msgstr "Админ: ошибка резервного копирования"
 
-#: hlidskjalf/notifications.py:31 hlidskjalf/notifications.py:66
+#: hlidskjalf/notifications.py:34 hlidskjalf/notifications.py:77
 msgid "My backup failed"
 msgstr "Ошибка моей резервной копии"
 
-#: hlidskjalf/notifications.py:41
+#: hlidskjalf/notifications.py:44
 #, python-brace-format
 msgid "{name} shared a page with you ({role})"
 msgstr "{name} поделился(-лась) с тобой страницей ({role})"
 
-#: hlidskjalf/notifications.py:43
+#: hlidskjalf/notifications.py:46
 #, python-brace-format
 msgid "{name} changed your role: {role}"
 msgstr "{name} изменил(а) твою роль: {role}"
 
-#: hlidskjalf/notifications.py:46
+#: hlidskjalf/notifications.py:49
 #, python-brace-format
 msgid "{name} commented on your page"
 msgstr "{name} прокомментировал(а) твою страницу"
 
-#: hlidskjalf/notifications.py:47
+#: hlidskjalf/notifications.py:50
 #, python-brace-format
 msgid "{n} new comment on your page"
 msgid_plural "{n} new comments on your page"
@@ -6140,12 +6167,12 @@ msgstr[0] "{n} новый комментарий на твоей страниц�
 msgstr[1] "{n} новых комментария на твоей странице"
 msgstr[2] "{n} новых комментариев на твоей странице"
 
-#: hlidskjalf/notifications.py:50
+#: hlidskjalf/notifications.py:53
 #, python-brace-format
 msgid "{name} replied in a thread"
 msgstr "{name} ответил(а) в обсуждении"
 
-#: hlidskjalf/notifications.py:51
+#: hlidskjalf/notifications.py:54
 #, python-brace-format
 msgid "{n} new reply in a thread"
 msgid_plural "{n} new replies in a thread"
@@ -6153,21 +6180,44 @@ msgstr[0] "{n} новый ответ в обсуждении"
 msgstr[1] "{n} новых ответа в обсуждении"
 msgstr[2] "{n} новых ответов в обсуждении"
 
-#: hlidskjalf/notifications.py:53
+#: hlidskjalf/notifications.py:56
+#, python-brace-format
+msgid "{name} mentioned you in a comment"
+msgstr "{name} упомянул(а) вас в комментарии"
+
+#: hlidskjalf/notifications.py:58
 #, python-brace-format
 msgid "{name} mentioned you"
 msgstr "{name} упомянул(а) тебя"
 
-#: hlidskjalf/notifications.py:55
+#: hlidskjalf/notifications.py:60
+#, python-brace-format
+msgid "{name} mentioned you in a chat"
+msgstr "{name} упомянул(а) вас в чате"
+
+#: hlidskjalf/notifications.py:63
+#, python-brace-format
+msgid "{name} assigned you"
+msgstr "{name} назначил(а) вас"
+
+#: hlidskjalf/notifications.py:64
+#, python-brace-format
+msgid "{name} assigned you {n} time"
+msgid_plural "{name} assigned you {n} times"
+msgstr[0] "{name} назначил(а) вас {n} раз"
+msgstr[1] "{name} назначил(а) вас {n} раза"
+msgstr[2] "{name} назначил(а) вас {n} раз"
+
+#: hlidskjalf/notifications.py:66
 msgid "An admin withdrew your published page"
 msgstr "Администратор снял твою публикацию"
 
-#: hlidskjalf/notifications.py:58
+#: hlidskjalf/notifications.py:69
 #, python-brace-format
 msgid "New message from {name}"
 msgstr "Новое сообщение от {name}"
 
-#: hlidskjalf/notifications.py:59
+#: hlidskjalf/notifications.py:70
 #, python-brace-format
 msgid "{n} new message"
 msgid_plural "{n} new messages"
@@ -6175,47 +6225,47 @@ msgstr[0] "{n} новое сообщение"
 msgstr[1] "{n} новых сообщения"
 msgstr[2] "{n} новых сообщений"
 
-#: hlidskjalf/notifications.py:61
+#: hlidskjalf/notifications.py:72
 #, python-brace-format
 msgid "Missed call from {name}"
 msgstr "Пропущенный звонок от {name}"
 
-#: hlidskjalf/notifications.py:64 hlidskjalf/userbackup.py:179
+#: hlidskjalf/notifications.py:75 hlidskjalf/userbackup.py:179
 msgid "Backup failed"
 msgstr "Ошибка резервного копирования"
 
-#: hlidskjalf/notifications.py:75
+#: hlidskjalf/notifications.py:87
 msgid "Backups"
 msgstr "Резервные копии"
 
-#: hlidskjalf/notifications.py:77 hlidskjalf/settings.py:75
+#: hlidskjalf/notifications.py:89 hlidskjalf/settings.py:75
 #: hlidskjalf/settings.py:150 hlidskjalf/userbackup.py:52
 msgid "My backup"
 msgstr "Моя резервная копия"
 
-#: hlidskjalf/notifications.py:79 hlidskjalf/sharing.py:442
+#: hlidskjalf/notifications.py:91 hlidskjalf/sharing.py:442
 msgid "No access anymore"
 msgstr "Доступа больше нет"
 
-#: hlidskjalf/notifications.py:300 hlidskjalf/notifications.py:313
-#: hlidskjalf/notifications.py:329 hlidskjalf/notifications.py:416
-#: hlidskjalf/window.py:1634
+#: hlidskjalf/notifications.py:312 hlidskjalf/notifications.py:325
+#: hlidskjalf/notifications.py:341 hlidskjalf/notifications.py:428
+#: hlidskjalf/window.py:1648
 msgid "Notifications"
 msgstr "Уведомления"
 
-#: hlidskjalf/notifications.py:316
+#: hlidskjalf/notifications.py:328
 msgid "Mark all as read"
 msgstr "Отметить все как прочитанные"
 
-#: hlidskjalf/notifications.py:320
+#: hlidskjalf/notifications.py:332
 msgid "Notification settings"
 msgstr "Настроить уведомления"
 
-#: hlidskjalf/notifications.py:339
+#: hlidskjalf/notifications.py:351
 msgid "No notifications"
 msgstr "Нет уведомлений"
 
-#: hlidskjalf/notifications.py:340
+#: hlidskjalf/notifications.py:352
 msgid ""
 "This is where you'll see when someone shares something with you or comments "
 "on your pages."
@@ -6224,24 +6274,24 @@ msgstr ""
 "прокомментирует твои страницы."
 
 #. Translators: quoted excerpt of a comment (typographic quotes of your language)
-#: hlidskjalf/notifications.py:384
+#: hlidskjalf/notifications.py:396
 #, python-brace-format
 msgid "“{text}”"
 msgstr "«{text}»"
 
-#: hlidskjalf/notifications.py:395 hlidskjalf/notifications.py:399
+#: hlidskjalf/notifications.py:407 hlidskjalf/notifications.py:411
 msgid "Unread"
 msgstr "Непрочитанные"
 
-#: hlidskjalf/notifications.py:417
+#: hlidskjalf/notifications.py:429
 msgid "Shown in Saga under the bell – instantly while Saga is open."
 msgstr "Появляются в Saga под колокольчиком – сразу, пока Saga открыта."
 
-#: hlidskjalf/notifications.py:434
+#: hlidskjalf/notifications.py:446
 msgid "Desktop notifications while Saga is open"
 msgstr "Уведомления на рабочем столе, пока Saga открыта"
 
-#: hlidskjalf/notifications.py:435
+#: hlidskjalf/notifications.py:447
 msgid "Without page, comment or chat content."
 msgstr "Без содержимого страниц, комментариев и чатов."
 
@@ -6285,37 +6335,37 @@ msgstr "Выбрать эмодзи…"
 msgid "Remove icon"
 msgstr "Убрать значок"
 
-#: hlidskjalf/page.py:329
+#: hlidskjalf/page.py:339
 #, python-brace-format
 msgid "Not restored: {error}"
 msgstr "Не восстановлено: {error}"
 
-#: hlidskjalf/page.py:356
+#: hlidskjalf/page.py:366
 msgid "Close (Esc)"
 msgstr "Закрыть (Esc)"
 
-#: hlidskjalf/page.py:362
+#: hlidskjalf/page.py:372
 msgid "Previous entry (Ctrl+Shift+K)"
 msgstr "Предыдущая запись (Ctrl+Shift+K)"
 
-#: hlidskjalf/page.py:363
+#: hlidskjalf/page.py:373
 msgid "Next entry (Ctrl+Shift+J)"
 msgstr "Следующая запись (Ctrl+Shift+J)"
 
-#: hlidskjalf/page.py:372 hlidskjalf/window.py:719 hlidskjalf/window.py:1167
-#: hlidskjalf/window.py:1785
+#: hlidskjalf/page.py:382 hlidskjalf/window.py:722 hlidskjalf/window.py:1171
+#: hlidskjalf/window.py:1799
 msgid "Add to favorites"
 msgstr "В избранное"
 
-#: hlidskjalf/page.py:374 hlidskjalf/window.py:717
+#: hlidskjalf/page.py:384 hlidskjalf/window.py:720
 msgid "Page menu"
 msgstr "Меню страницы"
 
-#: hlidskjalf/page.py:390
+#: hlidskjalf/page.py:400
 msgid "No access to this page"
 msgstr "Нет доступа к этой странице"
 
-#: hlidskjalf/page.py:392
+#: hlidskjalf/page.py:402
 msgid ""
 "The page doesn’t exist (anymore), or it is not (or no longer) shared with "
 "you."
@@ -6323,32 +6373,32 @@ msgstr ""
 "Страницы не существует (больше), или к ней (больше) нет общего доступа для "
 "тебя."
 
-#: hlidskjalf/page.py:400
+#: hlidskjalf/page.py:410
 msgid "Go to “Shared with me”"
 msgstr "К «Доступные мне»"
 
-#: hlidskjalf/page.py:411
+#: hlidskjalf/page.py:421
 msgid "Page could not be loaded"
 msgstr "Не удалось загрузить страницу"
 
-#: hlidskjalf/page.py:419 hlidskjalf/settings.py:35 hlidskjalf/settings.py:88
-#: hlidskjalf/window.py:683 hlidskjalf/window.py:1627 hlidskjalf/window.py:1724
+#: hlidskjalf/page.py:429 hlidskjalf/settings.py:35 hlidskjalf/settings.py:88
+#: hlidskjalf/window.py:686 hlidskjalf/window.py:1641 hlidskjalf/window.py:1738
 msgid "Settings"
 msgstr "Настройки"
 
-#: hlidskjalf/page.py:485
+#: hlidskjalf/page.py:495
 msgid "Locked – click to unlock"
 msgstr "Заблокировано – нажми, чтобы разблокировать"
 
-#: hlidskjalf/page.py:491 hlidskjalf/sharing.py:193
+#: hlidskjalf/page.py:501 hlidskjalf/sharing.py:193
 msgid "🔒 The owner locked this page."
 msgstr "🔒 Владелец заблокировал эту страницу."
 
-#: hlidskjalf/page.py:655 hlidskjalf/page.py:1106 hlidskjalf/page.py:1152
+#: hlidskjalf/page.py:666 hlidskjalf/page.py:1232 hlidskjalf/page.py:1284
 msgid "Page changed elsewhere"
 msgstr "Страница изменена в другом месте"
 
-#: hlidskjalf/page.py:656
+#: hlidskjalf/page.py:667
 msgid ""
 "This page was changed on another device in the meantime. Your changes won't "
 "be lost."
@@ -6356,205 +6406,213 @@ msgstr ""
 "Эту страницу тем временем изменили на другом устройстве. Твои изменения не "
 "пропадут."
 
-#: hlidskjalf/page.py:657
+#: hlidskjalf/page.py:668
 msgid "Keep my version"
 msgstr "Оставить мою версию"
 
-#: hlidskjalf/page.py:658
+#: hlidskjalf/page.py:669
 msgid "Load server version (save mine as a copy)"
 msgstr "Загрузить версию с сервера (мою сохранить как копию)"
 
-#: hlidskjalf/page.py:897 hlidskjalf/page.py:910
+#: hlidskjalf/page.py:918 hlidskjalf/page.py:931
 #, python-brace-format
 msgid "Updated – changed by {name}"
 msgstr "Обновлено – изменения от {name}"
 
-#: hlidskjalf/page.py:918
+#: hlidskjalf/page.py:939
 msgid "Someone"
 msgstr "Кто-то"
 
-#: hlidskjalf/page.py:918
+#: hlidskjalf/page.py:939
 #, python-brace-format
 msgid "{name} changed this page"
 msgstr "{name} изменил(а) эту страницу"
 
-#: hlidskjalf/page.py:942
+#: hlidskjalf/page.py:963
 msgid "Changed at the same time – both versions are shown one below the other."
 msgstr "Изменено одновременно – обе версии показаны одна под другой."
 
-#: hlidskjalf/page.py:944
+#: hlidskjalf/page.py:965
 msgid "Changed at the same time – the other version is in the version history."
 msgstr "Изменено одновременно – другая версия есть в истории версий."
 
-#: hlidskjalf/page.py:947 hlidskjalf/settings.py:721
+#: hlidskjalf/page.py:968 hlidskjalf/settings.py:721
 #: hlidskjalf/userbackup.py:18
 msgid "Versions"
 msgstr "Версии"
 
-#: hlidskjalf/page.py:952
+#: hlidskjalf/page.py:973
 msgid ""
 "A block you deleted was changed by someone else in the meantime and was kept."
 msgstr ""
 "Блок, который ты удалил, тем временем изменил кто-то другой, поэтому он "
 "сохранён."
 
-#: hlidskjalf/page.py:1106
+#: hlidskjalf/page.py:1232
 msgid "Choose version"
 msgstr "Выбрать версию"
 
-#: hlidskjalf/page.py:1112
+#: hlidskjalf/page.py:1238
 msgid "This page is in the trash. Changes are not saved until you restore it."
 msgstr ""
 "Эта страница в корзине. Изменения не сохранятся, пока вы её не восстановите."
 
-#: hlidskjalf/page.py:1131
+#: hlidskjalf/page.py:1252
+msgid ""
+"This page uses a different editor version – reload it (or update the app). "
+"Until then read-only."
+msgstr ""
+"Эта страница использует другую версию редактора – перезагрузите её (или "
+"обновите приложение). До тех пор только чтение."
+
+#: hlidskjalf/page.py:1263
 msgctxt "draft"
 msgid "Restore"
 msgstr "Восстановить"
 
-#: hlidskjalf/page.py:1134
+#: hlidskjalf/page.py:1266
 msgctxt "draft"
 msgid "Discard"
 msgstr "Отбросить"
 
-#: hlidskjalf/page.py:1150
+#: hlidskjalf/page.py:1282
 #, python-brace-format
 msgid "⚠ {name} just changed this page. Your latest changes are not saved yet."
 msgstr ""
 "⚠ {name} только что изменил(а) эту страницу. Твои последние изменения ещё не "
 "сохранены."
 
-#: hlidskjalf/page.py:1165
+#: hlidskjalf/page.py:1298
 #, python-brace-format
 msgid "Unsaved changes from {time}"
 msgstr "Несохранённые изменения от {time}"
 
-#: hlidskjalf/page.py:1252
+#: hlidskjalf/page.py:1386
 msgid "Add icon"
 msgstr "Добавить значок"
 
-#: hlidskjalf/page.py:1256
+#: hlidskjalf/page.py:1390
 msgid "Add cover image"
 msgstr "Добавить обложку"
 
-#: hlidskjalf/page.py:1326
+#: hlidskjalf/page.py:1460
 msgid "Linked from"
 msgstr "Ссылаются"
 
-#: hlidskjalf/page.py:1364
+#: hlidskjalf/page.py:1498
 msgid "Contents"
 msgstr "Содержание"
 
-#: hlidskjalf/page.py:1498
+#: hlidskjalf/page.py:1632
 msgid "Full width"
 msgstr "Во всю ширину"
 
-#: hlidskjalf/page.py:1501
+#: hlidskjalf/page.py:1635
 msgid "Font"
 msgstr "Шрифт"
 
-#: hlidskjalf/page.py:1502
+#: hlidskjalf/page.py:1636
 msgid "Mono"
 msgstr "Моноширинный"
 
-#: hlidskjalf/page.py:1502
+#: hlidskjalf/page.py:1636
 msgid "Serif"
 msgstr "С засечками"
 
-#: hlidskjalf/page.py:1503
+#: hlidskjalf/page.py:1637
 msgid "Small text"
 msgstr "Мелкий текст"
 
-#: hlidskjalf/page.py:1505
+#: hlidskjalf/page.py:1639
 msgid "Remove as home page"
 msgstr "Больше не домашняя страница"
 
-#: hlidskjalf/page.py:1505
+#: hlidskjalf/page.py:1639
 msgid "Set as home page"
 msgstr "Сделать домашней страницей"
 
-#: hlidskjalf/page.py:1509 hlidskjalf/window.py:1649
+#: hlidskjalf/page.py:1643 hlidskjalf/window.py:1663
 msgid "Share …"
 msgstr "Поделиться …"
 
-#: hlidskjalf/page.py:1527 hlidskjalf/window.py:1778 hlidskjalf/window.py:1790
+#: hlidskjalf/page.py:1661 hlidskjalf/window.py:1792 hlidskjalf/window.py:1804
 msgid "Move to …"
 msgstr "Переместить в…"
 
-#: hlidskjalf/page.py:1530
+#: hlidskjalf/page.py:1664
 msgid "Version history …"
 msgstr "История версий…"
 
-#: hlidskjalf/page.py:1533
+#: hlidskjalf/page.py:1667
 msgid "As Markdown (.md)"
 msgstr "Как Markdown (.md)"
 
-#: hlidskjalf/page.py:1533 hlidskjalf/window.py:1967
+#: hlidskjalf/page.py:1667 hlidskjalf/window.py:1981
 msgid "Export"
 msgstr "Экспортировать"
 
-#: hlidskjalf/page.py:1534
+#: hlidskjalf/page.py:1668
 msgid "With subpages (.zip)"
 msgstr "С подстраницами (.zip)"
 
-#: hlidskjalf/page.py:1537
+#: hlidskjalf/page.py:1671
 msgid "As template"
 msgstr "Как шаблон"
 
-#: hlidskjalf/page.py:1543
+#: hlidskjalf/page.py:1677
 msgid "Use as task source"
 msgstr "Использовать как источник задач"
 
-#: hlidskjalf/page.py:1547 hlidskjalf/window.py:1646
+#: hlidskjalf/page.py:1681 hlidskjalf/window.py:1660
 msgid "Publish …"
 msgstr "Опубликовать …"
 
-#: hlidskjalf/page.py:1551
+#: hlidskjalf/page.py:1685
 msgid "Lock page"
 msgstr "Заблокировать страницу"
 
-#: hlidskjalf/page.py:1551
+#: hlidskjalf/page.py:1685
 msgid "Unlock page"
 msgstr "Разблокировать страницу"
 
-#: hlidskjalf/page.py:1553
+#: hlidskjalf/page.py:1687
 msgid "Restore from archive"
 msgstr "Вернуть из архива"
 
-#: hlidskjalf/page.py:1584
+#: hlidskjalf/page.py:1718
 msgid "Address or page reference (/notes#12)"
 msgstr "Адрес или ссылка на страницу (/notes#12)"
 
-#: hlidskjalf/page.py:1584 hlidskjalf/publish.py:512 hlidskjalf/publish.py:527
+#: hlidskjalf/page.py:1718 hlidskjalf/publish.py:512 hlidskjalf/publish.py:527
 #: hlidskjalf/sharing.py:716
 msgid "Link"
 msgstr "Ссылка"
 
-#: hlidskjalf/page.py:1585
+#: hlidskjalf/page.py:1719
 msgid "https://… or /notes#12"
 msgstr "https://… или /notes#12"
 
-#: hlidskjalf/page.py:1588
+#: hlidskjalf/page.py:1722
 msgid "Remove link"
 msgstr "Убрать ссылку"
 
-#: hlidskjalf/page.py:1589 hlidskjalf/page.py:1827
+#: hlidskjalf/page.py:1723 hlidskjalf/page.py:1961
 msgid "Set"
 msgstr "Задать"
 
-#: hlidskjalf/page.py:1609
+#: hlidskjalf/page.py:1743
 msgid "Select some text first."
 msgstr "Сначала выдели текст."
 
-#: hlidskjalf/page.py:1690
+#: hlidskjalf/page.py:1824
 msgid "Move to page"
 msgstr "Переместить на страницу"
 
-#: hlidskjalf/page.py:1718 hlidskjalf/page.py:1757
+#: hlidskjalf/page.py:1852 hlidskjalf/page.py:1891
 msgid "Move undone"
 msgstr "Перемещение отменено"
 
-#: hlidskjalf/page.py:1724
+#: hlidskjalf/page.py:1858
 #, python-brace-format
 msgid "Block moved to “{title}”"
 msgid_plural "{n} blocks moved to “{title}”"
@@ -6562,36 +6620,36 @@ msgstr[0] "{n} блок перемещён в «{title}»"
 msgstr[1] "{n} блока перемещены в «{title}»"
 msgstr[2] "{n} блоков перемещено в «{title}»"
 
-#: hlidskjalf/page.py:1742
+#: hlidskjalf/page.py:1876
 msgid "You can’t edit the target page."
 msgstr "Ты не можешь редактировать целевую страницу."
 
-#: hlidskjalf/page.py:1743
+#: hlidskjalf/page.py:1877
 msgid "Page or block not found."
 msgstr "Страница или блок не найдены."
 
-#: hlidskjalf/page.py:1744
+#: hlidskjalf/page.py:1878
 msgid "The page is locked."
 msgstr "Страница заблокирована."
 
-#: hlidskjalf/page.py:1745
+#: hlidskjalf/page.py:1879
 msgid "Not enough storage space for the files of these blocks."
 msgstr "Недостаточно места для файлов этих блоков."
 
-#: hlidskjalf/page.py:1746 hlidskjalf/page.py:1758
+#: hlidskjalf/page.py:1880 hlidskjalf/page.py:1892
 #, python-brace-format
 msgid "Not moved: {error}"
 msgstr "Не перемещено: {error}"
 
-#: hlidskjalf/page.py:1771
+#: hlidskjalf/page.py:1905
 msgid "this person"
 msgstr "этот человек"
 
-#: hlidskjalf/page.py:1772
+#: hlidskjalf/page.py:1906
 msgid "Share page and mention?"
 msgstr "Поделиться страницей и упомянуть?"
 
-#: hlidskjalf/page.py:1773
+#: hlidskjalf/page.py:1907
 #, python-brace-format
 msgid ""
 "{name} has no access to this page yet. Share it with them so they can see "
@@ -6600,49 +6658,49 @@ msgstr ""
 "У {name} пока нет доступа к этой странице. Поделиться, чтобы упоминание было "
 "видно?"
 
-#: hlidskjalf/page.py:1775
+#: hlidskjalf/page.py:1909
 msgid "Share (can comment)"
 msgstr "Поделиться (может комментировать)"
 
-#: hlidskjalf/page.py:1776
+#: hlidskjalf/page.py:1910
 msgid "Share (can view)"
 msgstr "Поделиться (может просматривать)"
 
-#: hlidskjalf/page.py:1819
+#: hlidskjalf/page.py:1953
 msgid "Inline math"
 msgstr "Формула в строке"
 
-#: hlidskjalf/page.py:1819
+#: hlidskjalf/page.py:1953
 msgid "TeX source, e.g. a^2 + b^2"
 msgstr "Исходник TeX, например a^2 + b^2"
 
-#: hlidskjalf/page.py:1847 hlidskjalf/page.py:1902
+#: hlidskjalf/page.py:1981 hlidskjalf/page.py:2036
 msgid "Not available for pages from other Saga instances."
 msgstr "Недоступно для страниц других экземпляров Saga."
 
-#: hlidskjalf/page.py:1854
+#: hlidskjalf/page.py:1988
 msgid "Choose image"
 msgstr "Выбрать изображение"
 
-#: hlidskjalf/page.py:1865 hlidskjalf/page.py:1881 hlidskjalf/page.py:2109
-#: hlidskjalf/page.py:2126
+#: hlidskjalf/page.py:1999 hlidskjalf/page.py:2015 hlidskjalf/page.py:2260
+#: hlidskjalf/page.py:2277
 #, python-brace-format
 msgid "Image not uploaded: {error}"
 msgstr "Изображение не загружено: {error}"
 
-#: hlidskjalf/page.py:1921
+#: hlidskjalf/page.py:2055
 msgid "YouTube video or any link (shown as a card)"
 msgstr "Видео YouTube или любая ссылка (показывается карточкой)"
 
-#: hlidskjalf/page.py:1991
+#: hlidskjalf/page.py:2125
 msgid "Link database"
 msgstr "Связать базу данных"
 
-#: hlidskjalf/page.py:2019
+#: hlidskjalf/page.py:2170
 msgid "Block deleted"
 msgstr "Блок удалён"
 
-#: hlidskjalf/page.py:2084
+#: hlidskjalf/page.py:2235
 msgid "Nextcloud files of other people can’t be copied into other pages."
 msgstr "Файлы Nextcloud других людей нельзя копировать в другие страницы."
 
@@ -6853,7 +6911,7 @@ msgid "Too many uploads – please try again later."
 msgstr "Слишком много загрузок – попробуй позже."
 
 #: hlidskjalf/publish.py:67 hlidskjalf/publish.py:71 hlidskjalf/publish.py:117
-#: hlidskjalf/publish.py:505 hlidskjalf/window.py:724
+#: hlidskjalf/publish.py:505 hlidskjalf/window.py:727
 msgid "Public"
 msgstr "Публичная"
 
@@ -7059,7 +7117,7 @@ msgid "✓ New address saved"
 msgstr "✓ Новый адрес сохранён"
 
 #: hlidskjalf/publish.py:736 hlidskjalf/sharing.py:757
-#: hlidskjalf/window.py:1694
+#: hlidskjalf/window.py:1708
 msgid "Link copied"
 msgstr "Ссылка скопирована"
 
@@ -7271,7 +7329,7 @@ msgstr "Пока ничего не доставлено"
 msgid "without names (server sees the text)"
 msgstr "без имён (сервер видит текст)"
 
-#: hlidskjalf/push.py:461 hlidskjalf/settings.py:880
+#: hlidskjalf/push.py:461 hlidskjalf/settings.py:884
 msgid "Sending …"
 msgstr "Отправка …"
 
@@ -7453,7 +7511,7 @@ msgstr "Управлять в браузере"
 msgid "Opened in your browser – sign in there if asked."
 msgstr "Открыто в браузере – войди там, если попросят."
 
-#: hlidskjalf/settings.py:51 hlidskjalf/window.py:1327
+#: hlidskjalf/settings.py:51 hlidskjalf/window.py:1341
 msgid "Account"
 msgstr "Аккаунт"
 
@@ -7883,58 +7941,64 @@ msgstr ""
 "Saga — свободное ПО под лицензией GNU AGPL 3.0. Шифрование чатов использует "
 "libsodium (лицензия ISC) через PyNaCl (Apache License 2.0)."
 
-#: hlidskjalf/settings.py:760 hlidskjalf/window.py:685 hlidskjalf/window.py:822
+#: hlidskjalf/settings.py:763
+msgid "Live editing uses pycrdt and anyio (MIT license)."
+msgstr ""
+"Совместное редактирование в реальном времени использует pycrdt и anyio "
+"(лицензия MIT)."
+
+#: hlidskjalf/settings.py:764 hlidskjalf/window.py:688 hlidskjalf/window.py:826
 msgid "About Saga"
 msgstr "О Saga"
 
-#: hlidskjalf/settings.py:789
+#: hlidskjalf/settings.py:793
 #, python-brace-format
 msgid "Saga {version} is available"
 msgstr "Доступна Saga {version}"
 
-#: hlidskjalf/settings.py:790
+#: hlidskjalf/settings.py:794
 msgid "You have the latest version."
 msgstr "У вас последняя версия."
 
-#: hlidskjalf/settings.py:791
+#: hlidskjalf/settings.py:795
 msgid "Check failed"
 msgstr "Проверка не удалась"
 
-#: hlidskjalf/settings.py:792
+#: hlidskjalf/settings.py:796
 msgid "Not checked yet"
 msgstr "Ещё не проверялось"
 
-#: hlidskjalf/settings.py:796
+#: hlidskjalf/settings.py:800
 #, python-brace-format
 msgid "Last checked: {when}"
 msgstr "Последняя проверка: {when}"
 
-#: hlidskjalf/settings.py:805
+#: hlidskjalf/settings.py:809
 msgctxt "button"
 msgid "Update"
 msgstr "Обновить"
 
-#: hlidskjalf/settings.py:809
+#: hlidskjalf/settings.py:813
 msgid "Check for updates"
 msgstr "Проверить обновления"
 
-#: hlidskjalf/settings.py:829
+#: hlidskjalf/settings.py:833
 msgid "Help"
 msgstr "Помощь"
 
-#: hlidskjalf/settings.py:831
+#: hlidskjalf/settings.py:835
 msgid "What happened? (optional)"
 msgstr "Что произошло? (необязательно)"
 
-#: hlidskjalf/settings.py:834
+#: hlidskjalf/settings.py:838
 msgid "Send diagnostics"
 msgstr "Отправить диагностику"
 
-#: hlidskjalf/settings.py:844 hlidskjalf/settings.py:846
+#: hlidskjalf/settings.py:848 hlidskjalf/settings.py:850
 msgid "Copy ID"
 msgstr "Копировать код"
 
-#: hlidskjalf/settings.py:861
+#: hlidskjalf/settings.py:865
 msgid ""
 "Sends the latest events of this app (errors, status codes, view changes – "
 "without contents, titles or names) to your Saga server. Your text above "
@@ -7944,7 +8008,7 @@ msgstr ""
 "экранов – без содержимого, заголовков и имён) на ваш сервер Saga. Ваш текст "
 "выше дойдёт до администратора в том виде, в каком вы его написали."
 
-#: hlidskjalf/settings.py:863 hlidskjalf/settings.py:896
+#: hlidskjalf/settings.py:867 hlidskjalf/settings.py:900
 msgid ""
 "This server does not accept diagnostics (Saga server 2.5 or later, can be "
 "turned off by the admin)."
@@ -7952,20 +8016,20 @@ msgstr ""
 "Этот сервер не принимает диагностику (начиная с сервера Saga 2.5, "
 "администратор может отключить)."
 
-#: hlidskjalf/settings.py:892
+#: hlidskjalf/settings.py:896
 msgid "Sent. Give the admin this ID:"
 msgstr "Отправлено. Сообщите администратору этот код:"
 
-#: hlidskjalf/settings.py:900
+#: hlidskjalf/settings.py:904
 msgid "Too many diagnostics – please try again later."
 msgstr "Слишком много диагностик – попробуйте позже."
 
-#: hlidskjalf/settings.py:904
+#: hlidskjalf/settings.py:908
 #, python-brace-format
 msgid "Diagnostics not sent: {error}"
 msgstr "Диагностика не отправлена: {error}"
 
-#: hlidskjalf/settings.py:915 hlidskjalf/userbackup.py:636
+#: hlidskjalf/settings.py:919 hlidskjalf/userbackup.py:636
 msgid "Copied"
 msgstr "Скопировано"
 
@@ -8954,11 +9018,11 @@ msgstr "Ctrl"
 msgid "Shift"
 msgstr "Shift"
 
-#: hlidskjalf/window.py:556
+#: hlidskjalf/window.py:559
 msgid "Saving changes …"
 msgstr "Сохранение изменений…"
 
-#: hlidskjalf/window.py:576
+#: hlidskjalf/window.py:579
 #, python-brace-format
 msgid ""
 "“{title}” is too large to save. Your changes are kept on this device, but "
@@ -8968,7 +9032,7 @@ msgstr ""
 "устройстве, но сохранить их можно будет только после сокращения или "
 "разделения страницы."
 
-#: hlidskjalf/window.py:579
+#: hlidskjalf/window.py:582
 msgid ""
 "Some changes have not reached the server yet (no connection or a conflict). "
 "They are kept on this device and restored the next time you open the page."
@@ -8976,19 +9040,19 @@ msgstr ""
 "Часть изменений ещё не дошла до сервера (нет соединения или конфликт). Они "
 "хранятся на этом устройстве и восстановятся при следующем открытии страницы."
 
-#: hlidskjalf/window.py:581
+#: hlidskjalf/window.py:584
 msgid "Not everything could be saved"
 msgstr "Не всё удалось сохранить"
 
-#: hlidskjalf/window.py:582
+#: hlidskjalf/window.py:585
 msgid "Keep open"
 msgstr "Оставить открытым"
 
-#: hlidskjalf/window.py:583
+#: hlidskjalf/window.py:586
 msgid "Close anyway"
 msgstr "Всё равно закрыть"
 
-#: hlidskjalf/window.py:623
+#: hlidskjalf/window.py:626
 #, python-brace-format
 msgid ""
 "This app is too old for the server (version {version} or later needed) – "
@@ -8997,60 +9061,60 @@ msgstr ""
 "Это приложение слишком старое для сервера (нужна версия {version} или новее) "
 "– обнови его."
 
-#: hlidskjalf/window.py:666 hlidskjalf/window.py:672
+#: hlidskjalf/window.py:669 hlidskjalf/window.py:675
 msgid "New page (Ctrl+N)"
 msgstr "Новая страница (Ctrl+N)"
 
-#: hlidskjalf/window.py:670 hlidskjalf/window.py:1617 hlidskjalf/window.py:1723
+#: hlidskjalf/window.py:673 hlidskjalf/window.py:1631 hlidskjalf/window.py:1737
 msgid "New page"
 msgstr "Новая страница"
 
-#: hlidskjalf/window.py:671 hlidskjalf/window.py:1618
+#: hlidskjalf/window.py:674 hlidskjalf/window.py:1632
 msgid "From template …"
 msgstr "Из шаблона …"
 
-#: hlidskjalf/window.py:673
+#: hlidskjalf/window.py:676
 msgid "More ways to create"
 msgstr "Другие способы создания"
 
-#: hlidskjalf/window.py:678 hlidskjalf/window.py:819
+#: hlidskjalf/window.py:681 hlidskjalf/window.py:823
 msgid "Menu"
 msgstr "Меню"
 
-#: hlidskjalf/window.py:680 hlidskjalf/window.py:1723
+#: hlidskjalf/window.py:683 hlidskjalf/window.py:1737
 msgid "Command palette"
 msgstr "Палитра команд"
 
-#: hlidskjalf/window.py:682 hlidskjalf/window.py:1624 hlidskjalf/window.py:1724
+#: hlidskjalf/window.py:685 hlidskjalf/window.py:1638 hlidskjalf/window.py:1738
 msgid "Refresh"
 msgstr "Обновить"
 
-#: hlidskjalf/window.py:684 hlidskjalf/window.py:821 hlidskjalf/window.py:1728
-#: hlidskjalf/window.py:1757
+#: hlidskjalf/window.py:687 hlidskjalf/window.py:825 hlidskjalf/window.py:1742
+#: hlidskjalf/window.py:1771
 msgid "Keyboard shortcuts"
 msgstr "Сочетания клавиш"
 
-#: hlidskjalf/window.py:705
+#: hlidskjalf/window.py:708
 msgid "Show/hide sidebar (F9)"
 msgstr "Показать/скрыть боковую панель (F9)"
 
-#: hlidskjalf/window.py:708
+#: hlidskjalf/window.py:711
 msgid "Back (Alt+←)"
 msgstr "Назад (Alt+←)"
 
-#: hlidskjalf/window.py:709
+#: hlidskjalf/window.py:712
 msgid "Forward (Alt+→)"
 msgstr "Вперёд (Alt+→)"
 
-#: hlidskjalf/window.py:756
+#: hlidskjalf/window.py:759
 msgid "Call – opens the chat in your browser"
 msgstr "Звонок – открывает чат в браузере"
 
-#: hlidskjalf/window.py:823 hlidskjalf/window.py:1728
+#: hlidskjalf/window.py:827 hlidskjalf/window.py:1742
 msgid "Quit"
 msgstr "Выйти из приложения"
 
-#: hlidskjalf/window.py:827
+#: hlidskjalf/window.py:831
 msgid ""
 "Sign in with a passkey, security key or password.\n"
 "Sign-in opens in your browser."
@@ -9058,19 +9122,19 @@ msgstr ""
 "Войди с помощью ключа доступа, электронного ключа или пароля.\n"
 "Вход открывается в браузере."
 
-#: hlidskjalf/window.py:833
+#: hlidskjalf/window.py:837
 msgid "Server address"
 msgstr "Адрес сервера"
 
-#: hlidskjalf/window.py:838
+#: hlidskjalf/window.py:842
 msgid "Sign in"
 msgstr "Войти"
 
-#: hlidskjalf/window.py:846
+#: hlidskjalf/window.py:850
 msgid "Enter the server address or sign in with a pairing link"
 msgstr "Введи адрес сервера или войди по ссылке для связывания"
 
-#: hlidskjalf/window.py:848
+#: hlidskjalf/window.py:852
 msgid ""
 "With two-factor sign-in, the browser then asks for your passkey or a code "
 "from your authenticator app."
@@ -9078,11 +9142,11 @@ msgstr ""
 "При двухфакторном входе браузер затем попросит ключ доступа или код из "
 "приложения-аутентификатора."
 
-#: hlidskjalf/window.py:853
+#: hlidskjalf/window.py:857
 msgid "Sign in with a pairing link (QR code from the web)"
 msgstr "Войти по ссылке для связывания (QR-код из веба)"
 
-#: hlidskjalf/window.py:855
+#: hlidskjalf/window.py:859
 msgid ""
 "In the browser: 👤 → Settings → “Apps & devices” → “Sign in with QR code”. "
 "Paste the link below the QR code (…/app/pair?c=…) here:"
@@ -9090,35 +9154,35 @@ msgstr ""
 "В браузере: 👤 → Настройки → «Приложения и устройства» → «Войти по QR-коду». "
 "Вставь сюда ссылку под QR-кодом (…/app/pair?c=…):"
 
-#: hlidskjalf/window.py:862
+#: hlidskjalf/window.py:866
 msgid "Browser doesn't return to the app?"
 msgstr "Браузер не возвращается в приложение?"
 
-#: hlidskjalf/window.py:864
+#: hlidskjalf/window.py:868
 msgid ""
 "Paste the address from the browser's error message (hlidskjalf://auth?"
 "code=…) here:"
 msgstr ""
 "Вставь сюда адрес из сообщения об ошибке браузера (hlidskjalf://auth?code=…):"
 
-#: hlidskjalf/window.py:887
+#: hlidskjalf/window.py:891
 msgid "Please enter an https address, e.g. https://saga.example.org"
 msgstr "Введи адрес https, например https://saga.example.org"
 
-#: hlidskjalf/window.py:918
+#: hlidskjalf/window.py:922
 msgid "This is not a valid pairing link."
 msgstr "Это недействительная ссылка для связывания."
 
-#: hlidskjalf/window.py:921
+#: hlidskjalf/window.py:925
 msgid "Pairing links must use https."
 msgstr "Ссылки для связывания должны использовать https."
 
-#: hlidskjalf/window.py:934
+#: hlidskjalf/window.py:938
 #, python-brace-format
 msgid "Saga will sign in to {host}."
 msgstr "Saga войдёт на {host}."
 
-#: hlidskjalf/window.py:935
+#: hlidskjalf/window.py:939
 msgid ""
 "Only continue if you created this QR code or link yourself in Saga (Settings "
 "→ Apps & devices)."
@@ -9126,241 +9190,241 @@ msgstr ""
 "Продолжай, только если этот QR-код или ссылка созданы тобой в Saga "
 "(Настройки → Приложения и устройства)."
 
-#: hlidskjalf/window.py:937
+#: hlidskjalf/window.py:941
 #, python-brace-format
 msgid "You're currently signed in to {alt} and will be signed out there."
 msgstr "Сейчас выполнен вход на {alt} – там будет выполнен выход."
 
-#: hlidskjalf/window.py:938
+#: hlidskjalf/window.py:942
 msgid "Pair with this server?"
 msgstr "Связать с этим сервером?"
 
-#: hlidskjalf/window.py:940
+#: hlidskjalf/window.py:944
 msgid "Pair"
 msgstr "Связать"
 
-#: hlidskjalf/window.py:949 hlidskjalf/window.py:1002
+#: hlidskjalf/window.py:953 hlidskjalf/window.py:1006
 msgid "Signing in …"
 msgstr "Вход…"
 
-#: hlidskjalf/window.py:974
+#: hlidskjalf/window.py:978
 #, python-brace-format
 msgid "Signed in as {name} – stays signed in on “{device}”"
 msgstr "Вход выполнен как {name} – вход на «{device}» сохраняется"
 
-#: hlidskjalf/window.py:984
+#: hlidskjalf/window.py:988
 msgid "Please sign in in your browser …"
 msgstr "Войди в браузере…"
 
-#: hlidskjalf/window.py:1000
+#: hlidskjalf/window.py:1004
 msgid "Please start signing in here in the app."
 msgstr "Начни вход здесь, в приложении."
 
-#: hlidskjalf/window.py:1167 hlidskjalf/window.py:1785
+#: hlidskjalf/window.py:1171 hlidskjalf/window.py:1799
 msgid "Remove from favorites"
 msgstr "Убрать из избранного"
 
-#: hlidskjalf/window.py:1267
+#: hlidskjalf/window.py:1271
 msgid "The chat opens in your browser – start the call there."
 msgstr "Чат откроется в браузере – начни звонок там."
 
-#: hlidskjalf/window.py:1412 hlidskjalf/window.py:1424
+#: hlidskjalf/window.py:1426 hlidskjalf/window.py:1438
 #, python-brace-format
 msgid "{name} is also here"
 msgstr "{name} тоже здесь"
 
-#: hlidskjalf/window.py:1426
+#: hlidskjalf/window.py:1440
 msgid "On this page right now"
 msgstr "Сейчас на этой странице"
 
-#: hlidskjalf/window.py:1625
+#: hlidskjalf/window.py:1639
 msgid "Search in the sidebar"
 msgstr "Поиск на боковой панели"
 
-#: hlidskjalf/window.py:1626 hlidskjalf/window.py:1726
+#: hlidskjalf/window.py:1640 hlidskjalf/window.py:1740
 msgid "Show/hide sidebar"
 msgstr "Показать/скрыть боковую панель"
 
-#: hlidskjalf/window.py:1640 hlidskjalf/window.py:1725
+#: hlidskjalf/window.py:1654 hlidskjalf/window.py:1739
 msgid "Copy link to page"
 msgstr "Копировать ссылку на страницу"
 
-#: hlidskjalf/window.py:1723
+#: hlidskjalf/window.py:1737
 msgid "General"
 msgstr "Общие"
 
-#: hlidskjalf/window.py:1724
+#: hlidskjalf/window.py:1738
 msgid "Back / Forward"
 msgstr "Назад / Вперёд"
 
-#: hlidskjalf/window.py:1725
+#: hlidskjalf/window.py:1739
 msgid "Search the sidebar"
 msgstr "Искать на боковой панели"
 
-#: hlidskjalf/window.py:1726
+#: hlidskjalf/window.py:1740
 msgid "Today / Tasks / Events"
 msgstr "Сегодня / Задачи / События"
 
-#: hlidskjalf/window.py:1727
+#: hlidskjalf/window.py:1741
 msgid "Browse in peek"
 msgstr "Листать в боковом просмотре"
 
-#: hlidskjalf/window.py:1727
+#: hlidskjalf/window.py:1741
 msgid "Close peek"
 msgstr "Закрыть боковой просмотр"
 
-#: hlidskjalf/window.py:1728
+#: hlidskjalf/window.py:1742
 msgid "Context menu"
 msgstr "Контекстное меню"
 
-#: hlidskjalf/window.py:1729
+#: hlidskjalf/window.py:1743
 msgid "Bold, italic, underline"
 msgstr "Жирный, курсив, подчёркивание"
 
-#: hlidskjalf/window.py:1729
+#: hlidskjalf/window.py:1743
 msgid "Strikethrough"
 msgstr "Зачёркивание"
 
-#: hlidskjalf/window.py:1730
+#: hlidskjalf/window.py:1744
 msgid "Highlight"
 msgstr "Выделение цветом"
 
-#: hlidskjalf/window.py:1730
+#: hlidskjalf/window.py:1744
 msgid "Link (with a selection)"
 msgstr "Ссылка (при выделении)"
 
-#: hlidskjalf/window.py:1731
+#: hlidskjalf/window.py:1745
 msgid "Undo / redo typing"
 msgstr "Отменить / повторить ввод"
 
-#: hlidskjalf/window.py:1732
+#: hlidskjalf/window.py:1746
 msgid "Block types"
 msgstr "Типы блоков"
 
-#: hlidskjalf/window.py:1732
+#: hlidskjalf/window.py:1746
 msgid "Date, reminder, page"
 msgstr "Дата, напоминание, страница"
 
-#: hlidskjalf/window.py:1732
+#: hlidskjalf/window.py:1746
 msgid "Emoji"
 msgstr "Эмодзи"
 
-#: hlidskjalf/window.py:1733
+#: hlidskjalf/window.py:1747
 msgid "Blocks"
 msgstr "Блоки"
 
-#: hlidskjalf/window.py:1733
+#: hlidskjalf/window.py:1747
 msgid "Text, Heading 1–3"
 msgstr "Текст, заголовок 1–3"
 
-#: hlidskjalf/window.py:1734
+#: hlidskjalf/window.py:1748
 msgid "Checklist, bulleted list, numbered list"
 msgstr "Чек-лист, маркированный список, нумерованный список"
 
-#: hlidskjalf/window.py:1735
+#: hlidskjalf/window.py:1749
 msgid "Move block"
 msgstr "Переместить блок"
 
-#: hlidskjalf/window.py:1735
+#: hlidskjalf/window.py:1749
 msgid "Toggle, code"
 msgstr "Раскрывающийся блок, код"
 
-#: hlidskjalf/window.py:1736
+#: hlidskjalf/window.py:1750
 msgid "Duplicate block"
 msgstr "Дублировать блок"
 
-#: hlidskjalf/window.py:1736
+#: hlidskjalf/window.py:1750
 msgid "New block below"
 msgstr "Новый блок ниже"
 
-#: hlidskjalf/window.py:1737
+#: hlidskjalf/window.py:1751
 msgid "Block menu"
 msgstr "Меню блока"
 
-#: hlidskjalf/window.py:1737
+#: hlidskjalf/window.py:1751
 msgid "Indent/outdent list item"
 msgstr "Увеличить/уменьшить отступ элемента списка"
 
-#: hlidskjalf/window.py:1764
+#: hlidskjalf/window.py:1778
 msgid "Notes, databases, tasks and events – self-hosted."
 msgstr "Заметки, базы данных, задачи и события – на собственном сервере."
 
-#: hlidskjalf/window.py:1764
+#: hlidskjalf/window.py:1778
 msgid "Saga project"
 msgstr "Проект Saga"
 
-#: hlidskjalf/window.py:1765
+#: hlidskjalf/window.py:1779
 msgid "translator-credits"
 msgstr "Проект Saga (машинный перевод)"
 
-#: hlidskjalf/window.py:1776 hlidskjalf/window.py:1787
+#: hlidskjalf/window.py:1790 hlidskjalf/window.py:1801
 msgid "New subpage"
 msgstr "Новая подстраница"
 
-#: hlidskjalf/window.py:1789
+#: hlidskjalf/window.py:1803
 msgid "New subpage from template …"
 msgstr "Подстраница из шаблона …"
 
-#: hlidskjalf/window.py:1850
+#: hlidskjalf/window.py:1864
 msgid "Task created"
 msgstr "Задача создана"
 
-#: hlidskjalf/window.py:1852
+#: hlidskjalf/window.py:1866
 msgid "This button has no target yet – choose one in the button settings."
 msgstr "У этой кнопки ещё нет цели — выберите её в настройках кнопки."
 
-#: hlidskjalf/window.py:1854
+#: hlidskjalf/window.py:1868
 msgid "This button has no action yet – choose one in the button settings."
 msgstr "У этой кнопки ещё нет действия — выберите его в настройках кнопки."
 
-#: hlidskjalf/window.py:1867
+#: hlidskjalf/window.py:1881
 #, python-brace-format
 msgid "“{title}” moved to trash"
 msgstr "«{title}» перемещена в корзину"
 
-#: hlidskjalf/window.py:1872
+#: hlidskjalf/window.py:1886
 #, python-brace-format
 msgid "Task “{title}” deleted"
 msgstr "Задача «{title}» удалена"
 
-#: hlidskjalf/window.py:1889
+#: hlidskjalf/window.py:1903
 msgid ""
 "No browser could be opened. The address was copied – paste it into a browser."
 msgstr "Не удалось открыть браузер. Адрес скопирован — вставьте его в браузер."
 
-#: hlidskjalf/window.py:1891
+#: hlidskjalf/window.py:1905
 #, python-brace-format
 msgid "No browser could be opened. Open this address in a browser: {url}"
 msgstr "Не удалось открыть браузер. Откройте этот адрес в браузере: {url}"
 
-#: hlidskjalf/window.py:1929
+#: hlidskjalf/window.py:1943
 #, python-brace-format
 msgid "Downloading “{name}” …"
 msgstr "Скачивание «{name}»…"
 
-#: hlidskjalf/window.py:1962
+#: hlidskjalf/window.py:1976
 #, python-brace-format
 msgid "Download failed: {error}"
 msgstr "Не удалось скачать: {error}"
 
-#: hlidskjalf/window.py:1978
+#: hlidskjalf/window.py:1992
 #, python-brace-format
 msgid "Export failed: {error}"
 msgstr "Не удалось экспортировать: {error}"
 
-#: hlidskjalf/window.py:1978
+#: hlidskjalf/window.py:1992
 msgid "Exported"
 msgstr "Экспортировано"
 
-#: hlidskjalf/window.py:2011
+#: hlidskjalf/window.py:2025
 msgid "Create a new page?"
 msgstr "Создать новую страницу?"
 
-#: hlidskjalf/window.py:2012
+#: hlidskjalf/window.py:2026
 msgid "A link wants to create a new page in Saga."
 msgstr "Ссылка хочет создать новую страницу в Saga."
 
-#: hlidskjalf/window.py:2014
+#: hlidskjalf/window.py:2028
 msgid "Create page"
 msgstr "Создать страницу"
 
@@ -9378,23 +9442,3 @@ msgstr "Создать страницу"
 #, python-brace-format
 #~ msgid "€{value}"
 #~ msgstr "{value} €"
-
-#: hlidskjalf/livepage.py:217
-msgid "Change not applied – you can’t edit this page right now."
-msgstr "Изменение не применено – сейчас вы не можете редактировать эту страницу."
-
-#: hlidskjalf/livepage.py:218
-msgid "Change not applied."
-msgstr "Изменение не применено."
-
-#: hlidskjalf/livepage.py:219
-msgid "Change not applied – your latest input could not be kept."
-msgstr "Изменение не применено – последние введённые данные сохранить не удалось."
-
-#: hlidskjalf/page.py:1250
-msgid "This page uses a different editor version – reload it (or update the app). Until then read-only."
-msgstr "Эта страница использует другую версию редактора – перезагрузите её (или обновите приложение). До тех пор только чтение."
-
-#: hlidskjalf/settings.py:763
-msgid "Live editing uses pycrdt and anyio (MIT license)."
-msgstr "Совместное редактирование в реальном времени использует pycrdt и anyio (лицензия MIT)."
