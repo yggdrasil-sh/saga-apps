@@ -93,7 +93,7 @@ object Gallery {
 
     /** Vorschau: vor dem Anlegen nach dem Ort fragen? (Wetter-Widget ohne Ort, Wetter beim Server an) */
     fun parseAskWeather(text: String): Boolean = try {
-        ((json.parseToJsonElement(text) as? JsonObject)?.get("ask_weather") as? JsonPrimitive)?.booleanOrNull == true
+        ((json.parseToJsonElement(text) as? JsonObject)?.get("ask_weather") as? JsonPrimitive)?.takeIf { !it.isString }?.booleanOrNull == true
     } catch (_: Exception) {
         false
     }
