@@ -39,6 +39,52 @@ def test_scrub_keeps_program_words():
     assert C.scrub("a\u202eb\x00c") == "a b c"
 
 
+
+# Hostnamen mit beliebiger Endung (wie Android ClientLog.kt): weg; Bezeichner, Module, Dateien, Versionen bleiben lesbar
+@pytest.mark.parametrize("raw,host", [
+    ("Hostname cloud.mueller.family not verified", "cloud.mueller.family"),
+    ("ConnectionError: nas.fritz.box timed out", "nas.fritz.box"),
+    ("ssl error saga.meinheim.family:8443", "saga.meinheim.family"),
+    ("connect to router.lan failed", "router.lan"),
+    ("db.internal refused", "db.internal"),
+    ("resolve gw.home.arpa failed.", "gw.home.arpa"),
+    ("host xn--mller-kva.example unreachable", "xn--mller-kva"),
+    ("host shop.xn--p1ai unreachable", "shop.xn--p1ai"),
+    ("srv2.my-home.family down", "my-home"),
+    ("at nas-01.fritz.box port 1", "nas-01"),
+])
+def test_scrub_hosts(raw, host):
+    s = C.scrub(raw)
+    assert host not in s and "<host>" in s, (raw, s)
+    assert C.scrub(s) == s
+
+
+@pytest.mark.parametrize("raw,keep", [
+    ("ModuleNotFoundError: No module named hlidskjalf.api", "hlidskjalf.api"),
+    ("editor.py:120 editor.PageDoc.save", "editor.py:<n> editor.PageDoc.save"),
+    ("gi.repository.GLib.GError: failed", "gi.repository.GLib.GError"),
+    ("urllib.error.URLError: timed out", "urllib.error.URLError"),
+    ("os.path.join failed", "os.path.join"),
+    ("self.store.page is None", "self.store.page"),
+    ("e.target.value undefined", "e.target.value"),
+    ("JSONDecodeError: http.GET api.app.today", "http.GET api.app.today"),
+    ("HTTPError.status5xx: http.PATCH api.notes.ID", "http.PATCH api.notes.ID"),
+    ("version 2.5.0 und 2.5.beta", "<n>.<w>"),
+    ("File window.py line 3 in window.Main.run", "window.py"),
+    ("load style.css failed", "style.css"),
+])
+def test_scrub_hosts_keep_identifiers(raw, keep):
+    s = C.scrub(raw)
+    assert keep in s and "<host>" not in s, (raw, s)
+
+
+def test_scrub_host_rule_order():
+    assert C.scrub("brief.final.pdf fehlt") == "<file> <w>"                 # Datei-Regel, nicht <host>
+    assert C.scrub("x https://cloud.mueller.family/s/1 y") == "x <url> y"
+    assert C.scrub("an anna@cloud.mueller.family") == "an <email>"
+    assert C.scrub("x /srv/nas.fritz.box/a y") == "x <path> y"
+    assert C.scrub(C.frame_line("/home/u/hlidskjalf/editor.py", 612, "PageDoc.save")) == "editor.py:<n> editor.PageDoc.save"
+
 _PROBE = r"""
 import importlib.util, json, sys
 sys.path.insert(0, sys.argv[1])
@@ -68,7 +114,8 @@ def test_scrub_matches_server():
     raws = ["AttributeError: 'NoneType' object has no attribute 'get_text'", "Error: Seite fuer max@example.org 42",
             "ValueError: https://cloud.example.net/s/abc?token=1 failed", "OSError: [Errno 2] '/home/u/x.pdf'",
             "TypeError: Geheimprojekt Phoenix kaputt", "HTTPError.status5xx: http.PATCH api.notes.ID",
-            "socket error at nas-01.fritz.box port 8443", "KeyError: 'title'"]
+            "socket error at nas-01.fritz.box port 8443", "KeyError: 'title'",
+            "Hostname cloud.mueller.family not verified", "gw.home.arpa failed"]
     env = {k: v for k, v in os.environ.items() if k in ("PATH", "HOME", "LANG")}
     env.update({"SECRET_KEY": "x" * 32, "SESSION_SECRET": "x" * 32, "BASE_URL": "https://saga.test",
                 "DATABASE_URL": "postgresql://saga@/nicht_benutzt?host=/nonexistent", "STATE_DIR": "/tmp/st-clog-linux"})
@@ -93,6 +140,8 @@ def test_scrub_note():
     assert "\n" in n and "Beim Speichern hing es." in n
     assert C.scrub_note("x" * 3000) == "<tok>"                  # lange Folge ohne Leerzeichen: wie der Server maskiert
     assert len(C.scrub_note("ab " * 1000)) == C.NOTE_MAX
+    n = C.scrub_note("Mein Server cloud.Mueller.family und NAS.fritz.box, gw.home.arpa. Version 2.5.0, Datei a.pdf")
+    assert n == "Mein Server <host> und <host>, <host>. Version 2.5.0, Datei a.pdf", n
 
 
 def test_screen():

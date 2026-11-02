@@ -46,13 +46,38 @@ _CTRL = re.compile("[\\x00-\\x1f\\x7f-\\x9f\\u200b-\\u200f\\u2028\\u2029\\u202a-
 _URL = re.compile(r"\b[a-z][a-z0-9+.\-]{1,15}://[^\s\"'<>()]*|\bwww\.[^\s\"'<>()]+|\b(?:blob|data|javascript|mailto|tel):[^\s\"'<>()]*", re.I)
 _EMAIL = re.compile(r"[\w.+\-]+@[\w\-]+(?:\.[\w\-]+)+")
 _SECRET = re.compile(r"\b(?:hkd?|sga|hk_test)_[A-Za-z0-9_\-]{6,}|\bBearer\s+\S+", re.I)
-_TLD = ("com|org|net|de|at|ch|eu|io|info|biz|lan|local|localdomain|home|internal|intranet|intra|corp|arpa|cloud|online|"
-        "site|xyz|co|me|tv|uk|fr|nl|be|it|es|pl|ru|th|jp|cn|us|ca|au|"
-        "box|test|example|invalid|lab|localhost|onion|gov|edu|se|no|dk|fi|cz|pt|br|in|kr|tw|hk|sg|nz|ie|li|lu")   # Client: strenger als der Server
-_HOST = re.compile(r"(?<![\w.\-/])(?:(?:[a-z0-9][a-z0-9\-]*\.)+(?:" + _TLD + r")|(?:[a-z0-9][a-z0-9\-]*\.)*[a-z0-9]*-[a-z0-9\-]*"
-                   r"\.(?!(?:m?js|css|html?|json|kt|swift|java|py)\b)[a-z]{2,})(?![\w\-]|\.\w)", re.I)
-_FILE = re.compile(r"[^\s\"'`<>()\[\]{}:;,\u201e\u201c\u201d\u00ab\u00bb]*\.(?:pdf|docx?|xlsx?|xlsm|pptx?|od[tspg]|rtf|txt|csv|md|zip|rar|7z|tar|gz|png|"
-                   r"jpe?g|gif|webp|hei[cf]|bmp|svg|tiff?|mp[34]|m4[av]|wav|ogg|opus|flac|mov|webm|mkv|avi|epub|eml|vcf|ics|kdbx)(?![\w\-])", re.I)
+# Dateinamen von Nutzerdateien (Endung): nie stehen lassen
+_FILE_EXT = ("pdf|docx?|xlsx?|xlsm|pptx?|od[tspg]|rtf|txt|csv|md|zip|rar|7z|tar|gz|png|"
+             "jpe?g|gif|webp|hei[cf]|bmp|svg|tiff?|mp[34]|m4[av]|wav|ogg|opus|flac|mov|webm|mkv|avi|epub|eml|vcf|ics|kdbx")
+_FILE_EXT_RE = re.compile(_FILE_EXT, re.I)
+_FILE = re.compile(r"[^\s\"'`<>()\[\]{}:;,\u201e\u201c\u201d\u00ab\u00bb]*\.(?:" + _FILE_EXT + r")(?![\w\-])", re.I)
+# Hostnamen (Server, NAS, ...) mit beliebiger Endung (.family, .fritz.box, .lan, .home.arpa, xn--...) wie ClientLog.kt der
+# Android-App. Bleiben (siehe _host): letzte Endung ist Datei-/Code-Endung (editor.py:120; Nutzerdateien nimmt danach die
+# Datei-Regel), Treffer mit Grossbuchstaben (gi.repository.Gtk, urllib.error.URLError), Versionen (2.5.beta), Modulpfade
+# mit bekannter Wurzel (hlidskjalf.api, http.client), Ketten ab einem Buchstaben (e.target.value) und die eigenen Muster nach "http.GET " (api.app.today).
+_HOST = re.compile(r"(?<![\w.$/\-])(?:[^\W_](?:[^\W_]|-)*\.)+([^\W\d_]{2,24}|xn--[a-z0-9\-]{1,59})(?![\w$(\-]|\.\w)", re.I)
+_CODE_EXT = frozenset("py pyc pyi so js mjs css html htm json xml ui glade gresource kt java swift c h cc cpp m mm rs go "
+                      "sh log plist ini toml yaml yml cfg conf desktop service".split())
+_HOST_ROOTS = frozenset("hlidskjalf gi os sys json urllib http asyncio importlib collections concurrent threading encodings "
+                        "xml ssl socket dbus requests nacl cairo self super".split())
+_OWN_PATTERN = re.compile(r"http\.[A-Z]{3,7} $")
+
+
+def _host(m, strict=False):
+    h, tld = m.group(0), m.group(1).lower()
+    if tld in _CODE_EXT or _FILE_EXT_RE.fullmatch(tld):
+        return h
+    labels = h.split(".")
+    if all(x.isdigit() for x in labels[:-1]):                 # Version 2.5.beta
+        return h
+    if not strict:
+        first = labels[0].lower()
+        if h != h.lower() or first in _HOST_ROOTS or (len(first) == 1 and first.isalpha()) \
+                or _OWN_PATTERN.search(m.string, 0, m.start()):
+            return h
+    return "<host>"
+
+
 _UUID = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.I)
 _HEX = re.compile(r"\b(?:0x)?[0-9a-f]{8,}\b", re.I)
 _TOKEN = re.compile(r"(?<![\w~])(?=[A-Za-z_\-+=]*\d)[A-Za-z0-9_\-+=]{20,}")
@@ -125,7 +150,7 @@ def scrub(s, limit=MSG_MAX):
     s = _EMAIL.sub("<email>", s)
     s = _SECRET.sub("<secret>", s)
     s = _QUOTE.sub(_quote, s)
-    s = _HOST.sub("<host>", s)
+    s = _HOST.sub(_host, s)
     s = _FILE.sub("<file>", s)
     s = _PATH.sub("<path>", s)
     s = _HANDLE.sub("<id>", s)
@@ -141,7 +166,7 @@ def scrub(s, limit=MSG_MAX):
 
 def scrub_note(s):
     """Freitext der Person (nur Diagnose): Steuerzeichen weg (Zeilenumbrueche bleiben), Schluessel/Adressen/E-Mail
-    maskiert, gekuerzt. Sonst unveraendert - die Person schreibt ihn bewusst fuer den Admin."""
+    maskiert, Hostnamen -> <host>, gekuerzt. Sonst unveraendert - die Person schreibt ihn bewusst fuer den Admin."""
     if not isinstance(s, str):
         return ""
     s = s.replace("\r\n", "\n")
@@ -149,6 +174,7 @@ def scrub_note(s):
     s = _SECRET.sub("<secret>", s)
     s = _URL.sub("<url>", s)
     s = _EMAIL.sub("<email>", s)
+    s = _HOST.sub(lambda m: _host(m, strict=True), s)       # Freitext: auch Grossschreibung/Modulwurzeln -> <host>
     s = re.sub(r"(?<![\w-])[A-Za-z0-9_\-+/=]{32,}", "<tok>", s)
     return s.strip()[:NOTE_MAX]
 
