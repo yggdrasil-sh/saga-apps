@@ -9,6 +9,25 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Sicherheit – Härtung nach Pentest Runde 2 (Android, iOS/Mac, Linux)
+
+- **Android – Linkvorschau:** Das Vorschaubild über dem Eingabefeld wird nur noch verkleinert dekodiert (längste Seite
+  höchstens 1024 px, erst die Maße, dann `inSampleSize`; Speicherfehler abgefangen). Ein riesiges Bild einer fremden Seite
+  (z. B. 20000 × 20000 px) ließ die App sonst beim Zeichnen abstürzen. Gemeinsame Hilfsfunktion für Chat-Vorschaubilder.
+- **Android – Links:** Links aus Nachrichten, Linkvorschauen, dem LINKS-Tab und KI-Antworten öffnen nur noch `http`,
+  `https` und `mailto` im Standard-Programm. Andere Schemata (`tel:`, `geo:`, `market:`, `saga://pair` …) werden nicht
+  geöffnet, sondern mit Hinweis in die Zwischenablage kopiert.
+- **iOS/Mac – Links:** Linkvorschau-Karten und Links im Text geben nur `http`, `https` und `mailto` an das System weiter;
+  eigene Ziele (Seiten, Chat-Notizen) laufen wie bisher über die App, alles andere wird verworfen.
+- **iOS/Mac – Linkvorschau:** Bild mit Maß-Deckel (höchstens 1024 px, `CGImageSource`-Thumbnail), unplausible Maßangaben
+  des Servers werden verworfen; das mitgeschickte Vorschaubild wird selbst verkleinert und neu kodiert.
+- **Anrufe (Android, iOS/Mac):** STUN/TURN-Adressen aus der Serverantwort und die TURN-Adresse eines Knotens werden geprüft:
+  nur `stun:`/`stuns:`/`turn:`/`turns:` in strenger Form, nie Loopback, Link-Local, unspezifizierte oder Multicast-Adressen.
+  Private Adressen (10/8, 172.16/12, 192.168/16, 100.64/10, fc00::/7, `.local` …) nur, wenn der Saga-Server selbst im
+  lokalen Netz liegt (private Adresse bzw. Name, der privat auflöst) – der Betrieb im Heimnetz mit eigenem TURN geht weiter.
+- **Linux:** zu tief verschachtelte Serverantworten gelten als unlesbar (statt Absturz der Anfrage), Seiten-/Chat-Links mit
+  mehr als 18 Ziffern werden ignoriert, kaputte Einträge der Anrufleiste übersprungen.
+
 ### Neu – iOS/Mac: Kurzbefehl „Aufgabe anlegen“ mit Ziel (nur mit Saga-Server, der `capsrc1` meldet)
 
 - Optionaler Parameter **Ziel**: Inbox oder eine Aufgabenquelle mit Bearbeiten-Recht; ohne Angabe gilt das zuletzt
