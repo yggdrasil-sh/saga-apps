@@ -34,7 +34,7 @@ struct AddTaskIntent: AppIntent {
             throw APIError.http(code, msg)
         }
         if cap, let chosen { st.set(chosen, forKey: CaptureTargetLogic.lastKey) }   // zuletzt gewaehlt = naechste Vorgabe
-        if let src {
+        if src != nil {
             return .result(dialog: "Aufgabe „\(text)“ in „\(name)“ angelegt.")
         }
         if let due {
