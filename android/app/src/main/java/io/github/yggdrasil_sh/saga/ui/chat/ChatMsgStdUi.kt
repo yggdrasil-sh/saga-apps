@@ -58,6 +58,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.chat.ChatFile
+import io.github.yggdrasil_sh.saga.chat.ChatImages
 import io.github.yggdrasil_sh.saga.chat.ChatPerson
 import io.github.yggdrasil_sh.saga.chat.ChatPreview
 import io.github.yggdrasil_sh.saga.chat.ChatSession
@@ -106,12 +107,13 @@ private fun PreviewBox(site: String, title: String, desc: String, img: ImageBitm
 /** Vorschau ueber dem Eingabefeld (vom Server geholt), mit ✕ zum Entfernen */
 @Composable
 fun ComposePreview(u: UnfurlResult, onRemove: () -> Unit) {
+    // pt2 A3: Bild kommt von einer fremden Seite (ueber den Server) - nur verkleinert dekodieren (sonst Absturz beim Zeichnen)
     val img = remember(u.image?.b64) {
         u.image?.b64?.let { b ->
             try {
                 val raw = java.util.Base64.getDecoder().decode(b)
-                android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.size)?.asImageBitmap()
-            } catch (_: Exception) {
+                ChatImages.decodeBounded(raw, ChatImages.PREVIEW_MAX)?.asImageBitmap()
+            } catch (_: Throwable) {
                 null
             }
         }

@@ -341,7 +341,7 @@ object AvatarCrop {
             } ?: 0f
             if (b != null && rot != 0f) Bitmap.createBitmap(b, 0, 0, b.width, b.height, Matrix().apply { postRotate(rot) }, true) else b
         }
-    } catch (_: Exception) {
+    } catch (_: Throwable)   // auch OutOfMemoryError {
         null
     }
 

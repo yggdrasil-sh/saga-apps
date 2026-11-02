@@ -43,6 +43,26 @@ object ChatImages {
         return s
     }
 
+    /** Linkvorschau ueber dem Eingabefeld: laengste Seite hoechstens so viele Pixel (pt2 A3) */
+    const val PREVIEW_MAX = 1024
+    /** Quellbilder ueber so vielen Pixeln gar nicht erst dekodieren (Unsinns-Masse; echte Kamerafotos bis 200 MP bleiben) */
+    const val SOURCE_MAX_PIXELS = 500_000_000L
+
+    /**
+     * inSampleSize (Zweierpotenz), damit die laengste Seite nach dem Dekodieren hoechstens maxSide px hat (aufgerundet
+     * gerechnet: nie groesser als die Grenze). 0 = unbrauchbare Masse (<= 0) oder Quelle zu gross -> nicht dekodieren.
+     */
+    fun boundedSample(w: Int, h: Int, maxSide: Int): Int {
+        if (w <= 0 || h <= 0 || maxSide <= 0 || w.toLong() * h > SOURCE_MAX_PIXELS) return 0
+        val longest = max(w, h).toLong()
+        var s = 1L
+        while ((longest + s - 1) / s > maxSide) s *= 2
+        return s.toInt()
+    }
+
+    /** Zielmasse, falls der Dekoder trotz inSampleSize groesser liefert: in maxSide einpassen (null = passt schon) */
+    fun clampSize(w: Int, h: Int, maxSide: Int): Pair<Int, Int>? = if (max(w, h) <= maxSide) null else thumbSize(w, h, maxSide)
+
     /** Anzeigegroesse (dp) im Verlauf aus Pixelmassen: in SHOW_MAX x SHOW_MAX einpassen, nie unter 48 */
     fun displaySize(w: Int?, h: Int?, maxSide: Int = SHOW_MAX): Pair<Int, Int>? {
         if (w == null || h == null || w <= 0 || h <= 0) return null
@@ -128,10 +148,31 @@ object ChatImages {
     }
 
     /** Vorschaubild (klein) dekodieren; groessere Bilder (alte Nachrichten ohne th) direkt verkleinert */
-    fun decodeSmall(data: ByteArray, maxSide: Int = THUMB_MAX * 2): Bitmap? {
+    fun decodeSmall(data: ByteArray, maxSide: Int = THUMB_MAX * 2): Bitmap? = decodeBounded(data, maxSide * 2)
+
+    /**
+     * Bild aus fremden Bytes dekodieren, laengste Seite hoechstens maxSide px (pt2 A3): erst nur die Masse lesen, dann mit
+     * inSampleSize; liefert der Dekoder doch mehr, wird verkleinert. Kaputt, zu gross oder Speicher knapp -> null, nie eine
+     * Ausnahme (auch kein OutOfMemoryError). So kommt nie eine Bitmap ueber der Grenze in die Oberflaeche.
+     */
+    fun decodeBounded(data: ByteArray, maxSide: Int): Bitmap? = try {
         val b = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(data, 0, data.size, b)
-        if (b.outWidth <= 0 || b.outHeight <= 0) return null
-        return BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply { inSampleSize = sampleSize(b.outWidth, b.outHeight, maxSide) })
+        val sample = boundedSample(b.outWidth, b.outHeight, maxSide)
+        if (sample <= 0) {
+            null
+        } else {
+            val src = BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply { inSampleSize = sample })
+            val fit = src?.let { clampSize(it.width, it.height, maxSide) }
+            if (src != null && fit != null) {
+                val out = Bitmap.createScaledBitmap(src, fit.first, fit.second, true)
+                if (out !== src) src.recycle()
+                out
+            } else {
+                src
+            }
+        }
+    } catch (_: Throwable) {
+        null
     }
 }
