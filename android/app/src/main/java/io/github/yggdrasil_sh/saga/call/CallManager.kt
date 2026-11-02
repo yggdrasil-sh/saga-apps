@@ -2479,7 +2479,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     // foederiert mit einem Server ohne promote: wie bisher ohne Befoerderung uebernehmen
                     if (e.code == 409 && CallRoom.str(o, "join_block") == "old") null else throw e
                 }
-                if (!live(r) || rs.promo !== promo) return@launch
+                if (!live(r) || rs.promo !== promo) {
+                    // Frist (handover_s) lief ab, waehrend promote unterwegs war: die spaet eingetragene Befoerderung
+                    // zuruecknehmen (sonst ist dieses Geraet still Hauptgeraet und das alte stummes Begleitgeraet)
+                    if (w != null && !w.already && promo.done && live(r)) promotePost(r, main)
+                    return@launch
+                }
                 if (w != null) {
                     promo.promotedNow(w.already)
                     w.call?.let { k -> rosterIn(r, k.legs, k.rv, null, poll = true) }

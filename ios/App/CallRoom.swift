@@ -466,7 +466,13 @@ extension CallManager {
                 let asked = Date().timeIntervalSince1970
                 let r = try? await store.apiResponse("api/calls/\(id)/promote", method: "POST", body: CallRoom.promoteBody(device: dev, devClass: cls))
                 let j = r.flatMap { ShareJSON.obj($0.0) }
-                guard ho.attempt == n, ho.active, !ending, self.id == id else { return }
+                guard ho.attempt == n, ho.active, !ending, self.id == id else {
+                    // Frist (handover_s) lief ab, waehrend promote unterwegs war: spaet eingetragene Befoerderung zuruecknehmen
+                    // (sonst ist dieses Geraet still Hauptgeraet und das alte stummes Begleitgeraet)
+                    if ho.attempt == n, ho.phase == .failed, !ending, self.id == id, let rep = ho.rep,
+                       case .ok(false) = CallRoom.promoteOutcome(code: r?.1, body: j) { promoteUndo(rep) }
+                    return
+                }
                 switch CallRoom.promoteOutcome(code: r?.1, body: j) {
                 case .old:                                                  // foederiert ohne promote: wie bisher
                     CallEnv.log("promote: Server kann es nicht - ohne Befoerderung")
