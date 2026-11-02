@@ -108,10 +108,16 @@ object ChatImages {
         }
     }
 
-    fun makeThumb(data: ByteArray, maxSide: Int = THUMB_MAX): Thumb? {
+    fun makeThumb(data: ByteArray, maxSide: Int = THUMB_MAX): Thumb? = try {
+        makeThumbOrThrow(data, maxSide)
+    } catch (_: OutOfMemoryError) {
+        null                                                 // pt2 A3: Speicher knapp -> ohne Vorschaubild
+    }
+
+    private fun makeThumbOrThrow(data: ByteArray, maxSide: Int): Thumb? {
         val b = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(data, 0, data.size, b)
-        if (b.outWidth <= 0 || b.outHeight <= 0) return null
+        if (b.outWidth <= 0 || b.outHeight <= 0 || b.outWidth.toLong() * b.outHeight > SOURCE_MAX_PIXELS) return null
         val o = orientation(data)
         val (ow, oh) = if (swapsSides(o)) b.outHeight to b.outWidth else b.outWidth to b.outHeight
         val opts = BitmapFactory.Options().apply { inSampleSize = sampleSize(b.outWidth, b.outHeight, maxSide) }

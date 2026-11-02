@@ -1,12 +1,14 @@
 package io.github.yggdrasil_sh.saga
 
 import io.github.yggdrasil_sh.saga.chat.ChatImages
+import io.github.yggdrasil_sh.saga.util.LinkPolicy
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Pentest Runde 2 (Apps): Bildgrenzen der Linkvorschau (A3) */
+/** Pentest Runde 2 (Apps): Bildgrenzen der Linkvorschau (A3), Link-Allowlist (A1) */
 class Pt2AppsTest {
     @Test fun `A3 Vorschaubild nie groesser als die Grenze`() {
         val max = ChatImages.PREVIEW_MAX
@@ -34,5 +36,17 @@ class Pt2AppsTest {
         assertNull(ChatImages.clampSize(1024, 500, 1024))
         assertEquals(1024 to 512, ChatImages.clampSize(2048, 1024, 1024))
         assertEquals(1 to 1024, ChatImages.clampSize(3, 5000, 1024))
+    }
+
+    @Test fun `A1 nur http(s) und mailto gehen an andere Apps`() {
+        for (u in listOf("https://example.org", "http://example.org/a?b=c#d", "HTTPS://Example.org", "https://user@example.org/x",
+            "mailto:anna@example.org", "https://[2001:db8::1]:8443/")) assertTrue(u, LinkPolicy.externalOk(u))
+        for (u in listOf("tel:+491234", "geo:0,0?q=x", "market://details?id=x", "saga://pair?u=x&c=y", "saga://auth?code=x",
+            "intent://x#Intent;scheme=http;end", "javascript:alert(1)", "file:///sdcard/x", "content://x/y", "data:text/html,x",
+            "sms:123", "https:example.org", "https://", "https://@/", "mailto:", "", "  ", "https://exa mple.org",
+            "https://example.org/\nx", "ftp://example.org", "about:blank")) assertFalse(u, LinkPolicy.externalOk(u))
+        assertEquals("https", LinkPolicy.scheme(" HTTPS://x"))
+        assertNull(LinkPolicy.scheme("/notes#1"))
+        assertFalse(LinkPolicy.externalOk("/notes#1"))                     // relative Ziele loest der Aufrufer selbst auf
     }
 }

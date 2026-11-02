@@ -18,6 +18,7 @@
     <string name="action_collapse">ยุบ</string>
     <string name="action_open_in_browser">เปิดในเบราว์เซอร์</string>
     <string name="no_browser">ไม่พบเบราว์เซอร์</string>
+    <string name="link_blocked_copied">ไม่ได้เปิดลิงก์ (เฉพาะลิงก์เว็บและอีเมล) – คัดลอกไปยังคลิปบอร์ดแล้ว</string>
     <string name="loading">กำลังโหลด…</string>
     <string name="nav_today">วันนี้</string>
     <string name="nav_tasks">งาน</string>

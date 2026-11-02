@@ -18,6 +18,7 @@
     <string name="action_collapse">Contraer</string>
     <string name="action_open_in_browser">Abrir en el navegador</string>
     <string name="no_browser">No se encontró ningún navegador</string>
+    <string name="link_blocked_copied">Enlace no abierto (solo enlaces web y de correo): copiado al portapapeles</string>
     <string name="loading">Cargando…</string>
 
     <!-- Navigation -->

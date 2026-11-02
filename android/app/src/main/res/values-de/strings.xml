@@ -18,6 +18,7 @@
     <string name="action_collapse">Zuklappen</string>
     <string name="action_open_in_browser">Im Browser öffnen</string>
     <string name="no_browser">Kein Browser gefunden</string>
+    <string name="link_blocked_copied">Link nicht geöffnet (nur Web- und E-Mail-Links) – in die Zwischenablage kopiert</string>
     <string name="loading">Lädt …</string>
 
     <!-- Navigation -->

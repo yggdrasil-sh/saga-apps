@@ -18,6 +18,7 @@
     <string name="action_collapse">Свернуть</string>
     <string name="action_open_in_browser">Открыть в браузере</string>
     <string name="no_browser">Браузер не найден</string>
+    <string name="link_blocked_copied">Ссылка не открыта (только веб-ссылки и e-mail) – скопирована в буфер обмена</string>
     <string name="loading">Загрузка…</string>
     <string name="nav_today">Сегодня</string>
     <string name="nav_tasks">Задачи</string>

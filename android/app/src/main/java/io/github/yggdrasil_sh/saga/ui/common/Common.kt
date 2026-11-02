@@ -126,6 +126,16 @@ fun ephemeralTabsSupported(context: Context): Boolean = try {
  * saga://-Link in die App zurueckkehren; ephemeral: privater Tab ohne die Browser-Sitzung (Kontowechsel), falls moeglich.
  */
 fun openUrl(context: Context, url: String, ephemeral: Boolean = false, inApp: Boolean = false) {
+    // pt2 A1: nur http(s)/mailto an andere Apps; sonst (tel:, geo:, market:, saga://pair ...) nur kopieren und Hinweis
+    if (!io.github.yggdrasil_sh.saga.util.LinkPolicy.externalOk(url)) {
+        try {
+            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+            cm?.setPrimaryClip(android.content.ClipData.newPlainText("Saga", url.take(8192)))
+        } catch (_: Exception) {
+        }
+        Toast.makeText(context, context.getString(R.string.link_blocked_copied), Toast.LENGTH_LONG).show()
+        return
+    }
     if (inApp || ephemeral) {
         try {
             val b = CustomTabsIntent.Builder().setShowTitle(true)
@@ -143,6 +153,7 @@ fun openUrl(context: Context, url: String, ephemeral: Boolean = false, inApp: Bo
 }
 
 /** Normaler Link: ACTION_VIEW + BROWSABLE, ohne Paket und ohne Chooser - Standard-Browser bzw. Systemauswahl ("Immer") */
+/** Nur ueber openUrl verwenden (prueft vorher LinkPolicy) */
 fun browserIntent(url: String): Intent = Intent(Intent.ACTION_VIEW, url.toUri())
     .addCategory(Intent.CATEGORY_BROWSABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
