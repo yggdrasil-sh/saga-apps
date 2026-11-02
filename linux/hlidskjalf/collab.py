@@ -577,6 +577,7 @@ class Session:
         self.grace_src = 0
         self.retry_src = 0
         self.hold_src = 0
+        self.behind = None               # Klon des Y-Stands, den die Ansicht zeigt (nur waehrend zurueckgehalten wird)
         self.leaving = False
         self.lock_why = None
         self.why = None
@@ -635,6 +636,7 @@ class Session:
 
     def _drop_doc(self):
         self.doc, self.um = None, None
+        self.behind = None
         self._sub_obs = None
         self.unacked = []
         self.offline_dirty = False
@@ -738,7 +740,8 @@ class Session:
                 self.doc.apply_update(full)
         self._sub_obs = self.doc.observe(self._on_txn)
         m = model()
-        self.um = m.UndoManager(scopes=[self.doc.get(m.FRAGMENT, type=m.XmlFragment), self.doc.get("title", type=m.Text)],
+        from pycrdt import UndoManager
+        self.um = UndoManager(scopes=[self.doc.get(m.FRAGMENT, type=m.XmlFragment), self.doc.get("title", type=m.Text)],
                                 capture_timeout_millis=500)
         self.um.include_origin(LOCAL)
 
@@ -842,6 +845,8 @@ class Session:
     def _remote(self, upd):
         if self.doc is None or not upd:
             return
+        if self.behind is None and self.bound and self.host.live_hold():
+            self.behind = self._clone()                      # Stand, den die Ansicht (noch) zeigt
         self._apply_remote(upd)
         if self.bound:
             self._refresh()
@@ -861,6 +866,7 @@ class Session:
         except m.ModelError:
             self._lock("model")
             return
+        self.behind = None
         same = len(blocks) == len(cur) and all(a is b for a, b in zip(blocks, cur)) and title == self.host.live_title()
         if same:
             return
@@ -875,6 +881,12 @@ class Session:
         self._refresh()
         return False
 
+    def _clone(self):
+        m = model()
+        d = m.Doc(client_id=self.doc.client_id)
+        d.apply_update(self.doc.get_update())
+        return d
+
     # --- eigene Aenderungen ---
     def local(self, hint=None, caret=None):
         """Ansicht hat geaendert (Text oder Struktur): sofort ins Doc (und damit hinaus)"""
@@ -883,6 +895,19 @@ class Session:
         blocks = self.host.live_blocks()
         if legacy(blocks):                                   # z. B. Kopie eines synchronisierten Blocks eingefuegt
             self.fallback("legacy", final=True, pending=True)
+            return
+        if self.behind is not None:
+            # die Ansicht zeigt einen aelteren Stand (fremde Aenderung waehrend der IME-Vorschau zurueckgehalten): eigene
+            # Eingabe gegen DIESEN Stand berechnen und als Update zusammenfuehren - sonst wuerde sie die fremde loeschen
+            b = self.behind
+            sv = b.get_state()
+            write_local(b, blocks, self.host.live_title(), hint, caret)
+            upd = b.get_update(sv)
+            self.behind = None
+            if upd and len(upd) > 2:
+                with self.doc.transaction(origin=LOCAL):
+                    self.doc.apply_update(upd)
+            GLib.idle_add(lambda: (self._refresh(), False)[1])
             return
         write_local(self.doc, blocks, self.host.live_title(), hint, caret)
 
