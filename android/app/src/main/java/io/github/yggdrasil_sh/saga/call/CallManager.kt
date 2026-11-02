@@ -140,6 +140,9 @@ class FrameWatch : VideoSink {
     fun live(now: Long = System.currentTimeMillis()): Boolean = now - last < 2500
 }
 
+/** Aufnahmehoehe der Kamera (1280 x CAM_H @ 30 fps) - auch fuer die Deckel ueber den Knoten (A1, HornLogic.txPlan) */
+private const val CAM_H = 720
+
 /**
  * 1:1-Anrufe (Server 2.1, saga-call/v1) mit WebRTC - Ablauf wie static/calls.js: Signale (SDP, ICE, Zustand) mit dem
  * Chat-Geraeteschluessel signiert und fuer das Zielgeraet versiegelt, ueber /api/calls und den Live-Kanal; Pruefungen
@@ -683,7 +686,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val src = c.videoSource ?: f.createVideoSource(false).also { c.videoSource = it }
         val sth = c.surface ?: SurfaceTextureHelper.create("saga-cam", egl.eglBaseContext).also { c.surface = it }
         cap.initialize(sth, app, src.capturerObserver)
-        cap.startCapture(1280, 720, 30)
+        cap.startCapture(1280, CAM_H, 30)
         c.capturer = cap
         val t = c.videoTrack ?: f.createVideoTrack("saga-v", src).also { c.videoTrack = it }
         t.setEnabled(true)
@@ -3926,6 +3929,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         override fun audioTrack(): AudioTrack? = r.audioTrack
         override fun camTrack(): VideoTrack? = r.videoTrack
         override fun screenTrack(): VideoTrack? = r.screen?.track
+        // A1: Kamera nimmt 1280x720 auf (startCamera), Bildschirm hoechstens 1080p (CallScreen.captureSize) - kurze Kante
+        override fun camHeight(): Int = if (r.videoTrack != null) CAM_H else 0
+        override fun screenHeight(): Int = r.screen?.let { minOf(it.w, it.h) } ?: 0
         override fun myState(): Triple<Boolean, Boolean, Boolean> = Triple(r.micOn && !r.rs.companion, r.videoTrack != null, r.screen != null)
 
         override suspend fun cands(node: String?, avoid: List<String>): List<HornLogic.Cand> {

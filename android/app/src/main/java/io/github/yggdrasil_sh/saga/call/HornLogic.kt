@@ -340,15 +340,20 @@ object HornLogic {
     /** zeitliche Schichten je Kamera-Schicht (gleich fuer alle, sonst kodiert libwebrtc nichts) */
     const val CAM_TEMPORAL = 3
 
-    /** TCP/TLS: l = 1/4, m = voll; UDP zusaetzlich h (m dann halbe Groesse) - alle T3, ohne eigene Bildrate */
+    /**
+     * TCP/TLS: l = 1/4, m = voll; UDP zusaetzlich h (m dann halbe Groesse) - alle T3, ohne eigene Bildrate.
+     * A1: auf TCP/TLS gleich mit den Deckeln aus [TX] (tcp l 150 / m 600, TLS l 120 / m 450); die Hoehe von m setzt [txPlan].
+     */
     fun camEncodings(path: String): List<Enc> = if (path == "udp") listOf(
         Enc("l", 4.0, 150),
         Enc("m", 2.0, 500),
         Enc("h", 1.0, 1500),
-    ) else listOf(
-        Enc("l", 4.0, 150),
-        Enc("m", 1.0, 700),
-    )
+    ) else (TX[path] ?: TX.getValue("tcp")).let { c ->
+        listOf(
+            Enc("l", 4.0, c.l),
+            Enc("m", 1.0, c.m),
+        )
+    }
 
     /** Gemeinsame Hoechstrate aller Kamera-Schichten: null = keine Grenze (Kamera liefert 30 fps), sonst 1 … 30 */
     fun camMaxFps(fps: Int?): Int? = fps?.coerceIn(1, 30)
@@ -363,6 +368,7 @@ object HornLogic {
      * - zu zweit (others = 1): ohne "l" - das Gegenueber zeigt das Bild gross (Kachel-Wunsch faellt auf "m" zurueck)
      * - Energiesparen/heiss (lowPower): ohne "h", hoechstens 15 fps
      * -> (aktive rids, fps-Obergrenze oder null)
+     * A1: gilt nur noch fuer UDP - auf TCP/TLS bliebe zu zweit nur m (keine Ausweichschicht), dort [txPlan].
      */
     fun camActive(path: String, others: Int, lowPower: Boolean): Pair<Set<String>, Int?> {
         var rids = camEncodings(path).map { it.rid }.toMutableSet()
@@ -373,8 +379,125 @@ object HornLogic {
         return rids to (if (lowPower) 15 else null)
     }
 
-    /** Bildschirm wie 2.4 relay-udp bzw. relay-tcp (kbit/s, fps) */
-    fun screenRate(path: String): Pair<Int, Int> = if (path == "udp") 1800 to 15 else 1200 to 10
+    /** Bildschirm beim Anlegen (kbit/s, fps): UDP wie 2.4 relay-udp, TCP/TLS nach [TX] (A1; vorher 1200 kbit/s 10 fps) */
+    fun screenRate(path: String): Pair<Int, Int> = TX[path]?.let { it.screen to it.screenFps } ?: (1800 to 15)
+
+    // ---- Senderate auf TCP/TLS (A1, wie static/horn.js K.TX / TxGov / txPlan) --------------------------------------
+
+    /**
+     * Ueber TCP/TLS sieht WebRTC keinen Verlust: Neuuebertragungen kommen als Schuebe, ein zu grosser Sendestrom staut sich
+     * in der TCP-Sendewarteschlange. Darum harte Obergrenzen je Weg (kbit/s; mH/screenH = hoechste Bildhoehe von m bzw.
+     * des Bildschirms) und eine Stufe 0..3 aus der RTT. UDP bleibt bei GCC (keine Deckel, Regeln aus [camActive]).
+     */
+    data class TxCap(val l: Int, val m: Int, val mH: Int, val screen: Int, val screenFps: Int, val screenH: Int)
+
+    val TX: Map<String, TxCap> = mapOf(
+        "tcp" to TxCap(l = 150, m = 600, mH = 720, screen = 900, screenFps = 8, screenH = 1080),
+        "turn" to TxCap(l = 120, m = 450, mH = 540, screen = 600, screenFps = 5, screenH = 720),
+    )
+    /** Faktor je Stufe auf m und Bildschirm */
+    val TX_F = doubleArrayOf(1.0, 0.6, 0.4, 0.25)
+    /** Bildschirm hoechstens so viele Bilder/s je Stufe (0 = Wert des Wegs) */
+    val TX_FPS = intArrayOf(0, 5, 3, 2)
+    const val RTT_ABS = 120.0          // Stau: RTT mindestens 120 ms ...
+    const val RTT_REL = 0.5            // ... und 50 % ueber der kleinsten RTT dieser Verbindung
+    const val RTT_HUGE = 1000.0        // ab 1 s ueber der kleinsten sofort
+    const val RTT_OK = 60.0            // frei: hoechstens 60 ms ueber der kleinsten
+    const val TX_BAD_N = 2             // Stau in 2 Messungen in Folge (Messung alle ~3 s)
+    const val TX_HOLD = 6000L          // zwischen zwei Stufen nach unten mindestens 6 s
+    const val TX_UP = 15000L           // frei fuer 15 s -> eine Stufe zurueck ...
+    const val TX_UP_MAX = 120000L      // ... nach erneutem Stau kurz danach doppelt so lange, hoechstens 2 min
+    const val TX_RETRY = 30000L        // Stau innerhalb von 30 s nach einem Schritt nach oben = Fehlversuch
+    private const val NEVER = Long.MIN_VALUE / 4
+
+    /** Stufenwechsel des Reglers (Diagnose-Ereignis `tx`: `L0>L1 rtt=… base=… tcp`) */
+    data class TxStep(val from: Int, val to: Int, val rtt: Int, val base: Int) {
+        fun line(path: String) = "L$from>L$to rtt=$rtt base=$base $path"
+    }
+
+    /** Sendestufe aus der RTT der Bild-Leitung mit Hysterese (wie TxGov in static/horn.js, gleiche Schwellen) */
+    class TxGov(val path: String) {
+        var level = 0
+            private set
+        var base = Double.POSITIVE_INFINITY
+            private set
+        var upWait = TX_UP
+            private set
+        private var bad = 0
+        private var okSince: Long? = null
+        private var downAt = NEVER
+        private var upAt = NEVER
+
+        /** Eine Messung (rtt in ms, null = keine) -> Wechsel der Stufe oder null */
+        fun add(now: Long, rtt: Double?): TxStep? {
+            if (path == "udp" || rtt == null || !rtt.isFinite() || rtt <= 0) return null
+            if (rtt < base) base = rtt
+            val q = rtt - base
+            val from = level
+            if (q >= RTT_HUGE || (q >= RTT_ABS && q >= base * RTT_REL)) {
+                bad++
+                okSince = null
+                if (level < 3 && now - downAt >= TX_HOLD && (bad >= TX_BAD_N || q >= RTT_HUGE)) {
+                    if (now - upAt < TX_RETRY) upWait = minOf(TX_UP_MAX, upWait * 2)
+                    level++
+                    downAt = now
+                    bad = 0
+                }
+            } else if (q <= RTT_OK) {
+                bad = 0
+                val since = okSince ?: now.also { okSince = it }
+                if (now - upAt >= 4 * TX_UP_MAX && now - downAt >= 4 * TX_UP_MAX) upWait = TX_UP     // lange ruhig
+                if (level > 0 && now - since >= upWait && now - downAt >= upWait) {
+                    level--
+                    upAt = now
+                    okSince = now
+                }
+            } else {
+                bad = 0
+                okSince = null
+            }
+            return if (level != from) TxStep(from, level, Math.round(rtt).toInt(), Math.round(base).toInt()) else null
+        }
+    }
+
+    /** Sollwerte einer Kamera-Schicht (null = nicht anfassen); Raten in bit/s */
+    data class EncSet(val active: Boolean, val maxBps: Int? = null, val scaleDown: Double? = null)
+    data class ScreenSet(val maxBps: Int, val maxFps: Int, val scaleDown: Double)
+    /** maxFps = gemeinsame Bildrate ALLER Kamera-Schichten (nie je Schicht, Fehler 26.10.), null = ohne Grenze */
+    data class TxPlan(val cam: Map<String, EncSet>, val screen: ScreenSet?, val maxFps: Int?)
+
+    private fun r2(x: Double): Double = Math.round(x * 100) / 100.0
+
+    /**
+     * Sende-Parameter der Bild-Leitung eines Knotenbeins (wie txPlan in static/horn.js). others = andere Geraete am
+     * Knoten, share = ich teile den Bildschirm, h/sh = Hoehe (kurze Kante) von Kamera bzw. Bildschirm (0 = unbekannt).
+     * - UDP: wie bisher ([camActive], Bughunt P03): allein nichts, zu zweit ohne l, Energiesparen ohne h; keine Deckel.
+     *   Zu zweit bleiben m (1/2) und h (voll): bei knapper Rate pausiert der Kodierer h und der Knoten reicht m weiter.
+     * - TCP/TLS: l bleibt auch zu zweit an (Ausweichschicht - sonst gibt es auf TCP nur m und der Knoten kann nicht
+     *   ausweichen), m gedeckelt und ab Stufe 2 bzw. beim Teilen aus, Bildschirm gedeckelt.
+     */
+    fun txPlan(
+        path: String, level: Int, others: Int, share: Boolean = false, h: Int = 0, sh: Int = 0,
+        rids: List<String> = camEncodings(path).map { it.rid }, lowPower: Boolean = false,
+    ): TxPlan {
+        val lv = level.coerceIn(0, 3)
+        val c = TX[path]
+        if (c == null) {
+            val (on, fps) = camActive(path, others, lowPower)
+            return TxPlan(rids.associateWith { EncSet(it in on) }, null, fps)
+        }
+        val f = TX_F[lv]
+        val cam = LinkedHashMap<String, EncSet>()
+        for (r in rids) cam[r] = when (r) {
+            "l" -> EncSet(others > 0, Math.round(c.l * (if (lv >= 3) 0.7 else 1.0)).toInt() * 1000)
+            "m" -> EncSet(others > 0 && lv < 2 && !share, Math.round(c.m * f).toInt() * 1000, if (h > c.mH) r2(h.toDouble() / c.mH) else 1.0)
+            else -> EncSet(false)                                       // h gibt es auf TCP/TLS nicht
+        }
+        val fps = if (TX_FPS[lv] != 0) minOf(c.screenFps, TX_FPS[lv]) else c.screenFps
+        var sc = if (sh > c.screenH) sh.toDouble() / c.screenH else 1.0
+        if (lv >= 3) sc *= 1.5
+        return TxPlan(cam, ScreenSet(Math.round(c.screen * f).toInt() * 1000, fps, r2(maxOf(1.0, sc))), if (lowPower && others > 0) 15 else null)
+    }
 
     /** Rollen der Beine: UDP eine Leitung mit BUNDLE ("both"), TCP/TLS getrennt Ton und Bild (H1) */
     fun roles(path: String): List<String> = if (path == "udp") listOf("both") else listOf("audio", "video")

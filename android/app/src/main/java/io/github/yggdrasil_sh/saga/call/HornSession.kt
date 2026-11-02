@@ -109,6 +109,9 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         fun lowPower(): Boolean = false
         /** Waermestufe (PowerManager.THERMAL_STATUS_*) fuer Diagnose/Protokoll; -1 = unbekannt */
         fun thermal(): Int = -1
+        /** A1: Hoehe (kurze Kante) von Kamera bzw. geteiltem Bildschirm fuer die Deckel auf TCP/TLS; 0 = unbekannt */
+        fun camHeight(): Int = 0
+        fun screenHeight(): Int = 0
         /** 2.5 Anruf-Diagnose (calldiag1): Ereignis, Probe aus getStats, Kuerzel einer Quelle, Weg/Knoten */
         fun diagEvent(k: String, d: String) {}
         fun diagSample(type: String, m: Map<String, Any?>, src: String, key: String, rtt: Double?) {}
@@ -276,6 +279,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         var q5: LongArray? = null
         var q5t = 0L
         var bytesIn = 0L
+        /** A1: Sendestufe auf TCP/TLS aus der RTT der Bild-Leitung (UDP: aus, GCC regelt) */
+        val gov = if (path == "udp") null else HornLogic.TxGov(path)
     }
 
     fun conns(): List<Conn> = (listOfNotNull(cur) + olds + listOfNotNull(next)).filter { !it.dead }.distinct()
@@ -867,28 +872,61 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     private var tuneAt = 0L
     private var tuneLine = ""
 
-    /** 2.5 Akku: Kamera-Schichten nach Zahl der anderen und Energiesparen (HornLogic.camActive) - nur bei Aenderung */
+    /**
+     * 2.5 Akku: Kamera-Schichten nach Zahl der anderen und Energiesparen; A1 (Labor 2.11.): auf TCP/TLS bleibt l auch zu
+     * zweit an (Ausweichschicht), m und der Bildschirm folgen den Deckeln und der Stufe aus der RTT ([HornLogic.txPlan],
+     * [HornLogic.TxGov]); beim Bildschirmteilen auf TCP/TLS Kamera nur l. Nur bei Aenderung neu setzen.
+     */
     private fun tune(conn: Conn) {
         tuneAt = System.currentTimeMillis()
         val mine = myRefs().toSet() + myRef(conn)                    // auch eigene Kennungen anderer Verbindungen (Wechsel)
         val others = conn.peers.keys.count { it !in mine }
-        val (on, fps) = HornLogic.camActive(conn.path, others, host.lowPower())
+        val lv = conn.gov?.level ?: 0
+        val share = host.screenTrack() != null
+        val plan = HornLogic.txPlan(conn.path, lv, others, share, host.camHeight(), host.screenHeight(), lowPower = host.lowPower())
+        val fps = plan.maxFps
         val f = HornLogic.camMaxFps(fps)                              // gemeinsam fuer alle Schichten, nie je Schicht
-        val line = "schichten ${on.sorted()} fps ${fps ?: "-"} (andere $others) waerme ${host.thermal()}"
+        val on = plan.cam.filterValues { it.active }.keys
+        val line = "schichten ${on.sorted()} fps ${fps ?: "-"} stufe $lv (andere $others) waerme ${host.thermal()}"
         if (line != tuneLine) { tuneLine = line; host.diagEvent("layers", line) }
         for (L in conn.legs.values) {
-            val s = L.cam?.sender ?: continue
-            try {
-                val p = s.parameters
-                var diff = false
-                for (e in p.encodings) {
-                    val a = e.rid in on
-                    if (e.active != a) { e.active = a; diff = true }
-                    if (e.maxFramerate != f) { e.maxFramerate = f; diff = true }
+            L.cam?.sender?.let { s ->
+                try {
+                    val p = s.parameters
+                    var diff = false
+                    for (e in p.encodings) {
+                        val w = plan.cam[e.rid] ?: continue
+                        if (e.active != w.active) { e.active = w.active; diff = true }
+                        if (e.maxFramerate != f) { e.maxFramerate = f; diff = true }
+                        w.maxBps?.let { if (e.maxBitrateBps != it) { e.maxBitrateBps = it; diff = true } }
+                        w.scaleDown?.let { if (e.scaleResolutionDownBy != it) { e.scaleResolutionDownBy = it; diff = true } }
+                    }
+                    // Kamera: Bildrate und Groesse ausgleichen (CPU/Waerme); Bildschirm unten: Schaerfe vor Bildrate
+                    if (p.degradationPreference != RtpParameters.DegradationPreference.BALANCED) {
+                        p.degradationPreference = RtpParameters.DegradationPreference.BALANCED; diff = true
+                    }
+                    if (diff) { s.parameters = p; log(line) }
+                } catch (e: Exception) {
+                    log("schichten: ${e.message}")
                 }
-                if (diff) { s.parameters = p; log(line) }
-            } catch (e: Exception) {
-                log("schichten: ${e.message}")
+            }
+            L.scr?.sender?.let { s ->
+                try {
+                    val p = s.parameters
+                    val e = p.encodings.firstOrNull() ?: return@let
+                    var diff = false
+                    plan.screen?.let { w ->
+                        if (e.maxBitrateBps != w.maxBps) { e.maxBitrateBps = w.maxBps; diff = true }
+                        if (e.maxFramerate != w.maxFps) { e.maxFramerate = w.maxFps; diff = true }
+                        if (e.scaleResolutionDownBy != w.scaleDown) { e.scaleResolutionDownBy = w.scaleDown; diff = true }
+                    }
+                    if (p.degradationPreference != RtpParameters.DegradationPreference.MAINTAIN_RESOLUTION) {
+                        p.degradationPreference = RtpParameters.DegradationPreference.MAINTAIN_RESOLUTION; diff = true
+                    }
+                    if (diff) s.parameters = p
+                } catch (e: Exception) {
+                    log("bildschirm: ${e.message}")
+                }
             }
         }
     }
@@ -1313,6 +1351,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     /** Qualitaet (RTT, Verlust, Einfrieren), UDP-Regeln, Sprechpegel, "need" aus getStats */
     private suspend fun quality(c: Conn) {
         var rtt: Double? = null
+        var vrtt: Double? = null                                       // A1: RTT der Bild-Leitung (dort staut sich das Bild)
         var lost = 0L
         var recv = 0L
         var fz = 0L
@@ -1330,7 +1369,10 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                     host.diagSample(s.type, mm, src, L.role + "." + s.id, c.net?.rtt)
                 }
                 if (s.type == "candidate-pair" && m["nominated"] == true && m["state"] == "succeeded") {
-                    dbl(m["currentRoundTripTime"])?.let { rtt = maxOf(rtt ?: 0.0, it * 1000) }
+                    dbl(m["currentRoundTripTime"])?.let {
+                        rtt = maxOf(rtt ?: 0.0, it * 1000)
+                        if (L.role != "audio") vrtt = maxOf(vrtt ?: 0.0, it * 1000)
+                    }
                 }
                 if (s.type == "inbound-rtp") {
                     lost += num(m["packetsLost"])
@@ -1379,6 +1421,13 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             log("qualitaet $d")
         }
         c.bytesIn = bytes
+        // A1: Senderate auf TCP/TLS nach der RTT der Bild-Leitung (Ton laeuft getrennt)
+        c.gov?.add(now, vrtt ?: rtt)?.let { tx ->
+            val d = tx.line(c.path)
+            if (cur === c) host.diagEvent("tx", d)
+            log("senderate $d")
+            tune(c)
+        }
         // Sprechring (Pegel der Tonplaetze), 600 ms Nachlauf; stumme Geraete nie
         levelsNow.clear()
         for ((d, lv) in levels) if (st[d]?.first != false) levelsNow[d] = lv
@@ -1675,6 +1724,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     /** Kamera an/aus: v = neue Spur (null: aus - VOR dem Freigeben der alten Spur aufrufen) */
     fun camChanged(v: VideoTrack?) {
         for (c in conns()) for (L in c.legs.values) L.cam?.sender?.setTrack(if (c === cur) v else null, false)
+        cur?.let { tune(it) }
         stateOut()
         host.changed()
     }
@@ -1683,6 +1733,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     fun screenChanged() {
         val s = host.screenTrack()
         cur?.legs?.values?.forEach { L -> L.scr?.sender?.setTrack(s, false) }
+        cur?.let { tune(it) }                                       // A1: beim Teilen auf TCP/TLS Kamera nur l
         micChanged()
         host.changed()
     }
