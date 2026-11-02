@@ -167,6 +167,34 @@ class HornTxTest {
         assertEquals("Zwischenwert setzt die Erholungszeit zurueck", 1, g.g.level)
     }
 
+    /** Pruefung A1: Grundwert ueber ein gleitendes Fenster (2 min) - Routenwechsel und Zwischenband haengen nicht fest */
+    @Test
+    fun govBaseWindow() {
+        val f = Feed("tcp")
+        f.feed(20.0, 4)
+        f.feed(180.0, 3)
+        assertTrue("Routenwechsel 20 -> 180 ms sieht zuerst wie Stau aus", f.g.level >= 1)
+        f.feed(180.0, 100)                                   // 5 min auf der neuen Route
+        assertEquals("Grundwert folgt der neuen Route", 180.0, f.g.base, 0.0)
+        assertEquals("und die Stufe kehrt auf 0 zurueck (Web: bliebe auf 3)", 0, f.g.level)
+
+        val g = Feed("tcp")
+        g.feed(100.0, 2); g.feed(400.0, 2)
+        assertEquals(1, g.g.level)
+        g.feed(190.0, 30)                                    // 90 s im Band 60..120 ueber dem alten Grundwert
+        assertEquals("innerhalb des Fensters: Stufe bleibt", 1, g.g.level)
+        g.feed(190.0, 30)                                    // nach > 2 min: Grundwert 190, frei
+        assertEquals("Zwischenband haengt nicht fuer immer", 0, g.g.level)
+        assertEquals(190.0, g.g.base, 0.0)
+
+        val h = Feed("turn")
+        h.feed(150.0, 2)
+        h.feed(200.0, 1)
+        h.feed(150.0, 1)
+        h.feed(170.0, 20)                                    // 60 s spaeter: das Minimum 150 liegt noch im Fenster
+        assertEquals("kleinster Wert im Fenster zaehlt", 150.0, h.g.base, 0.0)
+    }
+
     @Test
     fun govUdpAndMissing() {
         val f = Feed("udp")

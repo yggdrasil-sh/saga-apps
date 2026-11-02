@@ -1729,6 +1729,11 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         host.changed()
     }
 
+    /** A1: Sendeparameter neu abstimmen (Kamera gewechselt, Format geaendert) */
+    fun retune() {
+        if (!closed) cur?.let { tune(it) }
+    }
+
     /** Bildschirm ueber den Knoten: eigener Sender je Bild-Leitung */
     fun screenChanged() {
         val s = host.screenTrack()

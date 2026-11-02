@@ -415,7 +415,18 @@ object HornLogic {
         fun line(path: String) = "L$from>L$to rtt=$rtt base=$base $path"
     }
 
-    /** Sendestufe aus der RTT der Bild-Leitung mit Hysterese (wie TxGov in static/horn.js, gleiche Schwellen) */
+    /** Grundwert = kleinste RTT im gleitenden Fenster (2 min, in Eimern zu 10 s) - folgt einem dauerhaften Routenwechsel */
+    const val TX_BASE_WIN = 120_000L
+    const val TX_BASE_BUCKET = 10_000L
+
+    /**
+     * Sendestufe aus der RTT der Bild-Leitung mit Hysterese (wie TxGov in static/horn.js, gleiche Schwellen).
+     * Abweichung vom Web (Pruefung A1): der Grundwert ist nicht die kleinste RTT seit Beginn, sondern die kleinste der
+     * letzten [TX_BASE_WIN] - sonst bliebe nach einem dauerhaften Routenwechsel (z. B. 20 -> 180 ms ohne Stau) Stufe 3
+     * fuer immer bzw. im Band 60..120 ms ueber dem alten Grundwert jede Stufe haengen. Haelt ein echter Stau laenger als
+     * das Fenster an, steigt der Grundwert mit; der Regler probiert dann eine Stufe hoeher (Stau -> wieder runter, mit
+     * verdoppelter Wartezeit, hoechstens 2 min) - ein langsames Nachfassen, kein Pendeln im Messtakt.
+     */
     class TxGov(val path: String) {
         var level = 0
             private set
@@ -427,11 +438,21 @@ object HornLogic {
         private var okSince: Long? = null
         private var downAt = NEVER
         private var upAt = NEVER
+        /** (Eimer-Beginn, kleinste RTT im Eimer), aelteste zuerst */
+        private val mins = ArrayDeque<Pair<Long, Double>>()
+
+        private fun baseAt(now: Long, rtt: Double): Double {
+            val b = now - Math.floorMod(now, TX_BASE_BUCKET)
+            val last = mins.lastOrNull()
+            if (last != null && last.first == b) mins[mins.size - 1] = b to minOf(last.second, rtt) else mins.addLast(b to rtt)
+            while (mins.size > 1 && mins.first().first + TX_BASE_BUCKET <= now - TX_BASE_WIN) mins.removeFirst()
+            return mins.minOf { it.second }
+        }
 
         /** Eine Messung (rtt in ms, null = keine) -> Wechsel der Stufe oder null */
         fun add(now: Long, rtt: Double?): TxStep? {
             if (path == "udp" || rtt == null || !rtt.isFinite() || rtt <= 0) return null
-            if (rtt < base) base = rtt
+            base = baseAt(now, rtt)
             val q = rtt - base
             val from = level
             if (q >= RTT_HUGE || (q >= RTT_ABS && q >= base * RTT_REL)) {

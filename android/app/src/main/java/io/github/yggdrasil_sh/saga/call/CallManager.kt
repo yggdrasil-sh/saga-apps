@@ -3305,7 +3305,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     }
 
     fun switchCamera() {
-        cur?.capturer?.switchCamera(null)
+        val c = cur ?: return
+        // A1: nach dem Wechsel (Format der anderen Kamera) die Sendeparameter ueber den Knoten neu abstimmen (wie Web 6c6c476)
+        c.capturer?.switchCamera(object : org.webrtc.CameraVideoCapturer.CameraSwitchHandler {
+            override fun onCameraSwitchDone(front: Boolean) { scope.launch { c.rs.horn?.retune() } }
+            override fun onCameraSwitchError(msg: String?) { log("switchCamera: $msg") }
+        })
     }
 
     // ---------------------------------------------------------------- 2.4 E3: Bildschirm teilen
