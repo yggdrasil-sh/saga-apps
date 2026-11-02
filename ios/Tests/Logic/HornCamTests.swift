@@ -10,7 +10,7 @@ func hornCamTests() {
         check(HornCamPlan.uniform(fps: l.map { _ in HornCamPlan.maxFps(nil) }, temporal: l.map { _ in HornCamPlan.temporalLayers }),
               "gleiche Werte in allen Schichten (\(path))")
     }
-    check(HornCamPlan.layers(path: "tcp").map(\.kbit) == [150, 700] && HornCamPlan.layers(path: "udp").map(\.kbit) == [150, 500, 1500], "Raten wie NODE.md")
+    check(HornCamPlan.layers(path: "tcp").map(\.kbit) == [150, 600] && HornCamPlan.layers(path: "udp").map(\.kbit) == [150, 500, 1500], "Raten wie NODE.md (A1: TCP m 600)")
     check(HornCamPlan.temporalLayers == 3, "T3 in allen Schichten (Knoten nimmt fuer Kacheln die Bildrate ueber tid)")
     check(HornCamPlan.maxFps(nil) == nil, "ohne Energiesparen: keine Bildratengrenze")
     check(HornCamPlan.maxFps(15) == 15 && HornCamPlan.maxFps(99) == 30 && HornCamPlan.maxFps(0) == 1, "gemeinsame Grenze")

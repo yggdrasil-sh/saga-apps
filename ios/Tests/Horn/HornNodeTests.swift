@@ -160,8 +160,7 @@ final class HornNodeTests: XCTestCase {
                     let bySlot = Dictionary(L.slots.map { ($0.i, $0) }, uniquingKeysWith: { x, _ in x })
                     L.bind { i in HornLogic.owner(bySlot[i], m) }
                     // Schichten wie CallManager.hornTune: andere = Kennungen ausser der eigenen
-                    let (on, fps) = HornLogic.camActive(path: "tcp", others: peers.keys.filter { devOf[$0] != me }.count, lowPower: lowPower)
-                    L.tuneCam(on: on, fps: fps)
+                    L.tune(HornTx.plan(path: "tcp", level: 0, others: peers.keys.filter { devOf[$0] != me }.count, lowPower: lowPower))
                 }
                 ev.start()
             }
@@ -471,8 +470,7 @@ extension HornNodeTests {
                 if L === d.v { d.map = m; d.peers = peers }
                 let bySlot = Dictionary(L.slots.map { ($0.i, $0) }, uniquingKeysWith: { x, _ in x })
                 L.bind { i in HornLogic.owner(bySlot[i], m) }
-                let (on, fps) = HornLogic.camActive(path: d.path, others: peers.keys.filter { devOf[$0] != d.dev }.count, lowPower: false)
-                L.tuneCam(on: on, fps: fps)
+                L.tune(HornTx.plan(path: d.path, level: 0, others: peers.keys.filter { devOf[$0] != d.dev }.count))
             }
             ev.start()
         }
