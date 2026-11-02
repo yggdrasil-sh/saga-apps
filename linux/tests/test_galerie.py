@@ -282,3 +282,78 @@ def test_use_404_gallery_switched_off(win, srv):
     assert toasts == ["This template is no longer available."]
     pump(lambda: win.new_btn.get_visible(), 3)
     assert not win.new_split.get_visible()
+
+
+# --- 2.5: Wetter-Widget ohne Ort -> vor dem Anlegen nach dem Ort fragen (weather_place) ------------------------------------
+def test_weather_place_helpers():
+    from hlidskjalf import galerie
+    assert galerie.preview_path("mein-tag", "de") == "api/gallery/mein-tag?lang=de"
+    assert galerie.ask_weather({"ask_weather": True}) and not galerie.ask_weather({"ask_weather": "ja"}) \
+        and not galerie.ask_weather(None)
+    assert galerie.geocode_path(" H ") is None and galerie.geocode_path("Köln am Rhein") == "api/widgets/geocode?q=K%C3%B6ln%20am%20Rhein"
+    assert len(galerie.geocode_path("x" * 200)) == len("api/widgets/geocode?q=") + 80
+    ps = galerie.parse_places({"results": [{"name": "Hamburg", "admin": "Hamburg", "country": "DE", "lat": 53.55, "lon": 9.99},
+                                           {"name": "Kaputt", "lat": "x", "lon": 1}, {"name": "", "lat": 1, "lon": 1},
+                                           {"name": "Bern", "admin": "Bern", "lat": 46.95, "lon": 7.45, "country": ""}]})
+    assert [p["label"] for p in ps] == ["Hamburg (DE)", "Bern"]
+    assert galerie.place_body(ps[0]) == {"place": "Hamburg", "lat": 53.55, "lon": 9.99}
+    assert galerie.use_body(None, True, {}, galerie.place_body(ps[1]))["weather_place"]["place"] == "Bern"
+    assert "weather_place" not in galerie.use_body(None, True, {})
+    assert galerie.geocode_error(429).startswith("Too many") and galerie.geocode_error(502) == "Place search unavailable"
+
+
+def _place_dialog(win, srv, gid="mein-tag"):
+    assert _probed(win)
+    next(g for g in srv.gallery if isinstance(g, dict) and g.get("id") == gid)["ask_weather"] = True
+    win.gallery_dialog()
+    d = _dialog(win)
+    d.rows[gid].emit("activated")
+    _confirm(d).emit("response", "use")
+    assert pump(lambda: getattr(d, "place_dialog", None) is not None, 3)
+    assert not srv.gallery_used                                         # erst nach dem Ort fragen
+    return d.place_dialog
+
+
+def test_weather_place_pick(win, srv):
+    p = _place_dialog(win, srv)
+    p.entry.set_text("ham")
+    p.search()
+    assert pump(lambda: len(p.rows) == 2, 3)
+    assert p.rows[0].get_title() == "Hamburg (Deutschland)"
+    p.rows[0].emit("activated")
+    assert pump(lambda: srv.gallery_used, 3)
+    assert srv.gallery_used == [("mein-tag", {"parent_id": None, "examples": True,
+                                              "weather_place": {"place": "Hamburg", "lat": 53.55, "lon": 9.99}})]
+    assert srv.geocode_q == ["ham"]
+
+
+def test_weather_place_skip_errors_and_cancel(win, srv):
+    p = _place_dialog(win, srv)
+    srv.geocode = 429
+    p.entry.set_text("Hamburg")
+    p.search()
+    assert pump(lambda: p.status.get_label().startswith("Too many"), 3) and not p.rows
+    srv.geocode = []
+    p.entry.set_text("Nirgendwo")
+    p.search()
+    assert pump(lambda: p.status.get_label() == "No place found", 3)
+    p.skip.emit("clicked")                                              # Ueberspringen: ohne Ort anlegen
+    assert pump(lambda: srv.gallery_used, 3)
+    assert srv.gallery_used == [("mein-tag", {"parent_id": None, "examples": True})]
+    # Abbrechen (Dialog schliessen): nichts anlegen
+    srv.gallery_used.clear()
+    pump(lambda: win.get_visible_dialog() is None, 3)
+    p = _place_dialog(win, srv)
+    p.close()
+    pump(None, 0.4)
+    assert not srv.gallery_used
+
+
+def test_no_place_question_without_ask_weather(win, srv):
+    assert _probed(win)
+    win.gallery_dialog()
+    d = _dialog(win)
+    d.rows["mein-tag"].emit("activated")
+    _confirm(d).emit("response", "use")
+    assert pump(lambda: srv.gallery_used, 3)
+    assert getattr(d, "place_dialog", None) is None and "weather_place" not in srv.gallery_used[0][1]

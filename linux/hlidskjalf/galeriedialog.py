@@ -1,6 +1,6 @@
 """Vorlagengalerie (Saga 2.5): einfache Auswahl - Liste nach Kategorie, Bestaetigung mit "Mit Beispielen", Anlegen.
 Logik (Parsing, Fehler, Anfrage) in galerie.py."""
-from gi.repository import Adw, Gtk, Pango
+from gi.repository import Adw, GLib, Gtk, Pango
 
 from . import config, galerie
 from .api import APIError, client
@@ -132,12 +132,36 @@ class GalleryDialog(Adw.Dialog):
 
         def resp(_d, r):
             if r == "use":
-                self.use(it, ex.get_active(), self.parent if under is not None and under.get_active() else None)
+                self.prepare(it, ex.get_active(), self.parent if under is not None and under.get_active() else None)
         d.connect("response", resp)
         d.present(self)
 
-    def use(self, it, examples, parent):
-        body = galerie.use_body(parent, examples, store.by_id)
+    def prepare(self, it, examples, parent):
+        """(2.5) Vorschau fragen: hat die Vorlage ein Wetter-Widget ohne Ort (ask_weather), erst den Ort waehlen lassen
+        ("Ueberspringen" = ohne Ort). Scheitert die Vorschau (aelterer Server), wie bisher ohne Ort anlegen."""
+        srv = self.srv
+        self.busy = True
+
+        def fin(j):
+            self.busy = False
+            if srv != config.settings.server:
+                return
+            if galerie.ask_weather(j):
+                self.place_dialog = WeatherPlaceDialog(lambda place: self.use(it, examples, parent, place))
+                self.place_dialog.present(self)
+            else:
+                self.use(it, examples, parent)
+
+        def err(e):
+            self.busy = False
+            if isinstance(e, APIError) and e.code == 401:
+                return
+            if srv == config.settings.server:
+                self.use(it, examples, parent)
+        bg(client.get, galerie.preview_path(it["id"], ui_language()), done=fin, error=err)
+
+    def use(self, it, examples, parent, place=None):
+        body = galerie.use_body(parent, examples, store.by_id, place)
         win, srv = self.win, self.srv
         self.close()
 
@@ -162,3 +186,107 @@ class GalleryDialog(Adw.Dialog):
                 galerie.state.set(srv, None)
                 probe(win)
         bg(client.json, "POST", galerie.use_path(it["id"]), body, done=fin, error=err)
+
+
+class WeatherPlaceDialog(Adw.Dialog):
+    """(2.5) Ort fuer das Wetter-Widget der Vorlage: Ortssuche des Servers (GET api/widgets/geocode), Treffer waehlen legt
+    mit diesem Ort an, "Ueberspringen" ohne Ort. Schliessen bricht ab (nichts wird angelegt)."""
+
+    def __init__(self, done):
+        super().__init__(title=_("Place for the weather"), content_width=420, content_height=460)
+        self.done = done
+        self.places = []
+        self.rows = []
+        self.searching = None
+        self._t = 0
+        tv = Adw.ToolbarView()
+        tv.add_top_bar(Adw.HeaderBar())
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_start=18, margin_end=18, margin_top=6,
+                      margin_bottom=18)
+        lb = Gtk.Label(label=_("The template contains a weather widget. For which place?"), wrap=True, xalign=0)
+        box.append(lb)
+        self.entry = Gtk.SearchEntry(placeholder_text=_("Search place …"), hexpand=True)
+        self.entry.update_property([Gtk.AccessibleProperty.LABEL], [_("Search place …")])
+        self.entry.connect("activate", lambda *_: self.search())
+        self.entry.connect("search-changed", lambda *_: self._soon())
+        box.append(self.entry)
+        self.status = Gtk.Label(xalign=0, wrap=True, visible=False)
+        self.status.add_css_class("dim-label")
+        box.append(self.status)
+        self.list = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE, visible=False, valign=Gtk.Align.START)
+        self.list.add_css_class("boxed-list")
+        sc = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER, propagate_natural_height=True)
+        sc.set_child(self.list)
+        box.append(sc)
+        self.skip = Gtk.Button(label=_("Skip"), halign=Gtk.Align.CENTER,
+                               tooltip_text=_("Create the template without a place – set it in the widget later"))
+        self.skip.add_css_class("pill")
+        self.skip.connect("clicked", lambda *_: self.pick(None))
+        box.append(self.skip)
+        tv.set_content(box)
+        self.set_child(tv)
+        self.set_focus(self.entry)
+        self.connect("closed", lambda *_: self._stop())
+
+    def _stop(self):
+        if self._t:
+            GLib.source_remove(self._t)
+            self._t = 0
+
+    def _soon(self):
+        """beim Tippen (gebremst - die Ortssuche erlaubt 30 Anfragen je Minute)"""
+        self._stop()
+
+        def go():
+            self._t = 0
+            self.search()
+            return False
+        self._t = GLib.timeout_add(700, go)
+
+    def _say(self, text):
+        self.status.set_label(text or "")
+        self.status.set_visible(bool(text))
+
+    def search(self):
+        self._stop()
+        path = galerie.geocode_path(self.entry.get_text())
+        if path is None or path == self.searching:
+            return
+        self.searching = path
+        self._say(_("Searching …"))
+
+        def fin(j):
+            if self.searching != path:
+                return
+            self.show_places(galerie.parse_places(j))
+
+        def err(e):
+            if self.searching != path:
+                return
+            self.searching = None
+            self.show_places([])
+            self._say(galerie.geocode_error(e.code if isinstance(e, APIError) else 0))
+        bg(client.get, path, done=fin, error=err)
+
+    def show_places(self, places):
+        while (ch := self.list.get_first_child()) is not None:
+            self.list.remove(ch)
+        self.places, self.rows = places, []
+        for p in places:
+            r = Adw.ActionRow(title=p["label"], use_markup=False, activatable=True)
+            r.add_prefix(Gtk.Image(icon_name="mark-location-symbolic"))
+            r.connect("activated", lambda _r, p=p: self.pick(p))
+            self.list.append(r)
+            self.rows.append(r)
+        self.list.set_visible(bool(places))
+        self._say("" if places else _("No place found"))
+
+    def pick(self, p):
+        """Ort gewaehlt (bzw. None = Ueberspringen): anlegen, Dialog zu"""
+        if self.done is None:
+            return
+        done, self.done = self.done, None
+        self.skip.set_sensitive(False)
+        self.list.set_sensitive(False)
+        self.close()
+        done(galerie.place_body(p) if p else None)

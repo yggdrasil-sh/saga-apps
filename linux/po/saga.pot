@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: saga\n"
 "Report-Msgid-Bugs-To: https://github.com/yggdrasil-sh/saga-apps/issues\n"
-"POT-Creation-Date: 2026-11-02 17:46+0100\n"
+"POT-Creation-Date: 2026-11-02 17:50+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -418,7 +418,7 @@ msgid "Server not reachable: {error}"
 msgstr ""
 
 #: hlidskjalf/api.py:113 hlidskjalf/api.py:145 hlidskjalf/api.py:335
-#: hlidskjalf/api.py:607 hlidskjalf/assistant.py:199 hlidskjalf/galerie.py:144
+#: hlidskjalf/api.py:607 hlidskjalf/assistant.py:199 hlidskjalf/galerie.py:203
 #: hlidskjalf/pagewidgets.py:389
 msgid "Server not reachable"
 msgstr ""
@@ -5408,37 +5408,45 @@ msgstr ""
 msgid "Contains: {items}"
 msgstr ""
 
-#: hlidskjalf/galerie.py:146
+#: hlidskjalf/galerie.py:177
+msgid "Too many requests – please wait a moment."
+msgstr ""
+
+#: hlidskjalf/galerie.py:178
+msgid "Place search unavailable"
+msgstr ""
+
+#: hlidskjalf/galerie.py:205
 msgid "Too many templates in a short time – please try again in a minute."
 msgstr ""
 
-#: hlidskjalf/galerie.py:148
+#: hlidskjalf/galerie.py:207
 msgid ""
 "The server could not create the template. Nothing was created – please try "
 "again later."
 msgstr ""
 
-#: hlidskjalf/galerie.py:149
+#: hlidskjalf/galerie.py:208
 msgid "The template gallery could not be loaded. Please try again later."
 msgstr ""
 
-#: hlidskjalf/galerie.py:151
+#: hlidskjalf/galerie.py:210
 msgid "The template gallery is not available on this server."
 msgstr ""
 
-#: hlidskjalf/galerie.py:153
+#: hlidskjalf/galerie.py:212
 msgid "This template is no longer available."
 msgstr ""
 
-#: hlidskjalf/galerie.py:157
+#: hlidskjalf/galerie.py:216
 msgid "You are not allowed to create pages there."
 msgstr ""
 
-#: hlidskjalf/galerie.py:158
+#: hlidskjalf/galerie.py:217
 msgid "The template could not be created."
 msgstr ""
 
-#: hlidskjalf/galerie.py:158
+#: hlidskjalf/galerie.py:217
 msgid "The template gallery could not be loaded."
 msgstr ""
 
@@ -5472,9 +5480,37 @@ msgstr ""
 msgid "Use template"
 msgstr ""
 
-#: hlidskjalf/galeriedialog.py:153
+#: hlidskjalf/galeriedialog.py:177
 #, python-brace-format
 msgid "Template “{title}” created"
+msgstr ""
+
+#: hlidskjalf/galeriedialog.py:196
+msgid "Place for the weather"
+msgstr ""
+
+#: hlidskjalf/galeriedialog.py:206
+msgid "The template contains a weather widget. For which place?"
+msgstr ""
+
+#: hlidskjalf/galeriedialog.py:208 hlidskjalf/galeriedialog.py:209
+msgid "Search place …"
+msgstr ""
+
+#: hlidskjalf/galeriedialog.py:221
+msgid "Skip"
+msgstr ""
+
+#: hlidskjalf/galeriedialog.py:222
+msgid "Create the template without a place – set it in the widget later"
+msgstr ""
+
+#: hlidskjalf/galeriedialog.py:256
+msgid "Searching …"
+msgstr ""
+
+#: hlidskjalf/galeriedialog.py:282
+msgid "No place found"
 msgstr ""
 
 #: hlidskjalf/graphview.py:42 hlidskjalf/graphview.py:1071

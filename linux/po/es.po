@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: saga\n"
 "Report-Msgid-Bugs-To: https://github.com/yggdrasil-sh/saga-apps/issues\n"
-"POT-Creation-Date: 2026-11-02 17:46+0100\n"
+"POT-Creation-Date: 2026-11-02 17:50+0100\n"
 "PO-Revision-Date: 2026-10-14 14:30+0200\n"
 "Last-Translator: Saga-Projekt\n"
 "Language-Team: Español\n"
@@ -425,7 +425,7 @@ msgid "Server not reachable: {error}"
 msgstr "No se puede acceder al servidor: {error}"
 
 #: hlidskjalf/api.py:113 hlidskjalf/api.py:145 hlidskjalf/api.py:335
-#: hlidskjalf/api.py:607 hlidskjalf/assistant.py:199 hlidskjalf/galerie.py:144
+#: hlidskjalf/api.py:607 hlidskjalf/assistant.py:199 hlidskjalf/galerie.py:203
 #: hlidskjalf/pagewidgets.py:389
 msgid "Server not reachable"
 msgstr "No se puede acceder al servidor"
@@ -5618,12 +5618,20 @@ msgstr "Trabajo"
 msgid "Contains: {items}"
 msgstr "Contiene: {items}"
 
-#: hlidskjalf/galerie.py:146
+#: hlidskjalf/galerie.py:177
+msgid "Too many requests – please wait a moment."
+msgstr "Demasiadas solicitudes – espera un momento."
+
+#: hlidskjalf/galerie.py:178
+msgid "Place search unavailable"
+msgstr "Búsqueda de lugares no disponible"
+
+#: hlidskjalf/galerie.py:205
 msgid "Too many templates in a short time – please try again in a minute."
 msgstr ""
 "Demasiadas plantillas en poco tiempo – inténtalo de nuevo en un minuto."
 
-#: hlidskjalf/galerie.py:148
+#: hlidskjalf/galerie.py:207
 msgid ""
 "The server could not create the template. Nothing was created – please try "
 "again later."
@@ -5631,27 +5639,27 @@ msgstr ""
 "El servidor no pudo crear la plantilla. No se ha creado nada – inténtalo más "
 "tarde."
 
-#: hlidskjalf/galerie.py:149
+#: hlidskjalf/galerie.py:208
 msgid "The template gallery could not be loaded. Please try again later."
 msgstr "No se pudo cargar la galería de plantillas. Inténtalo más tarde."
 
-#: hlidskjalf/galerie.py:151
+#: hlidskjalf/galerie.py:210
 msgid "The template gallery is not available on this server."
 msgstr "La galería de plantillas no está disponible en este servidor."
 
-#: hlidskjalf/galerie.py:153
+#: hlidskjalf/galerie.py:212
 msgid "This template is no longer available."
 msgstr "Esta plantilla ya no está disponible."
 
-#: hlidskjalf/galerie.py:157
+#: hlidskjalf/galerie.py:216
 msgid "You are not allowed to create pages there."
 msgstr "No puedes crear páginas ahí."
 
-#: hlidskjalf/galerie.py:158
+#: hlidskjalf/galerie.py:217
 msgid "The template could not be created."
 msgstr "No se pudo crear la plantilla."
 
-#: hlidskjalf/galerie.py:158
+#: hlidskjalf/galerie.py:217
 msgid "The template gallery could not be loaded."
 msgstr "No se pudo cargar la galería de plantillas."
 
@@ -5687,10 +5695,38 @@ msgstr "Como subpágina de «{title}»"
 msgid "Use template"
 msgstr "Usar plantilla"
 
-#: hlidskjalf/galeriedialog.py:153
+#: hlidskjalf/galeriedialog.py:177
 #, python-brace-format
 msgid "Template “{title}” created"
 msgstr "Plantilla «{title}» creada"
+
+#: hlidskjalf/galeriedialog.py:196
+msgid "Place for the weather"
+msgstr "Lugar para el tiempo"
+
+#: hlidskjalf/galeriedialog.py:206
+msgid "The template contains a weather widget. For which place?"
+msgstr "La plantilla contiene un widget del tiempo. ¿Para qué lugar?"
+
+#: hlidskjalf/galeriedialog.py:208 hlidskjalf/galeriedialog.py:209
+msgid "Search place …"
+msgstr "Buscar lugar …"
+
+#: hlidskjalf/galeriedialog.py:221
+msgid "Skip"
+msgstr "Omitir"
+
+#: hlidskjalf/galeriedialog.py:222
+msgid "Create the template without a place – set it in the widget later"
+msgstr "Crear la plantilla sin lugar: puedes ajustarlo después en el widget"
+
+#: hlidskjalf/galeriedialog.py:256
+msgid "Searching …"
+msgstr "Buscando …"
+
+#: hlidskjalf/galeriedialog.py:282
+msgid "No place found"
+msgstr "No se encontró ningún lugar"
 
 #: hlidskjalf/graphview.py:42 hlidskjalf/graphview.py:1071
 #: hlidskjalf/page.py:1417 hlidskjalf/page.py:1423

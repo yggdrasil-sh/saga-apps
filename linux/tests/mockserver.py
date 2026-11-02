@@ -145,6 +145,9 @@ class MockServer:
         self.gallery_api = True
         self.gallery_use_fail = None
         self.gallery_used = []
+        self.geocode_q = []
+        self.geocode = [{"name": "Hamburg", "admin": "Hamburg", "country": "Deutschland", "lat": 53.55, "lon": 9.99},
+                        {"name": "Hamm", "admin": "Nordrhein-Westfalen", "country": "Deutschland", "lat": 51.68, "lon": 7.82}]
         self.gallery = [
             {"id": "aufgaben-projekte", "v": 1, "order": 20, "category": "work", "icon": "✅", "title": "Aufgaben & Projekte",
              "desc": "Projekte mit Aufgaben, Board nach Status.", "needs": [], "zukunft": {"x": 1},
@@ -188,6 +191,11 @@ class MockServer:
         if parts == ["api", "gallery"] and method == "GET":
             self.gallery_lang = q.get("lang")
             return self._reply(200, {"items": self.gallery})
+        if len(parts) == 3 and method == "GET":                        # Vorschau (hier nur ask_weather)
+            it = next((g for g in self.gallery if isinstance(g, dict) and g.get("id") == parts[2]), None)
+            if it is None:
+                return self._reply(404, {"error": "not found"})
+            return self._reply(200, dict(it, ask_weather=bool(it.get("ask_weather")), preview={}, databases=[]))
         if len(parts) == 4 and parts[3] == "use" and method == "POST":
             gid = parts[2]
             self.gallery_used.append((gid, dict(body)))
@@ -426,6 +434,12 @@ class MockServer:
             return r
         if path == "api/gallery" or parts[:2] == ["api", "gallery"]:
             return self._gallery(method, parts, q, body if isinstance(body, dict) else {})
+        if path == "api/widgets/geocode" and method == "GET":          # (2.5) Ortssuche fuers Wetter (geocode: Code oder Liste)
+            self.geocode_q.append(q.get("q"))
+            if isinstance(self.geocode, int):
+                return self._reply(self.geocode, {"error": "unavailable"})
+            return self._reply(200, {"results": [r for r in self.geocode if q.get("q", "").lower() in r["name"].lower()],
+                                     "error": None})
         if path == "api/graph" and method == "GET":
             return self._graph()
         if path == "api/notes" and method == "GET":
