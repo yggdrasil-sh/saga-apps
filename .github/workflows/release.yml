@@ -147,6 +147,12 @@ jobs:
           name: android
           path: android/dist/Saga-*.apk
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4          # 2.5 (clientlog1): R8-Zuordnung je Version fuer Absturzberichte (retrace)
+        with:
+          name: android-mapping
+          path: android/app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: ignore
+          retention-days: 90
       - name: Aufraeumen
         if: always()
         run: rm -f "$RUNNER_TEMP/saga.jks"
