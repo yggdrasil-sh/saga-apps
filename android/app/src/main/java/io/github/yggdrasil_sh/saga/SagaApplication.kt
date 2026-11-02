@@ -25,6 +25,8 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        // 2.5 clientlog1: Absturz-Notiz (nur bereinigter Text) fuer den naechsten Start - vor allem anderen
+        io.github.yggdrasil_sh.saga.diag.ClientLogger.install(this)
         io.github.yggdrasil_sh.saga.util.PersonName.ctx = this                // D01: lesbarer Ersatz fuer Personen ohne Namen
         io.github.yggdrasil_sh.saga.util.AppLanguage.applyToApp(this)     // Android 8-12: gewaehlte App-Sprache
         if (BuildConfig.DEBUG) {
@@ -57,6 +59,7 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
             },
             appContext = this,
         )
+        io.github.yggdrasil_sh.saga.diag.ClientLogger.start(repo, appScope)
         // 2.5: Update-Hinweis (Einstellungen -> Info): Zwischenspeicher laden, beim Start hoechstens alle 12 h pruefen
         io.github.yggdrasil_sh.saga.ui.settings.UpdateHintModel.init(this, appScope)
         io.github.yggdrasil_sh.saga.ui.settings.UpdateHintModel.appStarted()
@@ -79,8 +82,14 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
         }
         // Live-Kanal nur im Vordergrund (hoechstens eine Verbindung); im Hintergrund kommen Mitteilungen (Push)
         androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
-            override fun onStart(owner: androidx.lifecycle.LifecycleOwner) = repo.live.foreground(true)
-            override fun onStop(owner: androidx.lifecycle.LifecycleOwner) = repo.live.foreground(false)
+            override fun onStart(owner: androidx.lifecycle.LifecycleOwner) {
+                io.github.yggdrasil_sh.saga.diag.ClientLogger.life("visible")
+                repo.live.foreground(true)
+            }
+            override fun onStop(owner: androidx.lifecycle.LifecycleOwner) {
+                io.github.yggdrasil_sh.saga.diag.ClientLogger.life("hidden")
+                repo.live.foreground(false)
+            }
         })
     }
 

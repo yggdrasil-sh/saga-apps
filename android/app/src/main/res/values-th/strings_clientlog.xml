@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 clientlog1: Einstellungen -> Info -> Hilfe ("Diagnose senden") -->
+<resources>
+    <string name="diag_title">ความช่วยเหลือ</string>
+    <string name="diag_send">ส่งข้อมูลวินิจฉัย</string>
+    <string name="diag_hint">ส่งบันทึกทางเทคนิคสั้น ๆ ของการทำงานล่าสุดในแอป (ประเภทข้อผิดพลาด รหัสสถานะ เวลา – ไม่มีเนื้อหาหน้าหรือแชท ไม่มีชื่อ) ไปยังผู้ดูแลเซิร์ฟเวอร์ Saga ของคุณ</string>
+    <string name="diag_off">เซิร์ฟเวอร์ Saga ของคุณไม่รับข้อมูลวินิจฉัย</string>
+    <string name="diag_note">คำอธิบาย (ไม่บังคับ)</string>
+    <string name="diag_note_hint">เกิดอะไรขึ้น? ข้อความของคุณจะถูกส่งถึงผู้ดูแลตามที่คุณเขียน – โปรดอย่าใส่รหัสผ่านหรือข้อมูลส่วนตัว</string>
+    <string name="diag_sending">กำลังส่ง …</string>
+    <string name="diag_sent">ส่งข้อมูลวินิจฉัยแล้ว รหัสอ้างอิง: %1$s</string>
+    <string name="diag_copy">คัดลอกรหัสอ้างอิง</string>
+    <string name="diag_copied">คัดลอกรหัสอ้างอิงแล้ว</string>
+    <string name="diag_failed">ส่งข้อมูลวินิจฉัยไม่สำเร็จ (%1$s)</string>
+    <string name="diag_too_many">ส่งข้อมูลวินิจฉัยมากเกินไปในชั่วโมงที่ผ่านมา โปรดลองอีกครั้งภายหลัง</string>
+    <string name="diag_net">ติดต่อเซิร์ฟเวอร์ไม่ได้</string>
+</resources>

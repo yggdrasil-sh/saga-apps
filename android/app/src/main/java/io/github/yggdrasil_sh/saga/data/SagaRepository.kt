@@ -123,6 +123,7 @@ class SagaRepository(
         userAgent = userAgent,
         onAccount = { name -> scope.launch { settings.setAccount(name) } },
         language = language,
+        onNet = { m, p, code, ms -> io.github.yggdrasil_sh.saga.diag.ClientLogger.net(m, p, code, ms) },
     )
 
     /** Einstellungen/Schluessel geladen (vorher zeigt die App nichts an) */
@@ -276,7 +277,14 @@ class SagaRepository(
 
     // ---------------------------------------------------------------- Hilfen
 
-    private suspend inline fun <reified T> decode(s: String): T = withContext(Dispatchers.Default) { json.decodeFromString<T>(s) }
+    private suspend inline fun <reified T> decode(s: String): T = withContext(Dispatchers.Default) {
+        try {
+            json.decodeFromString<T>(s)
+        } catch (e: kotlinx.serialization.SerializationException) {
+            io.github.yggdrasil_sh.saga.diag.ClientLogger.parse(e)     // 2.5 clientlog1: nur Klasse/Stack, nie der Text
+            throw e
+        }
+    }
 
     /**
      * Fehler als Text fuer die Oberflaeche (uebersetzt; Meldungen des Servers/Systems unveraendert). Android 17 sperrt

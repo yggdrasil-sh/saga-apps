@@ -158,7 +158,10 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
         },
         scope = scope,
         onEvent = { t, d -> handle(t, d) },
-        onConnected = { connected.value = it },
+        onConnected = {
+            if (it != connected.value) io.github.yggdrasil_sh.saga.diag.ClientLogger.conn("sse", if (it) "open" else "closed")
+            connected.value = it
+        },
     )
 
     /** App im Vordergrund / Hintergrund (ProcessLifecycleOwner) */

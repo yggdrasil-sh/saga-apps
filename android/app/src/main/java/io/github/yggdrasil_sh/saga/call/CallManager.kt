@@ -1955,6 +1955,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                if (e !is UiTextException) io.github.yggdrasil_sh.saga.diag.ClientLogger.error(e, "calls")   // 2.5 clientlog1
                 if (live(c)) fail(c, if (e is UiTextException) e.text else repo.friendly(e))
             }
         }
@@ -2226,6 +2227,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                if (e !is UiTextException && !(e is ApiException && e.code == 409)) io.github.yggdrasil_sh.saga.diag.ClientLogger.error(e, "calls")
                 if (!live(c)) return@launch
                 log("join ${callId.take(8)} gescheitert: ${e.message}")
                 // nie beigetreten: kein /end (das wuerde einen fremden bzw. laufenden Anruf beenden)
@@ -2533,6 +2535,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                if (e !is UiTextException) io.github.yggdrasil_sh.saga.diag.ClientLogger.error(e, "calls")   // 2.5 clientlog1
                 if (live(c)) fail(c, if (e is UiTextException) e.text else repo.friendly(e))
             }
         }
@@ -2939,6 +2942,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     }
 
     private fun iceFailed(c: Call) {
+        // 2.5 clientlog1: Verbindungsaufbau gescheitert (nur der Grund, keine Adressen)
+        io.github.yggdrasil_sh.saga.diag.ClientLogger.conn("call", "error")
+        io.github.yggdrasil_sh.saga.diag.ClientLogger.error(IllegalStateException(if (c.connected) "IceConnectionState failed" else "IceConnectionState failed before_connected"), "calls")
         fail(c, UiText.Res(if (config?.hasTurn == true) R.string.call_no_turn else R.string.call_no_direct), failed = true)
     }
 

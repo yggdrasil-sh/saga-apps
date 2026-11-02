@@ -31,6 +31,7 @@ import io.github.yggdrasil_sh.saga.data.LostAccess
 import io.github.yggdrasil_sh.saga.data.PageCaps
 import io.github.yggdrasil_sh.saga.data.PageShareInfo
 import io.github.yggdrasil_sh.saga.data.conflictAuthor
+import io.github.yggdrasil_sh.saga.diag.ClientLogger
 import io.github.yggdrasil_sh.saga.data.Publish
 import io.github.yggdrasil_sh.saga.data.PublishState
 import io.github.yggdrasil_sh.saga.data.PublishVia
@@ -926,9 +927,11 @@ class PageEditor(
             if (merge) {
                 val out = repo.savePageMerge(id, t, body, rev, true, bs)
                 out.rev?.let { rev = it }
+                ClientLogger.save(if (out.merged != null) "merged" else "ok")
                 afterMergeSave(out, v, d)
             } else {
                 (if (ow) repo.savePage(id, t, body, rev, true) else repo.savePage(id, t, body, rev))?.let { rev = it }
+                ClientLogger.save("ok")
                 if (!isDatabase) serverDoc = d
                 savedVersion = v
             }
@@ -944,6 +947,9 @@ class PageEditor(
             throw e
         } catch (e: ApiException) {
             offline = false                                  // Server hat geantwortet: kein Offline-Hinweis mehr (BUG-107)
+            // 2.5 clientlog1: Konflikt/Fehler beim Speichern (nur Status, nie Titel oder Inhalt)
+            ClientLogger.save(if (e.code == 409) "conflict" else "error", e.code)
+            if (e.code != 409 && e.code != 423 && e.code != 401 && e.code != 403 && e.code != 404) ClientLogger.error(e, "pages")
             // 2.3: neu eingefuegte/kopierte Nextcloud-Datei abgelehnt (z. B. aus dem Nextcloud einer anderen Person) -
             // verstaendlich melden, nicht als Konflikt oder verlorenen Zugriff behandeln; der Block muss raus
             if (NcLogic.isRejection(e.code, e.body, NcLogic.newKeys(d, ncBase))) {
@@ -975,6 +981,8 @@ class PageEditor(
                 else -> error = UiText.Res(R.string.save_failed, e.text)
             }
         } catch (e: Exception) {
+            ClientLogger.save(if (repo.isOffline(e)) "offline" else "error", 0)
+            if (!repo.isOffline(e)) ClientLogger.error(e, "pages")
             if (repo.isOffline(e)) {
                 offline = true                               // Glossar "Offline-Hinweis"; Entwurf liegt auf Platte
                 error = null

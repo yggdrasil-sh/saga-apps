@@ -176,6 +176,9 @@ private val mainItems = listOf(
 @Composable
 fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
     val nav = rememberSaveable(saver = AppNavigator.Saver) { AppNavigator() }   // ueberlebt Prozess-Tod
+    // 2.5 clientlog1: grober Ort fuer Fehlerberichte/Diagnose (nur die Art der Ansicht, nie Titel oder ID)
+    val curDest = nav.current
+    LaunchedEffect(curDest) { io.github.yggdrasil_sh.saga.diag.ClientLogger.view(Dest.encode(curDest)) }
     val openRequest by repo.openPageRequest.collectAsState()
     LaunchedEffect(openRequest) {
         openRequest?.let { nav.top(Dest.Page(it)); repo.openPageRequest.value = null }

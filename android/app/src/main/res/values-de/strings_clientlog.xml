@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 clientlog1: Einstellungen -> Info -> Hilfe ("Diagnose senden") -->
+<resources>
+    <string name="diag_title">Hilfe</string>
+    <string name="diag_send">Diagnose senden</string>
+    <string name="diag_hint">Schickt ein kurzes technisches Protokoll der letzten Schritte in der App (Fehlerarten, Statuscodes, Zeiten – keine Seiten- oder Chat-Inhalte, keine Namen) an den Admin deines Saga-Servers.</string>
+    <string name="diag_off">Dein Saga-Server nimmt keine Diagnose an.</string>
+    <string name="diag_note">Beschreibung (optional)</string>
+    <string name="diag_note_hint">Was ist passiert? Dein Text geht so, wie du ihn schreibst, an den Admin – bitte keine Passwörter oder persönlichen Daten.</string>
+    <string name="diag_sending">Wird gesendet …</string>
+    <string name="diag_sent">Diagnose gesendet. Kennung: %1$s</string>
+    <string name="diag_copy">Kennung kopieren</string>
+    <string name="diag_copied">Kennung kopiert</string>
+    <string name="diag_failed">Diagnose konnte nicht gesendet werden (%1$s).</string>
+    <string name="diag_too_many">Zu viele Diagnosen in der letzten Stunde. Bitte später erneut versuchen.</string>
+    <string name="diag_net">Server nicht erreichbar</string>
+</resources>

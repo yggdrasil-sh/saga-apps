@@ -1,5 +1,10 @@
 # kotlinx.serialization: erzeugte Serializer behalten
 -keepattributes *Annotation*, InnerClasses
+
+# 2.5 (clientlog1): Zeilennummern in Absturzberichten behalten (Dateiname neutral); Namen bleiben verschleiert,
+# zurueckuebersetzen mit retrace und der mapping.txt der jeweiligen Version (CI-Artefakt "android-mapping")
+-keepattributes SourceFile, LineNumberTable
+-renamesourcefileattribute SourceFile
 -dontnote kotlinx.serialization.**
 -keepclassmembers @kotlinx.serialization.Serializable class io.github.yggdrasil_sh.saga.** {
     *** Companion;
