@@ -133,6 +133,14 @@ class ClientLogTest {
         // Kuerzung vor den Regeln am Wortende: kein angeschnittener Rechnername bleibt stehen
         val long = "x ".repeat(497) + "abc.example.org failed"
         assertFalse(ClientLog.scrub(long, 4000).contains("example"))
+        // auch ohne Leerzeichen vor dem Rand (",ab.example.org" an Stelle 995..1009): kein "ab.e" o. ae.
+        for (pad in 990..1000) {
+            val r = ClientLog.scrub("x".repeat(pad) + ",ab.example.org" + "y".repeat(5), 4000)
+            assertFalse(r, r.contains("ab") || r.contains(".e"))
+            val m = ClientLog.scrub("x".repeat(pad) + ",anna@exa.example.org", 4000)
+            assertFalse(m, m.contains("anna") || m.contains("exa"))
+        }
+        assertEquals("", ClientLog.scrub(" " + "a.b".repeat(400), 4000))
     }
 
     @Test fun messageOfExceptions() {

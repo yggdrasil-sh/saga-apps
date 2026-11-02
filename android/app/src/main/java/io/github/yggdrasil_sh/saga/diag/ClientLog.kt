@@ -106,13 +106,17 @@ object ClientLog {
         if (s0.isNullOrEmpty()) "" else "<w>"
     }
 
-    /** auf [SCRUB_IN] kuerzen, ein angeschnittenes letztes Wort ganz weglassen (aus "a.example.org" wird sonst "a.ex") */
+    /**
+     * auf [SCRUB_IN] kuerzen, ein angeschnittenes letztes Wort ganz weglassen (aus "a.example.org" wird sonst "a.ex") -
+     * Wortgrenze ist jedes Zeichen ausser Buchstabe, Ziffer und `._-+@$` (auch ohne Leerzeichen, etwa ",ab.example.org")
+     */
     private fun cut(s: String): String {
         if (s.length <= SCRUB_IN) return s
-        val c = s.substring(0, SCRUB_IN)
-        if (s[SCRUB_IN].isWhitespace()) return c
-        val k = c.indexOfLast { it.isWhitespace() }
-        return if (k > 0) c.substring(0, k) else c
+        fun inWord(c: Char) = c.isLetterOrDigit() || c == '.' || c == '_' || c == '-' || c == '+' || c == '@' || c == '$'
+        if (!inWord(s[SCRUB_IN])) return s.substring(0, SCRUB_IN)
+        var k = SCRUB_IN
+        while (k > 0 && inWord(s[k - 1])) k--
+        return s.substring(0, k)
     }
 
     private fun scrubRules(s0: String): String {
