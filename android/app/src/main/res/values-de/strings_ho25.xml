@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Anruf-Uebergabe (handover2) und Folgearbeiten aus dem Labor (Mitteilungsarten, Galerie-Wetterort) -->
+<resources>
+    <string name="ho_busy">Ein anderes eigenes Gerät übernimmt den Anruf gerade – bitte kurz warten.</string>
+    <string name="ho_companion_now">Ein anderes eigenes Gerät führt den Anruf – dieses bleibt als Begleitgerät dabei.</string>
+    <string name="notify_kind_db_assigned">Jemand trägt mich in einer Datenbank ein (Person)</string>
+    <string name="notify_kind_page_mention">Jemand erwähnt mich in einer Seite</string>
+    <string name="notify_kind_comment_mention">Jemand erwähnt mich in einem Kommentar</string>
+    <string name="notify_kind_chat_mention">Jemand erwähnt mich in einem Chat</string>
+    <string name="gal_weather_title">Ort für das Wetter</string>
+    <string name="gal_weather_hint">Die Vorlage enthält ein Wetter-Widget. Für welchen Ort?</string>
+    <string name="gal_weather_field">Ort</string>
+    <string name="gal_weather_search">Suchen</string>
+    <string name="gal_weather_skip">Überspringen</string>
+    <string name="gal_weather_none">Keine Orte gefunden.</string>
+    <string name="gal_weather_error">Die Ortssuche geht gerade nicht.</string>
+</resources>

@@ -248,6 +248,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         var starter = false
         /** Uebernahme per join (role handover) - scheitert sie, verlaesst dieses Geraet den Anruf */
         var hoJoin = false
+        /** 2.5 (`handover2`): eigene Beitrittsgeneration aus der join-Antwort (Ersatz, falls die Liste noch keine zeigt) */
+        var myGen: Long? = null
+        /** 2.5 (`handover2`, L3): Begleitgeraet ueber Knoten holt per promote erst das Ton-Recht */
+        var promo: Handover.Promote? = null
         /** Signale unbekannter Geraete, bis ihre Verbindung steht */
         val pend = HashMap<String, ArrayList<CallSignalDto>>()
         val incoming = HashSet<String>()
@@ -1859,12 +1863,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (limit != null && limit > 0) rs.limit = if (rs.horn != null) limit else CallRoom.limit(r.media, limit)
         val me = myDevId()
         if (r.ready && rs.hoRep == null && diff.left.any { it.device == me }) {
-            // nur wenn das andere Geraet gerade die Fuehrung uebernommen hat (neu bzw. vorher Begleitgeraet) - ein Begleitgeraet,
-            // das Begleitgeraet bleibt, heisst nur: dieses Geraet ist kurz aus der Liste gefallen (Bughunt R09)
-            val other = legs.firstOrNull { x ->
-                x.who == myUser() && x.device != me && x.role != "companion" &&
-                    before.firstOrNull { it.device == x.device }.let { it == null || it.role == "companion" }
-            }
+            // nur wenn das andere Geraet gerade die Fuehrung uebernommen hat (neu bzw. vorher Begleitgeraet oder - 2.5 - Uebernahme,
+            // deren state.ready hier nicht ankam: Rueckfall per /leave) - ein Begleitgeraet, das Begleitgeraet bleibt, heisst
+            // nur: dieses Geraet ist kurz aus der Liste gefallen (Bughunt R09)
+            val other = Handover.leader(before, legs, myUser(), me)
             if (other != null) {                               // anderes eigenes Geraet hat uebernommen und dieses abgemeldet
                 r.micOn = false
                 applyMic(r)
@@ -2118,7 +2120,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 }
                 val r = json.decodeFromString(CallsActive.serializer(), api.get("api/calls/active"))
                 for (x in r.calls) if (x.state == "ended") markEnded(x.id)
-                run.value = CallRoom.runBar(r.calls, myUser(), myDevId(), cur?.id, endedIds)
+                run.value = CallRoom.runBar(r.calls, myUser(), myDevId(), cur?.id, endedIds, reenter = Handover.on(cfg.featureSet))
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -2201,7 +2203,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     markEnded(callId)
                     throw UiTextException(UiText.Res(R.string.call_already_ended))
                 }
-                if (!k.joinable) {
+                // 2.5 (handover2, E6): "Hierher uebernehmen" geht auch bei vollem Anruf (takeover)
+                if (!Handover.joinAllowed(k.joinable, k.takeover && Handover.on(cfg.featureSet), role)) {
                     if (k.joinBlock == "ended") markEnded(callId)
                     throw UiTextException(CallRoom.blockText(k.joinBlock, c.rs.limit))
                 }
@@ -2231,7 +2234,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 if (!live(c)) return@launch
                 log("join ${callId.take(8)} gescheitert: ${e.message}")
                 // nie beigetreten: kein /end (das wuerde einen fremden bzw. laufenden Anruf beenden)
-                if (c.ready) quietPost("api/calls/$callId/leave", buildJsonObject { put("device", myDevId()) })
+                if (c.ready) leavePost(c, myDevId(), id = callId)
                 c.ending = true
                 if (e is ApiException && e.code == 409) markEnded(callId)
                 // TT 63: der Grund (z. B. Sicherheitsnummer geaendert) bleibt stehen, bis er geschlossen wird - vorher
@@ -2308,8 +2311,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             if (e.code == 429) throw UiTextException(UiText.Res(R.string.call_rate))
             throw e
         }
+        c.rs.myGen = r.gen?.takeIf { it > 0 }
         if (!live(c)) {
-            quietPost("api/calls/${c.id}/leave", buildJsonObject { put("device", me) })
+            leavePost(c, me)
             return
         }
         c.ready = true
@@ -2346,17 +2350,25 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val rs = r.rs
         val rep = rs.hoRep ?: return
         if (!r.ready || r.done || !live(r)) return
+        if (rs.promo?.busy == true) return                  // 2.5 (L3): Begleitgeraet holt erst das Ton-Recht (promote + Ton-Bein)
         val others = rs.horn?.let { listOf(it.connected) } ?: links(r).filter { !own(it) }.map { it.connected }   // 2.5: Knoten verbunden
         if (CallRoom.handoverStep(others, rs.hoStart, System.currentTimeMillis(), Int.MAX_VALUE) != CallRoom.HoStep.READY) return
         rs.hoRep = null
         rs.hoJob?.cancel()
+        rs.promo?.finish()
+        rs.promo = null
         rs.companion = false
         rs.took = true
         r.micOn = true
         applyMic(r)
         setPlayback(r, true)
+        rs.horn?.micChanged()                               // 2.5: Spur und Zustand (mic) auch an die Ton-Beine des Knotens
         CallService.start(app, r.videoTrack != null)       // jetzt mit Mikrofon im Vordergrund-Dienst
         val a = linkOf(r, rep)
+        val me = myDevId()
+        // 2.5 (handover2, L2): Rueckfall nur fuer genau dieses Bein (gen des alten, jetzt gemerkt) und solange dieses Geraet
+        // noch dabei ist (by) - ein schneller Rueckwechsel wirft sonst das zurueckkehrende Geraet hinaus
+        val fb = Handover.fallbackMs(rs.horn != null, ho2(), config?.handoverS ?: CallRoom.HANDOVER_S)
         if (rs.horn != null) {
             // 2.5: ueber einen Knoten keine Direktverbindung zum alten Geraet - Bescheid ueber den Signalweg (state.ready +
             // replaces) und zur Sicherheit (aeltere App) dessen Platz kurz danach beim Server abmelden
@@ -2368,19 +2380,25 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 put("ready", true)
                 put("replaces", rep)
             }.toString()
+            val leave = leaveBodyNow(r, rep, Handover.REASON, me)
+            val id = r.id
             scope.launch {
                 hornSend(r, mapOf(rep to body))
-                delay(3000)
-                quietPost("api/calls/${r.id}/leave", buildJsonObject {
-                    put("device", rep)
-                    put("reason", "handover")
-                })
+                delay(fb ?: Handover.HORN_FALLBACK_MS)
+                leaveSend(id, leave)
             }
-        } else if (a != null && a.established) scope.launch { if (live(a)) stateOut(a, replaces = rep) }
-        else quietPost("api/calls/${r.id}/leave", buildJsonObject {        // eigenes Geraet ohne Verbindung
-            put("device", rep)
-            put("reason", "handover")
-        })
+        } else if (a != null && a.established) {
+            scope.launch { if (live(a)) stateOut(a, replaces = rep) }
+            // L2 (B5): auch im Mesh ein Rueckfall, falls state.ready verloren geht (nur mit handover2, bedingt wie oben)
+            if (fb != null) {
+                val leave = leaveBodyNow(r, rep, Handover.REASON, me)
+                val id = r.id
+                scope.launch {
+                    delay(fb)
+                    leaveSend(id, leave)
+                }
+            }
+        } else leavePost(r, rep, Handover.REASON, me)      // eigenes Geraet ohne Verbindung
         update(r)
         stateAll(r)
     }
@@ -2388,16 +2406,28 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     /** Uebernahme hat nicht rechtzeitig geklappt: per join -> dieses Geraet verlaesst den Anruf; als Begleitgeraet -> bleibt still */
     private fun hoFail(r: Call) {
         val rs = r.rs
-        if (rs.hoRep == null || !live(r)) return
+        val rep = rs.hoRep
+        if (rep == null || !live(r)) return
         rs.hoRep = null
+        rs.promo?.let { p -> if (p.undo()) promotePost(r, rep) }     // 2.5 (L3): Befoerderung zuruecknehmen
+        rs.promo = null
         if (rs.hoJoin) {
-            quietPost("api/calls/${r.id}/leave", buildJsonObject { put("device", myDevId()) })
+            leavePost(r, myDevId())                         // 2.5: mit eigener gen (gilt nicht, falls inzwischen neu beigetreten)
             r.ending = true
             finish(r, UiText.Res(R.string.room_takeover_failed), true)
         } else {
             repo.notify(UiText.Res(R.string.room_takeover_failed))
             update(r)
         }
+    }
+
+    /** 2.5 (handover2): Befoerderung (promote) - z. B. zuruecknehmen: device = bisheriges Hauptgeraet */
+    private fun promotePost(r: Call, device: String) {
+        val id = r.id ?: return
+        quietPost("api/calls/$id/promote", buildJsonObject {
+            put("device", device)
+            put("dev_class", hornClass())
+        })
     }
 
     /** Begleitgeraet -> Hauptgeraet ("Hierher uebernehmen" im Anrufbildschirm, ohne neuen Beitritt) */
@@ -2411,19 +2441,68 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             r.micOn = true
             applyMic(r)
             setPlayback(r, true)
+            r.rs.horn?.micChanged()
             update(r)
             stateAll(r)
             return
         }
-        r.rs.hoRep = main
-        r.rs.hoJoin = false
-        r.rs.hoStart = System.currentTimeMillis()
-        r.rs.hoJob = scope.launch {
+        val rs = r.rs
+        rs.hoRep = main
+        rs.hoJoin = false
+        rs.hoStart = System.currentTimeMillis()
+        // 2.5 (handover2, L3): ueber einen Knoten erst befoerdern (Token mit Ton-Recht), Ton-Bein mit gleicher leg_ref neu,
+        // dann wie immer state.ready an das alte Geraet. Klappt das nicht: Befoerderung zuruecknehmen.
+        val promo = if (Handover.usePromote(rs.horn != null, ho2())) Handover.Promote(main) else null
+        rs.promo = promo
+        rs.hoJob = scope.launch {
             delay((config?.handoverS ?: CallRoom.HANDOVER_S) * 1000L)
             hoFail(r)
         }
         update(r)
-        hoCheck(r)
+        if (promo == null) {
+            hoCheck(r)
+            return
+        }
+        scope.launch {
+            try {
+                val w = try {
+                    json.decodeFromString(CallWrap.serializer(), api.post("api/calls/${r.id}/promote", buildJsonObject {
+                        put("device", myDevId())
+                        put("dev_class", hornClass())
+                    }))
+                } catch (e: ApiException) {
+                    val o = try {
+                        Json.parseToJsonElement(e.body) as? JsonObject
+                    } catch (_: Exception) {
+                        null
+                    }
+                    // foederiert mit einem Server ohne promote: wie bisher ohne Befoerderung uebernehmen
+                    if (e.code == 409 && CallRoom.str(o, "join_block") == "old") null else throw e
+                }
+                if (!live(r) || rs.promo !== promo) return@launch
+                if (w != null) {
+                    promo.promotedNow(w.already)
+                    w.call?.let { k -> rosterIn(r, k.legs, k.rv, null, poll = true) }
+                    val h = rs.horn ?: throw java.io.IOException("horn")
+                    val cands = HornLogic.parseBlock(w.horn, allowHttp = BuildConfig.DEBUG)?.candidates.orEmpty()
+                    if (!h.reAudio(cands)) throw java.io.IOException("audio")
+                    if (!live(r) || rs.promo !== promo) return@launch
+                }
+                promo.ready()
+                hoCheck(r)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log("promote: ${e.message}")
+                if (!live(r) || rs.promo !== promo || rs.hoRep == null) return@launch
+                rs.hoRep = null
+                rs.hoJob?.cancel()
+                rs.promo = null
+                if (promo.undo()) promotePost(r, main)
+                repo.notify(if (e is ApiException && e.code == 429) UiText.Res(R.string.call_rate) else UiText.Res(R.string.room_takeover_failed))
+                update(r)
+            }
+        }
     }
 
     /** Ein anderes eigenes Geraet hat uebernommen: sofort still, `bye` an die anderen, verlassen, Hinweis */
@@ -2435,17 +2514,43 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val id = r.id
         val x = r.rs.roster.of(from)
         val bye = byeSeal(r, "handover", except = from)
+        // 2.5 (handover2, L5): mit eigener gen - ist dieses Geraet bis dahin wieder beigetreten, gilt das Verlassen nicht
+        val leave = leaveBodyNow(r, myDevId(), Handover.REASON)
         r.ending = true
         scope.launch {
             // erst "bye" an die anderen (danach nimmt der Server keine Signale dieses Geraets mehr an), dann verlassen
             if (id != null) kotlinx.coroutines.withTimeoutOrNull(1500) { byePost(id, bye) }
-            if (id != null) quietPost("api/calls/$id/leave", buildJsonObject {
-                put("device", myDevId())
-                put("reason", "handover")
-            })
+            leaveSend(id, leave)
         }
         finish(r, UiText.Res(R.string.room_taken_over, x?.devName?.ifEmpty { null } ?: app.getString(R.string.room_other_device)), false)
     }
+
+    /** 2.5: Server kann `handover2` (bedingtes /leave, promote, Wiedereintritt, handover_busy) */
+    private fun ho2(): Boolean = config?.featureSet?.let { Handover.on(it) } == true
+
+    /** Beitrittsgeneration eines Geraets (Teilnehmerliste; eigenes ersatzweise aus der join-Antwort) */
+    private fun genOf(r: Call, dev: String): Long? = Handover.genOf(r.rs.roster.legs, dev) ?: r.rs.myGen.takeIf { dev == myDevId() }
+
+    /** Body fuer POST /leave mit dem JETZIGEN Stand (gen) - bei verzoegertem Senden vorher bilden */
+    private fun leaveBodyNow(r: Call, dev: String, reason: String? = null, by: String? = null): JsonObject =
+        Handover.leaveBody(dev, reason, by, genOf(r, dev), ho2())
+
+    private fun leaveSend(id: String?, body: JsonObject) {
+        if (id == null) return
+        scope.launch {
+            try {
+                val res = Handover.leaveResult(api.post("api/calls/$id/leave", body))
+                if (res != Handover.Left.OK) log("leave ${body["device"].toString().take(8)} $res")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    /** POST /leave (2.5 mit handover2 bedingt: by/gen) */
+    private fun leavePost(r: Call, dev: String, reason: String? = null, by: String? = null, id: String? = r.id) =
+        leaveSend(id, leaveBodyNow(r, dev, reason, by))
 
     /** Name des Chats aus der Chatliste (freie Gruppen: Ende-zu-Ende-verschluesselter Titel - der Server kennt ihn nicht) */
     private fun chatTitle(chatId: Long): String {
@@ -3001,7 +3106,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             if (main) { d.path = "p2p"; d.transport = CallDiag.transportP2p(c.path); d.node = "" }
             val key = System.identityHashCode(c).toString(16)
             for (s in byId.values) if (s.type == "inbound-rtp" || s.type == "outbound-rtp") {
-                diagSample(r, s.type, s.members, if (s.type == "outbound-rtp") "me" else d.alias(c.peerDevice), key + s.id, rtt?.let { it * 1000 })
+                val m = if (s.type == "outbound-rtp") CallDiag.withSource(s.members, (s.members["mediaSourceId"] as? String)?.let { byId[it]?.members }) else s.members
+                diagSample(r, s.type, m, if (s.type == "outbound-rtp") "me" else d.alias(c.peerDevice), key + s.id, rtt?.let { it * 1000 })
             }
         }
         var lost = 0L
@@ -3756,8 +3862,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             if (e.code == 429) throw UiTextException(UiText.Res(R.string.call_rate))
             throw e
         }
+        c.rs.myGen = r.gen?.takeIf { it > 0 }
         if (!live(c)) {
-            quietPost("api/calls/${c.id}/leave", buildJsonObject { put("device", me) })
+            leavePost(c, me)
             return
         }
         c.ready = true
@@ -4042,6 +4149,29 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (c.id != ev.str("call_id") || c.done) return
         val by = ev.str("by")
         val me = myDevId()
+        if (Handover.companionMute(ev.str("action"), ev.str("device"), ev.str("why"), me)) {
+            // 2.5 (handover2, L2): liegengebliebene Uebernahme - ein anderes eigenes Geraet fuehrt; dieses bleibt still als
+            // Begleitgeraet dabei (keine eigene Uebernahme mehr, kein Verlassen nach handover_s)
+            val rs = c.rs
+            if (rs.hoRep != null) {
+                rs.hoRep = null
+                rs.hoJob?.cancel()
+                rs.promo = null
+            }
+            rs.hoJoin = false
+            rs.companion = true
+            rs.took = false
+            if (c.micOn) {
+                c.micOn = false
+                applyMic(c)
+            }
+            setPlayback(c, false)
+            rs.horn?.micChanged()
+            stateAll(c)
+            repo.notify(UiText.Res(R.string.ho_companion_now))
+            update(c)
+            return
+        }
         when (ev.str("action")) {
             "mute" -> if (ev.str("device") == me) {
                 if (c.micOn) {

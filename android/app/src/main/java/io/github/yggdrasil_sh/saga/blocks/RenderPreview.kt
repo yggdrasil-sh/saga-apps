@@ -26,6 +26,30 @@ object RenderPreview {
 
     fun isMermaid(d: JsonObject): Boolean = BlockDoc.str(d, "language").equals("mermaid", ignoreCase = true)
 
+    /**
+     * Labor 2.11. (Verdacht #4): Mathe-Block zeigte beim ersten Oeffnen nur den TeX-Quelltext. Das Vorschaubild erzeugt
+     * nur das Web (3 s nach der letzten Eingabe bzw. beim naechsten Oeffnen) - eine eben im Web angelegte Seite hat es oft
+     * noch nicht. true = die Seite hat Mathe/Mermaid mit Quelltext, aber ohne Bild (auch in Spalten/Toggles): einmal kurz
+     * danach still neu laden.
+     */
+    fun missingRender(doc: JsonObject): Boolean {
+        fun walk(arr: JsonArray, depth: Int): Boolean = depth <= 8 && arr.any { el ->
+            val b = el as? JsonObject ?: return@any false
+            val d = BlockDoc.data(b)
+            when (BlockDoc.type(b)) {
+                "math" -> BlockDoc.str(d, "tex").isNotBlank() && render(d) == null
+                "code" -> isMermaid(d) && BlockDoc.str(d, "code").isNotBlank() && render(d) == null
+                "toggle" -> (d["blocks"] as? JsonArray)?.let { walk(it, depth + 1) } == true
+                "columns" -> (d["cols"] as? JsonArray).orEmpty().any { c -> ((c as? JsonObject)?.get("blocks") as? JsonArray)?.let { walk(it, depth + 1) } == true }
+                else -> false
+            }
+        }
+        return walk(BlockDoc.blocks(doc), 0)
+    }
+
+    /** so lange nach dem Laden warten, bevor einmal still neu geladen wird */
+    const val RECHECK_MS = 6000L
+
     data class SyncedSrc(val note: Long?, val role: String?)
 
     /** data.src setzt nur der Server beim Lesen (Kopie): {note, role} */

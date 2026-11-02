@@ -243,6 +243,10 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         val senders = ArrayList<FrameCryptor>()
         var ws: WebSocket? = null
         var state: PeerConnection.PeerConnectionState = PeerConnection.PeerConnectionState.NEW
+        /** 2.5 (handover2, L3): durch ein neues Bein mit gleicher leg_ref ersetzt - Ereignisse/Schliessen kein Verlust */
+        var replaced = false
+        /** neues Ton-Bein wird gerade aufgebaut (noch nicht verbunden ist hier kein Verbindungsverlust) */
+        var pend = false
     }
 
     inner class Conn(val key: String, var cand: HornLogic.Cand, val path: String) {
@@ -619,7 +623,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
      * Ein Bein (Ton-Leitung, Bild-Leitung bzw. UDP-Weg): eigene Sender zuerst (Cryptor VOR der Verhandlung), dann die
      * Empfangsplaetze in fester Reihenfolge (Ton 3; Sprecher, Bildschirm, Kacheln). POST /api/sfu/leg, 401 -> einmal frisch.
      */
-    private suspend fun leg(conn: Conn, role: String, path: String, turn: Pair<String, String>?) {
+    private suspend fun leg(conn: Conn, role: String, path: String, turn: Pair<String, String>?, pend: Boolean = false) {
         // Aufgelegt bzw. Verbindung verworfen, waehrend davor gewartet wurde (TURN-Zugang, voriges Bein): kein neues Bein -
         // closeConn liefe fuer die tote Verbindung nicht mehr, PeerConnection und Platzhalter blieben liegen, und der
         // schon freigegebene KeyProvider wirft
@@ -628,6 +632,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         val pc = host.factory.createPeerConnection(rtcConfig(conn.cand, turn), observer(conn) { legObj })
             ?: throw IOException("peerconnection")
         val L = Leg(role, pc)
+        L.pend = pend
         legObj = L
         conn.legs[role] = L
         val me = host.myDev()
@@ -778,7 +783,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
 
                 override fun onMessage(webSocket: WebSocket, text: String) {
                     val ev = HornLogic.parseEvent(text) ?: return
-                    scope.launch { if (!closed && !conn.dead) event(conn, L, ev) }
+                    scope.launch { if (!closed && !conn.dead && !L.replaced) event(conn, L, ev) }
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
@@ -799,7 +804,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     private fun wsGone(conn: Conn, L: Leg, ws: WebSocket, again: Boolean, opened: Boolean) {
         if (L.ws === ws) L.ws = null
         if (conn.ws === ws) conn.ws = null
-        if (closed || conn.dead || conn.closed != null) return
+        if (closed || conn.dead || conn.closed != null || L.replaced) return
         // Neuverbindung scheitert sofort: Knoten weg - nicht erst auf ICE warten
         if (again && !opened) {
             if (cur === conn) switch("lost")
@@ -807,7 +812,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         }
         scope.launch {
             delay(300)
-            if (!closed && !conn.dead && L.ws == null) events(conn, L, true)
+            if (!closed && !conn.dead && L.ws == null && !L.replaced && conn.legs.values.any { it === L }) events(conn, L, true)
         }
     }
 
@@ -1010,7 +1015,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
 
     private fun connState(conn: Conn) {
         if (closed) return
-        val ls = conn.legs.values
+        val ls = conn.legs.values.filter { !it.pend }
         val up = ls.isNotEmpty() && ls.all { it.state == PeerConnection.PeerConnectionState.CONNECTED }
         val failed = ls.any { it.state == PeerConnection.PeerConnectionState.FAILED || it.state == PeerConnection.PeerConnectionState.CLOSED }
         if (up && conn.up == 0L) conn.up = System.currentTimeMillis()
@@ -1220,6 +1225,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         if (c != null && !switching) {
             var worst = "connected"
             for (L in c.legs.values) {
+                if (L.pend) continue                                // L3: Ton-Bein wird gerade ersetzt
                 val s = L.state
                 if (s == PeerConnection.PeerConnectionState.FAILED || s == PeerConnection.PeerConnectionState.CLOSED) worst = s.name.lowercase()
                 else if (s != PeerConnection.PeerConnectionState.CONNECTED && worst == "connected") worst = "disconnected"
@@ -1320,7 +1326,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                 val m = s.members
                 if (s.type == "inbound-rtp" || s.type == "outbound-rtp") {
                     val src = if (s.type == "outbound-rtp") "me" else host.diagAlias(byTrack[m["trackIdentifier"]?.toString()]?.owner)
-                    host.diagSample(s.type, m, src, L.role + "." + s.id, c.net?.rtt)
+                    val mm = if (s.type == "outbound-rtp") CallDiag.withSource(m, (m["mediaSourceId"] as? String)?.let { r.statsMap[it]?.members }) else m
+                    host.diagSample(s.type, mm, src, L.role + "." + s.id, c.net?.rtt)
                 }
                 if (s.type == "candidate-pair" && m["nominated"] == true && m["state"] == "succeeded") {
                     dbl(m["currentRoundTripTime"])?.let { rtt = maxOf(rtt ?: 0.0, it * 1000) }
@@ -1557,6 +1564,102 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             runesKey = key
             runes = HornE2E.runeSeal(callId, pks.mapNotNull { it.second })
             host.changed()
+        }
+    }
+
+    // ---------------------------------------------------------------- 2.5 Uebergabe: Ton-Bein neu (promote)
+
+    /**
+     * 2.5 (handover2, L3): Ton-Bein der aktuellen Verbindung mit frischen Token neu aufbauen (nach POST /promote: mit
+     * Ton-Recht) - am selben Knoten und Weg, Rolle `audio` bzw. bei UDP `both`. Gleiche leg_ref -> der Knoten ersetzt das
+     * alte Bein (dessen `closed {why: "ersetzt"}` ist kein Verbindungsverlust). Das alte Bein schliesst hier erst, wenn das
+     * neue verbunden ist (<= 8 s); klappt das nicht, bleibt das alte. cands = Kandidaten der promote-Antwort (sonst frisch).
+     * -> true = neues Bein steht (bzw. nichts zu tun), false = Fehler (altes Bein behalten).
+     */
+    suspend fun reAudio(cands: List<HornLogic.Cand>): Boolean {
+        val conn = cur ?: return false
+        if (closed || conn.dead) return false
+        val role = Handover.audioRole(conn.legs.keys) ?: return false
+        val old = conn.legs[role] ?: return false
+        var L: Leg? = null
+        try {
+            val cand = cands.firstOrNull { it.node == conn.node && it.tokens[role] != null } ?: fresh(conn.cand)
+            conn.cand = cand
+            var turn: Pair<String, String>? = null
+            if (conn.path == "turn") {
+                val r = nodeHttp(cand.url + "/api/sfu/turn", buildJsonObject { put("token", cand.tokens["audio"].orEmpty()) })
+                val o = kotlinx.serialization.json.Json.parseToJsonElement(r) as? JsonObject
+                turn = ((o?.get("username") as? JsonPrimitive)?.contentOrNull ?: "") to ((o?.get("credential") as? JsonPrimitive)?.contentOrNull ?: "")
+            }
+            if (closed || conn.dead) return false
+            old.replaced = true
+            try {
+                leg(conn, role, conn.path, turn, pend = true)   // setzt conn.legs[role] = neues Bein (pend: kein Verlust)
+            } finally {
+                L = conn.legs[role]?.takeIf { it !== old }
+            }
+            val nl = L ?: throw IOException("bein")
+            val t0 = System.currentTimeMillis()
+            while (!closed && !conn.dead && System.currentTimeMillis() - t0 < Handover.REAUDIO_MS * testWaitScale) {
+                val st = nl.state
+                if (st == PeerConnection.PeerConnectionState.CONNECTED || st == PeerConnection.PeerConnectionState.FAILED ||
+                    st == PeerConnection.PeerConnectionState.CLOSED) break
+                delay(100)
+            }
+            nl.pend = false
+            if (nl.state != PeerConnection.PeerConnectionState.CONNECTED || closed || conn.dead) throw IOException("audio ${nl.state}")
+            dropLeg(conn, old)
+            if (conn.ws == null) conn.ws = nl.ws
+            syncTracks(conn)
+            mapAll()
+            bind()
+            stateOut()
+            log("ton-bein ersetzt (${conn.node} $role)")
+            host.changed()
+            return true
+        } catch (e: Exception) {
+            // auch CancellationException aus leg() (Verbindung verworfen): altes Bein behalten, Aufrufer nimmt zurueck
+            log("ton-bein neu: ${e.message}")
+            if (!closed) restoreLeg(conn, role, old, L)
+            return false
+        }
+    }
+
+    /** neues Bein ging nicht: altes behalten (der Knoten hat es nur ersetzt, wenn das neue angenommen wurde) */
+    private fun restoreLeg(conn: Conn, role: String, old: Leg, nl: Leg?) {
+        if (nl != null && nl !== old) closeLeg(conn, nl)
+        if (!conn.dead) conn.legs[role] = old
+        old.replaced = false
+        if (!conn.dead && old.ws == null && old.id != null) events(conn, old, true)
+        connState(conn)
+    }
+
+    /** Ersetztes Bein schliessen (ohne DELETE am Knoten - die leg_ref gehoert jetzt dem neuen Bein) */
+    private fun dropLeg(conn: Conn, L: Leg) {
+        L.replaced = true
+        closeLeg(conn, L, delete = false)
+    }
+
+    private fun closeLeg(conn: Conn, L: Leg, delete: Boolean = true) {
+        try {
+            L.ws?.cancel()
+        } catch (_: Exception) {
+        }
+        if (conn.ws === L.ws) conn.ws = null
+        L.ws = null
+        if (delete) L.id?.let { id -> scope.launch { try { nodeHttp(conn.cand.url + "/api/sfu/leg/" + id, null, "DELETE") } catch (_: Exception) {} } }
+        for (r in L.recv) {
+            r.scrubJob?.cancel()
+            try { r.cryptor?.dispose() } catch (_: Exception) {}
+        }
+        for (x in L.senders) try { x.dispose() } catch (_: Exception) {}
+        val gone = L.vid.mapNotNull { it.track }.toSet()
+        for ((d, t) in bound.entries.toList()) if (gone.any { it === t }) bound.remove(d)
+        if (gone.any { it === bigBound }) bigBound = null
+        try {
+            L.pc.close()
+            L.pc.dispose()
+        } catch (_: Exception) {
         }
     }
 

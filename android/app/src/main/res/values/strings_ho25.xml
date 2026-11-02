@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Anruf-Uebergabe (handover2) und Folgearbeiten aus dem Labor (Mitteilungsarten, Galerie-Wetterort) -->
+<resources>
+    <string name="ho_busy">Another of your devices is taking over the call right now – please wait a moment.</string>
+    <string name="ho_companion_now">Another of your devices is leading the call – this one stays in as a companion device.</string>
+    <string name="notify_kind_db_assigned">Someone assigns me in a database (person)</string>
+    <string name="notify_kind_page_mention">Someone mentions me on a page</string>
+    <string name="notify_kind_comment_mention">Someone mentions me in a comment</string>
+    <string name="notify_kind_chat_mention">Someone mentions me in a chat</string>
+    <string name="gal_weather_title">Place for the weather</string>
+    <string name="gal_weather_hint">This template has a weather widget. Which place should it show?</string>
+    <string name="gal_weather_field">Place</string>
+    <string name="gal_weather_search">Search</string>
+    <string name="gal_weather_skip">Skip</string>
+    <string name="gal_weather_none">No places found.</string>
+    <string name="gal_weather_error">Place search is not available right now.</string>
+</resources>

@@ -37,6 +37,8 @@ data class CallLeg(
     val hp: String? = null,
     /** 2.5: Kennung des Geraets je Knoten, auf dem der Anruf laufen kann (Wechsel: je Verbindung die dieses Knotens) */
     val hpn: Map<String, String> = emptyMap(),
+    /** 2.5 (`handover2`): Beitrittsgeneration (ms, steigt mit jedem erneuten Beitritt) - fuer bedingtes /leave */
+    val gen: Long? = null,
 ) {
     val companion: Boolean get() = role == CallRoom.ROLE_COMPANION
     val multi: Boolean get() = CallRoom.CAP_MULTI in caps
@@ -79,6 +81,8 @@ data class RunBar(
     val block: String?,
     val limit: Int,
     val title: String = "",
+    /** 2.5 (`handover2`, E6): "Hierher uebernehmen" geht auch bei vollem Anruf (das ersetzte Geraet zaehlt nicht) */
+    val takeover: Boolean = false,
 ) {
     val group: Boolean get() = kind == CallRoom.KIND_GROUP
     /** Eigenes Geraet ist schon im Anruf: Hinzufuegen + Hierher uebernehmen; sonst (Gruppe) Beitreten */
@@ -297,6 +301,7 @@ object CallRoom {
         "none" -> UiText.Res(R.string.room_block_none)
         "node" -> UiText.Res(R.string.horn_block_node)
         "removed" -> UiText.Res(R.string.horn_block_removed)
+        Handover.BUSY -> UiText.Res(R.string.ho_busy)
         else -> UiText.Res(R.string.room_block_other)
     }
 
@@ -304,17 +309,22 @@ object CallRoom {
      * Leiste fuer dieses Geraet aus GET /api/calls/active: eigenes anderes Geraet im Anruf -> "Anruf laeuft auf <Geraet>";
      * Gruppenanruf ohne eigenes Geraet -> "Gruppenanruf laeuft · n Geraete"; dieses Geraet schon dabei -> keine Leiste.
      */
-    fun runBar(calls: List<CallInfo>, me: String, myDevice: String, busy: String?, ended: Set<String> = emptySet()): RunBar? {
+    fun runBar(calls: List<CallInfo>, me: String, myDevice: String, busy: String?, ended: Set<String> = emptySet(), reenter: Boolean = false): RunBar? {
         for (c in calls) {
             // TT 64: als beendet bekannt (Live-Ereignis, Beitritt "schon beendet") -> keine Leiste, auch wenn die Liste
             // des Servers noch nachhinkt
             if (c.state == "ended" || c.id == busy || c.legs.isEmpty() || c.id in ended) continue
-            if (c.legs.any { it.device == myDevice }) continue
-            val mine = c.legs.filter { it.who == me }
+            // 2.5 (`handover2`, L5): dieses Geraet steht noch in der Liste (sein /leave nach der Uebergabe ist unterwegs),
+            // telefoniert hier aber nicht (busy) - "Hierher uebernehmen" ist dann ein Wiedereintritt
+            val here = c.legs.any { it.device == myDevice }
+            if (here && !reenter) continue
+            val mine = c.legs.filter { it.who == me && it.device != myDevice }
+            if (here && mine.isEmpty()) continue
             val on = (mine.firstOrNull { !it.companion } ?: mine.firstOrNull())?.devName?.ifEmpty { "?" }.orEmpty()
             if (on.isEmpty() && c.kind != KIND_GROUP) continue
             if (on.isEmpty() && c.state != "active" && c.state != "ringing") continue
-            return RunBar(c.id, c.chatId, c.kind, c.media, on, c.legs.size, c.joinable, c.joinBlock, limit(c.media, c.limit))
+            return RunBar(c.id, c.chatId, c.kind, c.media, on, c.legs.size, c.joinable, c.joinBlock, limit(c.media, c.limit),
+                takeover = c.takeover && on.isNotEmpty())
         }
         return null
     }

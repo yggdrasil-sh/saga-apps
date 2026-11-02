@@ -716,6 +716,11 @@ fun notifKindLabel(kind: String): Int = when (kind) {
     "comment.reply" -> R.string.notify_kind_comment_reply
     "publish.withdrawn" -> R.string.notify_kind_publish_withdrawn
     "chat.message" -> R.string.notify_kind_chat_message
+    // 2.5 (Server notify.py KINDS): Datenbank-Zeile und Erwaehnungen - vorher stand dort nur "Benachrichtigungen"
+    "chat.mention" -> R.string.notify_kind_chat_mention
+    "db.assigned" -> R.string.notify_kind_db_assigned
+    "page.mention" -> R.string.notify_kind_page_mention
+    "comment.mention" -> R.string.notify_kind_comment_mention
     "call", "call.missed" -> R.string.notify_kind_call_missed
     "backup.failed" -> R.string.notify_kind_backup_failed
     "userbackup.failed" -> R.string.notify_kind_userbackup_failed

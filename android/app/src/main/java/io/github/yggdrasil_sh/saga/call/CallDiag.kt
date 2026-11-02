@@ -91,12 +91,31 @@ object CallDiag {
         val t: Long, val dir: String, val src: String, val rid: String,
         val fps: Int = 0, val h: Int = 0, val kbps: Int = 0, val lost: Int = 0, val nack: Int = 0, val pli: Int = 0,
         val freeze: Int = 0, val kf: Int = 0, val rtt: Int = 0, val qlr: String = "", val enc: String = "",
+        /** 2.5 Geraete-CPU (Labor 2.11.): ms CPU- bzw. Bandbreiten-begrenzt (out), Kodier-/Dekodierzeit je Rahmen (ms),
+         *  nicht kodierte Kamerarahmen (out) bzw. verworfene Rahmen (in), Dauer der Standbilder (in, ms) - Zuwaechse */
+        val qcpu: Int = 0, val qbw: Int = 0, val encms: Double = 0.0, val fdrop: Int = 0, val decms: Double = 0.0, val fzms: Int = 0,
     ) {
         fun json(): JsonObject = buildJsonObject {
             put("t", t); put("dir", dir); put("src", src); put("rid", rid); put("fps", fps); put("h", h); put("kbps", kbps)
             put("lost", lost); put("nack", nack); put("pli", pli); put("freeze", freeze); put("kf", kf); put("rtt", rtt)
             put("qlr", qlr); put("enc", enc)
+            // Werte 0 weglassen (aeltere Server verwerfen die Felder still)
+            if (qcpu > 0) put("qcpu", qcpu)
+            if (qbw > 0) put("qbw", qbw)
+            if (encms > 0) put("encms", encms)
+            if (fdrop > 0) put("fdrop", fdrop)
+            if (decms > 0) put("decms", decms)
+            if (fzms > 0) put("fzms", fzms)
         }
+    }
+
+    /** Eintrag `mediaSourceId` -> Rahmen der Kamera (fuer fdrop beim Senden); Aufrufer legen ihn unter diesem Schluessel ab */
+    const val SRC_FRAMES = "_srcFrames"
+
+    /** members eines outbound-rtp um die Rahmen seiner Quelle (media-source.frames) ergaenzen */
+    fun withSource(m: Map<String, Any?>, source: Map<String, Any?>?): Map<String, Any?> {
+        val f = source?.get("frames") ?: return m
+        return m + (SRC_FRAMES to f)
     }
 
     data class Event(val t: Long, val k: String, val d: String) {
@@ -164,6 +183,17 @@ object CallDiag {
             return if (p == null || v < p) 0 else int(v - p)
         }
 
+        /** Zuwachs als Zahl; null = erste Messung, Zaehler neu bzw. Wert fehlt */
+        private fun dd(key: String, v: Double?): Double? {
+            if (v == null || !v.isFinite()) return null
+            val p = prev[key]
+            prev[key] = v
+            return if (p == null || v < p) null else v - p
+        }
+
+        private fun per(ms: Double?, frames: Double?): Double =
+            if (ms == null || frames == null || frames <= 0 || ms <= 0) 0.0 else Math.round(ms / frames * 10) / 10.0
+
         private fun kbps(key: String, bytes: Double, t: Long): Int {
             val p = rate[key]
             rate[key] = bytes to t
@@ -185,9 +215,23 @@ object CallDiag {
             if (kind != "video") return null
             val out = type == "outbound-rtp"
             val q = m["qualityLimitationReason"]?.toString().orEmpty()
+            val rid = if (out) m["rid"]?.toString().orEmpty().takeIf { it in RIDS }.orEmpty() else ""
+            // 2.5 Geraete-CPU (wie static/calls.js diagRep)
+            val qd = m["qualityLimitationDurations"] as? Map<*, *>
+            val dFr = dd("$key.fr", n(m[if (out) "framesEncoded" else "framesDecoded"]))
+            val dTt = dd("$key.tt", n(m[if (out) "totalEncodeTime" else "totalDecodeTime"]))?.times(1000)
+            val qcpu = if (out) dd("$key.qcpu", n(qd?.get("cpu"))?.times(1000)) else null
+            val qbw = if (out) dd("$key.qbw", n(qd?.get("bandwidth"))?.times(1000)) else null
+            val fdrop = if (out) {
+                // Kamerarahmen, die der Kodierer nicht kodiert hat - nur Schichten mit voller Bildrate (l bewusst weniger)
+                val dSrc = dd("$key.src", n(m[SRC_FRAMES]))
+                if (rid != "l" && dSrc != null && dFr != null) maxOf(0.0, dSrc - dFr) else null
+            } else dd("$key.drop", n(m["framesDropped"]))
+            val fzms = if (out) null else dd("$key.fzd", n(m["totalFreezesDuration"])?.times(1000))
+            val perFrame = per(dTt, dFr)
             return Sample(
                 t = ms(now), dir = if (out) "out" else "in", src = CallDiag.src(src),
-                rid = if (out) m["rid"]?.toString().orEmpty().takeIf { it in RIDS }.orEmpty() else "",
+                rid = rid,
                 fps = int(n(m["framesPerSecond"])),
                 h = int(n(m["frameHeight"])),
                 kbps = kbps(key, n(m[if (out) "bytesSent" else "bytesReceived"]) ?: 0.0, now),
@@ -199,6 +243,8 @@ object CallDiag {
                 rtt = int(rtt),
                 qlr = if (!out || q.isEmpty()) "" else if (q in QLRS) q else "other",
                 enc = if (out) CallDiag.enc(m["encoderImplementation"]?.toString().orEmpty()) else "",
+                qcpu = int(qcpu), qbw = int(qbw), fdrop = int(fdrop), fzms = int(fzms),
+                encms = if (out) perFrame else 0.0, decms = if (out) 0.0 else perFrame,
             )
         }
 

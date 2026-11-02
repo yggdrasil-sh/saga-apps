@@ -39,6 +39,13 @@ data class GalleryGroup(val category: String, val items: List<GalleryItem>)
 
 data class GalleryUseResult(val root: Long, val created: List<Long>)
 
+/** 2.5 (gal-fix): Ort aus der Ortssuche (GET api/widgets/geocode) fuer `weather_place` */
+data class GeoPlace(val name: String, val admin: String, val country: String, val lat: Double, val lon: Double) {
+    /** "Name, Region (Land)" wie im Web */
+    val label: String
+        get() = name + (if (admin.isNotBlank() && admin != name) ", $admin" else "") + (if (country.isNotBlank()) " ($country)" else "")
+}
+
 /** Ergebnis beim Laden der Liste */
 sealed interface GalleryLoad {
     data class Ok(val items: List<GalleryItem>) : GalleryLoad
@@ -66,9 +73,54 @@ object Gallery {
 
     fun usePath(id: String): String = "api/gallery/" + URLEncoder.encode(id, "UTF-8").replace("+", "%20") + "/use"
 
-    fun useBody(parentId: Long?, examples: Boolean): JsonObject = buildJsonObject {
+    /** place: Ort fuer Wetter-Widgets der Vorlage ohne Ort (2.5, `weather_place`); null = ueberspringen (wie bisher) */
+    fun useBody(parentId: Long?, examples: Boolean, place: GeoPlace? = null): JsonObject = buildJsonObject {
         if (parentId != null) put("parent_id", parentId) else put("parent_id", JsonNull)
         put("examples", examples)
+        if (place != null) put("weather_place", buildJsonObject {
+            put("place", place.name)
+            put("lat", place.lat)
+            put("lon", place.lon)
+        })
+    }
+
+    /** Vorschau GET api/gallery/{id}?lang= (liefert u. a. `ask_weather`) */
+    fun previewPath(id: String, lang: String): String {
+        val l = lang.trim().substringBefore('-').substringBefore('_').lowercase()
+        val base = "api/gallery/" + URLEncoder.encode(id, "UTF-8").replace("+", "%20")
+        return if (l.isEmpty() || !l.all { it in 'a'..'z' }) base else "$base?lang=$l"
+    }
+
+    /** Vorschau: vor dem Anlegen nach dem Ort fragen? (Wetter-Widget ohne Ort, Wetter beim Server an) */
+    fun parseAskWeather(text: String): Boolean = try {
+        ((json.parseToJsonElement(text) as? JsonObject)?.get("ask_weather") as? JsonPrimitive)?.takeIf { !it.isString }?.booleanOrNull == true
+    } catch (_: Exception) {
+        false
+    }
+
+    /** Ortssuche: 2-80 Zeichen, sonst null (nicht suchen) */
+    fun geocodePath(q: String): String? {
+        val t = q.trim()
+        if (t.length < 2 || t.length > 80) return null
+        return "api/widgets/geocode?q=" + URLEncoder.encode(t, "UTF-8").replace("+", "%20")
+    }
+
+    /** Antwort der Ortssuche -> Orte (hoechstens 8, nur mit gueltigen Koordinaten und Namen) */
+    fun parseGeocode(text: String): List<GeoPlace> {
+        val o = try {
+            json.parseToJsonElement(text) as? JsonObject
+        } catch (_: Exception) {
+            null
+        } ?: return emptyList()
+        return (o["results"] as? JsonArray).orEmpty().mapNotNull { e ->
+            val x = e as? JsonObject ?: return@mapNotNull null
+            fun d(k: String) = (x[k] as? JsonPrimitive)?.takeIf { !it.isString }?.content?.toDoubleOrNull()?.takeIf { it.isFinite() }
+            val name = str(x["name"]).trim().take(80)
+            val lat = d("lat")?.takeIf { it in -90.0..90.0 } ?: return@mapNotNull null
+            val lon = d("lon")?.takeIf { it in -180.0..180.0 } ?: return@mapNotNull null
+            if (name.isEmpty()) return@mapNotNull null
+            GeoPlace(name, str(x["admin"]).trim().take(80), str(x["country"]).trim().take(80), lat, lon)
+        }.take(8)
     }
 
     /**
