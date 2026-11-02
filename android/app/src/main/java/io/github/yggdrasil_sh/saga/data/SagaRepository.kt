@@ -770,9 +770,24 @@ class SagaRepository(
         return load
     }
 
+    /** 2.5 (gal-fix): Vorschau - fragt die Vorlage vor dem Anlegen nach dem Wetter-Ort? Fehler -> false (still) */
+    suspend fun galleryAskWeather(id: String): Boolean = try {
+        Gallery.parseAskWeather(api.get(Gallery.previewPath(id, galleryLang())))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        false
+    }
+
+    /** 2.5: Ortssuche fuer das Wetter (GET api/widgets/geocode); Fehler als ApiException/IOException */
+    suspend fun geocode(q: String): List<GeoPlace> {
+        val path = Gallery.geocodePath(q) ?: return emptyList()
+        return withContext(Dispatchers.Default) { Gallery.parseGeocode(api.get(path)) }
+    }
+
     /** Vorlage anlegen, Seitenliste neu laden; Rueckgabe: Root-Seite (Fehler als ApiException/IOException) */
-    suspend fun galleryUse(id: String, parent: Long?, examples: Boolean): Long {
-        val r = withContext(Dispatchers.Default) { Gallery.parseUse(api.post(Gallery.usePath(id), Gallery.useBody(parent, examples))) }
+    suspend fun galleryUse(id: String, parent: Long?, examples: Boolean, place: GeoPlace? = null): Long {
+        val r = withContext(Dispatchers.Default) { Gallery.parseUse(api.post(Gallery.usePath(id), Gallery.useBody(parent, examples, place))) }
         try {
             refresh(join = false)
         } catch (e: CancellationException) {

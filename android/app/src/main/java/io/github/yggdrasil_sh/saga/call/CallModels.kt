@@ -117,6 +117,10 @@ data class CallInfo(
     val horn: JsonElement? = null,
     /** 2.5: dieses Konto hat den Gruppenanruf begonnen (Gastgeber: stummschalten, entfernen) */
     val host: Boolean = false,
+    /** 2.5 (`handover2`, E6): "Hierher uebernehmen" geht (auch bei joinable false / full) */
+    val takeover: Boolean = false,
+    /** Stand der Teilnehmerliste */
+    val rv: Double? = null,
 )
 
 @Serializable
@@ -131,7 +135,16 @@ data class CallSignalDto(
 data class CallState(val call: CallInfo = CallInfo(), val signals: List<CallSignalDto> = emptyList())
 
 @Serializable
-data class CallWrap(val ok: Boolean = false, val call: CallInfo? = null)
+data class CallWrap(
+    val ok: Boolean = false,
+    val call: CallInfo? = null,
+    /** 2.5 (`handover2`): eigene Beitrittsgeneration (join) */
+    val gen: Long? = null,
+    /** 2.5 (`handover2`): promote - schon Hauptgeraet */
+    val already: Boolean = false,
+    /** 2.5 (`handover2`): promote ueber Knoten - Kandidaten mit Ton-Recht */
+    val horn: JsonElement? = null,
+)
 
 @Serializable
 data class CallsActive(val calls: List<CallInfo> = emptyList())

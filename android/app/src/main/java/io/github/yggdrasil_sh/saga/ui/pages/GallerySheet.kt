@@ -19,6 +19,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -50,6 +54,7 @@ import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.data.Gallery
 import io.github.yggdrasil_sh.saga.data.GalleryItem
 import io.github.yggdrasil_sh.saga.data.GalleryLoad
+import io.github.yggdrasil_sh.saga.data.GeoPlace
 import io.github.yggdrasil_sh.saga.data.PageMeta
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.ui.common.pageTitle
@@ -196,12 +201,90 @@ private fun GalleryConfirm(
     var underCurrent by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiText?>(null) }
+    // 2.5 (gal-fix): Vorlage mit Wetter-Widget ohne Ort -> vor dem Anlegen nach dem Ort fragen (ueberspringbar)
+    var askWeather by remember { mutableStateOf(false) }
+    var placeStep by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    var hits by remember { mutableStateOf<List<GeoPlace>?>(null) }
+    var searching by remember { mutableStateOf(false) }
+    var searchErr by remember { mutableStateOf<UiText?>(null) }
+    LaunchedEffect(t.id) { askWeather = repo.galleryAskWeather(t.id) }
+
+    fun create(place: GeoPlace?) {
+        busy = true
+        error = null
+        val p = parent?.id ?: current?.id?.takeIf { underCurrent }
+        scope.launch {
+            try {
+                onCreated(repo.galleryUse(t.id, p, examples, place))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (e is io.github.yggdrasil_sh.saga.data.ApiException && e.code == 404) {
+                    repo.notify(UiText.Res(R.string.gal_error_gone))
+                    onGone()
+                } else {
+                    error = Gallery.friendlyUse(e, repo::friendly)
+                }
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    fun search() {
+        if (Gallery.geocodePath(query) == null || searching) return
+        searching = true
+        searchErr = null
+        scope.launch {
+            try {
+                hits = repo.geocode(query)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                hits = null
+                searchErr = if (e is io.github.yggdrasil_sh.saga.data.ApiException && e.code == 429) UiText.Res(R.string.call_rate)
+                else UiText.Res(R.string.gal_weather_error)
+            } finally {
+                searching = false
+            }
+        }
+    }
+
     AlertDialog(
         onDismissRequest = { if (!busy) onCancel() },
-        icon = { Text(t.icon.ifEmpty { "📄" }, fontSize = 28.sp) },
-        title = { Text(t.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        icon = { Text(if (placeStep) "🌤️" else t.icon.ifEmpty { "📄" }, fontSize = 28.sp) },
+        title = { Text(if (placeStep) stringResource(R.string.gal_weather_title) else t.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (placeStep) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.gal_weather_hint), style = MaterialTheme.typography.bodyMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        query, { query = it.take(80) }, label = { Text(stringResource(R.string.gal_weather_field)) }, singleLine = true,
+                        enabled = !busy, modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { search() }),
+                    )
+                    TextButton(enabled = !busy && !searching && Gallery.geocodePath(query) != null, onClick = { search() }) {
+                        if (searching) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        else Text(stringResource(R.string.gal_weather_search))
+                    }
+                }
+                val h = hits
+                Column(Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
+                    if (h != null && h.isEmpty()) Text(stringResource(R.string.gal_weather_none), style = MaterialTheme.typography.bodySmall)
+                    h.orEmpty().forEach { g ->
+                        Text(
+                            g.label, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(enabled = !busy, role = Role.Button) { create(g) }
+                                .padding(vertical = 12.dp),
+                        )
+                    }
+                    searchErr?.let { Text(it.resolve(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                }
+                error?.let {
+                    Text(it.resolve(), color = MaterialTheme.colorScheme.error, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                }
+            } else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (t.desc.isNotBlank()) Text(t.desc, style = MaterialTheme.typography.bodyMedium)
                 if (t.contents.isNotEmpty()) {
                     Text(
@@ -228,27 +311,12 @@ private fun GalleryConfirm(
             }
         },
         confirmButton = {
-            Button(enabled = !busy, onClick = {
-                busy = true
-                error = null
-                val p = parent?.id ?: current?.id?.takeIf { underCurrent }
-                scope.launch {
-                    try {
-                        onCreated(repo.galleryUse(t.id, p, examples))
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        if (e is io.github.yggdrasil_sh.saga.data.ApiException && e.code == 404) {
-                            repo.notify(UiText.Res(R.string.gal_error_gone))
-                            onGone()
-                        } else {
-                            error = Gallery.friendlyUse(e, repo::friendly)
-                        }
-                    } finally {
-                        busy = false
-                    }
+            if (placeStep) {
+                TextButton(enabled = !busy, onClick = { create(null) }) {
+                    if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Text(stringResource(R.string.gal_weather_skip))
                 }
-            }) {
+            } else Button(enabled = !busy, onClick = { if (askWeather) placeStep = true else create(null) }) {
                 if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 else Text(stringResource(R.string.gal_use))
             }

@@ -198,6 +198,19 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     val startSupported by repo.startPageSupported.collectAsState()
 
     LaunchedEffect(ed) { ed.load() }
+    // Labor 2.11. (#4): Mathe/Mermaid ohne Vorschaubild (das Web erzeugt es erst kurz nach dem Speichern) - einmal nachsehen
+    LaunchedEffect(ed, ed.fetched) {
+        if (!ed.fetched || !io.github.yggdrasil_sh.saga.blocks.RenderPreview.missingRender(ed.doc)) return@LaunchedEffect
+        kotlinx.coroutines.delay(io.github.yggdrasil_sh.saga.blocks.RenderPreview.RECHECK_MS)
+        if (ed.fetched && !ed.dirty && io.github.yggdrasil_sh.saga.blocks.RenderPreview.missingRender(ed.doc)) {
+            try {
+                ed.followRemoteChange()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
+        }
+    }
     DisposableEffect(ed) {
         onDispose {
             ed.close()                                               // speichern (laeuft im App-Scope weiter)

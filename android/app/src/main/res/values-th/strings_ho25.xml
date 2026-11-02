@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Anruf-Uebergabe (handover2) und Folgearbeiten aus dem Labor (Mitteilungsarten, Galerie-Wetterort) -->
+<resources>
+    <string name="ho_busy">อุปกรณ์อื่นของคุณกำลังรับสายนี้อยู่ – โปรดรอสักครู่</string>
+    <string name="ho_companion_now">อุปกรณ์อื่นของคุณเป็นผู้นำสายนี้ – อุปกรณ์นี้ยังอยู่ในสายเป็นอุปกรณ์เสริม</string>
+    <string name="notify_kind_db_assigned">มีคนมอบหมายฉันในฐานข้อมูล (บุคคล)</string>
+    <string name="notify_kind_page_mention">มีคนกล่าวถึงฉันในหน้า</string>
+    <string name="notify_kind_comment_mention">มีคนกล่าวถึงฉันในความคิดเห็น</string>
+    <string name="notify_kind_chat_mention">มีคนกล่าวถึงฉันในแชท</string>
+    <string name="gal_weather_title">สถานที่สำหรับสภาพอากาศ</string>
+    <string name="gal_weather_hint">เทมเพลตนี้มีวิดเจ็ตสภาพอากาศ ต้องการแสดงสถานที่ใด</string>
+    <string name="gal_weather_field">สถานที่</string>
+    <string name="gal_weather_search">ค้นหา</string>
+    <string name="gal_weather_skip">ข้าม</string>
+    <string name="gal_weather_none">ไม่พบสถานที่</string>
+    <string name="gal_weather_error">ค้นหาสถานที่ไม่ได้ในขณะนี้</string>
+</resources>

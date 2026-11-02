@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Anruf-Uebergabe (handover2) und Folgearbeiten aus dem Labor (Mitteilungsarten, Galerie-Wetterort) -->
+<resources>
+    <string name="ho_busy">Другое ваше устройство сейчас принимает звонок — подождите немного.</string>
+    <string name="ho_companion_now">Звонок ведёт другое ваше устройство — это остаётся как дополнительное.</string>
+    <string name="notify_kind_db_assigned">Кто-то назначает меня в базе данных (человек)</string>
+    <string name="notify_kind_page_mention">Кто-то упоминает меня на странице</string>
+    <string name="notify_kind_comment_mention">Кто-то упоминает меня в комментарии</string>
+    <string name="notify_kind_chat_mention">Кто-то упоминает меня в чате</string>
+    <string name="gal_weather_title">Место для погоды</string>
+    <string name="gal_weather_hint">В этом шаблоне есть виджет погоды. Для какого места?</string>
+    <string name="gal_weather_field">Место</string>
+    <string name="gal_weather_search">Найти</string>
+    <string name="gal_weather_skip">Пропустить</string>
+    <string name="gal_weather_none">Места не найдены.</string>
+    <string name="gal_weather_error">Поиск мест сейчас недоступен.</string>
+</resources>
