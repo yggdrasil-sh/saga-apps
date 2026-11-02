@@ -209,8 +209,9 @@ class LivePage:
             d.mark_dirty()
             GLib.idle_add(lambda: (d.save(), False)[1])
         self.view.live_state(None, was in ("ro", "lock"))
-        if was is not None and not pending:
-            d.load(force=True)                                  # Stand vom Server (Revision) holen
+        if was is not None and not pending and d.fetched:
+            d.live_refetch = True                               # Stand vom Server (Revision, Basis) holen, dann speichern
+            d.load(force=True)
 
     def live_notice(self, code):
         txt = {"readonly": _("Change not applied – you can’t edit this page right now."),

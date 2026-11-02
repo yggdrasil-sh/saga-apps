@@ -396,7 +396,7 @@ try:
     if off:
         subprocess.run(off, shell=True, check=False)
         ok("Schalter aus: Rueckfall Stufe 1", wait(lambda: va.livep.mode is None, 40), va.livep.mode)
-        rta = focus(va, "p2", 0)
+        rta = focus(va, "p2", 0)                              # sofort weiter (Stand vom Server laedt noch)
         type_in(rta, "S1 ")
         va.editor.flush()
         ok("Stufe 1 speichert per PATCH", wait(lambda: any(x[0] == "PATCH" and f"notes/{NID}" in x[1] for x in SENT[-20:]), 10),

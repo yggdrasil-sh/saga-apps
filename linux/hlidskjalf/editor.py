@@ -220,6 +220,7 @@ class PageDoc:
         # (kein PATCH) und Laden/Abgleich ersetzen den Inhalt nicht (er kommt als Update)
         self.live_guard = None
         self.on_live_meta = None       # () -> None: Kopf neu geladen, Inhalt live (Rolle, Sperre ... pruefen)
+        self.live_refetch = False      # Rueckfall Live -> Stufe 1: erst den Stand des Servers als Basis holen, dann speichern
         store.docs.add(self)
 
     def mark_dirty(self):
@@ -350,6 +351,28 @@ class PageDoc:
             p, schema = r
             if self._saving:
                 return                                       # das laufende Speichern entscheidet (409 -> Konflikt)
+            if self.live_refetch and self.fetched:
+                # Rueckfall von Live: Basis = jetziger Stand des Servers (enthaelt alle bestaetigten Live-Aenderungen).
+                # Die Ansicht bleibt stehen (kein Neuaufbau mitten im Tippen); inzwischen Getipptes geht mit merge: 1
+                # gegen genau diese Basis hinaus, sonst wird der Server-Stand blockweise uebernommen
+                from . import rebase
+                self.live_refetch = False
+                m, blocks = self._blocks_of(p)
+                self._take_meta(p)
+                self.rev = p.get("rev") or self.rev
+                if schema is not None:
+                    self.parent_schema = schema
+                if blocks is not None:
+                    self._set_base(blocks, self.rev)
+                    self.base_sent = False
+                    if not self.dirty and rebase.key(blocks) != rebase.key(self.root):
+                        self.root[:] = rebase.adopt(self.root, blocks)
+                        self.doc["blocks"] = self.root
+                        if self.on_adopted:
+                            self.on_adopted(False)
+                if self.dirty:
+                    self.save()
+                return
             if self.live and self.fetched:                   # Live: Inhalt kommt als Update - nur Kopf/Rolle/Revision
                 self._take_meta(p)
                 self.rev = max(self.rev or 0, p.get("rev") or 0)
@@ -374,6 +397,10 @@ class PageDoc:
 
         def err(e):
             code = e.code if isinstance(e, APIError) else None
+            if self.live_refetch:
+                self.live_refetch = False
+                if self.dirty:
+                    GLib.idle_add(lambda: (self.save(), False)[1])
             if code == 404 and self.fetched and self.foreign:
                 # Freigabe entzogen (oder Teilen abgeschaltet): eigene Eingaben zum Kopieren anbieten, dann "Kein Zugriff"
                 if self.dirty or self.conflict is not None:
@@ -569,6 +596,9 @@ class PageDoc:
         if self.live:                                        # Live: jede Eingabe ist schon als Update beim Server
             self.dirty = False
             self._release()
+            return
+        if self.live_refetch:                                # Rueckfall von Live: speichert, sobald die Basis da ist
+            self._write_draft()
             return
         if not self.same_session():
             self._write_draft()                              # Server/Konto gewechselt: nur als Entwurf (dort) behalten
