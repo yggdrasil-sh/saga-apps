@@ -757,6 +757,10 @@ class InfoPage(Adw.PreferencesPage):
         gl = Adw.PreferencesGroup(title=_("Licenses"))
         gl.set_description(_("Saga is free software under the GNU AGPL 3.0. Chat encryption uses libsodium (ISC license) via PyNaCl "
                              "(Apache License 2.0)."))
+        from . import collab
+        if collab.available():                     # 2.5: Live mitschreiben
+            gl.set_description(gl.get_description() + "\n" + _(
+                "Live editing uses pycrdt and anyio (MIT license)."))
         ab = Adw.ActionRow(title=_("About Saga"), activatable=True)
         ab.add_suffix(Gtk.Image.new_from_icon_name("go-next-symbolic"))
         ab.connect("activated", lambda *_: dlg.win.about(dlg))

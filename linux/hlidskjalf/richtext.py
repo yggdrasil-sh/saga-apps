@@ -518,6 +518,7 @@ class RichText(Gtk.TextView):
         self.placeholder_text = placeholder
         self.on_key = None             # (rt, keyval, state) -> bool   Editor: Return, Backspace, Pfeile, Tab
         self.on_link = None            # (kind, value) -> None
+        self.preedit_on = False        # IME-Vorschau (Japanisch, Chinesisch ...) laeuft: steht noch nicht im Puffer
         self.loading = True
         self.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
         self.set_accepts_tab(False)
@@ -543,6 +544,7 @@ class RichText(Gtk.TextView):
         self.add_overlay(self._ph, 0, 0)
         self._ph_always = True
         buf.connect("changed", self._changed)
+        self.connect("preedit-changed", lambda w, t: setattr(self, "preedit_on", bool(t)))
         self.loading = False
         self._update_ph()
         fc = Gtk.EventControllerFocus()
@@ -581,6 +583,17 @@ class RichText(Gtk.TextView):
             html_to_buffer(buf, html, self.base_bold, names=None if self.get_editable() else MENTION_NAMES)
         self.loading = False
         self._update_ph()
+
+    def replace_live(self, html, offset):
+        """Live (2.5): fremder Stand in DIESEM Feld - Text ersetzen ohne "html-changed" (kein Echo), Schreibmarke an
+        offset; kommt nicht in den Rueckgaengig-Verlauf des Feldes"""
+        buf = self.get_buffer()
+        buf.begin_irreversible_action()
+        try:
+            self.set_html(html)
+        finally:
+            buf.end_irreversible_action()
+        buf.place_cursor(buf.get_iter_at_offset(max(0, min(offset, buf.get_char_count()))))
 
     def split_at_cursor(self):
         """-> (html vorher, html nachher)"""

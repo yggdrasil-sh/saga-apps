@@ -509,6 +509,9 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _flush_all(self):
         """alle offenen Seiten sofort speichern"""
+        for v in self._views():
+            if v.livep.pending:          # Live: Unbestaetigtes (z. B. offline getippt) zuerst auf Stufe 1 - PATCH bzw. Entwurf
+                v.livep.stop()
         if isinstance(self.current, PageView):
             self.current.editor.flush()
         if self.peek is not None:
@@ -770,6 +773,7 @@ class MainWindow(Adw.ApplicationWindow):
         store.connect("version-changed", lambda *_: self._version_banner())
         store.connect("version-changed", lambda *_: self.sidebar.fill(force=False))     # 2.5: Eintrag "Graph" je Server
         store.connect("version-changed", lambda *_: self._gallery_probe())               # 2.5: Vorlagengalerie je Server
+        store.connect("version-changed", lambda *_: self._live_probe())                  # 2.5: live1 an/aus -> offene Seite
         self.overlay = Gtk.Overlay()
         self.slot = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, vexpand=True, hexpand=True)
         self.overlay.set_child(self.slot)
@@ -1266,6 +1270,14 @@ class MainWindow(Adw.ApplicationWindow):
         open_in_browser(chat_url(cid), self)
         self.toast(_("The chat opens in your browser – start the call there."))
 
+    def _live_probe(self):
+        """Server meldet (wieder) live1: Live-Schalter neu pruefen und offene Seiten live oeffnen"""
+        from . import livepage
+        if livepage._conn is not None and store.has("live1"):
+            livepage._conn.reset()
+        for v in self._views():
+            v._start_live()
+
     def _session_ended(self):
         from .assistant import ai
         from .calls import calls
@@ -1273,6 +1285,8 @@ class MainWindow(Adw.ApplicationWindow):
         from .live import live
         from .notifications import notifications
         live.reset()
+        from . import livepage
+        livepage.reset()                                   # 2.5: Live mitschreiben (WS /api/collab) dieser Sitzung beenden
         notifications.reset()
         notifications.emit("changed")
         chat.reset()

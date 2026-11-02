@@ -40,6 +40,26 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   (StackOverflowError in den Regeln); jetzt in linearer Zeit, Eingabe vor den Regeln höchstens 1000 Zeichen, im Fehlerfall
   nur Platzhalter bzw. Klasse – nie der Text.
 
+### Neu – Linux: Live mitschreiben (Stufe 2; nur mit Saga-Server, der `live1` meldet – Admin-Schalter „Gleichzeitig bearbeiten live“)
+- **Seiten live bearbeiten** über `WS /api/collab` gleichzeitig mit dem Web-Editor (Tiptap) und anderen Linux-Apps:
+  Eingaben gehen sofort hinaus (genau an der Schreibmarke), fremde erscheinen ohne Neuladen – im eigenen Absatz an Ort
+  und Stelle, die Schreibmarke bleibt. Dasselbe Dokumentmodell wie Server und Web (Schema `saga-pm` v2, gemeinsame
+  Testvektoren). Text, Formatierung, Listen, Tabellen, Blöcke einfügen/löschen/verschieben; Karten und andere Blöcke,
+  die die App nur anzeigt, bleiben unverändert. Im Live-Modus speichert die App den Inhalt nicht mehr per PATCH.
+- **Wer wo schreibt:** andere Personen sieht man am Block (farbiger Rand + Anzeigename, wie bisher bei der Anwesenheit).
+- **Rückgängig (Strg+Z / Strg+Umschalt+Z)** nimmt nur eigene Änderungen zurück, auch Struktur (Block gelöscht, verschoben).
+- **Japanisch/Thai/… (IME):** fremde Änderungen warten, solange eine Eingabe noch komponiert wird; gesendet wird erst das
+  fertige Wort.
+- **Sicher:** Rolle Lesen/Kommentieren, gesperrte Seite oder entzogene Rechte → nur lesen, die App sendet nichts. Andere
+  Editor-Version (Schema) → Hinweis „neu laden“, nur lesen, nichts wird gesendet (auch keine Lade-Änderungen). Abgelehnte
+  Änderung → Stand vom Server, unabhängige eigene Eingaben bleiben; mehrfach → Rückfall.
+- **Rückfall auf Stufe 1** (Zusammenführen per PATCH wie bisher) ohne Verlust: Schalter aus, Verbindung länger weg,
+  Server ohne `live1`, Seiten anderer Server, Altformen (alter Toggle, Kopie eines synchronisierten Blocks). Kurze
+  Unterbrechungen (Neustart des Servers) überbrückt die App und reicht das Fehlende nach.
+- **Abhängigkeit:** pycrdt 0.14.8 (MIT, wie der Server) – im Flatpak enthalten (mit anyio, idna, typing_extensions), im
+  RPM nur empfohlen (Fedora/EPEL haben kein Paket; ohne pycrdt bleibt die App bei Stufe 1). WebSocket ohne weitere
+  Bibliothek. Lizenzhinweis in Einstellungen → Info.
+
 ### Neu – Linux: Fehlerberichte und „Diagnose senden“ (nur mit Saga-Server, der `clientlog1` meldet)
 - **Programmfehler** (nicht abgefangene Ausnahmen, auch in Hintergrund-Threads und Rückrufen) sowie Server-Fehler 5xx,
   unlesbare Antworten (Endpunkt nur als Muster wie `/api/notes/:id`) und abgelehntes Speichern werden bereinigt gesammelt,

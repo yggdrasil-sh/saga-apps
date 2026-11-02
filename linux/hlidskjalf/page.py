@@ -233,7 +233,8 @@ class PageView(Gtk.Box):
         self.blocks_box = None
         self.doc.on_loaded = lambda d: (self.rebuild(), self.load_widgets(first=True))
         self.doc.on_error = self._error
-        self.doc.on_saved = lambda: (self.header_changed and self.header_changed(), self.update_banners())
+        self.doc.on_saved = lambda: (self.header_changed and self.header_changed(), self.update_banners(),
+                                     self._start_live())      # 2.5: erst gespeichert (Entwurf, Stufe 1) -> dann live
         self.doc.on_conflict = self._conflict
         self.doc.on_notice = self._error
         self.doc.on_title = lambda t: self.rebuild()
@@ -242,6 +243,13 @@ class PageView(Gtk.Box):
         self.doc.on_trashed = lambda: self._trash_state()
         self.doc.on_adopted = self._adopted              # 2.5 (P3): fremder Stand blockweise uebernommen
         self.doc.on_merged = self._merged_hint
+        # 2.5 (P3 Stufe 2): live mitschreiben ueber WS /api/collab (nur Hauptansicht, Server mit live1)
+        from .livepage import LivePage
+        self.livep = LivePage(self)
+        self.doc.live_guard = lambda: self.livep.active
+        self.doc.on_live_meta = self._live_meta
+        self.doc.on_live_dirty = lambda: self.livep.local()
+        self._live_shown = None                 # zuletzt gezeigter Live-Modus (Neuaufbau bei Wechsel nur lesen <-> bearbeiten)
         self._shown_trash = False
         self._conflict_dlg = None
         self._conflict_wait = 0                 # Konflikt-Dialog wartet, bis eine Tipp-Pause ist (BUG-027)
@@ -296,6 +304,8 @@ class PageView(Gtk.Box):
         self.connect("unmap", lambda *_: self.suggest.hide())
         self.connect("unmap", lambda *_: self.editor.flush())
         self.connect("unmap", lambda *_: self._stop_presence())
+        self.connect("unmap", lambda *_: self.livep.stop())
+        self.connect("map", lambda *_: self._start_live())
         self.doc.load()
         store.visited(pid)
 
@@ -426,7 +436,7 @@ class PageView(Gtk.Box):
                 box.set_child(again)
             self.scroll.set_child(box)
             return
-        self.editor.locked = bool(doc.page.get("locked")) or doc.read_only     # gesperrt oder nur Lesen/Kommentieren
+        self.editor.locked = bool(doc.page.get("locked")) or doc.read_only or self.livep.mode in ("ro", "lock")
         if not self.cm_loaded:                               # vor dem ersten Laden der Kommentare: Zahlen vom Server
             self.cm_counts = dict(doc.page.get("comment_counts") or {})
         self.blocks_box = None
@@ -543,6 +553,7 @@ class PageView(Gtk.Box):
         self.update_bubbles()
         self._start_presence()
         self.mark_presence()
+        self._start_live()
         if not self._built_once and self.cpanel is not None and (doc.page.get("comments_open") or 0) > 0:
             self.cpanel.reload()                              # Zahlen und ungelesen-Punkte am Block
         if not self._built_once:
@@ -578,7 +589,7 @@ class PageView(Gtk.Box):
         Datenbanken und Termine) werden wiederverwendet, Kopf, Tags und Rueckverweise bleiben stehen."""
         doc = self.doc
         if self.blocks_box is None or not doc.loaded or not doc.fetched or doc.is_database or \
-                (bool(doc.page.get("locked")) or doc.read_only) != self.editor.locked:
+                (bool(doc.page.get("locked")) or doc.read_only or self.livep.mode in ("ro", "lock")) != self.editor.locked:
             self.rebuild()
             return
         vadj = self.scroll.get_vadjustment().get_value()
@@ -788,7 +799,12 @@ class PageView(Gtk.Box):
         """Anwesenheit je Block (2.5): andere Personen, die gerade einen Block bearbeiten - farbiger Rand + "{name} bearbeitet"
         (nur Hinweis). Nach jedem Neuaufbau der Bloecke erneut."""
         by = {}
-        for u in getattr(self, "_pres_users", None) or []:
+        live_aw = getattr(self, "_live_aw", None) if self.livep.mode in ("live", "ro", "offline") else None
+        if live_aw:                                          # Live: Awareness (Block + Anzeigename vom Server)
+            for st in live_aw.values():
+                if isinstance(st.get("block"), str):
+                    by.setdefault(st["block"], []).append({"name": st.get("name") or "", "color": st.get("color")})
+        for u in getattr(self, "_pres_users", None) or [] if not live_aw else []:
             if isinstance(u, dict) and not u.get("me") and u.get("editing") and isinstance(u.get("block"), str):
                 by.setdefault(u["block"], []).append(u)
         for r in self.kit.rows():
@@ -799,6 +815,7 @@ class PageView(Gtk.Box):
     def block_focused(self, bid):
         if self.presence is not None:
             self.presence.focus_block(bid)
+        self.livep.focus(bid)
 
     def on_typed(self):
         self._typed_at = GLib.get_monotonic_time()
@@ -881,6 +898,10 @@ class PageView(Gtk.Box):
             return
         if d.get("gone"):
             doc.load(force=True)
+            return
+        if self.livep.active:                                # Live: Inhalt kommt als Update, nur die Revision merken
+            if isinstance(d.get("rev"), int) and d["rev"] > (doc.rev or 0):
+                doc.rev = d["rev"]
             return
         rev = d.get("rev")
         if not isinstance(rev, int) or rev <= (doc.rev or 0):
@@ -977,8 +998,113 @@ class PageView(Gtk.Box):
             self.header_changed()
 
     def live_reset(self):
+        if self.livep.active:
+            return
         if self.doc.fetched and not self.doc.dirty and self.doc.conflict is None:
             self.doc.load(force=True)
+
+    # --- Live mitschreiben (2.5, P3 Stufe 2) -------------------------------------------------------------------------
+    def _start_live(self):
+        from .livepage import eligible
+        if self.get_mapped() and self.livep.session is None and not self.doc.dirty and eligible(self):
+            self.livep.start()
+
+    def _live_meta(self):
+        """Kopf neu geladen, Inhalt live: Rolle/Sperre/Papierkorb koennen sich geaendert haben"""
+        if self.doc.read_only and self.livep.session is not None:
+            self.livep.session.ro = True
+            self.livep.live_mode("ro")
+        self.update_banners()
+        if self.header_changed:
+            self.header_changed()
+
+    def _live_reload(self):
+        self.live_banner.set_revealed(False)
+        self.livep.stop()
+        self.doc.load(force=True)
+
+    def live_state(self, mode, relock):
+        """Live-Modus gewechselt (None = Stufe 1): bei Wechsel zwischen Bearbeiten und Nur-Lesen neu aufbauen"""
+        if relock and self.doc.fetched:
+            self.rebuild()
+        self.update_banners()
+        self.mark_presence()
+        if mode == "live":
+            self.livep.focus(self.editor.focused_block)
+
+    def live_adopted(self, title_changed):
+        """Fremder Stand aus dem gemeinsamen Dokument. Hat sich im fokussierten Textfeld nur dessen Text geaendert, wird er
+        an Ort und Stelle ersetzt (Schreibmarke ueber den Text verschoben, kein Neuaufbau, kein Echo); sonst blockweise neu
+        zeichnen (unveraenderte Bloecke bleiben stehen), die Schreibmarke bleibt im eigenen Block an derselben Stelle."""
+        from .collab import map_offset
+        ed = self.editor
+        rt = self.kit.by_key.get(ed.focus) if ed.focus else None
+        if rt is not None and rt.is_focus() and self._live_inplace(rt):
+            pass
+        else:
+            if rt is not None and rt.is_focus():
+                ed.focus_where = rt.cursor_offset()
+            elif ed.focus and self.kit.cells.get(ed.focus) is None and self.kit.by_key.get(ed.focus) is None:
+                ed.focus = None
+            self.rebuild_blocks()
+        if title_changed and self.title_rt is not None:
+            if self.title_rt.is_focus():
+                old, off = self.title_rt.text(), self.title_rt.cursor_offset()
+                self.title_rt.replace_live(self.doc.title_raw, map_offset(old, self.doc.title_raw, off))
+            else:
+                self.title_rt.loading = True
+                self.title_rt.set_html(self.doc.title_raw)
+                self.title_rt.loading = False
+            if self.header_changed:
+                self.header_changed()
+
+    def _live_inplace(self, rt):
+        """-> True, wenn nur der Text des fokussierten Felds (und keine andere Zeile) neu ist und er ersetzt wurde"""
+        from .collab import map_offset
+        from .blocks import fresh_links
+        from .richtext import inline_safe
+        ed, b = self.editor, rt.hk_block
+        # nur einfache Textbloecke: andere (Hinweis, Zitat ...) halten Teile ihres Blocks in eigenen Rueckrufen
+        if rt.hk_item is not None or not isinstance(b, dict) or b.get("type") not in ("paragraph", "header", "code"):
+            return False
+        loc = ed.locate(b.get("id"))
+        nb = loc[0][loc[1]] if loc else None
+        if nb is None or nb is b:
+            return False
+        od, nd = b.get("data") or {}, nb.get("data") or {}
+        if nb.get("type") != b.get("type") or set(od) != set(nd) or \
+                any(nd[k] != od[k] for k in nd if k != rt.hk_field) or \
+                {k: v for k, v in nb.items() if k != "data"} != {k: v for k, v in b.items() if k != "data"}:
+            return False
+        row = next((r for r in self.kit.rows() if r.block is b), None)
+        if row is None or row.depth != 0:
+            return False
+        # alle anderen Zeilen muessen unveraendert sein (gleiche Objekte) - sonst normaler Neuaufbau
+        others = [x for x in self.doc.root if x is not nb]
+        shown = [r.block for r in self.kit.rows() if r.depth == 0 and r.block is not b]
+        if len(others) != len(shown) or any(x is not y for x, y in zip(others, shown)):
+            return False
+        html = nd.get(rt.hk_field, "")
+        if not rt.raw:
+            html = fresh_links(html)
+            if not inline_safe(html):
+                return False
+        old_text, off = rt.text(), rt.cursor_offset()
+        rt.hk_block = nb
+        rt.replace_live(html, 0)
+        new_off = map_offset(old_text, rt.text(), off)
+        buf = rt.get_buffer()
+        buf.place_cursor(buf.get_iter_at_offset(new_off))
+        ed.focus_where = new_off
+        row.block = nb
+        row.sig = self.kit._sig(nb, row.depth)
+        self.kit.cache.pop(b.get("id"), None)
+        return True
+
+    def live_cursors(self, states):
+        """Andere Personen live auf der Seite: Block mit farbigem Rand + Name (wie Anwesenheit je Block, dezent)"""
+        self._live_aw = states
+        self.mark_presence()
 
     # --- KI-Assistent ----------------------------------------------------------------------------------------------
     def ai_on(self):
@@ -1121,6 +1247,12 @@ class PageView(Gtk.Box):
         self.changed_banner = Adw.Banner(title="", button_label=_("Reload"), revealed=False)
         self.changed_banner.connect("button-clicked", lambda *_: self._reload_from_banner())
         box.append(self.changed_banner)
+        # Live (2.5): andere Editor-Version (Schema) bzw. Stand, den die App nicht unveraendert zeigen kann -> nur lesen
+        self.live_banner = Adw.Banner(title=GLib.markup_escape_text(_(
+            "This page uses a different editor version – reload it (or update the app). Until then read-only.")),
+            button_label=_("Reload"), revealed=False)
+        self.live_banner.connect("button-clicked", lambda *_: self._live_reload())
+        box.append(self.live_banner)
         # Entwurf-Banner: zwei Knoepfe (Wiederherstellen / Verwerfen) - Adw.Banner kann nur einen; gezeichnet wie
         # Adw.Banner (CSS-Namen banner > revealer > widget: Farben von libadwaita, hell wie dunkel), "Verwerfen" flach
         self.copy_rev = Gtk.Revealer(transition_type=Gtk.RevealerTransitionType.SLIDE_DOWN)
@@ -1156,6 +1288,7 @@ class PageView(Gtk.Box):
         self.conflict_banner.set_revealed(doc.conflict is not None and self._conflict_dlg is None and not gone)
         if doc.conflict is not None:                         # ein Hinweis genuegt: "Fassung waehlen" (BUG-079)
             self.changed_banner.set_revealed(False)
+        self.live_banner.set_revealed(self.livep.mode == "lock" and not gone)
         # lokale Kopie: "Wiederherstellen" nur, wenn ich (noch) bearbeiten darf - bei Nur-Lesen bleibt "Verwerfen"
         # (der Text stand im Dialog zum Kopieren); ohne Zugriff kein Hinweis
         cps = doc.local_copies() if doc.fetched and not gone else []
@@ -1221,6 +1354,7 @@ class PageView(Gtk.Box):
         t = rt.text().replace("\n", " ")
         if t != self.doc.title_raw:
             self.doc.page["title"] = t
+            self.editor.live_hint = "title"
             self.editor.text_changed()
             if self.in_peek:
                 self.peek_title.set_label(t or _("Untitled"))
@@ -1996,6 +2130,8 @@ class PageView(Gtk.Box):
     # --- Tastatur / Einfuegen / Ziehen ---------------------------------------------------------------
     def _page_key(self, ctrl, kv, code, state):
         foc = self.win.get_focus() if self.win is not None else None
+        if self.livep.can_write and self._live_undo_key(foc, kv, state):
+            return True
         if self.cpanel is not None and foc is not None and foc.is_ancestor(self.cpanel):
             return False                                      # Eingabe im Kommentarfeld: nichts in die Seite einfuegen
         if clipimg.is_ctrl_v(kv, state) and not self.editor.locked and self.rcan("upload") and not self.doc.is_database:
@@ -2013,6 +2149,21 @@ class PageView(Gtk.Box):
                 self.editor.delete(sel, undo=True)
                 return True
         return False
+
+    def _live_undo_key(self, foc, kv, state):
+        """Live: Strg+Z / Strg+Umschalt+Z (Strg+Y) - im Textfeld zuerst dessen eigener Verlauf (nur eigene Eingaben), sonst
+        der Verlauf des gemeinsamen Dokuments (nur eigene Aenderungen, z. B. Block geloescht/verschoben)"""
+        mods = state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.ALT_MASK)
+        undo = mods == Gdk.ModifierType.CONTROL_MASK and kv in (Gdk.KEY_z, Gdk.KEY_Z)
+        redo = (mods == Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK and kv in (Gdk.KEY_z, Gdk.KEY_Z)) or \
+            (mods == Gdk.ModifierType.CONTROL_MASK and kv in (Gdk.KEY_y, Gdk.KEY_Y))
+        if not undo and not redo:
+            return False
+        if isinstance(foc, Gtk.TextView):
+            buf = foc.get_buffer()
+            if (undo and buf.get_can_undo()) or (redo and buf.get_can_redo()):
+                return False
+        return self.livep.undo() if undo else self.livep.redo()
 
     def block_undo_toast(self, undo):
         """Block geloescht: Hinweis mit "Rueckgaengig" (statt einer Rueckfrage)"""
