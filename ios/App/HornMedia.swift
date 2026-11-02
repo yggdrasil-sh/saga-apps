@@ -31,6 +31,9 @@ final class HornLeg: NSObject {
     var slots: [HornLogic.Slot] = []
     var est = 0
     var events: HornEvents?
+    /// 2.5 Uebergabe (L3): Ersatz-Bein noch nicht verbunden (kein Verbindungsverlust) bzw. altes Bein ersetzt (Ereignisse egal)
+    var pend = false
+    var replaced = false
     private(set) var tr: RTCRtpTransceiver?
     private(set) var cam: RTCRtpTransceiver?
     private(set) var scr: RTCRtpTransceiver?

@@ -27,10 +27,25 @@ extension Store {
         } catch { return .offline(error.localizedDescription) }
     }
 
-    func useGallery(_ id: String, parent: Int?, examples: Bool) async -> GalleryResult<GalleryLogic.Created> {
+    /// 2.5: Vorschau lesen - fragt die Vorlage nach dem Ort fuers Wetter? (Fehler/aelterer Server: nein)
+    func galleryAsksWeather(_ id: String) async -> Bool {
+        guard let path = GalleryLogic.previewPath(id, lang: AppConfig.appLanguage),
+              let (d, code) = try? await apiResponse(path), (200..<300).contains(code) else { return false }
+        return GalleryLogic.askWeather(d)
+    }
+    /// Ortssuche des Servers (wie der Widget-Editor im Web)
+    func geocode(_ q: String) async -> Result<[GalleryLogic.Place], GalleryLogic.GeoFailure> {
+        guard let path = GalleryLogic.geocodePath(q) else { return .success([]) }
+        guard let (d, code) = try? await apiResponse(path) else { return .failure(.unavailable) }
+        let f = GalleryLogic.geoFailure(code: code)
+        guard f == .none, let p = GalleryLogic.places(d) else { return .failure(f == .none ? .unavailable : f) }
+        return .success(p)
+    }
+
+    func useGallery(_ id: String, parent: Int?, examples: Bool, place: GalleryLogic.Place? = nil) async -> GalleryResult<GalleryLogic.Created> {
         guard let path = GalleryLogic.usePath(id) else { return .failure(.invalid) }
         do {
-            let (d, code) = try await apiResponse(path, method: "POST", body: GalleryLogic.useBody(parent: parent, examples: examples), timeout: 60)
+            let (d, code) = try await apiResponse(path, method: "POST", body: GalleryLogic.useBody(parent: parent, examples: examples, place: place), timeout: 60)
             guard (200..<300).contains(code) else {
                 let f = GalleryLogic.failure(code: code, data: d)
                 if f == .gone { galleryOrigin = nil; await probeGallery() }   // Galerie inzwischen abgeschaltet? neu fragen
@@ -192,6 +207,13 @@ private struct GalleryConfirm: View {
     @State private var examples = true
     @State private var busy = false
     @State private var error: String?
+    /// 2.5: Wetter-Widget ohne Ort - vor dem Anlegen nach dem Ort fragen (nil = noch unbekannt)
+    @State private var askWeather: Bool?
+    @State private var asking = false
+    @State private var query = ""
+    @State private var hits: [GalleryLogic.Place]?
+    @State private var geoNote: String?
+    @State private var searching = false
 
     var body: some View {
         Form {
@@ -228,19 +250,41 @@ private struct GalleryConfirm: View {
             if let error {
                 Section { Label { Text(verbatim: error) } icon: { Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange) } }
             }
+            if asking {
+                Section {
+                    Text("Die Vorlage enthält ein Wetter-Widget. Für welchen Ort?")
+                    HStack {
+                        TextField(String(localized: "Ort suchen …"), text: $query)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit { Task { await search() } }
+                            .disabled(busy)
+                            .accessibilityLabel(Text("Ort suchen …"))
+                        Button(String(localized: "Suchen")) { Task { await search() } }
+                            .disabled(busy || searching || GalleryLogic.geocodePath(query) == nil)
+                    }
+                    if searching { ProgressView().controlSize(.small) }
+                    if let geoNote { Text(verbatim: geoNote).foregroundStyle(.secondary) }
+                    ForEach(hits ?? []) { p in
+                        Button { Task { await use(place: p) } } label: { Label(p.label, systemImage: "mappin.and.ellipse") }
+                            .disabled(busy)
+                    }
+                    Button(String(localized: "Überspringen")) { Task { await use(place: nil) } }.disabled(busy)
+                } header: { Text("Ort fürs Wetter") }
+            }
             Section {
-                Button { Task { await use() } } label: {
+                Button { Task { await go() } } label: {
                     HStack {
                         Spacer()
                         if busy { ProgressView().controlSize(.small); Text("Wird angelegt …") } else { Text("Verwenden").bold() }
                         Spacer()
                     }
                 }
-                .disabled(busy)
+                .disabled(busy || asking)
                 .keyboardShortcut(.defaultAction)
             }
         }
         .formStyle(.grouped)
+        .task { if askWeather == nil { askWeather = await store.galleryAsksWeather(item.id) } }
         .navigationTitle(Text(verbatim: item.title))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -248,10 +292,27 @@ private struct GalleryConfirm: View {
         .interactiveDismissDisabled(busy)
     }
 
-    private func use() async {
+    /// "Verwenden": fragt die Vorlage nach dem Ort (ask_weather), erst fragen; sonst gleich anlegen
+    private func go() async {
+        let a: Bool
+        if let w = askWeather { a = w } else { busy = true; a = await store.galleryAsksWeather(item.id); busy = false; askWeather = a }
+        if a && !asking { asking = true } else { await use(place: nil) }
+    }
+
+    private func search() async {
+        guard GalleryLogic.geocodePath(query) != nil, !searching else { return }
+        searching = true; geoNote = nil
+        defer { searching = false }
+        switch await store.geocode(query) {
+        case .success(let p): hits = p; geoNote = p.isEmpty ? String(localized: "Kein Ort gefunden") : nil
+        case .failure(let f): hits = nil; geoNote = f == .rateLimited ? String(localized: "Zu viele Anfragen – bitte kurz warten.") : String(localized: "Ortssuche nicht erreichbar")
+        }
+    }
+
+    private func use(place: GalleryLogic.Place?) async {
         busy = true; error = nil
         defer { busy = false }
-        switch await store.useGallery(item.id, parent: parent, examples: examples) {
+        switch await store.useGallery(item.id, parent: parent, examples: examples, place: place) {
         case .ok(let c): done(c.root)
         case .failure(let f): error = galleryFailureText(f)
         case .offline(let m): error = m

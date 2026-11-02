@@ -45,8 +45,25 @@ extension CallManager {
         guard ShareJSON.int(c["v"]) == 2 else { roomHandle = nil; return }
         if roomHandle == nil { roomHandle = await store?.chat.fedMyHandle() }
     }
+    /// 2.5 Server meldet handover2 (gen, bedingtes /leave, promote, Wiedereintritt)
+    var ho2: Bool { serverFeatures.contains(CallRoom.featureHandover2) }
+    /// /leave-Body: mit handover2 immer mit gen (aus der Teilnehmerliste), Rueckfall zusaetzlich mit by
+    func leaveBody(_ dev: String, reason: String? = nil, by: String? = nil) -> [String: Any] {
+        CallRoom.leaveBody(device: dev, reason: reason, by: by, legs: roster.legs, v2: ho2)
+    }
+    /// bedingtes /leave senden (Ergebnis nur fuers Protokoll: stale = das Bein gilt nicht mehr, nichts passiert)
+    func postLeave(_ cid: String, _ body: [String: Any], after s: Double = 0) {
+        let store = self.store
+        Task {
+            if s > 0 { try? await Task.sleep(for: .seconds(s)) }
+            let r = try? await store?.apiResponse("api/calls/\(cid)/leave", method: "POST", body: body)
+            let res = CallRoom.leaveResult(code: r?.1, body: r.flatMap { ShareJSON.obj($0.0) })
+            CallEnv.log("leave \((body["device"] as? String)?.prefix(6) ?? "-") \(res)")
+        }
+    }
     func blockText(_ b: CallRoom.Block?, limit n: Int) -> String {
         switch b {
+        case .handoverBusy: return String(localized: "Ein anderes eigenes Gerät übernimmt den Anruf gerade – bitte kurz warten.")
         case .old: return String(localized: "Dafür braucht jemand im Anruf Saga 2.4.")
         case .full: return String(localized: "Der Anruf ist voll (höchstens \(n) Geräte).")
         case .ended: return String(localized: "Der Anruf ist schon beendet.")
@@ -140,7 +157,7 @@ extension CallManager {
                 if (c["state"] as? String) == "ended" { throw APIError.other(String(localized: "Der Anruf ist schon beendet.")) }
                 adoptCall(c)
                 await adoptV2(c)
-                if c["joinable"] as? Bool == false {
+                if !CallRoom.joinAllowed(role: r, joinable: c["joinable"] as? Bool, takeover: c["takeover"] as? Bool) {   // L4: voll - uebernehmen geht
                     throw APIError.other(blockText(CallRoom.block(c["join_block"] as? String), limit: limit))
                 }
                 roster.apply(CallRoom.legs(c["legs"]), rv: asked)
@@ -156,8 +173,9 @@ extension CallManager {
                 guard !ending, id == cid else { return }
                 try await offerAll(role: joinRole, rep: rep, again: false)
             } catch {
-                if inRoom, let dev = myDevice { Task { _ = try? await store?.apiResponse("api/calls/\(cid)/leave", method: "POST", body: ["device": dev]) } }
-                failed = true
+                if inRoom, let dev = myDevice { postLeave(cid, leaveBody(dev)) }
+                // 2.5 handover_busy: nur ein Hinweis (kein Fehler, nicht automatisch wiederholen)
+                failed = !(error is CallHint)
                 finish(nil, message: error.localizedDescription)
             }
         }
@@ -199,21 +217,19 @@ extension CallManager {
             sig[x.device] = s
         }
         var body: [String: Any] = ["device": dev, "role": r, "caps": myCaps, "signals": sig]
-        if r == "handover", let rep { body["replaces"] = rep }
+        if r == "handover", let rep { body["replaces"] = rep; hoArm(rep) }
         let asked = Date().timeIntervalSince1970
         let (d, code) = try await store.apiResponse("api/calls/\(id)/join", method: "POST", body: body)
         let j = ShareJSON.obj(d)
-        let blk = j?["join_block"] as? String
-        if code == 409, j?["legs"] != nil, blk == nil, !again {             // Liste veraltet: einmal neu anbieten
+        switch CallRoom.joinOutcome(code: code, body: j) {
+        case .ok: break
+        case .reoffer where !again:                                         // Liste veraltet: einmal neu anbieten
             roster.apply(CallRoom.legs(j?["legs"]), rv: asked)
             try await offerAll(role: r, rep: rep, again: true); return
-        }
-        guard (200..<300).contains(code) else {
-            if code == 409, blk != nil { throw APIError.other(ShareJSON.str(j?["error"]) ?? blockText(CallRoom.block(blk), limit: ShareJSON.int(j?["limit"]) ?? limit)) }
-            throw APIError.http(code, ShareJSON.str(j?["error"]) ?? "")
+        default: try joinThrow(code: code, j)
         }
         guard !ending, self.id == id else {
-            _ = try? await store.apiResponse("api/calls/\(id)/leave", method: "POST", body: ["device": dev])
+            postLeave(id, CallRoom.leaveBody(device: dev, reason: nil, by: nil, legs: CallRoom.legs((j?["call"] as? [String: Any])?["legs"]), v2: ho2))
             return
         }
         ready = true; inRoom = true
@@ -229,6 +245,21 @@ extension CallManager {
         let pending = early; early = []
         for s in pending { await handleRaw(s) }
         syncPrimary()
+    }
+
+    /// Uebernahme aus der Leiste: schon waehrend des join als laufend markieren (Wiedereintritt: eine Liste ohne dieses
+    /// Geraet beendet den Anruf hier nicht)
+    func hoArm(_ rep: String) {
+        if !ho.active { ho.begin(rep: rep, now: Date().timeIntervalSince1970, timeout: handoverSeconds) }
+    }
+    /// Fehlerantwort eines join als Fehler (handover_busy nur als Hinweis)
+    func joinThrow(code: Int, _ j: [String: Any]?) throws -> Never {
+        switch CallRoom.joinOutcome(code: code, body: j) {
+        case .busy(let e): throw CallHint(text: e ?? blockText(.handoverBusy, limit: limit))
+        case .blocked(let b, let e): throw APIError.other(e ?? hornBlockText(j?["join_block"] as? String) ?? blockText(b, limit: ShareJSON.int(j?["limit"]) ?? limit))
+        case .failed(let c, let e): throw APIError.http(c, e ?? "")
+        default: throw APIError.http(code, ShareJSON.str(j?["error"]) ?? "")
+        }
     }
 
     // MARK: Angebote neuer Geraete (die anderen im Raum)
@@ -316,10 +347,9 @@ extension CallManager {
         }
         // Dieses Geraet ist nicht mehr in der Liste, ein anderes eigenes aber schon: es hat uebernommen und dieses
         // abgemeldet - hier beenden (sonst lief der Anruf weiter, Knoten-Anruf "Hierher uebernehmen" iPhone -> Mac)
-        if (inRoom || ready), !ho.active, old?.contains(where: { $0.device == here }) == true, !legs.contains(where: { $0.device == here }),
-           // R09: nur wenn das andere Geraet gerade die Fuehrung uebernommen hat (neu bzw. vorher Begleitgeraet)
-           let other = legs.first(where: { x in x.who == me && x.device != here && !x.companion &&
-               (old?.first(where: { $0.device == x.device }).map { $0.companion } ?? true) }) {
+        // R09: nur wenn das andere Geraet gerade die Fuehrung uebernommen hat (neu, vorher Begleitgeraet bzw. 2.5 vorher
+        // handover - dessen Rueckfall hat dieses Geraet abgemeldet, weil state.ready nicht ankam)
+        if (inRoom || ready), !ho.active, let other = CallRoom.takenElsewhere(old: old, new: legs, here: here, me: me) {
             audioTrack?.isEnabled = false; mic = false; sound = false; applyPlayback()
             finish(.elsewhere, message: String(localized: "Anruf auf \(other.devName.isEmpty ? String(localized: "anderes Gerät") : other.devName) übernommen."))
             return
@@ -359,7 +389,7 @@ extension CallManager {
 
     // MARK: Uebernahme
 
-    private func hoTimer() {
+    func hoTimer() {
         hoTask?.cancel()
         let s = handoverSeconds
         hoTask = Task { [weak self] in
@@ -380,22 +410,30 @@ extension CallManager {
             CallEnv.log("handover: uebernehme von \(rep.prefix(6))")
             sound = true; applyPlayback()
             Task { await micOn() }
+            // 2.5 (L2): Rueckfall nur fuer genau dieses Bein (gen) und solange dieses Geraet noch dabei ist (by) - ein schneller
+            // Rueckwechsel wirft sonst das zurueckkehrende Geraet hinaus. gen/by jetzt festhalten (nicht erst beim Senden)
+            let lb = leaveBody(rep, reason: "handover", by: myDevice)
             if horn != nil {
                 // 2.5: ueber einen Knoten gibt es keine Direktverbindung zum alten Geraet - Bescheid ueber den Signalweg,
                 // und zur Sicherheit (aeltere App) dessen Platz kurz danach beim Server abmelden
                 let body = HornLogic.stateBody(mic: true, cam: cam && camera != nil && !camPaused, screen: sharing, hp: hornMyRefs(), replaces: rep)
+                let cid = id, wait = CallRoom.fallbackDelay(horn: true, handoverS: handoverSeconds)
                 Task {
                     await hornSend([rep: body])
-                    try? await Task.sleep(for: .seconds(3))
-                    if let id, let store { _ = try? await store.apiResponse("api/calls/\(id)/leave", method: "POST", body: ["device": rep, "reason": "handover"]) }
+                    if let cid { postLeave(cid, lb, after: wait) }
                 }
-            } else if let A = link(rep), A.established { stateOne(A, replaces: rep) }
-            else if let id, let store { Task { _ = try? await store.apiResponse("api/calls/\(id)/leave", method: "POST", body: ["device": rep, "reason": "handover"]) } }   // eigenes Geraet ohne Verbindung
+            } else if let A = link(rep), A.established {
+                stateOne(A, replaces: rep)
+                // L2 (B5): auch im Mesh ein Rueckfall, falls state.ready verloren geht (nach handover_s/2, bedingt)
+                if ho2, let id { postLeave(id, lb, after: CallRoom.fallbackDelay(horn: false, handoverS: handoverSeconds)) }
+            }
+            else if let id { postLeave(id, lb) }                            // eigenes Geraet ohne Verbindung
             syncPrimary()
         case .fail:
             handingOver = false
+            if let u = ho.undo { promoteUndo(u) }                           // L3: Befoerderung zuruecknehmen
             if joinRole == "handover" {                                      // aus der Leiste: verlassen, das alte bleibt
-                if let id, let dev = myDevice, let store { Task { _ = try? await store.apiResponse("api/calls/\(id)/leave", method: "POST", body: ["device": dev]) } }
+                if let id, let dev = myDevice { postLeave(id, leaveBody(dev)) }
                 finish(nil, message: String(localized: "Übernahme hat nicht geklappt – der Anruf läuft auf dem anderen Gerät weiter."))
             } else {
                 toast = String(localized: "Übernahme hat nicht geklappt – der Anruf läuft auf dem anderen Gerät weiter.")
@@ -410,10 +448,62 @@ extension CallManager {
             companion = false; sound = true; applyPlayback(); Task { await micOn() }
             return
         }
-        ho.begin(rep: main.device, now: Date().timeIntervalSince1970, timeout: handoverSeconds)
+        // 2.5 (L3) ueber einen Knoten: erst befoerdern (Token mit Ton-Recht), Ton-Bein neu, dann state.ready wie immer
+        let promo = CallRoom.needsPromote(horn: horn != nil, v2: ho2)
+        ho.begin(rep: main.device, now: Date().timeIntervalSince1970, timeout: handoverSeconds, promote: promo)
         handingOver = true
+        if promo { hoTimer(); promoteHere(attempt: ho.attempt); return }
         hoCheck()
         if ho.active { hoTimer() }
+    }
+    /// L3: POST /promote fuer dieses Geraet, dann Ton-Bein mit den neuen Token neu (gleiche leg_ref ersetzt das alte am
+    /// Knoten); klappt etwas nicht: Befoerderung zuruecknehmen, das alte Geraet bleibt Hauptgeraet
+    private func promoteHere(attempt n: Int) {
+        guard let store, let id, let dev = myDevice else { return }
+        let cls = hornDevClass
+        Task {
+            do {
+                let asked = Date().timeIntervalSince1970
+                let r = try? await store.apiResponse("api/calls/\(id)/promote", method: "POST", body: CallRoom.promoteBody(device: dev, devClass: cls))
+                let j = r.flatMap { ShareJSON.obj($0.0) }
+                guard ho.attempt == n, ho.active, !ending, self.id == id else { return }
+                switch CallRoom.promoteOutcome(code: r?.1, body: j) {
+                case .old:                                                  // foederiert ohne promote: wie bisher
+                    CallEnv.log("promote: Server kann es nicht - ohne Befoerderung")
+                case .failed(let e): throw APIError.other(e ?? String(localized: "Das ging gerade nicht."))
+                case .ok(let already):
+                    ho.promotedNow(already: already)
+                    if let c = j?["call"] as? [String: Any] { rosterIn(CallRoom.legs(c["legs"]), rv: asked, extra: c) }
+                    try await hornReAudio(j?["horn"])
+                }
+                guard ho.attempt == n, ho.active, !ending else { return }
+                ho.promoReady()
+                hoCheck()
+            } catch {
+                guard ho.attempt == n, ho.active, !ending else { return }
+                hoTask?.cancel()
+                if let u = ho.cancel() { promoteUndo(u) }
+                handingOver = false
+                CallEnv.log("promote: \(error.localizedDescription)")
+                toast = error.localizedDescription + " – " + String(localized: "Übernahme hat nicht geklappt – der Anruf läuft auf dem anderen Gerät weiter.")
+            }
+        }
+    }
+    /// Befoerderung zuruecknehmen: das bisherige Hauptgeraet wieder befoerdern
+    func promoteUndo(_ rep: String) {
+        guard let store, let id else { return }
+        CallEnv.log("promote: zurueck an \(rep.prefix(6))")
+        Task { _ = try? await store.apiResponse("api/calls/\(id)/promote", method: "POST", body: CallRoom.promoteBody(device: rep, devClass: nil)) }
+    }
+    /// call.mod {action: mute, why: handover}: ein anderes eigenes Geraet fuehrt den Anruf - dieses bleibt still als
+    /// Begleitgeraet dabei (kein "hat dich stummgeschaltet", laufende Uebernahme abbrechen)
+    func handoverMuted() {
+        hoTask?.cancel()
+        if let u = ho.cancel() { promoteUndo(u) }
+        handingOver = false; companion = true
+        if mic { mic = false; audioTrack?.isEnabled = false; CallSystem.shared.muted(self, true); stateOut(); hornMic() }
+        sound = false; applyPlayback(); hornAudioRoute()
+        toast = String(localized: "Ein anderes eigenes Gerät führt den Anruf – dieses bleibt als Begleitgerät dabei.")
     }
     /// Dieses Geraet wurde von einem anderen eigenen Geraet uebernommen: still schalten, Bescheid geben, verlassen
     func handoverOut(from: String) {
@@ -424,9 +514,10 @@ extension CallManager {
         // erst "bye" an die anderen (danach nimmt der Server keine Signale dieses Geraets mehr an), dann verlassen
         let bye = byes(reason: "handover", except: from)
         let store = self.store
+        let lb = leaveBody(dev, reason: "handover")                        // 2.5 (L5): mit gen - ist dieses Geraet inzwischen wieder beigetreten, gilt es nicht
         Task {
             if !bye.isEmpty { _ = try? await store?.apiResponse("api/calls/\(id)/signal", method: "POST", body: ["device": dev, "signals": bye]) }
-            _ = try? await store?.apiResponse("api/calls/\(id)/leave", method: "POST", body: ["device": dev, "reason": "handover"])
+            _ = try? await store?.apiResponse("api/calls/\(id)/leave", method: "POST", body: lb)
         }
         let x = roster.leg(from)
         finish(.elsewhere, message: String(localized: "Anruf auf \(x?.devName.isEmpty == false ? x!.devName : String(localized: "anderes Gerät")) übernommen."))
@@ -515,7 +606,7 @@ extension CallManager {
         if runBars != bars { runBars = bars }
     }
     func bar(_ x: CallRoom.Running) -> CallRoom.Bar {
-        CallRoom.bar(x, here: myDevice ?? "", current: busy ? id : nil, ringing: incoming?.id == x.id)
+        CallRoom.bar(x, here: myDevice ?? "", current: busy ? id : nil, ringing: incoming?.id == x.id, rejoin: ho2)
     }
 
     // MARK: Faehigkeiten melden
@@ -532,4 +623,10 @@ extension CallManager {
             .map { (200..<300).contains($0.1) } ?? false
         if !ok { capsSent = "" }
     }
+}
+
+/// Hinweis statt Fehler (z. B. 409 handover_busy): Anruf hier nicht aufbauen, aber nicht als fehlgeschlagen zeigen
+struct CallHint: LocalizedError {
+    let text: String
+    var errorDescription: String? { text }
 }
