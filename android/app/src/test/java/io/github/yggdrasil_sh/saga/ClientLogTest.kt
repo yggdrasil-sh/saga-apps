@@ -57,6 +57,84 @@ class ClientLogTest {
         assertFalse(ClientLog.scrub("connect to fe80::1:2:3 failed").contains("fe80"))
     }
 
+    // Die Regeln HOST/EMAIL/TOKEN/NUM/WORD sind von Hand geschrieben (java.util.regex warf bei langen Ketten
+    // StackOverflowError); hier gegen die bisherigen Regex verglichen.
+    private val rEmail = Regex("""[\w.+\-]+@[\w\-]+(?:\.[\w\-]+)+""")
+    private val rHost = Regex("""(?<![\w.$/])(?:[a-z0-9][a-z0-9\-]*\.)+([a-z]{2,24})(?![\w.$(])""", RegexOption.IGNORE_CASE)
+    private val rToken = Regex("""(?<![\w~])(?=[A-Za-z_\-+=]*\d)[A-Za-z0-9_\-+=]{20,}""")
+    private val rNum = Regex("""(^|[^\w$<])\d+(?:[.,]\d+)*""")
+    private val rWord = Regex("""<[a-z]+>|'[a-z_$][\w$.]{0,39}'|[^\W\d_][\w$]*(?:\.[\w$]+)*""")
+
+    private fun sameAsRegex(s: String) {
+        assertEquals(s, s.replace(rEmail, "<email>"), ClientLog.emails(s))
+        assertEquals(s, rHost.replace(s) { "[" + it.groupValues[1] + "|" + it.value + "]" }, ClientLog.hosts(s) { t, v -> "[$t|$v]" })
+        assertEquals(s, s.replace(rToken, "<tok>"), ClientLog.tokens(s))
+        assertEquals(s, rNum.replace(s) { it.groupValues[1] + "<n>" }, ClientLog.nums(s))
+        assertEquals(s, rWord.replace(s) { "[" + it.value + "]" }, ClientLog.words(s) { "[$it]" })
+    }
+
+    @Test fun rulesSameAsRegex() {
+        listOf(
+            "Unable to resolve host saga.example.net: No address", "Hostname cloud.mueller.family not verified", "nas.fritz.box/10.0.0.2",
+            "at java.lang.Thread.run(Thread.java:1012)", "ClientLog.kt failed", "x.Y.com", "b.lan.", "a.b(", "\u212Aelvin.org",
+            "xn--mller-kva.example", "a-.b.cd", ".a.bc", "a..bc", "2.5.0-rc.3", "1.000,50", "\$1.5", "<n>1", "a1.2", "1.2.", "1,,2",
+            "anna@example.org", "a@b", "a@b.c.d.", "x.y+z@a-b.c_d", "a@@b.cd", "@b.cd", "token abcdefghij1234567890XYZ", "~abcdefghij1234567890X",
+            "abcdefghijklmnopqrs1", "-------------------1", "<w> <abc> <a1> 'title' 'a.b$' 'Ab' ''", "x\$y.z\$.w", "\u00e4bc.d\u00e9", "_a.b",
+        ).forEach { sameAsRegex(it) }
+        val rnd = java.util.Random(7)
+        val parts = listOf("a.", "a-", "1.", "com", "kt", "Ab", "@", ".", "'", "<w>", "1234567890", "xn--", "abc1def2ghi3jkl4mno5p", "~", "$", " ", "(", ",", "_", "\u212A")
+        repeat(20_000) { sameAsRegex((0 until rnd.nextInt(1, 10)).joinToString("") { parts[rnd.nextInt(parts.size)] }) }
+    }
+
+    @Test fun scrubNormalCases() {
+        mapOf(
+            "Unable to resolve host \"nas.fritz.box\": No address associated with hostname" to "<w> to <w> <w> \"<str>\": No <w> <w> with <w>",
+            "Unable to resolve host nas.fritz.box" to "<w> to <w> <w> <host>",
+            "Hostname cloud.mueller.family not verified" to "<w> <host> not <w>",
+            "SSLHandshakeException: Chain validation failed for api.example.co.uk" to "SSLHandshakeException: <w> <w> failed for <host>",
+            "failed to connect to my-server.home.arpa/10.0.0.2 (port 443)" to "failed to <w> to <host><path> (<w> <n>)",
+            "at java.lang.Thread.run(Thread.java:1012)" to "at java.lang.Thread.run(Thread.java:<n>)",
+            "kotlinx.coroutines.JobCancellationException: Job was cancelled" to "kotlinx.coroutines.JobCancellationException: <w> was <w>",
+            "version 2.5.0-rc.3 build 1234" to "version <n>-<w>.<n> <w> <n>",
+            "an anna@cloud.mueller.family" to "an <email>",
+            "token abcdefghij1234567890XYZ used" to "token <tok> <w>",
+            "x.Y.com down" to "x.Y.com <w>",
+        ).forEach { (raw, want) -> assertEquals(raw, want, ClientLog.scrub(raw)) }
+    }
+
+    /** Laufzeit und Stack: lange Ketten in einem Thread mit 256 KB Stack (wie ein kleiner Android-Hintergrund-Thread) */
+    @Test fun scrubLongChainsSmallStack() {
+        val inputs = listOf("a.", "a-", "1.", "a.b-", "1,", "x@", "a_", "-", "Ab.", "a.b-c1.").map { it.repeat(4000 / it.length) } +
+            listOf("x@a" + ".a".repeat(2000), "-a".repeat(1000) + ".b".repeat(1000) + ".", ("a".repeat(19) + "1-").repeat(200))
+        var err: Throwable? = null
+        val times = LongArray(inputs.size)
+        val t = Thread(null, {
+            try {
+                repeat(2) { inputs.forEachIndexed { i, s -> val t0 = System.nanoTime(); ClientLog.hosts(s) { _, v -> v }; ClientLog.words(s) { it }; ClientLog.nums(s); ClientLog.scrub(s); times[i] = (System.nanoTime() - t0) / 1_000_000 } }
+            } catch (e: Throwable) {
+                err = e
+            }
+        }, "scrub", 256 * 1024)
+        t.start(); t.join()
+        assertNull("kein Fehler: $err", err)
+        times.forEachIndexed { i, ms -> assertTrue("${inputs[i].take(8)}: $ms ms", ms < 100) }
+        assertTrue(ClientLog.scrub("a.".repeat(2000)).length <= ClientLog.MSG_MAX)
+    }
+
+    @Test fun scrubNeverThrowsNeverLeaks() {
+        // ein Text, der beim Lesen wirft, darf nie durchgehen: message() faellt auf die Klasse zurueck
+        val bad = object : RuntimeException() { override val message: String get() = throw StackOverflowError() }
+        assertEquals(bad.javaClass.simpleName.ifEmpty { "Throwable" }, ClientLog.message(bad))
+        val boom = object : RuntimeException("x") { override fun getStackTrace(): Array<StackTraceElement> = throw StackOverflowError() }
+        assertEquals("", ClientLog.stack(boom))
+        val it = ClientLog.item("crash", boom, 1)
+        assertNull(it.stack)
+        assertTrue(ClientLog.crashLine(boom, 1, null).contains("\"crash\""))
+        // Kuerzung vor den Regeln am Wortende: kein angeschnittener Rechnername bleibt stehen
+        val long = "x ".repeat(497) + "abc.example.org failed"
+        assertFalse(ClientLog.scrub(long, 4000).contains("example"))
+    }
+
     @Test fun messageOfExceptions() {
         assertEquals("ApiException: http_conflict", ClientLog.message(ApiException(409, UiText.Raw("Seite Geheim geaendert"))))
         assertEquals("IllegalStateException", ClientLog.message(IllegalStateException()))

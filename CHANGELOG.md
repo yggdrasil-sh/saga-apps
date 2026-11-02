@@ -28,6 +28,9 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Einstellungen → Info → Hilfe → „Diagnose senden“:** die letzten 200 Ereignisse (Statuscodes je Endpunkt-Muster,
   Ansichtswechsel, Live-Verbindung, Speichern) und optional eine eigene Beschreibung; die Kennung `D-XXXXX` lässt sich
   kopieren. Ohne Unterstützung des Servers ausgegraut.
+- **Bereinigung robust:** sehr lange Fehlertexte (z. B. „a.a.a…“, „1.1.1…“) brachten die App beim Melden zum Absturz
+  (StackOverflowError in den Regeln); jetzt in linearer Zeit, Eingabe vor den Regeln höchstens 1000 Zeichen, im Fehlerfall
+  nur Platzhalter bzw. Klasse – nie der Text.
 
 ### Neu – Linux: Fehlerberichte und „Diagnose senden“ (nur mit Saga-Server, der `clientlog1` meldet)
 - **Programmfehler** (nicht abgefangene Ausnahmen, auch in Hintergrund-Threads und Rückrufen) sowie Server-Fehler 5xx,

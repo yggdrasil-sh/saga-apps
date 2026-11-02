@@ -60,21 +60,15 @@ object ClientLog {
 
     private val CTRL = Regex("[\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u202a-\\u202e\\u2066-\\u2069\\ufeff]")
     private val URL = Regex("""\b[a-z][a-z0-9+.\-]{1,15}://[^\s"'<>()]*|\bwww\.[^\s"'<>()]+|\b(?:blob|data|javascript|mailto|tel|content|file):[^\s"'<>()]*""", RegexOption.IGNORE_CASE)
-    private val EMAIL = Regex("""[\w.+\-]+@[\w\-]+(?:\.[\w\-]+)+""")
     private val SECRET = Regex("""\b(?:hkd?|sga)_[A-Za-z0-9_\-]{6,}|\bBearer\s+\S+""", RegexOption.IGNORE_CASE)
     private val QUOTE = Regex("'([^'\\n]{0,200})'|\"([^\"\\n]{0,200})\"|`([^`\\n]{0,200})`|\u201e([^\u201c\u201d\\n]{0,200})[\u201c\u201d]|\u201c([^\u201d\\n]{0,200})\u201d|\u00ab([^\u00bb\\n]{0,200})\u00bb")
     private val IDENT = Regex("""[A-Za-z_$][\w$.]{0,39}""")
     private val PATH = Regex("""(^|[^\w.:<])/[^\s"'<>()]+""")
     private val HANDLE = Regex("""[~@][\w.\-]{2,}""")
     private val UUID = Regex("""\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b""", RegexOption.IGNORE_CASE)
-    private val HEX = Regex("""\b(?:0x)?[0-9a-f]{8,}\b""", RegexOption.IGNORE_CASE)
-    /** Hostnamen ohne Schema ("Unable to resolve host example.org", "Hostname a.b.net not verified") */
-    private val HOST = Regex("""(?<![\w.$/])(?:[a-z0-9][a-z0-9\-]*\.)+([a-z]{2,24})(?![\w.$(])""", RegexOption.IGNORE_CASE)
+    private val HEX = Regex("""\b(?:0x)?[0-9a-f]{8,}+\b""", RegexOption.IGNORE_CASE)
     private val FILE_EXT = setOf("kt", "java", "swift", "py", "js", "so", "xml", "json", "png", "jpg", "jpeg", "webp", "gif", "mp4", "pdf", "txt")
     private val IPV6 = Regex("""\b[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{0,4}){3,7}\b""")
-    private val TOKEN = Regex("""(?<![\w~])(?=[A-Za-z_\-+=]*\d)[A-Za-z0-9_\-+=]{20,}""")
-    private val NUM = Regex("""(^|[^\w$<])\d+(?:[.,]\d+)*""")
-    private val WORD = Regex("""<[a-z]+>|'[a-z_$][\w$.]{0,39}'|[^\W\d_][\w$]*(?:\.[\w$]+)*""")
     private val PROGRAM = Regex("""[._\d${'$'}]|[a-z][A-Z]|(?:Error|Exception)$""")
     private val ALLOW = Regex("""[^\w\s.,:;()\[\]{}<>#'"=+\-*/!?&|%$~^]""")
     private val SPACES = Regex("""\s{2,}""")
@@ -99,14 +93,35 @@ object ClientLog {
         "upgrade user value values variable verification verify version video warning was webgl websocket were when " +
         "which while window with without worker write yet").split(' ').toSet()
 
-    /** Fehlertext ohne Inhalte, eine Zeile, hoechstens [max] Zeichen */
-    fun scrub(s0: String?, max: Int = MSG_MAX): String {
-        var s = (s0 ?: "").take(4000).replace(CTRL, " ")
+    /** Eingabe vor den Regeln hoechstens so lang (Ausgabe ist ohnehin <= [MSG_MAX]) */
+    const val SCRUB_IN = 1000
+
+    /**
+     * Fehlertext ohne Inhalte, eine Zeile, hoechstens [max] Zeichen. Wirft nie (auch keinen StackOverflowError): im
+     * Fehlerfall nur "<w>", nie der Text.
+     */
+    fun scrub(s0: String?, max: Int = MSG_MAX): String = try {
+        scrubRules(cut(s0 ?: "")).take(max)
+    } catch (_: Throwable) {
+        if (s0.isNullOrEmpty()) "" else "<w>"
+    }
+
+    /** auf [SCRUB_IN] kuerzen, ein angeschnittenes letztes Wort ganz weglassen (aus "a.example.org" wird sonst "a.ex") */
+    private fun cut(s: String): String {
+        if (s.length <= SCRUB_IN) return s
+        val c = s.substring(0, SCRUB_IN)
+        if (s[SCRUB_IN].isWhitespace()) return c
+        val k = c.indexOfLast { it.isWhitespace() }
+        return if (k > 0) c.substring(0, k) else c
+    }
+
+    private fun scrubRules(s0: String): String {
+        var s = s0.replace(CTRL, " ")
         s = s.replace(URL, "<url>")
-        s = s.replace(EMAIL, "<email>")
+        s = emails(s)
         s = s.replace(SECRET, "<secret>")
         // Rechnernamen ohne Schema ("Unable to resolve host x.example"), nicht Paketnamen (java.lang.X) oder Dateien (A.kt)
-        s = HOST.replace(s) { m -> if (m.groupValues[1].lowercase() in FILE_EXT || m.value.any { it.isUpperCase() }) m.value else "<host>" }
+        s = hosts(s) { tld, v -> if (tld.lowercase() in FILE_EXT || v.any { it.isUpperCase() }) v else "<host>" }
         s = QUOTE.replace(s) { m ->
             val x = m.groupValues.drop(1).firstOrNull { it.isNotEmpty() } ?: ""
             val q = m.value[0]
@@ -118,14 +133,202 @@ object ClientLog {
         s = s.replace(IPV6, "<n>")
         s = s.replace(UUID, "<uuid>")
         s = s.replace(HEX, "<hex>")
-        s = s.replace(TOKEN, "<tok>")
-        s = NUM.replace(s) { it.groupValues[1] + "<n>" }
-        s = WORD.replace(s) { m ->
-            val w = m.value
-            if (w[0] == '<' || w[0] == '\'' || w.length == 1 || PROGRAM.containsMatchIn(w) || w.lowercase() in ERR_WORDS) w else "<w>"
-        }
+        s = tokens(s)
+        s = nums(s)
+        s = words(s) { w -> if (w[0] == '<' || w[0] == '\'' || w.length == 1 || PROGRAM.containsMatchIn(w) || w.lowercase() in ERR_WORDS) w else "<w>" }
         s = s.replace(ALLOW, "?")
-        return s.replace(SPACES, " ").trim().take(max)
+        return s.replace(SPACES, " ").trim()
+    }
+
+    // Die folgenden Regeln sind von Hand geschrieben statt als Regex: java.util.regex rekursiert je Wiederholung einer
+    // Gruppe ((?:...)+), lange Ketten ("a.a.a...", "1.1.1...") warfen so StackOverflowError. Jede Funktion liefert genau
+    // das Ergebnis der darueber genannten Regex (Rueckverfolgung eingeschlossen, ClientLogTest vergleicht), in linearer
+    // bzw. hoechstens 24-fach linearer Zeit je Startstelle.
+
+    private fun isW(c: Char) = c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9' || c == '_'          // \w (ASCII)
+    private fun isD(c: Char) = c in '0'..'9'
+
+    /** [a-z] mit IGNORE_CASE (Kotlin setzt UNICODE_CASE): ASCII-Buchstaben und vier Sonderfaelle (I mit Punkt, i ohne Punkt, langes s, Kelvin) */
+    private fun isCiLetter(c: Char) = c in 'a'..'z' || c in 'A'..'Z' || c == '\u0130' || c == '\u0131' || c == '\u017f' || c == '\u212a'
+
+    /** erste Stelle >= i, an der [ok] nicht gilt (fuer alle i, von hinten) */
+    private inline fun runEnds(s: String, ok: (Char) -> Boolean): IntArray {
+        val r = IntArray(s.length + 1)
+        r[s.length] = s.length
+        for (i in s.length - 1 downTo 0) r[i] = if (ok(s[i])) r[i + 1] else i
+        return r
+    }
+
+    /** EMAIL `[\w.+\-]+@[\w\-]+(?:\.[\w\-]+)+` -> "<email>" */
+    internal fun emails(s: String): String {
+        val n = s.length
+        fun loc(c: Char) = isW(c) || c == '.' || c == '+' || c == '-'
+        fun dom(c: Char) = isW(c) || c == '-'
+        val out = StringBuilder(n)
+        var last = 0
+        var i = 0
+        while (i < n) {
+            if (!loc(s[i])) { i++; continue }
+            var r = i
+            while (r < n && loc(s[r])) r++
+            // jede Startstelle in [i, r) endet am selben '@' mit derselben Domain: alle gelingen oder scheitern gleich
+            if (r < n && s[r] == '@') {
+                var e = r + 1
+                while (e < n && dom(s[e])) e++
+                var groups = 0
+                if (e > r + 1) while (e + 1 < n && s[e] == '.' && dom(s[e + 1])) {
+                    e += 2
+                    while (e < n && dom(s[e])) e++
+                    groups++
+                }
+                if (groups > 0) {
+                    out.append(s, last, i).append("<email>")
+                    last = e
+                    i = e
+                    continue
+                }
+            }
+            i = r
+        }
+        return if (last == 0) s else out.append(s, last, n).toString()
+    }
+
+    /**
+     * HOST `(?<![\w.$/])(?:[a-z0-9][a-z0-9\-]*\.)+([a-z]{2,24})(?![\w.$(])` (IGNORE_CASE): Hostnamen ohne Schema
+     * ("Unable to resolve host example.org"); [f] bekommt Endung und Treffer und liefert den Ersatz.
+     */
+    internal fun hosts(s: String, f: (tld: String, value: String) -> String): String {
+        val n = s.length
+        fun alnum(c: Char) = isCiLetter(c) || isD(c)
+        val lab = runEnds(s) { alnum(it) || it == '-' }
+        val let = runEnds(s) { isCiLetter(it) }
+        // Endung ab p: laengste Buchstabenfolge 2..24, nach der die Vorausschau passt (sonst -1)
+        fun tldEnd(p: Int): Int {
+            var t = minOf(let[p] - p, 24)
+            while (t >= 2) {
+                val e = p + t
+                if (e >= n || !(isW(s[e]) || s[e] == '.' || s[e] == '$' || s[e] == '(')) return e
+                t--
+            }
+            return -1
+        }
+        // Abschnitte "label." ab q sind eindeutig (ein Label endet nur am Punkt). Die Wiederholung gibt von hinten nach:
+        // gewaehlt wird die letzte Abschnittsgrenze mit passender Endung. best[q] = Ende des Treffers ab Labelanfang q
+        // (oder -1), von rechts gerechnet - so bleibt die Suche linear.
+        val best = IntArray(n + 1) { -1 }
+        val bestT = IntArray(n + 1)
+        for (q in n - 1 downTo 0) {
+            if (!alnum(s[q])) continue
+            val r = lab[q]
+            if (r >= n || s[r] != '.') continue
+            val p = r + 1
+            if (p < n && best[p] >= 0) { best[q] = best[p]; bestT[q] = bestT[p] }
+            else if (p < n) { val e = tldEnd(p); if (e >= 0) { best[q] = e; bestT[q] = p } }
+        }
+        val out = StringBuilder(n)
+        var last = 0
+        var i = 0
+        while (i < n) {
+            val b = if (i > 0) s[i - 1] else ' '
+            if (alnum(s[i]) && !(isW(b) || b == '.' || b == '$' || b == '/')) {
+                val end = best[i]
+                if (end >= 0) {
+                    out.append(s, last, i).append(f(s.substring(bestT[i], end), s.substring(i, end)))
+                    last = end
+                    i = end
+                    continue
+                }
+            }
+            i++
+        }
+        return if (last == 0) s else out.append(s, last, n).toString()
+    }
+
+    /** TOKEN `(?<![\w~])(?=[A-Za-z_\-+=]*\d)[A-Za-z0-9_\-+=]{20,}` -> "<tok>" */
+    internal fun tokens(s: String): String {
+        val n = s.length
+        val nd = runEnds(s) { it in 'a'..'z' || it in 'A'..'Z' || it == '_' || it == '-' || it == '+' || it == '=' }
+        val tr = runEnds(s) { isW(it) || it == '-' || it == '+' || it == '=' }
+        val out = StringBuilder(n)
+        var last = 0
+        var i = 0
+        while (i < n) {
+            val b = if (i > 0) s[i - 1] else ' '
+            val k = nd[i]
+            if (!(isW(b) || b == '~') && k < n && isD(s[k]) && tr[i] - i >= 20) {
+                out.append(s, last, i).append("<tok>")
+                last = tr[i]
+                i = tr[i]
+                continue
+            }
+            i++
+        }
+        return if (last == 0) s else out.append(s, last, n).toString()
+    }
+
+    /** NUM `(^|[^\w$<])\d+(?:[.,]\d+)*` -> Vorzeichen + "<n>" */
+    internal fun nums(s: String): String {
+        val n = s.length
+        val out = StringBuilder(n)
+        var last = 0
+        var i = 0
+        while (i < n) {
+            val b = if (i > 0) s[i - 1] else ' '
+            if (isD(s[i]) && (i == 0 || !(isW(b) || b == '$' || b == '<'))) {
+                var e = i
+                while (e < n && isD(s[e])) e++
+                while (e + 1 < n && (s[e] == '.' || s[e] == ',') && isD(s[e + 1])) {
+                    e += 2
+                    while (e < n && isD(s[e])) e++
+                }
+                out.append(s, last, i).append("<n>")
+                last = e
+                i = e
+                continue
+            }
+            i++
+        }
+        return if (last == 0) s else out.append(s, last, n).toString()
+    }
+
+    /** WORD `<[a-z]+>|'[a-z_$][\w$.]{0,39}'|[^\W\d_][\w$]*(?:\.[\w$]+)*`; [f] liefert den Ersatz je Treffer */
+    internal fun words(s: String, f: (String) -> String): String {
+        val n = s.length
+        fun wd(c: Char) = isW(c) || c == '$'
+        val out = StringBuilder(n)
+        var last = 0
+        var i = 0
+        while (i < n) {
+            val c = s[i]
+            var e = -1
+            if (c == '<') {
+                var k = i + 1
+                while (k < n && s[k] in 'a'..'z') k++
+                if (k > i + 1 && k < n && s[k] == '>') e = k + 1
+            }
+            if (e < 0 && c == '\'' && i + 1 < n && (s[i + 1] in 'a'..'z' || s[i + 1] == '_' || s[i + 1] == '$')) {
+                var k = i + 2
+                while (k < n && k - i - 2 < 39 && (wd(s[k]) || s[k] == '.')) k++
+                if (k < n && s[k] == '\'') e = k + 1
+            }
+            if (e < 0 && (c in 'a'..'z' || c in 'A'..'Z')) {
+                var k = i + 1
+                while (k < n && wd(s[k])) k++
+                while (k + 1 < n && s[k] == '.' && wd(s[k + 1])) {
+                    k += 2
+                    while (k < n && wd(s[k])) k++
+                }
+                e = k
+            }
+            if (e > i) {
+                out.append(s, last, i).append(f(s.substring(i, e)))
+                last = e
+                i = e
+                continue
+            }
+            i++
+        }
+        return if (last == 0) s else out.append(s, last, n).toString()
     }
 
     /**
@@ -176,7 +379,11 @@ object ClientLog {
     }
 
     /** Meldung einer Ausnahme: Klasse + bereinigter Text; ohne Text nur die Klasse */
-    fun message(e: Throwable): String {
+    fun message(e: Throwable): String = try { messageOf(e) } catch (_: Throwable) { clsOf(e) }
+
+    private fun clsOf(e: Throwable): String = try { e.javaClass.simpleName.ifEmpty { "Throwable" } } catch (_: Throwable) { "Throwable" }
+
+    private fun messageOf(e: Throwable): String {
         if (e is io.github.yggdrasil_sh.saga.data.ApiException) return "ApiException: ${httpName(e.code)}"
         val cls = e.javaClass.simpleName.ifEmpty { "Throwable" }
         // Meldungen mit Oberflaechen-Texten bzw. Server-Antworten (Namen, Titel) nie mitschicken: nur die Klasse
@@ -205,7 +412,9 @@ object ClientLog {
     }
 
     /** Stack: nur Klasse.Methode(Datei:Zeile), Ursachen nur als Klasse; <= 20 Zeilen / 2000 Zeichen */
-    fun stack(e: Throwable): String {
+    fun stack(e: Throwable): String = try { stackOf(e) } catch (_: Throwable) { "" }
+
+    private fun stackOf(e: Throwable): String {
         val out = ArrayList<String>()
         var n = 0
         fun add(x: String): Boolean {
@@ -324,7 +533,7 @@ object ClientLog {
 
     /** Eintrag aus einer Ausnahme (Bereinigung, Stack, Quelle) */
     fun item(k: String, e: Throwable, t: Long, screen: String? = null, msg: String? = null): Item {
-        val o = origin(frames(e))
+        val o = try { origin(frames(e)) } catch (_: Throwable) { null }
         return Item(
             k = if (k in KINDS) k else "error", msg = (msg?.let { scrub(it) } ?: message(e)).ifEmpty { "Error" },
             stack = stack(e).ifEmpty { null }, src = o?.first, line = o?.second?.takeIf { it >= 0 }, screen = screen, t = t,
@@ -492,7 +701,11 @@ object ClientLog {
     // ------------------------------------------------------------------------------------------------ Absturz-Notiz
 
     /** eine Zeile der Absturz-Notiz (nur bereinigter Text, kein Speicherabbild) */
-    fun crashLine(e: Throwable, t: Long, screen: String?): String = json.encodeToString(JsonElement.serializer(), item("crash", e, t, screen).json())
+    fun crashLine(e: Throwable, t: Long, screen: String?): String = try {
+        json.encodeToString(JsonElement.serializer(), item("crash", e, t, screen).json())
+    } catch (_: Throwable) {        // nie ohne Notiz: dann nur die Klasse
+        json.encodeToString(JsonElement.serializer(), Item(k = "crash", msg = clsOf(e), screen = screen, t = t).json())
+    }
 
     /** Notiz-Zeilen -> Eintraege (kaputte Zeilen verwerfen, Felder wie im Vertrag pruefen) */
     fun parseCrash(text: String): List<Item> = text.lineSequence().mapNotNull { ln ->
