@@ -1540,7 +1540,7 @@ final class CallManager: NSObject, ObservableObject {
         c.onInterrupt = { [weak self] on in self?.cameraInterrupted(on) }
     }
     #if os(iOS)
-    func switchCamera() { camera?.switchCamera(); frontCamera = camera?.front ?? true; hornDraw() }
+    func switchCamera() { camera?.switchCamera(); frontCamera = camera?.front ?? true; hornRetune(); hornDraw() }   // A1: Format der anderen Kamera
     var canSwitchCamera: Bool { camera?.canSwitch ?? false }
     func toggleSpeaker() {
         speaker.toggle()

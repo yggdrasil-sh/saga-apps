@@ -83,8 +83,11 @@ final class HornConn {
     var gauge = CallDiag.Gauge()
     var shown = CallDiag.Debounce(HornLogic.Quality.good)
     var onUp: ((Bool) -> Void)?
+    /// A1: Sendestufe auf TCP/TLS aus der RTT der Bild-Leitung (UDP: aus, GCC regelt)
+    var gov: HornTx.Gov?
     init(key: String, cand: HornLogic.Candidate, path: String, now: Double) {
         self.key = key; self.cand = cand; node = cand.node; url = cand.url; self.path = path; created = now
+        gov = path == "udp" ? nil : HornTx.Gov(path: path)
     }
     var aLeg: HornLeg? { legs["audio"] ?? legs["both"] }
     var vLeg: HornLeg? { legs["video"] ?? legs["both"] }
@@ -740,7 +743,9 @@ extension CallManager {
 
     // MARK: Laufende Beobachtung (alle 0,5 s)
 
-    /// 2.5 Akku: Kamera-Schichten nach Zahl der anderen und Energiesparen (Stromsparmodus, Geraet heiss)
+    /// 2.5 Akku: Kamera-Schichten nach Zahl der anderen und Energiesparen (Stromsparmodus, Geraet heiss); A1 (Labor 2.11.):
+    /// auf TCP/TLS bleibt l auch zu zweit an (Ausweichschicht), m und Bildschirm folgen den Deckeln und der Stufe aus der
+    /// RTT (HornTx.plan/Gov), beim Teilen auf TCP/TLS Kamera nur l. UDP unveraendert (P03). Nur bei Aenderung neu setzen.
     func hornTune(_ conn: HornConn) {
         horn?.tuneT = Self.hornNow()
         let mine = Set(hornMyRefs() + [hornMyRef(conn)])
@@ -750,9 +755,14 @@ extension CallManager {
         let hot = horn?.hot.update(now: Self.hornNow(), raw: th.rawValue >= ProcessInfo.ThermalState.serious.rawValue) ?? false
         if hot != wasHot { diagEvent("thermal", "\(hot ? "heiss" : "normal") (Stufe \(th.rawValue))") }
         let low = ProcessInfo.processInfo.isLowPowerModeEnabled || hot
-        let (on, fps) = HornLogic.camActive(path: conn.path, others: others, lowPower: low)
-        let line = "schichten \(on.sorted()) fps \(fps.map(String.init) ?? "-") (andere \(others)) waerme \(th.rawValue)"
-        for L in conn.legs.values where L.tuneCam(on: on, fps: fps) { horn?.trace(line) }
+        let lv = conn.gov?.level ?? 0
+        // kurze Seite (Hochkant: Breite) von Kamera und geteiltem Bildschirm; 0 = unbekannt (dann keine Verkleinerung)
+        let plan = HornTx.plan(path: conn.path, level: lv, others: others, share: sharing, h: camera?.height ?? 0,
+                               sh: sharing ? capture.sink.shortSide : 0, lowPower: low)
+        let fps = plan.maxFps
+        let on = plan.cam.filter { $0.value.active }.keys
+        let line = "schichten \(on.sorted()) fps \(fps.map(String.init) ?? "-") stufe \(lv) (andere \(others)) waerme \(th.rawValue)"
+        for L in conn.legs.values where L.tune(plan) { horn?.trace(line) }
         if let H = horn, H.tuneKey != line { H.tuneKey = line; diagEvent("layers", line) }
     }
     func hornMon() {
@@ -873,7 +883,7 @@ extension CallManager {
     /// Qualitaet (RTT, Verlust, Einfrieren), UDP-Regeln, Nachforderung aus getStats
     private func hornStats(_ conn: HornConn) async {
         guard let H = horn else { return }
-        var rtt: Double?, lost = 0, recv = 0, fz = 0
+        var rtt: Double?, vrtt: Double?, lost = 0, recv = 0, fz = 0      // A1: vrtt = RTT der Bild-Leitung (dort staut sich das Bild)
         for L in conn.all {
             guard let pc = L.pc else { continue }
             let rep = await pc.statsAsync()
@@ -887,7 +897,10 @@ extension CallManager {
                     diagSample(type: s.type, values: v, src: src, key: L.role + "." + s.id, rtt: conn.rtt, report: rep)
                 }
                 if s.type == "candidate-pair", (v["nominated"] as? NSNumber)?.boolValue == true, (v["state"] as? String) == "succeeded",
-                   let r = (v["currentRoundTripTime"] as? NSNumber)?.doubleValue { rtt = max(rtt ?? 0, r * 1000) }
+                   let r = (v["currentRoundTripTime"] as? NSNumber)?.doubleValue {
+                    rtt = max(rtt ?? 0, r * 1000)
+                    if L.role != "audio" { vrtt = max(vrtt ?? 0, r * 1000) }
+                }
                 guard s.type == "inbound-rtp" else { continue }
                 let pk = (v["packetsReceived"] as? NSNumber)?.intValue ?? 0
                 lost += (v["packetsLost"] as? NSNumber)?.intValue ?? 0; recv += pk
@@ -907,6 +920,13 @@ extension CallManager {
         let dl = lost - p.lost, dr = recv - p.recv
         let loss = dl + dr > 0 ? Double(max(0, dl)) / Double(dl + dr) : 0
         conn.q5 = (lost, recv, fz, t)
+        // A1: Senderate auf TCP/TLS nach der RTT der Bild-Leitung (Ton laeuft getrennt); nur gemessene Werte (candidate-pair)
+        if let tx = conn.gov?.add(now: t, rtt: vrtt ?? rtt) {
+            let d = tx.line(conn.path)
+            if H.cur === conn { diagEvent("tx", d) }
+            H.trace("senderate \(d)")
+            hornTune(conn)
+        }
         if rtt == nil && !conn.rtts.isEmpty { rtt = HornLogic.median(conn.rtts) }
         // Anzeige: gleitendes 30-s-Fenster, Wechsel erst nach zwei gleichen Messungen (Analyse 1.11.); die UDP-Regel
         // unten bleibt beim 3-s-Verlust (UDP-Verlust > 20 % fuer 3 s -> TCP)
@@ -954,15 +974,19 @@ extension CallManager {
         for c in H.conns { if let L = c.aLeg, let t = L.tr, t.sender.track !== audioTrack { t.sender.track = audioTrack } }
         hornStateOut(); hornDraw()                                         // eigene Kachel: Stumm-Zeichen
     }
+    /// A1: Sendeparameter neu abstimmen (Kamera gewechselt, Format geaendert)
+    func hornRetune() { if let H = horn, hornLive(H), let c = H.cur { hornTune(c) } }
     func hornCam() {
         guard let H = horn else { return }
         for c in H.conns where c === H.cur || H.cur == nil { c.vLeg?.cam?.sender.track = camera?.track }
+        if let c = H.cur { hornTune(c) }                                    // A1: Hoehe der Kamera (an/aus) neu
         hornStateOut(); hornDraw()
     }
     /// Bildschirm ueber den Knoten: eigener Sender je Bild-Leitung (Platz "screen" bei den anderen)
     func hornScreen() {
         guard let H = horn else { return }
         for c in H.conns where c === H.cur || H.cur == nil { c.vLeg?.scr?.sender.track = sharing ? scrTrack : nil }
+        if let c = H.cur { hornTune(c) }                                    // A1: beim Teilen auf TCP/TLS Kamera nur l
         hornStateOut(); hornDraw()
     }
 

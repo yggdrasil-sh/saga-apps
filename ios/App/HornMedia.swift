@@ -8,7 +8,7 @@ import WebRTC
 // - Angebot: zuerst die eigenen Sendespuren, dann die Empfangsplaetze in fester Reihenfolge (Ton: 3; Bild: Sprecher,
 //   Bildschirm, Kacheln = Last-N - 1)
 // - Kamera mit Simulcast: TCP/TLS l (1/4) + m (voll); UDP l/m/h - alle T3, gleiche Bildrate (HornCamPlan). Bildschirm als eigener
-//   Sender (Stream-ID "screen…" und screen_mid), Raten wie 2.4 relay-tcp bzw. relay-udp
+//   Sender (Stream-ID "screen…" und screen_mid); UDP wie 2.4 relay-udp, TCP/TLS gedeckelt (A1, HornTx)
 // - FrameCryptor an JEDEM Sender vor der Verhandlung, auch ohne Spur (Platzhalter, HornCryptor.sender; ohne Cryptor kein
 //   Bein - kein Rahmen geht unverschluesselt raus), an jedem Empfangsplatz mit
 //   der Geraete-ID des Besitzers (wechselt der Besitzer, neuer Cryptor); ohne Besitzer ein Platzhalter ohne Schluessel
@@ -88,7 +88,8 @@ final class HornLeg: NSObject {
             guard let s = cam?.sender, cryptSender(s, .video, keyIndex) else { return fail() }
             let si = RTCRtpTransceiverInit(); si.direction = .sendOnly; si.streamIds = ["screen" + sid]
             let e = RTCRtpEncodingParameters()
-            e.maxBitrateBps = NSNumber(value: path == "udp" ? 1_800_000 : 1_200_000); e.maxFramerate = NSNumber(value: path == "udp" ? 15 : 8)
+            let sr = HornCamPlan.screenRate(path: path)                     // A1: TCP 900/8, TLS 600/5, UDP 1800/15
+            e.maxBitrateBps = NSNumber(value: sr.kbit * 1000); e.maxFramerate = NSNumber(value: sr.fps)
             si.sendEncodings = [e]
             scr = screen.flatMap { pc.addTransceiver(with: $0, init: si) } ?? pc.addTransceiver(of: .video, init: si)
             guard let s = scr?.sender, cryptSender(s, .video, keyIndex) else { return fail() }
@@ -111,22 +112,44 @@ final class HornLeg: NSObject {
             return e
         }
     }
-    /// 2.5 Akku: Kamera-Schichten an/aus und Bildrate (HornLogic.camActive) - setzt nur bei Aenderung; -> geaendert?
-    /// Bildrate gemeinsam fuer alle Schichten (HornCamPlan.maxFps), nie je Schicht verschieden
+    /// 2.5 Akku + A1: Sende-Parameter nach HornTx.plan - Kamera-Schichten an/aus, Deckel und Hoehe je rid (nur TCP/TLS),
+    /// gemeinsame Bildrate fuer alle Schichten (HornCamPlan.maxFps, nie je Schicht verschieden), Kamera BALANCED;
+    /// Bildschirm gedeckelt (TCP/TLS) und MAINTAIN_RESOLUTION. Setzt nur bei Aenderung; -> geaendert?
     @discardableResult
-    func tuneCam(on: Set<String>, fps: Int?) -> Bool {
-        guard let s = cam?.sender else { return false }
-        let p = s.parameters
-        var diff = false
-        let f = HornCamPlan.maxFps(fps)
-        for e in p.encodings {
-            guard let rid = e.rid else { continue }
-            let a = on.contains(rid)
-            if e.isActive != a { e.isActive = a; diff = true }
-            if e.maxFramerate?.intValue != f { e.maxFramerate = f.map { NSNumber(value: $0) }; diff = true }
+    func tune(_ plan: HornTx.Plan) -> Bool {
+        var any = false
+        if let s = cam?.sender {
+            let p = s.parameters
+            var diff = false
+            let f = HornCamPlan.maxFps(plan.maxFps)
+            for e in p.encodings {
+                guard let rid = e.rid, let w = plan.cam[rid] else { continue }
+                if e.isActive != w.active { e.isActive = w.active; diff = true }
+                if e.maxFramerate?.intValue != f { e.maxFramerate = f.map { NSNumber(value: $0) }; diff = true }
+                if let b = w.maxBps, e.maxBitrateBps?.intValue != b { e.maxBitrateBps = NSNumber(value: b); diff = true }
+                if let d = w.scaleDown, e.scaleResolutionDownBy?.doubleValue != d { e.scaleResolutionDownBy = NSNumber(value: d); diff = true }
+            }
+            // Kamera: Bildrate und Groesse ausgleichen (CPU/Waerme)
+            let bal = RTCDegradationPreference.balanced.rawValue
+            if !p.encodings.isEmpty, p.degradationPreference?.intValue != bal { p.degradationPreference = NSNumber(value: bal); diff = true }
+            if diff { s.parameters = p; any = true }
         }
-        if diff { s.parameters = p }
-        return diff
+        if let s = scr?.sender {
+            let p = s.parameters
+            var diff = false
+            if let e = p.encodings.first {
+                if let w = plan.screen {
+                    if e.maxBitrateBps?.intValue != w.maxBps { e.maxBitrateBps = NSNumber(value: w.maxBps); diff = true }
+                    if e.maxFramerate?.intValue != w.maxFps { e.maxFramerate = NSNumber(value: w.maxFps); diff = true }
+                    if e.scaleResolutionDownBy?.doubleValue != w.scaleDown { e.scaleResolutionDownBy = NSNumber(value: w.scaleDown); diff = true }
+                }
+                // Bildschirm: Schaerfe vor Bildrate
+                let mr = RTCDegradationPreference.maintainResolution.rawValue
+                if p.degradationPreference?.intValue != mr { p.degradationPreference = NSNumber(value: mr); diff = true }
+            }
+            if diff { s.parameters = p; any = true }
+        }
+        return any
     }
     private func addRecv(_ t: RTCRtpMediaType) {
         guard let pc else { return }

@@ -30,13 +30,16 @@ final class ScreenSink: @unchecked Sendable {
     private let repeatMs: Int?
     /// wiederholte Bilder (Statistik/Tests)
     private(set) var repeats = 0
+    /// A1: kurze Seite des zuletzt gelieferten Bildes (Deckel ueber den Knoten, HornTx.plan); 0 = noch keins
+    private var short = 0
+    var shortSide: Int { lock.lock(); defer { lock.unlock() }; return short }
 
     init(repeatMs: Int? = ScreenFrame.repeatMs) { self.repeatMs = repeatMs }
     deinit { timer?.cancel() }
 
     func set(_ s: RTCVideoSource?) {
         lock.lock()
-        source = s; last = nil
+        source = s; last = nil; short = 0
         let t = timer; timer = nil
         lock.unlock()
         t?.cancel()
@@ -50,7 +53,7 @@ final class ScreenSink: @unchecked Sendable {
     func deliver(_ pb: CVPixelBuffer, rotation: RTCVideoRotation) {
         lock.lock()
         let s = source
-        if s != nil { last = (pb, rotation); lastNs = DispatchTime.now().uptimeNanoseconds }
+        if s != nil { last = (pb, rotation); lastNs = DispatchTime.now().uptimeNanoseconds; short = min(CVPixelBufferGetWidth(pb), CVPixelBufferGetHeight(pb)) }
         lock.unlock()
         guard let s else { return }
         push(s, pb, rotation)
