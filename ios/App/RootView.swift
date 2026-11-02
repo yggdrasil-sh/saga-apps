@@ -143,7 +143,10 @@ struct RootView: View {
             }
             #endif
         }
-        .onChange(of: selection) { _, v in nav.path = []; nav.peek = nil; if v != FedLogic.chatsTag { openChat = nil } }
+        .onChange(of: selection, initial: true) { _, v in
+            nav.path = []; nav.peek = nil; if v != FedLogic.chatsTag { openChat = nil }
+            ClientLog.shared.view(ClientLogScreen.of(selection: v))          // 2.5 clientlog1: grober Ort, keine ID
+        }
         .onChange(of: nav.sharedJump) { _, _ in nav.peek = nil; nav.path = []; selection = nil }   // "Zu „Mit mir geteilt“" (Kein Zugriff)
         .onChange(of: nav.peek) { old, new in if old != nil && new == nil { store.dataChanged() } }   // Peek zu -> Ansichten auffrischen
         // Seite in den Papierkorb (Seitenmenue): offene Ansicht dieser Seite schliessen - als Hauptseite (Auswahl/Deep-Link)
@@ -209,6 +212,7 @@ struct RootView: View {
             store.chat.setAppActive(p == .active || RootView.forceActive)  // 2.4: Gelesen/Online nur im Vordergrund
         }
         .onChange(of: phase) { _, p in
+            if p == .active || p == .background { ClientLog.shared.life(p == .active ? "visible" : "hidden") }   // 2.5 clientlog1
             if p == .active { Task { await store.refresh(); store.live.start(); await store.calls.checkActive() } }       // im Web angelegte Seiten; Live nur im Vordergrund
             if p == .background { WidgetCenter.shared.reloadAllTimelines(); store.live.stop() }   // Widgets zeigen sofort den neuen Stand
         }

@@ -494,11 +494,14 @@ final class PageDoc: ObservableObject {
             guard (200..<300).contains(code) else {
                 overwriteNext = false
                 if code == 409 { draftBase = nil; baseSentNext = false }       // Basis nicht mehr da: bisheriger Dialog
+                ClientLog.shared.save(code == 409 ? "conflict" : "error", status: code)   // 2.5 clientlog1
+                if code != 409 && code < 500 && code != 401 { ClientLog.shared.report("error", ClientLogLogic.saveMessage(code: code)) }   // 5xx meldet schon der API-Client
                 failed(code: code, data: r, store: store)
                 return
             }
             overwriteNext = false; draftBase = nil
             let j = (try? JSONSerialization.jsonObject(with: r)) as? [String: Any] ?? [:]
+            ClientLog.shared.save(j["merged"] != nil ? "merged" : "ok")                  // 2.5 clientlog1
             if let nr = j["rev"] as? Int { rev = nr }
             switch MergeLogic.outcome(response: j, editsAtSend: sent, editsNow: tracker.snapshot) {
             case .saved:
@@ -531,6 +534,7 @@ final class PageDoc: ObservableObject {
             if access.updatedBy != nil && access.updatedBy?.me != true { access.updatedBy = SharePerson(name: "", me: true) }   // "zuletzt geaendert von" bin jetzt ich
             if parentSchema != nil { store.dataChanged() }          // Eintrag einer Datenbank: Titel in den Ansichten aktualisieren
         } catch {
+            ClientLog.shared.save((error as? URLError).map { [.notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotConnectToHost, .cannotFindHost].contains($0.code) } == true ? "offline" : "error")
             self.error = String(localized: "Nicht gespeichert – lokal gesichert, neuer Versuch folgt (\(error.localizedDescription)).")
             scheduleRetry(store)
         }

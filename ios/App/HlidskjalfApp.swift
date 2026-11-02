@@ -9,6 +9,7 @@ struct HlidskjalfApp: App {
     #else
     @UIApplicationDelegateAdaptor(IOSAppDelegate.self) private var appDelegate   // Mitteilungen (APNs-Token, Antippen)
     #endif
+    init() { CrashNote.install() }                                      // 2.5 clientlog1: Absturz-Notiz (vor allem anderen)
 
     var body: some Scene {
         #if os(macOS)
