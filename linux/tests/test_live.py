@@ -60,6 +60,16 @@ def test_item_texts_and_urls():
     assert item_text({"kind": "chat.message", "actor": a, "count": 1}) == "New message from Anna"
     assert item_text({"kind": "share.added", "actor": None, "role": "view"}) == "Deleted account shared a page with you (Can view)"
     assert item_text({"kind": "neu", "text": "Server-Text"}) == "Server-Text"
+    # (2.5) Erwaehnungen und Datenbank-Personen wie im Web (live.js), Schalter ohne Rohschluessel
+    from hlidskjalf.notifications import kind_label
+    assert item_text({"kind": "comment.mention", "actor": a}) == "Anna mentioned you in a comment"
+    assert item_text({"kind": "page.mention", "actor": a}) == "Anna mentioned you"
+    assert item_text({"kind": "chat.mention", "actor": a}) == "Anna mentioned you in a chat"
+    assert item_text({"kind": "db.assigned", "actor": a, "count": 1}) == "Anna assigned you"
+    assert item_text({"kind": "db.assigned", "actor": a, "count": 3}) == "Anna assigned you 3 times"
+    for k in ("db.assigned", "page.mention", "comment.mention", "chat.mention"):
+        assert kind_label(k) != k
+    assert item_title({"kind": "chat.mention", "title": "Team", "chat": {"id": 5}}) == "Team"
     assert item_title({"access": False, "note": {"title": "x"}}) == "No access anymore"
     assert item_title({"note": {"id": -2049, "title": "Fern", "icon": "", "host": "b.example"}}) == "Fern · b.example"
     assert item_tag({"chat": {"id": 5}}) == "chat-5" and item_tag({"thread_id": -7, "note": {"id": 1}}) == "thread--7"

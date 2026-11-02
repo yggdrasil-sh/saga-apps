@@ -770,6 +770,9 @@ class MainWindow(Adw.ApplicationWindow):
         from .calls import CallBar
         self.callbar = CallBar(self)                                # eingehender Anruf (2.1): Ablehnen / Annehmen
         ct.add_top_bar(self.callbar)
+        from .calls import RunBar
+        self.runbar = RunBar(self)                                  # (2.5, L6) Anruf laeuft auf einem anderen Geraet
+        ct.add_top_bar(self.runbar)
         store.connect("version-changed", lambda *_: self._version_banner())
         store.connect("version-changed", lambda *_: self.sidebar.fill(force=False))     # 2.5: Eintrag "Graph" je Server
         store.connect("version-changed", lambda *_: self._gallery_probe())               # 2.5: Vorlagengalerie je Server
@@ -789,9 +792,9 @@ class MainWindow(Adw.ApplicationWindow):
         bp2 = Adw.Breakpoint.new(Adw.BreakpointCondition.parse("max-width: 560sp"))
         bp2.add_setter(self.split, "collapsed", True)        # es gilt immer nur ein Breakpoint: Einklappen wiederholen
         bp2.connect("apply", lambda *_: (setattr(self, "very_narrow", True), self.update_header(), self.callbar.set_compact(True),
-                                         self._narrow_views()))
+                                         self.runbar.set_compact(True), self._narrow_views()))
         bp2.connect("unapply", lambda *_: (setattr(self, "very_narrow", False), self.update_header(), self.callbar.set_compact(False),
-                                           self._narrow_views()))
+                                           self.runbar.set_compact(False), self._narrow_views()))
         self.add_breakpoint(bp2)
         self.split.set_show_sidebar(bool(settings.get("sidebar_shown", True)))
         self.split.connect("notify::show-sidebar", self._sidebar_changed)

@@ -524,6 +524,12 @@ def test_page_render_and_roundtrip(win, srv):
     ls = labels(v)
     assert any("Preview outdated" in (x or "") or "Vorschau veraltet" in (x or "") for x in ls)
     assert any(getattr(x, "hk_render", None) == "/files/bbbbbbbbbbbbbbbbbbbbbbbb" for x in walk(v))
+    # Vorschaubild in CSS-Groesse (render.w), nicht doppelt so breit bzw. als hoher Kasten in Spaltenbreite (ho-linux)
+    from gi.repository import Adw
+    m1 = next(x for x in walk(v) if getattr(x, "hk_render", None) == "/files/aaaaaaaaaaaaaaaaaaaaaaaa")
+    cl = m1.get_parent()
+    assert isinstance(cl, Adw.Clamp) and cl.get_maximum_size() == 31 + 12 and m1.natural == 31
+    assert cl.get_halign() == Gtk.Align.CENTER
     assert any("Synced block" in (x or "") or "Synchronisiert" in (x or "") for x in ls)
     assert sum(1 for x in walk(v) if getattr(x, "hk_color", None) in ("blue", "red")) >= 2   # Tabellenfarben
     assert any(x == "Weather data: Open-Meteo.com" or "Open-Meteo" in (x or "") for x in ls)

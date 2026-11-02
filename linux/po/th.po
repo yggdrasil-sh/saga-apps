@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: saga\n"
 "Report-Msgid-Bugs-To: https://github.com/yggdrasil-sh/saga-apps/issues\n"
-"POT-Creation-Date: 2026-11-02 08:34+0100\n"
+"POT-Creation-Date: 2026-11-02 17:50+0100\n"
 "PO-Revision-Date: 2026-10-18 18:00+0200\n"
 "Last-Translator: Saga-Projekt\n"
 "Language-Team: ไทย\n"
@@ -55,7 +55,7 @@ msgid "Edit …"
 msgstr "แก้ไข …"
 
 #: hlidskjalf/agenda.py:62 hlidskjalf/agenda.py:155 hlidskjalf/assistant.py:947
-#: hlidskjalf/blocks.py:1458 hlidskjalf/chatview.py:2176
+#: hlidskjalf/blocks.py:1459 hlidskjalf/chatview.py:2176
 #: hlidskjalf/chatview.py:2182 hlidskjalf/comments.py:667
 #: hlidskjalf/comments.py:726
 msgid "Delete"
@@ -80,12 +80,12 @@ msgstr "ฐานข้อมูล"
 #: hlidskjalf/database.py:759 hlidskjalf/database.py:838
 #: hlidskjalf/database.py:839 hlidskjalf/database.py:1110
 #: hlidskjalf/graphview.py:821 hlidskjalf/graphview.py:1171
-#: hlidskjalf/publish.py:529 hlidskjalf/window.py:1950
+#: hlidskjalf/publish.py:529 hlidskjalf/window.py:1967
 msgid "Open"
 msgstr "เปิด"
 
-#: hlidskjalf/agenda.py:183 hlidskjalf/comments.py:713 hlidskjalf/page.py:1725
-#: hlidskjalf/page.py:2019 hlidskjalf/window.py:1867 hlidskjalf/window.py:1872
+#: hlidskjalf/agenda.py:183 hlidskjalf/comments.py:713 hlidskjalf/page.py:1859
+#: hlidskjalf/page.py:2170 hlidskjalf/window.py:1884 hlidskjalf/window.py:1889
 msgid "Undo"
 msgstr "เลิกทำ"
 
@@ -118,7 +118,7 @@ msgstr "เลยกำหนด"
 #: hlidskjalf/database.py:704 hlidskjalf/database.py:1395
 #: hlidskjalf/dbcells.py:333 hlidskjalf/pagewidgets.py:317
 #: hlidskjalf/pwcard2.py:185 hlidskjalf/richtext.py:495
-#: hlidskjalf/window.py:264 hlidskjalf/window.py:1209 hlidskjalf/window.py:1619
+#: hlidskjalf/window.py:264 hlidskjalf/window.py:1216 hlidskjalf/window.py:1636
 msgid "Today"
 msgstr "วันนี้"
 
@@ -158,14 +158,14 @@ msgstr "งาน"
 #: hlidskjalf/dialogs.py:188 hlidskjalf/dialogs.py:198
 #: hlidskjalf/dialogs.py:351 hlidskjalf/dialogs.py:577
 #: hlidskjalf/galeriedialog.py:126 hlidskjalf/nextcloud.py:723
-#: hlidskjalf/nextcloud.py:775 hlidskjalf/page.py:124 hlidskjalf/page.py:1587
-#: hlidskjalf/page.py:1774 hlidskjalf/page.py:1823 hlidskjalf/page.py:1924
+#: hlidskjalf/nextcloud.py:775 hlidskjalf/page.py:124 hlidskjalf/page.py:1721
+#: hlidskjalf/page.py:1908 hlidskjalf/page.py:1957 hlidskjalf/page.py:2058
 #: hlidskjalf/profile.py:162 hlidskjalf/publish.py:217
 #: hlidskjalf/settings.py:253 hlidskjalf/settings.py:286
 #: hlidskjalf/settings.py:501 hlidskjalf/settings.py:624
 #: hlidskjalf/settings.py:698 hlidskjalf/userbackup.py:257
 #: hlidskjalf/userbackup.py:335 hlidskjalf/userbackup.py:380
-#: hlidskjalf/window.py:939 hlidskjalf/window.py:1929 hlidskjalf/window.py:2013
+#: hlidskjalf/window.py:946 hlidskjalf/window.py:1946 hlidskjalf/window.py:2030
 msgid "Cancel"
 msgstr "ยกเลิก"
 
@@ -181,7 +181,7 @@ msgstr "บันทึก"
 msgid "Due"
 msgstr "กำหนดส่ง"
 
-#: hlidskjalf/agenda.py:442 hlidskjalf/blocks.py:1614 hlidskjalf/blocks.py:1619
+#: hlidskjalf/agenda.py:442 hlidskjalf/blocks.py:1619 hlidskjalf/blocks.py:1624
 #: hlidskjalf/dbedit.py:13 hlidskjalf/dbedit.py:329 hlidskjalf/dbedit.py:423
 msgid "Date"
 msgstr "วันที่"
@@ -305,12 +305,12 @@ msgstr "ยังไม่ได้เชื่อมต่อปฏิทิน
 
 #: hlidskjalf/agenda.py:716 hlidskjalf/agenda.py:869 hlidskjalf/blocks.py:867
 #: hlidskjalf/editor.py:36 hlidskjalf/userbackup.py:20 hlidskjalf/window.py:248
-#: hlidskjalf/window.py:1209 hlidskjalf/window.py:1620
+#: hlidskjalf/window.py:1216 hlidskjalf/window.py:1637
 msgid "Tasks"
 msgstr "งาน"
 
-#: hlidskjalf/agenda.py:723 hlidskjalf/window.py:249 hlidskjalf/window.py:1209
-#: hlidskjalf/window.py:1621
+#: hlidskjalf/agenda.py:723 hlidskjalf/window.py:249 hlidskjalf/window.py:1216
+#: hlidskjalf/window.py:1638
 msgid "Events"
 msgstr "นัดหมาย"
 
@@ -368,11 +368,11 @@ msgstr ""
 "ฐานข้อมูลนี้ยังไม่ได้เป็นแหล่งงาน เลือกบนเว็บว่าคุณสมบัติใดหมายถึง “เสร็จแล้ว” (เมนูฐานข้อมูล → "
 "“ใช้เป็นแหล่งงาน”)"
 
-#: hlidskjalf/agenda.py:850 hlidskjalf/dialogs.py:655 hlidskjalf/window.py:1758
+#: hlidskjalf/agenda.py:850 hlidskjalf/dialogs.py:655 hlidskjalf/window.py:1775
 msgid "OK"
 msgstr "ตกลง"
 
-#: hlidskjalf/agenda.py:851 hlidskjalf/page.py:1545
+#: hlidskjalf/agenda.py:851 hlidskjalf/page.py:1679
 #: hlidskjalf/userbackup.py:559
 msgid "Open in browser"
 msgstr "เปิดในเบราว์เซอร์"
@@ -417,7 +417,7 @@ msgid "Server not reachable: {error}"
 msgstr "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์: {error}"
 
 #: hlidskjalf/api.py:113 hlidskjalf/api.py:145 hlidskjalf/api.py:335
-#: hlidskjalf/api.py:607 hlidskjalf/assistant.py:199 hlidskjalf/galerie.py:144
+#: hlidskjalf/api.py:607 hlidskjalf/assistant.py:199 hlidskjalf/galerie.py:203
 #: hlidskjalf/pagewidgets.py:389
 msgid "Server not reachable"
 msgstr "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์"
@@ -456,12 +456,12 @@ msgstr "Saga AI"
 msgid "Ask {name}"
 msgstr "ถาม {name}"
 
-#: hlidskjalf/assistant.py:109 hlidskjalf/window.py:748
+#: hlidskjalf/assistant.py:109 hlidskjalf/window.py:751
 msgid "Assistant"
 msgstr "ผู้ช่วย"
 
-#: hlidskjalf/assistant.py:113 hlidskjalf/page.py:1517 hlidskjalf/window.py:751
-#: hlidskjalf/window.py:1493 hlidskjalf/window.py:1637
+#: hlidskjalf/assistant.py:113 hlidskjalf/page.py:1651 hlidskjalf/window.py:754
+#: hlidskjalf/window.py:1510 hlidskjalf/window.py:1654
 msgid "AI assistant"
 msgstr "ผู้ช่วย AI"
 
@@ -483,7 +483,7 @@ msgid "History"
 msgstr "ประวัติ"
 
 #: hlidskjalf/assistant.py:260 hlidskjalf/assistant.py:304
-#: hlidskjalf/page.py:1521
+#: hlidskjalf/page.py:1655
 msgid "Ask your pages"
 msgstr "ถามหน้าของคุณ"
 
@@ -544,17 +544,17 @@ msgid "The assistant does not work on pages from other Saga instances."
 msgstr "ผู้ช่วยไม่ทำงานกับหน้าจากอินสแตนซ์ Saga อื่น"
 
 #: hlidskjalf/assistant.py:430 hlidskjalf/assistant.py:578
-#: hlidskjalf/page.py:1520
+#: hlidskjalf/page.py:1654
 msgid "Improve selected text"
 msgstr "ปรับปรุงข้อความที่เลือก"
 
 #: hlidskjalf/assistant.py:430 hlidskjalf/assistant.py:578
-#: hlidskjalf/page.py:1519
+#: hlidskjalf/page.py:1653
 msgid "Suggest tasks"
 msgstr "แนะนำงาน"
 
 #: hlidskjalf/assistant.py:430 hlidskjalf/assistant.py:578
-#: hlidskjalf/page.py:1518
+#: hlidskjalf/page.py:1652
 msgid "Summarize"
 msgstr "สรุป"
 
@@ -732,14 +732,14 @@ msgstr "“{name}” สำหรับ {n} รายการ:"
 #: hlidskjalf/dbedit.py:828 hlidskjalf/dbedit.py:854
 #: hlidskjalf/dbviews25.py:196 hlidskjalf/dbviews25.py:253
 #: hlidskjalf/dialogs.py:179 hlidskjalf/dialogs.py:184
-#: hlidskjalf/dialogs.py:322 hlidskjalf/dialogs.py:334 hlidskjalf/editor.py:280
-#: hlidskjalf/editor.py:974 hlidskjalf/graphview.py:989
-#: hlidskjalf/graphview.py:997 hlidskjalf/notifications.py:84
-#: hlidskjalf/page.py:455 hlidskjalf/page.py:1226 hlidskjalf/page.py:1725
+#: hlidskjalf/dialogs.py:322 hlidskjalf/dialogs.py:334 hlidskjalf/editor.py:290
+#: hlidskjalf/editor.py:1029 hlidskjalf/graphview.py:989
+#: hlidskjalf/graphview.py:997 hlidskjalf/notifications.py:96
+#: hlidskjalf/page.py:465 hlidskjalf/page.py:1360 hlidskjalf/page.py:1859
 #: hlidskjalf/pwcard2.py:203 hlidskjalf/searchprovider.py:48
 #: hlidskjalf/searchprovider.py:85 hlidskjalf/sharing.py:232
 #: hlidskjalf/sharing.py:279 hlidskjalf/store.py:21
-#: hlidskjalf/userbackup.py:461 hlidskjalf/window.py:577
+#: hlidskjalf/userbackup.py:461 hlidskjalf/window.py:580
 msgid "Untitled"
 msgstr "ไม่มีชื่อ"
 
@@ -908,7 +908,7 @@ msgid "More"
 msgstr "เพิ่มเติม"
 
 #: hlidskjalf/blocks.py:182 hlidskjalf/nextcloud.py:455
-#: hlidskjalf/window.py:1624
+#: hlidskjalf/window.py:1641
 msgid "Back"
 msgstr "กลับ"
 
@@ -942,13 +942,13 @@ msgstr "ยอมรับ"
 msgid "Discard"
 msgstr "ทิ้ง"
 
-#: hlidskjalf/blocks.py:560 hlidskjalf/window.py:1412 hlidskjalf/window.py:1424
+#: hlidskjalf/blocks.py:560 hlidskjalf/window.py:1429 hlidskjalf/window.py:1441
 #, python-brace-format
 msgid "{name} is editing"
 msgstr "{name} กำลังแก้ไข"
 
-#: hlidskjalf/blocks.py:599 hlidskjalf/blocks.py:602 hlidskjalf/blocks.py:1405
-#: hlidskjalf/blocks.py:1434 hlidskjalf/chatstd.py:121
+#: hlidskjalf/blocks.py:599 hlidskjalf/blocks.py:602 hlidskjalf/blocks.py:1406
+#: hlidskjalf/blocks.py:1435 hlidskjalf/chatstd.py:121
 #: hlidskjalf/comments.py:543
 msgid "Comment"
 msgstr "แสดงความคิดเห็น"
@@ -988,7 +988,7 @@ msgstr "สูตร TeX"
 msgid "Mermaid diagram"
 msgstr "แผนภาพ Mermaid"
 
-#: hlidskjalf/blocks.py:844 hlidskjalf/editor.py:29 hlidskjalf/window.py:1730
+#: hlidskjalf/blocks.py:844 hlidskjalf/editor.py:29 hlidskjalf/window.py:1747
 msgid "Code"
 msgstr "โค้ด"
 
@@ -996,7 +996,7 @@ msgstr "โค้ด"
 msgid "No database selected"
 msgstr "ยังไม่ได้เลือกฐานข้อมูล"
 
-#: hlidskjalf/blocks.py:869 hlidskjalf/page.py:1566
+#: hlidskjalf/blocks.py:869 hlidskjalf/livepage.py:100 hlidskjalf/page.py:1700
 msgid "Page without access"
 msgstr "หน้าที่ไม่มีสิทธิ์เข้าถึง"
 
@@ -1071,7 +1071,7 @@ msgid "Empty toggle – click to write"
 msgstr "บล็อกพับได้ที่ว่างเปล่า – คลิกเพื่อเขียน"
 
 #: hlidskjalf/blocks.py:1138 hlidskjalf/chatstdview.py:326
-#: hlidskjalf/page.py:1088
+#: hlidskjalf/page.py:1214
 msgid "Block"
 msgstr "บล็อก"
 
@@ -1099,346 +1099,420 @@ msgstr "วิดีโอ YouTube"
 msgid "Set up buttons"
 msgstr "ตั้งค่าปุ่ม"
 
-#: hlidskjalf/blocks.py:1333
+#: hlidskjalf/blocks.py:1334
 msgid "Insert row above"
 msgstr "แทรกแถวด้านบน"
 
-#: hlidskjalf/blocks.py:1334
+#: hlidskjalf/blocks.py:1335
 msgid "Insert row below"
 msgstr "แทรกแถวด้านล่าง"
 
-#: hlidskjalf/blocks.py:1335
+#: hlidskjalf/blocks.py:1336
 msgid "Insert column left"
 msgstr "แทรกคอลัมน์ด้านซ้าย"
 
-#: hlidskjalf/blocks.py:1336
+#: hlidskjalf/blocks.py:1337
 msgid "Insert column right"
 msgstr "แทรกคอลัมน์ด้านขวา"
 
-#: hlidskjalf/blocks.py:1338
+#: hlidskjalf/blocks.py:1339
 msgid "Delete row"
 msgstr "ลบแถว"
 
-#: hlidskjalf/blocks.py:1340 hlidskjalf/dbedit.py:592
+#: hlidskjalf/blocks.py:1341 hlidskjalf/dbedit.py:592
 msgid "Delete column"
 msgstr "ลบคอลัมน์"
 
-#: hlidskjalf/blocks.py:1356
+#: hlidskjalf/blocks.py:1357
 #, python-brace-format
 msgid "Row {row}, column {col}"
 msgstr "แถว {row} คอลัมน์ {col}"
 
-#: hlidskjalf/blocks.py:1381
+#: hlidskjalf/blocks.py:1382
 msgid "Row"
 msgstr "แถว"
 
-#: hlidskjalf/blocks.py:1383
+#: hlidskjalf/blocks.py:1384
 msgid "Column"
 msgstr "คอลัมน์"
 
-#: hlidskjalf/blocks.py:1385
+#: hlidskjalf/blocks.py:1386
 msgid "Header row"
 msgstr "แถวหัวตาราง"
 
-#: hlidskjalf/blocks.py:1389
+#: hlidskjalf/blocks.py:1390
 msgid "Row and column of the selected cell"
 msgstr "แถวและคอลัมน์ของเซลล์ที่เลือก"
 
-#: hlidskjalf/blocks.py:1401 hlidskjalf/blocks.py:1432
+#: hlidskjalf/blocks.py:1402 hlidskjalf/blocks.py:1433
 msgid "Copy link to block"
 msgstr "คัดลอกลิงก์ไปยังบล็อก"
 
-#: hlidskjalf/blocks.py:1403 hlidskjalf/blocks.py:1453
+#: hlidskjalf/blocks.py:1404 hlidskjalf/blocks.py:1454
 msgid "Copy block"
 msgstr "คัดลอกบล็อก"
 
-#: hlidskjalf/blocks.py:1415
+#: hlidskjalf/blocks.py:1416
 msgid "Mark for the assistant"
 msgstr "ทำเครื่องหมายสำหรับผู้ช่วย"
 
-#: hlidskjalf/blocks.py:1423 hlidskjalf/dbcells.py:466
+#: hlidskjalf/blocks.py:1424 hlidskjalf/dbcells.py:466
 msgid "Edit on the web"
 msgstr "แก้ไขบนเว็บ"
 
-#: hlidskjalf/blocks.py:1424
+#: hlidskjalf/blocks.py:1425
 msgid "Turn into"
 msgstr "เปลี่ยนเป็น"
 
-#: hlidskjalf/blocks.py:1426
+#: hlidskjalf/blocks.py:1427
 msgid "Color"
 msgstr "สี"
 
-#: hlidskjalf/blocks.py:1430
+#: hlidskjalf/blocks.py:1431
 msgid "Color of selected text …"
 msgstr "สีของข้อความที่เลือก …"
 
-#: hlidskjalf/blocks.py:1431
+#: hlidskjalf/blocks.py:1432
 msgid "Inline math …"
 msgstr "สูตรในบรรทัด …"
 
-#: hlidskjalf/blocks.py:1437 hlidskjalf/blocks.py:1448
+#: hlidskjalf/blocks.py:1438 hlidskjalf/blocks.py:1449
 #, python-brace-format
 msgid "Column {n}"
 msgstr "คอลัมน์ {n}"
 
-#: hlidskjalf/blocks.py:1439
+#: hlidskjalf/blocks.py:1440
 msgid "To another column"
 msgstr "ไปยังคอลัมน์อื่น"
 
-#: hlidskjalf/blocks.py:1440
+#: hlidskjalf/blocks.py:1441
 msgid "Take out of the columns"
 msgstr "นำออกจากคอลัมน์"
 
-#: hlidskjalf/blocks.py:1445
+#: hlidskjalf/blocks.py:1446
 msgid "Merge with the columns above"
 msgstr "รวมกับคอลัมน์ด้านบน"
 
-#: hlidskjalf/blocks.py:1447
+#: hlidskjalf/blocks.py:1448
 msgid "Move into the columns above"
 msgstr "ย้ายเข้าไปในคอลัมน์ด้านบน"
 
-#: hlidskjalf/blocks.py:1450
+#: hlidskjalf/blocks.py:1451
 msgid "Merge with the columns below"
 msgstr "รวมกับคอลัมน์ด้านล่าง"
 
-#: hlidskjalf/blocks.py:1453
+#: hlidskjalf/blocks.py:1454
 msgid "Cut block"
 msgstr "ตัดบล็อก"
 
-#: hlidskjalf/blocks.py:1456
+#: hlidskjalf/blocks.py:1457
 msgid "Move to another page …"
 msgstr "ย้ายไปหน้าอื่น …"
 
-#: hlidskjalf/blocks.py:1457 hlidskjalf/database.py:840
-#: hlidskjalf/dbedit.py:262 hlidskjalf/dbedit.py:844 hlidskjalf/page.py:1540
-#: hlidskjalf/window.py:1790
+#: hlidskjalf/blocks.py:1458 hlidskjalf/database.py:840
+#: hlidskjalf/dbedit.py:262 hlidskjalf/dbedit.py:844 hlidskjalf/page.py:1674
+#: hlidskjalf/window.py:1807
 msgid "Duplicate"
 msgstr "ทำสำเนา"
 
-#: hlidskjalf/blocks.py:1457
+#: hlidskjalf/blocks.py:1458
 msgid "Move up"
 msgstr "เลื่อนขึ้น"
 
-#: hlidskjalf/blocks.py:1458
+#: hlidskjalf/blocks.py:1459
 msgid "Move down"
 msgstr "เลื่อนลง"
 
-#: hlidskjalf/blocks.py:1476 hlidskjalf/dbedit.py:836 hlidskjalf/page.py:1502
-#: hlidskjalf/page.py:1629
+#: hlidskjalf/blocks.py:1477 hlidskjalf/dbedit.py:836 hlidskjalf/page.py:1636
+#: hlidskjalf/page.py:1763
 msgid "Default"
 msgstr "ค่าเริ่มต้น"
 
-#: hlidskjalf/blocks.py:1477 hlidskjalf/page.py:1623
+#: hlidskjalf/blocks.py:1478 hlidskjalf/page.py:1757
 msgid "Background"
 msgstr "พื้นหลัง"
 
-#: hlidskjalf/blocks.py:1477 hlidskjalf/page.py:1623
+#: hlidskjalf/blocks.py:1478 hlidskjalf/page.py:1757
 msgid "Text color"
 msgstr "สีข้อความ"
 
-#: hlidskjalf/blocks.py:1514
+#: hlidskjalf/blocks.py:1519
 #, python-brace-format
 msgid "No block type for “{query}”"
 msgstr "ไม่มีประเภทบล็อกสำหรับ “{query}”"
 
-#: hlidskjalf/blocks.py:1573 hlidskjalf/chatview.py:4731
+#: hlidskjalf/blocks.py:1578 hlidskjalf/chatview.py:4731
 #: hlidskjalf/sharing.py:254 hlidskjalf/sharing.py:278
 msgid "Person"
 msgstr "บุคคล"
 
-#: hlidskjalf/blocks.py:1573
+#: hlidskjalf/blocks.py:1578
 msgid "me"
 msgstr "ฉัน"
 
-#: hlidskjalf/blocks.py:1579 hlidskjalf/window.py:1169
+#: hlidskjalf/blocks.py:1584 hlidskjalf/window.py:1176
 msgid "No access"
 msgstr "ไม่มีสิทธิ์เข้าถึง"
 
-#: hlidskjalf/blocks.py:1615 hlidskjalf/blocks.py:1621
+#: hlidskjalf/blocks.py:1620 hlidskjalf/blocks.py:1626
 msgid "Reminder"
 msgstr "การเตือน"
 
-#: hlidskjalf/blocks.py:1615 hlidskjalf/blocks.py:1621
+#: hlidskjalf/blocks.py:1620 hlidskjalf/blocks.py:1626
 #, python-brace-format
 msgid "Reminder: {date}"
 msgstr "แจ้งเตือนความจำ: {date}"
 
-#: hlidskjalf/blocks.py:1631 hlidskjalf/chat.py:1271 hlidskjalf/dialogs.py:620
+#: hlidskjalf/blocks.py:1636 hlidskjalf/chat.py:1271 hlidskjalf/dialogs.py:620
 #: hlidskjalf/dialogs.py:623 hlidskjalf/editor.py:33 hlidskjalf/graphview.py:43
-#: hlidskjalf/graphview.py:1071 hlidskjalf/window.py:777
-#: hlidskjalf/window.py:1966
+#: hlidskjalf/graphview.py:1071 hlidskjalf/window.py:784
+#: hlidskjalf/window.py:1983
 msgid "Page"
 msgstr "หน้า"
 
-#: hlidskjalf/calls.py:86
+#: hlidskjalf/calls.py:52
+msgid "Someone in the call needs Saga 2.4 for that."
+msgstr "มีผู้อยู่ในสายที่ต้องใช้ Saga 2.4 สำหรับฟังก์ชันนี้"
+
+#: hlidskjalf/calls.py:54
+#, python-brace-format
+msgid "The call is full (at most {n} devices)."
+msgstr "สายเต็มแล้ว (สูงสุด {n} อุปกรณ์)"
+
+#: hlidskjalf/calls.py:56
+msgid "The call has already ended."
+msgstr "สายสิ้นสุดแล้ว"
+
+#: hlidskjalf/calls.py:58
+msgid "The call has not been answered yet."
+msgstr "ยังไม่มีผู้รับสาย"
+
+#: hlidskjalf/calls.py:60
+msgid ""
+"Another of your devices is taking over the call right now – please wait a "
+"moment."
+msgstr "อุปกรณ์อื่นของคุณกำลังรับสายนี้อยู่ – โปรดรอสักครู่"
+
+#: hlidskjalf/calls.py:61
+msgid "Joining is not possible right now."
+msgstr "ขณะนี้เข้าร่วมไม่ได้"
+
+#: hlidskjalf/calls.py:98
+msgctxt "call in progress on"
+msgid "another device"
+msgstr "อุปกรณ์อื่น"
+
+#: hlidskjalf/calls.py:99
+#, python-brace-format
+msgid "Call in progress on {device}"
+msgstr "กำลังโทรอยู่บน {device}"
+
+#: hlidskjalf/calls.py:102 hlidskjalf/calls.py:797
+msgid "Group call running"
+msgstr "การโทรกลุ่มกำลังดำเนินอยู่"
+
+#: hlidskjalf/calls.py:104
+#, python-brace-format
+msgid "{n} device"
+msgid_plural "{n} devices"
+msgstr[0] "{n} อุปกรณ์"
+
+#: hlidskjalf/calls.py:105
+msgid "Move here"
+msgstr "ย้ายมาที่นี่"
+
+#: hlidskjalf/calls.py:106
+msgid ""
+"Move the call to this computer without interruption – it continues in your "
+"browser"
+msgstr "ย้ายสายมาที่คอมพิวเตอร์เครื่องนี้โดยไม่ขาดตอน – สายจะดำเนินต่อในเบราว์เซอร์"
+
+#: hlidskjalf/calls.py:113
+msgid "Continues in your browser."
+msgstr "ดำเนินต่อในเบราว์เซอร์"
+
+#: hlidskjalf/calls.py:115
+msgid "Add"
+msgstr "เพิ่ม"
+
+#: hlidskjalf/calls.py:115
+msgid "Add your browser as a companion device (without microphone and sound)"
+msgstr "เพิ่มเบราว์เซอร์เป็นอุปกรณ์เสริม (ไม่มีไมโครโฟนและเสียง)"
+
+#: hlidskjalf/calls.py:118 hlidskjalf/calls.py:825 hlidskjalf/calls.py:828
+msgid "Audio only"
+msgstr "เฉพาะเสียง"
+
+#: hlidskjalf/calls.py:118 hlidskjalf/calls.py:824
+msgid "Join with audio only (in browser)"
+msgstr "เข้าร่วมด้วยเสียงเท่านั้น (ในเบราว์เซอร์)"
+
+#: hlidskjalf/calls.py:119 hlidskjalf/calls.py:818
+msgid "Join"
+msgstr "เข้าร่วม"
+
+#: hlidskjalf/calls.py:119 hlidskjalf/calls.py:817
+msgid "Join with video (in browser)"
+msgstr "เข้าร่วมพร้อมวิดีโอ (ในเบราว์เซอร์)"
+
+#: hlidskjalf/calls.py:121 hlidskjalf/calls.py:682 hlidskjalf/calls.py:824
+#: hlidskjalf/calls.py:825
+msgid "Join (in browser)"
+msgstr "เข้าร่วม (ในเบราว์เซอร์)"
+
+#: hlidskjalf/calls.py:121
+msgid "Join the group call (in browser)"
+msgstr "เข้าร่วมการโทรแบบกลุ่ม (ในเบราว์เซอร์)"
+
+#: hlidskjalf/calls.py:169
 #, python-brace-format
 msgid "Group call in {group}"
 msgstr "การโทรกลุ่มใน {group}"
 
-#: hlidskjalf/calls.py:86
+#: hlidskjalf/calls.py:169
 #, python-brace-format
 msgid "Group video call in {group}"
 msgstr "วิดีโอคอลกลุ่มใน {group}"
 
-#: hlidskjalf/calls.py:88
+#: hlidskjalf/calls.py:171
 #, python-brace-format
 msgid "Group call from {name}"
 msgstr "การโทรกลุ่มจาก {name}"
 
-#: hlidskjalf/calls.py:88
+#: hlidskjalf/calls.py:171
 #, python-brace-format
 msgid "Group video call from {name}"
 msgstr "วิดีโอคอลกลุ่มจาก {name}"
 
-#: hlidskjalf/calls.py:89 hlidskjalf/calls.py:641
+#: hlidskjalf/calls.py:172 hlidskjalf/calls.py:801
 msgid "Group call"
 msgstr "การโทรกลุ่ม"
 
-#: hlidskjalf/calls.py:89 hlidskjalf/calls.py:641
+#: hlidskjalf/calls.py:172 hlidskjalf/calls.py:801
 msgid "Group video call"
 msgstr "วิดีโอคอลกลุ่ม"
 
-#: hlidskjalf/calls.py:91
+#: hlidskjalf/calls.py:174
 #, python-brace-format
 msgid "Call from {name}"
 msgstr "สายเรียกเข้าจาก {name}"
 
-#: hlidskjalf/calls.py:91
+#: hlidskjalf/calls.py:174
 #, python-brace-format
 msgid "Video call from {name}"
 msgstr "สายวิดีโอจาก {name}"
 
-#: hlidskjalf/calls.py:92 hlidskjalf/calls.py:643
+#: hlidskjalf/calls.py:175 hlidskjalf/calls.py:803
 msgid "Incoming call"
 msgstr "สายเรียกเข้า"
 
-#: hlidskjalf/calls.py:92 hlidskjalf/calls.py:643
+#: hlidskjalf/calls.py:175 hlidskjalf/calls.py:803
 msgid "Incoming video call"
 msgstr "สายวิดีโอเรียกเข้า"
 
-#: hlidskjalf/calls.py:123
+#: hlidskjalf/calls.py:206
 msgid "Call"
 msgstr "โทร"
 
-#: hlidskjalf/calls.py:123
+#: hlidskjalf/calls.py:206
 msgid "Video call"
 msgstr "สายวิดีโอ"
 
-#: hlidskjalf/calls.py:128
+#: hlidskjalf/calls.py:211
 #, python-brace-format
 msgid "{what} declined"
 msgstr "{what} ถูกปฏิเสธ"
 
-#: hlidskjalf/calls.py:130
+#: hlidskjalf/calls.py:213
 msgid "Busy"
 msgstr "สายไม่ว่าง"
 
-#: hlidskjalf/calls.py:130
+#: hlidskjalf/calls.py:213
 msgid "Missed call (you were on another call)"
 msgstr "สายที่ไม่ได้รับ (คุณอยู่ในสายอื่น)"
 
-#: hlidskjalf/calls.py:132
+#: hlidskjalf/calls.py:215
 #, python-brace-format
 msgid "{what} – no connection"
 msgstr "{what} – เชื่อมต่อไม่ได้"
 
-#: hlidskjalf/calls.py:134
+#: hlidskjalf/calls.py:217
 #, python-brace-format
 msgid "{what} – not answered"
 msgstr "{what} – ไม่มีผู้รับสาย"
 
-#: hlidskjalf/calls.py:135
+#: hlidskjalf/calls.py:218
 msgid "Missed call"
 msgstr "สายที่ไม่ได้รับ"
 
-#: hlidskjalf/calls.py:135
+#: hlidskjalf/calls.py:218
 msgid "Missed video call"
 msgstr "สายวิดีโอที่ไม่ได้รับ"
 
-#: hlidskjalf/calls.py:313
+#: hlidskjalf/calls.py:407
 msgid ""
 "Answering opens the call in your browser – picture-in-picture and screen "
 "sharing work there."
 msgstr "การรับสายจะเปิดการโทรในเบราว์เซอร์ ซึ่งใช้ภาพซ้อนภาพและแชร์หน้าจอได้ด้วย"
 
-#: hlidskjalf/calls.py:315
+#: hlidskjalf/calls.py:409
 msgid ""
 "Answering opens the call in your browser – picture-in-picture works there."
 msgstr "การรับสายจะเปิดการโทรในเบราว์เซอร์ ซึ่งใช้ภาพซ้อนภาพได้ด้วย"
 
-#: hlidskjalf/calls.py:316 hlidskjalf/calls.py:578
+#: hlidskjalf/calls.py:410 hlidskjalf/calls.py:738
 msgid "Answering opens the call in your browser."
 msgstr "การรับสายจะเปิดสายในเบราว์เซอร์ของคุณ"
 
-#: hlidskjalf/calls.py:343
+#: hlidskjalf/calls.py:439
 msgid "The call was answered on another device."
 msgstr "รับสายบนอุปกรณ์อื่นแล้ว"
 
-#: hlidskjalf/calls.py:374 hlidskjalf/calls.py:521 hlidskjalf/calls.py:583
-#: hlidskjalf/calls.py:653 hlidskjalf/chatview.py:1265
+#: hlidskjalf/calls.py:470 hlidskjalf/calls.py:681 hlidskjalf/calls.py:743
+#: hlidskjalf/calls.py:813 hlidskjalf/chatview.py:1265
 #: hlidskjalf/chatview.py:4613
 msgid "Decline"
 msgstr "ปฏิเสธ"
 
-#: hlidskjalf/calls.py:378 hlidskjalf/calls.py:522 hlidskjalf/calls.py:585
-#: hlidskjalf/calls.py:588 hlidskjalf/calls.py:658 hlidskjalf/calls.py:667
-#: hlidskjalf/calls.py:668
+#: hlidskjalf/calls.py:474 hlidskjalf/calls.py:682 hlidskjalf/calls.py:745
+#: hlidskjalf/calls.py:748 hlidskjalf/calls.py:818 hlidskjalf/calls.py:827
+#: hlidskjalf/calls.py:828
 msgid "Answer"
 msgstr "รับสาย"
 
-#: hlidskjalf/calls.py:462
+#: hlidskjalf/calls.py:548 hlidskjalf/calls.py:621
 msgid "The call opens in your browser …"
 msgstr "สายจะเปิดในเบราว์เซอร์ของคุณ …"
 
-#: hlidskjalf/calls.py:514 hlidskjalf/calls.py:648
+#: hlidskjalf/calls.py:674 hlidskjalf/calls.py:808
 msgid "Joining opens the call in your browser."
 msgstr "การเข้าร่วมจะเปิดการโทรในเบราว์เซอร์"
 
-#: hlidskjalf/calls.py:522 hlidskjalf/calls.py:664 hlidskjalf/calls.py:665
-msgid "Join (in browser)"
-msgstr "เข้าร่วม (ในเบราว์เซอร์)"
-
-#: hlidskjalf/calls.py:587 hlidskjalf/calls.py:657
+#: hlidskjalf/calls.py:747 hlidskjalf/calls.py:817
 msgid "Answer with video"
 msgstr "รับสายพร้อมวิดีโอ"
 
-#: hlidskjalf/calls.py:637
-msgid "Group call running"
-msgstr "การโทรกลุ่มกำลังดำเนินอยู่"
-
-#: hlidskjalf/calls.py:639
+#: hlidskjalf/calls.py:799
 #, python-brace-format
 msgid "{name} started a group call"
 msgstr "{name} เริ่มการโทรกลุ่ม"
 
-#: hlidskjalf/calls.py:639
+#: hlidskjalf/calls.py:799
 #, python-brace-format
 msgid "{name} started a group video call"
 msgstr "{name} เริ่มวิดีโอคอลกลุ่ม"
 
-#: hlidskjalf/calls.py:653
+#: hlidskjalf/calls.py:813
 msgid "Ignore"
 msgstr "เพิกเฉย"
 
-#: hlidskjalf/calls.py:657
-msgid "Join with video (in browser)"
-msgstr "เข้าร่วมพร้อมวิดีโอ (ในเบราว์เซอร์)"
-
-#: hlidskjalf/calls.py:658
-msgid "Join"
-msgstr "เข้าร่วม"
-
-#: hlidskjalf/calls.py:664
-msgid "Join with audio only (in browser)"
-msgstr "เข้าร่วมด้วยเสียงเท่านั้น (ในเบราว์เซอร์)"
-
-#: hlidskjalf/calls.py:665 hlidskjalf/calls.py:668
-msgid "Audio only"
-msgstr "เฉพาะเสียง"
-
-#: hlidskjalf/calls.py:667
+#: hlidskjalf/calls.py:827
 msgid "Answer with audio only"
 msgstr "รับสายด้วยเสียงอย่างเดียว"
+
+#: hlidskjalf/calls.py:869
+msgid "Call running"
+msgstr "กำลังโทรอยู่"
 
 #: hlidskjalf/chart.py:60 hlidskjalf/chart.py:376 hlidskjalf/database.py:726
 #: hlidskjalf/database.py:766 hlidskjalf/dbedit.py:21
@@ -1727,7 +1801,7 @@ msgid "Group"
 msgstr "กลุ่ม"
 
 #: hlidskjalf/chat.py:1271 hlidskjalf/chat.py:1275
-#: hlidskjalf/notifications.py:81 hlidskjalf/settings.py:115
+#: hlidskjalf/notifications.py:93 hlidskjalf/settings.py:115
 msgid "Chat"
 msgstr "แชท"
 
@@ -1743,7 +1817,7 @@ msgstr "แชทส่วนตัว"
 msgid "Group chat"
 msgstr "แชทกลุ่ม"
 
-#: hlidskjalf/chat.py:1274 hlidskjalf/page.py:1514
+#: hlidskjalf/chat.py:1274 hlidskjalf/page.py:1648
 msgid "Page chat"
 msgstr "แชทของหน้า"
 
@@ -1992,7 +2066,7 @@ msgstr "อ่านรูปไม่ได้"
 msgid "Change group picture"
 msgstr "เปลี่ยนรูปกลุ่ม"
 
-#: hlidskjalf/chatstdview.py:123 hlidskjalf/page.py:1855
+#: hlidskjalf/chatstdview.py:123 hlidskjalf/page.py:1989
 #: hlidskjalf/profile.py:329
 msgid "Images"
 msgstr "รูปภาพ"
@@ -2158,7 +2232,7 @@ msgstr "สื่อ"
 msgid "Links"
 msgstr "ลิงก์"
 
-#: hlidskjalf/chatstdview.py:428 hlidskjalf/notifications.py:348
+#: hlidskjalf/chatstdview.py:428 hlidskjalf/notifications.py:360
 msgid "Load older"
 msgstr "โหลดรายการเก่ากว่า"
 
@@ -2177,7 +2251,7 @@ msgstr "ค้นหาแชท"
 #: hlidskjalf/chatstdview.py:542 hlidskjalf/chatview.py:322
 #: hlidskjalf/chatview.py:342 hlidskjalf/chatview.py:345
 #: hlidskjalf/chatview.py:394 hlidskjalf/chatview.py:476
-#: hlidskjalf/window.py:260 hlidskjalf/window.py:1631
+#: hlidskjalf/window.py:260 hlidskjalf/window.py:1648
 msgid "Chats"
 msgstr "แชท"
 
@@ -2195,7 +2269,7 @@ msgstr[0] "ส่งต่อ {n} ข้อความไปยัง “{chat}
 msgid "Forward?"
 msgstr "ส่งต่อหรือไม่"
 
-#: hlidskjalf/chatstdview.py:566 hlidskjalf/window.py:1625
+#: hlidskjalf/chatstdview.py:566 hlidskjalf/window.py:1642
 msgid "Forward"
 msgstr "ไปข้างหน้า"
 
@@ -2459,7 +2533,7 @@ msgid "Archived ({n})"
 msgstr "เก็บเข้าคลังแล้ว ({n})"
 
 #: hlidskjalf/chatview.py:609 hlidskjalf/chatview.py:720
-#: hlidskjalf/comments.py:100 hlidskjalf/notifications.py:300
+#: hlidskjalf/comments.py:100 hlidskjalf/notifications.py:312
 #, python-brace-format
 msgid "{n} unread"
 msgid_plural "{n} unread"
@@ -2712,7 +2786,7 @@ msgstr "แสดง"
 msgid "Select message"
 msgstr "เลือกข้อความ"
 
-#: hlidskjalf/chatview.py:1629 hlidskjalf/notifications.py:38
+#: hlidskjalf/chatview.py:1629 hlidskjalf/notifications.py:41
 msgid "Deleted account"
 msgstr "บัญชีที่ถูกลบ"
 
@@ -2925,7 +2999,7 @@ msgstr "เปิดรูปภาพ: {name}"
 
 #: hlidskjalf/chatview.py:2222 hlidskjalf/chatview.py:2251
 #: hlidskjalf/chatview.py:3153 hlidskjalf/chatview.py:3203
-#: hlidskjalf/window.py:1916
+#: hlidskjalf/window.py:1933
 msgid "Save attachment"
 msgstr "บันทึกไฟล์แนบ"
 
@@ -2939,7 +3013,7 @@ msgid "Play video: {name}"
 msgstr "เล่นวิดีโอ: {name}"
 
 #: hlidskjalf/chatview.py:2282 hlidskjalf/chatview.py:4301
-#: hlidskjalf/userbackup.py:651 hlidskjalf/window.py:1950
+#: hlidskjalf/userbackup.py:651 hlidskjalf/window.py:1967
 #, python-brace-format
 msgid "Saved: {name}"
 msgstr "บันทึกแล้ว: {name}"
@@ -2959,7 +3033,7 @@ msgid "Mention a person"
 msgstr "กล่าวถึงบุคคล"
 
 #: hlidskjalf/chatview.py:2347 hlidskjalf/chatview.py:2349
-#: hlidskjalf/chatview.py:2616 hlidskjalf/page.py:1942
+#: hlidskjalf/chatview.py:2616 hlidskjalf/page.py:2076
 msgid "Attach file"
 msgstr "แนบไฟล์"
 
@@ -2972,8 +3046,8 @@ msgid "Message …"
 msgstr "ข้อความ …"
 
 #: hlidskjalf/chatview.py:2378 hlidskjalf/chatview.py:2381
-#: hlidskjalf/chatx3.py:512 hlidskjalf/settings.py:835
-#: hlidskjalf/settings.py:886
+#: hlidskjalf/chatx3.py:512 hlidskjalf/settings.py:839
+#: hlidskjalf/settings.py:890
 msgid "Send"
 msgstr "ส่ง"
 
@@ -2986,11 +3060,11 @@ msgstr "บันทึกข้อความเสียง"
 msgid "Reply to {name}"
 msgstr "ตอบกลับ {name}"
 
-#: hlidskjalf/chatview.py:2597 hlidskjalf/page.py:95 hlidskjalf/page.py:1259
+#: hlidskjalf/chatview.py:2597 hlidskjalf/page.py:95 hlidskjalf/page.py:1393
 msgid "File …"
 msgstr "ไฟล์ …"
 
-#: hlidskjalf/chatview.py:2597 hlidskjalf/page.py:96 hlidskjalf/page.py:1260
+#: hlidskjalf/chatview.py:2597 hlidskjalf/page.py:96 hlidskjalf/page.py:1394
 msgid "From Immich …"
 msgstr "จาก Immich …"
 
@@ -3014,7 +3088,7 @@ msgstr "ย่อขนาดวิดีโอก่อนส่ง (H.264, 128
 #: hlidskjalf/chatview.py:3601 hlidskjalf/chatview.py:3918
 #: hlidskjalf/chatview.py:3932 hlidskjalf/chatview.py:4118
 #: hlidskjalf/chatview.py:4673 hlidskjalf/chatview.py:4830
-#: hlidskjalf/dbcells.py:263 hlidskjalf/page.py:113 hlidskjalf/page.py:1825
+#: hlidskjalf/dbcells.py:263 hlidskjalf/page.py:113 hlidskjalf/page.py:1959
 #: hlidskjalf/push.py:450 hlidskjalf/push.py:452 hlidskjalf/push.py:482
 #: hlidskjalf/settings.py:485 hlidskjalf/settings.py:502
 #: hlidskjalf/sharing.py:952 hlidskjalf/userbackup.py:354
@@ -3101,7 +3175,7 @@ msgid "Leave group"
 msgstr "ออกจากกลุ่ม"
 
 #: hlidskjalf/chatview.py:2946 hlidskjalf/chatview.py:3830
-#: hlidskjalf/page.py:1553 hlidskjalf/window.py:1792
+#: hlidskjalf/page.py:1687 hlidskjalf/window.py:1809
 msgid "Archive"
 msgstr "เก็บเข้าคลัง"
 
@@ -3231,7 +3305,7 @@ msgid "not loaded"
 msgstr "ไม่ได้โหลด"
 
 #: hlidskjalf/chatview.py:3149 hlidskjalf/clipimg.py:76 hlidskjalf/editor.py:31
-#: hlidskjalf/page.py:158 hlidskjalf/page.py:1088
+#: hlidskjalf/page.py:158 hlidskjalf/page.py:1214
 msgid "Image"
 msgstr "รูปภาพ"
 
@@ -3524,7 +3598,7 @@ msgstr "อักขระสี่ตัวสุดท้าย"
 msgid "Confirm recovery key"
 msgstr "ยืนยันคีย์กู้คืน"
 
-#: hlidskjalf/chatview.py:4291 hlidskjalf/window.py:1327
+#: hlidskjalf/chatview.py:4291 hlidskjalf/window.py:1344
 #, python-brace-format
 msgid "Account: {name}"
 msgstr "บัญชี: {name}"
@@ -3652,7 +3726,7 @@ msgstr "ปลดล็อก"
 
 #: hlidskjalf/chatview.py:4572 hlidskjalf/dialogs.py:429
 #: hlidskjalf/nextcloud.py:758 hlidskjalf/settings.py:275
-#: hlidskjalf/settings.py:328 hlidskjalf/settings.py:802
+#: hlidskjalf/settings.py:328 hlidskjalf/settings.py:806
 #: hlidskjalf/userbackup.py:286 hlidskjalf/userbackup.py:311
 msgid "Checking …"
 msgstr "กำลังตรวจสอบ …"
@@ -4042,7 +4116,7 @@ msgid "{n} of {max}"
 msgstr "{n} จาก {max}"
 
 #: hlidskjalf/comments.py:398 hlidskjalf/comments.py:427
-#: hlidskjalf/page.py:1494 hlidskjalf/window.py:1651
+#: hlidskjalf/page.py:1628 hlidskjalf/window.py:1668
 msgid "Comments"
 msgstr "ความคิดเห็น"
 
@@ -4063,7 +4137,7 @@ msgstr "โหลดความคิดเห็นไม่ได้: {err}"
 msgid "Show resolved"
 msgstr "แสดงที่แก้ไขแล้ว"
 
-#: hlidskjalf/comments.py:511 hlidskjalf/page.py:1495
+#: hlidskjalf/comments.py:511 hlidskjalf/page.py:1629
 #, python-brace-format
 msgid "{n} resolved"
 msgid_plural "{n} resolved"
@@ -4100,7 +4174,7 @@ msgstr "เปิดการสนทนาอีกครั้ง"
 #: hlidskjalf/comments.py:647 hlidskjalf/comments.py:648
 #: hlidskjalf/database.py:1037 hlidskjalf/database.py:1277
 #: hlidskjalf/dbedit.py:205 hlidskjalf/dbedit.py:212 hlidskjalf/dbedit.py:228
-#: hlidskjalf/dialogs.py:633 hlidskjalf/editor.py:1465
+#: hlidskjalf/dialogs.py:633 hlidskjalf/editor.py:1532
 msgid "New"
 msgstr "ใหม่"
 
@@ -4168,14 +4242,14 @@ msgid "Search entries"
 msgstr "ค้นหารายการ"
 
 #: hlidskjalf/database.py:838 hlidskjalf/database.py:841
-#: hlidskjalf/page.py:1544 hlidskjalf/publish.py:513 hlidskjalf/publish.py:528
+#: hlidskjalf/page.py:1678 hlidskjalf/publish.py:513 hlidskjalf/publish.py:528
 #: hlidskjalf/publish.py:533 hlidskjalf/sharing.py:717
-#: hlidskjalf/window.py:1779 hlidskjalf/window.py:1791
+#: hlidskjalf/window.py:1796 hlidskjalf/window.py:1808
 msgid "Copy link"
 msgstr "คัดลอกลิงก์"
 
 #: hlidskjalf/database.py:842 hlidskjalf/dbedit.py:848 hlidskjalf/dbedit.py:857
-#: hlidskjalf/page.py:1556 hlidskjalf/window.py:1793
+#: hlidskjalf/page.py:1690 hlidskjalf/window.py:1810
 msgid "Move to trash"
 msgstr "ย้ายไปถังขยะ"
 
@@ -4213,7 +4287,7 @@ msgstr "บอร์ดต้องมีคุณสมบัติแบบต
 msgid "A calendar needs a date property"
 msgstr "ปฏิทินต้องมีคุณสมบัติแบบวันที่"
 
-#: hlidskjalf/database.py:1553 hlidskjalf/page.py:357
+#: hlidskjalf/database.py:1553 hlidskjalf/page.py:367
 msgid "Open as full page"
 msgstr "เปิดเป็นหน้าเต็ม"
 
@@ -4302,7 +4376,7 @@ msgstr "ตัวเลือกหลายรายการ"
 msgid "Number"
 msgstr "ตัวเลข"
 
-#: hlidskjalf/dbedit.py:13 hlidskjalf/editor.py:18 hlidskjalf/window.py:1729
+#: hlidskjalf/dbedit.py:13 hlidskjalf/editor.py:18 hlidskjalf/window.py:1746
 msgid "Text"
 msgstr "ข้อความ"
 
@@ -4915,7 +4989,7 @@ msgid "Nothing found"
 msgstr "ไม่พบสิ่งใด"
 
 #: hlidskjalf/dialogs.py:138 hlidskjalf/userbackup.py:18
-#: hlidskjalf/window.py:313 hlidskjalf/window.py:681 hlidskjalf/window.py:1622
+#: hlidskjalf/window.py:313 hlidskjalf/window.py:684 hlidskjalf/window.py:1639
 msgid "Trash"
 msgstr "ถังขยะ"
 
@@ -4938,8 +5012,8 @@ msgstr[0] "พร้อมหน้าย่อย {n} หน้า"
 msgid "will be deleted on {date}"
 msgstr "จะถูกลบในวันที่ {date}"
 
-#: hlidskjalf/dialogs.py:172 hlidskjalf/dialogs.py:352 hlidskjalf/page.py:1112
-#: hlidskjalf/window.py:1783
+#: hlidskjalf/dialogs.py:172 hlidskjalf/dialogs.py:352 hlidskjalf/page.py:1238
+#: hlidskjalf/window.py:1800
 msgid "Restore"
 msgstr "กู้คืน"
 
@@ -5138,7 +5212,7 @@ msgstr "ไอคอน (อีโมจิ)"
 msgid "New database entry"
 msgstr "รายการใหม่ในฐานข้อมูล"
 
-#: hlidskjalf/dialogs.py:605 hlidskjalf/window.py:1849
+#: hlidskjalf/dialogs.py:605 hlidskjalf/window.py:1866
 msgid "New task"
 msgstr "งานใหม่"
 
@@ -5189,8 +5263,8 @@ msgstr "ปุ่ม {n}: เลือกฐานข้อมูลสำหร
 msgid "Button {n}: choose the page to open."
 msgstr "ปุ่ม {n}: เลือกหน้าที่จะเปิด"
 
-#: hlidskjalf/dialogs.py:741 hlidskjalf/window.py:250 hlidskjalf/window.py:1209
-#: hlidskjalf/window.py:1622
+#: hlidskjalf/dialogs.py:741 hlidskjalf/window.py:250 hlidskjalf/window.py:1216
+#: hlidskjalf/window.py:1639
 msgid "Services"
 msgstr "บริการ"
 
@@ -5255,7 +5329,7 @@ msgstr "คอลัมน์"
 msgid "Button"
 msgstr "ปุ่ม"
 
-#: hlidskjalf/editor.py:41 hlidskjalf/page.py:1921 hlidskjalf/page.py:1925
+#: hlidskjalf/editor.py:41 hlidskjalf/page.py:2055 hlidskjalf/page.py:2059
 msgid "Embed"
 msgstr "ฝัง"
 
@@ -5264,32 +5338,32 @@ msgstr "ฝัง"
 msgid "Nextcloud file"
 msgstr "ไฟล์ Nextcloud"
 
-#: hlidskjalf/editor.py:468
+#: hlidskjalf/editor.py:512
 msgid "Unsaved changes from last time were restored."
 msgstr "กู้คืนการเปลี่ยนแปลงที่ยังไม่ได้บันทึกจากครั้งที่แล้ว"
 
-#: hlidskjalf/editor.py:739
+#: hlidskjalf/editor.py:792
 msgid "Synced block merged with a simultaneous change in the original."
 msgstr "รวมบล็อกที่ซิงค์เข้ากับการแก้ไขในต้นฉบับที่เกิดขึ้นพร้อมกันแล้ว"
 
-#: hlidskjalf/editor.py:742
+#: hlidskjalf/editor.py:795
 msgid ""
 "The synced block could not be saved: no permission to edit the original."
 msgstr "บันทึกบล็อกที่ซิงค์ไม่ได้: ไม่มีสิทธิ์แก้ไขต้นฉบับ"
 
-#: hlidskjalf/editor.py:743
+#: hlidskjalf/editor.py:796
 msgid "The synced block could not be saved: the original page is locked."
 msgstr "บันทึกบล็อกที่ซิงค์ไม่ได้: หน้าต้นฉบับถูกล็อก"
 
-#: hlidskjalf/editor.py:744
+#: hlidskjalf/editor.py:797
 msgid "The original of the synced block was deleted."
 msgstr "ต้นฉบับของบล็อกที่ซิงค์ถูกลบแล้ว"
 
-#: hlidskjalf/editor.py:745
+#: hlidskjalf/editor.py:798
 msgid "The synced block was changed elsewhere – the page was reloaded."
 msgstr "บล็อกที่ซิงค์ถูกแก้ไขจากที่อื่น – โหลดหน้าใหม่แล้ว"
 
-#: hlidskjalf/editor.py:841
+#: hlidskjalf/editor.py:896
 msgid ""
 "Not saved: this page is in the trash or was deleted. Your changes stay on "
 "this device – restore the page from the trash to save them."
@@ -5297,19 +5371,19 @@ msgstr ""
 "ไม่ได้บันทึก: หน้านี้อยู่ในถังขยะหรือถูกลบแล้ว การเปลี่ยนแปลงยังอยู่บนอุปกรณ์นี้ – "
 "กู้คืนหน้าจากถังขยะเพื่อบันทึก"
 
-#: hlidskjalf/editor.py:867 hlidskjalf/editor.py:892
+#: hlidskjalf/editor.py:922 hlidskjalf/editor.py:947
 #, python-brace-format
 msgid "Not saved: {error}"
 msgstr "บันทึกไม่ได้: {error}"
 
-#: hlidskjalf/editor.py:868
+#: hlidskjalf/editor.py:923
 msgid ""
 "Remove the Nextcloud file or insert it from your own Nextcloud (Settings → "
 "Account → Nextcloud)."
 msgstr ""
 "นำไฟล์ Nextcloud ออก หรือแทรกจาก Nextcloud ของคุณเอง (การตั้งค่า → บัญชี → Nextcloud)"
 
-#: hlidskjalf/editor.py:880 hlidskjalf/page.py:1117
+#: hlidskjalf/editor.py:935 hlidskjalf/page.py:1243
 msgid ""
 "This page is too large to save. Shorten it or split it into several pages – "
 "until then your changes are only kept on this device."
@@ -5317,29 +5391,29 @@ msgstr ""
 "หน้านี้ใหญ่เกินกว่าจะบันทึกได้ ให้ย่อหรือแบ่งออกเป็นหลายหน้า – "
 "ระหว่างนี้การเปลี่ยนแปลงของคุณจะถูกเก็บไว้บนอุปกรณ์นี้เท่านั้น"
 
-#: hlidskjalf/editor.py:887
+#: hlidskjalf/editor.py:942
 msgid "Offline – changes will be saved as soon as the server is reachable."
 msgstr "ออฟไลน์ – การเปลี่ยนแปลงจะถูกบันทึกทันทีที่เชื่อมต่อเซิร์ฟเวอร์ได้"
 
-#: hlidskjalf/editor.py:970 hlidskjalf/editor.py:993
+#: hlidskjalf/editor.py:1025 hlidskjalf/editor.py:1048
 msgid "Your version could not be saved as a copy. Nothing was discarded."
 msgstr "ไม่สามารถบันทึกเวอร์ชันของคุณเป็นสำเนาได้ ไม่มีอะไรถูกทิ้ง"
 
-#: hlidskjalf/editor.py:974
+#: hlidskjalf/editor.py:1029
 msgid "(conflict copy)"
 msgstr "(สำเนาที่ขัดแย้ง)"
 
-#: hlidskjalf/editor.py:998
+#: hlidskjalf/editor.py:1053
 #, python-brace-format
 msgid "Your version was saved as “{title}”."
 msgstr "บันทึกเวอร์ชันของคุณเป็น “{title}” แล้ว"
 
-#: hlidskjalf/editor.py:1005
+#: hlidskjalf/editor.py:1060
 #, python-brace-format
 msgid "Conflict copy not created: {error}"
 msgstr "ไม่ได้สร้างสำเนาที่ขัดแย้ง: {error}"
 
-#: hlidskjalf/editor.py:1493
+#: hlidskjalf/editor.py:1560
 msgid "New database"
 msgstr "ฐานข้อมูลใหม่"
 
@@ -5372,37 +5446,45 @@ msgstr "งาน"
 msgid "Contains: {items}"
 msgstr "ประกอบด้วย: {items}"
 
-#: hlidskjalf/galerie.py:146
+#: hlidskjalf/galerie.py:177
+msgid "Too many requests – please wait a moment."
+msgstr "คำขอมากเกินไป – โปรดรอสักครู่"
+
+#: hlidskjalf/galerie.py:178
+msgid "Place search unavailable"
+msgstr "การค้นหาสถานที่ไม่พร้อมใช้งาน"
+
+#: hlidskjalf/galerie.py:205
 msgid "Too many templates in a short time – please try again in a minute."
 msgstr "ใช้เทมเพลตมากเกินไปในเวลาสั้น ๆ – โปรดลองอีกครั้งในอีกหนึ่งนาที"
 
-#: hlidskjalf/galerie.py:148
+#: hlidskjalf/galerie.py:207
 msgid ""
 "The server could not create the template. Nothing was created – please try "
 "again later."
 msgstr "เซิร์ฟเวอร์สร้างเทมเพลตไม่ได้ ไม่มีสิ่งใดถูกสร้าง – โปรดลองอีกครั้งภายหลัง"
 
-#: hlidskjalf/galerie.py:149
+#: hlidskjalf/galerie.py:208
 msgid "The template gallery could not be loaded. Please try again later."
 msgstr "โหลดคลังเทมเพลตไม่ได้ โปรดลองอีกครั้งภายหลัง"
 
-#: hlidskjalf/galerie.py:151
+#: hlidskjalf/galerie.py:210
 msgid "The template gallery is not available on this server."
 msgstr "คลังเทมเพลตไม่พร้อมใช้งานบนเซิร์ฟเวอร์นี้"
 
-#: hlidskjalf/galerie.py:153
+#: hlidskjalf/galerie.py:212
 msgid "This template is no longer available."
 msgstr "เทมเพลตนี้ไม่มีให้ใช้แล้ว"
 
-#: hlidskjalf/galerie.py:157
+#: hlidskjalf/galerie.py:216
 msgid "You are not allowed to create pages there."
 msgstr "คุณไม่มีสิทธิ์สร้างหน้าที่นั่น"
 
-#: hlidskjalf/galerie.py:158
+#: hlidskjalf/galerie.py:217
 msgid "The template could not be created."
 msgstr "สร้างเทมเพลตไม่ได้"
 
-#: hlidskjalf/galerie.py:158
+#: hlidskjalf/galerie.py:217
 msgid "The template gallery could not be loaded."
 msgstr "โหลดคลังเทมเพลตไม่ได้"
 
@@ -5436,13 +5518,41 @@ msgstr "เป็นหน้าย่อยของ “{title}”"
 msgid "Use template"
 msgstr "ใช้เทมเพลต"
 
-#: hlidskjalf/galeriedialog.py:153
+#: hlidskjalf/galeriedialog.py:177
 #, python-brace-format
 msgid "Template “{title}” created"
 msgstr "สร้างเทมเพลต “{title}” แล้ว"
 
+#: hlidskjalf/galeriedialog.py:196
+msgid "Place for the weather"
+msgstr "สถานที่สำหรับสภาพอากาศ"
+
+#: hlidskjalf/galeriedialog.py:206
+msgid "The template contains a weather widget. For which place?"
+msgstr "เทมเพลตมีวิดเจ็ตสภาพอากาศ ใช้สำหรับสถานที่ใด"
+
+#: hlidskjalf/galeriedialog.py:208 hlidskjalf/galeriedialog.py:209
+msgid "Search place …"
+msgstr "ค้นหาสถานที่ …"
+
+#: hlidskjalf/galeriedialog.py:221
+msgid "Skip"
+msgstr "ข้าม"
+
+#: hlidskjalf/galeriedialog.py:222
+msgid "Create the template without a place – set it in the widget later"
+msgstr "สร้างเทมเพลตโดยไม่ระบุสถานที่ – ตั้งค่าในวิดเจ็ตภายหลังได้"
+
+#: hlidskjalf/galeriedialog.py:256
+msgid "Searching …"
+msgstr "กำลังค้นหา …"
+
+#: hlidskjalf/galeriedialog.py:282
+msgid "No place found"
+msgstr "ไม่พบสถานที่"
+
 #: hlidskjalf/graphview.py:42 hlidskjalf/graphview.py:1071
-#: hlidskjalf/page.py:1283 hlidskjalf/page.py:1289
+#: hlidskjalf/page.py:1417 hlidskjalf/page.py:1423
 msgid "Tag"
 msgstr "แท็ก"
 
@@ -5541,17 +5651,18 @@ msgstr "แท็กเป็นโหนด"
 msgid "Rearrange"
 msgstr "จัดเรียงใหม่"
 
-#: hlidskjalf/graphview.py:800 hlidskjalf/page.py:1121 hlidskjalf/page.py:1548
+#: hlidskjalf/graphview.py:800 hlidskjalf/page.py:1247 hlidskjalf/page.py:1253
+#: hlidskjalf/page.py:1682
 msgid "Reload"
 msgstr "โหลดใหม่"
 
 #: hlidskjalf/graphview.py:829 hlidskjalf/window.py:251
-#: hlidskjalf/window.py:1623
+#: hlidskjalf/window.py:1640
 msgid "Graph"
 msgstr "กราฟ"
 
-#: hlidskjalf/graphview.py:829 hlidskjalf/page.py:1524
-#: hlidskjalf/window.py:1643
+#: hlidskjalf/graphview.py:829 hlidskjalf/page.py:1658
+#: hlidskjalf/window.py:1660
 msgid "Local graph"
 msgstr "กราฟเฉพาะที่"
 
@@ -5576,7 +5687,7 @@ msgid "You're offline"
 msgstr "คุณออฟไลน์อยู่"
 
 #: hlidskjalf/graphview.py:981 hlidskjalf/graphview.py:983
-#: hlidskjalf/page.py:395 hlidskjalf/page.py:413
+#: hlidskjalf/page.py:405 hlidskjalf/page.py:423
 msgid "Try again"
 msgstr "ลองอีกครั้ง"
 
@@ -5662,6 +5773,18 @@ msgstr "กรอง"
 #: hlidskjalf/images.py:136
 msgid "python3-pillow is missing"
 msgstr "ไม่มี python3-pillow"
+
+#: hlidskjalf/livepage.py:225
+msgid "Change not applied – you can’t edit this page right now."
+msgstr "ไม่ได้นำการเปลี่ยนแปลงไปใช้ – ขณะนี้คุณแก้ไขหน้านี้ไม่ได้"
+
+#: hlidskjalf/livepage.py:226
+msgid "Change not applied."
+msgstr "ไม่ได้นำการเปลี่ยนแปลงไปใช้"
+
+#: hlidskjalf/livepage.py:227
+msgid "Change not applied – your latest input could not be kept."
+msgstr "ไม่ได้นำการเปลี่ยนแปลงไปใช้ – เก็บสิ่งที่คุณพิมพ์ล่าสุดไว้ไม่ได้"
 
 #: hlidskjalf/nextcloud.py:224
 msgid "No file selected"
@@ -5899,146 +6022,179 @@ msgid "Replies in threads I'm part of"
 msgstr "การตอบกลับในการสนทนาที่ฉันมีส่วนร่วม"
 
 #: hlidskjalf/notifications.py:26
-msgid "Someone mentions me"
-msgstr "มีคนกล่าวถึงฉัน"
+msgid "Someone mentions me in a comment"
+msgstr "มีคนกล่าวถึงฉันในความคิดเห็น"
 
 #: hlidskjalf/notifications.py:27
+msgid "Someone mentions me on a page"
+msgstr "มีคนกล่าวถึงฉันในหน้า"
+
+#: hlidskjalf/notifications.py:28
+msgid "Someone mentions me in a chat"
+msgstr "มีคนกล่าวถึงฉันในแชท"
+
+#: hlidskjalf/notifications.py:29
+msgid "Someone assigns me in a database (person)"
+msgstr "มีคนมอบหมายฉันในฐานข้อมูล (บุคคล)"
+
+#: hlidskjalf/notifications.py:30
 msgid "An admin withdraws one of my published pages"
 msgstr "ผู้ดูแลระบบถอนหน้าที่ฉันเผยแพร่"
 
-#: hlidskjalf/notifications.py:28
+#: hlidskjalf/notifications.py:31
 msgid "New chat messages (without content; never for muted chats)"
 msgstr "ข้อความแชทใหม่ (ไม่มีเนื้อหา และไม่แจ้งสำหรับแชทที่ปิดเสียง)"
 
-#: hlidskjalf/notifications.py:29
+#: hlidskjalf/notifications.py:32
 msgid "Missed calls"
 msgstr "สายที่ไม่ได้รับ"
 
-#: hlidskjalf/notifications.py:30 hlidskjalf/push.py:273
+#: hlidskjalf/notifications.py:33 hlidskjalf/push.py:273
 msgid "Admin: backup failed"
 msgstr "ผู้ดูแล: การสำรองข้อมูลล้มเหลว"
 
-#: hlidskjalf/notifications.py:31 hlidskjalf/notifications.py:66
+#: hlidskjalf/notifications.py:34 hlidskjalf/notifications.py:77
 msgid "My backup failed"
 msgstr "การสำรองข้อมูลของฉันล้มเหลว"
 
-#: hlidskjalf/notifications.py:41
+#: hlidskjalf/notifications.py:44
 #, python-brace-format
 msgid "{name} shared a page with you ({role})"
 msgstr "{name} แชร์หน้ากับคุณ ({role})"
 
-#: hlidskjalf/notifications.py:43
+#: hlidskjalf/notifications.py:46
 #, python-brace-format
 msgid "{name} changed your role: {role}"
 msgstr "{name} เปลี่ยนบทบาทของคุณ: {role}"
 
-#: hlidskjalf/notifications.py:46
+#: hlidskjalf/notifications.py:49
 #, python-brace-format
 msgid "{name} commented on your page"
 msgstr "{name} แสดงความคิดเห็นในหน้าของคุณ"
 
-#: hlidskjalf/notifications.py:47
+#: hlidskjalf/notifications.py:50
 #, python-brace-format
 msgid "{n} new comment on your page"
 msgid_plural "{n} new comments on your page"
 msgstr[0] "ความคิดเห็นใหม่ {n} รายการในหน้าของคุณ"
 
-#: hlidskjalf/notifications.py:50
+#: hlidskjalf/notifications.py:53
 #, python-brace-format
 msgid "{name} replied in a thread"
 msgstr "{name} ตอบกลับในการสนทนา"
 
-#: hlidskjalf/notifications.py:51
+#: hlidskjalf/notifications.py:54
 #, python-brace-format
 msgid "{n} new reply in a thread"
 msgid_plural "{n} new replies in a thread"
 msgstr[0] "การตอบกลับใหม่ {n} รายการในการสนทนา"
 
-#: hlidskjalf/notifications.py:53
+#: hlidskjalf/notifications.py:56
+#, python-brace-format
+msgid "{name} mentioned you in a comment"
+msgstr "{name} กล่าวถึงคุณในความคิดเห็น"
+
+#: hlidskjalf/notifications.py:58
 #, python-brace-format
 msgid "{name} mentioned you"
 msgstr "{name} กล่าวถึงคุณ"
 
-#: hlidskjalf/notifications.py:55
+#: hlidskjalf/notifications.py:60
+#, python-brace-format
+msgid "{name} mentioned you in a chat"
+msgstr "{name} กล่าวถึงคุณในแชท"
+
+#: hlidskjalf/notifications.py:63
+#, python-brace-format
+msgid "{name} assigned you"
+msgstr "{name} ได้มอบหมายคุณ"
+
+#: hlidskjalf/notifications.py:64
+#, python-brace-format
+msgid "{name} assigned you {n} time"
+msgid_plural "{name} assigned you {n} times"
+msgstr[0] "{name} ได้มอบหมายคุณ {n} ครั้ง"
+
+#: hlidskjalf/notifications.py:66
 msgid "An admin withdrew your published page"
 msgstr "ผู้ดูแลระบบถอนการเผยแพร่ของคุณ"
 
-#: hlidskjalf/notifications.py:58
+#: hlidskjalf/notifications.py:69
 #, python-brace-format
 msgid "New message from {name}"
 msgstr "ข้อความใหม่จาก {name}"
 
-#: hlidskjalf/notifications.py:59
+#: hlidskjalf/notifications.py:70
 #, python-brace-format
 msgid "{n} new message"
 msgid_plural "{n} new messages"
 msgstr[0] "ข้อความใหม่ {n} ข้อความ"
 
-#: hlidskjalf/notifications.py:61
+#: hlidskjalf/notifications.py:72
 #, python-brace-format
 msgid "Missed call from {name}"
 msgstr "สายที่ไม่ได้รับจาก {name}"
 
-#: hlidskjalf/notifications.py:64 hlidskjalf/userbackup.py:179
+#: hlidskjalf/notifications.py:75 hlidskjalf/userbackup.py:179
 msgid "Backup failed"
 msgstr "การสำรองข้อมูลล้มเหลว"
 
-#: hlidskjalf/notifications.py:75
+#: hlidskjalf/notifications.py:87
 msgid "Backups"
 msgstr "การสำรองข้อมูล"
 
-#: hlidskjalf/notifications.py:77 hlidskjalf/settings.py:75
+#: hlidskjalf/notifications.py:89 hlidskjalf/settings.py:75
 #: hlidskjalf/settings.py:150 hlidskjalf/userbackup.py:52
 msgid "My backup"
 msgstr "การสำรองข้อมูลของฉัน"
 
-#: hlidskjalf/notifications.py:79 hlidskjalf/sharing.py:442
+#: hlidskjalf/notifications.py:91 hlidskjalf/sharing.py:442
 msgid "No access anymore"
 msgstr "ไม่มีสิทธิ์เข้าถึงแล้ว"
 
-#: hlidskjalf/notifications.py:300 hlidskjalf/notifications.py:313
-#: hlidskjalf/notifications.py:329 hlidskjalf/notifications.py:416
-#: hlidskjalf/window.py:1634
+#: hlidskjalf/notifications.py:312 hlidskjalf/notifications.py:325
+#: hlidskjalf/notifications.py:341 hlidskjalf/notifications.py:428
+#: hlidskjalf/window.py:1651
 msgid "Notifications"
 msgstr "การแจ้งเตือน"
 
-#: hlidskjalf/notifications.py:316
+#: hlidskjalf/notifications.py:328
 msgid "Mark all as read"
 msgstr "ทำเครื่องหมายว่าอ่านทั้งหมดแล้ว"
 
-#: hlidskjalf/notifications.py:320
+#: hlidskjalf/notifications.py:332
 msgid "Notification settings"
 msgstr "ตั้งค่าการแจ้งเตือน"
 
-#: hlidskjalf/notifications.py:339
+#: hlidskjalf/notifications.py:351
 msgid "No notifications"
 msgstr "ไม่มีการแจ้งเตือน"
 
-#: hlidskjalf/notifications.py:340
+#: hlidskjalf/notifications.py:352
 msgid ""
 "This is where you'll see when someone shares something with you or comments "
 "on your pages."
 msgstr "จะแสดงที่นี่เมื่อมีคนแชร์สิ่งใดกับคุณหรือแสดงความคิดเห็นในหน้าของคุณ"
 
 #. Translators: quoted excerpt of a comment (typographic quotes of your language)
-#: hlidskjalf/notifications.py:384
+#: hlidskjalf/notifications.py:396
 #, python-brace-format
 msgid "“{text}”"
 msgstr "“{text}”"
 
-#: hlidskjalf/notifications.py:395 hlidskjalf/notifications.py:399
+#: hlidskjalf/notifications.py:407 hlidskjalf/notifications.py:411
 msgid "Unread"
 msgstr "ยังไม่อ่าน"
 
-#: hlidskjalf/notifications.py:417
+#: hlidskjalf/notifications.py:429
 msgid "Shown in Saga under the bell – instantly while Saga is open."
 msgstr "แสดงใน Saga ใต้กระดิ่ง – ทันทีขณะที่ Saga เปิดอยู่"
 
-#: hlidskjalf/notifications.py:434
+#: hlidskjalf/notifications.py:446
 msgid "Desktop notifications while Saga is open"
 msgstr "การแจ้งเตือนบนเดสก์ท็อปขณะที่ Saga เปิดอยู่"
 
-#: hlidskjalf/notifications.py:435
+#: hlidskjalf/notifications.py:447
 msgid "Without page, comment or chat content."
 msgstr "ไม่มีเนื้อหาของหน้า ความคิดเห็น หรือแชท"
 
@@ -6082,351 +6238,357 @@ msgstr "เลือกอีโมจิ …"
 msgid "Remove icon"
 msgstr "นำไอคอนออก"
 
-#: hlidskjalf/page.py:329
+#: hlidskjalf/page.py:339
 #, python-brace-format
 msgid "Not restored: {error}"
 msgstr "กู้คืนไม่สำเร็จ: {error}"
 
-#: hlidskjalf/page.py:356
+#: hlidskjalf/page.py:366
 msgid "Close (Esc)"
 msgstr "ปิด (Esc)"
 
-#: hlidskjalf/page.py:362
+#: hlidskjalf/page.py:372
 msgid "Previous entry (Ctrl+Shift+K)"
 msgstr "รายการก่อนหน้า (Ctrl+Shift+K)"
 
-#: hlidskjalf/page.py:363
+#: hlidskjalf/page.py:373
 msgid "Next entry (Ctrl+Shift+J)"
 msgstr "รายการถัดไป (Ctrl+Shift+J)"
 
-#: hlidskjalf/page.py:372 hlidskjalf/window.py:719 hlidskjalf/window.py:1167
-#: hlidskjalf/window.py:1785
+#: hlidskjalf/page.py:382 hlidskjalf/window.py:722 hlidskjalf/window.py:1174
+#: hlidskjalf/window.py:1802
 msgid "Add to favorites"
 msgstr "เพิ่มในรายการโปรด"
 
-#: hlidskjalf/page.py:374 hlidskjalf/window.py:717
+#: hlidskjalf/page.py:384 hlidskjalf/window.py:720
 msgid "Page menu"
 msgstr "เมนูหน้า"
 
-#: hlidskjalf/page.py:390
+#: hlidskjalf/page.py:400
 msgid "No access to this page"
 msgstr "ไม่มีสิทธิ์เข้าถึงหน้านี้"
 
-#: hlidskjalf/page.py:392
+#: hlidskjalf/page.py:402
 msgid ""
 "The page doesn’t exist (anymore), or it is not (or no longer) shared with "
 "you."
 msgstr "ไม่มีหน้านี้ (แล้ว) หรือไม่ได้แชร์กับคุณ (แล้ว)"
 
-#: hlidskjalf/page.py:400
+#: hlidskjalf/page.py:410
 msgid "Go to “Shared with me”"
 msgstr "ไปที่ “แชร์กับฉัน”"
 
-#: hlidskjalf/page.py:411
+#: hlidskjalf/page.py:421
 msgid "Page could not be loaded"
 msgstr "โหลดหน้าไม่ได้"
 
-#: hlidskjalf/page.py:419 hlidskjalf/settings.py:35 hlidskjalf/settings.py:88
-#: hlidskjalf/window.py:683 hlidskjalf/window.py:1627 hlidskjalf/window.py:1724
+#: hlidskjalf/page.py:429 hlidskjalf/settings.py:35 hlidskjalf/settings.py:88
+#: hlidskjalf/window.py:686 hlidskjalf/window.py:1644 hlidskjalf/window.py:1741
 msgid "Settings"
 msgstr "การตั้งค่า"
 
-#: hlidskjalf/page.py:485
+#: hlidskjalf/page.py:495
 msgid "Locked – click to unlock"
 msgstr "ล็อกอยู่ – คลิกเพื่อปลดล็อก"
 
-#: hlidskjalf/page.py:491 hlidskjalf/sharing.py:193
+#: hlidskjalf/page.py:501 hlidskjalf/sharing.py:193
 msgid "🔒 The owner locked this page."
 msgstr "🔒 เจ้าของล็อกหน้านี้ไว้"
 
-#: hlidskjalf/page.py:655 hlidskjalf/page.py:1106 hlidskjalf/page.py:1152
+#: hlidskjalf/page.py:666 hlidskjalf/page.py:1232 hlidskjalf/page.py:1284
 msgid "Page changed elsewhere"
 msgstr "หน้าถูกเปลี่ยนจากที่อื่น"
 
-#: hlidskjalf/page.py:656
+#: hlidskjalf/page.py:667
 msgid ""
 "This page was changed on another device in the meantime. Your changes won't "
 "be lost."
 msgstr "หน้านี้ถูกเปลี่ยนบนอุปกรณ์อื่นในระหว่างนี้ การเปลี่ยนแปลงของคุณจะไม่สูญหาย"
 
-#: hlidskjalf/page.py:657
+#: hlidskjalf/page.py:668
 msgid "Keep my version"
 msgstr "เก็บเวอร์ชันของฉันไว้"
 
-#: hlidskjalf/page.py:658
+#: hlidskjalf/page.py:669
 msgid "Load server version (save mine as a copy)"
 msgstr "โหลดเวอร์ชันจากเซิร์ฟเวอร์ (บันทึกของฉันเป็นสำเนา)"
 
-#: hlidskjalf/page.py:897 hlidskjalf/page.py:910
+#: hlidskjalf/page.py:918 hlidskjalf/page.py:931
 #, python-brace-format
 msgid "Updated – changed by {name}"
 msgstr "อัปเดตแล้ว – แก้ไขโดย {name}"
 
-#: hlidskjalf/page.py:918
+#: hlidskjalf/page.py:939
 msgid "Someone"
 msgstr "ใครบางคน"
 
-#: hlidskjalf/page.py:918
+#: hlidskjalf/page.py:939
 #, python-brace-format
 msgid "{name} changed this page"
 msgstr "{name} แก้ไขหน้านี้"
 
-#: hlidskjalf/page.py:942
+#: hlidskjalf/page.py:963
 msgid "Changed at the same time – both versions are shown one below the other."
 msgstr "แก้ไขพร้อมกัน – แสดงทั้งสองฉบับเรียงต่อกัน"
 
-#: hlidskjalf/page.py:944
+#: hlidskjalf/page.py:965
 msgid "Changed at the same time – the other version is in the version history."
 msgstr "แก้ไขพร้อมกัน – อีกฉบับอยู่ในประวัติเวอร์ชัน"
 
-#: hlidskjalf/page.py:947 hlidskjalf/settings.py:721
+#: hlidskjalf/page.py:968 hlidskjalf/settings.py:721
 #: hlidskjalf/userbackup.py:18
 msgid "Versions"
 msgstr "เวอร์ชัน"
 
-#: hlidskjalf/page.py:952
+#: hlidskjalf/page.py:973
 msgid ""
 "A block you deleted was changed by someone else in the meantime and was kept."
 msgstr "บล็อกที่คุณลบถูกผู้อื่นแก้ไขในระหว่างนั้น จึงยังคงอยู่"
 
-#: hlidskjalf/page.py:1106
+#: hlidskjalf/page.py:1232
 msgid "Choose version"
 msgstr "เลือกเวอร์ชัน"
 
-#: hlidskjalf/page.py:1112
+#: hlidskjalf/page.py:1238
 msgid "This page is in the trash. Changes are not saved until you restore it."
 msgstr "หน้านี้อยู่ในถังขยะ การเปลี่ยนแปลงจะไม่ถูกบันทึกจนกว่าจะกู้คืน"
 
-#: hlidskjalf/page.py:1131
+#: hlidskjalf/page.py:1252
+msgid ""
+"This page uses a different editor version – reload it (or update the app). "
+"Until then read-only."
+msgstr "หน้านี้ใช้ตัวแก้ไขรุ่นอื่น – โปรดโหลดใหม่ (หรืออัปเดตแอป) ระหว่างนี้อ่านได้อย่างเดียว"
+
+#: hlidskjalf/page.py:1263
 msgctxt "draft"
 msgid "Restore"
 msgstr "กู้คืน"
 
-#: hlidskjalf/page.py:1134
+#: hlidskjalf/page.py:1266
 msgctxt "draft"
 msgid "Discard"
 msgstr "ทิ้ง"
 
-#: hlidskjalf/page.py:1150
+#: hlidskjalf/page.py:1282
 #, python-brace-format
 msgid "⚠ {name} just changed this page. Your latest changes are not saved yet."
 msgstr "⚠ {name} เพิ่งแก้ไขหน้านี้ การเปลี่ยนแปลงล่าสุดของคุณยังไม่ได้บันทึก"
 
-#: hlidskjalf/page.py:1165
+#: hlidskjalf/page.py:1298
 #, python-brace-format
 msgid "Unsaved changes from {time}"
 msgstr "การเปลี่ยนแปลงที่ยังไม่ได้บันทึกจาก {time}"
 
-#: hlidskjalf/page.py:1252
+#: hlidskjalf/page.py:1386
 msgid "Add icon"
 msgstr "เพิ่มไอคอน"
 
-#: hlidskjalf/page.py:1256
+#: hlidskjalf/page.py:1390
 msgid "Add cover image"
 msgstr "เพิ่มภาพปก"
 
-#: hlidskjalf/page.py:1326
+#: hlidskjalf/page.py:1460
 msgid "Linked from"
 msgstr "ลิงก์มาจาก"
 
-#: hlidskjalf/page.py:1364
+#: hlidskjalf/page.py:1498
 msgid "Contents"
 msgstr "สารบัญ"
 
-#: hlidskjalf/page.py:1498
+#: hlidskjalf/page.py:1632
 msgid "Full width"
 msgstr "เต็มความกว้าง"
 
-#: hlidskjalf/page.py:1501
+#: hlidskjalf/page.py:1635
 msgid "Font"
 msgstr "แบบอักษร"
 
-#: hlidskjalf/page.py:1502
+#: hlidskjalf/page.py:1636
 msgid "Mono"
 msgstr "โมโน"
 
-#: hlidskjalf/page.py:1502
+#: hlidskjalf/page.py:1636
 msgid "Serif"
 msgstr "เซอริฟ"
 
-#: hlidskjalf/page.py:1503
+#: hlidskjalf/page.py:1637
 msgid "Small text"
 msgstr "ข้อความขนาดเล็ก"
 
-#: hlidskjalf/page.py:1505
+#: hlidskjalf/page.py:1639
 msgid "Remove as home page"
 msgstr "เลิกตั้งเป็นหน้าแรก"
 
-#: hlidskjalf/page.py:1505
+#: hlidskjalf/page.py:1639
 msgid "Set as home page"
 msgstr "ตั้งเป็นหน้าแรก"
 
-#: hlidskjalf/page.py:1509 hlidskjalf/window.py:1649
+#: hlidskjalf/page.py:1643 hlidskjalf/window.py:1666
 msgid "Share …"
 msgstr "แชร์ …"
 
-#: hlidskjalf/page.py:1527 hlidskjalf/window.py:1778 hlidskjalf/window.py:1790
+#: hlidskjalf/page.py:1661 hlidskjalf/window.py:1795 hlidskjalf/window.py:1807
 msgid "Move to …"
 msgstr "ย้ายไปที่ …"
 
-#: hlidskjalf/page.py:1530
+#: hlidskjalf/page.py:1664
 msgid "Version history …"
 msgstr "ประวัติเวอร์ชัน …"
 
-#: hlidskjalf/page.py:1533
+#: hlidskjalf/page.py:1667
 msgid "As Markdown (.md)"
 msgstr "เป็น Markdown (.md)"
 
-#: hlidskjalf/page.py:1533 hlidskjalf/window.py:1967
+#: hlidskjalf/page.py:1667 hlidskjalf/window.py:1984
 msgid "Export"
 msgstr "ส่งออก"
 
-#: hlidskjalf/page.py:1534
+#: hlidskjalf/page.py:1668
 msgid "With subpages (.zip)"
 msgstr "พร้อมหน้าย่อย (.zip)"
 
-#: hlidskjalf/page.py:1537
+#: hlidskjalf/page.py:1671
 msgid "As template"
 msgstr "เป็นเทมเพลต"
 
-#: hlidskjalf/page.py:1543
+#: hlidskjalf/page.py:1677
 msgid "Use as task source"
 msgstr "ใช้เป็นแหล่งงาน"
 
-#: hlidskjalf/page.py:1547 hlidskjalf/window.py:1646
+#: hlidskjalf/page.py:1681 hlidskjalf/window.py:1663
 msgid "Publish …"
 msgstr "เผยแพร่ …"
 
-#: hlidskjalf/page.py:1551
+#: hlidskjalf/page.py:1685
 msgid "Lock page"
 msgstr "ล็อกหน้า"
 
-#: hlidskjalf/page.py:1551
+#: hlidskjalf/page.py:1685
 msgid "Unlock page"
 msgstr "ปลดล็อกหน้า"
 
-#: hlidskjalf/page.py:1553
+#: hlidskjalf/page.py:1687
 msgid "Restore from archive"
 msgstr "นำออกจากคลังเก็บ"
 
-#: hlidskjalf/page.py:1584
+#: hlidskjalf/page.py:1718
 msgid "Address or page reference (/notes#12)"
 msgstr "ที่อยู่หรือการอ้างอิงหน้า (/notes#12)"
 
-#: hlidskjalf/page.py:1584 hlidskjalf/publish.py:512 hlidskjalf/publish.py:527
+#: hlidskjalf/page.py:1718 hlidskjalf/publish.py:512 hlidskjalf/publish.py:527
 #: hlidskjalf/sharing.py:716
 msgid "Link"
 msgstr "ลิงก์"
 
-#: hlidskjalf/page.py:1585
+#: hlidskjalf/page.py:1719
 msgid "https://… or /notes#12"
 msgstr "https://… หรือ /notes#12"
 
-#: hlidskjalf/page.py:1588
+#: hlidskjalf/page.py:1722
 msgid "Remove link"
 msgstr "นำลิงก์ออก"
 
-#: hlidskjalf/page.py:1589 hlidskjalf/page.py:1827
+#: hlidskjalf/page.py:1723 hlidskjalf/page.py:1961
 msgid "Set"
 msgstr "ตั้งค่า"
 
-#: hlidskjalf/page.py:1609
+#: hlidskjalf/page.py:1743
 msgid "Select some text first."
 msgstr "โปรดเลือกข้อความก่อน"
 
-#: hlidskjalf/page.py:1690
+#: hlidskjalf/page.py:1824
 msgid "Move to page"
 msgstr "ย้ายไปยังหน้า"
 
-#: hlidskjalf/page.py:1718 hlidskjalf/page.py:1757
+#: hlidskjalf/page.py:1852 hlidskjalf/page.py:1891
 msgid "Move undone"
 msgstr "ยกเลิกการย้ายแล้ว"
 
-#: hlidskjalf/page.py:1724
+#: hlidskjalf/page.py:1858
 #, python-brace-format
 msgid "Block moved to “{title}”"
 msgid_plural "{n} blocks moved to “{title}”"
 msgstr[0] "ย้าย {n} บล็อกไปที่ “{title}” แล้ว"
 
-#: hlidskjalf/page.py:1742
+#: hlidskjalf/page.py:1876
 msgid "You can’t edit the target page."
 msgstr "คุณแก้ไขหน้าปลายทางไม่ได้"
 
-#: hlidskjalf/page.py:1743
+#: hlidskjalf/page.py:1877
 msgid "Page or block not found."
 msgstr "ไม่พบหน้าหรือบล็อก"
 
-#: hlidskjalf/page.py:1744
+#: hlidskjalf/page.py:1878
 msgid "The page is locked."
 msgstr "หน้านี้ถูกล็อก"
 
-#: hlidskjalf/page.py:1745
+#: hlidskjalf/page.py:1879
 msgid "Not enough storage space for the files of these blocks."
 msgstr "พื้นที่เก็บข้อมูลไม่พอสำหรับไฟล์ของบล็อกเหล่านี้"
 
-#: hlidskjalf/page.py:1746 hlidskjalf/page.py:1758
+#: hlidskjalf/page.py:1880 hlidskjalf/page.py:1892
 #, python-brace-format
 msgid "Not moved: {error}"
 msgstr "ย้ายไม่สำเร็จ: {error}"
 
-#: hlidskjalf/page.py:1771
+#: hlidskjalf/page.py:1905
 msgid "this person"
 msgstr "บุคคลนี้"
 
-#: hlidskjalf/page.py:1772
+#: hlidskjalf/page.py:1906
 msgid "Share page and mention?"
 msgstr "แชร์หน้าและกล่าวถึง?"
 
-#: hlidskjalf/page.py:1773
+#: hlidskjalf/page.py:1907
 #, python-brace-format
 msgid ""
 "{name} has no access to this page yet. Share it with them so they can see "
 "the mention?"
 msgstr "{name} ยังไม่มีสิทธิ์เข้าถึงหน้านี้ แชร์ให้เพื่อให้เห็นการกล่าวถึงหรือไม่?"
 
-#: hlidskjalf/page.py:1775
+#: hlidskjalf/page.py:1909
 msgid "Share (can comment)"
 msgstr "แชร์ (แสดงความคิดเห็นได้)"
 
-#: hlidskjalf/page.py:1776
+#: hlidskjalf/page.py:1910
 msgid "Share (can view)"
 msgstr "แชร์ (ดูได้)"
 
-#: hlidskjalf/page.py:1819
+#: hlidskjalf/page.py:1953
 msgid "Inline math"
 msgstr "สูตรในบรรทัด"
 
-#: hlidskjalf/page.py:1819
+#: hlidskjalf/page.py:1953
 msgid "TeX source, e.g. a^2 + b^2"
 msgstr "ซอร์ส TeX เช่น a^2 + b^2"
 
-#: hlidskjalf/page.py:1847 hlidskjalf/page.py:1902
+#: hlidskjalf/page.py:1981 hlidskjalf/page.py:2036
 msgid "Not available for pages from other Saga instances."
 msgstr "ไม่พร้อมใช้งานสำหรับหน้าจากอินสแตนซ์ Saga อื่น"
 
-#: hlidskjalf/page.py:1854
+#: hlidskjalf/page.py:1988
 msgid "Choose image"
 msgstr "เลือกรูปภาพ"
 
-#: hlidskjalf/page.py:1865 hlidskjalf/page.py:1881 hlidskjalf/page.py:2109
-#: hlidskjalf/page.py:2126
+#: hlidskjalf/page.py:1999 hlidskjalf/page.py:2015 hlidskjalf/page.py:2260
+#: hlidskjalf/page.py:2277
 #, python-brace-format
 msgid "Image not uploaded: {error}"
 msgstr "ไม่ได้อัปโหลดรูปภาพ: {error}"
 
-#: hlidskjalf/page.py:1921
+#: hlidskjalf/page.py:2055
 msgid "YouTube video or any link (shown as a card)"
 msgstr "วิดีโอ YouTube หรือลิงก์ใดก็ได้ (แสดงเป็นการ์ด)"
 
-#: hlidskjalf/page.py:1991
+#: hlidskjalf/page.py:2125
 msgid "Link database"
 msgstr "ลิงก์ฐานข้อมูล"
 
-#: hlidskjalf/page.py:2019
+#: hlidskjalf/page.py:2170
 msgid "Block deleted"
 msgstr "ลบบล็อกแล้ว"
 
-#: hlidskjalf/page.py:2084
+#: hlidskjalf/page.py:2235
 msgid "Nextcloud files of other people can’t be copied into other pages."
 msgstr "ไม่สามารถคัดลอกไฟล์ Nextcloud ของบุคคลอื่นไปยังหน้าอื่นได้"
 
@@ -6630,7 +6792,7 @@ msgid "Too many uploads – please try again later."
 msgstr "อัปโหลดมากเกินไป – โปรดลองอีกครั้งในภายหลัง"
 
 #: hlidskjalf/publish.py:67 hlidskjalf/publish.py:71 hlidskjalf/publish.py:117
-#: hlidskjalf/publish.py:505 hlidskjalf/window.py:724
+#: hlidskjalf/publish.py:505 hlidskjalf/window.py:727
 msgid "Public"
 msgstr "สาธารณะ"
 
@@ -6822,7 +6984,7 @@ msgid "✓ New address saved"
 msgstr "✓ บันทึกที่อยู่ใหม่แล้ว"
 
 #: hlidskjalf/publish.py:736 hlidskjalf/sharing.py:757
-#: hlidskjalf/window.py:1694
+#: hlidskjalf/window.py:1711
 msgid "Link copied"
 msgstr "คัดลอกลิงก์แล้ว"
 
@@ -7024,7 +7186,7 @@ msgstr "ยังไม่มีการส่ง"
 msgid "without names (server sees the text)"
 msgstr "ไม่มีชื่อ (เซิร์ฟเวอร์เห็นข้อความ)"
 
-#: hlidskjalf/push.py:461 hlidskjalf/settings.py:880
+#: hlidskjalf/push.py:461 hlidskjalf/settings.py:884
 msgid "Sending …"
 msgstr "กำลังส่ง …"
 
@@ -7200,7 +7362,7 @@ msgstr "จัดการในเบราว์เซอร์"
 msgid "Opened in your browser – sign in there if asked."
 msgstr "เปิดในเบราว์เซอร์แล้ว – เข้าสู่ระบบที่นั่นหากถูกขอ"
 
-#: hlidskjalf/settings.py:51 hlidskjalf/window.py:1327
+#: hlidskjalf/settings.py:51 hlidskjalf/window.py:1344
 msgid "Account"
 msgstr "บัญชี"
 
@@ -7615,58 +7777,62 @@ msgstr ""
 "Saga เป็นซอฟต์แวร์เสรีภายใต้ GNU AGPL 3.0 การเข้ารหัสแชตใช้ libsodium (สัญญาอนุญาต "
 "ISC) ผ่าน PyNaCl (Apache License 2.0)"
 
-#: hlidskjalf/settings.py:760 hlidskjalf/window.py:685 hlidskjalf/window.py:822
+#: hlidskjalf/settings.py:763
+msgid "Live editing uses pycrdt and anyio (MIT license)."
+msgstr "การแก้ไขพร้อมกันแบบสดใช้ pycrdt และ anyio (สัญญาอนุญาต MIT)"
+
+#: hlidskjalf/settings.py:764 hlidskjalf/window.py:688 hlidskjalf/window.py:829
 msgid "About Saga"
 msgstr "เกี่ยวกับ Saga"
 
-#: hlidskjalf/settings.py:789
+#: hlidskjalf/settings.py:793
 #, python-brace-format
 msgid "Saga {version} is available"
 msgstr "Saga {version} พร้อมให้ใช้งานแล้ว"
 
-#: hlidskjalf/settings.py:790
+#: hlidskjalf/settings.py:794
 msgid "You have the latest version."
 msgstr "คุณใช้เวอร์ชันล่าสุดแล้ว"
 
-#: hlidskjalf/settings.py:791
+#: hlidskjalf/settings.py:795
 msgid "Check failed"
 msgstr "การตรวจสอบล้มเหลว"
 
-#: hlidskjalf/settings.py:792
+#: hlidskjalf/settings.py:796
 msgid "Not checked yet"
 msgstr "ยังไม่ได้ตรวจสอบ"
 
-#: hlidskjalf/settings.py:796
+#: hlidskjalf/settings.py:800
 #, python-brace-format
 msgid "Last checked: {when}"
 msgstr "ตรวจสอบล่าสุด: {when}"
 
-#: hlidskjalf/settings.py:805
+#: hlidskjalf/settings.py:809
 msgctxt "button"
 msgid "Update"
 msgstr "อัปเดต"
 
-#: hlidskjalf/settings.py:809
+#: hlidskjalf/settings.py:813
 msgid "Check for updates"
 msgstr "ตรวจหาอัปเดต"
 
-#: hlidskjalf/settings.py:829
+#: hlidskjalf/settings.py:833
 msgid "Help"
 msgstr "ความช่วยเหลือ"
 
-#: hlidskjalf/settings.py:831
+#: hlidskjalf/settings.py:835
 msgid "What happened? (optional)"
 msgstr "เกิดอะไรขึ้น? (ไม่บังคับ)"
 
-#: hlidskjalf/settings.py:834
+#: hlidskjalf/settings.py:838
 msgid "Send diagnostics"
 msgstr "ส่งข้อมูลวินิจฉัย"
 
-#: hlidskjalf/settings.py:844 hlidskjalf/settings.py:846
+#: hlidskjalf/settings.py:848 hlidskjalf/settings.py:850
 msgid "Copy ID"
 msgstr "คัดลอกรหัส"
 
-#: hlidskjalf/settings.py:861
+#: hlidskjalf/settings.py:865
 msgid ""
 "Sends the latest events of this app (errors, status codes, view changes – "
 "without contents, titles or names) to your Saga server. Your text above "
@@ -7675,26 +7841,26 @@ msgstr ""
 "ส่งเหตุการณ์ล่าสุดของแอปนี้ (ข้อผิดพลาด รหัสสถานะ การเปลี่ยนมุมมอง – ไม่มีเนื้อหา ชื่อเรื่อง "
 "หรือชื่อบุคคล) ไปยังเซิร์ฟเวอร์ Saga ของคุณ ข้อความด้านบนจะถึงผู้ดูแลตามที่คุณเขียน"
 
-#: hlidskjalf/settings.py:863 hlidskjalf/settings.py:896
+#: hlidskjalf/settings.py:867 hlidskjalf/settings.py:900
 msgid ""
 "This server does not accept diagnostics (Saga server 2.5 or later, can be "
 "turned off by the admin)."
 msgstr "เซิร์ฟเวอร์นี้ไม่รับข้อมูลวินิจฉัย (ตั้งแต่เซิร์ฟเวอร์ Saga 2.5 ผู้ดูแลปิดได้)"
 
-#: hlidskjalf/settings.py:892
+#: hlidskjalf/settings.py:896
 msgid "Sent. Give the admin this ID:"
 msgstr "ส่งแล้ว แจ้งรหัสนี้ให้ผู้ดูแล:"
 
-#: hlidskjalf/settings.py:900
+#: hlidskjalf/settings.py:904
 msgid "Too many diagnostics – please try again later."
 msgstr "ส่งข้อมูลวินิจฉัยบ่อยเกินไป – โปรดลองอีกครั้งภายหลัง"
 
-#: hlidskjalf/settings.py:904
+#: hlidskjalf/settings.py:908
 #, python-brace-format
 msgid "Diagnostics not sent: {error}"
 msgstr "ไม่ได้ส่งข้อมูลวินิจฉัย: {error}"
 
-#: hlidskjalf/settings.py:915 hlidskjalf/userbackup.py:636
+#: hlidskjalf/settings.py:919 hlidskjalf/userbackup.py:636
 msgid "Copied"
 msgstr "คัดลอกแล้ว"
 
@@ -8642,11 +8808,11 @@ msgstr "Ctrl"
 msgid "Shift"
 msgstr "Shift"
 
-#: hlidskjalf/window.py:556
+#: hlidskjalf/window.py:559
 msgid "Saving changes …"
 msgstr "กำลังบันทึกการเปลี่ยนแปลง …"
 
-#: hlidskjalf/window.py:576
+#: hlidskjalf/window.py:579
 #, python-brace-format
 msgid ""
 "“{title}” is too large to save. Your changes are kept on this device, but "
@@ -8655,7 +8821,7 @@ msgstr ""
 "“{title}” ใหญ่เกินกว่าจะบันทึกได้ การเปลี่ยนแปลงของคุณถูกเก็บไว้บนอุปกรณ์นี้ "
 "แต่จะบันทึกได้เมื่อหน้าสั้นลงหรือถูกแบ่งแล้วเท่านั้น"
 
-#: hlidskjalf/window.py:579
+#: hlidskjalf/window.py:582
 msgid ""
 "Some changes have not reached the server yet (no connection or a conflict). "
 "They are kept on this device and restored the next time you open the page."
@@ -8663,79 +8829,79 @@ msgstr ""
 "การเปลี่ยนแปลงบางส่วนยังไปไม่ถึงเซิร์ฟเวอร์ (ไม่มีการเชื่อมต่อหรือมีความขัดแย้ง) "
 "การเปลี่ยนแปลงถูกเก็บไว้บนอุปกรณ์นี้และจะกู้คืนเมื่อคุณเปิดหน้าครั้งถัดไป"
 
-#: hlidskjalf/window.py:581
+#: hlidskjalf/window.py:584
 msgid "Not everything could be saved"
 msgstr "บันทึกได้ไม่ครบทั้งหมด"
 
-#: hlidskjalf/window.py:582
+#: hlidskjalf/window.py:585
 msgid "Keep open"
 msgstr "เปิดไว้"
 
-#: hlidskjalf/window.py:583
+#: hlidskjalf/window.py:586
 msgid "Close anyway"
 msgstr "ปิดเลย"
 
-#: hlidskjalf/window.py:623
+#: hlidskjalf/window.py:626
 #, python-brace-format
 msgid ""
 "This app is too old for the server (version {version} or later needed) – "
 "please update."
 msgstr "แอปนี้เก่าเกินไปสำหรับเซิร์ฟเวอร์ (ต้องใช้เวอร์ชัน {version} ขึ้นไป) – โปรดอัปเดต"
 
-#: hlidskjalf/window.py:666 hlidskjalf/window.py:672
+#: hlidskjalf/window.py:669 hlidskjalf/window.py:675
 msgid "New page (Ctrl+N)"
 msgstr "หน้าใหม่ (Ctrl+N)"
 
-#: hlidskjalf/window.py:670 hlidskjalf/window.py:1617 hlidskjalf/window.py:1723
+#: hlidskjalf/window.py:673 hlidskjalf/window.py:1634 hlidskjalf/window.py:1740
 msgid "New page"
 msgstr "หน้าใหม่"
 
-#: hlidskjalf/window.py:671 hlidskjalf/window.py:1618
+#: hlidskjalf/window.py:674 hlidskjalf/window.py:1635
 msgid "From template …"
 msgstr "จากเทมเพลต …"
 
-#: hlidskjalf/window.py:673
+#: hlidskjalf/window.py:676
 msgid "More ways to create"
 msgstr "วิธีสร้างอื่น ๆ"
 
-#: hlidskjalf/window.py:678 hlidskjalf/window.py:819
+#: hlidskjalf/window.py:681 hlidskjalf/window.py:826
 msgid "Menu"
 msgstr "เมนู"
 
-#: hlidskjalf/window.py:680 hlidskjalf/window.py:1723
+#: hlidskjalf/window.py:683 hlidskjalf/window.py:1740
 msgid "Command palette"
 msgstr "แผงคำสั่ง"
 
-#: hlidskjalf/window.py:682 hlidskjalf/window.py:1624 hlidskjalf/window.py:1724
+#: hlidskjalf/window.py:685 hlidskjalf/window.py:1641 hlidskjalf/window.py:1741
 msgid "Refresh"
 msgstr "รีเฟรช"
 
-#: hlidskjalf/window.py:684 hlidskjalf/window.py:821 hlidskjalf/window.py:1728
-#: hlidskjalf/window.py:1757
+#: hlidskjalf/window.py:687 hlidskjalf/window.py:828 hlidskjalf/window.py:1745
+#: hlidskjalf/window.py:1774
 msgid "Keyboard shortcuts"
 msgstr "แป้นพิมพ์ลัด"
 
-#: hlidskjalf/window.py:705
+#: hlidskjalf/window.py:708
 msgid "Show/hide sidebar (F9)"
 msgstr "แสดง/ซ่อนแถบด้านข้าง (F9)"
 
-#: hlidskjalf/window.py:708
+#: hlidskjalf/window.py:711
 msgid "Back (Alt+←)"
 msgstr "กลับ (Alt+←)"
 
-#: hlidskjalf/window.py:709
+#: hlidskjalf/window.py:712
 msgid "Forward (Alt+→)"
 msgstr "ไปข้างหน้า (Alt+→)"
 
-#: hlidskjalf/window.py:756
+#: hlidskjalf/window.py:759
 msgid "Call – opens the chat in your browser"
 msgstr "โทร – เปิดแชทในเบราว์เซอร์ของคุณ"
 
-#: hlidskjalf/window.py:823 hlidskjalf/window.py:1728
+#: hlidskjalf/window.py:830 hlidskjalf/window.py:1745
 msgid "Quit"
 msgstr "ออก"
 
-#: hlidskjalf/window.py:827
+#: hlidskjalf/window.py:834
 msgid ""
 "Sign in with a passkey, security key or password.\n"
 "Sign-in opens in your browser."
@@ -8743,29 +8909,29 @@ msgstr ""
 "เข้าสู่ระบบด้วยพาสคีย์ กุญแจความปลอดภัย หรือรหัสผ่าน\n"
 "การเข้าสู่ระบบจะเปิดในเบราว์เซอร์ของคุณ"
 
-#: hlidskjalf/window.py:833
+#: hlidskjalf/window.py:840
 msgid "Server address"
 msgstr "ที่อยู่เซิร์ฟเวอร์"
 
-#: hlidskjalf/window.py:838
+#: hlidskjalf/window.py:845
 msgid "Sign in"
 msgstr "เข้าสู่ระบบ"
 
-#: hlidskjalf/window.py:846
+#: hlidskjalf/window.py:853
 msgid "Enter the server address or sign in with a pairing link"
 msgstr "ป้อนที่อยู่เซิร์ฟเวอร์หรือเข้าสู่ระบบด้วยลิงก์จับคู่"
 
-#: hlidskjalf/window.py:848
+#: hlidskjalf/window.py:855
 msgid ""
 "With two-factor sign-in, the browser then asks for your passkey or a code "
 "from your authenticator app."
 msgstr "หากใช้การเข้าสู่ระบบสองขั้นตอน เบราว์เซอร์จะขอพาสคีย์หรือรหัสจากแอปยืนยันตัวตนของคุณ"
 
-#: hlidskjalf/window.py:853
+#: hlidskjalf/window.py:860
 msgid "Sign in with a pairing link (QR code from the web)"
 msgstr "เข้าสู่ระบบด้วยลิงก์จับคู่ (คิวอาร์โค้ดจากเว็บ)"
 
-#: hlidskjalf/window.py:855
+#: hlidskjalf/window.py:862
 msgid ""
 "In the browser: 👤 → Settings → “Apps & devices” → “Sign in with QR code”. "
 "Paste the link below the QR code (…/app/pair?c=…) here:"
@@ -8773,275 +8939,275 @@ msgstr ""
 "ในเบราว์เซอร์: 👤 → การตั้งค่า → “แอปและอุปกรณ์” → “เข้าสู่ระบบด้วยคิวอาร์โค้ด” "
 "วางลิงก์ใต้คิวอาร์โค้ด (…/app/pair?c=…) ที่นี่:"
 
-#: hlidskjalf/window.py:862
+#: hlidskjalf/window.py:869
 msgid "Browser doesn't return to the app?"
 msgstr "เบราว์เซอร์ไม่กลับมาที่แอปใช่ไหม"
 
-#: hlidskjalf/window.py:864
+#: hlidskjalf/window.py:871
 msgid ""
 "Paste the address from the browser's error message (hlidskjalf://auth?"
 "code=…) here:"
 msgstr "วางที่อยู่จากข้อความแสดงข้อผิดพลาดของเบราว์เซอร์ (hlidskjalf://auth?code=…) ที่นี่:"
 
-#: hlidskjalf/window.py:887
+#: hlidskjalf/window.py:894
 msgid "Please enter an https address, e.g. https://saga.example.org"
 msgstr "โปรดป้อนที่อยู่ https เช่น https://saga.example.org"
 
-#: hlidskjalf/window.py:918
+#: hlidskjalf/window.py:925
 msgid "This is not a valid pairing link."
 msgstr "นี่ไม่ใช่ลิงก์จับคู่ที่ถูกต้อง"
 
-#: hlidskjalf/window.py:921
+#: hlidskjalf/window.py:928
 msgid "Pairing links must use https."
 msgstr "ลิงก์จับคู่ต้องใช้ https"
 
-#: hlidskjalf/window.py:934
+#: hlidskjalf/window.py:941
 #, python-brace-format
 msgid "Saga will sign in to {host}."
 msgstr "Saga จะเข้าสู่ระบบ {host}"
 
-#: hlidskjalf/window.py:935
+#: hlidskjalf/window.py:942
 msgid ""
 "Only continue if you created this QR code or link yourself in Saga (Settings "
 "→ Apps & devices)."
 msgstr ""
 "ดำเนินการต่อเฉพาะเมื่อคุณสร้างคิวอาร์โค้ดหรือลิงก์นี้เองใน Saga (การตั้งค่า → แอปและอุปกรณ์)"
 
-#: hlidskjalf/window.py:937
+#: hlidskjalf/window.py:944
 #, python-brace-format
 msgid "You're currently signed in to {alt} and will be signed out there."
 msgstr "ขณะนี้คุณเข้าสู่ระบบ {alt} อยู่และจะถูกออกจากระบบที่นั่น"
 
-#: hlidskjalf/window.py:938
+#: hlidskjalf/window.py:945
 msgid "Pair with this server?"
 msgstr "จับคู่กับเซิร์ฟเวอร์นี้หรือไม่"
 
-#: hlidskjalf/window.py:940
+#: hlidskjalf/window.py:947
 msgid "Pair"
 msgstr "จับคู่"
 
-#: hlidskjalf/window.py:949 hlidskjalf/window.py:1002
+#: hlidskjalf/window.py:956 hlidskjalf/window.py:1009
 msgid "Signing in …"
 msgstr "กำลังเข้าสู่ระบบ …"
 
-#: hlidskjalf/window.py:974
+#: hlidskjalf/window.py:981
 #, python-brace-format
 msgid "Signed in as {name} – stays signed in on “{device}”"
 msgstr "เข้าสู่ระบบในชื่อ {name} – จะยังคงอยู่ในระบบบน “{device}”"
 
-#: hlidskjalf/window.py:984
+#: hlidskjalf/window.py:991
 msgid "Please sign in in your browser …"
 msgstr "โปรดเข้าสู่ระบบในเบราว์เซอร์ของคุณ …"
 
-#: hlidskjalf/window.py:1000
+#: hlidskjalf/window.py:1007
 msgid "Please start signing in here in the app."
 msgstr "โปรดเริ่มเข้าสู่ระบบที่นี่ในแอป"
 
-#: hlidskjalf/window.py:1167 hlidskjalf/window.py:1785
+#: hlidskjalf/window.py:1174 hlidskjalf/window.py:1802
 msgid "Remove from favorites"
 msgstr "นำออกจากรายการโปรด"
 
-#: hlidskjalf/window.py:1267
+#: hlidskjalf/window.py:1274
 msgid "The chat opens in your browser – start the call there."
 msgstr "แชทจะเปิดในเบราว์เซอร์ของคุณ – เริ่มการโทรที่นั่น"
 
-#: hlidskjalf/window.py:1412 hlidskjalf/window.py:1424
+#: hlidskjalf/window.py:1429 hlidskjalf/window.py:1441
 #, python-brace-format
 msgid "{name} is also here"
 msgstr "{name} อยู่ที่นี่ด้วย"
 
-#: hlidskjalf/window.py:1426
+#: hlidskjalf/window.py:1443
 msgid "On this page right now"
 msgstr "กำลังอยู่ในหน้านี้"
 
-#: hlidskjalf/window.py:1625
+#: hlidskjalf/window.py:1642
 msgid "Search in the sidebar"
 msgstr "ค้นหาในแถบด้านข้าง"
 
-#: hlidskjalf/window.py:1626 hlidskjalf/window.py:1726
+#: hlidskjalf/window.py:1643 hlidskjalf/window.py:1743
 msgid "Show/hide sidebar"
 msgstr "แสดง/ซ่อนแถบด้านข้าง"
 
-#: hlidskjalf/window.py:1640 hlidskjalf/window.py:1725
+#: hlidskjalf/window.py:1657 hlidskjalf/window.py:1742
 msgid "Copy link to page"
 msgstr "คัดลอกลิงก์ไปยังหน้า"
 
-#: hlidskjalf/window.py:1723
+#: hlidskjalf/window.py:1740
 msgid "General"
 msgstr "ทั่วไป"
 
-#: hlidskjalf/window.py:1724
+#: hlidskjalf/window.py:1741
 msgid "Back / Forward"
 msgstr "กลับ / ไปข้างหน้า"
 
-#: hlidskjalf/window.py:1725
+#: hlidskjalf/window.py:1742
 msgid "Search the sidebar"
 msgstr "ค้นหาแถบด้านข้าง"
 
-#: hlidskjalf/window.py:1726
+#: hlidskjalf/window.py:1743
 msgid "Today / Tasks / Events"
 msgstr "วันนี้ / งาน / นัดหมาย"
 
-#: hlidskjalf/window.py:1727
+#: hlidskjalf/window.py:1744
 msgid "Browse in peek"
 msgstr "เรียกดูในแผงแสดงตัวอย่าง"
 
-#: hlidskjalf/window.py:1727
+#: hlidskjalf/window.py:1744
 msgid "Close peek"
 msgstr "ปิดแผงแสดงตัวอย่าง"
 
-#: hlidskjalf/window.py:1728
+#: hlidskjalf/window.py:1745
 msgid "Context menu"
 msgstr "เมนูบริบท"
 
-#: hlidskjalf/window.py:1729
+#: hlidskjalf/window.py:1746
 msgid "Bold, italic, underline"
 msgstr "ตัวหนา ตัวเอียง ขีดเส้นใต้"
 
-#: hlidskjalf/window.py:1729
+#: hlidskjalf/window.py:1746
 msgid "Strikethrough"
 msgstr "ขีดทับ"
 
-#: hlidskjalf/window.py:1730
+#: hlidskjalf/window.py:1747
 msgid "Highlight"
 msgstr "ไฮไลต์"
 
-#: hlidskjalf/window.py:1730
+#: hlidskjalf/window.py:1747
 msgid "Link (with a selection)"
 msgstr "ลิงก์ (เมื่อมีการเลือก)"
 
-#: hlidskjalf/window.py:1731
+#: hlidskjalf/window.py:1748
 msgid "Undo / redo typing"
 msgstr "เลิกทำ / ทำซ้ำการพิมพ์"
 
-#: hlidskjalf/window.py:1732
+#: hlidskjalf/window.py:1749
 msgid "Block types"
 msgstr "ประเภทบล็อก"
 
-#: hlidskjalf/window.py:1732
+#: hlidskjalf/window.py:1749
 msgid "Date, reminder, page"
 msgstr "วันที่ การแจ้งเตือนความจำ หน้า"
 
-#: hlidskjalf/window.py:1732
+#: hlidskjalf/window.py:1749
 msgid "Emoji"
 msgstr "อีโมจิ"
 
-#: hlidskjalf/window.py:1733
+#: hlidskjalf/window.py:1750
 msgid "Blocks"
 msgstr "บล็อก"
 
-#: hlidskjalf/window.py:1733
+#: hlidskjalf/window.py:1750
 msgid "Text, Heading 1–3"
 msgstr "ข้อความ หัวเรื่อง 1–3"
 
-#: hlidskjalf/window.py:1734
+#: hlidskjalf/window.py:1751
 msgid "Checklist, bulleted list, numbered list"
 msgstr "รายการตรวจสอบ รายการสัญลักษณ์แสดงหัวข้อย่อย รายการลำดับเลข"
 
-#: hlidskjalf/window.py:1735
+#: hlidskjalf/window.py:1752
 msgid "Move block"
 msgstr "ย้ายบล็อก"
 
-#: hlidskjalf/window.py:1735
+#: hlidskjalf/window.py:1752
 msgid "Toggle, code"
 msgstr "แบบพับได้ โค้ด"
 
-#: hlidskjalf/window.py:1736
+#: hlidskjalf/window.py:1753
 msgid "Duplicate block"
 msgstr "ทำสำเนาบล็อก"
 
-#: hlidskjalf/window.py:1736
+#: hlidskjalf/window.py:1753
 msgid "New block below"
 msgstr "บล็อกใหม่ด้านล่าง"
 
-#: hlidskjalf/window.py:1737
+#: hlidskjalf/window.py:1754
 msgid "Block menu"
 msgstr "เมนูบล็อก"
 
-#: hlidskjalf/window.py:1737
+#: hlidskjalf/window.py:1754
 msgid "Indent/outdent list item"
 msgstr "เพิ่ม/ลดการเยื้องรายการ"
 
-#: hlidskjalf/window.py:1764
+#: hlidskjalf/window.py:1781
 msgid "Notes, databases, tasks and events – self-hosted."
 msgstr "โน้ต ฐานข้อมูล งาน และนัดหมาย – โฮสต์ด้วยตัวเอง"
 
-#: hlidskjalf/window.py:1764
+#: hlidskjalf/window.py:1781
 msgid "Saga project"
 msgstr "โครงการ Saga"
 
-#: hlidskjalf/window.py:1765
+#: hlidskjalf/window.py:1782
 msgid "translator-credits"
 msgstr "โครงการ Saga (แปลด้วยเครื่อง)"
 
-#: hlidskjalf/window.py:1776 hlidskjalf/window.py:1787
+#: hlidskjalf/window.py:1793 hlidskjalf/window.py:1804
 msgid "New subpage"
 msgstr "หน้าย่อยใหม่"
 
-#: hlidskjalf/window.py:1789
+#: hlidskjalf/window.py:1806
 msgid "New subpage from template …"
 msgstr "หน้าย่อยจากเทมเพลต …"
 
-#: hlidskjalf/window.py:1850
+#: hlidskjalf/window.py:1867
 msgid "Task created"
 msgstr "สร้างงานแล้ว"
 
-#: hlidskjalf/window.py:1852
+#: hlidskjalf/window.py:1869
 msgid "This button has no target yet – choose one in the button settings."
 msgstr "ปุ่มนี้ยังไม่มีเป้าหมาย – เลือกได้ในการตั้งค่าปุ่ม"
 
-#: hlidskjalf/window.py:1854
+#: hlidskjalf/window.py:1871
 msgid "This button has no action yet – choose one in the button settings."
 msgstr "ปุ่มนี้ยังไม่มีการทำงาน – เลือกได้ในการตั้งค่าปุ่ม"
 
-#: hlidskjalf/window.py:1867
+#: hlidskjalf/window.py:1884
 #, python-brace-format
 msgid "“{title}” moved to trash"
 msgstr "ย้าย “{title}” ไปถังขยะแล้ว"
 
-#: hlidskjalf/window.py:1872
+#: hlidskjalf/window.py:1889
 #, python-brace-format
 msgid "Task “{title}” deleted"
 msgstr "ลบงาน “{title}” แล้ว"
 
-#: hlidskjalf/window.py:1889
+#: hlidskjalf/window.py:1906
 msgid ""
 "No browser could be opened. The address was copied – paste it into a browser."
 msgstr "ไม่สามารถเปิดเบราว์เซอร์ได้ คัดลอกที่อยู่แล้ว – วางลงในเบราว์เซอร์"
 
-#: hlidskjalf/window.py:1891
+#: hlidskjalf/window.py:1908
 #, python-brace-format
 msgid "No browser could be opened. Open this address in a browser: {url}"
 msgstr "ไม่สามารถเปิดเบราว์เซอร์ได้ เปิดที่อยู่นี้ในเบราว์เซอร์: {url}"
 
-#: hlidskjalf/window.py:1929
+#: hlidskjalf/window.py:1946
 #, python-brace-format
 msgid "Downloading “{name}” …"
 msgstr "กำลังดาวน์โหลด “{name}” …"
 
-#: hlidskjalf/window.py:1962
+#: hlidskjalf/window.py:1979
 #, python-brace-format
 msgid "Download failed: {error}"
 msgstr "ดาวน์โหลดไม่สำเร็จ: {error}"
 
-#: hlidskjalf/window.py:1978
+#: hlidskjalf/window.py:1995
 #, python-brace-format
 msgid "Export failed: {error}"
 msgstr "ส่งออกไม่สำเร็จ: {error}"
 
-#: hlidskjalf/window.py:1978
+#: hlidskjalf/window.py:1995
 msgid "Exported"
 msgstr "ส่งออกแล้ว"
 
-#: hlidskjalf/window.py:2011
+#: hlidskjalf/window.py:2028
 msgid "Create a new page?"
 msgstr "สร้างหน้าใหม่หรือไม่"
 
-#: hlidskjalf/window.py:2012
+#: hlidskjalf/window.py:2029
 msgid "A link wants to create a new page in Saga."
 msgstr "ลิงก์ต้องการสร้างหน้าใหม่ใน Saga"
 
-#: hlidskjalf/window.py:2014
+#: hlidskjalf/window.py:2031
 msgid "Create page"
 msgstr "สร้างหน้า"
 
@@ -9059,23 +9225,3 @@ msgstr "สร้างหน้า"
 #, python-brace-format
 #~ msgid "€{value}"
 #~ msgstr "€{value}"
-
-#: hlidskjalf/livepage.py:217
-msgid "Change not applied – you can’t edit this page right now."
-msgstr "ไม่ได้นำการเปลี่ยนแปลงไปใช้ – ขณะนี้คุณแก้ไขหน้านี้ไม่ได้"
-
-#: hlidskjalf/livepage.py:218
-msgid "Change not applied."
-msgstr "ไม่ได้นำการเปลี่ยนแปลงไปใช้"
-
-#: hlidskjalf/livepage.py:219
-msgid "Change not applied – your latest input could not be kept."
-msgstr "ไม่ได้นำการเปลี่ยนแปลงไปใช้ – เก็บสิ่งที่คุณพิมพ์ล่าสุดไว้ไม่ได้"
-
-#: hlidskjalf/page.py:1250
-msgid "This page uses a different editor version – reload it (or update the app). Until then read-only."
-msgstr "หน้านี้ใช้ตัวแก้ไขรุ่นอื่น – โปรดโหลดใหม่ (หรืออัปเดตแอป) ระหว่างนี้อ่านได้อย่างเดียว"
-
-#: hlidskjalf/settings.py:763
-msgid "Live editing uses pycrdt and anyio (MIT license)."
-msgstr "การแก้ไขพร้อมกันแบบสดใช้ pycrdt และ anyio (สัญญาอนุญาต MIT)"

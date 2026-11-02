@@ -34,7 +34,8 @@ mit dem Funktionsumfang der Mac-App:
   („Name · host“, ab 1 Zeichen genaue Treffer, auch `name@host`), Direkt-Chats mit Nachrichtenanfragen (Annehmen,
   Ablehnen, Sperren je Person bzw. Server, Sperrliste), Zustellstand („wird zugestellt“, „nicht zugestellt“ + „Erneut
   senden“), Systemzeilen, Sicherheitsnummer v2 mit TOFU (Warnung bei Schlüsselwechsel, Blockade nach „überprüft“),
-  Anrufe aus angenommenen Chats (Klingeln in der App, Gespräch im Browser). Geprüft gegen
+  Anrufe aus angenommenen Chats (Klingeln in der App, Gespräch im Browser; Leiste „Anruf läuft auf …“ mit
+  „Hinzufügen“/„Hierher übernehmen“, öffnet den Browser mit `#join-<id>-companion|handover`). Geprüft gegen
   `tests/chat_v2_vectors.json` aus dem Server; Ende-zu-Ende gegen zwei verbundene Server: `tests/realfed.py`.
   Gruppen und Seiten-Chats mit Personen anderer Server (Einladung als Anfrage, Mitglieder per Handle, Systemzeilen mit
   Herkunft, umgestellte Seiten-Chats lesen alte v1-Nachrichten weiter): `tests/realfed23b_chat.py` (drei Server)

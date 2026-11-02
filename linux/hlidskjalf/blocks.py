@@ -2,7 +2,7 @@
 import json
 import re
 
-from gi.repository import Gdk, GLib, GObject, Graphene, Gsk, Gtk, Pango
+from gi.repository import Adw, Gdk, GLib, GObject, Graphene, Gsk, Gtk, Pango
 
 from . import gestalten, images, rebase
 from .config import settings
@@ -930,15 +930,21 @@ class BlockKit:
         r = d.get("render") if isinstance(d.get("render"), dict) else {}
         png = r.get("png") if isinstance(r.get("png"), str) and r.get("png").startswith("/") else None
         if png:
-            w = r.get("w") if isinstance(r.get("w"), (int, float)) and not isinstance(r.get("w"), bool) else None
-            img = images.ImageView(png, mode="fit", w=1600, max_height=700, radius=8)
+            w = r.get("w") if isinstance(r.get("w"), (int, float)) and not isinstance(r.get("w"), bool) and r.get("w") > 0 else None
+            # Bild in doppelter Aufloesung: Breite in CSS-Pixeln (render.w), sonst waere es doppelt so breit und - weil die
+            # Hoehe zur vollen Spaltenbreite gemessen wurde - ein hoher weisser Kasten um eine kleine Formel
+            img = images.ImageView(png, mode="fit", w=1600, max_height=700, radius=8, natural=min(int(w), 900) if w else None)
             img.add_css_class("hk-render")
-            img.set_halign(Gtk.Align.START if b.get("type") == "code" else Gtk.Align.CENTER)
-            if w:
-                img.set_size_request(min(int(w), 900), -1)
             img.update_property([Gtk.AccessibleProperty.LABEL], [what])
             img.hk_render = png
-            box.append(img)
+            holder = img
+            if w:
+                cw = min(int(w), 900) + 12                             # + Innenabstand (.hk-render padding 6px)
+                holder = Adw.Clamp(maximum_size=cw, tightening_threshold=cw, child=img)
+                if hasattr(holder, "set_unit"):
+                    holder.set_unit(Adw.LengthUnit.PX)                 # CSS-Pixel des Webs, nicht Textgroessen-Einheiten
+            holder.set_halign(Gtk.Align.START if b.get("type") == "code" else Gtk.Align.CENTER)
+            box.append(holder)
             if r.get("stale") is True:
                 st = Gtk.Label(label=_("Preview outdated – open on the web"), xalign=0)
                 st.add_css_class("caption")

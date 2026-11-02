@@ -115,8 +115,67 @@ def parent_ok(pid, own):
     return isinstance(p, dict) and p.get("kind") != "database" and not p.get("archived")
 
 
-def use_body(parent, examples, own):
-    return {"parent_id": parent if parent_ok(parent, own) else None, "examples": bool(examples)}
+def use_body(parent, examples, own, place=None):
+    """place: (2.5) Ort fuer Wetter-Widgets ohne Ort ({"place", "lat", "lon"}, siehe place_body) - None = ohne"""
+    b = {"parent_id": parent if parent_ok(parent, own) else None, "examples": bool(examples)}
+    if place:
+        b["weather_place"] = place
+    return b
+
+
+# --- (2.5) Wetter-Widget ohne Ort: vor dem Anlegen nach dem Ort fragen (APP-API "weather_place", GALERIE.md) ---------------
+def preview_path(gid, lang):
+    """GET api/gallery/{id}?lang= - Vorschau; liefert ask_weather"""
+    if not valid_id(gid):
+        raise ValueError("ungueltige Vorlagen-ID")
+    return f"api/gallery/{gid}" + list_path(lang)[len("api/gallery"):]
+
+
+def ask_weather(j):
+    """Vorschau-Antwort: True nur, wenn der Server ausdruecklich nach dem Ort fragen laesst (aeltere Server: nie)"""
+    return isinstance(j, dict) and j.get("ask_weather") is True
+
+
+def geocode_path(q):
+    """Ortssuche GET api/widgets/geocode?q= (2-80 Zeichen) - None, wenn die Eingabe zu kurz ist"""
+    q = q.strip() if isinstance(q, str) else ""
+    if len(q) < 2:
+        return None
+    return "api/widgets/geocode?q=" + urllib.parse.quote(q[:80])
+
+
+def _coord(v, lim):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and -lim <= v <= lim
+
+
+def parse_places(j):
+    """Antwort der Ortssuche -> [{"name", "label", "lat", "lon"}] (hoechstens 8; ungueltige Eintraege fehlen)"""
+    raw = j.get("results") if isinstance(j, dict) else None
+    out = []
+    for r in raw if isinstance(raw, list) else []:
+        if not isinstance(r, dict) or not _coord(r.get("lat"), 90) or not _coord(r.get("lon"), 180):
+            continue
+        name = _text(r.get("name"), 120)
+        if not name:
+            continue
+        admin, country = _text(r.get("admin"), 120), _text(r.get("country"), 120)
+        lbl = name + (", " + admin if admin and admin != name else "") + (" (" + country + ")" if country else "")
+        out.append({"name": name, "label": lbl, "lat": r["lat"], "lon": r["lon"]})
+        if len(out) >= 8:
+            break
+    return out
+
+
+def place_body(p):
+    """gewaehlter Ort -> weather_place fuer POST .../use"""
+    return {"place": p["name"], "lat": p["lat"], "lon": p["lon"]}
+
+
+def geocode_error(code):
+    """Meldung, wenn die Ortssuche scheitert (wie im Web)"""
+    if code == 429:
+        return _("Too many requests – please wait a moment.")
+    return _("Place search unavailable")
 
 
 def parse_use(j):
