@@ -9,6 +9,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – Linux: Fehlerberichte und „Diagnose senden“ (nur mit Saga-Server, der `clientlog1` meldet)
+- **Programmfehler** (nicht abgefangene Ausnahmen, auch in Hintergrund-Threads und Rückrufen) sowie Server-Fehler 5xx,
+  unlesbare Antworten (Endpunkt nur als Muster wie `/api/notes/:id`) und abgelehntes Speichern werden bereinigt gesammelt,
+  gleiche gezählt, höchstens ein Bericht je 30 s. Stack nur als Datei:Zeile und Modul.Funktion, ohne Pfade.
+- **Harte Abbrüche** (Absturz des Prozesses, Ausnahme beim Beenden): kurze Notiz im Zustandsordner der App, beim
+  nächsten Start als ein Bericht an den eigenen Server; ohne das Server-Feature wird sie verworfen.
+- **Einstellungen → Info → Hilfe → „Diagnose senden“:** letzte 200 Ereignisse (Statuscodes, Speichern, grobe Ansicht,
+  Live-Kanal) mit optionalem Freitext; die Kennung `D-XXXXX` wird angezeigt und lässt sich kopieren. Ohne Feature
+  ausgegraut mit Hinweis.
+
 ### Geändert – Anrufe über Knoten: ruhigere Qualitätsanzeige, Wärme, Diagnose (iOS/Mac und Android)
 - **Empfangsqualität** (Punkt an der Weg-Anzeige, jetzt so beschriftet und vorgelesen): bewertet über die letzten 30 s
   statt 3 s; Rot erst nach zwei schlechten Messungen in Folge, zurück zu Grün nach zwei guten. Schwellen unverändert
