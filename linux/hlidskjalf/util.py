@@ -418,10 +418,13 @@ NA_TEXTS = frozenset({"Seite ohne Zugriff", "Page without access", "Página sin 
 
 def link_target(href):
     """'/notes#12' -> ('page', 12) (Seiten anderer Saga-Instanzen: negative IDs); http(s)/mailto -> ('url', href); sonst None"""
-    m = re.fullmatch(r"/notes#(-?\d+)(?::.*)?", href or "")
+    if not isinstance(href, str):
+        return None
+    m = re.fullmatch(r"/notes#(-?\d+)(?::.*)?", href, re.S)
     if m:
-        return ("page", int(m.group(1)))
-    if (href or "").startswith(("http://", "https://", "mailto:")):
+        # pt2 L2: Riesen-ID (mehr als 18 Ziffern) ist kein Seitenziel
+        return ("page", int(m.group(1))) if len(m.group(1).lstrip("-")) <= 18 else None
+    if href.startswith(("http://", "https://", "mailto:")):
         return ("url", href)
     return None
 

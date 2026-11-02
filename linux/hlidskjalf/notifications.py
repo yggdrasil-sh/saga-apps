@@ -119,13 +119,16 @@ def item_tag(it):
 def parse_url(url):
     """'/notes#12:block' -> ('page', 12, 'block'); '/notes#-2049' -> ('page', -2049, None); '/chats#c5' bzw. '/chats#5' ->
     ('chat', 5, None); sonst None"""
-    m = re.fullmatch(r"/notes#(-?\d+)(?::(.+))?", url or "")
+    if not isinstance(url, str) or len(url) > 2000:
+        return None
+    # pt2 L2: hoechstens 18 Ziffern (sonst int() mit Riesenzahl -> Ausnahme bzw. sinnlose Kennung)
+    m = re.fullmatch(r"/notes#(-?\d{1,18})(?::(.+))?", url)
     if m:
         return "page", int(m.group(1)), m.group(2)
-    m = re.fullmatch(r"/\?settings=([a-z]+)", url or "")         # z. B. Mein Backup (userbackup.failed)
+    m = re.fullmatch(r"/\?settings=([a-z]{1,40})", url)         # z. B. Mein Backup (userbackup.failed)
     if m:
         return "settings", m.group(1), None
-    m = re.fullmatch(r"/chats#c?(\d+)", url or "")
+    m = re.fullmatch(r"/chats#c?(\d{1,18})", url)
     if m:
         return "chat", int(m.group(1)), None
     if url in ("/chats", "/chats#"):

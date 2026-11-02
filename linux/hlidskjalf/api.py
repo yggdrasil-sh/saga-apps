@@ -341,7 +341,7 @@ class Client:
             data = None
             try:
                 data = json.loads(out)
-            except ValueError:
+            except (ValueError, RecursionError):   # pt2 L1
                 pass
             data = data if isinstance(data, dict) else None
             e = APIError(code, str((data or {}).get("error") or ""))
@@ -353,6 +353,9 @@ class Client:
         out = self.request(method, path, body, **kw)
         try:
             j = json.loads(out) if out else None
+        except RecursionError:                           # pt2 L1: zu tief verschachtelt -> wie unlesbar (ValueError)
+            _clientlog_json(method, path)
+            raise ValueError("json too deep") from None
         except ValueError:
             _clientlog_json(method, path)                # 2.5 clientlog1: unlesbare Antwort (nur Endpunkt-Muster)
             raise
@@ -394,7 +397,7 @@ class Client:
         j = {}
         try:
             j = json.loads(out)
-        except ValueError:
+        except (ValueError, RecursionError):       # pt2 L1
             pass
         if st != 200 or not isinstance(j, dict):
             e = APIError(st, (j.get("error") if isinstance(j, dict) else "") or _("Sign-in failed"))
@@ -617,7 +620,7 @@ class Client:
                 _close(r)
                 try:
                     j = json.loads(out)
-                except ValueError:
+                except (ValueError, RecursionError):
                     j = None
                 j = j if isinstance(j, dict) else None
                 e = APIError(code, str((j or {}).get("error") or ""))
@@ -669,7 +672,7 @@ def sse_events(resp, stop=None, on_line=None):
                 raw = "\n".join(buf)
                 try:
                     data = readable_names(json.loads(raw)) if raw else {}
-                except ValueError:
+                except (ValueError, RecursionError):
                     data = None
                 yield ev or "message", data, eid
             ev, buf, eid = None, [], None

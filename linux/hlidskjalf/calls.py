@@ -88,8 +88,10 @@ def run_view(c):
     """(2.5, L6) Inhalt der Leiste: {"video", "title", "sub", "note", "actions": [(role, video, kurz, voll, haupt)]}.
     Mit eigenem Geraet im Anruf: "Hinzufuegen" (Begleitgeraet) und "Hierher uebernehmen"; voller Anruf (join_block
     "full") mit takeover: nur "Hierher uebernehmen". Sonst (Gruppe): "Beitreten" (bei Video zusaetzlich "Nur Ton")."""
+    if not isinstance(c, dict):                            # pt2 L3: kaputte Serverantwort -> leere Leiste statt Ausnahme
+        c = {}
     mine = _mine(c)
-    legs = [x for x in (c.get("legs") or []) if isinstance(x, dict)]
+    legs = [x for x in (c.get("legs") if isinstance(c.get("legs"), list) else []) if isinstance(x, dict)]
     own = [x for x in legs if x.get("device") in mine]
     main = next((x for x in own if x.get("role") != "companion"), own[0] if own else None)
     video = c.get("media") == "video"
@@ -149,15 +151,21 @@ def chat_url(chat_id):
 
 
 def caller_name(call):
-    p = (call or {}).get("peer") or (call or {}).get("from") or {}
-    return p.get("name") or p.get("username") or ""
+    if not isinstance(call, dict):
+        return ""
+    p = call.get("peer") if isinstance(call.get("peer"), dict) and call.get("peer") else call.get("from")
+    if not isinstance(p, dict):
+        return ""
+    n = p.get("name") or p.get("username") or ""
+    return n if isinstance(n, str) else ""
 
 
 def group_name(call):
     """Name der Gruppe (from.chat des Ereignisses bzw. des Anrufs) oder ein leerer Text"""
-    f = (call or {}).get("from") if isinstance((call or {}).get("from"), dict) else {}
+    f = call.get("from") if isinstance(call, dict) and isinstance(call.get("from"), dict) else {}
     ch = f.get("chat")
-    return (ch.get("title") or ch.get("name") or "") if isinstance(ch, dict) else (ch if isinstance(ch, str) else "")
+    n = (ch.get("title") or ch.get("name") or "") if isinstance(ch, dict) else ch
+    return n if isinstance(n, str) else ""
 
 
 def ring_title(call):
@@ -510,7 +518,7 @@ class Calls(GObject.Object):
     def _learn_local(self, c):
         """Der Browser dieses Rechners, den die App eben geoeffnet hat, ist das erste eigene Geraet, das danach (binnen
         90 s) neu in "mine" auftaucht - fuer ihn zeigt die Leiste nichts (sonst "Anruf laeuft auf <Browser>" hier)"""
-        L = self.local.get(c.get("id"))
+        L = self.local.get(c.get("id")) if isinstance(c.get("id"), str) else None
         if not L:
             return
         new = [d for d in _mine(c) if d not in L["before"] and d not in L["devs"]]
@@ -522,9 +530,11 @@ class Calls(GObject.Object):
             self.local.pop(k, None)
         here, rid = self._here(), (self.ringing or {}).get("id")
         out = []
-        for c in lst:
+        for c in lst if isinstance(lst, list) else []:
+            if not isinstance(c, dict):                    # pt2 L3: Nicht-dict ueberspringen
+                continue
             self._learn_local(c)
-            if run_shown(c, here, rid, (self.local.get(c.get("id")) or {}).get("devs", ())):
+            if run_shown(c, here, rid, ((self.local.get(c["id"]) if isinstance(c.get("id"), str) else None) or {}).get("devs", ())):
                 out.append(c)
         if out != self.running:
             self.running = out
@@ -885,8 +895,8 @@ class RunBar(Gtk.Revealer):
         (b.remove_css_class if self.compact else b.add_css_class)("pill")
 
     def show(self, lst):
-        c = (lst or [None])[0]
-        if not c:
+        c = (lst or [None])[0] if isinstance(lst, list) else None
+        if not isinstance(c, dict) or not c.get("id"):     # pt2 L3
             self.cid = None
             self.set_reveal_child(False)
             self.set_visible(False)
