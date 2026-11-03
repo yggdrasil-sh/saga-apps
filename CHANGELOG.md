@@ -16,7 +16,8 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   (z. B. 20000 × 20000 px) ließ die App sonst beim Zeichnen abstürzen. Gemeinsame Hilfsfunktion für Chat-Vorschaubilder.
 - **Android – Links:** Links aus Nachrichten, Linkvorschauen, dem LINKS-Tab und KI-Antworten öffnen nur noch `http`,
   `https` und `mailto` im Standard-Programm. Andere Schemata (`tel:`, `geo:`, `market:`, `saga://pair` …) werden nicht
-  geöffnet, sondern mit Hinweis in die Zwischenablage kopiert.
+  geöffnet, sondern mit Hinweis in die Zwischenablage kopiert. Ausnahme: „Link öffnen“ an einer Datenbank-Zelle vom Typ
+  Telefon wählt die Nummer weiter (`tel:` nur aus Ziffern und `+`).
 - **iOS/Mac – Links:** Linkvorschau-Karten und Links im Text geben nur `http`, `https` und `mailto` an das System weiter;
   eigene Ziele (Seiten, Chat-Notizen) laufen wie bisher über die App, alles andere wird verworfen.
 - **iOS/Mac – Linkvorschau:** Bild mit Maß-Deckel (höchstens 1024 px, `CGImageSource`-Thumbnail), unplausible Maßangaben

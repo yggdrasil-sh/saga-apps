@@ -186,7 +186,7 @@ fun RowProperties(ed: PageEditor, repo: SagaRepository) {
             shown.forEach { p ->
                 val v = q.value(p, row)
                 PropRow(p, v, fmt, editable, onEdit = { editing = p }, onToggle = { set(p, DbValues.checkbox(!DbQuery.truthy(v))) },
-                    onLink = { io.github.yggdrasil_sh.saga.ui.common.openUrl(context, it) }, err = meta.fxErr[p.id])
+                    onLink = { io.github.yggdrasil_sh.saga.ui.common.openUrl(context, it, allowPhone = p.type == "phone") }, err = meta.fxErr[p.id])
             }
         }
     }

@@ -46,6 +46,11 @@ class Pt2AppsTest {
             "intent://x#Intent;scheme=http;end", "javascript:alert(1)", "file:///sdcard/x", "content://x/y", "data:text/html,x",
             "sms:123", "https:example.org", "https://", "https://@/", "mailto:", "", "  ", "https://exa mple.org",
             "https://example.org/\nx", "ftp://example.org", "about:blank")) assertFalse(u, LinkPolicy.externalOk(u))
+        // Entscheidung 3.11.: tel: nur aus DB-Telefonzellen (allowPhone), streng tel:+Ziffern
+        assertTrue(LinkPolicy.externalOk("tel:+491234", allowPhone = true))
+        assertTrue(LinkPolicy.externalOk(io.github.yggdrasil_sh.saga.db.DbValues.safeLink("phone", "+49 (0) 123-45")!!, allowPhone = true))
+        for (u in listOf("tel:12", "tel:+49;ext=1", "tel:+49 123", "tel:*21#", "TEL:+491234", "tel:+491234\n", "geo:0,0",
+            "sms:123", "javascript:alert(1)", "saga://pair?u=x")) assertFalse(u, LinkPolicy.externalOk(u, allowPhone = true))
         assertEquals("https", LinkPolicy.scheme(" HTTPS://x"))
         assertNull(LinkPolicy.scheme("/notes#1"))
         assertFalse(LinkPolicy.externalOk("/notes#1"))                     // relative Ziele loest der Aufrufer selbst auf
