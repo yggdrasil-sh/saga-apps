@@ -179,3 +179,45 @@ struct MergeHintRow: View {
         }
     }
 }
+
+/// Live-Laempchen (3.11.): kleiner Punkt oben links - gruen = Live-Kanal steht und der Server antwortet (Inhalte kommen
+/// frisch), rot = gespeicherter Stand (keine Verbindung). Mac: Antippen zeigt kurz den Satz dazu; iPhone/iPad nur
+/// VoiceOver-Text (keine Tippflaeche neben dem Zurueck-Knopf).
+struct LiveLamp: View {
+    @ObservedObject var live: LiveHub
+    @ObservedObject var store: Store
+    @State private var tip = false
+    private var state: LiveLogic.Lamp { LiveLogic.lamp(connected: live.connected, reachable: store.reachable) }
+    private var text: String {
+        state == .live ? String(localized: "Live – aktuell vom Server") : String(localized: "Gespeicherter Stand – keine Verbindung zum Server")
+    }
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(state == .live ? Color.green : Color.red)
+                .frame(width: 7, height: 7)
+                .overlay(Circle().strokeBorder(.background, lineWidth: 1))
+                .frame(width: 14, height: 14)
+                #if os(macOS)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    tip = true
+                    Task { try? await Task.sleep(for: .seconds(2.5)); tip = false }
+                }
+                #endif
+            if tip {
+                Text(verbatim: text).font(.caption2).padding(.horizontal, 8).padding(.vertical, 3)
+                    .background(.regularMaterial, in: Capsule())
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: tip)
+        .animation(.easeInOut(duration: 0.3), value: state)
+        .help(Text(verbatim: text))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: text))
+        #if os(iOS)
+        .allowsHitTesting(false)                                       // iPhone: liegt nahe am Zurueck-Knopf - keine Tipps abfangen
+        #endif
+    }
+}

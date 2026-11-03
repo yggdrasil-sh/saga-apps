@@ -268,6 +268,7 @@ struct RootView: View {
 
     var body: some View {
         withEvents
+        .overlay(alignment: .topLeading) { LiveLamp(live: store.live, store: store).padding(.leading, 2) }   // 3.11.: gruen live, rot gespeicherter Stand
         .sheet(isPresented: $showTrash) { TrashSheet().environmentObject(store) }
         // Kopplungslink: Rueckfrage hier - oder im Anmeldebildschirm, solange der vorne liegt
         // (nur hier zuruecksetzen, solange die Rueckfrage hier liegt: sonst loescht das Ausblenden beim Wechsel zum

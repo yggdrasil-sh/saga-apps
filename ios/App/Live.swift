@@ -104,6 +104,7 @@ final class LiveHub: ObservableObject {
         switch e.event {
         case "hello":
             connected = true; fails = 0
+            if store?.reachable == false { store?.reachable = true }      // Kanal steht: Server erreichbar (Live-Laempchen)
             ClientLog.shared.conn("sse", "open")                            // 2.5 clientlog1
             Task { await store?.calls.checkActive() }                     // verpasstes Klingeln nachholen
             Task { await store?.liveConnected() }                         // (wieder) verbunden: verpasste Seitenaenderungen nachholen

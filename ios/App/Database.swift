@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import UniformTypeIdentifiers
 #if os(iOS)
 import UIKit
@@ -95,11 +96,40 @@ final class DBModel: ObservableObject {
     var rowsPath: String {
         "api/notes/\(dbID)/rows?tz=" + (TimeZone.current.identifier.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "UTC")
     }
+    /// Letztes Nachladen fehlgeschlagen: angezeigt wird der gespeicherte Stand (Hinweis am Block, Live-Laempchen)
+    @Published var offline = false
+    /// Laufendes Nachladen (gehoert dem Modell, nicht der Ansicht) und "danach gleich noch einmal" (Aenderung waehrenddessen)
+    private var loadLoop: Task<Void, Never>?
+    private var loadAgain = false
+    private var soon: Task<Void, Never>?
+
+    /// Gespeicherten Stand sofort zeigen, dann vom Server holen. Das Holen laeuft als eigene Aufgabe des Modells:
+    /// Wird die .task der Ansicht abgebrochen (Neuaufbau der Seite, Spalten-Layout), lief vorher auch die Anfrage ins
+    /// Leere - still verschluckt, und der Block zeigte tagelang den alten Stand (Bug 3.11.: kein /rows im Protokoll).
     func load(_ store: Store) async {
         if !loaded, let c = store.cachedData(rowsPath) ?? store.cachedData("api/notes/\(dbID)/rows") { apply(c) }
-        do { apply(try await store.get(rowsPath)); noAccess = false }
-        catch APIError.http(let c, _) where c == 404 || c == 403 { noAccess = true; rows = []; store.dropCache(rowsPath); store.dropCache("api/notes/\(dbID)/rows") }
-        catch {}
+        if let l = loadLoop { loadAgain = true; await l.value; return }
+        let l = Task { @MainActor [weak self] in
+            guard let self else { return }
+            repeat { self.loadAgain = false; await self.fetch(store) } while self.loadAgain
+            self.loadLoop = nil
+        }
+        loadLoop = l
+        await l.value
+    }
+    /// Live-Ereignis o. Ae.: kurz sammeln (mehrere Zeilen auf einmal geaendert), dann einmal laden
+    func reloadSoon(_ store: Store) {
+        soon?.cancel()
+        soon = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled, let self else { return }
+            await self.load(store)
+        }
+    }
+    private func fetch(_ store: Store) async {
+        do { apply(try await store.get(rowsPath)); noAccess = false; offline = false }
+        catch APIError.http(let c, _) where c == 404 || c == 403 { noAccess = true; offline = false; rows = []; store.dropCache(rowsPath); store.dropCache("api/notes/\(dbID)/rows") }
+        catch { if !Store.isCancel(error) { offline = true } }
         loaded = true
     }
     #if DEBUG
@@ -192,6 +222,7 @@ struct DatabaseView: View {
     @EnvironmentObject var store: Store
     @EnvironmentObject var nav: NavModel
     @StateObject private var m: DBModel
+    @Environment(\.scenePhase) private var phase
     @State private var current: String?
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var hsc
@@ -246,6 +277,9 @@ struct DatabaseView: View {
                 }
             }
             if let e = m.error { Text(e).font(.caption).foregroundStyle(.orange) }
+            if m.offline && m.loaded && !m.noAccess {                 // gespeicherter Stand, Nachladen fehlgeschlagen
+                Label("Gespeicherter Stand – nicht aktuell", systemImage: "icloud.slash").font(.caption).foregroundStyle(.orange)
+            }
         }
         .onChange(of: pageLocked, initial: true) { _, v in if m.pageLocked != v { m.pageLocked = v } }
         .onChange(of: "\(showTitle)\(showTabs)\(onHead != nil)", initial: true) { _, _ in
@@ -257,6 +291,13 @@ struct DatabaseView: View {
             await m.load(store)
         }
         .onChange(of: store.dataTick) { _, t in if m.ownTick != t { Task { await m.load(store) } } }      // z. B. Eintrag per Schaltflaeche angelegt
+        // Live (3.11.): Eintraege dieser Datenbank anderswo geaendert (db.rows, Server ab 2.5; note.changed mit Zeile,
+        // wenn die Datenbank-Seite selbst offen ist), zurueck im Vordergrund bzw. Live-Kanal wieder verbunden -> neu laden
+        .onReceive(store.live.events) { e in
+            if LiveLogic.dbRowsChanged(e.type, e.data, db: dbID) { m.reloadSoon(store) }
+        }
+        .onChange(of: phase) { _, p in if p == .active { m.reloadSoon(store) } }
+        .onReceive(store.live.$connected.removeDuplicates().dropFirst()) { c in if c { m.reloadSoon(store) } }   // LiveHub eigenes Objekt
     }
 
     private var header: some View {

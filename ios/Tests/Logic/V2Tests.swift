@@ -35,6 +35,13 @@ func v2Tests() {
     check(LiveLogic.editing(lastInput: now.addingTimeInterval(-10), now: now, canEdit: true), "bearbeitet: 10 s nach Eingabe")
     check(!LiveLogic.editing(lastInput: now.addingTimeInterval(-31), now: now, canEdit: true), "nicht mehr nach 30 s")
     check(!LiveLogic.editing(lastInput: now, now: now, canEdit: false) && !LiveLogic.editing(lastInput: nil, canEdit: true), "nur mit Bearbeiten-Recht")
+    // --- 3.11.: Datenbank-Bloecke live, Live-Laempchen ---
+    check(LiveLogic.dbRowsChanged("db.rows", ["db": 1466], db: 1466) && !LiveLogic.dbRowsChanged("db.rows", ["db": 7], db: 1466), "db.rows: nur die eigene Datenbank")
+    check(LiveLogic.dbRowsChanged("note.changed", ["id": 1466, "row": 1479], db: 1466) && LiveLogic.dbRowsChanged("note.changed", ["id": 1466, "row": true], db: 1466), "note.changed mit Zeile (auch ohne sichtbare ID)")
+    check(!LiveLogic.dbRowsChanged("note.changed", ["id": 1466, "rev": 3], db: 1466) && !LiveLogic.dbRowsChanged("note.changed", ["id": 1466, "row": NSNull()], db: 1466), "note.changed ohne Zeile: Seite, nicht Eintraege")
+    check(!LiveLogic.dbRowsChanged("notes.tree", ["ids": [1466]], db: 1466), "anderes Ereignis")
+    check(LiveLogic.lamp(connected: true, reachable: true) == .live && LiveLogic.lamp(connected: false, reachable: true) == .cache
+          && LiveLogic.lamp(connected: true, reachable: false) == .cache, "Laempchen: gruen nur mit Kanal und Server")
     check(LiveLogic.pageChange(eventRev: 5, ownRev: 5, dirty: false, gone: false) == .ignore, "eigene Revision ignorieren")
     check(LiveLogic.pageChange(eventRev: 6, ownRev: 5, dirty: false, gone: false) == .reloadSilently, "fremd, nichts offen: still neu laden")
     check(LiveLogic.pageChange(eventRev: 6, ownRev: 5, dirty: true, gone: false) == .ask, "fremd, eigene Eingaben: Hinweis")

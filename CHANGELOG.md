@@ -9,6 +9,21 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – iOS/Mac: eingebettete Datenbanken zeigten einen alten Stand
+
+- Ein Datenbank-Block auf einer Seite zeigte tagelang den gespeicherten Stand: Wurde die Seite beim Öffnen neu
+  aufgebaut, brach die Anfrage nach den Einträgen ab, bevor sie den Server erreichte – still, ohne Hinweis. Das Laden
+  gehört jetzt dem Block selbst und läuft zu Ende; Änderungen währenddessen lösen gleich einen zweiten Durchgang aus.
+- Neu geladen wird außerdem beim **Herunterziehen** der Seite, beim **Zurückkehren in die App**, wenn der Live-Kanal
+  **wieder verbunden** ist, und **live**, sobald sich Einträge der Datenbank anderswo ändern (Ereignis `db.rows`, Server
+  ab 2.5; ältere Server: wie bisher nur mit offener Datenbank-Seite).
+- Schlägt das Nachladen fehl, steht am Block „Gespeicherter Stand – nicht aktuell“.
+
+### Neu – iOS/Mac: Live-Lämpchen
+
+- Kleiner Punkt oben links: **grün**, solange der Live-Kanal steht und der Server antwortet (Inhalte kommen frisch),
+  **rot**, wenn die App gespeicherte Stände zeigt. Auf dem Mac zeigt Antippen kurz den Satz dazu.
+
 ### Sicherheit – Härtung nach Pentest Runde 2 (Android, iOS/Mac, Linux)
 
 - **Android – Linkvorschau:** Das Vorschaubild über dem Eingabefeld wird nur noch verkleinert dekodiert (längste Seite

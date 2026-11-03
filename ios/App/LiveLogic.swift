@@ -108,6 +108,18 @@ enum LiveLogic {
         if others.count == 1 { return .one(name: f.name, editing: f.editing) }
         return .many(n: others.count, editing: others.filter(\.editing).count)
     }
+    /// Eintraege der Datenbank `db` anderswo geaendert? db.rows {db} (Server ab 2.5, an alle mit Zugriff) bzw.
+    /// note.changed {id: db, row} (nur wer die Datenbank-Seite selbst offen hat)
+    static func dbRowsChanged(_ type: String, _ d: [String: Any], db: Int) -> Bool {
+        switch type {
+        case "db.rows": return ShareJSON.int(d["db"]) == db
+        case "note.changed": return ShareJSON.int(d["id"]) == db && d["row"] != nil && !(d["row"] is NSNull)
+        default: return false
+        }
+    }
+    /// Live-Laempchen: gruen nur mit verbundenem Live-Kanal und erreichbarem Server - sonst rot (gespeicherter Stand)
+    enum Lamp: Equatable { case live, cache }
+    static func lamp(connected: Bool, reachable: Bool) -> Lamp { connected && reachable ? .live : .cache }
     /// Anfangsbuchstaben fuer Avatare
     static func initials(_ name: String) -> String {
         let parts = name.split(whereSeparator: { $0 == " " || $0 == "-" }).prefix(2)

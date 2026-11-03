@@ -31,6 +31,8 @@ struct CalTarget: Identifiable, Hashable { let account: Int; let cal: String; le
 final class Store: ObservableObject {
     @Published var pages: [Page] = []
     @Published var needsLogin = false
+    /// Letzte Anfrage bekam eine Antwort (kein Netz-/Zeitfehler) - zusammen mit dem Live-Kanal das Live-Laempchen
+    @Published var reachable = true
     /// Anmeldebildschirm abgebrochen (Server bekannt): Zwischenspeicher zeigen, Anmelden ueber den Hinweis oben
     @Published var loginPostponed = false
     @Published var pendingPair: PairRequest?               // Kopplungslink wartet auf Bestaetigung
@@ -253,8 +255,15 @@ final class Store: ObservableObject {
             let t0 = Date()
             let data: Data, resp: URLResponse
             do { (data, resp) = try await run(req) }
-            catch { if !Store.isCancel(error) { ClientLog.shared.net(url: req.url, method: req.httpMethod ?? "GET", status: 0, ms: Date().timeIntervalSince(t0) * 1000) }; throw error }
+            catch {
+                if !Store.isCancel(error) {
+                    ClientLog.shared.net(url: req.url, method: req.httpMethod ?? "GET", status: 0, ms: Date().timeIntervalSince(t0) * 1000)
+                    if reachable { reachable = false }                    // Live-Laempchen rot: Server nicht erreichbar
+                }
+                throw error
+            }
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            if code > 0, !reachable { reachable = true }                 // jede Antwort (auch 4xx/5xx): Server erreichbar
             ClientLog.shared.net(url: req.url, method: req.httpMethod ?? "GET", status: code, ms: Date().timeIntervalSince(t0) * 1000)   // 2.5 clientlog1: Ringpuffer, 5xx als Fehler
             guard code == 401 else { return (data, code) }
             cookieHeader = nil

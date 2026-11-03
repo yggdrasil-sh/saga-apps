@@ -1378,7 +1378,7 @@ struct NativePageScreen: View {
             }
             #endif
         }
-        .refreshable { await ed.flush(); await doc.load(store); store.refreshEvents() }
+        .refreshable { await ed.flush(); await doc.load(store); store.refreshEvents(); store.dataChanged() }   // dataChanged: auch Datenbank-Bloecke
         .task(id: "presence-\(id)") { await presenceLoop() }
         .onChange(of: ed.focusedBlock) { _, _ in focusMoved() }
         // 2.5: Widget-Werte beim Oeffnen, nach neuem Stand der Seite und beim Zurueckkehren in den Vordergrund
