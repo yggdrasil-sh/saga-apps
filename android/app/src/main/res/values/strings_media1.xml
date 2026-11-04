@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Medien 1: Bildbetrachter, Zitat mit Vorschaubild, Bild in der Galerie speichern -->
+<resources>
+    <string name="media_photo">Photo</string>
+    <string name="media_save_gallery">Save to gallery</string>
+    <string name="media_saved">Image saved.</string>
+    <string name="media_save_failed">The image couldn\'t be saved.</string>
+    <string name="media_load_failed">The image couldn\'t be loaded.</string>
+    <string name="media_open_with">Open with …</string>
+</resources>

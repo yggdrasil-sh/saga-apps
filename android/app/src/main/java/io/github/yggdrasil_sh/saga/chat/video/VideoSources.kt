@@ -182,3 +182,30 @@ object VideoSave {
         (context.contentResolver.openOutputStream(target, "w") ?: throw IOException("open")).use { write(it) }
     }
 }
+
+/** 2.5 Medien 1: Bild in der Galerie speichern (MediaStore.Images, ab Android 10 ohne Berechtigung; Bilder/Saga) */
+object ImageSave {
+    /** Android 10+: MediaStore.Images mit IS_PENDING; write schreibt den Klartext. -> Uri */
+    @androidx.annotation.RequiresApi(29)
+    fun toGallery(context: Context, name: String, mime: String, write: (OutputStream) -> Unit): Uri {
+        val cr = context.contentResolver
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, ChatFiles.safeName(name))
+            put(MediaStore.Images.Media.MIME_TYPE, mime.ifEmpty { "image/jpeg" })
+            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Saga")
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        }
+        val uri = cr.insert(MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values) ?: throw IOException("insert")
+        try {
+            (cr.openOutputStream(uri, "w") ?: throw IOException("open")).use { write(it) }
+            cr.update(uri, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+            return uri
+        } catch (e: Throwable) {
+            try {
+                cr.delete(uri, null, null)                 // halbe Datei nicht in der Galerie lassen
+            } catch (_: Exception) {
+            }
+            throw e
+        }
+    }
+}

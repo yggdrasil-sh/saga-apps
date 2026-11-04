@@ -87,6 +87,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.res.pluralStringResource
 import androidx.activity.compose.BackHandler
 import io.github.yggdrasil_sh.saga.chat.ChatSelect
+import io.github.yggdrasil_sh.saga.chat.ChatMedia
 import io.github.yggdrasil_sh.saga.chat.X3Hint
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
@@ -325,6 +326,8 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     var unfurlFor by remember(chatId) { mutableStateOf<String?>(null) }
     val unfurlOff = remember(chatId) { mutableSetOf<String>() }
     var showMedia by remember { mutableStateOf(false) }
+    // 2.5 Medien 1: Bildbetrachter in der App (Nachricht, Anhang des angetippten Bilds)
+    var viewer by remember(chatId) { mutableStateOf<Pair<String, String>?>(null) }
     LaunchedEffect(input, chatId) {
         snapshotFlow { input.text.toString() }.collectLatest { t ->
             if (!std.unfurl || !svc.unfurlOn) { unfurl = null; return@collectLatest }
@@ -497,6 +500,9 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     val canCall = callsOn == true && s.summary?.kind == "dm" && s.summary?.peer != null && !fedReq && !fedRo
     // 2.4 E5: Gruppenanruf-Knopf nur, wenn der Server ihn fuer diesen Chat anbietet (`chat.call.group`, foederiert: alle calls3)
     val canGroupCall = callsOn == true && s.summary?.kind != "dm" && s.summary?.call?.group == true && !fedReq && !fedRo
+
+    // 2.5 Medien 1: Bild in der Galerie speichern (Langdruck-Menue)
+    val saveImage = rememberImageSaver(repo, s)
 
     // Surface: Inhaltsfarbe onSurface fuer alle Symbole ohne eigene Farbe ("+" im Dunkelmodus war schwarz, BUG-072)
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -754,7 +760,13 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                             onCopy = { copyText(context, m.content?.text.orEmpty()) },
                             onDelete = { repo.launchAction { s.delete(m) } },
                             onOpenNote = { id -> nav.push(Dest.Page(id)) },
-                            onOpenFile = { f -> scope.launch { openFile(context, s, f) { repo.notify(it) } } },
+                            // 2.5 Medien 1: Bilder im eigenen Betrachter, andere Dateien wie bisher mit einer anderen App
+                            onOpenFile = { f ->
+                                if (ChatMedia.viewable(f)) {
+                                    videoHost.pause()
+                                    viewer = m.id to f.id
+                                } else scope.launch { openFile(context, s, f) { repo.notify(it) } }
+                            },
                             onShareFile = { f -> scope.launch { openFile(context, s, f, share = true) { repo.notify(it) } } },
                             onUnverified = { unverifiedOf = m.sender?.username ?: "" },
                             onResend = { repo.launchAction { s.resend(m) } },
@@ -777,6 +789,12 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                                 } else selected = ChatSelect.toggle(selected, m)
                             }) else null,
                             onMenuAction = { if (selected.size <= 1) endSelection() },
+                            // 2.5 Medien 1: einzelne Nachricht weiterleiten - derselbe Weg wie die Mehrfachauswahl, nur diese gewaehlt
+                            onForward = if (ChatSelect.selectable(m) && !m.tomb) ({
+                                selected = setOf(m.id)
+                                selDialog = "forward"
+                            }) else null,
+                            onSaveImage = saveImage,
                             extraMenu = { close -> StdMessageMenu(repo, s, m, close, onReport = { reportMsgs = listOf(m) }, onBlock = { n, t -> blockAsk = n to t }, onModDel = { modDel = m }) },
                         )
                     }
@@ -853,8 +871,13 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
                     Text(stringResource(R.string.chat_reply_to, r.sender?.let { io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(it) }.orEmpty()), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                    Text(previewText(r, s, unknownName), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                    // 2.5 Medien 1: ohne Text "Foto"/"Video"/Dateiname statt leer
+                    Text(
+                        ChatMedia.attachmentLabel(r.content, mediaLabels()) ?: previewText(r, s, unknownName),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
+                    )
                 }
+                ChatMedia.quoteThumb(r.content)?.let { f -> Box(Modifier.padding(start = 8.dp)) { QuoteThumb(f, s, 40.dp) } }
                 IconButton(onClick = { s.replyTo = null }) { Icon(Icons.Filled.Close, stringResource(R.string.action_cancel)) }
             }
         }
@@ -1061,6 +1084,15 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     }
 
     if (showMedia) MediaDialog(repo, s) { showMedia = false }
+    // 2.5 Medien 1: Bildbetrachter - alle Bilder des Chats (Verlaufsreihenfolge, ohne ausgeblendete/eingeklappte)
+    viewer?.let { (mid, fid) ->
+        val items = remember(mid, fid) {
+            ChatMedia.gallery(s.messages.toList(), s.hiddenLocal) { m ->
+                !m.mine && std.block && m.id !in s.unblocked && ChatStd.blockedInGroup(s.summary, m.sender, m.senderHandle)
+            }
+        }
+        ImageViewer(repo, s, items, ChatMedia.indexOf(items, mid, fid)) { viewer = null }
+    }
     // 2.5 Chat-Standard: Melden, Sperren, Admin-Loeschen
     reportMsgs?.let { ms ->
         ReportDialog(repo, s, ms, ChatStd.reportPrefill(ms.map { senderName(it) to previewText(it, s, unknownName) })) { reportMsgs = null }
@@ -1114,10 +1146,10 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         "forward" -> if (selMsgs.size > ChatSelect.FORWARD_MAX) LaunchedEffect(Unit) {
             repo.notify(UiText.Res(R.string.cs_forward_max, ChatSelect.FORWARD_MAX))
             selDialog = null
-        } else ForwardTargetDialog(repo, chatId, onDismiss = { selDialog = null }) { c, name -> forwardTo = c to name; selDialog = "forward_confirm" }
+        } else ForwardTargetDialog(repo, chatId, onDismiss = { selDialog = null; if (!selecting) selected = emptySet() }) { c, name -> forwardTo = c to name; selDialog = "forward_confirm" }
         "forward_confirm" -> forwardTo?.let { (target, name) ->
             AlertDialog(
-                onDismissRequest = { selDialog = null },
+                onDismissRequest = { selDialog = null; if (!selecting) selected = emptySet() },
                 title = { Text(pluralStringResource(R.plurals.cs_forward_confirm, selMsgs.size, selMsgs.size, name)) },
                 confirmButton = {
                     TextButton(onClick = {
@@ -1132,7 +1164,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                         }
                     }) { Text(stringResource(R.string.cs_forward)) }
                 },
-                dismissButton = { TextButton(onClick = { selDialog = null }) { Text(stringResource(R.string.action_cancel)) } },
+                dismissButton = { TextButton(onClick = { selDialog = null; if (!selecting) selected = emptySet() }) { Text(stringResource(R.string.action_cancel)) } },
             )
         }
         "page" -> ToPageDialog(onDismiss = { selDialog = null }, onNew = { selDialog = "page_new" }, onAppend = { selDialog = "page_pick" })
@@ -1496,6 +1528,9 @@ internal fun Bubble(
     onMenuAction: () -> Unit = {},
     /** 2.5 Chat-Standard: weitere Eintraege (Anheften, Löschen (Admin), Sperren, Melden); close schliesst das Menue */
     extraMenu: (@Composable (close: () -> Unit) -> Unit)? = null,
+    /** 2.5 Medien 1: "Weiterleiten" (null = nicht anbieten) und Bild "In Galerie speichern" (null = nicht anbieten) */
+    onForward: (() -> Unit)? = null,
+    onSaveImage: ((ChatFile) -> Unit)? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     val isSel = selecting && selected
@@ -1598,16 +1633,20 @@ internal fun Bubble(
                     }
                     m.replyTo?.let { rid ->
                         val q = s.messages.firstOrNull { it.id == rid }
+                        // 2.5 Medien 1: zitiertes Bild/Video mit kleinem Vorschaubild; ohne Text "Foto"/"Video"/Dateiname
+                        val qThumb = ChatMedia.quoteThumb(q?.content)
+                        val qc = q?.content
+                        val qText = if (qc == null) stringResource(R.string.chat_reply_missing) else ChatMedia.attachmentLabel(qc, mediaLabels()) ?: qc.text
                         Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), shape = RoundedCornerShape(8.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-                            Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                                Text(
-                                    if (q?.ai == AiReplyCheck.OK) aiPersona?.name ?: q.content?.aiName.orEmpty() else q?.sender?.name.orEmpty(),
-                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary,
-                                )
-                                Text(
-                                    q?.content?.text ?: stringResource(R.string.chat_reply_missing), style = MaterialTheme.typography.bodySmall,
-                                    maxLines = 2, overflow = TextOverflow.Ellipsis,
-                                )
+                            Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f, fill = false)) {
+                                    Text(
+                                        if (q?.ai == AiReplyCheck.OK) aiPersona?.name ?: q.content?.aiName.orEmpty() else q?.sender?.name.orEmpty(),
+                                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    Text(qText, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                }
+                                if (qThumb != null) Box(Modifier.padding(start = 8.dp)) { QuoteThumb(qThumb, s) }
                             }
                         }
                     }
@@ -1687,6 +1726,15 @@ internal fun Bubble(
                         onClick = { menu = false; onMenuAction(); onShareFile(f) },
                     )
                 }
+                // 2.5 Medien 1: Bilder in der Galerie speichern
+                val galleryFiles = if (onSaveImage != null) m.content?.files.orEmpty().filter { ChatMedia.viewable(it) } else emptyList()
+                galleryFiles.forEach { f ->
+                    DropdownMenuItem(
+                        text = { Text(if (galleryFiles.size > 1) stringResource(R.string.media_save_gallery) + " · " + f.n else stringResource(R.string.media_save_gallery)) },
+                        onClick = { menu = false; onMenuAction(); onSaveImage?.invoke(f) },
+                    )
+                }
+                if (onForward != null) DropdownMenuItem(text = { Text(stringResource(R.string.cs_forward)) }, onClick = { menu = false; onMenuAction(); onForward() })
                 if (!m.content?.text.isNullOrEmpty()) DropdownMenuItem(text = { Text(stringResource(R.string.text_copy)) }, onClick = { menu = false; onMenuAction(); onCopy() })
                 if (m.mine && m.fstate == "failed" && m.content != null) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.fed_resend)) }, onClick = { menu = false; onMenuAction(); onResend() })
@@ -1973,6 +2021,12 @@ private fun StdMessageMenu(
         DropdownMenuItem(text = { Text(stringResource(R.string.std_report_menu)) }, onClick = { close(); onReport() })
     }
 }
+
+/** 2.5 Medien 1: uebersetzte Platzhalter fuer Zitate ohne Text */
+@Composable
+internal fun mediaLabels(): ChatMedia.Labels = ChatMedia.Labels(
+    photo = stringResource(R.string.media_photo), video = stringResource(R.string.cs_l_video), voice = stringResource(R.string.cs_l_voice),
+)
 
 /** Kurztext einer Nachricht (Pin-Leiste, Melden): Formatierung entfernt, Erwaehnungen als @Name */
 internal fun previewText(m: ChatMessage, s: ChatSession, unknown: String): String {

@@ -161,6 +161,34 @@ object ChatImages {
      * inSampleSize; liefert der Dekoder doch mehr, wird verkleinert. Kaputt, zu gross oder Speicher knapp -> null, nie eine
      * Ausnahme (auch kein OutOfMemoryError). So kommt nie eine Bitmap ueber der Grenze in die Oberflaeche.
      */
+    /**
+     * 2.5 Medien 1 (Bildbetrachter): wie [decodeBounded], dazu die EXIF-Drehung angewendet (unveraendert gesendete Fotos
+     * tragen sie noch). Drehen scheitert (Speicher) -> ungedreht statt gar nicht.
+     */
+    fun decodeOriented(data: ByteArray, maxSide: Int): Bitmap? {
+        val src = decodeBounded(data, maxSide) ?: return null
+        val o = orientation(data)
+        if (o == ExifInterface.ORIENTATION_NORMAL || o == ExifInterface.ORIENTATION_UNDEFINED) return src
+        return try {
+            val m = Matrix()
+            when (o) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> m.postRotate(90f)
+                ExifInterface.ORIENTATION_ROTATE_180 -> m.postRotate(180f)
+                ExifInterface.ORIENTATION_ROTATE_270 -> m.postRotate(270f)
+                ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> m.postScale(-1f, 1f)
+                ExifInterface.ORIENTATION_FLIP_VERTICAL -> m.postScale(1f, -1f)
+                ExifInterface.ORIENTATION_TRANSPOSE -> { m.postRotate(90f); m.postScale(-1f, 1f) }
+                ExifInterface.ORIENTATION_TRANSVERSE -> { m.postRotate(270f); m.postScale(-1f, 1f) }
+                else -> return src
+            }
+            val out = Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
+            if (out !== src) src.recycle()
+            out
+        } catch (_: Throwable) {
+            src
+        }
+    }
+
     fun decodeBounded(data: ByteArray, maxSide: Int): Bitmap? = try {
         val b = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(data, 0, data.size, b)

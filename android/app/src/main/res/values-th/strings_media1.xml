@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Medien 1: Bildbetrachter, Zitat mit Vorschaubild, Bild in der Galerie speichern -->
+<resources>
+    <string name="media_photo">รูปภาพ</string>
+    <string name="media_save_gallery">บันทึกลงแกลเลอรี</string>
+    <string name="media_saved">บันทึกรูปภาพแล้ว</string>
+    <string name="media_save_failed">บันทึกรูปภาพไม่สำเร็จ</string>
+    <string name="media_load_failed">โหลดรูปภาพไม่สำเร็จ</string>
+    <string name="media_open_with">เปิดด้วย …</string>
+</resources>
