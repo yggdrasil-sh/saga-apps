@@ -103,6 +103,9 @@ struct RootView: View {
                     else if selection == FedLogic.graphTag { GraphScreen(store: store, focusID: store.recent.first, onOpen: { selection = $0 }) }   // 2.5
                     else if let id = selection, FedLogic.isPageID(id) { NativePageScreen(id: id).id(id) } else { TodayScreen(store: store) }
                     }
+                    #if os(macOS)
+                    .modifier(SidebarAnimationFreeze(trigger: columns))   // Seitenleiste ein/aus: Inhalt nicht je Bild neu setzen
+                    #endif
                     .navigationDestination(for: PageRoute.self) { r in
                         if r.web { PageScreen(id: r.id, store: store, block: r.block) } else { NativePageScreen(id: r.id).id(r.id) }
                     }
@@ -1071,3 +1074,31 @@ struct PeekResizer: View {
             }
     }
 }
+
+#if os(macOS)
+/// Beim Ein-/Ausblenden der Seitenleiste aendert sich die Breite des Inhalts in jedem Animationsbild; ohne Bremse rechnet
+/// SwiftUI dann die ganze Seite (Titelbild, Widgets, Tabellen, Spalten) jedes Mal neu - das ruckelt. Waehrenddessen bleibt
+/// der Inhalt deshalb auf der alten Breite stehen (links ausgerichtet, abgeschnitten) und springt am Ende einmal um.
+struct SidebarAnimationFreeze: ViewModifier {
+    let trigger: NavigationSplitViewVisibility
+    @State private var width: CGFloat = 0
+    @State private var frozen: CGFloat?
+    @State private var gen = 0
+    func body(content: Content) -> some View {
+        content
+            .frame(width: frozen, alignment: .topLeading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .clipped()
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+            .onChange(of: trigger) { _, _ in
+                guard width > 0 else { return }
+                frozen = width; gen += 1
+                let g = gen
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(450))   // Dauer der Seitenleisten-Animation (+ Puffer)
+                    if g == gen { frozen = nil }
+                }
+            }
+    }
+}
+#endif
