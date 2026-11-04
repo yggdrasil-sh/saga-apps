@@ -117,10 +117,71 @@ enum ImageStore {
         return UIImage.animatedImage(with: frames, duration: total)
         #else
         if n <= 1, let cg = downsampled(src, 0) { return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height)) }
-        return NSImage(data: d)                           // GIF: NSImageView spielt es selbst ab
+        // Animiert: alle Einzelbilder EINMAL entpacken (wie iOS). NSImageView mit animates dekodierte das GIF bei jedem
+        // Bildwechsel neu im UI-Thread (ab Bild N alle Vorgaenger) - das hat die ganze App ausgebremst.
+        var frames: [CGImage] = [], delays: [Double] = []
+        for i in 0..<min(n, 300) {
+            guard let cg = downsampled(src, i, maxPixel: 800) else { continue }
+            let props = CGImageSourceCopyPropertiesAtIndex(src, i, nil) as? [CFString: Any]
+            let gif = (props?[kCGImagePropertyGIFDictionary] ?? props?[kCGImagePropertyPNGDictionary] ?? props?[kCGImagePropertyWebPDictionary]) as? [CFString: Any]
+            let delay = (gif?[kCGImagePropertyGIFUnclampedDelayTime] as? Double) ?? (gif?[kCGImagePropertyGIFDelayTime] as? Double)
+                ?? (gif?[kCGImagePropertyAPNGUnclampedDelayTime] as? Double) ?? (gif?[kCGImagePropertyWebPUnclampedDelayTime] as? Double) ?? 0.1
+            frames.append(cg); delays.append(max(delay, 0.02))
+        }
+        if frames.count > 1 {
+            let img = NSImage(cgImage: frames[0], size: NSSize(width: frames[0].width, height: frames[0].height))
+            AnimatedFrames.attach(AnimFrames(frames: frames, delays: delays), to: img)
+            return img
+        }
+        return frames.first.map { NSImage(cgImage: $0, size: NSSize(width: $0.width, height: $0.height)) } ?? NSImage(data: d)
         #endif
     }
 }
+
+#if os(macOS)
+/// Fertig entpackte Einzelbilder einer Animation; das NSImage selbst ist das erste Bild (Groesse, Standbild, Kopieren)
+final class AnimFrames: NSObject, @unchecked Sendable {
+    let frames: [CGImage]
+    let delays: [Double]
+    init(frames: [CGImage], delays: [Double]) { self.frames = frames; self.delays = delays }
+}
+
+/// Zuordnung NSImage -> Einzelbilder (schwach am Bild, faellt mit ihm weg)
+enum AnimatedFrames {
+    nonisolated(unsafe) private static let map = NSMapTable<NSImage, AnimFrames>.weakToStrongObjects()
+    private static let lock = NSLock()
+    nonisolated static func attach(_ a: AnimFrames, to img: NSImage) { lock.lock(); map.setObject(a, forKey: img); lock.unlock() }
+    nonisolated static func frames(of img: NSImage) -> AnimFrames? { lock.lock(); defer { lock.unlock() }; return map.object(forKey: img) }
+}
+
+/// Spielt AnimFrames als Core-Animation ab (laeuft im Render-Server, kostet den UI-Thread nichts)
+final class FramesLayerView: NSView {
+    override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric) }
+    private(set) weak var shown: AnimFrames?
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        layer = CALayer(); wantsLayer = true                   // Layer-Hosting: AppKit setzt die Inhalte nicht selbst
+        layer?.masksToBounds = true
+    }
+    required init?(coder: NSCoder) { nil }
+    func show(_ a: AnimFrames, fill: Bool) {
+        guard let l = layer else { return }
+        shown = a
+        l.contentsGravity = fill ? .resize : .resizeAspect
+        l.removeAnimation(forKey: "frames")
+        l.contents = a.frames[0]
+        let total = a.delays.reduce(0, +)
+        guard total > 0 else { return }
+        var t = 0.0, times: [NSNumber] = []
+        for d in a.delays { times.append(NSNumber(value: t / total)); t += d }
+        times.append(1)                                       // diskret: ein Zeitpunkt mehr als Bilder
+        let an = CAKeyframeAnimation(keyPath: "contents")
+        an.values = a.frames; an.keyTimes = times; an.duration = total
+        an.calculationMode = .discrete; an.repeatCount = .infinity; an.isRemovedOnCompletion = false
+        l.add(an, forKey: "frames")
+    }
+}
+#endif
 
 #if os(iOS)
 /// Meldet KEINE eigene Groesse - die Groesse bestimmt allein SwiftUI (sonst schaukeln sich beide hoch)
@@ -147,12 +208,29 @@ final class FlexibleImageView: NSImageView {
 struct AnimatedImage: NSViewRepresentable {
     let image: NSImage
     var fill = false
-    func makeNSView(context: Context) -> NSImageView {
-        let v = FlexibleImageView(); v.animates = true; v.imageScaling = fill ? .scaleAxesIndependently : .scaleProportionallyUpOrDown
-        v.image = image; return v
+    /// Huelle: darin entweder ein Standbild (NSImageView) oder die fertig entpackte Animation (FramesLayerView)
+    func makeNSView(context: Context) -> NSView {
+        let box = FlexibleBox(); place(image, in: box); return box
     }
-    func updateNSView(_ v: NSImageView, context: Context) { if v.image !== image { v.image = image } }
-    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSImageView, context: Context) -> CGSize? { proposal.replacingUnspecifiedDimensions(by: CGSize(width: 100, height: 100)) }
+    func updateNSView(_ box: NSView, context: Context) { place(image, in: box) }
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSView, context: Context) -> CGSize? { proposal.replacingUnspecifiedDimensions(by: CGSize(width: 100, height: 100)) }
+    private func place(_ image: NSImage, in box: NSView) {
+        if let a = AnimatedFrames.frames(of: image) {
+            let v = (box.subviews.first as? FramesLayerView) ?? { let n = FramesLayerView(); box.subviews = [n]; return n }()
+            v.frame = box.bounds; v.autoresizingMask = [.width, .height]
+            if v.shown !== a { v.show(a, fill: fill) }
+        } else {
+            let v = (box.subviews.first as? FlexibleImageView) ?? { let n = FlexibleImageView(); box.subviews = [n]; return n }()
+            v.frame = box.bounds; v.autoresizingMask = [.width, .height]
+            v.animates = false; v.imageScaling = fill ? .scaleAxesIndependently : .scaleProportionallyUpOrDown
+            if v.image !== image { v.image = image }
+        }
+    }
+}
+
+/// Huelle ohne eigene Groesse (wie FlexibleImageView)
+final class FlexibleBox: NSView {
+    override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric) }
 }
 #endif
 
