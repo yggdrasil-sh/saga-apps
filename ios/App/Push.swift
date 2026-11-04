@@ -204,6 +204,17 @@ final class PushCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
             await MainActor.run { CallSystem.shared.ringFromNotice(plain) }
             return []
         }
+        // 4.11.: Nachricht aus dem Chat, der gerade offen und sichtbar ist - kein Banner/Ton (die Nachricht steht ja schon da)
+        let url = info["url"] as? String, kind = info["kind"] as? String
+        let openID: Int? = await MainActor.run {
+            #if os(iOS)
+            guard UIApplication.shared.applicationState == .active else { return nil }
+            #else
+            guard NSApplication.shared.isActive else { return nil }
+            #endif
+            return PushModel.current?.store?.chat.open?.chatID
+        }
+        if NotifLogic.hideWhileOpen(kind: kind, url: url, openChat: openID) { return [] }
         return [.banner, .list, .sound]
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {

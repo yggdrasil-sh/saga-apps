@@ -104,6 +104,12 @@ object NotifLogic {
         data class Settings(val section: String) : Target
     }
 
+    /** 4.11.: Mitteilung zu einer Chat-Nachricht nicht anzeigen, wenn genau dieser Chat offen und die App vorne ist */
+    fun hideWhileOpen(kind: String, url: String?, openChat: Long?): Boolean {
+        if (openChat == null || (kind != "chat.message" && kind != "chat.mention")) return false
+        return (target(url) as? Target.Chat)?.id == openChat
+    }
+
     fun target(url: String?): Target? {
         if (url == null) return null
         Regex("^/notes#(-?\\d{1,19})(?::([A-Za-z0-9_-]{1,64}))?$").find(url)?.let { m ->

@@ -9,6 +9,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – Mitteilungen aus dem Chat (iOS/Mac, Android)
+
+- Im offenen Chat kamen für jede neue Nachricht dieses Chats trotzdem Banner und Ton. Jetzt nicht mehr, solange die
+  App vorne ist; Nachrichten anderer Chats melden sich weiter.
+- iOS/Mac: Antippen einer Chat-Mitteilung öffnete den Chat oft nicht – die App setzte den Chat nach festen 350 ms,
+  bevor die Chat-Liste geladen war, oder ein anderer Chat war schon offen. Jetzt merkt sich die App den Chat und die
+  Liste öffnet ihn, sobald sie bereit ist (ein offener anderer Chat wird vorher geschlossen); die Glocken-Liste geht zu.
+
 ### iOS/Mac: große Dateien im Chat
 
 - **Jede Datei** über der v1-Grenze geht jetzt im Format saga-file/v2 (fortsetzbarer Upload in Teilen, wie Videos;

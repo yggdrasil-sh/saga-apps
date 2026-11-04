@@ -383,11 +383,11 @@ extension RootView {
     func openTarget(_ t: NotifTarget) {
         switch t {
         case .chat(let id):
-            nav.peek = nil; nav.path = []
+            nav.peek = nil; nav.path = []; showNotifs = false
+            store.chat.pendingOpen = id                                     // die Chat-Liste oeffnet ihn, sobald sie bereit ist
             if CallLogic.chatOpenNeedsTwoSteps(chatsVisible: selection == FedLogic.chatsTag) {
                 selection = FedLogic.chatsTag                               // erst den Bereich, dann den Chat (eigener Stapel)
-                Task { try? await Task.sleep(for: .milliseconds(350)); if selection == FedLogic.chatsTag { openChat = id } }
-            } else { openChat = id }
+            }
         case .page(let id, let block):
             nav.peek = nil
             if let b = block { nav.showComments(id, block: b) }       // Seite schon offen: sie reagiert auf commentsJump

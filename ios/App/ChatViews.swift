@@ -53,13 +53,30 @@ struct ChatsScreen: View {
         }
     }
 
+    /// 4.11.: Chat aus einer Mitteilung oeffnen. Gestapelt (iPhone): ist schon ein anderer Chat offen, erst zurueck zur
+    /// Liste, dann den neuen - ein Wechsel des Ziels im offenen navigationDestination wird sonst ignoriert. Kurz warten,
+    /// bis die Liste (und ihr navigationDestination) im Stapel haengt.
+    private func openPending(stacked: Bool) {
+        guard let id = chat.pendingOpen else { return }
+        chat.pendingOpen = nil
+        guard openChat != id else { return }
+        let back = stacked && openChat != nil
+        if back { openChat = nil }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(back ? 450 : 150))
+            openChat = id
+        }
+    }
+
     @ViewBuilder private var ready: some View {
         if hsc == .compact || width < 720 {                                  // schmal (iPhone, iPad hochkant mit Seitenleiste): gestapelt
             ChatListView(chat: chat, selection: $openChat)
                 .navigationDestination(item: $openChat) { id in ConversationView(chatID: id, chat: chat).id(id) }
+                .onChange(of: chat.pendingOpen, initial: true) { _, _ in openPending(stacked: true) }
         } else {
             HStack(spacing: 0) {
                 ChatListView(chat: chat, selection: $openChat).frame(width: ChatLayout.listWidth(total: width))   // waechst mit dem Fenster (N15)
+                    .onChange(of: chat.pendingOpen, initial: true) { _, _ in openPending(stacked: false) }
                 Divider()
                 if let id = openChat { ConversationView(chatID: id, chat: chat).id(id) }
                 else {

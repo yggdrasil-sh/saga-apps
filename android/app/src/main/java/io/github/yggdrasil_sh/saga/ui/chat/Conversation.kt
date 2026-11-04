@@ -182,6 +182,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     val videos = remember(chatId) { mutableStateListOf<PendingVideo>() }
     val videoHost = remember(chatId) { VideoPlayerHost(context, repo, scope) }
     DisposableEffect(videoHost) { onDispose { videoHost.release() } }
+    // 4.11.: dieser Chat ist sichtbar - seine Mitteilungen nicht anzeigen, solange die App vorne ist
+    DisposableEffect(chatId) {
+        svc.visibleChat = chatId
+        onDispose { if (svc.visibleChat == chatId) svc.visibleChat = null }
+    }
     val noteIds = remember(chatId) { mutableStateListOf<ChatNoteRef>() }
     // TextFieldState (statt String): nur damit gehen Bilder aus Zwischenablage/Tastatur/Ziehen (contentReceiver)
     val input = rememberSaveable(chatId, saver = TextFieldState.Saver) { TextFieldState() }   // ueberlebt Prozess-Tod (BUG-067)

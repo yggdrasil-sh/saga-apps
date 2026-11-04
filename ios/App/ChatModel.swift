@@ -336,8 +336,12 @@ final class ChatModel: ObservableObject {
     /// Kopplung dieses (neuen) Geraets laeuft: Code + Ablauf
     @Published var linking: (id: String, code: String, expires: Date)?
     @Published var linkError: String?
-    /// geoeffneter Chat (fuer Live-Ereignisse)
+    /// geoeffneter Chat (fuer Live-Ereignisse; 4.11.: Mitteilungen dieses Chats im Vordergrund nicht anzeigen)
     weak var open: ConversationModel?
+    /// 4.11.: Chat, der geoeffnet werden soll (Mitteilung angetippt) - die Chat-Liste uebernimmt ihn, sobald sie bereit
+    /// ist. Vorher setzte RootView `openChat` nach festen 350 ms; war die Liste da noch nicht geladen (Chats entsperren,
+    /// Kaltstart) oder schon ein anderer Chat offen, passierte nichts.
+    @Published var pendingOpen: Int?
     private(set) var keys: ChatKeys? {
         // Chats gerade entsperrt/eingerichtet: Anruf-Faehigkeiten jetzt melden und laden - sonst fehlten die
         // Gruppenanruf-Knoepfe bis zum naechsten App-Start (F8)

@@ -56,6 +56,12 @@ func callUITests() {
     check(L.tapRoute(kind: "comment.new", url: "/notes#5", call: nil, phase: "active", minimized: false, callKit: true) == .open(minimizeFirst: true),
           "Kommentar im Anruf: erst verkleinern")
     check(NotifLogic.target(url: "/chats#c12", kind: "chat.message") == .chat(id: 12), "Chat-Mitteilung -> Chat 12")
+    // 4.11.: Mitteilung des offenen Chats im Vordergrund nicht zeigen - andere Chats und andere Arten schon
+    check(NotifLogic.hideWhileOpen(kind: "chat.message", url: "/chats#c12", openChat: 12), "offener Chat: kein Banner")
+    check(NotifLogic.hideWhileOpen(kind: "chat.mention", url: "/chats#12", openChat: 12), "Erwaehnung im offenen Chat: kein Banner")
+    check(!NotifLogic.hideWhileOpen(kind: "chat.message", url: "/chats#c13", openChat: 12), "anderer Chat: Banner")
+    check(!NotifLogic.hideWhileOpen(kind: "chat.message", url: "/chats#c12", openChat: nil), "kein Chat offen / App hinten: Banner")
+    check(!NotifLogic.hideWhileOpen(kind: "call", url: "/chats#call-ab12", openChat: 12), "Anruf: nie unterdruecken")
 
     // Chat oeffnen: Bereich wechseln und Chat nicht im selben Schritt
     check(L.chatOpenNeedsTwoSteps(chatsVisible: false), "Chats nicht vorne: zwei Schritte")

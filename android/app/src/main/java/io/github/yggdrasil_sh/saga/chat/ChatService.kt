@@ -225,6 +225,8 @@ object ChatLogic {
  * Geraete, Chat-Liste. Private Schluessel nur im Keystore (ChatStore), nie an den Server.
  */
 class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
+    /** 4.11.: gerade sichtbarer Chat (Conversation) - Mitteilungen dieses Chats im Vordergrund nicht anzeigen */
+    @Volatile var visibleChat: Long? = null
     private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; explicitNulls = false; isLenient = true }
 
     /** libsodium erst bei Bedarf laden */

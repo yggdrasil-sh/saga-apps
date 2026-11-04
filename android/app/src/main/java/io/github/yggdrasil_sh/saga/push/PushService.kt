@@ -489,6 +489,9 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
         // Anruf: nicht als normale Mitteilung - Zustand holen und als Vollbild-Anruf klingeln (nur solange er klingelt)
         // 2.4 E5: "call.group" (Gruppenanruf) ebenso - Zustand holen, klingeln nur, solange die eigene Einladung klingelt
         if ((msg.kind == "call" || msg.kind == "call.group") && msg.call != null) return repo.calls.onRing(msg.call)
+        // 4.11.: Nachricht aus dem Chat, der gerade offen ist (App vorne) - kein Banner/Ton, sie steht ja schon da
+        val fg = androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
+        if (io.github.yggdrasil_sh.saga.live.NotifLogic.hideWhileOpen(msg.kind, msg.url, if (fg) repo.chat.visibleChat else null)) return null
         Notifier.show(context, msg)
         return null
     }

@@ -192,6 +192,11 @@ enum NotifLogic {
         if s.hasPrefix("c") { s = s.dropFirst() }
         return Int(s.prefix { $0.isNumber })
     }
+    /// 4.11.: Mitteilung zu einer Chat-Nachricht nicht anzeigen, wenn genau dieser Chat gerade offen ist (App vorne)
+    static func hideWhileOpen(kind: String?, url: String?, openChat: Int?) -> Bool {
+        guard let openChat, kind == "chat.message" || kind == "chat.mention", let id = chatID(fromURL: url) else { return false }
+        return id == openChat
+    }
     /// "/notes#12", "/notes#-2049:block", "/chats#c3", "/" -> Ziel
     /// `kind`: Art der Meldung - absolute Adressen (Admin-Bereich auf eigenem Port) nur bei `backup.failed` (2.3)
     static func target(url: String?, kind: String? = nil) -> NotifTarget {
