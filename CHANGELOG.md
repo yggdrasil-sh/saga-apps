@@ -14,14 +14,20 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Bildergalerie:** Ein angetipptes Bild öffnet alle geladenen Bilder des Chats in Verlaufsreihenfolge, beginnend beim
   angetippten; seitlich wischen blättert, unten steht „n / m“, Zoomen geht weiter je Bild (gezoomt wird nicht
   geblättert). iOS: nach unten wischen schließt (nicht im Zoom); Mac: Pfeiltasten ← → und Knöpfe am Rand.
+  Android: eigene Bildansicht in der App statt einer fremden Galerie-App (zwei Finger, Doppeltippen, wischen). Linux:
+  Strg+Mausrad/zwei Finger, Doppelklick einpassen/100 %, Pfeiltasten; GIFs laufen. Web: Mausrad, Spreizen, Ziehen,
+  Pfeiltasten und Wischen.
 - **Antwort-Zitat mit Vorschaubild:** in der Blase und in der Leiste über dem Eingabefeld ein kleines Vorschaubild
   (Bild bzw. Video-Poster, nie das Video selbst); ohne Text steht „Foto“, „Video“, „Sprachnachricht“ oder der
   Dateiname – bisher war die Leiste bei reinen Bildern leer.
 - **Bilder sichern:** in der Bildansicht und im Menü einer Bildnachricht. iOS „In Fotos sichern“ (nur Hinzufügen, wie
-  bei Videos), Mac „Sichern unter …“.
+  bei Videos), Mac „Sichern unter …“, Android „In Galerie speichern“ (Bilder/Saga). Linux und Web zusätzlich
+  „Bild kopieren“ in die Zwischenablage; Web außerdem „Teilen“, wo der Browser das kann.
 - **Weiterleiten im Nachrichtenmenü** (langes Drücken bzw. Rechtsklick): derselbe Ablauf wie in der Mehrfachauswahl,
   mit dieser einen Nachricht. Videos werden jetzt mit weitergeleitet (neu hochgeladen über den Video-Weg) statt nur
-  als Hinweis „[Anhang nicht weitergeleitet]“; Sprachnachrichten bleiben ein Hinweis.
+  als Hinweis „[Anhang nicht weitergeleitet]“ (iOS/Mac); Sprachnachrichten bleiben dort ein Hinweis. Linux und Web
+  leiten auch große Dateien (saga-file/v2) und Sprachnachrichten weiter; Web bis 100 MB. Android leitet große
+  Dateien noch nicht weiter (Hinweis wie bisher).
 - iOS: Der Text der Fotos-Berechtigung nennt jetzt Bilder und Videos.
 
 ### Behoben – Reagieren auf Bilder, Videos und Dateien; Zoomen in Bildern (iOS/Mac, Android)
@@ -30,7 +36,7 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Anhänge waren Knöpfe, die den langen Druck geschluckt haben. Jetzt: kurz tippen öffnet, lange drücken zeigt
   Reaktionen und Aktionen der Nachricht (Android: beim Video steht „Speichern“ dort mit drin).
 - iOS/Mac: Bildansicht mit Zoomen – zwei Finger bzw. Trackpad (bis 6-fach), verschieben, Doppeltippen 2,5-fach/zurück.
-  Android öffnet Bilder in der Galerie-App, dort ging Zoomen schon.
+  Android: siehe Bildergalerie oben.
 
 ### Behoben – Mitteilungen aus dem Chat (iOS/Mac, Android)
 
