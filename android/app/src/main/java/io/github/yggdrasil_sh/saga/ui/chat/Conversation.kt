@@ -388,6 +388,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 is ChatAttach.Read.Video -> videos.add(PendingVideo(r.uri, r.name, r.mime, r.size))
                 ChatAttach.Read.TooBig -> repo.notify(UiText.Res(R.string.chat_file_too_big, (max / 1048576).toInt()))
                 ChatAttach.Read.Failed -> repo.notify(UiText.Res(R.string.chat_file_broken))
+                ChatAttach.Read.Empty -> repo.notify(UiText.Res(R.string.chat_file_empty))
             }
         }
     }
@@ -404,6 +405,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 is ChatAttach.Read.Video -> videos.add(PendingVideo(r.uri, r.name, r.mime, r.size))
                 ChatAttach.Read.TooBig -> repo.notify(UiText.Res(R.string.chat_file_too_big, (max / 1048576).toInt()))
                 ChatAttach.Read.Failed -> repo.notify(UiText.Res(R.string.chat_file_broken))
+                ChatAttach.Read.Empty -> repo.notify(UiText.Res(R.string.chat_file_empty))
             }
         }
     }
@@ -440,6 +442,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 is ChatAttach.Read.Ok -> files.add(r.file)
                 ChatAttach.Read.TooBig -> repo.notify(UiText.Res(R.string.chat_file_too_big, (max / 1048576).toInt()))
                 ChatAttach.Read.Failed -> repo.notify(UiText.Res(R.string.chat_file_broken))
+                ChatAttach.Read.Empty -> repo.notify(UiText.Res(R.string.chat_file_empty))
             }
         }
     }
@@ -1300,6 +1303,7 @@ private suspend fun readFile(context: Context, u: Uri, max: Long, chat: String):
         if (ChatAttach.tooBig(size, max)) return@withContext ChatAttach.Read.TooBig
         val data = cr.openInputStream(u)?.use { ChatAttach.readLimited(it, max) ?: return@withContext ChatAttach.Read.TooBig }
             ?: return@withContext ChatAttach.Read.Failed
+        if (data.isEmpty()) return@withContext ChatAttach.Read.Empty
         ChatAttach.Read.Ok(PendingFile(name.take(200), mime, data))
     } catch (_: OutOfMemoryError) {
         ChatAttach.Read.TooBig
@@ -1765,7 +1769,7 @@ internal fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit)
         }
     }
     TextButton(onClick = { onOpen(f) }) {
-        Text("📎 " + f.n + " · " + android.text.format.Formatter.formatShortFileSize(LocalContext.current, f.s), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text("📎 " + f.n + " · " + (if (f.s == 0L) stringResource(R.string.chat_file_empty_short) else android.text.format.Formatter.formatShortFileSize(LocalContext.current, f.s)), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

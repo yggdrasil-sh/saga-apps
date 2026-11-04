@@ -120,9 +120,11 @@ fun rememberDbViewState(dbId: Long, repo: SagaRepository): DbViewState {
     // Live: Zeile/Datenbank auf einem anderen Geraet oder von einer anderen Person geaendert
     LaunchedEffect(st) {
         repo.live.events.collect { ev ->
-            if ((ev.type == "note.changed" && ev.long("id") == dbId) || ev.type == "reset") st.reload(debounce = 500)
+            if (DbLive.rowsChanged(ev.type, ev.long("id"), ev.long("db"), dbId) || ev.type == "reset") st.reload(debounce = 500)
         }
     }
+    // 4.11.: Live-Kanal wieder verbunden (Vordergrund, Netzwechsel) - Verpasstes nachholen
+    LaunchedEffect(st) { repo.live.connected.drop(1).collect { if (it) st.reload(debounce = 500) } }
     return st
 }
 
@@ -146,9 +148,11 @@ fun rememberEmbeddedDbState(dbId: Long, repo: SagaRepository, data: kotlinx.seri
     LaunchedEffect(st) { repo.dbStore.changes.drop(1).collect { st.onStoreChange(it) } }
     LaunchedEffect(st) {
         repo.live.events.collect { ev ->
-            if ((ev.type == "note.changed" && ev.long("id") == dbId) || ev.type == "reset") st.reload(debounce = 500)
+            if (DbLive.rowsChanged(ev.type, ev.long("id"), ev.long("db"), dbId) || ev.type == "reset") st.reload(debounce = 500)
         }
     }
+    // 4.11.: Live-Kanal wieder verbunden (Vordergrund, Netzwechsel) - Verpasstes nachholen
+    LaunchedEffect(st) { repo.live.connected.drop(1).collect { if (it) st.reload(debounce = 500) } }
     return st
 }
 
@@ -945,5 +949,15 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
                 }
             }
         }
+    }
+}
+
+/** 4.11.: Eintraege der Datenbank anderswo geaendert? db.rows {db} (Server ab 2.5, an alle mit Zugriff) bzw.
+ *  note.changed {id = Datenbank} (wer die Datenbank offen hat) */
+object DbLive {
+    fun rowsChanged(type: String, id: Long?, db: Long?, dbId: Long): Boolean = when (type) {
+        "db.rows" -> db == dbId
+        "note.changed" -> id == dbId
+        else -> false
     }
 }

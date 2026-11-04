@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
@@ -139,6 +142,7 @@ fun SagaRoot(repo: SagaRepository, appScope: CoroutineScope) {
             var everLoggedIn by remember { mutableStateOf(!needsLogin) }
             LaunchedEffect(needsLogin) { if (!needsLogin) everLoggedIn = true }
             if (everLoggedIn) key(server, account) { MainScreen(repo, appScope) }
+            if (everLoggedIn && !needsLogin) LiveLamp(repo, Modifier.align(Alignment.TopStart))   // 4.11.: gruen live, rot gespeicherter Stand
             if (needsLogin) LoginScreen(repo)
             pendingPair?.let { PairConfirmDialog(repo, it, appScope) }
             io.github.yggdrasil_sh.saga.ui.login.PairRejectedDialog(repo)
@@ -421,4 +425,25 @@ fun BadgeIcon(count: Int, icon: @Composable () -> Unit) {
     if (count <= 0) icon() else {
         androidx.compose.material3.BadgedBox(badge = { androidx.compose.material3.Badge { Text(if (count > 99) "99+" else "$count") } }) { icon() }
     }
+}
+
+/**
+ * 4.11.: Live-Laempchen oben links (wie iOS/Mac) - gruen, solange der Live-Kanal steht (Inhalte kommen frisch vom
+ * Server), rot, wenn die App gespeicherte Staende zeigt. Nur Anzeige, keine Tippflaeche (liegt neben der Statusleiste).
+ * Server ohne Live-Kanal: kein Laempchen.
+ */
+@Composable
+private fun LiveLamp(repo: SagaRepository, modifier: Modifier = Modifier) {
+    val supported by repo.live.supported.collectAsState()
+    val connected by repo.live.connected.collectAsState()
+    if (!supported) return
+    val desc = stringResource(if (connected) R.string.live_lamp_on else R.string.live_lamp_off)
+    val color by androidx.compose.animation.animateColorAsState(
+        if (connected) androidx.compose.ui.graphics.Color(0xFF34C759) else androidx.compose.ui.graphics.Color(0xFFFF3B30), label = "lamp",
+    )
+    Box(
+        modifier.statusBarsPadding().padding(start = 4.dp, top = 2.dp).size(8.dp)
+            .background(color, androidx.compose.foundation.shape.CircleShape)
+            .semantics { contentDescription = desc },
+    )
 }

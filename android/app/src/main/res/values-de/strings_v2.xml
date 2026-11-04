@@ -126,6 +126,10 @@
     </plurals>
     <string name="chat_file_too_big">Datei zu groß (max. %1$d MB).</string>
     <string name="chat_file_broken">Der Anhang ließ sich nicht öffnen.</string>
+    <string name="chat_file_empty">Die Datei ist leer (0 Byte) und wurde nicht angehängt.</string>
+    <string name="chat_file_empty_short">leere Datei</string>
+    <string name="live_lamp_on">Live – aktuell vom Server</string>
+    <string name="live_lamp_off">Gespeicherter Stand – keine Verbindung zum Server</string>
     <string name="chat_people_search">Person oder Gruppe suchen</string>
     <string name="chat_people_hint">1–2 Zeichen: nur genaue Namen, ab 3 Zeichen auch Teile; Person antippen (Direkt-Chat) oder Gruppe (Gruppen-Chat).</string>
     <string name="chat_not_ready">%1$s hat Chats noch nicht eingerichtet</string>

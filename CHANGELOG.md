@@ -9,6 +9,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Android: Live-Lämpchen, Datenbanken live, leere Anhänge
+
+- **Live-Lämpchen** oben links wie auf iOS/Mac: grün, solange der Live-Kanal steht, rot bei gespeichertem Stand (nur
+  Anzeige, für Bedienungshilfen mit Text).
+- Datenbanken (Seite und eingebetteter Block) laden auch bei `db.rows` (Server ab 2.5: Einträge anderswo geändert)
+  und nach dem Wiederverbinden des Live-Kanals nach. Test `LiveDbTest`.
+- Leere Dateien (0 Byte) werden nicht mehr als Anhang gesendet, sondern mit Hinweis abgelehnt; leere Anhänge zeigen
+  „leere Datei“.
+
 ### Behoben – iOS/Mac: Dateien im Chat ließen sich nicht öffnen, Anhänge aus iCloud kamen leer an
 
 - Ein Datei-Anhang (PDF, Office, Text …) ließ sich nur laden und teilen. Antippen öffnet ihn jetzt in der Vorschau

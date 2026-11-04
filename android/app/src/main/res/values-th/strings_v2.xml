@@ -124,6 +124,10 @@
     </plurals>
     <string name="chat_file_too_big">ไฟล์ใหญ่เกินไป (สูงสุด %1$d MB)</string>
     <string name="chat_file_broken">เปิดไฟล์แนบไม่ได้</string>
+    <string name="chat_file_empty">ไฟล์ว่าง (0 ไบต์) และไม่ได้แนบ</string>
+    <string name="chat_file_empty_short">ไฟล์ว่าง</string>
+    <string name="live_lamp_on">สด – ข้อมูลล่าสุดจากเซิร์ฟเวอร์</string>
+    <string name="live_lamp_off">สำเนาที่บันทึกไว้ – ไม่มีการเชื่อมต่อกับเซิร์ฟเวอร์</string>
     <string name="chat_people_search">ค้นหาบุคคลหรือกลุ่ม</string>
     <string name="chat_people_hint">1–2 อักขระ: เฉพาะชื่อที่ตรงกัน ตั้งแต่ 3 อักขระค้นหาบางส่วนได้ แตะบุคคล (แชทส่วนตัว) หรือกลุ่ม (แชทกลุ่ม)</string>
     <string name="chat_not_ready">%1$s ยังไม่ได้ตั้งค่าแชท</string>

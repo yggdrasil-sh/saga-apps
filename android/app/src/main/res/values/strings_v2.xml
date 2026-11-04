@@ -126,6 +126,10 @@
     </plurals>
     <string name="chat_file_too_big">File too large (max. %1$d MB).</string>
     <string name="chat_file_broken">The attachment couldn\'t be opened.</string>
+    <string name="chat_file_empty">The file is empty (0 bytes) and was not attached.</string>
+    <string name="chat_file_empty_short">empty file</string>
+    <string name="live_lamp_on">Live – up to date from the server</string>
+    <string name="live_lamp_off">Saved copy – no connection to the server</string>
     <string name="chat_people_search">Search person or group</string>
     <string name="chat_people_hint">1–2 characters: exact names only, from 3 also parts; tap a person (direct chat) or a group (group chat).</string>
     <string name="chat_not_ready">%1$s hasn\'t set up chats yet</string>
