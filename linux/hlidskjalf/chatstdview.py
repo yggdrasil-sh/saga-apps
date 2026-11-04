@@ -613,16 +613,26 @@ class ForwardDialog(Adw.Dialog):
 
 
 def fwd_v2(src, tid, f):
-    """Hintergrund: saga-file/v2-Anhang in den Ziel-Chat kopieren -> (Eintrag, Datei-Kennungen). Grosse Dateien nur, wenn
-    das Ziel sie annimmt (Gegenueber ueber Servergrenzen ohne big_files: nein); Sprachnachrichten gehen immer."""
+    """Hintergrund: saga-file/v2-Anhang in den Ziel-Chat weiterleiten -> (Eintrag, Datei-Kennungen). Passt er fuer das Ziel
+    in v1 (chatfiles.send_plan "v1"): entschluesselt als v1 neu hochgeladen; sonst ("v2") der Ciphertext kopiert.
+    Grosse Dateien nur, wenn das Ziel sie annimmt (Gegenueber ohne big_files: nein); Sprachnachrichten immer als v2."""
     from . import chatfiles
     from .chat import ChatError, is_fed
     ch = chat.chat(tid) or {}
+    how = "v2"
     if not f.get("voice"):
         how, _n = chatfiles.send_plan(int(f.get("s") or 0), chat.limits, is_fed(ch), ch.get("big_files"))
         if how in ("peer", "server", "max", "empty"):
             raise ChatError(how)
-    nid = chatvideo.copy_v2(tid, f)
+    if how == "v1":
+        # klein genug fuer v1: entschluesseln und als normaler v1-Anhang senden (auch Gegenueber ohne saga-file/v2
+        # bzw. aeltere Server koennen ihn lesen); hoechstens die v1-Grenze im Speicher
+        buf = bytearray()
+        chat.save_file(src, f, buf.extend)
+        e = chat.upload_file(tid, bytes(buf), str(f.get("n") or _("File"))[:200], f.get("m") or "application/octet-stream")
+        nid = e["id"]
+    else:
+        nid = chatvideo.copy_v2(tid, f)
     ids, th = [nid], None
     t = chatmedia.thumb_ref(f)
     if t:
@@ -634,6 +644,12 @@ def fwd_v2(src, tid, f):
             ids.append(te["id"])
         except Exception:  # noqa: BLE001 - ohne Vorschaubild weiter (Empfaenger zeigen dann den Platzhalter)
             th = None
+    if how == "v1":
+        out = K.fwd_entry(f, nid, th)
+        out.pop("x", None)
+        out.pop("cs", None)
+        out["k"], out["s"] = e["k"], e["s"]
+        return out, ids
     return K.fwd_entry(f, nid, th), ids
 
 

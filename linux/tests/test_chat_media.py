@@ -297,3 +297,49 @@ def test_forward_single_menu_v2_and_voice(win, srv, tmp_path, monkeypatch):
     buf = bytearray()
     chat.save_file(b, f1, buf.extend)
     assert bytes(buf) == ogg
+
+
+def test_forward_small_v2_goes_as_v1(win, srv, tmp_path):
+    """v2-Anhang, der fuer das Ziel in v1 passt (send_plan "v1"): entschluesselt als normaler v1-Anhang weitergeleitet;
+    Metadaten und Poster bleiben, kein copy_v2"""
+    from hlidskjalf import chatvideo as V
+    from hlidskjalf import filev2 as F
+    from hlidskjalf.chat import chat
+    from hlidskjalf.chatstdview import ForwardDialog
+    from test_video import _chat, _file
+    a = _chat(srv)
+    srv.chat_peer("bert", "Bert")
+    b = srv.new_chat("dm", ["test", "bert"])
+    chat.load_chats()
+    pump(lambda: chat.chat(b) is not None, 4)
+    big = _file(tmp_path, 2 * F.CS + 10, "clip.mp4")
+    out, ids = chat.upload_attachments(a, [("clip.mp4", "video/mp4", V.LocalFile(big, os.path.getsize(big)))])
+    assert out[0]["x"] == 2
+    jpeg = _img(32, 18, fmt="JPEG")
+    te = chat.upload_file(a, jpeg, "thumb.jpg", "image/jpeg")
+    out[0].update({"m": "video/mp4", "dur": 3.0, "w": 640, "h": 360,
+                   "th": {"id": te["id"], "k": te["k"], "m": "image/jpeg", "w": 32, "h": 18, "s": len(jpeg)}})
+    chat.send(a, {"v": 1, "type": "text", "text": "", "files": out}, file_ids=ids + [te["id"]])
+    win.show_route(("chat", a))
+    conv = win.current.conv
+    pump(lambda: conv.loaded and len(chat.cache[a]["msgs"]) == 1, 6)
+    # Ziel nimmt die Groesse als v1 (hoehere v1-Grenze)
+    srv.file_max = 4 * 1024 * 1024
+    chat.refresh()
+    pump(lambda: (chat.limits or {}).get("file_max") == srv.file_max, 4)
+    copied = []
+    real = V.copy_v2
+    V.copy_v2 = lambda *a_, **k: copied.append(1) or real(*a_, **k)
+    try:
+        ForwardDialog(conv, chat.cache[a]["msgs"]).go(chat.chat(b))
+        pump(lambda: len([x for x in srv.chats[b]["msgs"] if x["kind"] == "msg"]) == 1, 10)
+    finally:
+        V.copy_v2 = real
+    assert not copied
+    chat.load_messages(b)
+    pump(lambda: len((chat.cache.get(b) or {}).get("msgs") or []) == 1, 5)
+    f = chat.cache[b]["msgs"][0]["files"][0]
+    assert "x" not in f and "cs" not in f and f["s"] == os.path.getsize(big) and f["n"] == "clip.mp4"
+    assert (f["dur"], f["w"], f["h"]) == (3.0, 640, 360) and f["th"]["id"] != te["id"]
+    assert chat.fetch_file(b, f) == open(big, "rb").read()
+    assert "not forwarded" not in chat.cache[b]["msgs"][0]["text"]
