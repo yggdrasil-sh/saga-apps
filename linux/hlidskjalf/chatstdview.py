@@ -5,6 +5,7 @@ import io
 
 from gi.repository import Adw, Gdk, GLib, Gtk, Pango
 
+from . import chatcrypto as C
 from . import chatmedia, chatvideo
 from . import chatstd as K
 from .chat import chat
@@ -523,8 +524,9 @@ class MediaDialog(Adw.Dialog):
 
 # --- Weiterleiten (Mehrfachauswahl) ----------------------------------------------------------------------------------
 class ForwardDialog(Adw.Dialog):
-    """Weiterleiten an …: Chat waehlen -> Texte neu verschluesselt (normaler Sendeweg), Anhaenge entschluesselt und im Ziel
-    neu hochgeladen; Sprachnachrichten und saga-file/v2 nur als Hinweis"""
+    """Weiterleiten an …: Chat waehlen -> Texte neu verschluesselt (normaler Sendeweg), v1-Anhaenge entschluesselt und im
+    Ziel neu hochgeladen; saga-file/v2 (grosse Dateien, Videos, Sprachnachrichten) als Strom von Server zu Server kopiert
+    (gleicher Schluessel), Vorschaubild/Poster neu verschluesselt"""
     __gtype_name__ = "HKForwardDialog"
 
     def __init__(self, conv, msgs, done=None):
@@ -575,15 +577,21 @@ class ForwardDialog(Adw.Dialog):
             n = skipped = 0
             for m in msgs:
                 ok, sk = K.fwd_files(m)
-                ups = []
+                fobjs, fids = [], []
                 for f in ok:
                     try:
-                        data = chatmedia.original(src, f)
-                    except Exception:  # noqa: BLE001 - nicht ladbar: Hinweis statt Anhang
+                        if K.fwd_fmt(f) == 2:
+                            e, ids = fwd_v2(src, tid, f)
+                        else:
+                            data = chatmedia.original(src, f)
+                            up = [(str(f.get("n") or _("File"))[:200], f.get("m") or "application/octet-stream", data)]
+                            out, ids = chat.upload_attachments(tid, up)
+                            e = out[0]
+                    except Exception:  # noqa: BLE001 - nicht ladbar/kopierbar: Hinweis statt Anhang
                         sk += 1
                         continue
-                    ups.append((str(f.get("n") or _("File"))[:200], f.get("m") or "application/octet-stream", data))
-                fobjs, fids = chat.upload_attachments(tid, ups) if ups else ([], [])
+                    fobjs.append(e)
+                    fids += ids
                 chat.send(tid, K.fwd_body(m, fobjs, sk), file_ids=fids)
                 n += 1
                 skipped += sk
@@ -602,6 +610,31 @@ class ForwardDialog(Adw.Dialog):
         def err(e):
             win.toast(_("Forwarding stopped: {err}").format(err=e))
         bg(work, done=fin, error=err)
+
+
+def fwd_v2(src, tid, f):
+    """Hintergrund: saga-file/v2-Anhang in den Ziel-Chat kopieren -> (Eintrag, Datei-Kennungen). Grosse Dateien nur, wenn
+    das Ziel sie annimmt (Gegenueber ueber Servergrenzen ohne big_files: nein); Sprachnachrichten gehen immer."""
+    from . import chatfiles
+    from .chat import ChatError, is_fed
+    ch = chat.chat(tid) or {}
+    if not f.get("voice"):
+        how, _n = chatfiles.send_plan(int(f.get("s") or 0), chat.limits, is_fed(ch), ch.get("big_files"))
+        if how in ("peer", "server", "max", "empty"):
+            raise ChatError(how)
+    nid = chatvideo.copy_v2(tid, f)
+    ids, th = [nid], None
+    t = chatmedia.thumb_ref(f)
+    if t:
+        try:
+            plain = chatmedia.decrypt(src, chatmedia.get_blob(t["id"], cid=src), C.unb64(t["k"], 32), chatmedia.ad1(f))
+            te = chat.upload_file(tid, plain, "thumb.jpg", t.get("m") or "image/jpeg")
+            th = {k: t[k] for k in ("m", "w", "h") if k in t}
+            th.update({"id": te["id"], "k": te["k"], "s": len(plain)})
+            ids.append(te["id"])
+        except Exception:  # noqa: BLE001 - ohne Vorschaubild weiter (Empfaenger zeigen dann den Platzhalter)
+            th = None
+    return K.fwd_entry(f, nid, th), ids
 
 
 def key_is_menu(kv, state):

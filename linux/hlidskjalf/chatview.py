@@ -6,7 +6,7 @@ import datetime as _dt
 import re
 import threading
 
-from gi.repository import Adw, Gdk, Gio, GLib, Graphene, Gsk, Gtk, Pango
+from gi.repository import Adw, Gdk, Gio, GLib, GObject, Graphene, Gsk, Gtk, Pango
 
 from . import chatcrypto as C
 from . import chatstatus as S
@@ -230,6 +230,39 @@ def snippet(m, n=80):
         t = ("🎬 " if chatvideo.is_video(f0) else "📎 ") + (f0.get("n") or _("File"))
     t = " ".join(t.split())
     return t if len(t) <= n else t[:n - 1] + "…"
+
+
+def reply_media(cid, m, size=36):
+    """(2.5) Antwort-Zitat und Antwortleiste: erster Anhang der Nachricht -> (Vorschau-Widget | None, Beschriftung | None).
+    Vorschau: kleines Bild (Foto, Video-Poster), sonst ein Symbol, wenn die Nachricht keinen Text hat. Beschriftung nur
+    ohne Text: "Photo" / "Video" / "Voice message" / Dateiname."""
+    if not isinstance(m, dict) or m.get("state") == "undecryptable":
+        return None, None
+    f = next((x for x in m.get("files") or [] if isinstance(x, dict)), None)
+    if f is None:
+        return None, None
+    notext = not (m.get("text") or "").strip()
+    vid = chatvideo.is_video(f)
+    if f.get("voice"):
+        lab, icon = _("Voice message"), "audio-x-generic-symbolic"
+    elif vid:
+        lab, icon = _("Video"), "video-x-generic-symbolic"
+    elif chatmedia.is_image(f):
+        lab, icon = _("Photo"), "image-x-generic-symbolic"
+    else:
+        lab, icon = f.get("n") or _("File"), "mail-attachment-symbolic"
+    w = None
+    if f.get("id") and ((chatmedia.is_image(f) and chatvideo.fmt(f) == 1) or (vid and chatmedia.thumb_ref(f))):
+        w = ChatImage(cid, f, poster=True)
+        w.bw = w.bh = size
+        w.add_css_class("hk-quote-thumb")
+        w.set_valign(Gtk.Align.CENTER)
+        w.want()
+    elif notext:
+        w = Gtk.Image(icon_name=icon, pixel_size=20, valign=Gtk.Align.CENTER)
+        w.add_css_class("dim-label")
+        w.add_css_class("hk-quote-icon")
+    return w, (lab if notext else None)
 
 
 def _day_label(ts):
@@ -1666,8 +1699,18 @@ class Conversation(Gtk.Box):
                 qn = ai_name()
             if qn:
                 qb.append(_lbl(qn, ("caption-heading",), wrap=False))
-            qb.append(_lbl(snippet(q), ("caption",), max_width_chars=50, lines=2, ellipsize=Pango.EllipsizeMode.END))
-            b.append(qb)
+            qthumb, qlabel = reply_media(self.cid, q)
+            qb.append(_lbl(qlabel or snippet(q), ("caption",), max_width_chars=50, lines=2, ellipsize=Pango.EllipsizeMode.END))
+            if qthumb is not None:                       # (2.5) Zitat mit Vorschaubild bzw. Symbol des Anhangs
+                qb.remove_css_class("hk-quote")
+                qb.set_valign(Gtk.Align.CENTER)
+                qr = Gtk.Box(spacing=8)
+                qr.add_css_class("hk-quote")
+                qr.append(qb)
+                qr.append(qthumb)
+                b.append(qr)
+            else:
+                b.append(qb)
         acc = [sname if not mine else pgettext("subject", "you")]
         if is_ai:
             acc.append(asker)
@@ -1908,6 +1951,13 @@ class Conversation(Gtk.Box):
                 ents.append((_("Reactions …"), lambda: chatx3.reactions_dialog(self.win, chat.chat(self.cid) or {}, m)))
             if m.get("text"):
                 ents.append((_("Copy text"), lambda: (self.win.copy_text(m["text"]), _toast(self.win, _("Copied.")))))
+            fs = [f for f in m.get("files") or [] if isinstance(f, dict) and f.get("id") and chatvideo.fmt(f) <= 2]
+            if len(fs) == 1:                             # (2.5) ein Anhang: Speichern unter, Bild kopieren
+                f1 = fs[0]
+                if chatmedia.is_image(f1) and chatvideo.fmt(f1) == 1:
+                    ents.append((_("Copy image"), lambda: self.copy_image(f1)))
+                if int(f1.get("s") or 0) > 0:
+                    ents.append((_("Save as …"), lambda: self._save_file(f1)))
         if m.get("fstate") == "failed" and m.get("mine") and isinstance(m.get("body"), dict):     # (2.3)
             ents.append((_("Send again"), lambda: chat.resend(self.cid, m, error=lambda e: _toast(self.win, _("Not sent: {err}").format(err=e)))))
         c = chat.chat(self.cid) or {}
@@ -2233,6 +2283,12 @@ class Conversation(Gtk.Box):
         row.append(save)
         return row
 
+    def copy_image(self, f):
+        """(2.5) Bild-Anhang (Original) als Gdk.Texture in die Zwischenablage"""
+        win = self.win
+        bg(chatmedia.original, self.cid, f, done=lambda d: copy_image_data(win, d, lambda t: _toast(win, t)),
+           error=lambda e: _toast(win, _("Image not copied: {err}").format(err=e)), media=True)
+
     def _open_file(self, f):
         """Oeffnen (4.11.): entschluesselt in einen privaten Ordner ($XDG_RUNTIME_DIR, nur fuer mich lesbar) und mit dem
         Standardprogramm oeffnen - Dokumente direkt, alles andere mit Rueckfrage (nie still ein Skript/Programm starten).
@@ -2333,6 +2389,8 @@ class Conversation(Gtk.Box):
         self.reply_bar.add_css_class("hk-quote")
         self.reply_label = _lbl("", ("caption",), hexpand=True, lines=2, ellipsize=Pango.EllipsizeMode.END)
         self.reply_bar.append(self.reply_label)
+        self.reply_thumb = Gtk.Box(valign=Gtk.Align.CENTER)          # (2.5) Vorschaubild des Anhangs
+        self.reply_bar.append(self.reply_thumb)
         x = flat_button(icon="window-close-symbolic", tooltip=_("Cancel reply"), cb=lambda: self.set_reply(None))
         self.reply_bar.append(x)
         outer.append(self.reply_bar)
@@ -2602,9 +2660,15 @@ class Conversation(Gtk.Box):
         if m is not None and self.editing is not None:
             self.edit_cancel()
         self.reply = m
+        while (c := self.reply_thumb.get_first_child()) is not None:
+            self.reply_thumb.remove(c)
         if m is not None:
             nm = (m.get("sender") or {}).get("name") or ""
-            self.reply_label.set_label(_("Reply to {name}").format(name=nm) + "\n" + snippet(m))
+            th, lab = reply_media(self.cid, m)
+            self.reply_label.set_label(_("Reply to {name}").format(name=nm) + "\n" + (lab or snippet(m)))
+            if th is not None:
+                self.reply_thumb.append(th)
+            self.reply_thumb.set_visible(th is not None)
         self.reply_bar.set_visible(m is not None)
         self.entry.grab_focus()
 
@@ -3201,51 +3265,210 @@ class ChatImage(Gtk.Widget):
         snap.pop()
 
 
+def chat_images(conv):
+    """(2.5) alle Bilder der geladenen Nachrichten der Unterhaltung, aelteste zuerst (Blaettern in der Bildansicht) -> [f]"""
+    c = chat.chat(conv.cid) or {}
+    out = []
+    for m in (chat.cache.get(conv.cid) or {}).get("msgs") or []:
+        if m.get("state") not in ("ok", "unverified"):
+            continue
+        if K.has(K.BLOCK2) and m.get("id") not in getattr(conv, "unblocked", ()) and K.grp_blocked(c, m):
+            continue
+        for f in m.get("files") or []:
+            if isinstance(f, dict) and f.get("id") and chatmedia.is_image(f) and chatvideo.fmt(f) == 1:
+                out.append(f)
+    return out
+
+
 class ImageViewer(Adw.Dialog):
-    """Original eines Chat-Bildes (erst beim Oeffnen geladen, Entschluesseln und Dekodieren im Hintergrund)"""
-    def __init__(self, conv, f):
+    """Original eines Chat-Bildes (erst beim Oeffnen geladen, Entschluesseln und Dekodieren im Hintergrund).
+    (2.5) Zoomen (Strg+Mausrad, Geste, +/-/0, Knoepfe, Doppelklick Einpassen/100 %), Verschieben, Blaettern durch alle
+    Bilder des Chats (Pfeiltasten, Knoepfe, "n / m"), Speichern unter und Bild kopieren (Strg+S, Strg+C)."""
+    def __init__(self, conv, f, items=None):
         super().__init__(title=f.get("n") or _("Image"), content_width=960, content_height=720)
         self.conv, self.f = conv, f
+        self.items = list(items) if items is not None else chat_images(conv)
+        self.idx = next((i for i, x in enumerate(self.items) if x.get("id") == f.get("id")), None)
+        if self.idx is None:
+            self.items, self.idx = [f], 0
+        self.data, self.gen = None, 0
         tv = Adw.ToolbarView()
         hb = Adw.HeaderBar()
-        save = Gtk.Button(icon_name="document-save-symbolic", tooltip_text=_("Save attachment"))
-        save.connect("clicked", lambda *_: conv._save_file(f))
-        hb.pack_start(save)
+        self.wtitle = Adw.WindowTitle(title=self.get_title())
+        hb.set_title_widget(self.wtitle)
+        self.save_btn = Gtk.Button(icon_name="document-save-symbolic", tooltip_text=_("Save as …"))
+        self.save_btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Save as …")])
+        self.save_btn.connect("clicked", lambda *_: self.save())
+        hb.pack_start(self.save_btn)
+        self.copy_btn = Gtk.Button(icon_name="edit-copy-symbolic", tooltip_text=_("Copy image"), sensitive=False)
+        self.copy_btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Copy image")])
+        self.copy_btn.connect("clicked", lambda *_: self.copy())
+        hb.pack_start(self.copy_btn)
+        self.zin = Gtk.Button(icon_name="zoom-in-symbolic", tooltip_text=_("Zoom in"))
+        self.zin.update_property([Gtk.AccessibleProperty.LABEL], [_("Zoom in")])
+        self.zin.connect("clicked", lambda *_: self.view.zoom_in())
+        self.zpct = Gtk.Button(label="100 %", tooltip_text=_("Fit to view"))
+        self.zpct.add_css_class("flat")
+        self.zpct.connect("clicked", lambda *_: self.view.toggle())
+        self.zout = Gtk.Button(icon_name="zoom-out-symbolic", tooltip_text=_("Zoom out"))
+        self.zout.update_property([Gtk.AccessibleProperty.LABEL], [_("Zoom out")])
+        self.zout.connect("clicked", lambda *_: self.view.zoom_out())
+        zb = Gtk.Box(spacing=2)
+        for w in (self.zout, self.zpct, self.zin):
+            w.add_css_class("flat")
+            zb.append(w)
+        hb.pack_end(zb)
         tv.add_top_bar(hb)
-        self.stack = Gtk.Stack()
+        self.stack = Gtk.Stack(vexpand=True, hexpand=True)
         sp = Adw.Spinner() if hasattr(Adw, "Spinner") else Gtk.Spinner(spinning=True)
         sp.set_size_request(32, 32)
         sp.set_halign(Gtk.Align.CENTER)
         sp.set_valign(Gtk.Align.CENTER)
         self.stack.add_named(sp, "wait")
-        self.view = images.ImageView(mode="fit", max_height=640)
-        self.view.set_halign(Gtk.Align.CENTER)
-        self.view.set_valign(Gtk.Align.CENTER)
-        sc = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True, hexpand=True)
-        box = Gtk.Box(margin_start=12, margin_end=12, margin_top=12, margin_bottom=12, valign=Gtk.Align.CENTER, halign=Gtk.Align.CENTER)
-        box.append(self.view)
-        sc.set_child(box)
-        self.stack.add_named(sc, "img")
+        self.view = images.ZoomView()
+        self.view.on_change = self._zoom_changed
+        self.stack.add_named(self.view, "img")
         self.err = _lbl("", ("dim-label",), xalign=0.5, valign=Gtk.Align.CENTER)
         self.stack.add_named(self.err, "err")
-        tv.set_content(self.stack)
-        self.set_child(tv)
-        bg(chatmedia.original, conv.cid, f, done=self._data, error=self._fail, media=True)
+        ov = Gtk.Overlay(child=self.stack)
+        self.prev_btn = self._nav("go-previous-symbolic", _("Previous image"), Gtk.Align.START, -1)
+        self.next_btn = self._nav("go-next-symbolic", _("Next image"), Gtk.Align.END, 1)
+        ov.add_overlay(self.prev_btn)
+        ov.add_overlay(self.next_btn)
+        tv.set_content(ov)
+        self.toasts = Adw.ToastOverlay(child=tv)
+        self.set_child(self.toasts)
+        kc = Gtk.EventControllerKey()
+        kc.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        kc.connect("key-pressed", self._key)
+        self.add_controller(kc)
+        self.show(self.idx)
 
-    def _data(self, data):
-        images.load_local(data, self._dec, max_px=2560)
+    def _nav(self, icon, tip, align, step):
+        b = Gtk.Button(icon_name=icon, tooltip_text=tip, halign=align, valign=Gtk.Align.CENTER)
+        b.update_property([Gtk.AccessibleProperty.LABEL], [tip])
+        for c in ("circular", "osd", "hk-viewer-nav"):
+            b.add_css_class(c)
+        b.connect("clicked", lambda *_: self.step(step))
+        return b
 
-    def _dec(self, dec):
-        if dec is None:
-            self._fail(None)
+    def add_toast(self, t):
+        self.toasts.add_toast(t)
+
+    def toast(self, text):
+        self.toasts.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(text)), timeout=3))
+
+    def counter(self):
+        return f"{self.idx + 1} / {len(self.items)}"
+
+    def show(self, i):
+        """Bild i der Liste laden und zeigen (spaete Ergebnisse eines vorigen Bildes werden verworfen)"""
+        self.idx = max(0, min(len(self.items) - 1, i))
+        self.f = f = self.items[self.idx]
+        self.gen += 1
+        self.data = None
+        name = f.get("n") or _("Image")
+        self.set_title(name)
+        self.wtitle.set_title(name)
+        self.wtitle.set_subtitle(self.counter() if len(self.items) > 1 else "")
+        many = len(self.items) > 1
+        self.prev_btn.set_visible(many)
+        self.next_btn.set_visible(many)
+        self.prev_btn.set_sensitive(self.idx > 0)
+        self.next_btn.set_sensitive(self.idx < len(self.items) - 1)
+        self.copy_btn.set_sensitive(False)
+        self.stack.set_visible_child_name("wait")
+        g = self.gen
+        bg(chatmedia.original, self.conv.cid, f, done=lambda d: self._data(d, g), error=lambda e: self._fail(e, g), media=True)
+
+    def step(self, d):
+        j = self.idx + d
+        if 0 <= j < len(self.items) and j != self.idx:
+            self.show(j)
+            return True
+        return False
+
+    def _key(self, _c, kv, _code, state):
+        ctrl = state & Gdk.ModifierType.CONTROL_MASK
+        if ctrl and kv in (Gdk.KEY_c, Gdk.KEY_C):
+            self.copy()
+            return True
+        if ctrl and kv in (Gdk.KEY_s, Gdk.KEY_S):
+            self.save()
+            return True
+        if state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.ALT_MASK):
+            return False
+        if kv in (Gdk.KEY_Left, Gdk.KEY_KP_Left, Gdk.KEY_Page_Up):
+            self.step(-1)
+            return True
+        if kv in (Gdk.KEY_Right, Gdk.KEY_KP_Right, Gdk.KEY_Page_Down):
+            self.step(1)
+            return True
+        if kv in (Gdk.KEY_plus, Gdk.KEY_KP_Add, Gdk.KEY_equal):
+            self.view.zoom_in()
+            return True
+        if kv in (Gdk.KEY_minus, Gdk.KEY_KP_Subtract):
+            self.view.zoom_out()
+            return True
+        if kv in (Gdk.KEY_0, Gdk.KEY_KP_0):
+            self.view.reset_fit()
+            return True
+        if kv in (Gdk.KEY_1, Gdk.KEY_KP_1):
+            self.view.zoom_to(1.0)
+            return True
+        return False
+
+    def _zoom_changed(self):
+        v = self.view
+        ok = v.dec is not None
+        s = v.cur_scale()
+        self.zpct.set_label(f"{round(s * 100)} %")
+        self.zpct.set_tooltip_text(_("Original size") if v.fit else _("Fit to view"))
+        self.zin.set_sensitive(ok and s < v.MAX - 1e-6)
+        self.zout.set_sensitive(ok and not v.fit)
+        self.zpct.set_sensitive(ok)
+
+    def _data(self, data, g):
+        if g != self.gen:
             return
-        self.view.natural = dec.w
+        self.data = data
+        images.load_local(data, lambda dec: self._dec(dec, g), max_px=4096, animated=True)
+
+    def _dec(self, dec, g=None):
+        if g is not None and g != self.gen:
+            return
+        if dec is None:
+            self._fail(None, g)
+            return
         self.view.set_decoded(dec)
         self.stack.set_visible_child_name("img")
+        self.copy_btn.set_sensitive(True)
+        self._zoom_changed()
+        GLib.idle_add(lambda: (self.view.grab_focus(), False)[1])
 
-    def _fail(self, e):
+    def _fail(self, e, g=None):
+        if g is not None and g != self.gen:
+            return
         self.err.set_label(_("Attachment not loaded: {err}").format(err=e or _("not loaded")))
         self.stack.set_visible_child_name("err")
+
+    def save(self):
+        self.conv._save_file(self.f)
+
+    def copy(self):
+        """Bild in die Zwischenablage (Gdk.Texture, volle Groesse aus dem Original)"""
+        if self.data is None:
+            return
+        copy_image_data(self, self.data, self.toast)
+
+
+def copy_image_data(widget, data, toast):
+    """Hintergrund dekodieren, dann als Gdk.Texture in die Zwischenablage; toast(Text)"""
+    def fin(tex):
+        # (set_texture fehlt in PyGObject) - GDK bietet die Textur anderen Programmen auch als image/png an
+        widget.get_clipboard().set_content(Gdk.ContentProvider.new_for_value(GObject.Value(Gdk.Texture, tex)))
+        toast(_("Image copied."))
+    bg(images.texture_from_bytes, data, done=fin, error=lambda e: toast(_("Image not copied: {err}").format(err=e)), media=True)
 
 
 class VideoViewer(Adw.Dialog):

@@ -261,8 +261,15 @@ def test_block_report_forward():
     cs = [{"id": 1, "name": "A"}, {"id": 2, "request": True}, {"id": 3, "readonly": True}, {"id": 4, "can_send": False},
           {"id": 5, "name": "Bert"}]
     assert [x["id"] for x in fwd_candidates(cs)] == [1, 5] and [x["id"] for x in fwd_candidates(cs, "ber")] == [5]
-    ok, sk = fwd_files({"files": [{"id": "a"}, {"id": "v", "voice": True}, {"id": "x", "x": 2}]})
-    assert [f["id"] for f in ok] == ["a"] and sk == 2
+    ok, sk = fwd_files({"files": [{"id": "a"}, {"id": "v", "voice": True, "x": 2}, {"id": "x", "x": 2}, {"id": "n", "x": 3}, "kaputt",
+                                  {"n": "ohne-id"}]})
+    assert [f["id"] for f in ok] == ["a", "v", "x"] and sk == 3          # (2.5) v2 und Sprachnachrichten gehen mit
+    from hlidskjalf.chatstd import fwd_entry
+    v = {"id": "alt", "k": "K", "n": "voice.ogg", "m": "audio/ogg", "s": 9, "x": 2, "cs": 65536, "voice": True, "dur": 1.5, "wf": "AA",
+         "_ad": 1, "th": {"id": "t"}}
+    assert fwd_entry(v, "neu") == {"id": "neu", "k": "K", "n": "voice.ogg", "m": "audio/ogg", "s": 9, "x": 2, "cs": 65536,
+                                   "voice": True, "dur": 1.5, "wf": "AA"}
+    assert fwd_entry(v, "neu", {"id": "t2"})["th"] == {"id": "t2"}
     assert fwd_body({"text": "t", "notes": [1, "x"]}, [], 1) == {"v": 1, "type": "text", "text": "t\n[Attachment not forwarded]", "notes": [1]}
 # --- Entwuerfe je Chat ------------------------------------------------------------------------------------------------
 def test_chat_drafts(srv):

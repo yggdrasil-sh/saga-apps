@@ -650,14 +650,36 @@ def fwd_candidates(chats, q="", title=None):
 
 
 def fwd_files(m):
-    """Anhaenge einer Nachricht -> (weiterleitbar [f], uebersprungen n): Sprachnachrichten, saga-file/v2 nicht"""
+    """Anhaenge einer Nachricht -> (weiterleitbar [f], uebersprungen n). v1 und saga-file/v2 (auch Sprachnachrichten)
+    gehen weiter; nur unbekannte (neuere) Formate und kaputte Eintraege nicht"""
     ok, skipped = [], 0
     for f in ((m or {}).get("files") or [])[:10]:
-        if not isinstance(f, dict) or f.get("voice") or (f.get("x") and f.get("x") != 1):
+        if not isinstance(f, dict) or not f.get("id") or fwd_fmt(f) not in (1, 2):
             skipped += 1
             continue
         ok.append(f)
     return ok, skipped
+
+
+def fwd_fmt(f):
+    """Format eines Anhangs (1 = v1, 2 = saga-file/v2, sonst unbekannt)"""
+    try:
+        return int(f.get("x") or 1)
+    except (TypeError, ValueError):
+        return 99
+
+
+_FWD_KEEP = ("n", "m", "s", "x", "cs", "w", "h", "rot", "dur", "vc", "fs", "voice", "wf")
+
+
+def fwd_entry(f, new_id, th=None):
+    """Eintrag eines weitergeleiteten v2-Anhangs: gleicher Schluessel (Ciphertext ist nicht an den Chat gebunden), neue
+    Datei-Kennung im Ziel, Metadaten (Video, Sprachnachricht) bleiben; th: neu hochgeladenes Vorschaubild/Poster"""
+    e = {k: f[k] for k in _FWD_KEEP if k in f}
+    e["id"], e["k"] = new_id, f.get("k")
+    if th:
+        e["th"] = th
+    return e
 
 
 def fwd_body(m, files, skipped):

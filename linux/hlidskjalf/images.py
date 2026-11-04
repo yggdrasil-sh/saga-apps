@@ -242,8 +242,35 @@ def load(path, cb, w=None, max_px=1600):
     bg(work, done=fin, error=err, media=True)
 
 
-def load_local(data, cb, max_px=1600):
-    bg(lambda: _decode_static(_open(data), max_px), done=lambda fr: cb(_make(fr)), error=lambda e: cb(None), media=True)
+def _decode_any(data, max_px, animated):
+    im = _open(data)
+    n = getattr(im, "n_frames", 1) if animated else 1
+    if n <= 1:
+        return _decode_static(im, max_px)
+    lim = min(max_px, ANIM_PX)
+    frames, cost = [], 0
+    for i in range(min(n, 300)):
+        fr = _frame(im, i, lim)
+        cost += len(fr[0])
+        if frames and cost > _ENTRY_LIMIT:              # lange/grosse Animation: nach der Grenze aufhoeren
+            break
+        frames.append(fr)
+    return frames
+
+
+def load_local(data, cb, max_px=1600, animated=False):
+    """Bytes im Hintergrund dekodieren -> cb(Decoded|None) im Hauptthread; animated: alle Einzelbilder (GIF/WebP/APNG)"""
+    bg(lambda: _decode_any(data, max_px, animated), done=lambda fr: cb(_make(fr)), error=lambda e: cb(None), media=True)
+
+
+def texture_from_bytes(data, max_px=8192):
+    """Hintergrund: Bytes -> Gdk.Texture (erstes Bild, volle Groesse bis max_px) fuer die Zwischenablage; PNG/JPEG direkt
+    (GdkPixbuf-frei), alles andere ueber Pillow"""
+    try:
+        return Gdk.Texture.new_from_bytes(GLib.Bytes.new(data))
+    except (GLib.Error, TypeError):
+        pass
+    return _make(_decode_static(_open(data), max_px)).textures[0]
 
 
 class ImageView(Gtk.Widget):
@@ -418,3 +445,177 @@ def glyphs_ok(text):
             ok = True
         _GLYPHS[text] = ok
     return ok
+
+
+class ZoomView(ImageView):
+    """Bild zum Anschauen (Chat-Bildansicht): einpassen oder zoomen (Strg+Mausrad an der Mausposition, Zwei-Finger-Geste,
+    Doppelklick wechselt Einpassen/100 %), verschieben durch Ziehen bzw. Mausrad. Animationen wie ImageView."""
+    __gtype_name__ = "HKZoomView"
+    MAX = 8.0
+    STEP = 1.25
+
+    def __init__(self):
+        super().__init__(mode="zoom")
+        self.fit = True                                   # eingepasst (nie groesser als 100 %)
+        self.scale = 1.0                                  # Massstab, wenn nicht eingepasst (1.0 = 100 %)
+        self.ox = self.oy = 0.0                           # Verschiebung der Bildmitte gegen die Mitte der Flaeche
+        self.on_change = None                             # Rueckruf nach jeder Aenderung (Knoepfe aktualisieren)
+        self._ptr = None
+        self._drag0 = None
+        self._pinch0 = None
+        self.set_hexpand(True)
+        self.set_vexpand(True)
+        self.set_focusable(True)
+        mo = Gtk.EventControllerMotion()
+        mo.connect("motion", lambda _c, x, y: setattr(self, "_ptr", (x, y)))
+        mo.connect("leave", lambda *_: setattr(self, "_ptr", None))
+        self.add_controller(mo)
+        sc = Gtk.EventControllerScroll(flags=Gtk.EventControllerScrollFlags.BOTH_AXES)
+        sc.connect("scroll", self._on_scroll)
+        self.add_controller(sc)
+        dc = Gtk.GestureClick()
+        dc.connect("pressed", self._on_click)
+        self.add_controller(dc)
+        dr = Gtk.GestureDrag()
+        dr.connect("drag-begin", lambda *_: setattr(self, "_drag0", (self.ox, self.oy)))
+        dr.connect("drag-update", self._on_drag)
+        dr.connect("drag-end", lambda *_: setattr(self, "_drag0", None))
+        self.add_controller(dr)
+        zg = Gtk.GestureZoom()
+        zg.connect("begin", lambda *_: setattr(self, "_pinch0", self.cur_scale()))
+        zg.connect("scale-changed", self._on_pinch)
+        zg.connect("end", lambda *_: setattr(self, "_pinch0", None))
+        self.add_controller(zg)
+
+    # --- Massstab -----------------------------------------------------------------------------
+    def fit_scale(self):
+        if not self.dec:
+            return 1.0
+        W, H = max(1, self.get_width()), max(1, self.get_height())
+        return min(1.0, W / max(1, self.dec.w), H / max(1, self.dec.h))
+
+    def cur_scale(self):
+        return self.fit_scale() if self.fit else self.scale
+
+    def set_decoded(self, dec):
+        self.fit, self.scale, self.ox, self.oy = True, 1.0, 0.0, 0.0
+        super().set_decoded(dec)
+        self._changed()
+
+    def zoom_to(self, scale, at=None):
+        """Massstab setzen; der Bildpunkt unter at (Widget-Koordinaten, sonst Mitte) bleibt stehen. Kleiner als
+        eingepasst -> eingepasst."""
+        if not self.dec:
+            return
+        old = self.cur_scale()
+        fs = self.fit_scale()
+        scale = min(self.MAX, float(scale))
+        if scale <= fs + 1e-6:
+            self.reset_fit()
+            return
+        W, H = self.get_width(), self.get_height()
+        ax, ay = at if at is not None else (W / 2, H / 2)
+        # Punkt relativ zur Bildmitte bleibt stehen: (a - c - o) / old == (a - c - o') / new
+        cx, cy = W / 2, H / 2
+        k = scale / max(1e-6, old)
+        self.ox = (ax - cx) - (ax - cx - self.ox) * k
+        self.oy = (ay - cy) - (ay - cy - self.oy) * k
+        self.fit, self.scale = False, scale
+        self._clamp()
+        self._changed()
+
+    def zoom_in(self, at=None):
+        self.zoom_to(self.cur_scale() * self.STEP, at)
+
+    def zoom_out(self, at=None):
+        self.zoom_to(self.cur_scale() / self.STEP, at)
+
+    def reset_fit(self):
+        self.fit, self.ox, self.oy = True, 0.0, 0.0
+        self._changed()
+
+    def toggle(self, at=None):
+        """Doppelklick: eingepasst <-> 100 % (bei kleinen Bildern, die schon in 100 % passen: 200 %)"""
+        if self.fit:
+            fs = self.fit_scale()
+            self.zoom_to(1.0 if fs < 0.999 else 2.0, at)
+        else:
+            self.reset_fit()
+
+    def pan(self, dx, dy):
+        if self.fit:
+            return False
+        self.ox += dx
+        self.oy += dy
+        self._clamp()
+        self._changed()
+        return True
+
+    def _clamp(self):
+        if not self.dec:
+            return
+        s = self.cur_scale()
+        W, H = self.get_width(), self.get_height()
+        mx = max(0.0, (self.dec.w * s - W) / 2)
+        my = max(0.0, (self.dec.h * s - H) / 2)
+        self.ox = max(-mx, min(mx, self.ox))
+        self.oy = max(-my, min(my, self.oy))
+
+    def _changed(self):
+        self.set_cursor_from_name(None if self.fit else "grab")
+        self.queue_draw()
+        if self.on_change:
+            self.on_change()
+
+    # --- Eingaben ------------------------------------------------------------------------------
+    def _on_scroll(self, c, dx, dy):
+        st = c.get_current_event_state()
+        if st & Gdk.ModifierType.CONTROL_MASK:
+            if dy < 0:
+                self.zoom_in(self._ptr)
+            elif dy > 0:
+                self.zoom_out(self._ptr)
+            return True
+        return self.pan(-dx * 40, -dy * 40)
+
+    def _on_click(self, g, n, x, y):
+        self.grab_focus()
+        if n == 2:
+            self.toggle((x, y))
+
+    def _on_drag(self, g, dx, dy):
+        if self._drag0 is None or self.fit:
+            return
+        self.ox, self.oy = self._drag0[0] + dx, self._drag0[1] + dy
+        self._clamp()
+        self.queue_draw()
+
+    def _on_pinch(self, g, k):
+        if self._pinch0 is None:
+            return
+        ok, x, y = g.get_bounding_box_center()
+        self.zoom_to(self._pinch0 * k, (x, y) if ok else None)
+
+    # --- Groesse + Zeichnen ------------------------------------------------------------------
+    def do_get_request_mode(self):
+        return Gtk.SizeRequestMode.CONSTANT_SIZE
+
+    def do_measure(self, orientation, for_size):
+        return 0, 200, -1, -1
+
+    def do_size_allocate(self, w, h, b):
+        self._clamp()
+
+    def do_snapshot(self, snap):
+        W, H = self.get_width(), self.get_height()
+        if W <= 0 or H <= 0 or not self.dec:
+            return
+        tex = self.dec.textures[self.frame % len(self.dec.textures)]
+        s = self.cur_scale()
+        # Textur kann kleiner dekodiert sein als das Original (max_px): Massstab bezieht sich auf dec.w
+        sw, sh = self.dec.w * s, self.dec.h * s
+        x, y = (W - sw) / 2 + (0 if self.fit else self.ox), (H - sh) / 2 + (0 if self.fit else self.oy)
+        filt = Gsk.ScalingFilter.TRILINEAR if s < 1.0 else (Gsk.ScalingFilter.NEAREST if s >= 3.0 else Gsk.ScalingFilter.LINEAR)
+        snap.push_clip(Graphene.Rect().init(0, 0, W, H))
+        snap.append_scaled_texture(tex, filt, Graphene.Rect().init(x, y, sw, sh))
+        snap.pop()

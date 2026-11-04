@@ -215,6 +215,8 @@ button.hk-tick-btn { padding: 0 4px; min-height: 0; min-width: 0; font-weight: n
 button.hk-file-btn { padding: 6px 10px; border-radius: 10px; }
 button.hk-img-btn { padding: 0; border-radius: 10px; }
 .hk-bubble-img { border-radius: 10px; }
+.hk-quote-thumb { border-radius: 6px; }
+.hk-viewer-nav { margin: 12px; }
 .hk-img-wait { background: alpha(currentColor, 0.06); border-radius: 10px; }
 /* Videos im Chat (2.4): Poster mit Abspiel-Symbol und Dauer */
 .hk-video-play { background: rgba(0, 0, 0, 0.55); color: white; border-radius: 99px; padding: 10px; }

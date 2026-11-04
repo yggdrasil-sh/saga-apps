@@ -9159,3 +9159,44 @@ msgstr ""
 #: hlidskjalf/chat.py hlidskjalf/chatview.py
 msgid "The other person's server can't take large files yet (at most {n} MB)."
 msgstr ""
+
+#: hlidskjalf/chatview.py
+msgid "Photo"
+msgstr ""
+
+#: hlidskjalf/chatview.py
+msgid "Save as …"
+msgstr ""
+
+#: hlidskjalf/chatview.py
+msgid "Copy image"
+msgstr ""
+
+#: hlidskjalf/chatview.py
+msgid "Zoom in"
+msgstr ""
+
+#: hlidskjalf/chatview.py
+msgid "Zoom out"
+msgstr ""
+
+#: hlidskjalf/chatview.py
+msgid "Original size"
+msgstr ""
+
+#: hlidskjalf/chatview.py
+msgid "Previous image"
+msgstr ""
+
+#: hlidskjalf/chatview.py
+msgid "Next image"
+msgstr ""
+
+#: hlidskjalf/chatview.py
+msgid "Image copied."
+msgstr ""
+
+#: hlidskjalf/chatview.py
+#, python-brace-format
+msgid "Image not copied: {err}"
+msgstr ""

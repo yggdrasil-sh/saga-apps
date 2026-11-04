@@ -9584,3 +9584,44 @@ msgstr "Copia guardada – sin conexión con el servidor"
 #: hlidskjalf/chat.py hlidskjalf/chatview.py
 msgid "The other person's server can't take large files yet (at most {n} MB)."
 msgstr "El servidor de la otra persona todavía no admite archivos grandes (como máximo {n} MB)."
+
+#: hlidskjalf/chatview.py
+msgid "Photo"
+msgstr "Foto"
+
+#: hlidskjalf/chatview.py
+msgid "Save as …"
+msgstr "Guardar como …"
+
+#: hlidskjalf/chatview.py
+msgid "Copy image"
+msgstr "Copiar imagen"
+
+#: hlidskjalf/chatview.py
+msgid "Zoom in"
+msgstr "Ampliar"
+
+#: hlidskjalf/chatview.py
+msgid "Zoom out"
+msgstr "Reducir"
+
+#: hlidskjalf/chatview.py
+msgid "Original size"
+msgstr "Tamaño original"
+
+#: hlidskjalf/chatview.py
+msgid "Previous image"
+msgstr "Imagen anterior"
+
+#: hlidskjalf/chatview.py
+msgid "Next image"
+msgstr "Imagen siguiente"
+
+#: hlidskjalf/chatview.py
+msgid "Image copied."
+msgstr "Imagen copiada."
+
+#: hlidskjalf/chatview.py
+#, python-brace-format
+msgid "Image not copied: {err}"
+msgstr "Imagen no copiada: {err}"
