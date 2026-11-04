@@ -18,14 +18,37 @@ struct ReactionMenuPalette: View {
     var body: some View {
         ControlGroup {
             ForEach(ChatX3.quick, id: \.self) { e in
-                Button { pick(e) } label: { Text(verbatim: e) }
+                Button { pick(e) } label: { emoji(e) }
                     .accessibilityLabel(Text(verbatim: e))
             }
             Button { more() } label: { Label("Weitere Emojis", systemImage: "plus") }
         } label: { Text("Reagieren") }
         .controlGroupStyle(.palette)
     }
+    /// macOS zeigt in der Palette nur Bilder (reiner Text faellt weg) - das Emoji deshalb als farbiges Bild
+    @ViewBuilder private func emoji(_ e: String) -> some View {
+        #if os(macOS)
+        Image(nsImage: EmojiImage.make(e)).renderingMode(.original)
+        #else
+        Text(verbatim: e)
+        #endif
+    }
 }
+
+#if os(macOS)
+/// Emoji als Bild (nicht als Vorlage, damit es farbig bleibt) fuer Menues und Paletten
+enum EmojiImage {
+    static func make(_ e: String, size: CGFloat = 18) -> NSImage {
+        let s = NSAttributedString(string: e, attributes: [.font: NSFont.systemFont(ofSize: size)])
+        let b = s.size()
+        let img = NSImage(size: NSSize(width: ceil(b.width), height: ceil(b.height)), flipped: false) { r in
+            s.draw(in: r); return true
+        }
+        img.isTemplate = false
+        return img
+    }
+}
+#endif
 
 /// Schnellleiste als eigene Ansicht (iPhone/iPad: schwebend an der Nachricht; Mac: Popover beim Ueberfahren).
 /// Jeder Knopf 44 pt, Emojis in voller Groesse (wie die Reaktions-Chips, nur groesser)

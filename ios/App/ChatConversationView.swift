@@ -1006,6 +1006,7 @@ struct MessageBubble: View {
                 }
                 ForEach(bubbleActions) { a in
                     Button(role: a.destructive ? .destructive : nil) { a.run() } label: { Label(a.title, systemImage: a.icon) }
+                        .labelStyle(.titleAndIcon)                             // Symbole auch im Mac-Menue zeigen
                 }
             }
             #endif
