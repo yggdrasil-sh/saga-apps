@@ -257,7 +257,7 @@ private fun videoBox(f: ChatFile): Pair<Int, Int> {
  */
 @kotlin.OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun VideoAttachment(f: ChatFile, s: ChatSession) {
+fun VideoAttachment(f: ChatFile, s: ChatSession, onLongPress: (() -> Unit)? = null) {
     val host = LocalVideoHost.current ?: return
     val dims = videoBox(f)
     var img by remember(f.id) { mutableStateOf<ImageBitmap?>(if (f.th != null) s.cachedThumb(f) else null) }
@@ -284,7 +284,8 @@ fun VideoAttachment(f: ChatFile, s: ChatSession) {
             .background(Color.Black)
             .combinedClickable(
                 enabled = !playing, onClick = { host.play(s, f) },
-                onLongClick = { menu = true }, onLongClickLabel = stringResource(R.string.chat_message_actions),
+                // 4.11.: in der Blase -> Menue der Nachricht (Reaktionen; Speichern steht dort auch), sonst eigenes Menue
+                onLongClick = { if (onLongPress != null) onLongPress() else menu = true }, onLongClickLabel = stringResource(R.string.chat_message_actions),
             )
             .semantics { contentDescription = desc },
         contentAlignment = Alignment.Center,

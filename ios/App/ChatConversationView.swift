@@ -973,6 +973,7 @@ struct MessageBubble: View {
             // 2.5: eigene schwebende Leiste statt Kontextmenue-Palette (die war auf iPhone/iPad abgeschnitten): Emojis in
             // voller Groesse (44 pt), darunter die Aktionen; passt auf allen Groessen, zur Not seitlich blaetterbar
             .onLongPressGesture(minimumDuration: 0.35) { actions = true }
+            .environment(\.chatHold, { actions = true })                  // 4.11.: auch lange auf Bild/Video/Datei druecken
             .sensoryFeedback(.impact(weight: .medium), trigger: actions) { _, on in on }
             .popover(isPresented: $actions, attachmentAnchor: .rect(.bounds)) {
                 BubbleActionsPanel(current: conv.myReaction(m), canReact: conv.canReact(m), actions: bubbleActions,
@@ -1186,7 +1187,7 @@ struct ChatImageThumb: View {
     var body: some View {
         let a = aspect
         let sz = ChatMediaLogic.displaySize(w: a.w, h: a.h)
-        Button { open = true } label: {
+        ChatPressable(action: { open = true }) {
             ZStack {
                 Rectangle().fill(Color.secondary.opacity(0.12))
                 if let cg = (img ?? ChatMedia.cached(file.id))?.cg {
@@ -1199,7 +1200,6 @@ struct ChatImageThumb: View {
             }
             .frame(width: sz.w, height: sz.h).clipShape(RoundedRectangle(cornerRadius: 10)).contentShape(RoundedRectangle(cornerRadius: 10))
         }
-        .buttonStyle(.plain)
         .accessibilityLabel(Text(verbatim: file.name.isEmpty ? String(localized: "Bild") : file.name))
         .accessibilityHint(Text("Öffnen"))
         .help(Text("Öffnen"))
@@ -1253,7 +1253,7 @@ struct ChatImageViewer: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 if let img {
-                    Image(decorative: img, scale: 1).resizable().scaledToFit()
+                    ZoomableImage(image: img)                                  // 4.11.: Zoomen (zwei Finger, Doppeltippen)
                         .accessibilityLabel(Text(verbatim: file.name.isEmpty ? String(localized: "Bild") : file.name))
                 } else if let err {
                     Text("Anhang nicht geladen: \(err)").foregroundStyle(.white).padding()
@@ -1340,7 +1340,7 @@ struct ChatFileRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
-                Button { Task { await open() } } label: {
+                ChatPressable(action: { Task { await open() } }) {
                     HStack(spacing: 8) {
                         Image(systemName: "doc.fill").foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: 1) {
@@ -1351,7 +1351,6 @@ struct ChatFileRow: View {
                     }
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
                 .disabled(loading || file.size == 0)
                 .accessibilityHint(Text("Öffnen"))
                 if let url { ShareLink(item: url) { Image(systemName: "square.and.arrow.up") }.accessibilityLabel(Text("Teilen")) }
@@ -1587,3 +1586,80 @@ struct PendingFileIcon: View {
 
 /// Liste gemeldeter Nachrichten als Blatt-Kennung
 struct ReportItems: Identifiable { let list: [ChatMessage]; var id: String { list.map(\.id).joined(separator: ",") } }
+
+// MARK: - Antippen und lange Druecken auf Anhaengen (4.11.)
+
+private struct ChatHoldKey: EnvironmentKey { static let defaultValue: (() -> Void)? = nil }
+extension EnvironmentValues {
+    /// Lange Druecken in einer Chat-Blase: Reaktionen/Aktionen der Nachricht (iPhone/iPad)
+    var chatHold: (() -> Void)? {
+        get { self[ChatHoldKey.self] }
+        set { self[ChatHoldKey.self] = newValue }
+    }
+}
+
+/// Anhang zum Antippen (Bild, Video, Datei). Auf iPhone/iPad kein Button: Ein Button schluckt das lange Druecken, die
+/// Reaktionsleiste der Nachricht ging deshalb nur auf Text auf, nicht auf Bildern, Videos und Dateien. Hier: kurz
+/// tippen = oeffnen, lange druecken = Leiste der Blase. Mac: Button wie bisher (Rechtsklick-Menue der Blase geht dort).
+struct ChatPressable<Label: View>: View {
+    let action: () -> Void
+    @ViewBuilder let label: () -> Label
+    @Environment(\.chatHold) private var hold
+    @Environment(\.isEnabled) private var enabled
+    var body: some View {
+        #if os(iOS)
+        label()
+            .contentShape(Rectangle())
+            .onTapGesture { if enabled { action() } }
+            .onLongPressGesture(minimumDuration: 0.35) { hold?() }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { if enabled { action() } }
+        #else
+        Button(action: action, label: label).buttonStyle(.plain)
+        #endif
+    }
+}
+
+/// Bild mit Zoomen (4.11.): mit zwei Fingern (bzw. Trackpad) 1- bis 6-fach, verschieben, Doppeltippen = 2,5-fach bzw.
+/// zurueck. Verschieben bleibt im Bild (kein Wegschieben ins Schwarze).
+struct ZoomableImage: View {
+    let image: CGImage
+    @State private var scale: CGFloat = 1
+    @State private var base: CGFloat = 1
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
+    var body: some View {
+        GeometryReader { geo in
+            Image(decorative: image, scale: 1).resizable().scaledToFit()
+                .frame(width: geo.size.width, height: geo.size.height)
+                .scaleEffect(scale)
+                .offset(offset)
+                .gesture(
+                    MagnifyGesture()
+                        .onChanged { v in scale = ZoomLogic.clamp(base * v.magnification) }
+                        .onEnded { _ in
+                            base = scale
+                            if scale <= 1.01 { withAnimation(.snappy) { reset() } }
+                            else { offset = ZoomLogic.bounded(offset, scale: scale, size: geo.size); lastOffset = offset }
+                        }
+                        .simultaneously(with: DragGesture(minimumDistance: scale > 1 ? 0 : 10_000)
+                            .onChanged { v in
+                                guard scale > 1 else { return }
+                                offset = ZoomLogic.bounded(CGSize(width: lastOffset.width + v.translation.width, height: lastOffset.height + v.translation.height),
+                                                           scale: scale, size: geo.size)
+                            }
+                            .onEnded { _ in lastOffset = offset })
+                )
+                .onTapGesture(count: 2) {
+                    withAnimation(.snappy) {
+                        if scale > 1 { reset() } else { scale = 2.5; base = 2.5 }
+                    }
+                }
+                .accessibilityZoomAction { a in
+                    withAnimation { scale = ZoomLogic.clamp(scale * (a.direction == .zoomIn ? 1.5 : 1 / 1.5)); base = scale; if scale <= 1 { reset() } }
+                }
+        }
+    }
+    private func reset() { scale = 1; base = 1; offset = .zero; lastOffset = .zero }
+}

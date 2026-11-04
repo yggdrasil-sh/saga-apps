@@ -122,3 +122,14 @@ struct ChatCacheIndex: Codable, Equatable {
         ids.flatMap { id in [ChatMediaLogic.cacheName(id), ChatMediaLogic.cacheName(id, local: true)].compactMap { $0 } }
     }
 }
+
+/// 4.11.: Zoomen in der Bildansicht (Grenzen; mit swiftc pruefbar)
+enum ZoomLogic {
+    static let maxScale: CGFloat = 6
+    static func clamp(_ s: CGFloat) -> CGFloat { min(max(s, 1), maxScale) }
+    /// Verschiebung so begrenzen, dass das vergroesserte Bild den Rahmen nicht verlaesst
+    static func bounded(_ o: CGSize, scale: CGFloat, size: CGSize) -> CGSize {
+        let mx = max(0, (scale - 1) * size.width / 2), my = max(0, (scale - 1) * size.height / 2)
+        return CGSize(width: min(max(o.width, -mx), mx), height: min(max(o.height, -my), my))
+    }
+}

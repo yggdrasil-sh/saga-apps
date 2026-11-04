@@ -62,6 +62,11 @@ func callUITests() {
     check(!NotifLogic.hideWhileOpen(kind: "chat.message", url: "/chats#c13", openChat: 12), "anderer Chat: Banner")
     check(!NotifLogic.hideWhileOpen(kind: "chat.message", url: "/chats#c12", openChat: nil), "kein Chat offen / App hinten: Banner")
     check(!NotifLogic.hideWhileOpen(kind: "call", url: "/chats#call-ab12", openChat: 12), "Anruf: nie unterdruecken")
+    // 4.11.: Zoomen in der Bildansicht
+    check(ZoomLogic.clamp(0.5) == 1 && ZoomLogic.clamp(3) == 3 && ZoomLogic.clamp(20) == ZoomLogic.maxScale, "Zoom 1- bis 6-fach")
+    let zb = ZoomLogic.bounded(CGSize(width: 500, height: -500), scale: 2, size: CGSize(width: 400, height: 300))
+    check(zb.width == 200 && zb.height == -150, "Verschieben bleibt im Bild (\(zb))")
+    check(ZoomLogic.bounded(CGSize(width: 50, height: 50), scale: 1, size: CGSize(width: 400, height: 300)) == .zero, "ohne Zoom kein Verschieben")
 
     // Chat oeffnen: Bereich wechseln und Chat nicht im selben Schritt
     check(L.chatOpenNeedsTwoSteps(chatsVisible: false), "Chats nicht vorne: zwei Schritte")

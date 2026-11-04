@@ -18,7 +18,7 @@ struct ChatVideoThumb: View {
     @State private var open = false
     var body: some View {
         let sz = ChatMediaLogic.displaySize(w: file.w ?? file.thumb?.w ?? 16, h: file.h ?? file.thumb?.h ?? 9)
-        Button { open = true } label: {
+        ChatPressable(action: { open = true }) {
             ZStack {
                 Rectangle().fill(Color.black.opacity(0.82))
                 if let cg = (img ?? ChatMedia.cached(file.id))?.cg {
@@ -37,7 +37,6 @@ struct ChatVideoThumb: View {
                 }
             }
         }
-        .buttonStyle(.plain)
         .accessibilityLabel(Text("Video abspielen: \(file.name.isEmpty ? String(localized: "Video") : file.name)"))
         .help(Text("Abspielen"))
         .task(id: file.id) { await load() }

@@ -9,6 +9,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – Reagieren auf Bilder, Videos und Dateien; Zoomen in Bildern (iOS/Mac, Android)
+
+- Langes Drücken auf ein Bild, Video oder eine Datei im Chat öffnete die Reaktionsleiste nicht (nur auf Text): Die
+  Anhänge waren Knöpfe, die den langen Druck geschluckt haben. Jetzt: kurz tippen öffnet, lange drücken zeigt
+  Reaktionen und Aktionen der Nachricht (Android: beim Video steht „Speichern“ dort mit drin).
+- iOS/Mac: Bildansicht mit Zoomen – zwei Finger bzw. Trackpad (bis 6-fach), verschieben, Doppeltippen 2,5-fach/zurück.
+  Android öffnet Bilder in der Galerie-App, dort ging Zoomen schon.
+
 ### Behoben – Mitteilungen aus dem Chat (iOS/Mac, Android)
 
 - Im offenen Chat kamen für jede neue Nachricht dieses Chats trotzdem Banner und Ton. Jetzt nicht mehr, solange die

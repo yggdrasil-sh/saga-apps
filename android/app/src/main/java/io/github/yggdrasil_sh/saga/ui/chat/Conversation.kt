@@ -1615,7 +1615,8 @@ internal fun Bubble(
                     if (c == null) {
                         Text(stringResource(R.string.chat_undecryptable), fontStyle = FontStyle.Italic, style = MaterialTheme.typography.bodyMedium)
                     } else {
-                        c.files.forEach { f -> Attachment(f, s, onOpenFile) }
+                        // 4.11.: langer Druck auf Bild/Video/Datei -> dasselbe Menue wie auf der Blase (Reaktionen)
+                        c.files.forEach { f -> Attachment(f, s, onOpenFile, onLongPress = { if (!selecting) { onSelect?.invoke(); menu = true } }) }
                         if (c.text.isNotEmpty()) Text(messageText(c.text, s.notes, onOpenNote, s), style = MaterialTheme.typography.bodyLarge)
                         // 2.5 (unfurl1): Linkvorschau aus der Nachricht (nichts nachladen ausser dem verschluesselten Bild)
                         c.preview?.takeIf { ChatStd.showPreview(it) }?.let { pv -> PreviewCard(pv, s) }
@@ -1726,7 +1727,7 @@ internal fun Bubble(
  * Name/Groesse zum Oeffnen/Teilen.
  */
 @Composable
-internal fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit) {
+internal fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit, onLongPress: (() -> Unit)? = null) {
     // 2.5: Sprachnachricht - Play, Wellenform, Dauer, Tempo (gemeinsamer Player, Quelle wie Videos)
     if (f.isVoice && !f.unsupported) {
         VoiceAttachment(f, s, androidx.compose.material3.LocalContentColor.current, LocalVideoHost.current?.sources)
@@ -1741,7 +1742,7 @@ internal fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit)
     }
     // 2.4: Video - Poster mit Dauer, Abspielen im gemeinsamen Player (v1 und saga-file/v2)
     if (f.isVideo && LocalVideoHost.current != null) {
-        VideoAttachment(f, s)
+        VideoAttachment(f, s, onLongPress)
         return
     }
     // 2.5: grosse Bilder per saga-file/v2 (ohne Vorschaubild) als Datei zeigen - nicht ganz laden
@@ -1768,7 +1769,9 @@ internal fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit)
                 ?: (200 to 150)
             Box(
                 Modifier.padding(vertical = 2.dp).size(dims.first.dp, dims.second.dp).clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest).clickable { onOpen(f) },
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    .combinedClickable(onClick = { onOpen(f) }, onLongClick = onLongPress,
+                        onLongClickLabel = if (onLongPress != null) stringResource(R.string.chat_message_actions) else null),
                 contentAlignment = Alignment.Center,
             ) {
                 if (loaded != null) Image(loaded, f.n, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -1777,7 +1780,13 @@ internal fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit)
             return
         }
     }
-    TextButton(onClick = { onOpen(f) }) {
+    // 4.11.: kein TextButton - der schluckte den langen Druck (Reaktionen gingen nur auf Text)
+    Box(
+        Modifier.padding(vertical = 2.dp).clip(RoundedCornerShape(8.dp))
+            .combinedClickable(onClick = { onOpen(f) }, onLongClick = onLongPress, role = androidx.compose.ui.semantics.Role.Button,
+                onLongClickLabel = if (onLongPress != null) stringResource(R.string.chat_message_actions) else null)
+            .padding(horizontal = 8.dp, vertical = 10.dp),
+    ) {
         Text("📎 " + f.n + " · " + (if (f.s == 0L) stringResource(R.string.chat_file_empty_short) else android.text.format.Formatter.formatShortFileSize(LocalContext.current, f.s)), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
