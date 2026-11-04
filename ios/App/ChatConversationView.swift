@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import QuickLook
 import UniformTypeIdentifiers
 import ImageIO
 
@@ -227,12 +228,24 @@ struct ConversationView: View {
     }
 
     private func addFiles(_ r: Result<[URL], Error>) {
-        for u in (try? r.get()) ?? [] {
-            let ok = u.startAccessingSecurityScopedResource(); defer { if ok { u.stopAccessingSecurityScopedResource() } }
-            if let v = ChatVideoPick.pending(fromFile: u) { files.append(v); continue }      // 2.4: Video als Kopie (Datei)
-            if let d = try? Data(contentsOf: u) {
+        let urls = (try? r.get()) ?? []
+        Task {
+            var empty: [String] = []
+            for u in urls {
+                let ok = u.startAccessingSecurityScopedResource()
+                if let v = ChatVideoPick.pending(fromFile: u) {                       // 2.4: Video als Kopie (Datei)
+                    if ok { u.stopAccessingSecurityScopedResource() }
+                    files.append(v); continue
+                }
+                // 4.11.: koordiniert lesen - Dateien aus iCloud Drive/Dateien-Anbietern, die noch nicht auf dem Geraet
+                // liegen, werden dabei erst geladen (vorher kamen sie leer an: 0 Byte verschluesselt und gesendet)
+                let d = await Task.detached(priority: .userInitiated) { ChatFileRead.coordinated(u) }.value
+                if ok { u.stopAccessingSecurityScopedResource() }
+                guard let d else { empty.append(u.lastPathComponent); continue }
+                guard !d.isEmpty else { empty.append(u.lastPathComponent); continue }   // leere Datei nie still senden
                 files.append(ChatPendingFile(name: u.lastPathComponent, mime: UTType(filenameExtension: u.pathExtension)?.preferredMIMEType ?? "application/octet-stream", data: d))
             }
+            if !empty.isEmpty { conv.sendError = String(localized: "Nicht angehängt (leer oder nicht lesbar): \(empty.joined(separator: ", "))") }
         }
     }
 
@@ -1279,26 +1292,51 @@ struct ChatImageViewer: View {
 }
 
 /// Datei (kein Bild): Name, Groesse, Laden -> Teilen/Sichern
+/// Datei aus "Dateien"/iCloud Drive koordiniert lesen (laedt nicht lokal vorhandene Dateien zuerst) - nil: nicht lesbar
+enum ChatFileRead {
+    nonisolated static func coordinated(_ u: URL) -> Data? {
+        var out: Data?, err: NSError?
+        NSFileCoordinator().coordinate(readingItemAt: u, options: [], error: &err) { cu in out = try? Data(contentsOf: cu) }
+        return out
+    }
+}
+
 struct ChatFileRow: View {
     let file: ChatFileRef
     @ObservedObject var conv: ConversationModel
     @State private var err: String?
     @State private var url: URL?
     @State private var loading = false
+    @State private var preview: URL?                                   // 4.11.: Antippen oeffnet die Datei (QuickLook)
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
-                Image(systemName: "doc.fill").foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(verbatim: file.name.isEmpty ? String(localized: "Datei") : file.name).font(.callout).lineLimit(1)
-                    Text(ByteCountFormatter.string(fromByteCount: Int64(file.size), countStyle: .file)).font(.caption2).foregroundStyle(.secondary)
+                Button { Task { await open() } } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "doc.fill").foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(verbatim: file.name.isEmpty ? String(localized: "Datei") : file.name).font(.callout).lineLimit(1)
+                            Text(file.size == 0 ? String(localized: "leere Datei") : ByteCountFormatter.string(fromByteCount: Int64(file.size), countStyle: .file))
+                                .font(.caption2).foregroundStyle(file.size == 0 ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+                        }
+                    }
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .disabled(loading || file.size == 0)
+                .accessibilityHint(Text("Öffnen"))
                 if let url { ShareLink(item: url) { Image(systemName: "square.and.arrow.up") }.accessibilityLabel(Text("Teilen")) }
                 else if loading { ProgressView().controlSize(.small) }
                 else { Button { Task { await fetch() } } label: { Image(systemName: "arrow.down.circle") }.buttonStyle(.plain).accessibilityLabel(Text("Laden")) }
             }
             if let err { Text("Anhang nicht geladen: \(err)").font(.caption).foregroundStyle(.orange) }
         }
+        .quickLookPreview($preview)
+    }
+    /// Antippen: laden (falls noch nicht) und in der Vorschau oeffnen (PDF, Bilder, Office, Text …)
+    private func open() async {
+        if url == nil { await fetch() }
+        if let url { preview = url }
     }
     private func fetch() async {
         loading = true; defer { loading = false }

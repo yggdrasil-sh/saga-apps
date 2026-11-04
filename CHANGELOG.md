@@ -9,6 +9,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – iOS/Mac: Dateien im Chat ließen sich nicht öffnen, Anhänge aus iCloud kamen leer an
+
+- Ein Datei-Anhang (PDF, Office, Text …) ließ sich nur laden und teilen. Antippen öffnet ihn jetzt in der Vorschau
+  (QuickLook); noch nicht geladene Anhänge werden dabei zuerst geladen.
+- Dateien aus „Dateien“/iCloud Drive, die noch nicht auf dem Gerät lagen, wurden leer (0 Byte) verschlüsselt und
+  gesendet. Sie werden jetzt koordiniert gelesen (das System lädt sie zuerst); leere oder unlesbare Dateien werden nicht
+  angehängt, sondern mit Hinweis gemeldet. Leere Anhänge zeigen „leere Datei“.
+
 ### Behoben – iOS/Mac: eingebettete Datenbanken zeigten einen alten Stand
 
 - Ein Datenbank-Block auf einer Seite zeigte tagelang den gespeicherten Stand: Wurde die Seite beim Öffnen neu
