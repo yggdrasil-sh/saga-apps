@@ -265,12 +265,15 @@ def load_local(data, cb, max_px=1600, animated=False):
 
 def texture_from_bytes(data, max_px=8192):
     """Hintergrund: Bytes -> Gdk.Texture (erstes Bild, volle Groesse bis max_px) fuer die Zwischenablage; PNG/JPEG direkt
-    (GdkPixbuf-frei), alles andere ueber Pillow"""
-    try:
-        return Gdk.Texture.new_from_bytes(GLib.Bytes.new(data))
-    except (GLib.Error, TypeError):
-        pass
-    return _make(_decode_static(_open(data), max_px)).textures[0]
+    (GdkPixbuf-frei), alles andere ueber Pillow. Masse vorher aus dem Kopf (Pillow, ohne Dekodieren): ein Bild ueber max_px
+    (z. B. eine gezielt riesige PNG) wird nie ungebremst von GDK dekodiert, sondern verkleinert."""
+    im = _open(data)
+    if max(im.size) <= max_px:
+        try:
+            return Gdk.Texture.new_from_bytes(GLib.Bytes.new(data))
+        except (GLib.Error, TypeError):
+            pass
+    return _make(_decode_static(im, max_px)).textures[0]
 
 
 class ImageView(Gtk.Widget):

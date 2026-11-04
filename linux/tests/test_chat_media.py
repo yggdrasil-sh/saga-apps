@@ -175,6 +175,35 @@ def test_texture_from_bytes_png_jpeg_webp():
         assert (t.get_width(), t.get_height()) == (30, 20), fmt
 
 
+def test_texture_from_bytes_large_png_is_bounded():
+    """Pruefer: ein Bild ueber max_px geht nicht ungebremst an GDK, sondern verkleinert ueber Pillow"""
+    from hlidskjalf import images
+    t = images.texture_from_bytes(_img(300, 100, fmt="PNG"), max_px=120)
+    assert (t.get_width(), t.get_height()) == (120, 40)
+
+
+def test_forward_voice_not_to_peer_without_v2(monkeypatch):
+    """Pruefer: Sprachnachricht (immer v2) nicht an ein Gegenueber ohne saga-file/v2 (big_files False) bzw. Server ohne file2"""
+    import pytest
+    from hlidskjalf import chatstdview as SV
+    from hlidskjalf.chat import ChatError, chat
+    copied = []
+    monkeypatch.setattr(SV.chatvideo, "copy_v2", lambda *a, **k: copied.append(1) or "neu")
+    voice = {"id": "v", "k": "A" * 43, "voice": True, "x": 2, "s": 100, "m": "audio/ogg"}
+    monkeypatch.setattr(chat, "limits", {"file2": True})
+    monkeypatch.setattr(chat, "chat", lambda cid: {"id": cid, "v": 2, "big_files": False})
+    with pytest.raises(ChatError):
+        SV.fwd_v2(1, 2, voice)
+    monkeypatch.setattr(chat, "chat", lambda cid: {"id": cid, "v": 2})
+    monkeypatch.setattr(chat, "limits", {})
+    with pytest.raises(ChatError):
+        SV.fwd_v2(1, 2, voice)
+    assert not copied
+    monkeypatch.setattr(chat, "limits", {"file2": True})
+    e, ids = SV.fwd_v2(1, 2, voice)
+    assert copied and ids == ["neu"] and e["voice"] is True
+
+
 def test_load_local_animated():
     import io
 

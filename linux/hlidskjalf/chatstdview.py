@@ -624,6 +624,9 @@ def fwd_v2(src, tid, f):
         how, _n = chatfiles.send_plan(int(f.get("s") or 0), chat.limits, is_fed(ch), ch.get("big_files"))
         if how in ("peer", "server", "max", "empty"):
             raise ChatError(how)
+    elif not (chat.limits or {}).get("file2") or (is_fed(ch) and ch.get("big_files") is False):
+        # Sprachnachricht (immer v2): Server ohne file2 bzw. Gegenueber ohne saga-file/v2 koennte sie nicht lesen
+        raise ChatError("peer")
     if how == "v1":
         # klein genug fuer v1: entschluesseln und als normaler v1-Anhang senden (auch Gegenueber ohne saga-file/v2
         # bzw. aeltere Server koennen ihn lesen); hoechstens die v1-Grenze im Speicher
