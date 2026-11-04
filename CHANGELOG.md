@@ -9,6 +9,18 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Linux: Live-Lämpchen, Datenbanken live, Chat-Dateien öffnen
+
+- **Live-Lämpchen** in der Kopfleiste der Seitenleiste: grün, solange der Live-Kanal steht, rot bei gespeichertem Stand
+  (Tooltip und Bedienungshilfen mit Text; ohne Live-Kanal am Server ausgeblendet).
+- Datenbanken (Seite und eingebetteter Block) laden bei `db.rows` (Server ab 2.5) und nach dem Wiederverbinden nach.
+- **Chat-Anhänge öffnen:** Klick öffnet die Datei (bisher nur Speichern). Sie wird dafür in einen privaten Ordner
+  entschlüsselt (`$XDG_RUNTIME_DIR/saga-chat`, nur für dich lesbar, nach 10 Minuten gelöscht). Dokumente, Bilder und
+  Medien öffnen direkt, alles andere (Skripte, Programme, Archive, SVG …) nur mit Rückfrage „Öffnen mit“. Speichern über
+  den Knopf daneben.
+- Leere Dateien (0 Byte) werden nicht angehängt, sondern gemeldet; leere Anhänge zeigen „leere Datei“. Test
+  `test_chatfiles.py`.
+
 ### Android: Live-Lämpchen, Datenbanken live, leere Anhänge
 
 - **Live-Lämpchen** oben links wie auf iOS/Mac: grün, solange der Live-Kanal steht, rot bei gespeichertem Stand (nur

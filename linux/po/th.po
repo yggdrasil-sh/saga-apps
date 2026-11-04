@@ -9225,3 +9225,24 @@ msgstr "สร้างหน้า"
 #, python-brace-format
 #~ msgid "€{value}"
 #~ msgstr "€{value}"
+
+#: hlidskjalf/chatview.py
+msgid "empty file"
+msgstr "ไฟล์ว่าง"
+
+#: hlidskjalf/chatview.py
+msgid "Open attachment"
+msgstr "เปิดไฟล์แนบ"
+
+#: hlidskjalf/chatview.py
+#, python-brace-format
+msgid "“{name}” is empty (0 bytes) and was not attached."
+msgstr "“{name}” ว่างเปล่า (0 ไบต์) และไม่ได้แนบ"
+
+#: hlidskjalf/window.py
+msgid "Live – up to date from the server"
+msgstr "สด – ข้อมูลล่าสุดจากเซิร์ฟเวอร์"
+
+#: hlidskjalf/window.py
+msgid "Saved copy – no connection to the server"
+msgstr "สำเนาที่บันทึกไว้ – ไม่มีการเชื่อมต่อกับเซิร์ฟเวอร์"

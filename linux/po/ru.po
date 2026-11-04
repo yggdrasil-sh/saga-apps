@@ -9555,3 +9555,24 @@ msgstr "Создать страницу"
 #, python-brace-format
 #~ msgid "€{value}"
 #~ msgstr "{value} €"
+
+#: hlidskjalf/chatview.py
+msgid "empty file"
+msgstr "пустой файл"
+
+#: hlidskjalf/chatview.py
+msgid "Open attachment"
+msgstr "Открыть вложение"
+
+#: hlidskjalf/chatview.py
+#, python-brace-format
+msgid "“{name}” is empty (0 bytes) and was not attached."
+msgstr "«{name}» пустой (0 байт) и не был прикреплён."
+
+#: hlidskjalf/window.py
+msgid "Live – up to date from the server"
+msgstr "В реальном времени – данные с сервера"
+
+#: hlidskjalf/window.py
+msgid "Saved copy – no connection to the server"
+msgstr "Сохранённая копия – нет связи с сервером"

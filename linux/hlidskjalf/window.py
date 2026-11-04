@@ -666,6 +666,8 @@ class MainWindow(Adw.ApplicationWindow):
         sb = Adw.ToolbarView()
         hb = Adw.HeaderBar()
         hb.set_title_widget(Adw.WindowTitle(title="Saga"))
+        self.live_lamp = LiveLamp()                         # 4.11.: gruen live, rot gespeicherter Stand (wie iOS/Android)
+        hb.pack_start(self.live_lamp)
         new = flat_button(icon="document-new-symbolic", tooltip=_("New page (Ctrl+N)"), cb=self.new_page)
         hb.pack_start(new)
         # 2.5: mit Vorlagengalerie wird daraus ein Knopf mit Menue (Neue Seite / Aus Vorlage ...)
@@ -1381,6 +1383,10 @@ class MainWindow(Adw.ApplicationWindow):
             self._session_catch_up()                       # Start ohne Netz: Fehlendes jetzt laden
             if not store.needs_login:                      # wieder verbunden (Netzwechsel, Aufwachen): Verpasstes holen
                 store.refresh_if_stale(store.POLL_S)
+                store.changed_data()                       # 4.11.: Datenbank-Ansichten (auch eingebettete) frisch laden
+            return
+        if typ == "db.rows":                               # 4.11. (Server 2.5): Eintraege einer Datenbank anderswo geaendert
+            store.changed_data()
             return
         if typ == "reset":
             store.drop_tree_cursor()                       # Verpasstes nicht nachholbar: Seitenbaum ganz laden
@@ -2036,3 +2042,28 @@ class MainWindow(Adw.ApplicationWindow):
             d.present(self)
         else:
             self.show_root(("today",))
+
+
+class LiveLamp(Gtk.Box):
+    """4.11.: kleiner Punkt in der Kopfleiste - gruen, solange der Live-Kanal steht (Inhalte kommen frisch vom Server),
+    rot, wenn die App gespeicherte Staende zeigt. Server ohne Live-Kanal: unsichtbar. Nur Anzeige (Tooltip, Bedienungshilfen)."""
+
+    def __init__(self):
+        super().__init__(valign=Gtk.Align.CENTER, halign=Gtk.Align.CENTER, margin_start=4, margin_end=4)
+        from .live import live
+        self.set_size_request(8, 8)
+        self.add_css_class("hk-live-lamp")
+        self.set_can_target(False)
+        h = live.connect("state", lambda o, on: self.update())
+        self.connect("destroy", lambda *_: live.disconnect(h))
+        self.update()
+
+    def update(self):
+        from .live import live
+        on = bool(live.connected)
+        self.set_visible(live.supported is not False)
+        self.remove_css_class("hk-live-off" if on else "hk-live-on")
+        self.add_css_class("hk-live-on" if on else "hk-live-off")
+        txt = _("Live – up to date from the server") if on else _("Saved copy – no connection to the server")
+        self.set_tooltip_text(txt)
+        self.update_property([Gtk.AccessibleProperty.LABEL], [txt])

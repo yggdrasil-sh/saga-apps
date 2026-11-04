@@ -9134,3 +9134,24 @@ msgstr ""
 #: hlidskjalf/window.py:2031
 msgid "Create page"
 msgstr ""
+
+#: hlidskjalf/chatview.py
+msgid "empty file"
+msgstr ""
+
+#: hlidskjalf/chatview.py
+msgid "Open attachment"
+msgstr ""
+
+#: hlidskjalf/chatview.py
+#, python-brace-format
+msgid "“{name}” is empty (0 bytes) and was not attached."
+msgstr ""
+
+#: hlidskjalf/window.py
+msgid "Live – up to date from the server"
+msgstr ""
+
+#: hlidskjalf/window.py
+msgid "Saved copy – no connection to the server"
+msgstr ""

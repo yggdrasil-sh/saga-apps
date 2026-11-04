@@ -9559,3 +9559,24 @@ msgstr "Crear página"
 #, python-brace-format
 #~ msgid "€{value}"
 #~ msgstr "{value} €"
+
+#: hlidskjalf/chatview.py
+msgid "empty file"
+msgstr "archivo vacío"
+
+#: hlidskjalf/chatview.py
+msgid "Open attachment"
+msgstr "Abrir adjunto"
+
+#: hlidskjalf/chatview.py
+#, python-brace-format
+msgid "“{name}” is empty (0 bytes) and was not attached."
+msgstr "«{name}» está vacío (0 bytes) y no se adjuntó."
+
+#: hlidskjalf/window.py
+msgid "Live – up to date from the server"
+msgstr "En vivo – actualizado desde el servidor"
+
+#: hlidskjalf/window.py
+msgid "Saved copy – no connection to the server"
+msgstr "Copia guardada – sin conexión con el servidor"

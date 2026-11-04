@@ -10,7 +10,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Graphene, Gsk, Gtk, Pango
 
 from . import chatcrypto as C
 from . import chatstatus as S
-from . import aichat, avatars, chatmedia, chatvideo, clipimg, config, images
+from . import aichat, avatars, chatfiles, chatmedia, chatvideo, clipimg, config, images
 from .api import APIError, account_body, account_name, client
 from .blocks import flat_button, menu_popover
 from . import chatx3, voice
@@ -2210,18 +2210,53 @@ class Conversation(Gtk.Box):
             btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Open image: {name}").format(name=name)])
             btn.connect("clicked", lambda *_: ImageViewer(self, f).present(self.win))
             return btn
+        size = int(f.get("s") or 0)
         btn = Gtk.Button()
         bx = Gtk.Box(spacing=8)
         bx.append(Gtk.Image.new_from_icon_name("mail-attachment-symbolic"))
         col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         col.append(_lbl(name, wrap=False, ellipsize=Pango.EllipsizeMode.MIDDLE, max_width_chars=36))
-        col.append(_lbl(human_size(int(f.get("s") or 0)), ("caption", "dim-label"), wrap=False))
+        col.append(_lbl(human_size(size) if size else _("empty file"), ("caption", "dim-label"), wrap=False))
         bx.append(col)
         btn.set_child(bx)
         btn.add_css_class("hk-file-btn")
-        btn.set_tooltip_text(_("Save attachment"))
-        btn.connect("clicked", lambda *_: self._save_file(f))
-        return btn
+        # 4.11.: Antippen oeffnet den Anhang (wie iOS/Android); Speichern ueber den Knopf daneben
+        btn.set_tooltip_text(_("Open attachment"))
+        btn.set_sensitive(size > 0)
+        btn.connect("clicked", lambda *_: self._open_file(f))
+        save = Gtk.Button(icon_name="document-save-symbolic", tooltip_text=_("Save attachment"), valign=Gtk.Align.CENTER, sensitive=size > 0)
+        save.add_css_class("flat")
+        save.update_property([Gtk.AccessibleProperty.LABEL], [_("Save attachment")])
+        save.connect("clicked", lambda *_: self._save_file(f))
+        row = Gtk.Box(spacing=2, halign=Gtk.Align.START)
+        row.append(btn)
+        row.append(save)
+        return row
+
+    def _open_file(self, f):
+        """Oeffnen (4.11.): entschluesselt in einen privaten Ordner ($XDG_RUNTIME_DIR, nur fuer mich lesbar) und mit dem
+        Standardprogramm oeffnen - Dokumente direkt, alles andere mit Rueckfrage (nie still ein Skript/Programm starten).
+        Die Kopie wird nach chatfiles.KEEP_S geloescht."""
+        cid = self.cid
+
+        def work():
+            path = chatfiles.private_path(f.get("n") or "datei")
+            with open(path, "wb") as out:
+                try:
+                    chat.save_file(cid, f, out.write, lambda n, total: None)
+                except BaseException:
+                    out.close()
+                    chatfiles.remove(path)
+                    raise
+            return path
+
+        def fin(path):
+            GLib.timeout_add_seconds(chatfiles.KEEP_S, lambda: (chatfiles.remove(path), False)[1])
+            fl = Gtk.FileLauncher.new(Gio.File.new_for_path(path))
+            fl.set_always_ask(not chatfiles.direct_open(f.get("m") or ""))
+            fl.launch(self.win, None, None)
+
+        bg(work, done=fin, error=lambda e: _toast(self.win, _("Attachment not loaded: {err}").format(err=e)), media=True)
 
     def _video(self, f):
         """Video (2.4) im Verlauf: nur das Poster (lazy wie Vorschaubilder), Dauer und Abspiel-Symbol - nie ein Player"""
@@ -2649,6 +2684,9 @@ class Conversation(Gtk.Box):
                         else:
                             out.append((name, None, str(e)))
                     continue
+                if info.get_size() == 0:                       # 4.11.: leere Datei nie still als Anhang senden
+                    out.append((name, None, _("“{name}” is empty (0 bytes) and was not attached.").format(name=name)))
+                    continue
                 if info.get_size() > fmax:
                     if mime.startswith("image/") or clipimg.file_is_image(g):
                         try:
@@ -2659,7 +2697,11 @@ class Conversation(Gtk.Box):
                             pass
                     out.append((name, None, _("“{name}” is too large (at most {n} MB).").format(name=name, n=fmax // 1048576)))
                     continue
-                out.append((name, mime, g.load_bytes(None)[0].get_data()))
+                data = g.load_bytes(None)[0].get_data()
+                if not data:
+                    out.append((name, None, _("“{name}” is empty (0 bytes) and was not attached.").format(name=name)))
+                    continue
+                out.append((name, mime, data))
             return out
 
         def fin(lst):

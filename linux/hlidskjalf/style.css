@@ -492,3 +492,8 @@ row.hk-gone { opacity: 0.55; }
 .hk-sel-bar { background: alpha(var(--accent-bg-color), 0.12); border-radius: 8px; padding: 4px 8px; }
 .hk-md-tile { padding: 0; border-radius: 8px; }
 .hk-gi-blocked { background: alpha(var(--error-bg-color), 0.25); }
+
+/* 4.11.: Live-Laempchen in der Kopfleiste (gruen live, rot gespeicherter Stand) */
+.hk-live-lamp { min-width: 8px; min-height: 8px; border-radius: 999px; }
+.hk-live-lamp.hk-live-on { background-color: #2ec27e; }
+.hk-live-lamp.hk-live-off { background-color: #e01b24; }
