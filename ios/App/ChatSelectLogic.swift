@@ -16,9 +16,9 @@ enum ChatSelectLogic {
         case file(String)
         case voice
         case video(String)
-        /// laesst sich ueber den normalen Sendeweg neu hochladen (Bild, Datei; nicht Sprachnachricht, nicht Video)
+        /// laesst sich ueber den normalen Sendeweg neu hochladen (Bild, Datei, Video ueber den Video-Weg; nicht Sprachnachricht)
         var forwardable: Bool {
-            switch self { case .image, .file: return true; case .voice, .video: return false }
+            switch self { case .image, .file, .video: return true; case .voice: return false }
         }
     }
 
@@ -137,7 +137,7 @@ enum ChatSelectLogic {
         var upload: [Int]
         var skipped: Int
     }
-    /// je Nachricht: Text bleibt, Bilder/Dateien neu hochladen, Rest als Hinweis
+    /// je Nachricht: Text bleibt, Bilder/Dateien/Videos neu hochladen, Rest (Sprachnachrichten) als Hinweis
     static func forward(_ it: Item, labels: Labels = Labels()) -> Forward {
         var up: [Int] = [], skipped = 0
         for (i, a) in it.atts.enumerated() { if a.forwardable { up.append(i) } else { skipped += 1 } }

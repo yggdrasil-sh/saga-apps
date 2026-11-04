@@ -377,7 +377,8 @@ struct ConversationView: View {
                                       select: conv.selectable(m) ? { startSelect(m) } : nil,
                                       openPage: { id in nav.push(PageRoute(id: id)) },
                                       checkSafety: { safetyPeer = ChatMember(username: m.sender, name: m.senderName, me: false) },
-                                      std: stdActions(m))
+                                      std: stdActions(m),
+                                      forward: conv.selectable(m) && m.content != nil ? { sel.forwardOne(m.id) } : nil)
                             .id(m.id)
                             .onAppear { conv.saw(m) }                                   // 2.4: Bestaetigung erst, wenn sichtbar
                         }
@@ -515,9 +516,12 @@ struct ConversationView: View {
             if let r = replyTo {
                 HStack {
                     Rectangle().fill(Color.gold).frame(width: 3)
+                    if let f = ChatReplyPreview.thumbFile(r.content?.files ?? []) {   // Medien 1: Vorschaubild
+                        ChatReplyThumb(file: f, conv: conv, side: 32)
+                    }
                     VStack(alignment: .leading) {
                         Text("Antwort an \(r.mine ? String(localized: "du") : r.senderName)").font(.caption.weight(.semibold))
-                        Text(verbatim: r.text).font(.caption).lineLimit(1).foregroundStyle(.secondary)
+                        Text(verbatim: ChatReplyText.line(r, conv: conv)).font(.caption).lineLimit(1).foregroundStyle(.secondary)   // Medien 1: "Foto"/"Video"
                     }
                     Spacer()
                     Button { replyTo = nil } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Antwort abbrechen")
@@ -900,6 +904,8 @@ struct MessageBubble: View {
     var checkSafety: () -> Void = {}
     /// 2.5 Chat-Standard: Anheften, Loeschen (Admin), sperren, melden
     var std: [BubbleAction] = []
+    /// Medien 1: diese Nachricht weiterleiten (Ablauf der Mehrfachauswahl; nil = nicht weiterleitbar)
+    var forward: (() -> Void)? = nil
     @State private var info = false
     @State private var readBy = false                             // 2.4: "Gelesen von" (Gruppen)
     @State private var pickEmoji = false                          // 2.5: "+" (System-Emoji-Auswahl)
@@ -1017,6 +1023,15 @@ struct MessageBubble: View {
         if conv.canEdit(m) { a.append(BubbleAction(id: "edit", title: "Bearbeiten", icon: "pencil") { edit() }) }
         if !conv.chips(m).isEmpty { a.append(BubbleAction(id: "who", title: "Reaktionen von …", icon: "face.smiling", sheet: true) { rxWho = RxWho(e: nil) }) }
         if !m.text.isEmpty { a.append(BubbleAction(id: "copy", title: "Text kopieren", icon: "doc.on.doc") { copyText(m.text) }) }
+        if let forward { a.append(BubbleAction(id: "forward", title: "Weiterleiten", icon: "arrowshape.turn.up.right", sheet: true) { forward() }) }   // Medien 1
+        let imgs = (m.content?.files ?? []).filter(ChatGalleryLogic.isImage)
+        if !imgs.isEmpty {                                                     // Medien 1: Bilder sichern
+            #if os(iOS)
+            a.append(BubbleAction(id: "photos", title: "In Fotos sichern", icon: "square.and.arrow.down") { saveImages(imgs) })
+            #else
+            a.append(BubbleAction(id: "saveas", title: "Sichern unter …", icon: "square.and.arrow.down") { saveImages(imgs) })
+            #endif
+        }
         if let select { a.append(BubbleAction(id: "select", title: "Auswählen", icon: "checkmark.circle") { select() }) }   // 2.5: Mehrfachauswahl
         if m.mine && m.delivery == .failed && m.content != nil {
             a.append(BubbleAction(id: "resend", title: "Erneut senden", icon: "arrow.clockwise") { Task { await conv.resend(m) } })
@@ -1026,6 +1041,20 @@ struct MessageBubble: View {
         }
         if m.mine { a.append(BubbleAction(id: "delete", title: "Für alle löschen", icon: "trash", destructive: true, sheet: true) { delete() }) }
         return a + std
+    }
+    /// Medien 1: Bilder der Nachricht sichern (iOS: Fotos, Mac: "Sichern unter …" je Bild)
+    private func saveImages(_ imgs: [ChatFileRef]) {
+        let c = conv
+        Task {
+            #if os(iOS)
+            c.model.toast = await ChatImageSave.toPhotos(imgs, conv: c)
+            #else
+            for f in imgs {
+                guard let t = await ChatImageSave.saveAs(f, conv: c) else { break }   // abgebrochen: keine weiteren fragen
+                c.model.toast = t
+            }
+            #endif
+        }
     }
     /// Blatt erst oeffnen, wenn die schwebende Leiste zu ist
     private func later(_ f: @escaping () -> Void) { DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: f) }
@@ -1113,8 +1142,11 @@ struct MessageBubble: View {
             VStack(alignment: .leading, spacing: 1) {
                 if let q = quoted {
                     Text(verbatim: q.aiState == .ok ? (store.aiName ?? q.content?.aiName ?? String(localized: "Saga KI")) : q.mine ? String(localized: "du") : q.senderName).font(.caption.weight(.semibold))
-                    Text(verbatim: q.text.isEmpty ? (q.content?.files.first?.name ?? "") : conv.plainText(q.text)).font(.caption).lineLimit(2).foregroundStyle(.secondary)
+                    Text(verbatim: ChatReplyText.line(q, conv: conv)).font(.caption).lineLimit(2).foregroundStyle(.secondary)   // Medien 1: "Foto"/"Video"
                 } else { Text("Nachricht nicht mehr da").font(.caption.italic()).foregroundStyle(.secondary) }
+            }
+            if let q = quoted, let f = ChatReplyPreview.thumbFile(q.content?.files ?? []) {   // Medien 1: Vorschaubild
+                ChatReplyThumb(file: f, conv: conv, side: 34)
             }
         }.fixedSize(horizontal: false, vertical: true)
     }
@@ -1240,50 +1272,189 @@ struct ChatImageThumb: View {
     }
 }
 
-/// Bild oeffnen: Original (verkleinert auf Bildschirmgroesse dekodiert), Teilen/Sichern
+/// Bild oeffnen (Medien 1: Galerie aller geladenen Bilder des Chats in Verlaufsreihenfolge, Start beim angetippten):
+/// Original (verkleinert auf Bildschirmgroesse dekodiert), Zoomen je Bild, Blaettern (iPhone/iPad wischen, Mac
+/// Pfeiltasten/Knoepfe; gezoomt nicht), Zaehler "n / m", Teilen, In Fotos sichern (iOS) bzw. Sichern unter … (Mac)
 struct ChatImageViewer: View {
-    let file: ChatFileRef
     @ObservedObject var conv: ConversationModel
     @Environment(\.dismiss) private var dismiss
-    @State private var img: CGImage?
-    @State private var url: URL?
-    @State private var err: String?
+    @State private var files: [ChatFileRef]
+    @State private var pos: String?                                    // Kennung des sichtbaren Bilds (Blaettern)
+    @State private var at: Int                                         // letzte gueltige Stelle (pos kann kurz nil sein)
+    @State private var zoomed = false
+    @State private var copies: [String: URL] = [:]                     // Klartext-Kopie je Bild (Teilen/Sichern)
+    @State private var toast: String?
+    @State private var saving = false
+    @MainActor init(file: ChatFileRef, conv: ConversationModel) {
+        _conv = ObservedObject(wrappedValue: conv)
+        let all = ChatGalleryLogic.images(conv.messages.map { $0.tomb ? [] : ($0.content?.files ?? []) })
+        let o = ChatGalleryLogic.open(all, at: file)
+        _files = State(initialValue: o.list)
+        _pos = State(initialValue: o.list[o.index].id)
+        _at = State(initialValue: o.index)
+    }
+    private var index: Int { at }
+    private var current: ChatFileRef? { files.indices.contains(index) ? files[index] : nil }
     var body: some View {
         NavigationStack {
             ZStack {
                 Color.black.ignoresSafeArea()
-                if let img {
-                    ZoomableImage(image: img)                                  // 4.11.: Zoomen (zwei Finger, Doppeltippen)
-                        .accessibilityLabel(Text(verbatim: file.name.isEmpty ? String(localized: "Bild") : file.name))
-                } else if let err {
-                    Text("Anhang nicht geladen: \(err)").foregroundStyle(.white).padding()
-                } else {
-                    ZStack {
-                        if let t = ChatMedia.cached(file.id)?.cg { Image(decorative: t, scale: 1).resizable().scaledToFit().blur(radius: 6).opacity(0.7) }
-                        ProgressView().tint(.white)
+                pager
+            }
+            .overlay(alignment: .bottom) {
+                VStack(spacing: 8) {
+                    if let toast {
+                        Text(verbatim: toast).font(.callout).padding(10).background(.regularMaterial, in: Capsule())
+                    }
+                    if let c = ChatGalleryLogic.counter(index, count: files.count) {
+                        Text(verbatim: c).font(.callout.monospacedDigit()).foregroundStyle(.white)
+                            .padding(.horizontal, 10).padding(.vertical, 4).background(.black.opacity(0.55), in: Capsule())
+                            .accessibilityLabel(Text("Bild \(index + 1) von \(files.count)"))
                     }
                 }
+                .padding(.bottom, 16)
             }
-            .navigationTitle(Text(verbatim: file.name))
+            #if os(macOS)
+            .overlay { if files.count > 1 { macArrows } }
+            #endif
+            .navigationTitle(Text(verbatim: current?.name ?? ""))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Schließen") { dismiss() }.keyboardShortcut(.cancelAction) }
-                ToolbarItem(placement: .primaryAction) {
-                    if let url { ShareLink(item: url) { Label("Teilen", systemImage: "square.and.arrow.up") } }
+                ToolbarItemGroup(placement: .primaryAction) {
+                    if let f = current, let u = copies[f.id] {
+                        saveButton(f, u)
+                        ShareLink(item: u) { Label("Teilen", systemImage: "square.and.arrow.up") }
+                    }
                 }
             }
         }
-        #if os(macOS)
+        #if os(iOS)
+        .interactiveDismissDisabled(zoomed)                                // gezoomt verschieben schliesst das Blatt nicht
+        #else
         .frame(minWidth: 640, idealWidth: 900, minHeight: 480, idealHeight: 700)
         #endif
-        .task(id: file.id) { await load() }
+        .onChange(of: pos) { _, p in
+            zoomed = false
+            if let p, let i = files.firstIndex(where: { $0.id == p }) { at = i }
+        }
+    }
+
+    /// iPhone/iPad: seitlich wischen (Seiten), gezoomt gesperrt; Mac: ein Bild, Blaettern mit Pfeiltasten/Knoepfen
+    @ViewBuilder private var pager: some View {
+        #if os(iOS)
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                LazyHStack(spacing: 0) {
+                    ForEach(Array(files.enumerated()), id: \.element.id) { i, f in
+                        ChatGalleryPage(file: f, conv: conv, active: abs(i - index) <= 1,
+                                        zoomed: { zoomed = $0 }, loaded: { copies[f.id] = $0 })
+                            .containerRelativeFrame([.horizontal, .vertical])
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $pos)
+            .scrollIndicators(.hidden)
+            .scrollDisabled(zoomed || files.count < 2)
+            .onAppear { if let p = pos { proxy.scrollTo(p) } }              // Start beim angetippten Bild
+        }
+        #else
+        if let f = current {
+            ChatGalleryPage(file: f, conv: conv, active: true, zoomed: { zoomed = $0 }, loaded: { copies[f.id] = $0 })
+                .id(f.id)
+        }
+        #endif
+    }
+
+    #if os(macOS)
+    private var macArrows: some View {
+        HStack {
+            arrow("chevron.left", "Vorheriges Bild", .leftArrow, -1).disabled(index == 0)
+            Spacer()
+            arrow("chevron.right", "Nächstes Bild", .rightArrow, 1).disabled(index >= files.count - 1)
+        }
+        .padding(.horizontal, 12)
+    }
+    private func arrow(_ icon: String, _ label: LocalizedStringKey, _ key: KeyEquivalent, _ d: Int) -> some View {
+        Button { go(d) } label: {
+            Image(systemName: icon).font(.title2.weight(.semibold)).foregroundStyle(.white)
+                .frame(width: 40, height: 40).background(.black.opacity(0.45), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .keyboardShortcut(key, modifiers: [])
+        .help(Text(label)).accessibilityLabel(Text(label))
+    }
+    private func go(_ d: Int) {
+        let i = ChatGalleryLogic.step(index, by: d, count: files.count)
+        if files.indices.contains(i) { pos = files[i].id }
+    }
+    #endif
+
+    @ViewBuilder private func saveButton(_ f: ChatFileRef, _ u: URL) -> some View {
+        #if os(iOS)
+        Button { savePhotos(u) } label: { Label("In Fotos sichern", systemImage: "square.and.arrow.down") }.disabled(saving)
+        #else
+        Button { saveMac(f, u) } label: { Label("Sichern unter …", systemImage: "square.and.arrow.down") }
+        #endif
+    }
+    #if os(iOS)
+    private func savePhotos(_ u: URL) {
+        saving = true
+        Task {
+            do { try await ChatVideoSave.toPhotos(u, type: .photo); flash(String(localized: "In Fotos gesichert.")) }
+            catch { flash(String(localized: "Nicht gesichert: \(error.localizedDescription)")) }
+            saving = false
+        }
+    }
+    #else
+    private func saveMac(_ f: ChatFileRef, _ u: URL) {
+        guard let d = try? Data(contentsOf: u) else { flash(String(localized: "Nicht gesichert: \(ChatMediaError.undecodable.localizedDescription)")); return }
+        if let t = ChatImageSave.saveAs(d, name: u.lastPathComponent, mime: f.mime) { flash(t) }
+    }
+    #endif
+    private func flash(_ s: String) {
+        toast = s
+        Task { try? await Task.sleep(for: .seconds(3)); if toast == s { toast = nil } }
+    }
+}
+
+/// Eine Seite der Galerie: Original laden (nur wenn sichtbar oder daneben - sonst wieder freigeben), Zoomen
+struct ChatGalleryPage: View {
+    let file: ChatFileRef
+    @ObservedObject var conv: ConversationModel
+    var active: Bool
+    var zoomed: (Bool) -> Void
+    var loaded: (URL) -> Void
+    @State private var img: CGImage?
+    @State private var err: String?
+    var body: some View {
+        ZStack {
+            if let img, active {
+                ZoomableImage(image: img, onZoom: zoomed)                      // 4.11.: Zoomen (zwei Finger, Doppeltippen)
+                    .accessibilityLabel(Text(verbatim: file.name.isEmpty ? String(localized: "Bild") : file.name))
+            } else if let err {
+                Text("Anhang nicht geladen: \(err)").foregroundStyle(.white).padding()
+            } else {
+                ZStack {
+                    if let t = ChatMedia.cached(file.id)?.cg { Image(decorative: t, scale: 1).resizable().scaledToFit().blur(radius: 6).opacity(0.7) }
+                    if active { ProgressView().tint(.white) }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()                                                          // gezoomt nicht ueber die Nachbarseiten
+        .task(id: active) {
+            if active { if img == nil { await load() } } else { img = nil }   // weit weg: Speicher freigeben
+        }
     }
     private func load() async {
         do {
             let d = try await conv.original(file)
-            let name = file.name.isEmpty ? "bild" : file.name.replacingOccurrences(of: "/", with: "_")
+            let name = ChatImageSave.fileName(file)
             let fid = file.id
             // Dekodieren (verkleinert) und die Kopie fuer "Teilen/Sichern" im Hintergrund
             let r = await Task.detached(priority: .userInitiated) { () -> (CGImage?, URL?) in
@@ -1299,8 +1470,9 @@ struct ChatImageViewer: View {
                 return (cg, ok ? u : nil)
             }.value
             guard let cg = r.0 else { throw ChatMediaError.undecodable }
-            img = cg; url = r.1
-        } catch { if !(error is CancellationError) { err = error.localizedDescription } }
+            img = cg; err = nil
+            if let u = r.1 { loaded(u) }
+        } catch { if !(error is CancellationError) && !Task.isCancelled { err = error.localizedDescription } }
     }
 }
 
@@ -1625,6 +1797,8 @@ struct ChatPressable<Label: View>: View {
 /// zurueck. Verschieben bleibt im Bild (kein Wegschieben ins Schwarze).
 struct ZoomableImage: View {
     let image: CGImage
+    /// Medien 1: gezoomt ja/nein (Galerie sperrt dann das Blaettern)
+    var onZoom: ((Bool) -> Void)? = nil
     @State private var scale: CGFloat = 1
     @State private var base: CGFloat = 1
     @State private var offset: CGSize = .zero
@@ -1643,13 +1817,17 @@ struct ZoomableImage: View {
                             if scale <= 1.01 { withAnimation(.snappy) { reset() } }
                             else { offset = ZoomLogic.bounded(offset, scale: scale, size: geo.size); lastOffset = offset }
                         }
-                        .simultaneously(with: DragGesture(minimumDistance: scale > 1 ? 0 : 10_000)
-                            .onChanged { v in
-                                guard scale > 1 else { return }
-                                offset = ZoomLogic.bounded(CGSize(width: lastOffset.width + v.translation.width, height: lastOffset.height + v.translation.height),
-                                                           scale: scale, size: geo.size)
-                            }
-                            .onEnded { _ in lastOffset = offset })
+                )
+                // Verschieben nur gezoomt - sonst gar keine Ziehgeste, damit das Blaettern der Galerie (ScrollView) frei bleibt
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { v in
+                            guard scale > 1 else { return }
+                            offset = ZoomLogic.bounded(CGSize(width: lastOffset.width + v.translation.width, height: lastOffset.height + v.translation.height),
+                                                       scale: scale, size: geo.size)
+                        }
+                        .onEnded { _ in lastOffset = offset },
+                    including: ChatGalleryLogic.canPage(scale: Double(scale)) ? .subviews : .all
                 )
                 .onTapGesture(count: 2) {
                     withAnimation(.snappy) {
@@ -1660,6 +1838,7 @@ struct ZoomableImage: View {
                     withAnimation { scale = ZoomLogic.clamp(scale * (a.direction == .zoomIn ? 1.5 : 1 / 1.5)); base = scale; if scale <= 1 { reset() } }
                 }
         }
+        .onChange(of: ChatGalleryLogic.canPage(scale: Double(scale))) { _, free in onZoom?(!free) }
     }
     private func reset() { scale = 1; base = 1; offset = .zero; lastOffset = .zero }
 }

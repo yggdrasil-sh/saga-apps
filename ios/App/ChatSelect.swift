@@ -106,7 +106,8 @@ extension ConversationModel {
 @MainActor
 enum ChatForward {
     /// Nachrichten in einen anderen Chat senden: Text neu verschluesselt, Bilder/Dateien ueber den normalen Sendeweg
-    /// neu hochgeladen, Sprachnachrichten/Videos als Hinweis. Rueckgabe: gesendet, Fehler
+    /// neu hochgeladen, Videos ueber den Video-Weg (Upload im Hintergrund), Sprachnachrichten als Hinweis.
+    /// Rueckgabe: gesendet, Fehler
     static func run(_ msgs: [ChatMessage], from conv: ConversationModel, to target: Int, model: ChatModel) async -> (sent: Int, skipped: Int, error: String?) {
         let to = ConversationModel(chatID: target, model: model)
         await to.prepareForSend()
@@ -126,6 +127,13 @@ enum ChatForward {
                         let ext = (name as NSString).pathExtension
                         let u = ChatVideoFiles.url(UUID().uuidString + "." + (ext.isEmpty ? "bin" : ext.lowercased()))
                         try await ChatVideoSave.decrypt(ChatVideoSource(file: f, store: conv.store), to: u, progress: { _ in })
+                        ChatVideoFiles.protect(u)
+                        files.append(ChatPendingFile(name: name, mime: f.mime, data: Data(), fileURL: u))
+                    } else if f.isVideo {                                    // Medien 1: Video (v1) als Datei ablegen -> Video-Weg
+                        let ext = (name as NSString).pathExtension
+                        let u = ChatVideoFiles.url(UUID().uuidString + "." + (ext.isEmpty ? "mp4" : ext.lowercased()))
+                        let d = try await conv.original(f)
+                        try d.write(to: u, options: [.atomic])
                         ChatVideoFiles.protect(u)
                         files.append(ChatPendingFile(name: name, mime: f.mime, data: Data(), fileURL: u))
                     } else {
@@ -427,6 +435,8 @@ final class ChatSelection: ObservableObject {
     private(set) var anchor: String?
     func start(_ id: String) { ids = [id]; anchor = id; on = true }
     func end() { on = false; ids = []; anchor = nil }
+    /// Medien 1: eine Nachricht aus ihrem Menue weiterleiten - derselbe Ablauf wie in der Mehrfachauswahl
+    func forwardOne(_ id: String) { ids = [id]; anchor = id; pickForward = true }
     /// Antippen/Klick (Cmd-Klick gleich); Umschalt-Klick waehlt den Bereich ab dem letzten Klick
     func tap(_ id: String, shift: Bool, order: [String], selectable: Set<String>) {
         guard selectable.contains(id) else { return }
@@ -464,11 +474,12 @@ struct ChatSelectFlows: ViewModifier {
             .sheet(isPresented: $sel.pickForward) {
                 ForwardPickSheet(chat: chat, exclude: conv.chatID) { c in DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { sel.forwardTo = c } }
             }
-            .alert(Text("\(msgs.count) Nachrichten an \(sel.forwardTo?.title ?? "") weiterleiten?"),
+            .alert(msgs.count == 1 ? Text("Nachricht an \(sel.forwardTo?.title ?? "") weiterleiten?")
+                                   : Text("\(msgs.count) Nachrichten an \(sel.forwardTo?.title ?? "") weiterleiten?"),
                    isPresented: Binding(get: { sel.forwardTo != nil }, set: { if !$0 { sel.forwardTo = nil } }), presenting: sel.forwardTo) { c in
                 Button("Weiterleiten") { forward(to: c) }
                 Button("Abbrechen", role: .cancel) {}
-            } message: { _ in Text("Texte werden neu verschlüsselt gesendet, Bilder und Dateien neu hochgeladen.") }
+            } message: { _ in Text("Texte werden neu verschlüsselt gesendet, Bilder, Videos und Dateien neu hochgeladen.") }
             .alert("In Seite übernehmen?", isPresented: $sel.askPage) {
                 Button("Fortfahren") { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { sel.pickPage = true } }
                 Button("Abbrechen", role: .cancel) {}

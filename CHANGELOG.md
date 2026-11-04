@@ -9,6 +9,21 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – Chat-Medien: Bildergalerie mit Blättern und Zoom, Vorschaubild im Antwort-Zitat, Bilder in Fotos/Galerie sichern, Weiterleiten im Nachrichtenmenü (iOS/Mac, Android, Linux, Web)
+
+- **Bildergalerie:** Ein angetipptes Bild öffnet alle geladenen Bilder des Chats in Verlaufsreihenfolge, beginnend beim
+  angetippten; seitlich wischen blättert, unten steht „n / m“, Zoomen geht weiter je Bild (gezoomt wird nicht
+  geblättert). iOS: nach unten wischen schließt (nicht im Zoom); Mac: Pfeiltasten ← → und Knöpfe am Rand.
+- **Antwort-Zitat mit Vorschaubild:** in der Blase und in der Leiste über dem Eingabefeld ein kleines Vorschaubild
+  (Bild bzw. Video-Poster, nie das Video selbst); ohne Text steht „Foto“, „Video“, „Sprachnachricht“ oder der
+  Dateiname – bisher war die Leiste bei reinen Bildern leer.
+- **Bilder sichern:** in der Bildansicht und im Menü einer Bildnachricht. iOS „In Fotos sichern“ (nur Hinzufügen, wie
+  bei Videos), Mac „Sichern unter …“.
+- **Weiterleiten im Nachrichtenmenü** (langes Drücken bzw. Rechtsklick): derselbe Ablauf wie in der Mehrfachauswahl,
+  mit dieser einen Nachricht. Videos werden jetzt mit weitergeleitet (neu hochgeladen über den Video-Weg) statt nur
+  als Hinweis „[Anhang nicht weitergeleitet]“; Sprachnachrichten bleiben ein Hinweis.
+- iOS: Der Text der Fotos-Berechtigung nennt jetzt Bilder und Videos.
+
 ### Behoben – Reagieren auf Bilder, Videos und Dateien; Zoomen in Bildern (iOS/Mac, Android)
 
 - Langes Drücken auf ein Bild, Video oder eine Datei im Chat öffnete die Reaktionsleiste nicht (nur auf Text): Die

@@ -488,13 +488,13 @@ enum ChatVideoSave {
         } catch { try? FileManager.default.removeItem(at: dst); throw error }
     }
     #if os(iOS)
-    /// In Fotos sichern (nur Hinzufuegen, keine Leseberechtigung)
-    static func toPhotos(_ url: URL) async throws {
+    /// In Fotos sichern (nur Hinzufuegen, keine Leseberechtigung); Medien 1: auch Bilder (type .photo)
+    static func toPhotos(_ url: URL, type: PHAssetResourceType = .video) async throws {
         let st = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
         guard st == .authorized || st == .limited else { throw ChatVideoError.photos }
         try await PHPhotoLibrary.shared().performChanges {
             let o = PHAssetResourceCreationOptions(); o.originalFilename = url.lastPathComponent
-            PHAssetCreationRequest.forAsset().addResource(with: .video, fileURL: url, options: o)
+            PHAssetCreationRequest.forAsset().addResource(with: type, fileURL: url, options: o)
         }
     }
     #endif

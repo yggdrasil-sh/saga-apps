@@ -60,7 +60,7 @@ func chatSelectTests() {
     check(L.forward(a) == L.Forward(text: "Hallo", upload: [], skipped: 0), "nur Text")
     check(L.forward(b) == L.Forward(text: "Bild anbei", upload: [0], skipped: 0), "Bild neu hochladen")
     check(L.forward(c) == L.Forward(text: "[Anhang nicht weitergeleitet]", upload: [0], skipped: 1), "Sprachnachricht als Hinweis")
-    check(L.forward(L.Item(id: "v", seq: 1, mine: true, name: "X", date: t0, text: "Film", atts: [.video("f.mp4")])).text == "Film\n[Anhang nicht weitergeleitet]", "Video als Hinweis")
+    check(L.forward(L.Item(id: "v", seq: 1, mine: true, name: "X", date: t0, text: "Film", atts: [.video("f.mp4")])).upload == [0], "Video neu hochladen (Medien 1)")
     check(L.forwardAllowed(50) && !L.forwardAllowed(51) && !L.forwardAllowed(0), "hoechstens 50")
 
     // Seite

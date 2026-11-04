@@ -133,3 +133,62 @@ enum ZoomLogic {
         return CGSize(width: min(max(o.width, -mx), mx), height: min(max(o.height, -my), my))
     }
 }
+
+/// Bildergalerie im Chat (Medien 1): alle Bilder der geladenen Nachrichten in Verlaufsreihenfolge, Start beim
+/// angetippten Bild, Blaettern, Zaehler "n / m". Reine Logik (mit swiftc pruefbar).
+enum ChatGalleryLogic {
+    /// Bild, das im Verlauf als Bild (nicht als Datei/Video/Sprachnachricht) gezeigt wird - wie ChatAttachmentView
+    static func isImage(_ f: ChatFileRef) -> Bool {
+        !f.voice && !f.isVideo && VideoSendLogic.known(f.x) && !f.isV2 && (f.isImage || f.thumb != nil)
+    }
+    /// Bilder je Nachricht (Reihenfolge der Nachrichten, darin der Anhaenge) - jede Kennung nur einmal
+    static func images(_ perMessage: [[ChatFileRef]]) -> [ChatFileRef] {
+        var seen = Set<String>(), out: [ChatFileRef] = []
+        for fs in perMessage { for f in fs where isImage(f) && seen.insert(f.id).inserted { out.append(f) } }
+        return out
+    }
+    /// Galerie beim angetippten Bild oeffnen; ist es nicht in der Liste (z. B. aus "Medien und Dateien"), nur dieses Bild
+    static func open(_ list: [ChatFileRef], at tapped: ChatFileRef) -> (list: [ChatFileRef], index: Int) {
+        if let i = list.firstIndex(where: { $0.id == tapped.id }) { return (list, i) }
+        return ([tapped], 0)
+    }
+    /// Blaettern um d Bilder (Pfeiltasten/Knoepfe), am Rand stehen bleiben
+    static func step(_ i: Int, by d: Int, count: Int) -> Int {
+        guard count > 0 else { return 0 }
+        return min(max(i + d, 0), count - 1)
+    }
+    /// Zaehler "n / m" (erst ab zwei Bildern)
+    static func counter(_ i: Int, count: Int) -> String? {
+        guard count > 1, i >= 0, i < count else { return nil }
+        return "\(i + 1) / \(count)"
+    }
+    /// Blaettern nur ohne Zoom (sonst verschiebt das Wischen das vergroesserte Bild)
+    static func canPage(scale: Double) -> Bool { scale <= 1.01 }
+}
+
+/// Antwort-Zitat (Medien 1): was neben dem Vorschaubild steht, und welcher Anhang ein Vorschaubild hat
+enum ChatReplyPreview {
+    enum Label: Equatable {
+        case text(String)
+        case photo
+        case video
+        case voice
+        case file(String)
+        case none
+    }
+    /// Text, sonst die Art des ersten Anhangs ("Foto", "Video", "Sprachnachricht", Dateiname)
+    static func label(text: String, files: [ChatFileRef]) -> Label {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !t.isEmpty { return .text(t) }
+        guard let f = files.first else { return .none }
+        if f.voice { return .voice }
+        if f.isVideo { return .video }
+        if ChatGalleryLogic.isImage(f) { return .photo }
+        return .file(f.name)
+    }
+    /// Anhang fuer das kleine Vorschaubild: Bild (Vorschaubild oder altes Bild ohne "th") oder Video/Datei mit "th" -
+    /// nie das Video oder eine grosse Datei selbst laden
+    static func thumbFile(_ files: [ChatFileRef]) -> ChatFileRef? {
+        files.first { !$0.voice && ($0.thumb != nil || ChatGalleryLogic.isImage($0)) }
+    }
+}
