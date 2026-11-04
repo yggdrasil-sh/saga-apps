@@ -276,7 +276,7 @@ struct ChatVideoUploadsBar: View {
     }
     private func row(_ j: VideoJob) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: j.stage == .failed ? "exclamationmark.triangle.fill" : "film")
+            Image(systemName: j.stage == .failed ? "exclamationmark.triangle.fill" : VideoSendLogic.isVideo(j.mime) ? "film" : "doc")
                 .foregroundStyle(j.stage == .failed ? Color.orange : Color.secondary)
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: j.name).font(.caption.weight(.semibold)).lineLimit(1)

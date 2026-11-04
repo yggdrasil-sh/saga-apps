@@ -212,6 +212,28 @@ enum UploadLogic {
 
 // MARK: - Senden: welches Format, welche Grenze
 
+/// Jede Datei (nicht nur Videos, 2.5): bis v1Max ein AEAD-Block (v1), darueber saga-file/v2 (fortsetzbarer Upload,
+/// der Server prueft keinen MIME-Typ) bis video_max. v1Max = file_max, in Chats ueber Servergrenzen hoechstens 10 MiB
+/// (der Server des Gegenuebers hat evtl. nur die Standardgrenze). Ohne limits.file2 bzw. bei big_files == false: nur v1.
+enum ChatFileSendLogic {
+    /// v1-Grenze ueber Servergrenzen (Standard ATTACH_MAX_MB des Servers)
+    static let fedV1Max = 10_485_760
+    static let videoMaxDefault = 500 * 1_048_576
+    static func v1Max(fileMax: Int, fed: Bool) -> Int { fed ? min(fileMax, fedV1Max) : fileMax }
+    static func mb(_ b: Int) -> Int { max(1, b / 1_048_576) }
+    static func plan(size: Int64, fileMax: Int, file2: Bool, videoMax: Int?, fed: Bool, bigFiles: Bool?) -> VideoSendLogic.Plan {
+        let v1 = v1Max(fileMax: fileMax, fed: fed)
+        if size <= Int64(v1) { return .v1 }
+        guard file2 else { return .serverOld(mb(v1)) }
+        if fed && bigFiles == false { return .peerOld(mb(v1)) }
+        let vmax = max(v1, videoMax ?? videoMaxDefault)
+        return size <= Int64(vmax) ? .v2 : .tooBig(mb(vmax))
+    }
+    /// Beim Anhaengen: Datei nicht in den Speicher lesen, sondern in den App-Ordner kopieren (Upload als Datei)
+    static func copyToFile(size: Int64, v1Max: Int) -> Bool { size > Int64(v1Max) }
+}
+
+
 enum VideoSendLogic {
     enum Plan: Equatable {
         case v1                    // bis file_max: ein Block wie bisher
@@ -220,14 +242,10 @@ enum VideoSendLogic {
         case peerOld(Int)          // Chat mit 2.3-Server: nur bis file_max
         case serverOld(Int)        // eigener Server ohne file2: nur bis file_max
     }
-    /// `bigFiles`: Chat-Objekt big_files (nil = lokaler Chat oder Feld fehlt -> erlaubt)
+    /// `bigFiles`: Chat-Objekt big_files (nil = lokaler Chat oder Feld fehlt -> erlaubt). Gleiche Regel wie fuer
+    /// alle Dateien (ChatFileSendLogic): v1 bis file_max, ueber Servergrenzen hoechstens 10 MiB.
     static func plan(size: Int64, fileMax: Int, file2: Bool, videoMax: Int?, fed: Bool, bigFiles: Bool?) -> Plan {
-        if size <= Int64(fileMax) { return .v1 }
-        let mb = { (b: Int) in max(1, b / 1_048_576) }
-        guard file2 else { return .serverOld(mb(fileMax)) }
-        if fed && bigFiles == false { return .peerOld(mb(fileMax)) }
-        let vmax = max(fileMax, videoMax ?? 500 * 1_048_576)
-        return size <= Int64(vmax) ? .v2 : .tooBig(mb(vmax))
+        ChatFileSendLogic.plan(size: size, fileMax: fileMax, file2: file2, videoMax: videoMax, fed: fed, bigFiles: bigFiles)
     }
     /// groesste Datei, die ueberhaupt angenommen wird (Auswahl vor dem Verkleinern)
     static func pickMax(fileMax: Int, file2: Bool, videoMax: Int?) -> Int { file2 ? max(fileMax, videoMax ?? 500 * 1_048_576) : fileMax }

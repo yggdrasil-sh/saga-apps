@@ -10,6 +10,7 @@ import CoreGraphics
 //   Neustart: HEAD -> ab Upload-Offset weiter (Verschluesselung deterministisch).
 //   Senden: Nachricht mit {id,k,n,m,s,x:2,cs,dur,w,h,fs,th} wie jede Nachricht (saga-chat v1 bzw. v2).
 // K, Praefix, Datei und Upload-Kennung liegen bis zum Senden im Schluesselbund (danach geloescht).
+// 2.5: jede Datei ueber der v1-Grenze geht denselben Weg (ohne Poster/720p/Dauer); Grenzen: ChatFileSendLogic.
 
 struct VideoJob: Codable, Identifiable, Equatable {
     enum Stage: String, Codable { case queued, preparing, uploading, sending, failed }
@@ -120,7 +121,7 @@ final class ChatVideoUploads: NSObject, ObservableObject {
 
     // MARK: Auftraege
 
-    /// Video aus der Auswahl senden (Text/Antwort reisen mit)
+    /// Video bzw. grosse Datei (2.5) aus der Auswahl senden (Text/Antwort reisen mit)
     func enqueue(chatID: Int, file: ChatPendingFile, text: String, replyTo: String?) {
         guard let u = file.fileURL else { return }
         let j = VideoJob(server: server, chatID: chatID, text: text, replyTo: replyTo, name: file.name, mime: file.mime,
@@ -208,12 +209,14 @@ final class ChatVideoUploads: NSObject, ObservableObject {
         let src = ChatVideoFiles.url(j.source)
         guard FileManager.default.fileExists(atPath: src.path) else { throw ChatVideoError.unreadable }
         var file = src
-        var meta = await ChatVideoProbe.probe(src)
+        // 2.5: andere grosse Dateien gehen denselben Weg - ohne Poster, Verkleinern und Dauer
+        let video = VideoSendLogic.isVideo(j.mime)
+        var meta = video ? await ChatVideoProbe.probe(src) : VideoMeta()
         try Task.checkCancellation()
-        if let p = j.prepared, FileManager.default.fileExists(atPath: ChatVideoFiles.url(p).path) {
+        if video, let p = j.prepared, FileManager.default.fileExists(atPath: ChatVideoFiles.url(p).path) {
             file = ChatVideoFiles.url(p)
             let m2 = await ChatVideoProbe.probe(file); if m2.w > 0 { meta = m2 }
-        } else if j.optimize && VideoSendLogic.shouldOptimize(w: meta.w, h: meta.h, bytes: ChatVideoFiles.size(src), dur: meta.dur) {
+        } else if video && j.optimize && VideoSendLogic.shouldOptimize(w: meta.w, h: meta.h, bytes: ChatVideoFiles.size(src), dur: meta.dur) {
             progress[id] = 0
             do {
                 let out = try await ChatVideoExporter.shared.optimize(src, progress: { p in Task { @MainActor in ChatVideoUploads.shared.progress[id] = p } },
@@ -235,7 +238,9 @@ final class ChatVideoUploads: NSObject, ObservableObject {
         let size = ChatVideoFiles.size(file)
         let chat = await chatInfo(j.chatID)
         let me = store.chat.me
+        guard size > 0 else { throw APIError.other(String(localized: "Nicht angehängt (leer oder nicht lesbar): \(j.name)")) }
         let plan = VideoSendLogic.plan(size: size, fileMax: me.fileMax, file2: me.file2, videoMax: me.videoMax, fed: chat?.isFed ?? false, bigFiles: chat?.bigFiles)
+        if !video, let e = ChatFileLimits.message(j.name, plan) { throw APIError.other(e) }
         switch plan {
         case .tooBig(let mb): throw ChatVideoError.tooBig(mb)
         case .peerOld(let mb): throw ChatVideoError.peerOld(mb)
@@ -382,7 +387,8 @@ final class ChatVideoUploads: NSObject, ObservableObject {
         update(id) { $0.stage = .sending }
         let th = j.thumb.map { ChatThumbRef(id: $0.id, key: $0.k, w: $0.w, h: $0.h, size: $0.s) }
         let ref = ChatFileRef(id: fid, key: key, name: j.name, mime: j.mime, size: Int(j.size ?? 0), w: j.w, h: j.h, thumb: th,
-                              x: j.x, cs: j.x == 2 ? (j.v2?.cs ?? FileV2.cs) : nil, dur: j.dur, rot: j.x == 2 ? 0 : nil, fs: j.fs)
+                              x: j.x, cs: j.x == 2 ? (j.v2?.cs ?? FileV2.cs) : nil, dur: j.dur,
+                              rot: j.x == 2 && VideoSendLogic.isVideo(j.mime) ? 0 : nil, fs: j.fs)
         let conv = store.chat.open.flatMap { $0.chatID == j.chatID ? $0 : nil } ?? ConversationModel(chatID: j.chatID, model: store.chat)
         try await conv.sendPrepared(text: j.text, replyTo: j.replyTo, refs: [ref])
         if let img = posters[id] { ChatMedia.remember(ChatImage(img, w: j.w, h: j.h), for: fid) }
@@ -425,6 +431,23 @@ final class ChatVideoUploads: NSObject, ObservableObject {
             }
         }
         return up
+    }
+}
+
+// MARK: - Grenzen beim Anhaengen/Senden (Texte; Entscheidung in ChatFileSendLogic)
+
+enum ChatFileLimits {
+    static func plan(_ size: Int64, me: ChatMe, chat: ChatSummary?) -> VideoSendLogic.Plan {
+        ChatFileSendLogic.plan(size: size, fileMax: me.fileMax, file2: me.file2, videoMax: me.videoMax, fed: chat?.isFed ?? false, bigFiles: chat?.bigFiles)
+    }
+    static func v1Max(me: ChatMe, chat: ChatSummary?) -> Int { ChatFileSendLogic.v1Max(fileMax: me.fileMax, fed: chat?.isFed ?? false) }
+    /// nil = darf gesendet werden (v1 oder v2)
+    static func message(_ name: String, _ p: VideoSendLogic.Plan) -> String? {
+        switch p {
+        case .v1, .v2: return nil
+        case .tooBig(let mb), .serverOld(let mb): return String(localized: "„\(name)“ ist zu groß (höchstens \(mb) MB).")
+        case .peerOld(let mb): return String(localized: "„\(name)“ ist zu groß für den Server des Gegenübers (höchstens \(mb) MB).")
+        }
     }
 }
 

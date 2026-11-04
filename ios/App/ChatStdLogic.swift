@@ -407,7 +407,7 @@ enum ChatStd {
     enum MediaKind: Equatable { case media, file, skip }
     static func mediaKind(_ f: ChatFileRef) -> MediaKind {
         if f.voice { return .skip }
-        return f.isImage || f.isVideo ? .media : .file
+        return (f.isImage && !f.isV2) || f.isVideo ? .media : .file   // 2.5: grosse Bilder (v2) als Datei (QuickLook)
     }
 
     // MARK: 9.7 Entwuerfe (nur auf dem Geraet)

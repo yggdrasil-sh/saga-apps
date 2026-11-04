@@ -30,7 +30,7 @@ extension ConversationModel {
         }
         let atts: [ChatSelectLogic.Att] = (m.content?.files ?? []).map { f in
             if f.voice { return .voice }
-            if f.isVideo || f.isV2 { return .video(f.name) }
+            if f.isVideo { return .video(f.name) }                     // 2.5: v2 ohne Video ist eine Datei
             if f.isImage { return .image(f.name) }
             return .file(f.name.isEmpty ? String(localized: "Datei") : f.name)
         }
@@ -120,7 +120,18 @@ enum ChatForward {
             var files: [ChatPendingFile] = []
             for i in fw.upload {
                 guard let f = m.content?.files[i] else { continue }
-                do { files.append(ChatPendingFile(name: f.name.isEmpty ? "datei" : f.name, mime: f.mime, data: try await conv.original(f))) }
+                do {
+                    let name = f.name.isEmpty ? "datei" : f.name
+                    if f.isV2 {                                              // 2.5: grosse Datei als Strom in den App-Ordner, nie ganz in den Speicher
+                        let ext = (name as NSString).pathExtension
+                        let u = ChatVideoFiles.url(UUID().uuidString + "." + (ext.isEmpty ? "bin" : ext.lowercased()))
+                        try await ChatVideoSave.decrypt(ChatVideoSource(file: f, store: conv.store), to: u, progress: { _ in })
+                        ChatVideoFiles.protect(u)
+                        files.append(ChatPendingFile(name: name, mime: f.mime, data: Data(), fileURL: u))
+                    } else {
+                        files.append(ChatPendingFile(name: name, mime: f.mime, data: try await conv.original(f)))
+                    }
+                }
                 catch { return (sent, skipped, String(localized: "Anhang nicht geladen: \(error.localizedDescription)")) }
             }
             if fw.text.isEmpty && files.isEmpty { continue }

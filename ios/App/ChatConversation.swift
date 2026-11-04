@@ -47,6 +47,8 @@ struct ChatPendingFile: Identifiable, Equatable {
     /// 2.4: "optimiert 720p" (Standard auf dem iPhone) oder Original
     var optimize = false
     var isVideo: Bool { fileURL != nil && VideoSendLogic.isVideo(mime) }
+    /// 2.5: als Datei im App-Ordner (Video oder grosse Datei) - geht ueber den Upload-Weg (ChatVideoUploads)
+    var viaUpload: Bool { fileURL != nil }
     var byteCount: Int64 { fileURL.flatMap { (try? $0.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) } ?? Int64(data.count) }
 }
 
@@ -332,12 +334,30 @@ final class ConversationModel: ObservableObject {
         guard let store, model.keys != nil else { return false }
         // 2.4: Videos gehen ueber den Video-Weg (Poster, "optimiert 720p", v1 oder saga-file/v2, Upload im Hintergrund,
         // Fortschritt ueber dem Eingabefeld). Der Text reist mit dem ersten Video; andere Anhaenge gehen sofort.
-        let vids = files.filter(\.isVideo)
+        // 2.5: ebenso jede Datei ueber der v1-Grenze (als Datei im App-Ordner, ohne Poster/720p).
+        var files = files
+        if kind == "msg", ai == nil, files.contains(where: { !$0.viaUpload && $0.data.count > ChatFileLimits.v1Max(me: model.me, chat: info) }) {
+            // grosse Anhaenge im Speicher (Einfuegen, Weiterleiten): als Datei ablegen und hochladen - oder klar ablehnen
+            var out: [ChatPendingFile] = []
+            for f in files {
+                guard !f.viaUpload, f.data.count > ChatFileLimits.v1Max(me: model.me, chat: info) else { out.append(f); continue }
+                if let e = ChatFileLimits.message(f.name, ChatFileLimits.plan(Int64(f.data.count), me: model.me, chat: info)) {
+                    sendError = String(localized: "Nicht gesendet: \(e)"); return false
+                }
+                let ext = (f.name as NSString).pathExtension
+                let u = ChatVideoFiles.url(UUID().uuidString + (ext.isEmpty ? "" : "." + ext.lowercased()))
+                do { try f.data.write(to: u, options: [.atomic]); ChatVideoFiles.protect(u) }
+                catch { sendError = String(localized: "Nicht gesendet: \(error.localizedDescription)"); return false }
+                out.append(ChatPendingFile(name: f.name, mime: f.mime, data: Data(), fileURL: u))
+            }
+            files = out
+        }
+        let vids = files.filter(\.viaUpload)
         if !vids.isEmpty, kind == "msg", ai == nil {
             for (i, v) in vids.enumerated() {
                 ChatVideoUploads.shared.enqueue(chatID: chatID, file: v, text: i == 0 ? text : "", replyTo: i == 0 ? replyTo : nil)
             }
-            let rest = files.filter { !$0.isVideo }
+            let rest = files.filter { !$0.viaUpload }
             return rest.isEmpty ? true : await send(text: "", replyTo: nil, files: rest)
         }
         sending = true; sendError = nil; defer { sending = false }
@@ -347,8 +367,9 @@ final class ConversationModel: ObservableObject {
             var primes: [(ChatFileRef, CGImage?, Data, Data?)] = []
             let cid = info?.fileCID ?? String(chatID)                    // AD der Anhaenge: v1 chat_id, v2 chat_ref
             for f in files {
-                guard f.data.count <= model.me.fileMax else {
-                    throw APIError.other(String(localized: "„\(f.name)“ ist zu groß (höchstens \(model.me.fileMax / 1_048_576) MB)."))
+                guard f.data.count <= ChatFileLimits.v1Max(me: model.me, chat: info) else {   // 2.5: ueber Servergrenzen hoechstens 10 MiB
+                    throw APIError.other(ChatFileLimits.message(f.name, ChatFileLimits.plan(Int64(f.data.count), me: model.me, chat: info))
+                                         ?? String(localized: "„\(f.name)“ ist zu groß (höchstens \(ChatFileSendLogic.mb(ChatFileLimits.v1Max(me: model.me, chat: info))) MB)."))
                 }
                 // Verschluesseln und Vorschaubild (2.1-c) im Hintergrund - nie im UI-Thread
                 let data = f.data, image = ChatMediaLogic.canThumb(f.mime)

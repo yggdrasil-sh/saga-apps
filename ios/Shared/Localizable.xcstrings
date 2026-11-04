@@ -75597,6 +75597,40 @@
           }
         }
       }
+    },
+    "„%@“ ist zu groß für den Server des Gegenübers (höchstens %lld MB)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ ist zu groß für den Server des Gegenübers (höchstens %lld MB)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%1$@” is too large for the other person’s server (at most %2$lld MB)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%1$@» es demasiado grande para el servidor de la otra persona (máximo %2$lld MB)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "«%1$@» слишком большой для сервера собеседника (не более %2$lld МБ)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%1$@” ใหญ่เกินไปสำหรับเซิร์ฟเวอร์ของอีกฝ่าย (สูงสุด %2$lld MB)"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

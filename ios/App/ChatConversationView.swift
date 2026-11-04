@@ -230,7 +230,8 @@ struct ConversationView: View {
     private func addFiles(_ r: Result<[URL], Error>) {
         let urls = (try? r.get()) ?? []
         Task {
-            var empty: [String] = []
+            var empty: [String] = [], big: [String] = []
+            let v1Max = ChatFileLimits.v1Max(me: chat.me, chat: conv.info)
             for u in urls {
                 let ok = u.startAccessingSecurityScopedResource()
                 if let v = ChatVideoPick.pending(fromFile: u) {                       // 2.4: Video als Kopie (Datei)
@@ -238,14 +239,25 @@ struct ConversationView: View {
                     files.append(v); continue
                 }
                 // 4.11.: koordiniert lesen - Dateien aus iCloud Drive/Dateien-Anbietern, die noch nicht auf dem Geraet
-                // liegen, werden dabei erst geladen (vorher kamen sie leer an: 0 Byte verschluesselt und gesendet)
-                let d = await Task.detached(priority: .userInitiated) { ChatFileRead.coordinated(u) }.value
+                // liegen, werden dabei erst geladen (vorher kamen sie leer an: 0 Byte verschluesselt und gesendet).
+                // 2.5: ueber der v1-Grenze nicht in den Speicher, sondern als Kopie in den App-Ordner (Upload saga-file/v2)
+                let r = await Task.detached(priority: .userInitiated) { ChatFileRead.coordinated(u, copyAbove: v1Max) }.value
                 if ok { u.stopAccessingSecurityScopedResource() }
-                guard let d else { empty.append(u.lastPathComponent); continue }
-                guard !d.isEmpty else { empty.append(u.lastPathComponent); continue }   // leere Datei nie still senden
-                files.append(ChatPendingFile(name: u.lastPathComponent, mime: UTType(filenameExtension: u.pathExtension)?.preferredMIMEType ?? "application/octet-stream", data: d))
+                let name = u.lastPathComponent
+                let mime = UTType(filenameExtension: u.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+                switch r {
+                case .none: empty.append(name)                                       // leere Datei nie still senden
+                case .data(let d): files.append(ChatPendingFile(name: name, mime: mime, data: d))
+                case .file(let local, let size):
+                    if let e = ChatFileLimits.message(name, ChatFileLimits.plan(size, me: chat.me, chat: conv.info)) {
+                        ChatVideoFiles.remove(local); big.append(e); continue
+                    }
+                    files.append(ChatPendingFile(name: name, mime: mime, data: Data(), fileURL: local))
+                }
             }
-            if !empty.isEmpty { conv.sendError = String(localized: "Nicht angehängt (leer oder nicht lesbar): \(empty.joined(separator: ", "))") }
+            var msg: [String] = big
+            if !empty.isEmpty { msg.append(String(localized: "Nicht angehängt (leer oder nicht lesbar): \(empty.joined(separator: ", "))")) }
+            if !msg.isEmpty { conv.sendError = msg.joined(separator: " ") }
         }
     }
 
@@ -523,7 +535,7 @@ struct ConversationView: View {
                                 PendingFileIcon(file: f)
                                 Text(verbatim: f.name).lineLimit(1)
                                 if f.isVideo { PendingVideoToggle(file: $f) }
-                                Button { let id = f.id; if f.isVideo { ChatVideoFiles.remove(f.fileURL) }; files.removeAll { $0.id == id } } label: { Image(systemName: "xmark") }.buttonStyle(.plain).accessibilityLabel("Entfernen")
+                                Button { let id = f.id; if f.viaUpload { ChatVideoFiles.remove(f.fileURL) }; files.removeAll { $0.id == id } } label: { Image(systemName: "xmark") }.buttonStyle(.plain).accessibilityLabel("Entfernen")
                             }
                             .font(.caption).padding(.horizontal, 8).padding(.vertical, 4).background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
                         }
@@ -1157,8 +1169,9 @@ struct ChatAttachmentView: View {
     @ObservedObject var conv: ConversationModel
     var body: some View {
         if file.voice { VoiceMessageView(file: file, conv: conv) }                          // 2.5: Sprachnachricht
-        else if file.isVideo || file.isV2 { ChatVideoThumb(file: file, conv: conv) }       // 2.4: Poster, Player erst beim Antippen
+        else if file.isVideo { ChatVideoThumb(file: file, conv: conv) }                    // 2.4: Poster, Player erst beim Antippen
         else if !VideoSendLogic.known(file.x) { ChatNewerFormatRow(file: file) }           // neueres Format: nicht still scheitern
+        else if file.isV2 { ChatFileRow(file: file, conv: conv) }                          // 2.5: grosse Datei (auch Bild) - QuickLook
         else if file.isImage || file.thumb != nil { ChatImageThumb(file: file, conv: conv) } else { ChatFileRow(file: file, conv: conv) }
     }
 }
@@ -1299,6 +1312,21 @@ enum ChatFileRead {
         NSFileCoordinator().coordinate(readingItemAt: u, options: [], error: &err) { cu in out = try? Data(contentsOf: cu) }
         return out
     }
+    enum Picked { case none, data(Data), file(URL, Int64) }
+    /// 2.5: bis `copyAbove` Bytes in den Speicher, groessere Dateien als Kopie in den App-Ordner (ChatVideoFiles) -
+    /// nie ganz im Speicher. none = leer oder nicht lesbar.
+    nonisolated static func coordinated(_ u: URL, copyAbove: Int) -> Picked {
+        var out = Picked.none, err: NSError?
+        NSFileCoordinator().coordinate(readingItemAt: u, options: [], error: &err) { cu in
+            let size = ((try? FileManager.default.attributesOfItem(atPath: cu.path))?[.size] as? NSNumber)?.int64Value ?? 0
+            if ChatFileSendLogic.copyToFile(size: size, v1Max: copyAbove) {
+                if let local = try? ChatVideoFiles.adopt(cu, ext: cu.pathExtension.isEmpty ? "bin" : cu.pathExtension) { out = .file(local, ChatVideoFiles.size(local)) }
+            } else if let d = try? Data(contentsOf: cu), !d.isEmpty {
+                out = .data(d)
+            }
+        }
+        return out
+    }
 }
 
 struct ChatFileRow: View {
@@ -1307,6 +1335,7 @@ struct ChatFileRow: View {
     @State private var err: String?
     @State private var url: URL?
     @State private var loading = false
+    @State private var progress: Double?                               // 2.5: v2 (grosse Datei) wird als Strom entschluesselt
     @State private var preview: URL?                                   // 4.11.: Antippen oeffnet die Datei (QuickLook)
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -1326,6 +1355,7 @@ struct ChatFileRow: View {
                 .disabled(loading || file.size == 0)
                 .accessibilityHint(Text("Öffnen"))
                 if let url { ShareLink(item: url) { Image(systemName: "square.and.arrow.up") }.accessibilityLabel(Text("Teilen")) }
+                else if loading, let progress { ProgressView(value: progress).frame(width: 44).controlSize(.small) }
                 else if loading { ProgressView().controlSize(.small) }
                 else { Button { Task { await fetch() } } label: { Image(systemName: "arrow.down.circle") }.buttonStyle(.plain).accessibilityLabel(Text("Laden")) }
             }
@@ -1339,11 +1369,22 @@ struct ChatFileRow: View {
         if let url { preview = url }
     }
     private func fetch() async {
-        loading = true; defer { loading = false }
+        loading = true; defer { loading = false; progress = nil }
         do {
-            let d = try await conv.file(file)
             let name = file.name.isEmpty ? "datei" : file.name.replacingOccurrences(of: "/", with: "_")
             let fid = file.id
+            if file.isV2 {                                                  // 2.5: saga-file/v2 blockweise in die Datei, nie ganz in den Speicher
+                let dir = FileManager.default.temporaryDirectory.appendingPathComponent("chat-\(fid)", isDirectory: true)
+                try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                let u = dir.appendingPathComponent(name)
+                progress = 0
+                try await ChatVideoSave.decrypt(ChatVideoSource(file: file, store: conv.store), to: u) { p in
+                    Task { @MainActor in progress = p }
+                }
+                url = u; err = nil
+                return
+            }
+            let d = try await conv.file(file)
             // nur fuer "Teilen/Sichern": entschluesselte Kopie im temporaeren Ordner (wird vom System aufgeraeumt)
             url = try await Task.detached(priority: .userInitiated) { () -> URL in
                 let dir = FileManager.default.temporaryDirectory.appendingPathComponent("chat-\(fid)", isDirectory: true)

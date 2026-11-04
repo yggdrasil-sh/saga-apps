@@ -9,6 +9,17 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### iOS/Mac: große Dateien im Chat
+
+- **Jede Datei** über der v1-Grenze geht jetzt im Format saga-file/v2 (fortsetzbarer Upload in Teilen, wie Videos;
+  ohne Poster/Verkleinern), bis `video_max` (Standard 500 MB). Darüber: „… ist zu groß (höchstens N MB)“. Server ohne
+  `file2` bzw. Gegenstelle ohne `big_files`: wie bisher nur v1.
+- **v1-Grenze** = `file_max`, in Chats über Servergrenzen höchstens 10 MiB (gilt auch für Videos).
+- Große Dateien werden koordiniert in den App-Ordner kopiert, nie ganz in den Speicher geladen; Fortschritt über dem
+  Eingabefeld wie bei Videos. Leere Dateien werden weiter abgelehnt.
+- **Empfang:** v2-Anhänge ohne Video (auch große Bilder) öffnen per Antippen (QuickLook) und lassen sich teilen; sie
+  werden blockweise in eine temporäre Datei entschlüsselt. Weiterleiten großer Dateien ebenfalls als Strom.
+
 ### Linux: Live-Lämpchen, Datenbanken live, Chat-Dateien öffnen
 
 - **Live-Lämpchen** in der Kopfleiste der Seitenleiste: grün, solange der Live-Kanal steht, rot bei gespeichertem Stand
