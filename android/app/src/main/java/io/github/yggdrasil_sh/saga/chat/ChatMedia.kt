@@ -11,7 +11,7 @@ object ChatMedia {
     const val ZOOM_MAX = 5f
     const val ZOOM_DOUBLE = 2.5f
     /** Betrachter: laengste Seite des dekodierten Bilds (Speicher, Canvas-Grenze) */
-    const val VIEW_MAX_SIDE = 4096
+    const val VIEW_MAX_SIDE = 2560
     /** saga-file/v2-Bilder nur bis zu dieser Groesse ganz in den Speicher holen (sonst bleibt das Vorschaubild) */
     const val V2_VIEW_MAX = 64L * 1024 * 1024
 

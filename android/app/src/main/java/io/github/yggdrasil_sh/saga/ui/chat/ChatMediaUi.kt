@@ -219,7 +219,7 @@ private class ZoomState {
 }
 
 /** Zuletzt geladene Originale (wenige, Speicher) - Zurueckblaettern laedt nicht neu */
-private class ViewerCache(private val max: Int = 4) {
+private class ViewerCache(private val max: Int = 2) {
     private val map = object : LinkedHashMap<String, ImageBitmap>(8, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ImageBitmap>?): Boolean = size > max
     }

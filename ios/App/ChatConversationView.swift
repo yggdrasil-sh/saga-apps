@@ -1340,6 +1340,10 @@ struct ChatImageViewer: View {
             zoomed = false
             if let p, let i = files.firstIndex(where: { $0.id == p }) { at = i }
         }
+        .onDisappear {                                                     // Klartext-Kopien nicht liegen lassen
+            guard !saving else { return }
+            for u in copies.values { try? FileManager.default.removeItem(at: u) }
+        }
     }
 
     /// iPhone/iPad: seitlich wischen (Seiten), gezoomt gesperrt; Mac: ein Bild, Blaettern mit Pfeiltasten/Knoepfen
