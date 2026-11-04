@@ -35,3 +35,38 @@ def test_private_path_and_remove(tmp_path, monkeypatch):
     chatfiles.remove(p)
     assert not os.path.exists(d)
     chatfiles.remove(str(tmp_path / "fremd" / "x"))          # ausserhalb: nichts passiert
+
+
+# --- Senden: v1 oder saga-file/v2 (4.11.) ----------------------------------------------------------------------------------
+MiB = chatfiles.MiB
+
+
+def test_v1_max_fed_capped():
+    lim = {"file_max": 25 * MiB, "file2": True, "video_max": 500 * MiB}
+    assert chatfiles.v1_max(lim) == 25 * MiB
+    assert chatfiles.v1_max(lim, fed=True) == 10 * MiB                 # ueber Servergrenzen hoechstens 10 MiB
+    assert chatfiles.v1_max({"file_max": 5 * MiB}, fed=True) == 5 * MiB
+    assert chatfiles.v1_max({}) == 10 * MiB
+
+
+def test_send_plan_local():
+    lim = {"file_max": 25 * MiB, "file2": True, "video_max": 500 * MiB}
+    p = chatfiles.send_plan
+    assert p(0, lim) == ("empty", 0)
+    assert p(1, lim) == ("v1", 0) and p(25 * MiB, lim) == ("v1", 0)
+    assert p(25 * MiB + 1, lim) == ("v2", 0) and p(500 * MiB, lim) == ("v2", 0)
+    assert p(500 * MiB + 1, lim) == ("max", 500)                        # ueber video_max: Hinweis
+    assert p(25 * MiB + 1, {"file_max": 25 * MiB}) == ("server", 25)    # Server ohne file2: wie bisher
+    assert chatfiles.max_send(lim) == 500 * MiB and chatfiles.max_send({"file_max": 25 * MiB}) == 25 * MiB
+
+
+def test_send_plan_fed():
+    lim = {"file_max": 25 * MiB, "file2": True, "video_max": 500 * MiB}
+    p = chatfiles.send_plan
+    assert p(10 * MiB, lim, True, True) == ("v1", 0)
+    assert p(10 * MiB + 1, lim, True, True) == ("v2", 0)                # unter file_max, aber ueber 10 MiB: v2
+    assert p(10 * MiB + 1, lim, True, None) == ("v2", 0)
+    assert p(10 * MiB + 1, lim, True, False) == ("peer", 10)            # Gegenueber ohne chatfile2: nur v1 bis 10 MiB
+    assert p(10 * MiB + 1, {"file_max": 25 * MiB}, True, True) == ("server", 10)
+    assert p(10 * MiB + 1, lim, False, False) == ("v1", 0)              # big_files zaehlt nur ueber Servergrenzen
+    assert chatfiles.max_send(lim, True, False) == 10 * MiB and chatfiles.max_send(lim, True, True) == 500 * MiB

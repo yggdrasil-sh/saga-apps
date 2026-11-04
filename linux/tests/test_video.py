@@ -229,6 +229,40 @@ def test_send_video_message_v1_v2_and_old_server(win, srv, tmp_path):
     assert "x" not in out2[0]
 
 
+def test_send_big_file_v2_and_old_server(win, srv, tmp_path):
+    """4.11.: grosse Nicht-Video-Datei vom Pfad - ueber file_max saga-file/v2 ohne Poster/Dauer, darunter v1"""
+    from hlidskjalf import chatvideo as V
+    from hlidskjalf.chat import ChatError, chat
+    cid = _chat(srv)
+    big = _file(tmp_path, 2 * CS + 10, "gross.pdf")
+    small = _file(tmp_path, 1000, "klein.pdf")
+    files = [("gross.pdf", "application/pdf", V.LocalFile(big, os.path.getsize(big))),
+             ("klein.pdf", "application/pdf", V.LocalFile(small, 1000))]
+    pending, prog = [], []
+    out, ids = chat.upload_attachments(cid, files, progress=lambda i, t: prog.append((i, t)), pending=pending)
+    g, k = out
+    assert g["x"] == 2 and g["cs"] == CS and g["s"] == os.path.getsize(big) and g["m"] == "application/pdf"
+    assert not ({"dur", "w", "h", "th"} & set(g)) and "x" not in k and ids == [g["id"], k["id"]]
+    assert pending == [g["id"]] and any("%" in t for i, t in prog if i == 0)
+    resp, _m = chat.send(cid, {"v": 1, "type": "text", "text": "", "files": out}, file_ids=ids)
+    assert resp["ok"]
+    for p in pending:
+        V.pending_drop(p)
+    buf = bytearray()
+    assert chat.save_file(cid, g, buf.extend) == g["s"] and bytes(buf) == open(big, "rb").read()
+    assert chat.fetch_file(cid, k) == open(small, "rb").read()
+    empty = tmp_path / "leer.bin"
+    empty.write_bytes(b"")
+    with pytest.raises(ChatError):
+        chat.upload_attachments(cid, [("leer.bin", None, V.LocalFile(str(empty), 0))])
+    srv.file2 = False                                     # Server 2.3: grosse Dateien abgelehnt, kleine wie bisher
+    chat.refresh()
+    pump(lambda: not (chat.limits or {}).get("file2"), 4)
+    with pytest.raises(ChatError):
+        chat.upload_attachments(cid, files[:1])
+    assert "x" not in chat.upload_attachments(cid, files[1:2])[0][0]
+
+
 def test_range_token_blocks_and_cache(win, srv, tmp_path):
     from hlidskjalf import chatvideo as V
     from hlidskjalf.chat import chat

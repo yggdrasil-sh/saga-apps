@@ -792,7 +792,7 @@ class Conversation(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, vexpand=True, hexpand=True)
         self.screen, self.win, self.cid = screen, screen.win, cid
         self.reply = None
-        self.files = []              # [(name, mime, bytes | chatvideo.LocalVideo)]
+        self.files = []              # [(name, mime, bytes | chatvideo.LocalFile/LocalVideo)]
         self._sending = None         # threading.Event waehrend des Sendens (Abbrechen)
         self.mentions = {}           # "@Titel" -> Seiten-ID
         self.query = ""
@@ -2614,9 +2614,13 @@ class Conversation(Gtk.Box):
         return clipimg.read_paste(cb, self.add_files, self.add_image,
                                   lambda: self.entry.activate_action("clipboard.paste", None))
 
+    def _v1_max(self):
+        """v1-Grenze dieses Chats (4.11.): file_max, ueber Servergrenzen hoechstens 10 MiB"""
+        return chatfiles.v1_max(chat.limits, is_fed(chat.chat(self.cid)))
+
     def add_image(self, data, name=None, mime="image/png"):
         """Bilddaten (Zwischenablage) als Anhang - zu gross: verkleinern"""
-        fmax = int((chat.limits or {}).get("file_max") or 25 * 1048576)
+        fmax = self._v1_max()
 
         def work():
             d, m = clipimg.shrink(data, fmax)
@@ -2634,7 +2638,7 @@ class Conversation(Gtk.Box):
 
     def _pick_immich(self):
         from .dialogs import ImmichPicker
-        fmax = int((chat.limits or {}).get("file_max") or 25 * 1048576)
+        fmax = self._v1_max()
         ImmichPicker(self.win, lambda r: self._add_ready([r]), fetch=lambda it: clipimg.immich_for_chat(it, fmax)).present(self.win)
 
     def _add_ready(self, lst):
@@ -2660,10 +2664,13 @@ class Conversation(Gtk.Box):
         fd.open_multiple(self.win, None, done)
 
     def add_files(self, gfiles):
-        """Dateien (Auswahl, Zwischenablage) als Anhaenge; zu grosse Bilder werden verkleinert, andere abgelehnt"""
+        """Dateien (Auswahl, Zwischenablage) als Anhaenge; zu grosse Bilder werden verkleinert, andere grosse Dateien gehen
+        (4.11.) als saga-file/v2 vom Pfad (nie ganz im Speicher), sonst abgelehnt"""
         lim = chat.limits or {}
-        fmax = int(lim.get("file_max") or 25 * 1048576)
         ch = chat.chat(self.cid)
+        fed = is_fed(ch)
+        fmax = chatfiles.v1_max(lim, fed)                 # v1-Grenze (ueber Servergrenzen hoechstens 10 MiB)
+        big = ch.get("big_files") if isinstance(ch, dict) else None
 
         def work():
             from . import videotools
@@ -2676,7 +2683,7 @@ class Conversation(Gtk.Box):
                     # Video (2.4): nur Pfad merken - bis file_max v1, darueber saga-file/v2; zu gross: nur verkleinert
                     size = info.get_size()
                     try:
-                        chatvideo.plan(name, size, lim, ch, is_fed(ch))
+                        chatvideo.plan(name, size, lim, ch, fed)
                         out.append((name, mime, chatvideo.LocalVideo(g.get_path(), size)))
                     except chatvideo.VideoError as e:
                         if videotools.can_optimize() and size > fmax and (lim.get("file2") or size < 8 * fmax):
@@ -2684,18 +2691,26 @@ class Conversation(Gtk.Box):
                         else:
                             out.append((name, None, str(e)))
                     continue
-                if info.get_size() == 0:                       # 4.11.: leere Datei nie still als Anhang senden
+                size = info.get_size()
+                how, n = chatfiles.send_plan(size, lim, fed, big)
+                if how == "empty":                             # 4.11.: leere Datei nie still als Anhang senden
                     out.append((name, None, _("“{name}” is empty (0 bytes) and was not attached.").format(name=name)))
                     continue
-                if info.get_size() > fmax:
-                    if mime.startswith("image/") or clipimg.file_is_image(g):
-                        try:
+                if how != "v1":
+                    if (mime.startswith("image/") or clipimg.file_is_image(g)) and (size <= 8 * fmax or how != "v2"):
+                        try:                                    # Bild: wie bisher verkleinert als v1
                             data, m = clipimg.shrink(g.load_bytes(None)[0].get_data(), fmax)
                             out.append((clipimg.with_ext(name, m), m, data))
                             continue
-                        except Exception:  # noqa: BLE001 - nicht lesbar: wie jede zu grosse Datei melden
+                        except Exception:  # noqa: BLE001 - nicht verkleinerbar: wie jede grosse Datei
                             pass
-                    out.append((name, None, _("“{name}” is too large (at most {n} MB).").format(name=name, n=fmax // 1048576)))
+                    if how == "v2" and g.get_path():           # 4.11.: grosse Datei als saga-file/v2 (nur Pfad merken)
+                        out.append((name, mime, chatvideo.LocalFile(g.get_path(), size)))
+                    elif how == "peer":
+                        out.append((name, None, _("The other person's server can't take large files yet (at most {n} MB).").format(n=n)))
+                    else:
+                        out.append((name, None, _("“{name}” is too large (at most {n} MB).").format(
+                            name=name, n=n or max(1, fmax // 1048576))))
                     continue
                 data = g.load_bytes(None)[0].get_data()
                 if not data:
@@ -2718,10 +2733,11 @@ class Conversation(Gtk.Box):
         for i, (name, mime, data) in enumerate(self.files):
             chip = Gtk.Box(spacing=6)
             chip.add_css_class("hk-tag")
-            if isinstance(data, chatvideo.LocalVideo):         # Video (2.4): Pfad, Groesse, "optimiert 720p", Fortschritt
-                label = "🎬 " + name + " · " + human_size(len(data))
+            if isinstance(data, chatvideo.LocalFile):          # Video (2.4)/grosse Datei (4.11.): Pfad, Groesse, Fortschritt
+                vid = isinstance(data, chatvideo.LocalVideo)
+                label = ("🎬 " if vid else "📎 ") + name + " · " + human_size(len(data))
                 chip.append(_lbl(label, wrap=False, ellipsize=Pango.EllipsizeMode.MIDDLE, max_width_chars=28))
-                if videotools.can_optimize() and not sending:
+                if vid and videotools.can_optimize() and not sending:
                     cb = Gtk.CheckButton(label=_("Optimized 720p"), active=data.optimize, sensitive=not data.forced)
                     cb.set_tooltip_text(_("Make the video smaller before sending (H.264, 1280×720). Otherwise the original is sent."))
                     cb.connect("toggled", lambda b, v=data: setattr(v, "optimize", b.get_active()))
@@ -2744,7 +2760,7 @@ class Conversation(Gtk.Box):
                 chip.append(flat_button(icon="window-close-symbolic", css="hk-tiny", tooltip=_("Remove"),
                                         cb=lambda i=i: (self.files.pop(i), self._files_bar())))
             self.files_bar.append(chip)
-        if sending and any(isinstance(d, chatvideo.LocalVideo) for _n, _m, d in self.files):
+        if sending and any(isinstance(d, chatvideo.LocalFile) for _n, _m, d in self.files):
             self.files_bar.append(_button(_("Cancel upload"), ("destructive-action",), cb=self._cancel_upload))
         self.files_bar.set_visible(bool(self.files))
         self._changed(self.entry.get_buffer())
@@ -2755,7 +2771,7 @@ class Conversation(Gtk.Box):
 
     def _upload_status(self, i, text):
         """Fortschritt eines Anhangs (Hauptthread)"""
-        if 0 <= i < len(self.files) and isinstance(self.files[i][2], chatvideo.LocalVideo):
+        if 0 <= i < len(self.files) and isinstance(self.files[i][2], chatvideo.LocalFile):
             self.files[i][2].status = text
             ch = self.files_bar.get_child_at_index(i)
             box = ch.get_child() if ch else None
@@ -2836,7 +2852,7 @@ class Conversation(Gtk.Box):
         stop = threading.Event()
         self._sending = stop
         pending = []
-        if any(isinstance(d, chatvideo.LocalVideo) for _n, _m, d in files):
+        if any(isinstance(d, chatvideo.LocalFile) for _n, _m, d in files):
             self._files_bar()
 
         def work():
@@ -2866,7 +2882,7 @@ class Conversation(Gtk.Box):
         def done_sending():
             self._sending = None
             for _n, _m, d in self.files:
-                if isinstance(d, chatvideo.LocalVideo):
+                if isinstance(d, chatvideo.LocalFile):
                     d.status = ""
 
         def fin(r):

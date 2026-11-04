@@ -20,7 +20,7 @@ import urllib.parse
 
 from gi.repository import GLib, GObject
 
-from . import APP_ID, aichat, chatmedia, chatvideo, config
+from . import APP_ID, aichat, chatfiles, chatmedia, chatvideo, config
 from . import chatcrypto as C
 from . import chatstatus as S
 from .api import APIError, client, no_real_name
@@ -1981,6 +1981,8 @@ class ChatState(GObject.Object):
             if isinstance(data, chatvideo.LocalVideo):
                 e, poster = self.upload_video(cid, name, mime, data, lambda t, i=idx: progress and progress(i, t), cancelled, pending)
                 posters.append((e, poster))
+            elif isinstance(data, chatvideo.LocalFile):   # 4.11.: grosse Datei - ueber der v1-Grenze saga-file/v2
+                e = self.upload_big_file(cid, name, mime, data, lambda t, i=idx: progress and progress(i, t), cancelled, pending)
             else:
                 if cancelled and cancelled():
                     raise chatvideo.Cancelled()
@@ -1995,7 +1997,7 @@ class ChatState(GObject.Object):
             e["th"] = {"id": te["id"], "k": te["k"], "m": "image/jpeg", "w": tw, "h": th, "s": len(jpeg)}
             ids.append(te["id"])
         for e, (name, mime, data) in zip(out, files):
-            if isinstance(data, chatvideo.LocalVideo) or not chatmedia.is_image(e):
+            if isinstance(data, chatvideo.LocalFile) or not chatmedia.is_image(e):
                 continue
             t = chatmedia.make_thumb(data)
             if t is None:
@@ -2008,6 +2010,34 @@ class ChatState(GObject.Object):
             e["th"] = {"id": te["id"], "k": te["k"], "m": "image/jpeg", "w": tw, "h": th, "s": len(tb)}
             ids.append(te["id"])
         return out, ids
+
+    def upload_big_file(self, cid, name, mime, v, progress=None, cancelled=None, pending=None):
+        """Hintergrund (4.11.): Datei vom Pfad senden - bis zur v1-Grenze (file_max, ueber Servergrenzen hoechstens 10 MiB)
+        als v1, darueber saga-file/v2 (blockweise aus der Datei, fortsetzbar). Ohne Poster/Dauer. -> Eintrag"""
+        ch = self.chat(cid)
+        size = os.path.getsize(v.path)
+        how, n = chatfiles.send_plan(size, self.limits, is_fed(ch), ch.get("big_files") if isinstance(ch, dict) else None)
+        mime = mime or "application/octet-stream"
+        if how == "empty":
+            raise ChatError(_("“{name}” is empty (0 bytes) and was not attached.").format(name=name))
+        if how == "peer":
+            raise ChatError(_("The other person's server can't take large files yet (at most {n} MB).").format(n=n))
+        if how in ("server", "max"):
+            raise ChatError(_("“{name}” is too large (at most {n} MB).").format(name=name, n=n))
+        if cancelled and cancelled():
+            raise chatvideo.Cancelled()
+        if how == "v1":
+            with open(v.path, "rb") as fh:
+                data = fh.read()
+            return self.upload_file(cid, data, name, mime)
+
+        def prog(sent, total):
+            if progress:
+                progress(_("Uploading {pct} %").format(pct=int(sent * 100 / max(1, total))))
+        r = chatvideo.upload(cid, v.path, prog, cancelled, self.limits)
+        if pending is not None:
+            pending.append(r["pending"])
+        return {"id": r["id"], "k": r["k"], "n": name[:200], "m": mime, "s": size, "x": 2, "cs": r["cs"]}
 
     def upload_video(self, cid, name, mime, v, progress=None, cancelled=None, pending=None):
         """Hintergrund (2.4): Video senden - Metadaten und Poster per GStreamer (falls vorhanden), optional "optimiert"

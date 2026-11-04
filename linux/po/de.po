@@ -9601,3 +9601,7 @@ msgstr "Live – aktuell vom Server"
 #: hlidskjalf/window.py
 msgid "Saved copy – no connection to the server"
 msgstr "Gespeicherter Stand – keine Verbindung zum Server"
+
+#: hlidskjalf/chat.py hlidskjalf/chatview.py
+msgid "The other person's server can't take large files yet (at most {n} MB)."
+msgstr "Der Server des Gegenübers kann große Dateien noch nicht (höchstens {n} MB)."

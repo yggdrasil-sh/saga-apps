@@ -9246,3 +9246,7 @@ msgstr "สด – ข้อมูลล่าสุดจากเซิร์�
 #: hlidskjalf/window.py
 msgid "Saved copy – no connection to the server"
 msgstr "สำเนาที่บันทึกไว้ – ไม่มีการเชื่อมต่อกับเซิร์ฟเวอร์"
+
+#: hlidskjalf/chat.py hlidskjalf/chatview.py
+msgid "The other person's server can't take large files yet (at most {n} MB)."
+msgstr "เซิร์ฟเวอร์ของอีกฝ่ายยังไม่รองรับไฟล์ขนาดใหญ่ (สูงสุด {n} MB)"

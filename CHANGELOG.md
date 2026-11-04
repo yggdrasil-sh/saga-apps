@@ -28,6 +28,13 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Chats über Servergrenzen: v1 höchstens 10 MiB (Server des Gegenübers), auch für Videos; ohne `big_files` nur v1.
   Server ohne `file2`: wie bisher. Große Bilder per v2 erscheinen als Datei (ohne Vorschau).
 
+### Linux: große Dateien im Chat
+
+- Dateien über der v1-Grenze gehen jetzt wie große Videos als **saga-file/v2** (blockweise vom Pfad, fortsetzbar, nie
+  ganz im Speicher) – bis `video_max`, darüber ein Hinweis. Fortschritt und „Hochladen abbrechen“ in der Senden-Leiste.
+- v1-Grenze: `file_max`, in Chats über Servergrenzen höchstens 10 MiB (auch für Videos). Gegenüber ohne große Anhänge
+  (`big_files: false`) oder Server ohne `limits.file2`: wie bisher nur v1. Test `test_chatfiles.py`, `test_video.py`.
+
 ### Linux: Live-Lämpchen, Datenbanken live, Chat-Dateien öffnen
 
 - **Live-Lämpchen** in der Kopfleiste der Seitenleiste: grün, solange der Live-Kanal steht, rot bei gespeichertem Stand

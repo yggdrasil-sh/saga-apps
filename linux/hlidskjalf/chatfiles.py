@@ -61,3 +61,45 @@ def remove(path):
     d = os.path.dirname(path)
     if os.path.dirname(d) == base_dir():
         shutil.rmtree(d, ignore_errors=True)
+
+
+# --- Senden: v1 oder saga-file/v2 (4.11.) ----------------------------------------------------------------------------------
+MiB = 1048576
+FED_V1_MAX = 10 * MiB            # ueber Servergrenzen hoechstens so gross als v1 (ein Block), groesser nur als v2
+
+
+def v1_max(limits, fed=False):
+    """groesste Klartext-Groesse fuer v1 (ein Block): file_max, in Chats ueber Servergrenzen hoechstens 10 MiB"""
+    fmax = int((limits or {}).get("file_max") or FED_V1_MAX)
+    return min(fmax, FED_V1_MAX) if fed else fmax
+
+
+def send_plan(size, limits, fed=False, big_files=None):
+    """Wie wird ein Anhang (oder Video) dieser Groesse gesendet? -> (art, n_mb)
+    art: "v1" | "v2" | "empty" | "server" (Server ohne limits.file2) | "peer" (Gegenueber ohne chatfile2) | "max"
+    (groesser als video_max). n_mb: die fuer den Hinweis passende Grenze in MB (sonst 0)."""
+    lim = limits or {}
+    size = int(size or 0)
+    if size <= 0:
+        return "empty", 0
+    v1 = v1_max(lim, fed)
+    if size <= v1:
+        return "v1", 0
+    n1 = max(1, v1 // MiB)
+    if not lim.get("file2"):
+        return "server", n1
+    if fed and big_files is False:
+        return "peer", n1
+    vmax = int(lim.get("video_max") or 0)
+    if vmax and size > vmax:
+        return "max", max(1, vmax // MiB)
+    return "v2", 0
+
+
+def max_send(limits, fed=False, big_files=None):
+    """groesste sendbare Klartext-Groesse (v1 oder v2)"""
+    lim = limits or {}
+    v1 = v1_max(lim, fed)
+    if not lim.get("file2") or (fed and big_files is False):
+        return v1
+    return max(v1, int(lim.get("video_max") or 0) or v1)

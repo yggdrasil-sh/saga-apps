@@ -9576,3 +9576,7 @@ msgstr "В реальном времени – данные с сервера"
 #: hlidskjalf/window.py
 msgid "Saved copy – no connection to the server"
 msgstr "Сохранённая копия – нет связи с сервером"
+
+#: hlidskjalf/chat.py hlidskjalf/chatview.py
+msgid "The other person's server can't take large files yet (at most {n} MB)."
+msgstr "Сервер собеседника пока не принимает большие файлы (не более {n} МБ)."

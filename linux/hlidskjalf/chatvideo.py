@@ -29,6 +29,7 @@ import time
 import urllib.parse
 
 from . import chatcrypto as C
+from . import chatfiles
 from . import config
 from . import filev2 as F
 from .api import APIError, client
@@ -51,17 +52,25 @@ class VideoError(Exception):
 Cancelled = F.Cancelled
 
 
-class LocalVideo:
-    """Video als Anhang im Eingabefeld: nur Pfad und Groesse (nie ganz im Speicher). optimize: "optimiert 720p"."""
+class LocalFile:
+    """Grosse Datei als Anhang im Eingabefeld (4.11.): nur Pfad und Groesse (nie ganz im Speicher), Fortschritt beim
+    Senden. Ueber der v1-Grenze geht sie als saga-file/v2 (ohne Poster/Dauer)."""
 
-    def __init__(self, path, size, optimize=False, forced=False):
+    def __init__(self, path, size):
         self.path, self.size = path, int(size)
-        self.optimize = optimize
-        self.forced = forced                 # zu gross fuer das Original: nur verkleinert sendbar
         self.status = ""                     # Fortschritt beim Senden
 
     def __len__(self):
         return self.size
+
+
+class LocalVideo(LocalFile):
+    """Video als Anhang im Eingabefeld: nur Pfad und Groesse (nie ganz im Speicher). optimize: "optimiert 720p"."""
+
+    def __init__(self, path, size, optimize=False, forced=False):
+        super().__init__(path, size)
+        self.optimize = optimize
+        self.forced = forced                 # zu gross fuer das Original: nur verkleinert sendbar
 
 
 def is_video(f):
@@ -100,29 +109,22 @@ def display_size(f):
 
 # --- Grenzen ---------------------------------------------------------------------------------------------------------------
 def plan(name, size, limits, ch=None, fed=False):
-    """Wie wird ein Video dieser Groesse gesendet? -> "v1" | "v2"; sonst VideoError mit Hinweis"""
-    lim = limits or {}
-    fmax = int(lim.get("file_max") or 10 * MiB)
-    if size <= fmax:
-        return "v1"
-    n = max(1, fmax // MiB)
-    if not lim.get("file2"):
+    """Wie wird ein Video dieser Groesse gesendet? -> "v1" | "v2"; sonst VideoError mit Hinweis.
+    v1 bis file_max, ueber Servergrenzen hoechstens 10 MiB (chatfiles.send_plan)."""
+    big = ch.get("big_files") if isinstance(ch, dict) else None
+    how, n = chatfiles.send_plan(max(1, int(size or 0)), limits, fed, big)
+    if how in ("v1", "v2"):
+        return how
+    if how == "server":
         raise VideoError(_("“{name}” is too large (at most {n} MB). This server can't take larger videos yet.").format(name=name, n=n))
-    if fed and isinstance(ch, dict) and ch.get("big_files") is False:
+    if how == "peer":
         raise VideoError(_("The other person's server can't take large videos yet (at most {n} MB).").format(n=n))
-    vmax = int(lim.get("video_max") or 0)
-    if vmax and size > vmax:
-        raise VideoError(_("“{name}” is too large (at most {n} MB).").format(name=name, n=max(1, vmax // MiB)))
-    return "v2"
+    raise VideoError(_("“{name}” is too large (at most {n} MB).").format(name=name, n=n))
 
 
 def max_video(limits, ch=None, fed=False):
     """groesste sendbare Videogroesse (Klartext)"""
-    lim = limits or {}
-    fmax = int(lim.get("file_max") or 10 * MiB)
-    if not lim.get("file2") or (fed and isinstance(ch, dict) and ch.get("big_files") is False):
-        return fmax
-    return max(fmax, int(lim.get("video_max") or 0) or fmax)
+    return chatfiles.max_send(limits, fed, ch.get("big_files") if isinstance(ch, dict) else None)
 
 
 def mp4_faststart(path):
