@@ -218,4 +218,9 @@
     <string name="chat_fed_hint">ยังแชทกับผู้คนบนเซิร์ฟเวอร์ Saga อื่นไม่ได้ คุณแชร์หน้าได้ด้วย name@server (ใช้ชื่อสาธารณะของบุคคลนั้น)</string>
     <string name="chat_fed_hint_local">ค้นหาผู้คนบนเซิร์ฟเวอร์นี้ด้วยชื่อหรือชื่อผู้ใช้ ไม่ใช่ด้วยที่อยู่อีเมล</string>
     <string name="chat_fed_guide">คู่มือ: การเชื่อมต่อระหว่างเซิร์ฟเวอร์</string>
+    <!-- 2.5: grosse Dateien im Chat (saga-file/v2) -->
+    <string name="file_uploading">กำลังอัปโหลดไฟล์</string>
+    <string name="file_send_failed">ส่งไฟล์ไม่สำเร็จ</string>
+    <string name="file_peer_old_short">เซิร์ฟเวอร์ของอีกฝ่ายยังไม่รองรับไฟล์ขนาดใหญ่</string>
+    <string name="file_quota">พื้นที่แชตเต็มหรือไฟล์ใหญ่เกินไป</string>
 </resources>

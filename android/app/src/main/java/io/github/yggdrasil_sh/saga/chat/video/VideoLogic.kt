@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.chat.video
 
+import io.github.yggdrasil_sh.saga.chat.ChatAttach
 import io.github.yggdrasil_sh.saga.chat.ChatLimits
 import java.io.InputStream
 import kotlin.math.roundToInt
@@ -16,31 +17,11 @@ object VideoLogic {
     /** darunter lohnt das Verkleinern nicht (Bitrate bereits klein, kurze Seite <= 720) */
     const val OPT_SKIP_BITRATE = 3_200_000L
 
-    enum class Route {
-        /** bis file_max: wie bisher ein Block (POST .../files) */
-        V1,
-        /** saga-file/v2, Upload in Teilen */
-        V2,
-        /** groesser als file_max, Server kann kein saga-file/v2 (2.3) */
-        NO_FILE2,
-        /** Chat ueber Servergrenzen, der andere Server hat Saga 2.3 (big_files false) */
-        PEER_OLD,
-        /** groesser als video_max */
-        TOO_BIG,
-    }
-
-    /** Weg fuer ein (ggf. optimiertes) Video der Groesse size */
-    fun route(size: Long, l: ChatLimits, bigFiles: Boolean?): Route = when {
-        size <= l.fileMax -> Route.V1
-        !l.file2 -> Route.NO_FILE2
-        bigFiles == false -> Route.PEER_OLD
-        l.videoMax > 0 && size > l.videoMax -> Route.TOO_BIG
-        else -> Route.V2
-    }
+    /** Weg fuer ein Video (aeltere Aufrufe/Tests): big_files gibt es nur in Chats ueber Servergrenzen */
+    fun route(size: Long, l: ChatLimits, bigFiles: Boolean?): ChatAttach.Route = ChatAttach.route(size, l, bigFiles != null, bigFiles)
 
     /** groesste Videogroesse, die in diesem Chat gesendet werden kann (Hinweistexte) */
-    fun maxSize(l: ChatLimits, bigFiles: Boolean?): Long =
-        if (!l.file2 || bigFiles == false) l.fileMax else maxOf(l.fileMax, l.videoMax.takeIf { it > 0 } ?: l.fileMax)
+    fun maxSize(l: ChatLimits, bigFiles: Boolean?): Long = ChatAttach.maxSize(l, bigFiles != null, bigFiles)
 
     /** N-13: verkleinerte Fassung nur nehmen, wenn sie wirklich kleiner ist (Groesse des Originals unbekannt: nehmen) */
     fun keepOptimized(optimized: Long, original: Long?): Boolean = optimized > 0 && (original == null || optimized < original)

@@ -236,4 +236,9 @@
     <string name="chat_fed_hint">Чатов с людьми с других серверов Saga пока нет. Страницами можно делиться через имя@сервер (по публичному имени человека).</string>
     <string name="chat_fed_hint_local">Людей на этом сервере ищите по имени или имени пользователя, а не по адресу эл. почты.</string>
     <string name="chat_fed_guide">Руководство: федерация</string>
+    <!-- 2.5: grosse Dateien im Chat (saga-file/v2) -->
+    <string name="file_uploading">Загрузка файла</string>
+    <string name="file_send_failed">Не удалось отправить файл.</string>
+    <string name="file_peer_old_short">Сервер собеседника пока не поддерживает большие файлы.</string>
+    <string name="file_quota">Хранилище чатов заполнено или файл слишком большой.</string>
 </resources>

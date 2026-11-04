@@ -20,6 +20,14 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Empfang:** v2-Anhänge ohne Video (auch große Bilder) öffnen per Antippen (QuickLook) und lassen sich teilen; sie
   werden blockweise in eine temporäre Datei entschlüsselt. Weiterleiten großer Dateien ebenfalls als Strom.
 
+### Android: große Dateien im Chat
+
+- Dateien über der v1-Grenze (`file_max`) gehen wie Videos im Hintergrund per saga-file/v2 (Upload in Teilen,
+  fortsetzbar, Fortschritt und Abbrechen in der Senden-Leiste, Dateisymbol) – bis `video_max`, darüber „Datei zu groß
+  (max. N MB)“. Große Dateien werden nie ganz in den Speicher gelesen; leere Dateien weiterhin abgelehnt.
+- Chats über Servergrenzen: v1 höchstens 10 MiB (Server des Gegenübers), auch für Videos; ohne `big_files` nur v1.
+  Server ohne `file2`: wie bisher. Große Bilder per v2 erscheinen als Datei (ohne Vorschau).
+
 ### Linux: Live-Lämpchen, Datenbanken live, Chat-Dateien öffnen
 
 - **Live-Lämpchen** in der Kopfleiste der Seitenleiste: grün, solange der Live-Kanal steht, rot bei gespeichertem Stand

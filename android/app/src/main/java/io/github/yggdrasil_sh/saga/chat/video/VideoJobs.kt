@@ -43,6 +43,10 @@ data class VideoJob(
     /** fertig hochgeladen: Datei-Kennung, Format (1/2), Schluessel (B64) */
     val fileId: String? = null,
     val x: Int? = null,
+    /** 2.5: false = andere grosse Datei (kein Poster, kein "optimiert 720p", keine Dauer) - gleicher Weg wie Videos */
+    val video: Boolean = true,
+    /** angegebene Groesse der Quelle (OpenableColumns.SIZE), falls der Dateideskriptor keine liefert */
+    val declared: Long? = null,
 )
 
 /** Ablage der Auftraege (verschluesselt im Keystore-Speicher) + Liste der Kennungen fuers Aufraeumen */

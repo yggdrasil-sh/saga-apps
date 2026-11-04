@@ -2,6 +2,7 @@ package io.github.yggdrasil_sh.saga
 
 import com.goterl.lazysodium.LazySodiumJava
 import com.goterl.lazysodium.SodiumJava
+import io.github.yggdrasil_sh.saga.chat.ChatAttach
 import io.github.yggdrasil_sh.saga.chat.ChatCrypto
 import io.github.yggdrasil_sh.saga.chat.ChatLimits
 import io.github.yggdrasil_sh.saga.chat.FileV2
@@ -146,14 +147,14 @@ class VideoUploadTest {
     @Test
     fun routesFromServerLimits() {
         val old = ChatLimits(fileMax = 10L shl 20)                                   // Server 2.3: kein file2
-        assertEquals(VideoLogic.Route.V1, VideoLogic.route(10L shl 20, old, null))
-        assertEquals(VideoLogic.Route.NO_FILE2, VideoLogic.route((10L shl 20) + 1, old, null))
+        assertEquals(ChatAttach.Route.V1, VideoLogic.route(10L shl 20, old, null))
+        assertEquals(ChatAttach.Route.NO_FILE2, VideoLogic.route((10L shl 20) + 1, old, null))
         val new = ChatLimits(fileMax = 10L shl 20, file2 = true, videoMax = 500L shl 20)
-        assertEquals(VideoLogic.Route.V2, VideoLogic.route(11L shl 20, new, null))
-        assertEquals(VideoLogic.Route.V2, VideoLogic.route(11L shl 20, new, true))
-        assertEquals(VideoLogic.Route.PEER_OLD, VideoLogic.route(11L shl 20, new, false))   // Gegenueber hat 2.3
-        assertEquals(VideoLogic.Route.V1, VideoLogic.route(5L shl 20, new, false))          // bis 10 MB geht immer
-        assertEquals(VideoLogic.Route.TOO_BIG, VideoLogic.route((500L shl 20) + 1, new, true))
+        assertEquals(ChatAttach.Route.V2, VideoLogic.route(11L shl 20, new, null))
+        assertEquals(ChatAttach.Route.V2, VideoLogic.route(11L shl 20, new, true))
+        assertEquals(ChatAttach.Route.PEER_OLD, VideoLogic.route(11L shl 20, new, false))   // Gegenueber hat 2.3
+        assertEquals(ChatAttach.Route.V1, VideoLogic.route(5L shl 20, new, false))          // bis 10 MB geht immer
+        assertEquals(ChatAttach.Route.TOO_BIG, VideoLogic.route((500L shl 20) + 1, new, true))
         assertEquals(10L shl 20, VideoLogic.maxSize(new, false))
         assertEquals(500L shl 20, VideoLogic.maxSize(new, true))
     }

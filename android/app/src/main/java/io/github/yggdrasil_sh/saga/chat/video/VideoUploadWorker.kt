@@ -23,6 +23,7 @@ import androidx.work.workDataOf
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.SagaApplication
 import io.github.yggdrasil_sh.saga.chat.ChannelPlainSource
+import io.github.yggdrasil_sh.saga.chat.ChatAttach
 import io.github.yggdrasil_sh.saga.chat.ChatFile
 import io.github.yggdrasil_sh.saga.chat.ChatFormat
 import io.github.yggdrasil_sh.saga.chat.ChatLimits
@@ -57,8 +58,16 @@ class VideoUploadWorker(context: Context, params: WorkerParameters) : CoroutineW
     private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; explicitNulls = false; isLenient = true }
     private var lastNote = 0L
     private var phase = PHASE_PREPARE
+    /** 2.5: Auftrag ist eine andere grosse Datei (Texte "Datei" statt "Video") */
+    private var isFile = false
 
-    override suspend fun getForegroundInfo(): ForegroundInfo = foreground(0f, null)
+    override suspend fun getForegroundInfo(): ForegroundInfo {
+        try {
+            isFile = VideoJobs((applicationContext as SagaApplication).repo.secure).get(jobId)?.video == false
+        } catch (_: Exception) {
+        }
+        return foreground(0f, null)
+    }
 
     private fun foreground(p: Float, name: String?): ForegroundInfo {
         val ctx = applicationContext
@@ -67,7 +76,7 @@ class VideoUploadWorker(context: Context, params: WorkerParameters) : CoroutineW
         val n = NotificationCompat.Builder(ctx, Videos.CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(io.github.yggdrasil_sh.saga.push.NotifyDesign.ACCENT)
-            .setContentTitle(ctx.getString(if (phase == PHASE_PREPARE) R.string.video_preparing else R.string.video_uploading))
+            .setContentTitle(ctx.getString(if (isFile) R.string.file_uploading else if (phase == PHASE_PREPARE) R.string.video_preparing else R.string.video_uploading))
             .setContentText(name)
             .setOnlyAlertOnce(true)
             .setOngoing(true)
@@ -95,6 +104,9 @@ class VideoUploadWorker(context: Context, params: WorkerParameters) : CoroutineW
         val repo = (applicationContext as SagaApplication).repo
         val jobs = VideoJobs(repo.secure)
         var job = jobs.get(jobId) ?: return Result.failure()
+        isFile = !job.video
+        if (isFile) phase = PHASE_UPLOAD
+        val failed = if (isFile) R.string.file_send_failed else R.string.video_send_failed
         try {
             setForeground(foreground(0f, job.name))
         } catch (_: Exception) {
@@ -118,15 +130,15 @@ class VideoUploadWorker(context: Context, params: WorkerParameters) : CoroutineW
             // zu viele gleichzeitige Uploads bzw. zu schnell: spaeter erneut
             if (e.code == 429 && runAttemptCount < MAX_ATTEMPTS) return Result.retry()
             withContext(NonCancellable) { abort(repo, jobs, job) }
-            Result.failure(workDataOf(KEY_ERROR to Videos.errorFor(e), KEY_TEXT to (e.error ?: "")))
+            Result.failure(workDataOf(KEY_ERROR to Videos.errorFor(e, !isFile), KEY_TEXT to (e.error ?: "")))
         } catch (e: IOException) {
             if (runAttemptCount < MAX_ATTEMPTS) Result.retry() else {
                 withContext(NonCancellable) { abort(repo, jobs, job) }
-                Result.failure(workDataOf(KEY_ERROR to R.string.video_send_failed))
+                Result.failure(workDataOf(KEY_ERROR to failed))
             }
         } catch (e: Exception) {
             withContext(NonCancellable) { abort(repo, jobs, job) }
-            Result.failure(workDataOf(KEY_ERROR to R.string.video_send_failed, KEY_TEXT to (e.message ?: "")))
+            Result.failure(workDataOf(KEY_ERROR to failed, KEY_TEXT to (e.message ?: "")))
         }
     }
 
@@ -155,6 +167,20 @@ class VideoUploadWorker(context: Context, params: WorkerParameters) : CoroutineW
         val session = withContext(Dispatchers.Main) { ChatSession(job.chatId, svc).also { it.loadSummary() } }
         val cid = session.fileCryptoId
 
+        // 1a. andere Datei (2.5): nur die Groesse - nie ganz einlesen, kein Poster, keine Metadaten
+        if (job.size == null && !job.video) {
+            val size = withContext(Dispatchers.IO) {
+                val stat = try {
+                    ctx.contentResolver.openFileDescriptor(job.uri.toUri(), "r")?.use { it.statSize }?.takeIf { it >= 0 }
+                } catch (_: Exception) {
+                    null
+                }
+                stat ?: job.declared ?: throw VideoSendError(R.string.chat_file_broken)
+            }
+            if (size == 0L) throw VideoSendError(R.string.chat_file_empty)
+            job = job.copy(size = size, noPoster = true)
+            jobs.put(job)
+        }
         // 1. vorbereiten: Metadaten + Poster (Original), "optimiert 720p", faststart pruefen
         if (job.size == null) {
             phase = PHASE_PREPARE
@@ -210,12 +236,15 @@ class VideoUploadWorker(context: Context, params: WorkerParameters) : CoroutineW
         }
         val size = job.size ?: throw VideoSendError(R.string.chat_file_broken)
 
-        // 2. Weg pruefen (Grenzen vom Server, Gegenueber mit Saga 2.3)
-        when (VideoLogic.route(size, limits, session.summary?.bigFiles)) {
-            VideoLogic.Route.NO_FILE2 -> throw VideoSendError(R.string.video_too_big_server, limits.fileMax / 1048576)
-            VideoLogic.Route.PEER_OLD -> throw VideoSendError(R.string.video_peer_old, limits.fileMax / 1048576)
-            VideoLogic.Route.TOO_BIG -> throw VideoSendError(R.string.chat_file_too_big, limits.videoMax / 1048576)
-            VideoLogic.Route.V1 -> if (job.fileId == null) {
+        // 2. Weg pruefen (Grenzen vom Server, ueber Servergrenzen v1 hoechstens 10 MiB, Gegenueber mit Saga 2.3)
+        val remote = session.summary?.remote == true
+        val route = ChatAttach.route(size, limits, remote, session.summary?.bigFiles)
+        val mb = ChatAttach.limitMb(route, limits, remote)
+        when (route) {
+            ChatAttach.Route.NO_FILE2 -> throw VideoSendError(if (isFile) R.string.chat_file_too_big else R.string.video_too_big_server, mb)
+            ChatAttach.Route.PEER_OLD -> throw VideoSendError(if (isFile) R.string.chat_file_too_big else R.string.video_peer_old, mb)
+            ChatAttach.Route.TOO_BIG -> throw VideoSendError(R.string.chat_file_too_big, mb)
+            ChatAttach.Route.V1 -> if (job.fileId == null) {
                 phase = PHASE_UPLOAD
                 progress(0f, job.name)
                 val data = withContext(Dispatchers.IO) { openPlain(job).use { it.readBytes() } }
@@ -226,12 +255,12 @@ class VideoUploadWorker(context: Context, params: WorkerParameters) : CoroutineW
                 jobs.put(job)
                 progress(1f, job.name)
             }
-            VideoLogic.Route.V2 -> if (job.fileId == null) job = uploadV2(repo, jobs, job, limits, size)
+            ChatAttach.Route.V2 -> if (job.fileId == null) job = uploadV2(repo, jobs, job, limits, size)
         }
 
-        // 3. senden (eigene Nachricht mit Video + Poster)
+        // 3. senden (eigene Nachricht mit Video + Poster bzw. mit der Datei)
         val f = ChatFile(
-            id = job.fileId!!, k = job.key!!, n = job.name, m = job.mime.ifEmpty { "video/mp4" }, s = size,
+            id = job.fileId!!, k = job.key!!, n = job.name, m = job.mime.ifEmpty { if (job.video) "video/mp4" else "application/octet-stream" }, s = size,
             w = job.w, h = job.h, th = job.th, x = job.x?.takeIf { it == 2 }, cs = if (job.x == 2) FileV2.CS else null,
             dur = job.dur, rot = job.rot, fs = job.fs,
         )
@@ -288,7 +317,7 @@ class VideoUploadWorker(context: Context, params: WorkerParameters) : CoroutineW
                 }
             }
         }
-        throw VideoSendError(R.string.video_send_failed)
+        throw VideoSendError(if (isFile) R.string.file_send_failed else R.string.video_send_failed)
     }
 
     companion object {
@@ -314,6 +343,8 @@ object Videos {
     const val TAG_CHAT = "chat:"
     const val TAG_NAME = "name:"
     const val TAG_JOB = "job:"
+    /** 2.5: Auftrag ist eine andere grosse Datei (Symbol/Texte in der Senden-Leiste) */
+    const val TAG_FILE = "kind:file"
 
     /** in diesem Prozess laufend gesehene bzw. schon gemeldete Auftraege (Hinweis "fertig/Fehler" nur einmal) */
     val seenRunning: MutableSet<UUID> = java.util.concurrent.ConcurrentHashMap.newKeySet()
@@ -328,14 +359,17 @@ object Videos {
 
     fun tagChat(chatId: Long) = TAG_CHAT + chatId
 
-    /** Video zum Senden einreihen (eigene Nachricht) */
-    fun enqueue(ctx: Context, repo: SagaRepository, chatId: Long, uri: Uri, name: String, mime: String, optimize: Boolean) {
+    /** Video (bzw. 2.5: grosse Datei, video = false) zum Senden einreihen (eigene Nachricht) */
+    fun enqueue(ctx: Context, repo: SagaRepository, chatId: Long, uri: Uri, name: String, mime: String, optimize: Boolean, video: Boolean = true, size: Long? = null) {
         // Zugriff auf die Quelle ueber einen App-Neustart hinaus behalten (nur bei Dokument-Uris moeglich)
         try {
             ctx.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         } catch (_: Exception) {
         }
-        val job = VideoJob(UUID.randomUUID().toString(), chatId, uri.toString(), name.take(200), mime, optimize, System.currentTimeMillis())
+        val job = VideoJob(
+            UUID.randomUUID().toString(), chatId, uri.toString(), name.take(200), mime, optimize && video, System.currentTimeMillis(),
+            video = video, declared = size?.takeIf { it > 0 },
+        )
         VideoJobs(repo.secure).put(job)
         val req = OneTimeWorkRequestBuilder<VideoUploadWorker>()
             .setInputData(workDataOf(VideoUploadWorker.KEY_JOB to job.id))
@@ -343,6 +377,7 @@ object Videos {
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.SECONDS)
             .addTag(TAG).addTag(tagChat(chatId)).addTag(TAG_JOB + job.id).addTag(TAG_NAME + job.name)
+            .apply { if (!video) addTag(TAG_FILE) }
             .build()
         seenRunning.add(req.id)
         WorkManager.getInstance(ctx).enqueueUniqueWork(QUEUE, ExistingWorkPolicy.APPEND_OR_REPLACE, req)
@@ -351,6 +386,8 @@ object Videos {
     fun cancel(ctx: Context, id: UUID) {
         WorkManager.getInstance(ctx).cancelWorkById(id)
     }
+
+    fun isFile(info: WorkInfo): Boolean = TAG_FILE in info.tags
 
     fun nameOf(info: WorkInfo): String = info.tags.firstOrNull { it.startsWith(TAG_NAME) }?.removePrefix(TAG_NAME).orEmpty()
 
@@ -389,10 +426,10 @@ object Videos {
     }
 
     /** Text fuer eine Ablehnung des Servers */
-    fun errorFor(e: UploadRejected): Int = when (e.code) {
-        409 -> R.string.video_peer_old_short
-        413 -> R.string.video_quota
+    fun errorFor(e: UploadRejected, video: Boolean = true): Int = when (e.code) {
+        409 -> if (video) R.string.video_peer_old_short else R.string.file_peer_old_short
+        413 -> if (video) R.string.video_quota else R.string.file_quota
         429 -> R.string.video_busy
-        else -> R.string.video_send_failed
+        else -> if (video) R.string.video_send_failed else R.string.file_send_failed
     }
 }

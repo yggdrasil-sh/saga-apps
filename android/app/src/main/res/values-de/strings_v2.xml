@@ -224,4 +224,9 @@
     <string name="chat_fed_hint">Chats mit Personen anderer Saga-Server gibt es noch nicht. Seiten kannst du mit name@server teilen (über den öffentlichen Namen der Person).</string>
     <string name="chat_fed_hint_local">Personen auf diesem Server findest du über Namen oder Benutzernamen, nicht über die E-Mail-Adresse.</string>
     <string name="chat_fed_guide">Anleitung: Föderation</string>
+    <!-- 2.5: grosse Dateien im Chat (saga-file/v2) -->
+    <string name="file_uploading">Datei wird hochgeladen</string>
+    <string name="file_send_failed">Die Datei konnte nicht gesendet werden.</string>
+    <string name="file_peer_old_short">Der Server des Gegenübers kann große Dateien noch nicht.</string>
+    <string name="file_quota">Chat-Speicher voll oder Datei zu groß.</string>
 </resources>

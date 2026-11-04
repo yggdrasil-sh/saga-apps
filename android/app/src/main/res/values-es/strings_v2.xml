@@ -224,4 +224,9 @@
     <string name="chat_fed_hint">Todavía no hay chats con personas de otros servidores Saga. Puedes compartir páginas con nombre@servidor (con el nombre público de la persona).</string>
     <string name="chat_fed_hint_local">A las personas de este servidor las encuentras por nombre o nombre de usuario, no por correo electrónico.</string>
     <string name="chat_fed_guide">Guía: federación</string>
+    <!-- 2.5: grosse Dateien im Chat (saga-file/v2) -->
+    <string name="file_uploading">Subiendo archivo</string>
+    <string name="file_send_failed">No se pudo enviar el archivo.</string>
+    <string name="file_peer_old_short">El servidor del otro lado aún no admite archivos grandes.</string>
+    <string name="file_quota">El almacenamiento del chat está lleno o el archivo es demasiado grande.</string>
 </resources>

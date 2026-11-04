@@ -93,9 +93,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.OutputStream
 
-/** Ein zu sendendes Video im Eingabebereich ("optimiert 720p" Standard, Original waehlbar) */
+/**
+ * Ein zu sendendes Video im Eingabebereich ("optimiert 720p" Standard, Original waehlbar). 2.5: video = false - andere
+ * Datei ueber der v1-Grenze, geht auf demselben Weg (VideoUploadWorker, saga-file/v2) ohne Poster/720p.
+ */
 @Stable
-class PendingVideo(val uri: String, val name: String, val mime: String, val size: Long?) {
+class PendingVideo(val uri: String, val name: String, val mime: String, val size: Long?, val video: Boolean = true) {
     var optimize by mutableStateOf(true)
 }
 
@@ -392,11 +395,13 @@ fun PendingVideoChips(videos: MutableList<PendingVideo>) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 InputChip(
                     selected = false, onClick = { videos.remove(v) },
-                    label = { Text("🎬 " + v.name, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 180.dp)) },
+                    label = { Text((if (v.video) "🎬 " else "📎 ") + v.name, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 180.dp)) },
                     trailingIcon = { Icon(Icons.Filled.Close, stringResource(R.string.action_delete), Modifier.size(16.dp)) },
                 )
-                FilterChip(selected = v.optimize, onClick = { v.optimize = true }, label = { Text(stringResource(R.string.video_opt_720)) })
-                FilterChip(selected = !v.optimize, onClick = { v.optimize = false }, label = { Text(stringResource(R.string.video_opt_original)) })
+                if (v.video) {
+                    FilterChip(selected = v.optimize, onClick = { v.optimize = true }, label = { Text(stringResource(R.string.video_opt_720)) })
+                    FilterChip(selected = !v.optimize, onClick = { v.optimize = false }, label = { Text(stringResource(R.string.video_opt_original)) })
+                }
             }
         }
     }
@@ -433,7 +438,8 @@ fun VideoUploadsBar(repo: SagaRepository, chatId: Long, onDone: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)) {
         running.forEach { w ->
             val p = w.progress.getFloat(VideoUploadWorker.KEY_PROGRESS, 0f)
-            val prep = w.progress.getInt(VideoUploadWorker.KEY_PHASE, VideoUploadWorker.PHASE_PREPARE) == VideoUploadWorker.PHASE_PREPARE
+            val file = Videos.isFile(w)
+            val prep = !file && w.progress.getInt(VideoUploadWorker.KEY_PHASE, VideoUploadWorker.PHASE_PREPARE) == VideoUploadWorker.PHASE_PREPARE
             Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
                 Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
@@ -445,9 +451,10 @@ fun VideoUploadsBar(repo: SagaRepository, chatId: Long, onDone: () -> Unit) {
                                         w.progress.getInt(VideoUploadWorker.KEY_PHASE, -1) != VideoUploadWorker.PHASE_PREPARE -> R.string.video_waiting_network
                                     w.state == WorkInfo.State.ENQUEUED && w.runAttemptCount > 0 -> R.string.video_waiting_network
                                     prep -> R.string.video_preparing
+                                    file -> R.string.file_uploading
                                     else -> R.string.video_uploading
                                 },
-                            ) + " · " + Videos.nameOf(w),
+                            ).let { (if (file) "📎 " else "🎬 ") + it } + " · " + Videos.nameOf(w),
                             style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                         if (w.state == WorkInfo.State.RUNNING && p > 0f) LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))

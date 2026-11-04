@@ -110,7 +110,6 @@ import io.github.yggdrasil_sh.saga.ai.AiReplyCheck
 import io.github.yggdrasil_sh.saga.ui.ai.AiAvatar
 import androidx.compose.ui.semantics.contentDescription
 import io.github.yggdrasil_sh.saga.chat.ChatAttach
-import io.github.yggdrasil_sh.saga.chat.video.VideoLogic
 import androidx.core.net.toUri
 import io.github.yggdrasil_sh.saga.chat.video.Videos
 import io.github.yggdrasil_sh.saga.ui.common.ImmichPicker
@@ -380,16 +379,22 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         return
     }
 
+    // Grenzen fuer Anhaenge in diesem Chat (v1 ueber Servergrenzen hoechstens 10 MiB, 2.5: grosse Dateien per v2)
+    fun attachLimits() = AttachLimits(svc.me.value?.limits ?: ChatLimits(), s.summary?.remote == true, s.summary?.bigFiles)
+    fun addAttachment(r: ChatAttach.Read) {
+        when (r) {
+            is ChatAttach.Read.Ok -> files.add(r.file)
+            is ChatAttach.Read.Video -> videos.add(PendingVideo(r.uri, r.name, r.mime, r.size))
+            is ChatAttach.Read.Big -> videos.add(PendingVideo(r.uri, r.name, r.mime, r.size, video = false))
+            is ChatAttach.Read.TooBig -> repo.notify(UiText.Res(R.string.chat_file_too_big, r.maxMb.toInt()))
+            ChatAttach.Read.Failed -> repo.notify(UiText.Res(R.string.chat_file_broken))
+            ChatAttach.Read.Empty -> repo.notify(UiText.Res(R.string.chat_file_empty))
+        }
+    }
+
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         scope.launch {
-            val max = svc.me.value?.limits?.fileMax ?: ChatLimits().fileMax
-            for (u in uris) when (val r = readFile(context, u, max, s.name)) {
-                is ChatAttach.Read.Ok -> files.add(r.file)
-                is ChatAttach.Read.Video -> videos.add(PendingVideo(r.uri, r.name, r.mime, r.size))
-                ChatAttach.Read.TooBig -> repo.notify(UiText.Res(R.string.chat_file_too_big, (max / 1048576).toInt()))
-                ChatAttach.Read.Failed -> repo.notify(UiText.Res(R.string.chat_file_broken))
-                ChatAttach.Read.Empty -> repo.notify(UiText.Res(R.string.chat_file_empty))
-            }
+            for (u in uris) addAttachment(readFile(context, u, attachLimits(), s.name))
         }
     }
 
@@ -399,14 +404,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
         val u = camUri
         if (ok && u != null) scope.launch {
-            val max = svc.me.value?.limits?.fileMax ?: ChatLimits().fileMax
-            when (val r = readFile(context, u, max, s.name)) {
-                is ChatAttach.Read.Ok -> files.add(r.file)
-                is ChatAttach.Read.Video -> videos.add(PendingVideo(r.uri, r.name, r.mime, r.size))
-                ChatAttach.Read.TooBig -> repo.notify(UiText.Res(R.string.chat_file_too_big, (max / 1048576).toInt()))
-                ChatAttach.Read.Failed -> repo.notify(UiText.Res(R.string.chat_file_broken))
-                ChatAttach.Read.Empty -> repo.notify(UiText.Res(R.string.chat_file_empty))
-            }
+            addAttachment(readFile(context, u, attachLimits(), s.name))
         }
     }
     val takeVideo = rememberLauncherForActivityResult(ActivityResultContracts.CaptureVideo()) { ok ->
@@ -436,14 +434,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     // 2.4: nur Videos waehlen (Galerie)
     val pickVideo = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         scope.launch {
-            val max = svc.me.value?.limits?.fileMax ?: ChatLimits().fileMax
-            for (u in uris) when (val r = readFile(context, u, max, s.name)) {
-                is ChatAttach.Read.Video -> videos.add(PendingVideo(r.uri, r.name, r.mime, r.size))
-                is ChatAttach.Read.Ok -> files.add(r.file)
-                ChatAttach.Read.TooBig -> repo.notify(UiText.Res(R.string.chat_file_too_big, (max / 1048576).toInt()))
-                ChatAttach.Read.Failed -> repo.notify(UiText.Res(R.string.chat_file_broken))
-                ChatAttach.Read.Empty -> repo.notify(UiText.Res(R.string.chat_file_empty))
-            }
+            for (u in uris) addAttachment(readFile(context, u, attachLimits(), s.name))
         }
     }
     // Wiedergabe anhalten, wenn die App in den Hintergrund geht
@@ -1010,19 +1001,19 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     repo.notify(UiText.Res(R.string.chat_safety_send_blocked, who), UiText.Res(R.string.chat_show)) { dialog = "safety" }
                     return@IconButton
                 }
-                // 2.4: Videos vorab pruefen (Original: Grenzen jetzt schon bekannt), dann je Video eine eigene Nachricht
-                val lim = svc.me.value?.limits ?: ChatLimits()
+                // 2.4: Videos (2.5: und grosse Dateien) vorab pruefen (Original: Grenzen jetzt schon bekannt), dann je eine eigene Nachricht
+                val al = attachLimits()
+                val routeOf = { v: PendingVideo -> ChatAttach.route(v.size ?: 0, al.limits, al.remote, al.bigFiles) }
                 val bad = videos.firstOrNull { v ->
-                    val sz = v.size ?: return@firstOrNull false
-                    !v.optimize && VideoLogic.route(sz, lim, s.summary?.bigFiles).let { it != VideoLogic.Route.V1 && it != VideoLogic.Route.V2 }
+                    v.size != null && (!v.video || !v.optimize) && routeOf(v).let { it != ChatAttach.Route.V1 && it != ChatAttach.Route.V2 }
                 }
                 if (bad != null) {
-                    repo.notify(videoLimitText(VideoLogic.route(bad.size ?: 0, lim, s.summary?.bigFiles), lim))
+                    repo.notify(if (bad.video) videoLimitText(routeOf(bad), al) else UiText.Res(R.string.chat_file_too_big, ChatAttach.limitMb(routeOf(bad), al.limits, al.remote)))
                     return@IconButton
                 }
                 val vs = videos.toList()
                 videos.clear()
-                vs.forEach { v -> Videos.enqueue(context.applicationContext, repo, chatId, v.uri.toUri(), v.name, v.mime, v.optimize) }
+                vs.forEach { v -> Videos.enqueue(context.applicationContext, repo, chatId, v.uri.toUri(), v.name, v.mime, v.optimize, video = v.video, size = v.size) }
                 val text = input.text.toString().trim()
                 if (text.isEmpty() && files.isEmpty() && noteIds.isEmpty()) return@IconButton
                 val fs = files.toList()
@@ -1275,8 +1266,18 @@ private suspend fun incomingImage(context: Context, img: IncomingImage, max: Lon
     return PendingFile(ImageData.nameFor(name.orEmpty(), mime), mime, data)
 }
 
-/** Datei aus dem Auswahldialog lesen (Name, Typ, Inhalt) */
-private suspend fun readFile(context: Context, u: Uri, max: Long, chat: String): ChatAttach.Read = withContext(Dispatchers.IO) {
+/**
+ * Datei aus dem Auswahldialog lesen (Name, Typ, Inhalt). Bis zur v1-Grenze ganz einlesen; groessere Dateien (2.5) nicht
+ * einlesen, sondern als [ChatAttach.Read.Big] im Hintergrund per saga-file/v2 senden (Weg: [ChatAttach.route]).
+ */
+private suspend fun readFile(context: Context, u: Uri, a: AttachLimits, chat: String): ChatAttach.Read = withContext(Dispatchers.IO) {
+    val max = ChatAttach.v1Max(a.limits, a.remote)
+    // ueber der v1-Grenze: v2 im Hintergrund oder "zu gross (hoechstens N MB)"
+    fun big(name: String, mime: String, size: Long?): ChatAttach.Read {
+        val r = ChatAttach.route(size ?: (max + 1), a.limits, a.remote, a.bigFiles)
+        return if (r == ChatAttach.Route.V2) ChatAttach.Read.Big(u.toString(), name.take(200), mime, size)
+        else ChatAttach.Read.TooBig(ChatAttach.limitMb(r, a.limits, a.remote))
+    }
     try {
         val cr = context.contentResolver
         var name = "datei"
@@ -1292,21 +1293,23 @@ private suspend fun readFile(context: Context, u: Uri, max: Long, chat: String):
         name = ChatAttach.niceName(name, mime, chat, java.time.LocalDateTime.now())
         // 2.4: Videos nicht einlesen - Poster, "optimiert 720p" und Upload laufen im Hintergrund (VideoUploadWorker)
         if (mime.startsWith("video/")) return@withContext ChatAttach.Read.Video(u.toString(), name.take(200), mime, size)
+        if (size == 0L) return@withContext ChatAttach.Read.Empty
         // Zu grosses Bild: wie beim Einfuegen verkleinern statt ablehnen (bis zum Vierfachen der Grenze einlesen)
         if (mime.startsWith("image/") && !ChatAttach.tooBig(size, 4 * max) && (size == null || size!! > max)) {
-            val raw = cr.openInputStream(u)?.use { ChatAttach.readLimited(it, 4 * max) } ?: return@withContext ChatAttach.Read.TooBig
+            val raw = cr.openInputStream(u)?.use { ChatAttach.readLimited(it, 4 * max) } ?: return@withContext big(name, mime, size)
+            if (raw.isEmpty()) return@withContext ChatAttach.Read.Empty
             if (raw.size <= max) return@withContext ChatAttach.Read.Ok(PendingFile(name.take(200), mime, raw))
-            val (data, type) = prepareImage(raw, max) ?: return@withContext ChatAttach.Read.TooBig
+            val (data, type) = prepareImage(raw, max) ?: return@withContext big(name, mime, raw.size.toLong())
             return@withContext ChatAttach.Read.Ok(PendingFile(ImageData.nameFor(name.take(200), type), type, data))
         }
-        // Groesse vor dem Lesen pruefen, dann begrenzt lesen (BUG-005: 600 MB -> OutOfMemoryError)
-        if (ChatAttach.tooBig(size, max)) return@withContext ChatAttach.Read.TooBig
-        val data = cr.openInputStream(u)?.use { ChatAttach.readLimited(it, max) ?: return@withContext ChatAttach.Read.TooBig }
+        // Groesse vor dem Lesen pruefen, dann begrenzt lesen (BUG-005: 600 MB -> OutOfMemoryError); groesser -> v2 (Uri streamen)
+        if (ChatAttach.tooBig(size, max)) return@withContext big(name, mime, size)
+        val data = cr.openInputStream(u)?.use { ChatAttach.readLimited(it, max) ?: return@withContext big(name, mime, size) }
             ?: return@withContext ChatAttach.Read.Failed
         if (data.isEmpty()) return@withContext ChatAttach.Read.Empty
         ChatAttach.Read.Ok(PendingFile(name.take(200), mime, data))
     } catch (_: OutOfMemoryError) {
-        ChatAttach.Read.TooBig
+        ChatAttach.Read.TooBig(max / 1048576)
     } catch (_: Exception) {
         ChatAttach.Read.Failed
     }
@@ -1736,7 +1739,8 @@ internal fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit)
         VideoAttachment(f, s)
         return
     }
-    if (f.isImage) {
+    // 2.5: grosse Bilder per saga-file/v2 (ohne Vorschaubild) als Datei zeigen - nicht ganz laden
+    if (f.isImage && !(f.isV2 && f.th == null)) {
         var img by remember(f.id) { mutableStateOf(s.cachedThumb(f)) }
         var failed by remember(f.id) { mutableStateOf(false) }
         if (img == null && !failed) {
@@ -1852,11 +1856,14 @@ private fun ChatDayDivider(d: java.time.LocalDate) {
 
 
 /** Hinweis, warum ein Video nicht gesendet werden kann (Grenzen vom Server) */
-internal fun videoLimitText(r: VideoLogic.Route, l: ChatLimits): UiText = when (r) {
-    VideoLogic.Route.NO_FILE2 -> UiText.Res(R.string.video_too_big_server, l.fileMax / 1048576)
-    VideoLogic.Route.PEER_OLD -> UiText.Res(R.string.video_peer_old, l.fileMax / 1048576)
-    else -> UiText.Res(R.string.chat_file_too_big, maxOf(l.fileMax, l.videoMax) / 1048576)
+internal fun videoLimitText(r: ChatAttach.Route, a: AttachLimits): UiText = when (r) {
+    ChatAttach.Route.NO_FILE2 -> UiText.Res(R.string.video_too_big_server, ChatAttach.limitMb(r, a.limits, a.remote))
+    ChatAttach.Route.PEER_OLD -> UiText.Res(R.string.video_peer_old, ChatAttach.limitMb(r, a.limits, a.remote))
+    else -> UiText.Res(R.string.chat_file_too_big, ChatAttach.maxSize(a.limits, a.remote, a.bigFiles) / 1048576)
 }
+
+/** Grenzen fuer Anhaenge in einem Chat: Server-Grenzen, Chat ueber Servergrenzen, big_files */
+internal class AttachLimits(val limits: ChatLimits, val remote: Boolean, val bigFiles: Boolean?)
 
 /**
  * 25.10.: Nachrichten weiterleiten - Text entschluesselt neu senden (Ziel verschluesselt neu, normaler Sendeweg), v1-Anhaenge
