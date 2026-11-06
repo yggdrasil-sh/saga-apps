@@ -1,7 +1,9 @@
 import AppKit
+import CoreSpotlight
 import SwiftUI
+import UserNotifications
 
-/// Saga-Desktop-Huelle fuer macOS (P2, Etappe 1). Test-Ziel mit eigener App-ID neben der normalen Saga-App.
+/// Saga-Desktop-Huelle fuer macOS (P2). Bis zur Umstellung (P3) Test-Ziel mit eigener App-ID neben der normalen Saga-App.
 @main
 struct SagaShellApp: App {
     @NSApplicationDelegateAdaptor(ShellAppDelegate.self) private var appDelegate
@@ -14,13 +16,32 @@ struct SagaShellApp: App {
         }
         .defaultSize(width: 1280, height: 840)
         .commands { ShellCommands(model: model) }
+        MenuBarExtra("Saga", systemImage: "book") { ShellCaptureView() }       // Schnellerfassung (App-Schluessel)
+            .menuBarExtraStyle(.window)
     }
 }
 
 @MainActor
 final class ShellAppDelegate: NSObject, NSApplicationDelegate {
-    func applicationDidFinishLaunching(_ n: Notification) { ShellModel.shared.start() }
+    func applicationDidFinishLaunching(_ n: Notification) {
+        UNUserNotificationCenter.current().delegate = ShellNotificationDelegate.shared
+        ShellUpdater.shared.start()
+        ShellModel.shared.start()
+    }
     func application(_ app: NSApplication, open urls: [URL]) { for u in urls { ShellModel.shared.handle(link: u) } }
+    func application(_ app: NSApplication, didRegisterForRemoteNotificationsWithDeviceToken t: Data) { ShellModel.shared.push.didRegister(t) }
+    func application(_ app: NSApplication, didFailToRegisterForRemoteNotificationsWithError e: Error) { ShellModel.shared.push.didFail(e) }
+    /// Mitteilung kommt an, waehrend die App laeuft: klingelnder Anruf -> Dock springt (bis die App vorne ist)
+    func application(_ app: NSApplication, didReceiveRemoteNotification info: [String: Any]) {
+        if ShellLogic.isRinging(kind: info["kind"]), !app.isActive { app.requestUserAttention(.criticalRequest) }
+    }
+    /// Spotlight-Treffer
+    func application(_ app: NSApplication, continue a: NSUserActivity, restorationHandler: @escaping ([any NSUserActivityRestoring]) -> Void) -> Bool {
+        guard a.activityType == CSSearchableItemActionType,
+              let p = ShellLogic.spotlightPath(a.userInfo?[CSSearchableItemActivityIdentifier] as? String) else { return false }
+        ShellModel.shared.openPath(p); NSApp.activate()
+        return true
+    }
     func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool { false }
 }
 
@@ -29,6 +50,7 @@ struct ShellCommands: Commands {
     @ObservedObject var model: ShellModel
 
     var body: some Commands {
+        CommandGroup(after: .appInfo) { ShellUpdateButton() }
         CommandGroup(replacing: .appSettings) {
             Button(String(localized: "Einstellungen …")) { model.openWebSettings() }
                 .keyboardShortcut(",", modifiers: .command)

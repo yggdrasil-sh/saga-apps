@@ -194,8 +194,11 @@ targets:
         ENABLE_HARDENED_RUNTIME: YES
   # 2.5 Desktop-Huelle P2 (docs/APP-API-HOST.md im Server-Repo): die Web-Oberflaeche
   # in einem WKWebView, dazu Anmeldung mit Geraete-Schluessel, Dock-Zahl, Widgets anstossen, Systembrowser, Deep-Links,
-  # Downloads, Offline-Seite. Etappe 1 mit Test-ID (SAGA_SHELL_BUNDLE_ID, Config/Base.xcconfig) neben der normalen App,
-  # noch ohne Widget-/Teilen-Erweiterung, APNs, Sparkle. Shell/offline.html = Kopie von static/offline.html (Server).
+  # Downloads, Offline-Seite. Etappe 2: Widget- und Teilen-Erweiterung (SagaShellWidget, SagaShellShareMac: gleicher
+  # Code wie HlidskjalfWidget/HlidskjalfShareMac, App-ID und App-Gruppe der Huelle), APNs (Shell/Shell-push.entitlements
+  # ueber SAGA_MAC_PUSH_SUFFIX), Menueleisten-Erfassung, Spotlight, Sparkle, QR-Kopplung, saga://new nativ.
+  # Bis zur Umstellung (P3) mit Test-ID (SAGA_SHELL_BUNDLE_ID, Config/Base.xcconfig) neben der normalen App.
+  # Shell/offline.html = Kopie von static/offline.html (Server).
   # xcodebuild -scheme SagaShell -destination 'generic/platform=macOS' build
   SagaShell:
     type: application
@@ -205,6 +208,10 @@ targets:
       - Shared/AppConfig.swift
       - Shared/PrivateNet.swift
       - Shared/Keychain.swift
+      - Shared/API.swift                                   # Etappe 2: Erfassung, Spotlight, neuer Datenbank-Eintrag (App-Schluessel)
+      - Shared/TaskSourceLogic.swift
+      - Shared/DateFormats.swift
+      - App/UpdateLogic.swift                              # Sparkle nur, wenn das Bauskript den Appcast eintraegt
       - App/Assets.xcassets
     info:
       path: Shell/Info.plist
@@ -212,8 +219,8 @@ targets:
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         SagaVersionLabel: "$(SAGA_VERSION_LABEL)"
-        CFBundleDisplayName: Saga Web
-        CFBundleName: Saga Web
+        CFBundleDisplayName: $(SAGA_SHELL_NAME)
+        CFBundleName: $(SAGA_SHELL_NAME)
         SagaAppGroup: $(SAGA_SHELL_APP_GROUP)
         SagaKeychainGroup: $(SAGA_SHELL_APP_GROUP)
         SagaDefaultServer: $(SAGA_DEFAULT_SERVER)
@@ -230,10 +237,71 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_SHELL_BUNDLE_ID)
         PRODUCT_NAME: Saga Web
-        CODE_SIGN_ENTITLEMENTS: Shell/Shell.entitlements
+        CODE_SIGN_ENTITLEMENTS: Shell/Shell$(SAGA_MAC_PUSH_SUFFIX).entitlements    # Mitteilungen: Config/Base.xcconfig
         ENABLE_HARDENED_RUNTIME: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    dependencies:
+      - package: Sparkle
+        product: Sparkle
+      - target: SagaShellWidget
+      - target: SagaShellShareMac
+  # Etappe 2: Erweiterungen der Huelle - Quellen wie HlidskjalfWidget/HlidskjalfShareMac, aber App-ID unter der Huelle
+  # und deren App-Gruppe (SAGA_APP_GROUP/SAGA_KEYCHAIN_GROUP hier ueberschrieben; die Entitlements lesen die Variable).
+  # Links aus dem Widget nutzen das Schema der Huelle (SagaLinkScheme). Bei der Umstellung (P3) wird
+  # SAGA_SHELL_BUNDLE_ID = $(SAGA_BUNDLE_ID) - dann tragen sie dieselben IDs wie heute die Erweiterungen der Mac-App.
+  SagaShellWidget:
+    type: app-extension
+    platform: macOS
+    sources: [Widget, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/TaskSourceLogic.swift, Shared/ColorHex.swift, Shared/DBQuery.swift, Shared/DBDates.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
+    info:
+      path: Shell/Widget-Info.plist
+      properties:
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleDisplayName: $(SAGA_SHELL_NAME)
+        SagaAppGroup: $(SAGA_APP_GROUP)
+        SagaKeychainGroup: $(SAGA_KEYCHAIN_GROUP)
+        SagaDefaultServer: $(SAGA_DEFAULT_SERVER)
+        SagaMovedServers: $(SAGA_MOVED_SERVERS)
+        SagaLinkScheme: $(SAGA_SHELL_URL_SCHEME)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_SHELL_BUNDLE_ID).widget
+        SAGA_APP_GROUP: $(SAGA_SHELL_APP_GROUP)
+        SAGA_KEYCHAIN_GROUP: $(SAGA_SHELL_APP_GROUP)
+        CODE_SIGN_ENTITLEMENTS: Widget/Widget-macOS.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+  SagaShellShareMac:
+    type: app-extension
+    platform: macOS
+    sources: [ShareMac, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/TaskSourceLogic.swift, Shared/ShareView.swift, Shared/ShareBookmarkLogic.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
+    info:
+      path: Shell/ShareMac-Info.plist
+      properties:
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleDisplayName: $(SAGA_SHELL_NAME)
+        SagaAppGroup: $(SAGA_APP_GROUP)
+        SagaKeychainGroup: $(SAGA_KEYCHAIN_GROUP)
+        SagaDefaultServer: $(SAGA_DEFAULT_SERVER)
+        SagaMovedServers: $(SAGA_MOVED_SERVERS)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_SHELL_BUNDLE_ID).sharemac
+        SAGA_APP_GROUP: $(SAGA_SHELL_APP_GROUP)
+        SAGA_KEYCHAIN_GROUP: $(SAGA_SHELL_APP_GROUP)
+        CODE_SIGN_ENTITLEMENTS: ShareMac/ShareMac.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
   # 2.5 Chat-Stufe 3 + Grundlagen: Vektoren tests/vectors/chat_v3.json (Kopie in Tests/vectors), Ogg-Muxer/-Demuxer,
   # Opus-Codec des Systems (nur synthetischer Eingang: Sinus bzw. Tests/vectors/voice_sine.ogg), Wellenform,
   # Vertrauens-Uebernahme. Ohne Host-App, ohne Netz - nie Mikrofon, keine AVAudioEngine, kein Audio-Geraet.

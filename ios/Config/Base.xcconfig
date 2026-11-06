@@ -31,6 +31,8 @@ SAGA_MAC_PUSH_SUFFIX =
 SAGA_SHELL_BUNDLE_ID = $(SAGA_BUNDLE_ID).webshell
 SAGA_SHELL_APP_GROUP = $(TeamIdentifierPrefix)$(SAGA_SHELL_BUNDLE_ID)
 SAGA_SHELL_URL_SCHEME = saga-test
+// Name der Huelle (App, Widgets, Teilen-Menue) - P3: Saga
+SAGA_SHELL_NAME = Saga Web
 
 // Angezeigte Version (Einstellungen -> Ueber): nur das offizielle Release zeigt MARKETING_VERSION ("2.2.0"),
 // alle anderen Builds "2.2.0-rc.N" (siehe tools/version-label.sh). CFBundleShortVersionString bleibt numerisch.

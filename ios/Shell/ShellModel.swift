@@ -2,12 +2,15 @@ import AppKit
 import AuthenticationServices
 import CryptoKit
 import Network
+import UserNotifications
 import WebKit
 import WidgetKit
 
 /// Mac-Huelle (Desktop-Huelle P2): die Web-Oberflaeche in einem `WKWebView`, dazu nur, was ein Browser-Tab nicht kann
 /// (Anmeldung mit Geraete-Schluessel im Schluesselbund, Dock-Zahl, Widgets anstossen, Systembrowser, Deep-Links,
 /// Downloads, Offline-Seite). Vertrag mit dem Web: docs/APP-API-HOST.md im Server-Repo.
+/// Etappe 2: Widget- und Teilen-Erweiterung (eigene Ziele mit der App-Gruppe der Huelle), APNs (ShellPush),
+/// Menueleisten-Erfassung, Spotlight, Sparkle (ShellExtras), QR-Kopplung und `saga://new` nativ.
 @MainActor
 final class ShellModel: NSObject, ObservableObject {
     enum Phase: Equatable { case starting, signIn, web }
@@ -40,6 +43,7 @@ final class ShellModel: NSObject, ObservableObject {
     private let pathMonitor = NWPathMonitor()
     private var netUp: Bool?
     var popups: [PopupCatcher] = []                   // offene leere Fenster (window.open('', '_blank'))
+    let push = ShellPush()
 
     override init() {
         let cfg = WKWebViewConfiguration()
@@ -79,6 +83,7 @@ final class ShellModel: NSObject, ObservableObject {
             Task { @MainActor in self?.network(up: p.status == .satisfied) }
         }
         pathMonitor.start(queue: .main)
+        push.model = self
     }
 
     static var bundleVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0" }
@@ -96,7 +101,8 @@ final class ShellModel: NSObject, ObservableObject {
         phase = .web; loading = true
         lastResume = Date()
         switch await resume() {
-        case .ok, .offline: load(path)                     // offline: Seite trotzdem laden (Cookie/Service Worker), sonst Offline-Seite
+        case .ok: load(path); signedIn()
+        case .offline: load(path)                          // offline: Seite trotzdem laden (Cookie/Service Worker), sonst Offline-Seite
         case .rejected:
             await clearLocal()
             error = String(localized: "Diese Anmeldung gilt nicht mehr. Bitte neu anmelden.")
@@ -202,14 +208,134 @@ final class ShellModel: NSObject, ObservableObject {
             error = j?["error"] as? String ?? String(localized: "Anmeldung fehlgeschlagen"); return
         }
         if switching { await clearLocal() }                                  // anderer Server: nichts vom alten mitnehmen
+        adopt(target, token: tok, json: j)
+        await adoptCookies(http)
+        load(pendingPath ?? "/")
+        pendingPath = nil
+        signedIn()
+    }
+
+    /// Neue Geraete-Anmeldung uebernehmen (Browser-Anmeldung, Kopplung)
+    private func adopt(_ target: URL, token tok: String, json j: [String: Any]?) {
         AppConfig.server = target
         serverField = AppConfig.serverString
         ShellKeys.setDeviceToken(tok)
         if let k = ShellLogic.appKey(j?["app_key"]) { AppConfig.token = k; reloadWidgets(force: true) }
         if let n = j?["name"] as? String { setAccount(n) }
-        await adoptCookies(http)
-        load(pendingPath ?? "/")
+    }
+
+    /// Angemeldet (Start, Anmeldung, Kopplung): Mitteilungen erneut anmelden, Spotlight abgleichen
+    private func signedIn() {
+        push.appStarted()
+        ShellSpotlight.shared.refresh(force: true)
+    }
+
+    // MARK: Kopplung per QR-Code (saga://pair, immer mit Rueckfrage - docs Abschnitt 7.4)
+
+    var isSignedIn: Bool { AppConfig.hasServer && ShellKeys.deviceToken() != nil }
+
+    func askPair(_ link: URL) {
+        guard let (target, code) = ShellLogic.pairLink(link.absoluteString, allowed: AppConfig.isAllowedServer) else {
+            alert(String(localized: "Kopplung per QR-Code"), String(localized: "Das ist kein Saga-QR-Code.")); return
+        }
+        let a = NSAlert()
+        a.messageText = String(localized: "Mit diesem Server koppeln?")
+        var info = [String(localized: "Saga meldet sich bei \(AppConfig.displayHost(target)) an.")]
+        let notice = ShellLogic.pairNotice(target: target, current: AppConfig.hasServer ? server : nil, signedIn: isSignedIn)
+        switch notice {
+        case .none: break
+        case .otherServer(let h): info.append("⚠️ " + String(localized: "Du bist gerade bei \(h) angemeldet und wirst dort abgemeldet."))
+        case .sameServer:
+            info.append("⚠️ " + (accountName.isEmpty
+                ? String(localized: "Du wirst abgemeldet und mit dem Konto aus dem QR-Code angemeldet.")
+                : String(localized: "Du wirst als „\(accountName)“ abgemeldet und mit dem Konto aus dem QR-Code angemeldet.")))
+        }
+        a.informativeText = info.joined(separator: "\n\n")
+        a.addButton(withTitle: String(localized: "Koppeln"))
+        a.addButton(withTitle: String(localized: "Abbrechen"))
+        if notice != .none { a.buttons.first?.hasDestructiveAction = true }
+        NSApp.activate()
+        guard a.runModal() == .alertFirstButtonReturn else { return }
+        Task { await pair(target, code: code) }
+    }
+
+    private func pair(_ target: URL, code: String) async {
+        busy = true; defer { busy = false }
+        let oldTok = ShellKeys.deviceToken(), oldBase = AppConfig.hasServer ? server : nil
+        guard let (d, http) = await post("app/pair", ["code": code, "device": ShellKeys.deviceName, "app_key": true], base: target) else {
+            alert(String(localized: "Kopplung fehlgeschlagen"), String(localized: "Server nicht erreichbar – bitte die Adresse prüfen.")); return
+        }
+        let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any]
+        guard http.statusCode == 200, let tok = j?["device_token"] as? String, tok.hasPrefix("hkd_") else {
+            alert(String(localized: "Kopplung fehlgeschlagen"), j?["error"] as? String ?? String(localized: "Anmeldung fehlgeschlagen")); return
+        }
+        // bisherige Anmeldung sauber beenden (beim Server, der sie ausgestellt hat), dann die neue uebernehmen
+        if let oldTok, let oldBase { _ = await post("app/forget", ["device_token": oldTok], base: oldBase) }
+        if oldTok != nil || AppConfig.serverOrigin != AppConfig.origin(target) { await clearLocal() }
+        error = nil
+        adopt(target, token: tok, json: j)
+        await resumeAndLoad(pendingPath ?? "/")
         pendingPath = nil
+    }
+
+    func alert(_ title: String, _ text: String) {
+        let a = NSAlert(); a.messageText = title; a.informativeText = text
+        NSApp.activate(); a.runModal()
+    }
+
+    // MARK: saga://new?db=&view=&k= bzw. ?parent= - nativ anlegen (wie RootView.createFromLink)
+
+    func create(_ e: ShellLogic.NewEntry) {
+        guard isSignedIn else { pendingPath = e.fallbackPath; return }
+        if !e.trusted(secret: AppConfig.linkSecret) {
+            let a = NSAlert()
+            a.messageText = String(localized: "Neuen Eintrag anlegen?")
+            a.informativeText = String(localized: "Ein Link möchte in Saga einen neuen Eintrag anlegen.")
+            a.addButton(withTitle: String(localized: "Anlegen"))
+            a.addButton(withTitle: String(localized: "Abbrechen"))
+            NSApp.activate()
+            guard a.runModal() == .alertFirstButtonReturn else { return }
+        }
+        Task {
+            var body: [String: Any] = ["title": ""]
+            if let db = e.db {
+                body["parent_id"] = db
+                if let d = try? await API.rows(db), let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] {
+                    let p = ShellLogic.rowDefaults(schema: j["schema"] as? [String: Any], viewID: e.view)
+                    if !p.isEmpty { body["props"] = p }
+                }
+            } else if let p = e.parent { body["parent_id"] = p }
+            if let (d, code) = await sessionAPI("api/notes", method: "POST", body: body), (200..<300).contains(code),
+               let id = ((try? JSONSerialization.jsonObject(with: d)) as? [String: Any])?["id"] as? Int {
+                openPath("/notes#\(id)")
+                reloadWidgets(force: false)
+            } else {
+                show(toast: String(localized: "Eintrag konnte nicht angelegt werden"))
+                openPath(e.fallbackPath)
+            }
+        }
+    }
+
+    /// Anfrage mit der Web-Sitzung (Cookie aus dem WKWebView-Speicher), z. B. Mitteilungs-Abo, neuer Eintrag
+    func sessionAPI(_ path: String, method: String = "GET", body: [String: Any]? = nil) async -> (Data, Int)? {
+        guard AppConfig.hasServer, AppConfig.isAllowedServer(server),
+              let url = URL(string: server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/" + path) else { return nil }
+        let all = await webView.configuration.websiteDataStore.httpCookieStore.allCookies()
+        let mine = all.filter { c in
+            let d = c.domain.hasPrefix(".") ? String(c.domain.dropFirst()) : c.domain
+            return (url.host ?? "") == d || (c.domain.hasPrefix(".") && (url.host ?? "").hasSuffix(c.domain))
+        }
+        var req = URLRequest(url: url, timeoutInterval: 20)
+        req.httpMethod = method; req.httpShouldHandleCookies = false
+        for (k, v) in HTTPCookie.requestHeaderFields(with: mine) { req.setValue(v, forHTTPHeaderField: k) }
+        req.setValue("1", forHTTPHeaderField: "X-Saga")
+        req.setValue(AppConfig.appLanguage, forHTTPHeaderField: "Accept-Language")
+        if let body {
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        }
+        guard let (d, r) = try? await URLSession.shared.data(for: req), let http = r as? HTTPURLResponse else { return nil }
+        return (d, http.statusCode)
     }
 
     /// Abmelden: Geraete-Anmeldung beim Server loeschen, Schluessel und alle Website-Daten weg (docs 7.3)
@@ -229,6 +355,9 @@ final class ShellModel: NSObject, ObservableObject {
         let store = webView.configuration.websiteDataStore
         await store.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast)
         reloadWidgets(force: true)
+        ShellSpotlight.shared.clear()
+        push.signedOut()
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
     }
 
     // MARK: Bruecke Web -> Huelle (docs Abschnitt 3)
@@ -252,6 +381,7 @@ final class ShellModel: NSObject, ObservableObject {
             NSApp.dockTile.badgeLabel = l.isEmpty ? nil : l
         case "widgets.reload":
             reloadWidgets(force: false)
+            ShellSpotlight.shared.refresh(force: false)
         case "openExternal":
             if let u = ShellLogic.externalURL(body["url"], server: server) { NSWorkspace.shared.open(u) }
         case "settings":
@@ -296,11 +426,8 @@ final class ShellModel: NSObject, ObservableObject {
         switch ShellLogic.route(link) {
         case .path(let p): openPath(p)
         case .auth: break                                                    // gehoert zur laufenden Anmeldung (ASWebAuthenticationSession)
-        case .pair:
-            let a = NSAlert()
-            a.messageText = String(localized: "Kopplung per QR-Code")
-            a.informativeText = String(localized: "Diese Testfassung meldet sich über den Browser an. Kopplungslinks folgen später.")
-            a.runModal()
+        case .pair(let u): askPair(u)
+        case .create(let e): create(e)
         case .none: break
         }
         NSApp.activate()
@@ -312,6 +439,14 @@ final class ShellModel: NSObject, ObservableObject {
     }
 
     func openWebSettings() { openPath("/notes?settings=account") }
+
+    /// Mitteilung angeklickt (docs Abschnitt 4: `notificationClick`) - Ziel nur als eigener Pfad
+    func notificationClicked(_ url: Any?) {
+        let p = ShellLogic.notificationPath(url, server: server)
+        NSApp.activate()
+        guard phase == .web, !offline else { pendingPath = p; return }
+        if webReady { send(["type": "notificationClick", "url": p]) } else { openPath(p) }
+    }
 
     // MARK: Offline (O0)
 

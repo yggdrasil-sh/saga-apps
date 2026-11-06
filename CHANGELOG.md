@@ -23,6 +23,28 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Menü: ⌘, öffnet die Einstellungen im Web, ⌥⌘, die App-Einstellungen (Server, Konto, Version, Web-Inspektor),
   ⌘R, Zoom; Kürzel des Webs (⌘K, ⌘/ …) bleiben frei.
 
+### Neu – Mac: Desktop-Hülle mit Widgets, Teilen, Mitteilungen, Menüleiste, Spotlight und Updates (P2 Etappe 2)
+
+- **Widgets und Teilen:** eigene Erweiterungen der Hülle (`SagaShellWidget`, `SagaShellShareMac`) mit demselben Code
+  wie die der Mac-App, aber App-ID und App-Gruppe der Hülle. Nach der Anmeldung liegen Server und App-Schlüssel in der
+  Gruppe; „Widgets anstoßen“ aus dem Web wirkt jetzt. Links aus den Widgets öffnen die Hülle (Schema aus der Info.plist,
+  `SagaLinkScheme`; die Widgets der Mac-App bleiben bei `hlidskjalf://`).
+- **Neuer Datenbank-Eintrag aus dem Widget („+“):** legt die Hülle selbst an – mit den Vorgaben aus den Filtern der
+  Ansicht wie die App – und öffnet ihn. Ohne das Geheimnis der eigenen Widgets (`k`) erst nach Rückfrage; ebenso
+  `saga://new?parent=…` (neue Unterseite).
+- **Mitteilungen über APNs:** Schalter „Mitteilungen auf diesem Mac“ in den App-Einstellungen (die System-Rückfrage
+  kommt erst auf Klick), Abo an die Geräte-Anmeldung der Hülle gebunden, bei jedem Start erneuert, ältere Abos
+  desselben Geräts werden entfernt. Klick auf eine Mitteilung öffnet ihr Ziel (`notificationClick`). Klingelnde Anrufe
+  lassen das Dock springen. Braucht wie die Mac-App ein Bereitstellungsprofil (`SAGA_MAC_PUSH_SUFFIX = -push`,
+  `Shell/Shell-push.entitlements`).
+- **Schnellerfassung in der Menüleiste:** Aufgabe (mit Fälligkeit) oder Notiz in den Eingang, über den App-Schlüssel.
+- **Spotlight:** eigene Seiten und Datenbanken in der Systemsuche (über `/api/app/pages`, höchstens alle 10 Minuten
+  abgeglichen); ein Treffer öffnet die Seite. Abmelden leert den Index.
+- **Kopplung per QR-Code** (`saga://pair`, `…/app/pair?c=…`): immer mit Rückfrage, Zielserver und Hinweis, wenn eine
+  bestehende Anmeldung beendet wird.
+- **Selbst-Update über Sparkle:** „Nach Updates suchen …“ im App-Menü; aktiv, sobald das Bauskript Appcast und
+  Schlüssel einträgt (Umstellung P3).
+
 ### Neu – Chat-Medien: Bildergalerie mit Blättern und Zoom, Vorschaubild im Antwort-Zitat, Bilder in Fotos/Galerie sichern, Weiterleiten im Nachrichtenmenü (iOS/Mac, Android, Linux, Web)
 
 - **Bildergalerie:** Ein angetipptes Bild öffnet alle geladenen Bilder des Chats in Verlaufsreihenfolge, beginnend beim

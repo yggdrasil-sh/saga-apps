@@ -71,6 +71,7 @@ struct ShellSignInView: View {
 /// Eigene Einstellungen der Huelle (Web-Nachricht `settings`, ⌥⌘,): Server, Konto, Abmelden, Version
 struct ShellSettingsView: View {
     @ObservedObject var model: ShellModel
+    @ObservedObject var push = ShellModel.shared.push
     @Environment(\.dismiss) private var dismiss
     @AppStorage("SagaInspectable") private var inspectable = false
 
@@ -83,10 +84,19 @@ struct ShellSettingsView: View {
                 }
                 LabeledContent(String(localized: "Konto")) { Text(model.accountName.isEmpty ? "–" : model.accountName) }
                 LabeledContent(String(localized: "Version")) { Text(model.versionLabel).textSelection(.enabled) }
+                if model.phase == .web {
+                    Toggle(String(localized: "Mitteilungen auf diesem Mac"),
+                           isOn: Binding(get: { push.on }, set: { v in Task { await push.setEnabled(v) } }))
+                        .disabled(push.busy)
+                    if let m = push.message { Text(m).font(.caption).foregroundStyle(.red) }
+                    Text(String(localized: "Worüber und wann: in Saga unter Einstellungen → Mitteilungen."))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 Toggle(String(localized: "Web-Inspektor erlauben"), isOn: $inspectable)
                     .onChange(of: inspectable) { _, v in model.webView.isInspectable = v }
             }
             .formStyle(.grouped)
+            .onAppear { push.refreshState() }
             HStack {
                 if model.phase == .web {
                     Button(String(localized: "Abmelden …"), role: .destructive) { dismiss(); model.confirmSignOut() }

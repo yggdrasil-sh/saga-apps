@@ -9,8 +9,13 @@ func shellTests() {
     check(r("saga://page/abc") == .none && r("saga://page/1234567890123") == .none, "Seite ohne gueltige ID")
     check(r("saga://tasks") == .path("/notes?v=tasks") && r("saga://events") == .path("/notes?v=events"), "Aufgaben/Termine")
     check(r("saga://new-task?src=3") == .path("/notes?v=tasks&new=task") && r("saga://new-page") == .path("/notes?new=blank"), "Neu")
-    check(r("saga://new?db=5&view=t&k=x") == .path("/notes#5") && r("saga://new?parent=9") == .path("/notes#9")
-          && r("saga://new?db=x") == .path("/notes?new=blank"), "Neu in Datenbank/Seite")
+    check(r("saga://new?db=5&view=t&k=x") == .create(.init(db: 5, view: "t", parent: nil, key: "x"))
+          && r("saga://new?parent=9") == .create(.init(db: nil, view: nil, parent: 9, key: nil))
+          && r("saga://new?db=x") == .path("/notes?new=blank") && r("saga://new?db=5&view=a%22b") == .create(.init(db: 5, view: nil, parent: nil, key: nil)),
+          "Neu in Datenbank/Seite (nativ)")
+    let ne = ShellLogic.NewEntry(db: 5, view: nil, parent: nil, key: "geheim-geheim-123")
+    check(ne.trusted(secret: "geheim-geheim-123") && !ne.trusted(secret: "anders") && !ne.trusted(secret: "")
+          && !ShellLogic.NewEntry(db: nil, view: nil, parent: 3, key: "s").trusted(secret: "s") && ne.fallbackPath == "/notes#5", "Neu: Geheimnis")
     check(r("saga://settings/security") == .path("/notes?settings=security") && r("saga://settings") == .path("/notes?settings=account")
           && r("saga://settings/evil") == .path("/notes?settings=account"), "Einstellungen")
     check(r("saga://chats") == .path("/chats"), "Chats")
@@ -57,4 +62,58 @@ func shellTests() {
     check(ShellLogic.userAgent(version: "2.5.0") == "SagaApp/2.5.0 (mac-shell)", "User-Agent")
     check(ShellLogic.eventJS(["type": "open", "path": "/notes#1"])?.hasPrefix("window.sagaHost && window.sagaHost.receive({") == true, "Ereignis")
     check(ShellLogic.pathOf(URL(string: "https://saga.example.org/notes?v=tasks#3")!) == "/notes?v=tasks#3", "Pfad einer Adresse")
+    shellTests2(srv)
+}
+
+// Etappe 2: Kopplung, Datenbank-Vorgaben, Spotlight, Mitteilungen
+func shellTests2(_ srv: URL) {
+    let code = String(repeating: "A", count: 24)
+    let https: (URL) -> Bool = { $0.scheme == "https" }
+    let a = ShellLogic.pairLink("https://saga.example.org/app/pair?c=\(code)", allowed: https)
+    check(a?.server.absoluteString == "https://saga.example.org" && a?.code == code, "Kopplung https")
+    let b = ShellLogic.pairLink("saga://pair?u=https%3A%2F%2Fsaga.example.org%3A8443%2Fx%3Fy%3D1&c=\(code)", allowed: https)
+    check(b?.server.absoluteString == "https://saga.example.org:8443", "Kopplung saga:// mit Port, Pfad weg")
+    check(ShellLogic.pairLink("saga-test://pair?u=https://s.example.org&c=\(code)", allowed: https) != nil, "Kopplung Test-Schema")
+    check(ShellLogic.pairLink("http://saga.example.org/app/pair?c=\(code)", allowed: https) == nil, "Kopplung nur https")
+    check(ShellLogic.pairLink("https://saga.example.org/app/pair?c=kurz", allowed: https) == nil
+          && ShellLogic.pairLink("https://saga.example.org/app/pair?c=\(code)%27", allowed: https) == nil, "Kopplung Code pruefen")
+    check(ShellLogic.pairLink("https://saga.example.org/anders?c=\(code)", allowed: https) == nil
+          && ShellLogic.pairLink("evil://pair?u=https://x.example.org&c=\(code)", allowed: https) == nil
+          && ShellLogic.pairLink("saga://pair?u=javascript:alert(1)&c=\(code)", allowed: https) == nil, "Kopplung fremd")
+    let o = URL(string: "https://other.example.org")!
+    check(ShellLogic.pairNotice(target: srv, current: nil, signedIn: false) == .none
+          && ShellLogic.pairNotice(target: srv, current: srv, signedIn: false) == .none
+          && ShellLogic.pairNotice(target: srv, current: URL(string: "https://saga.example.org:443")!, signedIn: true) == .sameServer
+          && ShellLogic.pairNotice(target: srv, current: o, signedIn: true) == .otherServer("other.example.org"), "Kopplung Hinweis")
+
+    let schema: [String: Any] = ["props": [["id": "s", "type": "select"], ["id": "m", "type": "multi_select"], ["id": "c", "type": "checkbox"]],
+                                 "views": [["id": "v1", "filters": [["pid": "s", "op": "is", "value": "offen"]]],
+                                           ["id": "v2", "filters": [["pid": "m", "op": "is", "value": "x"], ["pid": "c", "op": "checked"],
+                                                                    ["pid": "s", "op": "is_not", "value": "z"], ["pid": "title", "op": "eq", "value": "t"],
+                                                                    ["pid": "weg", "op": "is", "value": "q"], ["pid": "s", "op": "is", "value": ""]]]]]
+    let d1 = ShellLogic.rowDefaults(schema: schema, viewID: nil), d2 = ShellLogic.rowDefaults(schema: schema, viewID: "v2")
+    check(d1.count == 1 && d1["s"] as? String == "offen", "Vorgaben erste Ansicht")
+    check(d2.count == 2 && (d2["m"] as? [String]) == ["x"] && d2["c"] as? Bool == true, "Vorgaben aus Filtern")
+    check(ShellLogic.rowDefaults(schema: schema, viewID: "fehlt").count == 1 && ShellLogic.rowDefaults(schema: nil, viewID: nil).isEmpty, "Vorgaben ohne Ansicht")
+
+    let pg: [ShellLogic.IndexPage] = [.init(id: 1, title: "Projekte", icon: "📁", kind: "page", parent: nil),
+                                      .init(id: 2, title: "Aufgaben", icon: "", kind: "database", parent: 1),
+                                      .init(id: 3, title: " ", icon: "/f/1.png", kind: "page", parent: 2),
+                                      .init(id: 4, title: "Allein", icon: "", kind: "page", parent: 99),
+                                      .init(id: 1, title: "doppelt", icon: "", kind: "page", parent: nil),
+                                      .init(id: -5, title: "fremd", icon: "", kind: "page", parent: nil)]
+    let ie = ShellLogic.indexEntries(pg, untitled: "U", page: "Seite", database: "DB")
+    check(ie.map(\.id) == ["page-1", "page-2", "page-4", "page-3"], "Spotlight Reihenfolge, doppelt/fremd weg")
+    check(ie[0].display == "📁 Projekte" && ie[0].desc == "Seite" && ie[1].desc == "Projekte" && ie[1].display == nil
+          && ie[3].title == "U" && ie[3].desc == "Projekte / Aufgaben" && ie[2].desc == "Seite", "Spotlight Inhalt")
+    check(ShellLogic.indexEntries(pg, untitled: "U", page: "S", database: "D", limit: 2).count == 2, "Spotlight Grenze")
+    check(ShellLogic.spotlightPath("page-12") == "/notes#12" && ShellLogic.spotlightPath("page-x") == nil
+          && ShellLogic.spotlightPath("row-1") == nil && ShellLogic.spotlightPath(nil) == nil, "Spotlight Treffer")
+
+    check(ShellLogic.notificationPath("/chats#c3", server: srv) == "/chats#c3" && ShellLogic.notificationPath("?settings=backup", server: srv) == "/?settings=backup"
+          && ShellLogic.notificationPath("https://saga.example.org/notes#4", server: srv) == "/notes#4", "Mitteilung eigene Ziele")
+    check(ShellLogic.notificationPath("https://evil.test/x", server: srv) == "/" && ShellLogic.notificationPath("//evil.test", server: srv) == "/"
+          && ShellLogic.notificationPath(nil, server: srv) == "/" && ShellLogic.notificationPath(3, server: srv) == "/", "Mitteilung fremde Ziele")
+    check(ShellLogic.isRinging(kind: "call") && ShellLogic.isRinging(kind: "call.group") && !ShellLogic.isRinging(kind: "chat.message")
+          && !ShellLogic.isRinging(kind: nil), "Anruf klingelt")
 }

@@ -28,7 +28,12 @@ struct TodayProvider: TimelineProvider {
 }
 
 enum WLink {
-    static func url(_ s: String) -> URL { URL(string: "hlidskjalf://" + s)! }
+    /// Link-Schema der zugehoerigen App: Info.plist `SagaLinkScheme` (Desktop-Huelle mit Test-ID: saga-test), sonst hlidskjalf
+    static let scheme: String = {
+        let s = (Bundle.main.object(forInfoDictionaryKey: "SagaLinkScheme") as? String ?? "").lowercased()
+        return !s.isEmpty && s.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }) ? s : "hlidskjalf"
+    }()
+    static func url(_ s: String) -> URL { URL(string: scheme + "://" + s)! }
     static let today = url("today"), tasks = url("tasks"), events = url("events"), newTask = url("new-task")
     static func page(_ id: Int) -> URL { url("page/\(id)") }
 }
