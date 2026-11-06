@@ -74,6 +74,9 @@ func shellTests2(_ srv: URL) {
     let b = ShellLogic.pairLink("saga://pair?u=https%3A%2F%2Fsaga.example.org%3A8443%2Fx%3Fy%3D1&c=\(code)", allowed: https)
     check(b?.server.absoluteString == "https://saga.example.org:8443", "Kopplung saga:// mit Port, Pfad weg")
     check(ShellLogic.pairLink("saga-test://pair?u=https://s.example.org&c=\(code)", allowed: https) != nil, "Kopplung Test-Schema")
+    check(ShellLogic.pairLink("HTTPS://Saga.Example.org/app/pair?c=\(code)", allowed: https)?.server.absoluteString == "https://saga.example.org"
+          && ShellLogic.pairLink("saga://pair?u=HTTPS://S.example.org&c=\(code)", allowed: https)?.server.absoluteString == "https://s.example.org",
+          "Kopplung Schema/Host klein")
     check(ShellLogic.pairLink("http://saga.example.org/app/pair?c=\(code)", allowed: https) == nil, "Kopplung nur https")
     check(ShellLogic.pairLink("https://saga.example.org/app/pair?c=kurz", allowed: https) == nil
           && ShellLogic.pairLink("https://saga.example.org/app/pair?c=\(code)%27", allowed: https) == nil, "Kopplung Code pruefen")

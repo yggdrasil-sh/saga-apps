@@ -36,6 +36,7 @@ final class ShellModel: NSObject, ObservableObject {
     private var pendingPath: String?                  // Deep-Link vor `ready`
     private var offlinePath = "/"                     // dahin nach "Erneut versuchen"
     private var lastResume = Date.distantPast
+    private var resuming = false                      // /app/resume laeuft: Links nur merken (pendingPath)
     private var widgetTimer: Timer?
     private var lastWidgetReload = Date.distantPast
     private var authSession: ASWebAuthenticationSession?
@@ -100,9 +101,15 @@ final class ShellModel: NSObject, ObservableObject {
     func resumeAndLoad(_ path: String) async {
         phase = .web; loading = true
         lastResume = Date()
-        switch await resume() {
-        case .ok: load(path); signedIn()
-        case .offline: load(path)                          // offline: Seite trotzdem laden (Cookie/Service Worker), sonst Offline-Seite
+        resuming = true
+        let r = await resume()
+        resuming = false
+        // Deep-Link/Mitteilungsklick waehrend des Erneuerns: der gewinnt vor dem Startpfad
+        let target = pendingPath ?? path
+        pendingPath = nil
+        switch r {
+        case .ok: load(target); signedIn()
+        case .offline: load(target)                        // offline: Seite trotzdem laden (Cookie/Service Worker), sonst Offline-Seite
         case .rejected:
             await clearLocal()
             error = String(localized: "Diese Anmeldung gilt nicht mehr. Bitte neu anmelden.")
@@ -232,9 +239,12 @@ final class ShellModel: NSObject, ObservableObject {
 
     // MARK: Kopplung per QR-Code (saga://pair, immer mit Rueckfrage - docs Abschnitt 7.4)
 
+    private var pairAsking = false
     var isSignedIn: Bool { AppConfig.hasServer && ShellKeys.deviceToken() != nil }
 
     func askPair(_ link: URL) {
+        guard !busy, authSession == nil, !pairAsking else { return }        // laufende Anmeldung/Kopplung: Link verwerfen
+        pairAsking = true; defer { pairAsking = false }
         guard let (target, code) = ShellLogic.pairLink(link.absoluteString, allowed: AppConfig.isAllowedServer) else {
             alert(String(localized: "Kopplung per QR-Code"), String(localized: "Das ist kein Saga-QR-Code.")); return
         }
@@ -318,6 +328,13 @@ final class ShellModel: NSObject, ObservableObject {
 
     /// Anfrage mit der Web-Sitzung (Cookie aus dem WKWebView-Speicher), z. B. Mitteilungs-Abo, neuer Eintrag
     func sessionAPI(_ path: String, method: String = "GET", body: [String: Any]? = nil) async -> (Data, Int)? {
+        let r = await sessionOnce(path, method: method, body: body)
+        // Web-Sitzung abgelaufen: einmal still mit dem Geraete-Schluessel erneuern und wiederholen
+        guard r?.1 == 401, isSignedIn, case .ok = await resume() else { return r }
+        return await sessionOnce(path, method: method, body: body)
+    }
+
+    private func sessionOnce(_ path: String, method: String, body: [String: Any]?) async -> (Data, Int)? {
         guard AppConfig.hasServer, AppConfig.isAllowedServer(server),
               let url = URL(string: server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/" + path) else { return nil }
         let all = await webView.configuration.websiteDataStore.httpCookieStore.allCookies()
@@ -424,17 +441,16 @@ final class ShellModel: NSObject, ObservableObject {
 
     func handle(link: URL) {
         switch ShellLogic.route(link) {
-        case .path(let p): openPath(p)
+        case .path(let p): openPath(p); NSApp.activate()
         case .auth: break                                                    // gehoert zur laufenden Anmeldung (ASWebAuthenticationSession)
         case .pair(let u): askPair(u)
-        case .create(let e): create(e)
+        case .create(let e): create(e); NSApp.activate()
         case .none: break
         }
-        NSApp.activate()
     }
 
     func openPath(_ p: String) {
-        guard phase == .web, !offline else { pendingPath = p; return }
+        guard phase == .web, !offline, !resuming else { pendingPath = p; return }
         if webReady { send(["type": "open", "path": p]) } else if webView.url == nil { load(p) } else { pendingPath = p }
     }
 
@@ -444,7 +460,7 @@ final class ShellModel: NSObject, ObservableObject {
     func notificationClicked(_ url: Any?) {
         let p = ShellLogic.notificationPath(url, server: server)
         NSApp.activate()
-        guard phase == .web, !offline else { pendingPath = p; return }
+        guard phase == .web, !offline, !resuming else { pendingPath = p; return }
         if webReady { send(["type": "notificationClick", "url": p]) } else { openPath(p) }
     }
 

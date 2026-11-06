@@ -153,12 +153,14 @@ enum ShellLogic {
         guard let code = q.first(where: { $0.name == "c" })?.value, (20...200).contains(code.count),
               code.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "-_.".contains($0)) }) else { return nil }
         var srv: URL?
-        if u.scheme == "https" || u.scheme == "http", u.path == "/app/pair", let host = u.host, !host.isEmpty {
-            var b = URLComponents(); b.scheme = u.scheme; b.host = host; b.port = u.port
+        let us = u.scheme?.lowercased()
+        if us == "https" || us == "http", u.path == "/app/pair", let host = u.host, !host.isEmpty {
+            var b = URLComponents(); b.scheme = us; b.host = host.lowercased(); b.port = u.port
             srv = b.url
         } else if let sc = u.scheme?.lowercased(), linkSchemes.contains(sc), u.host == "pair",
                   let v = q.first(where: { $0.name == "u" })?.value, var c = URLComponents(string: v),
-                  c.scheme == "https" || c.scheme == "http", let h = c.host, !h.isEmpty {
+                  c.scheme?.lowercased() == "https" || c.scheme?.lowercased() == "http", let h = c.host, !h.isEmpty {
+            c.scheme = c.scheme?.lowercased(); c.host = h.lowercased()
             c.path = ""; c.query = nil; c.fragment = nil; c.user = nil; c.password = nil
             srv = c.url
         }

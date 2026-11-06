@@ -15,6 +15,7 @@ final class ShellPush: NSObject, ObservableObject {
     @Published private(set) var on = false
 
     private var waiters: [CheckedContinuation<String?, Never>] = []
+    private var renewed = false
     private var wantKey: String { "shell.push.on." + (AppConfig.serverOrigin ?? "-") }
     /// Person hat Mitteilungen auf diesem Mac eingeschaltet (je Server)
     private var wanted: Bool {
@@ -40,7 +41,8 @@ final class ShellPush: NSObject, ObservableObject {
     /// Fragt nie nach der Erlaubnis (keine Systemdialoge ohne Klick).
     func appStarted() {
         on = wanted
-        guard wanted else { return }
+        guard wanted, !renewed else { return }                       // einmal je Start (nicht bei jeder Sitzungserneuerung)
+        renewed = true
         Task {
             let s = await UNUserNotificationCenter.current().notificationSettings()
             guard s.authorizationStatus == .authorized || s.authorizationStatus == .provisional else { return }
@@ -49,7 +51,7 @@ final class ShellPush: NSObject, ObservableObject {
     }
 
     /// Abgemeldet: das Abo loescht der Server mit der Geraete-Anmeldung
-    func signedOut() { subID = nil; message = nil; on = wanted }
+    func signedOut() { subID = nil; message = nil; renewed = false; on = wanted }
 
     /// Schalter "Mitteilungen auf diesem Mac" (nur auf Klick: erst dann die System-Rueckfrage)
     func setEnabled(_ v: Bool) async {
@@ -77,12 +79,18 @@ final class ShellPush: NSObject, ObservableObject {
     /// Geraetetoken vom System (hoechstens 20 s warten)
     private func requestToken() async -> String? {
         await withCheckedContinuation { (c: CheckedContinuation<String?, Never>) in
+            let first = waiters.isEmpty
             waiters.append(c)
             NSApplication.shared.registerForRemoteNotifications()
-            Task { try? await Task.sleep(for: .seconds(20)); self.finish(nil) }
+            if first {                                                       // ein Zeitlimit je Anfrage-Runde
+                let g = round
+                Task { try? await Task.sleep(for: .seconds(20)); if self.round == g { self.finish(nil) } }
+            }
         }
     }
+    private var round = 0
     private func finish(_ t: String?) {
+        round += 1
         let w = waiters; waiters = []
         for c in w { c.resume(returning: t) }
     }

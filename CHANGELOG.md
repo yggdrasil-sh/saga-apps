@@ -36,7 +36,9 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   kommt erst auf Klick), Abo an die Geräte-Anmeldung der Hülle gebunden, bei jedem Start erneuert, ältere Abos
   desselben Geräts werden entfernt. Klick auf eine Mitteilung öffnet ihr Ziel (`notificationClick`). Klingelnde Anrufe
   lassen das Dock springen. Braucht wie die Mac-App ein Bereitstellungsprofil (`SAGA_MAC_PUSH_SUFFIX = -push`,
-  `Shell/Shell-push.entitlements`).
+  `Shell/Shell-push.entitlements`). **Erst ab der Umstellung (P3) wirksam:** der Server sendet APNs mit der App-ID der
+  Saga-App als Topic; solange die Hülle ihre Test-ID trägt, lehnt Apple die Zustellung ab und der Server räumt das Abo
+  wieder ab.
 - **Schnellerfassung in der Menüleiste:** Aufgabe (mit Fälligkeit) oder Notiz in den Eingang, über den App-Schlüssel.
 - **Spotlight:** eigene Seiten und Datenbanken in der Systemsuche (über `/api/app/pages`, höchstens alle 10 Minuten
   abgeglichen); ein Treffer öffnet die Seite. Abmelden leert den Index.

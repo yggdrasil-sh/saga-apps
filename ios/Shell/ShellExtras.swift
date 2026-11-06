@@ -2,6 +2,7 @@ import AppKit
 import CoreSpotlight
 import Sparkle
 import SwiftUI
+import UniformTypeIdentifiers
 
 // Etappe 2 der Mac-Huelle: Spotlight, Schnellerfassung in der Menueleiste, Selbst-Update (Sparkle).
 
@@ -28,7 +29,8 @@ final class ShellSpotlight {
             let entries = ShellLogic.indexEntries(list, untitled: String(localized: "Unbenannt"), page: String(localized: "Seite"),
                                                   database: String(localized: "Datenbank"))
             guard ep == epoch else { return }                                // inzwischen abgemeldet
-            await Self.replace(entries)
+            await Self.replace(entries) { await MainActor.run { ep == self.epoch } }
+            if ep != epoch { clear() }                                       // waehrend des Eintragens abgemeldet: sicher leeren
         }
     }
 
@@ -39,11 +41,12 @@ final class ShellSpotlight {
         }
     }
 
-    private nonisolated static func replace(_ entries: [ShellLogic.IndexEntry]) async {
+    private nonisolated static func replace(_ entries: [ShellLogic.IndexEntry], valid: @Sendable () async -> Bool) async {
         let idx = CSSearchableIndex.default()
         try? await idx.deleteSearchableItems(withDomainIdentifiers: [domain])
         var i = 0
         while i < entries.count {
+            guard await valid() else { return }                              // je Stapel: noch dasselbe Konto?
             let items = entries[i..<min(i + 500, entries.count)].map { e -> CSSearchableItem in
                 let a = CSSearchableItemAttributeSet(contentType: .text)
                 a.title = e.title; a.contentDescription = e.desc

@@ -28,6 +28,7 @@ SAGA_MAC_PUSH_SUFFIX =
 // Desktop-Huelle (P2, Ziel SagaShell): Web-Oberflaeche im WKWebView. Bis zur Umstellung (P3) mit eigener Test-ID
 // neben der normalen Mac-App; eigene App-Gruppe (Team-Praefix, ohne Bereitstellungsprofil) und eigenes Link-Schema,
 // damit Links aus Widgets/Spotlight weiter bei der normalen App landen. P3: ID = $(SAGA_BUNDLE_ID), Gruppe/Schema wie die App.
+// APNs der Huelle gehen erst ab P3: der Server sendet mit der App-ID der Saga-App als Topic (saga/push.py, apns.bundle_id).
 SAGA_SHELL_BUNDLE_ID = $(SAGA_BUNDLE_ID).webshell
 SAGA_SHELL_APP_GROUP = $(TeamIdentifierPrefix)$(SAGA_SHELL_BUNDLE_ID)
 SAGA_SHELL_URL_SCHEME = saga-test
