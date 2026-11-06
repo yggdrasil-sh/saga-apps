@@ -9,6 +9,20 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – Mac: Desktop-Hülle „Saga Web“ (Vorabversion mit Test-ID, P2 Etappe 1)
+
+- Neues macOS-Ziel `SagaShell`: die Web-Oberfläche des eigenen Saga-Servers in einem `WKWebView` – soll die native
+  Mac-App ablösen (Entscheidung des Maintainers; iPhone, iPad und Android bleiben nativ). Vorerst mit eigener App-ID
+  (`…webshell`), eigener App-Gruppe und Link-Schema `saga-test://` neben der bisherigen Mac-App.
+- Anmeldung im Browser (PKCE, `/app/exchange`), Geräte-Schlüssel im Schlüsselbund, Sitzung per `/app/resume` in den
+  Cookie-Speicher der Web-Ansicht; abgelaufene Sitzung wird still erneuert, Abmelden im Web oder im Menü löscht Schlüssel
+  und alle Website-Daten.
+- Brücke zum Web nach `docs/APP-API-HOST.md` (Server-Repo): Dock-Zahl, Widgets anstoßen, Links im Systembrowser,
+  App-Einstellungen, App-Schlüssel übernehmen. Downloads in „Downloads“, Öffnen-Dialog, Kamera/Mikrofon nur für den
+  eigenen Server, lokale Offline-Seite mit „Erneut versuchen“, Deep-Links wie in den Apps.
+- Menü: ⌘, öffnet die Einstellungen im Web, ⌥⌘, die App-Einstellungen (Server, Konto, Version, Web-Inspektor),
+  ⌘R, Zoom; Kürzel des Webs (⌘K, ⌘/ …) bleiben frei.
+
 ### Neu – Chat-Medien: Bildergalerie mit Blättern und Zoom, Vorschaubild im Antwort-Zitat, Bilder in Fotos/Galerie sichern, Weiterleiten im Nachrichtenmenü (iOS/Mac, Android, Linux, Web)
 
 - **Bildergalerie:** Ein angetipptes Bild öffnet alle geladenen Bilder des Chats in Verlaufsreihenfolge, beginnend beim

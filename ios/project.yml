@@ -192,6 +192,48 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).sharemac
         CODE_SIGN_ENTITLEMENTS: ShareMac/ShareMac.entitlements
         ENABLE_HARDENED_RUNTIME: YES
+  # 2.5 Desktop-Huelle P2 (docs/APP-API-HOST.md im Server-Repo): die Web-Oberflaeche
+  # in einem WKWebView, dazu Anmeldung mit Geraete-Schluessel, Dock-Zahl, Widgets anstossen, Systembrowser, Deep-Links,
+  # Downloads, Offline-Seite. Etappe 1 mit Test-ID (SAGA_SHELL_BUNDLE_ID, Config/Base.xcconfig) neben der normalen App,
+  # noch ohne Widget-/Teilen-Erweiterung, APNs, Sparkle. Shell/offline.html = Kopie von static/offline.html (Server).
+  # xcodebuild -scheme SagaShell -destination 'generic/platform=macOS' build
+  SagaShell:
+    type: application
+    platform: macOS
+    sources:
+      - Shell
+      - Shared/AppConfig.swift
+      - Shared/PrivateNet.swift
+      - Shared/Keychain.swift
+      - App/Assets.xcassets
+    info:
+      path: Shell/Info.plist
+      properties:
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        SagaVersionLabel: "$(SAGA_VERSION_LABEL)"
+        CFBundleDisplayName: Saga Web
+        CFBundleName: Saga Web
+        SagaAppGroup: $(SAGA_SHELL_APP_GROUP)
+        SagaKeychainGroup: $(SAGA_SHELL_APP_GROUP)
+        SagaDefaultServer: $(SAGA_DEFAULT_SERVER)
+        SagaMovedServers: $(SAGA_MOVED_SERVERS)
+        CFBundleLocalizations: [de, en, es, th, ru]
+        LSApplicationCategoryType: public.app-category.productivity
+        NSCameraUsageDescription: Make video calls and take photos for notes                 # uebersetzt: Shell/InfoPlist.xcstrings
+        NSMicrophoneUsageDescription: Talk in audio and video calls and record voice messages
+        NSLocalNetworkUsageDescription: Calls connect directly to devices in your network when possible
+        CFBundleURLTypes:
+          - CFBundleURLName: $(SAGA_SHELL_BUNDLE_ID)
+            CFBundleURLSchemes: [$(SAGA_SHELL_URL_SCHEME)]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_SHELL_BUNDLE_ID)
+        PRODUCT_NAME: Saga Web
+        CODE_SIGN_ENTITLEMENTS: Shell/Shell.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
   # 2.5 Chat-Stufe 3 + Grundlagen: Vektoren tests/vectors/chat_v3.json (Kopie in Tests/vectors), Ogg-Muxer/-Demuxer,
   # Opus-Codec des Systems (nur synthetischer Eingang: Sinus bzw. Tests/vectors/voice_sine.ogg), Wellenform,
   # Vertrauens-Uebernahme. Ohne Host-App, ohne Netz - nie Mikrofon, keine AVAudioEngine, kein Audio-Geraet.

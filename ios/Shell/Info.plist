@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Saga Web</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>de</string>
+		<string>en</string>
+		<string>es</string>
+		<string>th</string>
+		<string>ru</string>
+	</array>
+	<key>CFBundleName</key>
+	<string>Saga Web</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>$(SAGA_SHELL_BUNDLE_ID)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(SAGA_SHELL_URL_SCHEME)</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.productivity</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Make video calls and take photos for notes</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Calls connect directly to devices in your network when possible</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Talk in audio and video calls and record voice messages</string>
+	<key>SagaAppGroup</key>
+	<string>$(SAGA_SHELL_APP_GROUP)</string>
+	<key>SagaDefaultServer</key>
+	<string>$(SAGA_DEFAULT_SERVER)</string>
+	<key>SagaKeychainGroup</key>
+	<string>$(SAGA_SHELL_APP_GROUP)</string>
+	<key>SagaMovedServers</key>
+	<string>$(SAGA_MOVED_SERVERS)</string>
+	<key>SagaVersionLabel</key>
+	<string>$(SAGA_VERSION_LABEL)</string>
+</dict>
+</plist>

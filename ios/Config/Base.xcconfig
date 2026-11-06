@@ -25,6 +25,13 @@ SAGA_MOVED_SERVERS =
 // (nutzt dann App/App-macOS-push.entitlements). iOS/iPadOS haben die Berechtigung immer (App-iOS.entitlements).
 SAGA_MAC_PUSH_SUFFIX =
 
+// Desktop-Huelle (P2, Ziel SagaShell): Web-Oberflaeche im WKWebView. Bis zur Umstellung (P3) mit eigener Test-ID
+// neben der normalen Mac-App; eigene App-Gruppe (Team-Praefix, ohne Bereitstellungsprofil) und eigenes Link-Schema,
+// damit Links aus Widgets/Spotlight weiter bei der normalen App landen. P3: ID = $(SAGA_BUNDLE_ID), Gruppe/Schema wie die App.
+SAGA_SHELL_BUNDLE_ID = $(SAGA_BUNDLE_ID).webshell
+SAGA_SHELL_APP_GROUP = $(TeamIdentifierPrefix)$(SAGA_SHELL_BUNDLE_ID)
+SAGA_SHELL_URL_SCHEME = saga-test
+
 // Angezeigte Version (Einstellungen -> Ueber): nur das offizielle Release zeigt MARKETING_VERSION ("2.2.0"),
 // alle anderen Builds "2.2.0-rc.N" (siehe tools/version-label.sh). CFBundleShortVersionString bleibt numerisch.
 // Werte fuer SAGA_VERSION_LABEL und CURRENT_PROJECT_VERSION (Build-Nummer JJJJMMTTHHMM) schreibt
