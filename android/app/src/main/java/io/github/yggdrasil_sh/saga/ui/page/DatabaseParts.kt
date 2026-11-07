@@ -196,6 +196,7 @@ fun RowProperties(ed: PageEditor, repo: SagaRepository) {
         }
     }
     editing?.let { p ->
+      androidx.compose.runtime.CompositionLocalProvider(io.github.yggdrasil_sh.saga.ui.database.LocalDbRepo provides repo) {
         PropValueEditor(
             p, row.props[p.id], onSet = { set(p, it) }, onDismiss = { editing = null },
             onNewOption = { name ->
@@ -217,6 +218,7 @@ fun RowProperties(ed: PageEditor, repo: SagaRepository) {
             fmt = fmt,
             datetime = repo.hasFeature("datetime1"),
         )
+      }
     }
 }
 
