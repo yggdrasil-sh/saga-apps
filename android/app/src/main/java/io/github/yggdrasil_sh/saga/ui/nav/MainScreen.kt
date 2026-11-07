@@ -250,6 +250,16 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
     }
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
+    // NAV-04: Schublade geht auf (Knopf, Wischen, "Mit mir geteilt") -> Fokus loesen und Tastatur schliessen,
+    // sonst verdeckt sie die halbe Leiste (z. B. aus der Suche)
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    LaunchedEffect(drawerState.targetValue) {
+        if (drawerState.targetValue == DrawerValue.Open) {
+            focusManager.clearFocus()
+            keyboard?.hide()
+        }
+    }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     LaunchedEffect(Unit) {
@@ -260,7 +270,7 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 840.dp
         val medium = maxWidth >= 600.dp
-        val chrome = Chrome(showMenu = !wide && !medium, onMenu = { scope.launch { drawerState.open() } })
+        val chrome = Chrome(showMenu = !wide && !medium, onMenu = { focusManager.clearFocus(); keyboard?.hide(); scope.launch { drawerState.open() } })
         val closeDrawer: () -> Unit = { if (!wide) scope.launch { drawerState.close() } }
 
         val showShared by repo.showSharedRequest.collectAsState()
