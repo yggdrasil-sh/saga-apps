@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import io.github.yggdrasil_sh.saga.R
 import kotlin.math.roundToInt
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 
 /**
  * 2.5: eigenes Bild im Anruf - in eine Ecke ziehen (rastet an der naechsten ein) oder ausblenden (bleibt als kleiner
@@ -101,16 +102,16 @@ internal fun SelfPip(
             if (hidden) {
                 IconButton(
                     onClick = { hidden = false; prefs.edit().putBoolean("self_hidden", false).apply() },
-                    modifier = Modifier.fillMaxSize().clip(CircleShape).background(Color(0x99000000))
+                    modifier = Modifier.fillMaxSize().clip(CircleShape).background(Color.Black.copy(alpha = 0.6f))
                         .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape),
                 ) { Icon(painterResource(SagaIcons.user), stringResource(R.string.call_self_show), tint = Color.White) }
             } else {
-                content(Modifier.fillMaxSize().shadow(6.dp, RoundedCornerShape(14.dp)).clip(RoundedCornerShape(14.dp)))
+                content(Modifier.fillMaxSize().shadow(6.dp, RoundedCornerShape(SagaRadius.l)).clip(RoundedCornerShape(SagaRadius.l)))
                 IconButton(
                     onClick = { hidden = true; prefs.edit().putBoolean("self_hidden", true).apply() },
                     modifier = Modifier.align(Alignment.TopStart).size(40.dp),
                 ) {
-                    Box(Modifier.size(28.dp).clip(CircleShape).background(Color(0x73000000)), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(28.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
                         Icon(painterResource(SagaIcons.eyeOff), stringResource(R.string.call_self_hide), tint = Color.White,
                             modifier = Modifier.size(16.dp))
                     }

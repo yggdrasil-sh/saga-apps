@@ -22,7 +22,10 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.ui.theme.Dark
+import io.github.yggdrasil_sh.saga.ui.theme.DarkAccent
 import io.github.yggdrasil_sh.saga.ui.theme.Light
+import io.github.yggdrasil_sh.saga.ui.theme.LightAccent
+import io.github.yggdrasil_sh.saga.ui.theme.SagaGold
 import java.text.DateFormat
 
 /** Gestaltung der Widgets: Material You (dynamische Farben ab Android 12), sonst Saga hell/dunkel; Gold als Akzent */
@@ -34,9 +37,9 @@ object WidgetLook {
     fun colors() = if (Build.VERSION.SDK_INT >= 31) GlanceTheme.colors else saga
 
     /** Gold als Text/Symbol (Kontrast >= 4.5:1 auf hell bzw. dunkel, wie LightAccent/DarkAccent der App) */
-    val gold: ColorProvider = DayNight(day = Color(0xFF7A5A12), night = Color(0xFFE2C07E))
+    val gold: ColorProvider = DayNight(day = LightAccent.goldText, night = DarkAccent.goldText)
     /** Gold als Zierlinie */
-    val goldLine: ColorProvider = DayNight(day = Color(0xFFC9A45C), night = Color(0xFFC9A45C))
+    val goldLine: ColorProvider = DayNight(day = SagaGold, night = SagaGold)
 
     val title = 15.sp
     val body = 13.sp

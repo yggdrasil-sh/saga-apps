@@ -20,22 +20,37 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.yggdrasil_sh.saga.ui.chat.ChatAvatar
 import io.github.yggdrasil_sh.saga.ui.chat.reducedMotion
+import io.github.yggdrasil_sh.saga.ui.theme.Dark
+import io.github.yggdrasil_sh.saga.ui.theme.DarkAccent
+import io.github.yggdrasil_sh.saga.ui.theme.LightAccent
+import io.github.yggdrasil_sh.saga.ui.theme.LightSignals
 import io.github.yggdrasil_sh.saga.ui.theme.SagaGold
 import io.github.yggdrasil_sh.saga.ui.theme.SagaNight
 
 /** Design 2: Flaechen und Profilkreis des Anrufbildschirms (immer im Nachtblau von Saga, Akzent Gold) */
 internal object CallDesign {
     /** Hintergrund ohne Video: Nachtblau, nach unten etwas heller, oben ein Hauch Gold */
-    val backdrop: Brush = Brush.verticalGradient(listOf(Color(0xFF1A1F2A), SagaNight, Color(0xFF151C27)))
+    /** Verlauf --cl-pop -> Nachtblau -> --cl-panel (Werte aus dem Theme, die Buehne ist in beiden Schemata gleich) */
+    val backdrop: Brush = Brush.verticalGradient(listOf(LightSignals.callPop, SagaNight, LightSignals.callPanel))
 
     /**
-     * CH-02: Aktionen auf dem Endbildschirm (immer dunkler Hintergrund). Hauptaktion: helles Gold mit dunkler Schrift
-     * (Schrift 10:1, Flaeche gegen Nachtblau 12:1); "Schliessen" weiss mit grauem Rand (Rand 5:1); Textknopf in Gold (9:1).
+     * CH-02: Aktionen auf dem Endbildschirm (immer dunkler Hintergrund, daher feste Werte aus dem Theme statt der
+     * aktuellen Rolle). Hauptaktion: goldSoft (hell) mit onGoldSoft (Schrift 10:1, Flaeche gegen Nachtblau 12:1);
+     * "Schliessen" weiss mit Rand in --muted dunkel (6:1); Textknopf in goldText dunkel (9:1).
      */
-    val actionContainer = Color(0xFFF3E2BC)
-    val onActionContainer = Color(0xFF3D2C00)
-    val actionOutline = Color(0xFF8D919A)
-    val actionText = Color(0xFFE2C07E)
+    val actionContainer: Color = LightAccent.goldSoft
+    val onActionContainer: Color = LightAccent.onGoldSoft
+    val actionOutline: Color = Dark.onSurfaceVariant
+    val actionText: Color = DarkAccent.goldText
+
+    /**
+     * Gruene Anruf-Leiste in der App (weisse Schrift): --cl-green (#2EA043) erreicht mit Weiss nur 3,4:1, fuer Text
+     * daher --ok hell (#1F7A33, 5,4:1) in beiden Schemata. Die runden Annehmen-Knoepfe (nur Symbol) nehmen callGreen.
+     */
+    val barGreen: Color = LightSignals.ok
+
+    /** Platzhalter-Verlauf fuer Video in der Geraetetest-Vorschau (kein Web-Token, nur Attrappe): Blau, Violett, Gruen, Braun */
+    val previewVideoTones: List<Color> = listOf(Color(0xFF3A6EA5), Color(0xFF7A4E9E), Color(0xFF2F8F6B), Color(0xFFB0643C))
 
     /** Abstand der Ringe um den Profilkreis beim Klingeln/Verbinden (Anteil des Radius) */
     const val HALO_SPREAD = 0.55f

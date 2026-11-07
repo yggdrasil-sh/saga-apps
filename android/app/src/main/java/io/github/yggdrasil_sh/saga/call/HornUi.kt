@@ -64,6 +64,8 @@ import io.github.yggdrasil_sh.saga.util.UiText
 import io.github.yggdrasil_sh.saga.util.resolve
 import kotlinx.coroutines.delay
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
+import io.github.yggdrasil_sh.saga.ui.theme.SagaColors
 
 // Gjallarhorn (Saga 2.5, P12): Oberflaeche fuer Gruppenanrufe ueber Knoten - Kacheln mit Last-N und Sprecheransicht,
 // Weg-Anzeige mit Qualitaetspunkt, Runensiegel mit Erklaerung, Teilnehmerliste mit Moderation fuer Gastgeber.
@@ -125,15 +127,20 @@ data class HornUi(
     val bigVideo: Boolean = false,
 )
 
-private val TILE_BG = Color(0xFF202227)
-private val SPEAK = Color(0xFF8BE28B)
+/** Kachel ohne Bild (--cl-btn) und Sprecher-Rand (--cl-ok) */
+private val TILE_BG: Color @Composable get() = SagaColors.current.callBtn
+private val SPEAK: Color @Composable get() = SagaColors.current.callOk
 
+/** Guete-Punkt: auf der dunklen Buehne --cl-ok/-warn/-err, sonst die Signalfarben des Schemas; unbekannt --unk */
 @Composable
-fun hornQualityColor(q: String): Color = when (q) {
-    "good" -> Color(0xFF2E9E4F)
-    "mid" -> Color(0xFFE0A100)
-    "bad" -> Color(0xFFD93025)
-    else -> MaterialTheme.colorScheme.outline
+fun hornQualityColor(q: String, onDark: Boolean = true): Color {
+    val c = SagaColors.current
+    return when (q) {
+        "good" -> if (onDark) c.callOk else c.ok
+        "mid" -> if (onDark) c.callWarn else c.warn
+        "bad" -> if (onDark) c.callErr else c.down
+        else -> c.unk
+    }
 }
 
 @Composable
@@ -162,15 +169,15 @@ fun HornBar(
     persons: Int? = null,
 ) {
     val fg = if (onDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-    val chipBg = if (onDark) Color(0x66101114) else MaterialTheme.colorScheme.surfaceContainerHigh
+    val chipBg = if (onDark) SagaColors.current.callBg.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceContainerHigh
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 6.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             if (ui.path.isNotEmpty()) {
                 val desc = stringResource(R.string.horn_path_desc, ui.node, pathText(ui.path), qualityText(ui.quality)) +
                     (ui.rtt?.let { " · RTT $it ms" } ?: "") + (if (ui.lossPct >= 0.1) " · " + stringResource(R.string.horn_loss, ui.lossPct) else "")
-                Surface(color = chipBg, shape = RoundedCornerShape(50), modifier = Modifier.semantics { contentDescription = desc }) {
+                Surface(color = chipBg, shape = RoundedCornerShape(SagaRadius.pill), modifier = Modifier.semantics { contentDescription = desc }) {
                     Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(9.dp).clip(CircleShape).background(hornQualityColor(ui.quality)))
+                        Box(Modifier.size(9.dp).clip(CircleShape).background(hornQualityColor(ui.quality, onDark)))
                         Text(HornLogic.pathName(ui.path), color = fg, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 6.dp))
                     }
                 }
@@ -178,8 +185,8 @@ fun HornBar(
             if (ui.runes.isNotEmpty()) {
                 val cd = stringResource(R.string.horn_runes_cd, ui.runeNames.joinToString(" "))
                 Surface(
-                    color = chipBg, shape = RoundedCornerShape(50),
-                    modifier = Modifier.minimumInteractiveComponentSize().clip(RoundedCornerShape(50)).clickable(onClickLabel = stringResource(R.string.horn_runes), role = Role.Button) { onRunes() }
+                    color = chipBg, shape = RoundedCornerShape(SagaRadius.pill),
+                    modifier = Modifier.minimumInteractiveComponentSize().clip(RoundedCornerShape(SagaRadius.pill)).clickable(onClickLabel = stringResource(R.string.horn_runes), role = Role.Button) { onRunes() }
                         .semantics { contentDescription = cd },
                 ) {
                     Text(ui.runes, color = fg, fontSize = 15.sp, letterSpacing = 2.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp))
@@ -188,8 +195,8 @@ fun HornBar(
             val pl = if (persons != null) meetPersons(persons) else stringResource(R.string.horn_people, ui.people.size)
             // ANRUF-UI: im 1:1 kein Teilnehmenden-Chip (wie iOS und Web)
             if (!dm) Surface(
-                color = chipBg, shape = RoundedCornerShape(50),
-                modifier = Modifier.minimumInteractiveComponentSize().clip(RoundedCornerShape(50)).clickable(role = Role.Button) { onPeople() }.semantics { contentDescription = pl },
+                color = chipBg, shape = RoundedCornerShape(SagaRadius.pill),
+                modifier = Modifier.minimumInteractiveComponentSize().clip(RoundedCornerShape(SagaRadius.pill)).clickable(role = Role.Button) { onPeople() }.semantics { contentDescription = pl },
             ) {
                 Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(painterResource(SagaIcons.users), null, Modifier.size(16.dp), tint = fg)
@@ -200,8 +207,8 @@ fun HornBar(
             }
             val vl = stringResource(if (ui.view == "speaker") R.string.horn_view_grid else R.string.horn_view_speaker)
             if (persons == null) Surface(
-                color = chipBg, shape = RoundedCornerShape(50),
-                modifier = Modifier.minimumInteractiveComponentSize().clip(RoundedCornerShape(50)).clickable(role = Role.Button) { onView() }.semantics { contentDescription = vl },
+                color = chipBg, shape = RoundedCornerShape(SagaRadius.pill),
+                modifier = Modifier.minimumInteractiveComponentSize().clip(RoundedCornerShape(SagaRadius.pill)).clickable(role = Role.Button) { onView() }.semantics { contentDescription = vl },
             ) {
                 Icon(painterResource(SagaIcons.maximize), null, Modifier.padding(horizontal = 10.dp, vertical = 4.dp).size(16.dp), tint = fg)
             }
@@ -242,13 +249,13 @@ fun HornStage(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (strip) {
             val bigTile = tiles.firstOrNull { it.big }
-            Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(io.github.yggdrasil_sh.saga.ui.theme.SagaRadius.l)).background(Color.Black), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(SagaRadius.l)).background(Color.Black), contentAlignment = Alignment.Center) {
                 if (ui.screenFrom != null || bigTile?.video == true) big(Modifier.fillMaxSize())
                 else if (bigTile != null) io.github.yggdrasil_sh.saga.ui.chat.ChatAvatar(bigTile.name, 96.dp, avatar = bigTile.avatar)
                 val label = ui.screenFrom?.let { stringResource(R.string.call_screen_peer, it) } ?: bigTile?.name
                 if (label != null) Text(
                     label, color = Color.White, style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(8.dp).background(Color(0x99101114), RoundedCornerShape(8.dp))
+                    modifier = Modifier.align(Alignment.BottomStart).padding(8.dp).background(SagaColors.current.callBg.copy(alpha = 0.6f), RoundedCornerShape(SagaRadius.s))
                         .padding(horizontal = 8.dp, vertical = 2.dp),
                 )
             }
@@ -292,7 +299,7 @@ fun HornStage(
 @Composable
 private fun MoreTile(n: Int, modifier: Modifier) {
     val cd = stringResource(R.string.horn_more_cd, n)
-    Box(modifier.clip(RoundedCornerShape(io.github.yggdrasil_sh.saga.ui.theme.SagaRadius.l)).background(TILE_BG).semantics { contentDescription = cd }, contentAlignment = Alignment.Center) {
+    Box(modifier.clip(RoundedCornerShape(SagaRadius.l)).background(TILE_BG).semantics { contentDescription = cd }, contentAlignment = Alignment.Center) {
         Text("+$n", color = Color.White, style = MaterialTheme.typography.titleLarge)
     }
 }
@@ -310,7 +317,7 @@ private fun Tile(
     val muted = stringResource(R.string.room_muted)
     val desc = listOfNotNull(label, speaking.takeIf { t.speaking }, muted.takeIf { !t.mic }).joinToString(", ")
     // Design 2: weichere Kacheln; ohne Bild in einem dunklen Hauch der Personenfarbe statt einheitlich grau
-    val tileShape = RoundedCornerShape(io.github.yggdrasil_sh.saga.ui.theme.SagaRadius.l)
+    val tileShape = RoundedCornerShape(SagaRadius.l)
     val tint = io.github.yggdrasil_sh.saga.ui.chat.ChatDesign.tone(t.name, dark = true).bg
     Box(
         modifier.clip(tileShape)
@@ -324,7 +331,7 @@ private fun Tile(
             if (self) selfVideo(Modifier.fillMaxSize()) else video(t, Modifier.fillMaxSize())
         } else io.github.yggdrasil_sh.saga.ui.chat.ChatAvatar(t.name, 64.dp, avatar = t.avatar)
         Row(
-            Modifier.align(Alignment.BottomStart).padding(8.dp).background(Color(0xB3101114), RoundedCornerShape(50))
+            Modifier.align(Alignment.BottomStart).padding(8.dp).background(SagaColors.current.callBg.copy(alpha = 0.7f), RoundedCornerShape(SagaRadius.pill))
                 .padding(horizontal = 8.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -459,7 +466,7 @@ fun hornPreviewUi(view: String = "grid", screen: Boolean = false): HornUi {
 /** Platzhalter fuer ein bewegtes Bild in der Vorschau */
 @Composable
 internal fun PreviewVideo(seed: Int, modifier: Modifier) {
-    val c = listOf(Color(0xFF3A6EA5), Color(0xFF7A4E9E), Color(0xFF2F8F6B), Color(0xFFB0643C))
+    val c = CallDesign.previewVideoTones
     Box(modifier.background(Brush.linearGradient(listOf(c[seed % 4], c[(seed + 1) % 4]))))
 }
 
@@ -477,14 +484,14 @@ internal fun HornPreviewContent(view: String = "grid", panel: String = "", scree
             Text("12:34 · " + stringResource(R.string.room_devices_of, ui.people.size, 12), style = MaterialTheme.typography.labelMedium, color = sc.onSurfaceVariant)
             HornBar(ui, onDark = false, onRunes = {}, onPeople = {}, onView = {})
             when (panel) {
-                "people" -> Surface(shape = RoundedCornerShape(20.dp), color = sc.surfaceContainerHigh, modifier = Modifier.padding(top = 12.dp).weight(1f)) {
+                "people" -> Surface(shape = RoundedCornerShape(SagaRadius.xl), color = sc.surfaceContainerHigh, modifier = Modifier.padding(top = 12.dp).weight(1f)) {
                     Column(Modifier.padding(16.dp)) {
                         Text(stringResource(R.string.horn_people, ui.people.size), style = MaterialTheme.typography.titleLarge)
                         Spacer(Modifier.height(8.dp))
                         HornPeopleList(ui, {}, {})
                     }
                 }
-                "runes" -> Surface(shape = RoundedCornerShape(20.dp), color = sc.surfaceContainerHigh, modifier = Modifier.padding(top = 12.dp)) {
+                "runes" -> Surface(shape = RoundedCornerShape(SagaRadius.xl), color = sc.surfaceContainerHigh, modifier = Modifier.padding(top = 12.dp)) {
                     Column(Modifier.padding(16.dp)) {
                         Text(stringResource(R.string.horn_runes), style = MaterialTheme.typography.titleLarge)
                         Spacer(Modifier.height(8.dp))

@@ -40,7 +40,7 @@ import io.github.yggdrasil_sh.saga.util.resolve
 import kotlinx.coroutines.delay
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 
-private val BAR_GREEN = Color(0xFF1E8E3E)
+private val BAR_GREEN = CallDesign.barGreen
 
 /**
  * Leiste "Anruf laeuft · m:ss – tippen zum Zurueckkehren" oben in der App (alle Bildschirme der Haupt-Activity; der

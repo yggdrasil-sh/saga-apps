@@ -99,16 +99,20 @@ import org.webrtc.VideoFrame
 import org.webrtc.VideoSink
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import androidx.compose.ui.graphics.RectangleShape
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
+import io.github.yggdrasil_sh.saga.ui.theme.SagaColors
 
 // Meeting-Ansicht (MEETING-SPEC.md): eine Buehne fuer 1:1, Mesh und Knoten - Personenkacheln ueber `who`, Bildschirm
 // gross und ganz (contain, kein Kamera-Bild-im-Bild), Streifen, Galerie mit Seiten, Hinweis-Chip, Zoom, ausblendende
 // Leisten. Die Bilder liefert der Aufrufer (echte Senken bzw. Demo-Flaechen).
 
 /** Sprechring und Kachelflaechen */
-internal val MEET_SPEAK = Color(0xFF56D364)
-private val MEET_TILE = Color(0xFF202227)
-private val MEET_BAR = Color(0xB3101114)            // 70 % Schwarz
+internal val MEET_SPEAK: Color @Composable get() = SagaColors.current.callOk
+private val MEET_TILE: Color @Composable get() = SagaColors.current.callBtn
+/** Leisten/Chips ueber Video: --cl-bg mit 70 % Deckung */
+private val MEET_BAR: Color @Composable get() = SagaColors.current.callBg.copy(alpha = 0.7f)
 
 /**
  * Zustand, der nur fuer diesen Anruf gilt (Pin, Vollbild, ausgeblendete Hinweise) bzw. je Geraet gespeichert wird
@@ -252,7 +256,7 @@ private fun meetDesc(t: Meeting.Tile, speaking: Boolean, pinned: Boolean): Strin
 @Composable
 private fun NameBar(t: Meeting.Tile, speaking: Boolean, pinned: Boolean, modifier: Modifier = Modifier) {
     Row(
-        modifier.background(MEET_BAR, RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 3.dp),
+        modifier.background(MEET_BAR, RoundedCornerShape(SagaRadius.pill)).padding(horizontal = 8.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (t.screen) Icon(painterResource(SagaIcons.screenShare), null, Modifier.size(14.dp), tint = Color.White)
@@ -279,7 +283,7 @@ private fun MeetTile(
     tileVideo: @Composable (Meeting.Tile, Boolean, Modifier) -> Unit,
     onTap: (() -> Unit)?, onPin: (String?) -> Unit, onFullscreen: (() -> Unit)?, small: Boolean = false,
 ) {
-    val shape = RoundedCornerShape(if (small) 10.dp else 14.dp)
+    val shape = RoundedCornerShape(if (small) SagaRadius.md else SagaRadius.l)
     val tint = io.github.yggdrasil_sh.saga.ui.chat.ChatDesign.tone(t.name, dark = true).bg
     var menu by remember { mutableStateOf(false) }
     val desc = meetDesc(t, speaking, pinned)
@@ -332,7 +336,7 @@ private fun StageView(
     var zoomShown by remember { mutableLongStateOf(0L) }
     val stageCd = stringResource(R.string.meet_stage_cd, meetLabel(t))
     BoxWithConstraints(
-        modifier.background(Color.Black).clip(RoundedCornerShape(0.dp)).semantics { paneTitle = stageCd },
+        modifier.background(Color.Black).clip(RectangleShape).semantics { paneTitle = stageCd },
         contentAlignment = Alignment.Center,
     ) {
         val wPx = constraints.maxWidth.toFloat()
@@ -378,7 +382,7 @@ private fun StageView(
         // Zoom-Anzeige "200 %" 2 s mit Zuruecksetzen
         LaunchedEffect(zoomShown) { if (zoomShown > 0) { delay(2000); zoomShown = 0 } }
         if (zoomShown > 0 && scale > 1.01f) Surface(
-            color = MEET_BAR, contentColor = Color.White, shape = RoundedCornerShape(50),
+            color = MEET_BAR, contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.pill),
             modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = chipBottom + 52.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 12.dp)) {
@@ -395,7 +399,7 @@ private fun ShareChip(t: Meeting.Tile, modifier: Modifier, onClose: () -> Unit) 
     val nm = HornLogic.shortName(t.name, 28)
     val text = if (t.devName.isNotEmpty()) stringResource(R.string.meet_sharing_chip, "$nm (${t.devName})") else stringResource(R.string.meet_sharing_chip, nm)
     Row(
-        modifier.height(32.dp).background(MEET_BAR, RoundedCornerShape(16.dp)).padding(start = 10.dp),
+        modifier.height(32.dp).background(MEET_BAR, RoundedCornerShape(SagaRadius.pill)).padding(start = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(painterResource(SagaIcons.screenShare), null, Modifier.size(16.dp), tint = Color.White)
@@ -494,9 +498,9 @@ internal fun MeetingStage(
         if (noVideo > 0) {
             val label = stringResource(R.string.meet_more_novideo, noVideo)
             Surface(
-                color = MEET_BAR, contentColor = Color.White, shape = RoundedCornerShape(50),
+                color = MEET_BAR, contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.pill),
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp + end, bottom = bottom + 12.dp)
-                    .then(if (onPeople != null) Modifier.clip(RoundedCornerShape(50)).clickable(role = androidx.compose.ui.semantics.Role.Button) { onPeople() } else Modifier),
+                    .then(if (onPeople != null) Modifier.clip(RoundedCornerShape(SagaRadius.pill)).clickable(role = androidx.compose.ui.semantics.Role.Button) { onPeople() } else Modifier),
             ) {
                 Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
             }
@@ -504,7 +508,7 @@ internal fun MeetingStage(
         val ended = ms.pinEnded
         LaunchedEffect(ended) { if (ended > 0) { delay(3000); ms.pinEnded = 0 } }
         if (ended > 0) Surface(
-            color = MEET_BAR, contentColor = Color.White, shape = RoundedCornerShape(50),
+            color = MEET_BAR, contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.pill),
             modifier = Modifier.align(Alignment.Center),
         ) {
             Text(stringResource(R.string.meet_pin_ended), modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite })
@@ -523,12 +527,12 @@ private fun SelfFloat(
     val (pw, ph) = Meeting.selfPipSize(aspect, if (phone) 9f / 16f else 16f / 9f, w, avail, Meeting.SIZE_FACTORS[ms.selfSize])
     val sizeLabel = stringResource(R.string.meet_self_size)
     SelfPip(pw.dp, ph.dp, top = top + 8.dp, bottom = bottom + 8.dp, side = 16.dp, onDoubleTap = { ms.selfSize = (ms.selfSize + 1) % 3 }, sizeLabel = sizeLabel) { mod ->
-        Box(mod.border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(14.dp))) {
+        Box(mod.border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(SagaRadius.l))) {
             if (self.video) selfVideo(Modifier.fillMaxSize()) { a -> aspect = a }
             else Box(Modifier.fillMaxSize().background(MEET_TILE), contentAlignment = Alignment.Center) { ChatAvatar(self.name.ifEmpty { "?" }, 40.dp, avatar = self.avatar) }
             Text(
                 stringResource(R.string.room_you), color = Color.White, style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.align(Alignment.BottomStart).padding(6.dp).background(MEET_BAR, RoundedCornerShape(50)).padding(horizontal = 6.dp, vertical = 1.dp),
+                modifier = Modifier.align(Alignment.BottomStart).padding(6.dp).background(MEET_BAR, RoundedCornerShape(SagaRadius.pill)).padding(horizontal = 6.dp, vertical = 1.dp),
             )
         }
     }
@@ -568,7 +572,7 @@ private fun Strip(
         )
     }
     // eingeklappt: nur der Griff und eine 8-dp-Leiste in Sprechring-Farbe
-    val bar: @Composable (Modifier) -> Unit = { mod -> Box(mod.background(if (speakingWho.isNotEmpty()) MEET_SPEAK else Color(0xFF3A3D44))) }
+    val bar: @Composable (Modifier) -> Unit = { mod -> Box(mod.background(if (speakingWho.isNotEmpty()) MEET_SPEAK else SagaColors.current.callLine)) }
     if (right) Column(modifier.width(if (ms.stripCollapsed) 48.dp else size), horizontalAlignment = Alignment.CenterHorizontally) {
         handle()
         if (ms.stripCollapsed) bar(Modifier.width(8.dp).weight(1f))
@@ -667,7 +671,7 @@ private fun Gallery(
 
 @Composable
 private fun PageArrow(icon: Int, rot: Float, label: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.padding(4.dp).size(48.dp).clip(CircleShape).background(Color(0x80101114))) {
+    IconButton(onClick = onClick, modifier = Modifier.padding(4.dp).size(48.dp).clip(CircleShape).background(SagaColors.current.callBg.copy(alpha = 0.5f))) {
         Icon(painterResource(icon), label, tint = Color.White, modifier = Modifier.graphicsLayer { rotationZ = rot })
     }
 }
@@ -704,7 +708,7 @@ internal fun Modifier.meetActivity(hidden: () -> Boolean, onActivity: () -> Unit
 @Composable
 internal fun MeetCompanions(names: List<String>, onDark: Boolean) {
     if (names.isEmpty()) return
-    Surface(color = if (onDark) Color(0x66101114) else MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(50), modifier = Modifier.padding(top = 6.dp)) {
+    Surface(color = if (onDark) SagaColors.current.callBg.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(SagaRadius.pill), modifier = Modifier.padding(top = 6.dp)) {
         Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(SagaIcons.devices), null, Modifier.size(16.dp), tint = if (onDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
@@ -814,7 +818,7 @@ internal fun MeetingLayer(
         )
         AnimatedVisibility(!hidden && !ms.fullscreen, Modifier.align(Alignment.TopCenter).fillMaxWidth(), enter = enter, exit = exit) {
             Box(
-                Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xB3000000), Color.Transparent)))
+                Modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.7f), Color.Transparent)))
                     .onSizeChanged { topH = it.height },
             ) { header() }
         }
@@ -840,8 +844,8 @@ internal fun MeetingLayer(
 @Composable
 internal fun MeetPill(title: String, info: String, e2e: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
     Surface(
-        color = MEET_BAR, contentColor = Color.White, shape = RoundedCornerShape(50),
-        modifier = modifier.then(if (onClick != null) Modifier.clip(RoundedCornerShape(50)).clickable(role = androidx.compose.ui.semantics.Role.Button) { onClick() } else Modifier),
+        color = MEET_BAR, contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.pill),
+        modifier = modifier.then(if (onClick != null) Modifier.clip(RoundedCornerShape(SagaRadius.pill)).clickable(role = androidx.compose.ui.semantics.Role.Button) { onClick() } else Modifier),
     ) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -851,7 +855,7 @@ internal fun MeetPill(title: String, info: String, e2e: String, modifier: Modifi
             if (info.isNotEmpty()) Text(" · $info", style = MaterialTheme.typography.labelMedium, maxLines = 1, color = Color.White.copy(alpha = 0.85f))
             Icon(
                 painterResource(SagaIcons.lock), e2e, Modifier.padding(start = 6.dp).size(14.dp),
-                tint = Color(0xFF8BE28B),
+                tint = SagaColors.current.callOk,
             )
         }
     }

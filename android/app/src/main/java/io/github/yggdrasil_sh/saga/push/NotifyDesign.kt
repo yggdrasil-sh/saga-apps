@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.ui.graphics.toArgb
 import io.github.yggdrasil_sh.saga.ui.chat.ChatDesign
+import io.github.yggdrasil_sh.saga.ui.theme.LightAccent
 
 /**
  * Design 2: Mitteilungen im Saga-Stil - Akzentfarbe (Gold, dunkel genug fuer helle Mitteilungsflaechen) und
@@ -13,7 +14,7 @@ import io.github.yggdrasil_sh.saga.ui.chat.ChatDesign
  */
 object NotifyDesign {
     /** Akzent fuer kleines Symbol und App-Namen (Saga-Gold fuer Text, >= 4,5:1 auf Weiss) */
-    const val ACCENT: Int = 0xFF7A5A12.toInt()
+    val ACCENT: Int = LightAccent.goldText.toArgb()
 
     /** Runder Profilkreis mit Initialen (hell: Mitteilungen liegen meist auf heller Flaeche) */
     fun initials(name: String, px: Int = 192): Bitmap {

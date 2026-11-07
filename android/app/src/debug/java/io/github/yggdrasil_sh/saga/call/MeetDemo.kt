@@ -32,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 
 /**
  * Debug-Quelle der Meeting-Ansicht: erfundene Teilnehmende (keine echten Daten, keine Medien, keine Kamera) fuer
@@ -128,7 +129,7 @@ fun MeetDemoContent(scenario: String, hidden: Boolean = false) {
                     val tc = MaterialTheme.colorScheme.surfaceContainerHighest
                     val tf = MaterialTheme.colorScheme.onSurface
                     Box(Modifier.fillMaxHeight().safeDrawingPadding().padding(4.dp)) {
-                        Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(32.dp)) {
+                        Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(SagaRadius.pill)) {
                             Column(Modifier.width(64.dp).fillMaxHeight().padding(vertical = 6.dp), verticalArrangement = Arrangement.SpaceEvenly, horizontalAlignment = Alignment.CenterHorizontally) {
                                 RoundButton(SagaIcons.mic, stringResource(R.string.call_mute), tc, tf, compact = true, col = 48.dp) {}
                                 RoundButton(SagaIcons.video, stringResource(R.string.call_cam_off), tc, tf, compact = true, col = 48.dp) {}
@@ -147,7 +148,7 @@ fun MeetDemoContent(scenario: String, hidden: Boolean = false) {
                     val col = minOf(72.dp, maxWidth / n)
                     val tc = MaterialTheme.colorScheme.surfaceContainerHighest
                     val tf = MaterialTheme.colorScheme.onSurface
-                    Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(if (flat) 28.dp else 36.dp)) {
+                    Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(SagaRadius.pill)) {
                         Row(Modifier.fillMaxWidth().padding(vertical = if (flat) 4.dp else 10.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
                             RoundButton(SagaIcons.mic, stringResource(R.string.call_mute), tc, tf, compact = true, col = col) {}
                             RoundButton(SagaIcons.video, stringResource(R.string.call_cam_off), tc, tf, compact = true, col = col) {}

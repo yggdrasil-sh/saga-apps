@@ -96,6 +96,8 @@ import kotlinx.coroutines.delay
 import org.webrtc.RendererCommon
 import org.webrtc.SurfaceViewRenderer
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
+import io.github.yggdrasil_sh.saga.ui.theme.SagaColors
 
 /**
  * Anruf-Oberflaeche (Vollbild, auch auf dem Sperrbildschirm): Klingeln mit Annehmen/Ablehnen, laufender Anruf mit
@@ -381,7 +383,7 @@ private fun CallScreen(
     val onMic: () -> Unit = { if (st.mic) calls.toggleMic() else echoGate("mic") }
     val onPlayback: () -> Unit = { echoGate("sound") }
 
-    val dark = Color(0xFF101114)
+    val dark = SagaColors.current.callBg
     // V1: flacher Bildschirm (Telefon quer, grosse Anzeige) - Kopf in einer Zeile, Knoepfe ohne Textzeile, kleinere
     // Raender: sonst blieb fuer Video/Kacheln nur ein Streifen (A05)
     val conf = androidx.compose.ui.platform.LocalConfiguration.current
@@ -506,7 +508,7 @@ private fun CallScreen(
             }
             if (status != null) {
                 Surface(
-                    color = if (showVideo) dark.copy(alpha = 0.6f) else Color.Transparent, shape = RoundedCornerShape(12.dp),
+                    color = if (showVideo) dark.copy(alpha = 0.6f) else Color.Transparent, shape = RoundedCornerShape(SagaRadius.md),
                     modifier = Modifier.padding(top = 8.dp),
                 ) {
                     Text(
@@ -523,7 +525,7 @@ private fun CallScreen(
             }
             if (!meshOn) Spacer(Modifier.weight(1f))
             room?.mutedBy?.let { by ->
-                if (!st.mic && st.phase == CallPhase.CONNECTED) Surface(color = dark.copy(alpha = 0.75f), contentColor = Color.White, shape = RoundedCornerShape(50),
+                if (!st.mic && st.phase == CallPhase.CONNECTED) Surface(color = dark.copy(alpha = 0.75f), contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.pill),
                     modifier = Modifier.padding(bottom = 10.dp)) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(painterResource(SagaIcons.micOff), null, Modifier.size(16.dp))
@@ -544,7 +546,7 @@ private fun CallScreen(
             val top = with(LocalDensity.current) { infoHeight.toDp() } + 24.dp
             val label = stringResource(R.string.call_screen_small, st.peer.shown)
             Box(Modifier.fillMaxSize().safeDrawingPadding().padding(top = maxOf(top, 56.dp), start = 16.dp), contentAlignment = Alignment.TopStart) {
-                Box(Modifier.width(120.dp).height(160.dp).clip(RoundedCornerShape(12.dp)).background(Color.Black), contentAlignment = Alignment.Center) {
+                Box(Modifier.width(120.dp).height(160.dp).clip(RoundedCornerShape(SagaRadius.md)).background(Color.Black), contentAlignment = Alignment.Center) {
                     VideoView(calls, remote = true, visible = true, modifier = Modifier.fillMaxSize(), sink = calls.remoteSink2, overlay = true)
                     // Tippflaeche ueber dem SurfaceView (der selbst keine Beruehrungen auswertet)
                     Box(
@@ -683,8 +685,8 @@ internal fun MeetCall(
                     if (room != null && room.horn == null && (room.kind == CallRoom.KIND_GROUP || st.meet.size > 2)) {
                         val pl = meetPersons(model.persons)
                         Surface(
-                            color = Color(0x66101114), shape = RoundedCornerShape(50),
-                            modifier = Modifier.padding(top = 6.dp).minimumInteractiveComponentSize().clip(RoundedCornerShape(50))
+                            color = SagaColors.current.callBg.copy(alpha = 0.4f), shape = RoundedCornerShape(SagaRadius.pill),
+                            modifier = Modifier.padding(top = 6.dp).minimumInteractiveComponentSize().clip(RoundedCornerShape(SagaRadius.pill))
                                 .clickable(role = Role.Button) { meshPeople = true; menuOpen = true }.semantics { contentDescription = pl },
                         ) {
                             Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -698,7 +700,7 @@ internal fun MeetCall(
         },
         pinned = {
             // eigene Freigabe: rote Leiste bleibt sichtbar (Datenschutz), 32 dp, oben links
-            if (st.sharing) Surface(color = SHARE_RED, contentColor = Color.White, shape = RoundedCornerShape(16.dp)) {
+            if (st.sharing) Surface(color = SHARE_RED, contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.pill)) {
                 Row(Modifier.height(32.dp).padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(painterResource(SagaIcons.screenShare), null, Modifier.size(16.dp))
                     Text(stringResource(R.string.call_screen_you), style = MaterialTheme.typography.labelLarge, maxLines = 1,
@@ -708,27 +710,27 @@ internal fun MeetCall(
             }
         },
         notices = {
-            val dark = Color(0xFF101114)
+            val dark = SagaColors.current.callBg
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 ms.galleryHint?.let { id ->
                     model.screens.firstOrNull { it.id == id }?.let { t ->
-                        Surface(color = dark.copy(alpha = 0.8f), contentColor = Color.White, shape = RoundedCornerShape(50)) {
+                        Surface(color = dark.copy(alpha = 0.8f), contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.pill)) {
                             Row(Modifier.padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(stringResource(R.string.meet_sharing_chip, t.name), style = MaterialTheme.typography.labelLarge)
                                 TextButton(onClick = { ms.callPref = Meeting.Pref.PRESENTATION; ms.galleryHint = null }) {
-                                    Text(stringResource(R.string.meet_show), color = Color(0xFF7CC4FF))
+                                    Text(stringResource(R.string.meet_show), color = SagaColors.current.info)
                                 }
                             }
                         }
                     }
                 }
                 val msg = st.message?.resolve()
-                if (msg != null) Surface(color = dark.copy(alpha = 0.75f), contentColor = Color.White, shape = RoundedCornerShape(12.dp)) {
+                if (msg != null) Surface(color = dark.copy(alpha = 0.75f), contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.md)) {
                     Text(msg, color = if (st.error) MaterialTheme.colorScheme.error else Color.White, style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp).semantics { liveRegion = LiveRegionMode.Polite })
                 }
                 room?.mutedBy?.let { by ->
-                    if (!st.mic && st.phase == CallPhase.CONNECTED) Surface(color = dark.copy(alpha = 0.75f), contentColor = Color.White, shape = RoundedCornerShape(50)) {
+                    if (!st.mic && st.phase == CallPhase.CONNECTED) Surface(color = dark.copy(alpha = 0.75f), contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.pill)) {
                         Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(painterResource(SagaIcons.micOff), null, Modifier.size(16.dp))
                             Text(stringResource(R.string.horn_muted_hint, by), style = MaterialTheme.typography.labelLarge,
@@ -781,7 +783,7 @@ private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modi
             "none" -> add(stringResource(R.string.call_audio_none))
         }
     }
-    Surface(color = if (onDark) Color(0x99101114) else Color.Transparent, shape = RoundedCornerShape(12.dp), modifier = modifier) {
+    Surface(color = if (onDark) SagaColors.current.callBg.copy(alpha = 0.6f) else Color.Transparent, shape = RoundedCornerShape(SagaRadius.md), modifier = modifier) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             val e2e = stringResource(if (st.verified) R.string.call_e2e else R.string.call_encrypted)
             // A13: Sicherheitszeile je Weg - am Knoten gilt Frame-E2E (saga-horn), verglichen wird das Runensiegel
@@ -791,7 +793,7 @@ private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modi
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) {
                 if (st.verified) contentDescription = "$e2e. $info"
             }) {
-                Icon(painterResource(SagaIcons.lock), null, Modifier.size(14.dp), tint = if (st.verified) MaterialTheme.colorScheme.primary.takeUnless { onDark } ?: Color(0xFF8BE28B) else fg)
+                Icon(painterResource(SagaIcons.lock), null, Modifier.size(14.dp), tint = if (st.verified) MaterialTheme.colorScheme.primary.takeUnless { onDark } ?: SagaColors.current.callOk else fg)
                 Text(e2e, color = fg, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 4.dp))
             }
         }
@@ -914,7 +916,7 @@ private fun Controls(
                 add { col -> RoundButton(SagaIcons.phoneOff, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = compact || layoutBtn != null, col = col) { calls.hangup() } }
             }
             if (vertical) {
-                Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(32.dp)) {
+                Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(SagaRadius.pill)) {
                     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.width(64.dp).fillMaxHeight().padding(vertical = 6.dp)) {
                         val col = minOf(56.dp, maxHeight / buttons.size)
                         Column(Modifier.fillMaxHeight().width(64.dp), verticalArrangement = Arrangement.SpaceEvenly, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -926,7 +928,7 @@ private fun Controls(
             }
             // Design 2: schwebende Knopfleiste (abgerundete Flaeche, auch ueber Video lesbar)
             Surface(
-                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(if (flat) 28.dp else 36.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(SagaRadius.pill),
                 modifier = Modifier.fillMaxWidth().padding(bottom = if (flat) 2.dp else 16.dp),
             ) {
                 androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = if (flat) 4.dp else 10.dp)) {
@@ -948,9 +950,10 @@ private fun Controls(
     }
 }
 
-private val CALL_GREEN = Color(0xFF1E8E3E)
-/** Rote Leiste/Knopf beim Bildschirm-Teilen */
-private val SHARE_RED = Color(0xFFC62828)
+/** Annehmen (--cl-green; runde Knoepfe nur mit Symbol, Weiss darauf 3,4:1 >= 3:1) */
+private val CALL_GREEN: Color @Composable get() = SagaColors.current.callGreen
+/** Rote Leiste/Knopf beim Bildschirm-Teilen (--cl-red, Weiss darauf 4,6:1) */
+private val SHARE_RED: Color @Composable get() = SagaColors.current.callRed
 
 /**
  * 2.4 E3: Leiste beim Teilen - "Du teilst deinen Bildschirm" mit "Beenden" (und Hinweis, wenn die Kamera ueber eine
@@ -959,7 +962,7 @@ private val SHARE_RED = Color(0xFFC62828)
 @Composable
 private fun ShareBar(calls: CallManager, st: CallUiState) {
     if (st.phase != CallPhase.CONNECTED || (!st.sharing && !st.peerSharing)) return
-    Surface(color = SHARE_RED, contentColor = Color.White, shape = RoundedCornerShape(12.dp), modifier = Modifier.padding(top = 8.dp)) {
+    Surface(color = SHARE_RED, contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.md), modifier = Modifier.padding(top = 8.dp)) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val text = if (st.sharing) stringResource(R.string.call_screen_you)
@@ -1055,8 +1058,8 @@ private fun Tile(calls: CallManager, t: CallTile, self: Boolean, modifier: Modif
     val muted = stringResource(R.string.room_muted)
     val desc = listOfNotNull(label, speaking.takeIf { t.speaking }, muted.takeIf { !t.mic }).joinToString(", ")
     Box(
-        modifier.clip(RoundedCornerShape(14.dp)).background(Color(0xFF202227))
-            .then(if (t.speaking) Modifier.border(3.dp, Color(0xFF8BE28B), RoundedCornerShape(14.dp)) else Modifier)
+        modifier.clip(RoundedCornerShape(SagaRadius.l)).background(SagaColors.current.callBtn)
+            .then(if (t.speaking) Modifier.border(3.dp, SagaColors.current.callOk, RoundedCornerShape(SagaRadius.l)) else Modifier)
             .semantics(mergeDescendants = true) { contentDescription = desc },
         contentAlignment = Alignment.Center,
     ) {
@@ -1067,7 +1070,7 @@ private fun Tile(calls: CallManager, t: CallTile, self: Boolean, modifier: Modif
             io.github.yggdrasil_sh.saga.ui.chat.ChatAvatar(t.name, 64.dp)
         }
         Row(
-            Modifier.align(Alignment.BottomStart).padding(6.dp).background(Color(0x99101114), RoundedCornerShape(8.dp))
+            Modifier.align(Alignment.BottomStart).padding(6.dp).background(SagaColors.current.callBg.copy(alpha = 0.6f), RoundedCornerShape(SagaRadius.s))
                 .padding(horizontal = 6.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1242,7 +1245,7 @@ object CallPermissions {
 /** A18: Beschriftungen der Anruf-Knoepfe (rein, testbar) */
 internal object CallLabels {
     /** Auflegen/Ablehnen kraeftig rot - auch im dunklen Modus (dort ist colorScheme.error blassrosa und wirkt deaktiviert) */
-    val HANGUP_BG = Color(0xFFC62828)
+    val HANGUP_BG: Color @Composable get() = SagaColors.current.callRed
 
     fun words(label: String): List<String> = label.split(' ', '\u00A0', '\n').filter { it.isNotEmpty() }
 
