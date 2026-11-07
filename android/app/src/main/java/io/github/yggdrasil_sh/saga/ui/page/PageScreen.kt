@@ -832,14 +832,18 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
         // wie iOS/Web: Titelbild ueber die volle Breite, Symbol halb darueber; fehlt eins davon: dezent anbieten
         if (cover != null) PageCover(ed, repo, cover, pad = 18.dp)
         if (ed.icon.isNotEmpty() && !ed.noAccess) {
+            val iconImage = ed.icon.trim().let { it.startsWith("/files/") || it.startsWith("/api/fed/files/") }
+            val iconDesc = if (iconImage) stringResource(R.string.page_icon_desc_image) else stringResource(R.string.page_icon_desc, ed.icon.trim())
             Box(
                 Modifier.then(if (cover != null) Modifier.pullUp(36.dp) else Modifier)
-                    .clickable(enabled = headerEditable(ed) || ed.locked, onClickLabel = stringResource(R.string.page_icon)) {
+                    .clickable(enabled = headerEditable(ed) || ed.locked, onClickLabel = stringResource(R.string.page_icon_change)) {
                         if (ed.locked) repo.notify(UiText.Res(R.string.page_header_locked)) else iconPicker = true
-                    },
+                    }
+                    // A11Y-09: "Seitensymbol: <Emoji>" statt nur des Emoji-Namens; Aktion "Seitensymbol aendern"
+                    .semantics { contentDescription = iconDesc },
             ) {
                 // Wie iOS: Symbol direkt auf dem Titelbild, ohne Kachel dahinter - transparente Bilder bleiben transparent
-                PageIcon(ed.icon, repo, ed.isDatabase, size = 72.dp)
+                Box(Modifier.clearAndSetSemantics { }) { PageIcon(ed.icon, repo, ed.isDatabase, size = 72.dp) }
             }
             Spacer(Modifier.height(if (cover != null) 10.dp else 8.dp))
         } else if (cover != null) Spacer(Modifier.height(12.dp))

@@ -11,7 +11,7 @@
     <string name="page_icon_random">Zufällig</string>
     <string name="page_icon_remove">Symbol entfernen</string>
     <string name="page_header_locked">Die Seite ist gesperrt – Symbol und Titelbild lassen sich erst nach dem Entsperren ändern.</string>
-    <string name="page_tag_add">+ Tag</string>
+    <string name="page_tag_add">Tag</string>
     <string name="page_tag_remove">Tag entfernen</string>
     <string name="page_tag_hint">Tag</string>
     <string name="page_backlinks">Verlinkt von</string>
@@ -19,4 +19,9 @@
     <string name="page_cover_reposition">Neu positionieren</string>
     <string name="page_cover_drag">Bild ziehen zum Positionieren</string>
     <string name="page_cover_save">Speichern</string>
+    <!-- A11Y-05/A11Y-09 -->
+    <string name="page_tag_add_action">Tag hinzufügen</string>
+    <string name="page_icon_change">Seitensymbol ändern</string>
+    <string name="page_icon_desc">Seitensymbol: %1$s</string>
+    <string name="page_icon_desc_image">Seitensymbol</string>
 </resources>

@@ -11,7 +11,7 @@
     <string name="page_icon_random">Random</string>
     <string name="page_icon_remove">Remove icon</string>
     <string name="page_header_locked">The page is locked – icon and cover can only be changed after unlocking.</string>
-    <string name="page_tag_add">+ Tag</string>
+    <string name="page_tag_add">Tag</string>
     <string name="page_tag_remove">Remove tag</string>
     <string name="page_tag_hint">Tag</string>
     <string name="page_backlinks">Linked from</string>
@@ -19,4 +19,9 @@
     <string name="page_cover_reposition">Reposition</string>
     <string name="page_cover_drag">Drag the image to position it</string>
     <string name="page_cover_save">Save</string>
+    <!-- A11Y-05/A11Y-09 -->
+    <string name="page_tag_add_action">Add tag</string>
+    <string name="page_icon_change">Change page icon</string>
+    <string name="page_icon_desc">Page icon: %1$s</string>
+    <string name="page_icon_desc_image">Page icon</string>
 </resources>

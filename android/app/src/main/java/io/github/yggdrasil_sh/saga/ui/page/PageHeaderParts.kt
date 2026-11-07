@@ -42,6 +42,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
@@ -199,11 +206,12 @@ internal fun HeaderAddRow(ed: PageEditor, repo: SagaRepository, onIcon: () -> Un
     }
     val c = MaterialTheme.colorScheme.onSurfaceVariant
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (ed.icon.isEmpty()) TextButton(onClick = onIcon) {
+        // A11Y-11: Zielflaeche mindestens 48 dp hoch
+        if (ed.icon.isEmpty()) TextButton(onClick = onIcon, modifier = Modifier.minimumInteractiveComponentSize().heightIn(min = 48.dp)) {
             Icon(painterResource(R.drawable.ic_emoji), null, Modifier.size(18.dp), tint = c)
             Text(stringResource(R.string.page_icon_add), color = c, modifier = Modifier.padding(start = 6.dp))
         }
-        if (ed.cover == null) TextButton(onClick = pick, enabled = !busy) {
+        if (ed.cover == null) TextButton(onClick = pick, enabled = !busy, modifier = Modifier.minimumInteractiveComponentSize().heightIn(min = 48.dp)) {
             Icon(painterResource(R.drawable.ic_image), null, Modifier.size(18.dp), tint = c)
             Text(stringResource(R.string.page_cover_add), color = c, modifier = Modifier.padding(start = 6.dp))
         }
@@ -280,19 +288,28 @@ internal fun TagsRow(ed: PageEditor, repo: SagaRepository) {
     ) {
         ed.tags.forEach { t ->
             val accent = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current
+            // A11Y-11: "Tag entfernen" hat eine 48-dp-Zielflaeche. Die Zeile wird dadurch 48 dp hoch, die sichtbare
+            // Pille bleibt so hoch wie der Text (+ Rand) und reicht rechts nicht bis an den Rand der Zielflaeche.
+            var textH by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+            val pillEnd = if (editable) 12.dp else 0.dp
             Row(
-                Modifier.background(accent.goldSoft, androidx.compose.foundation.shape.RoundedCornerShape(50))
-                    .padding(start = 10.dp, end = if (editable) 2.dp else 10.dp, top = 2.dp, bottom = 2.dp),
+                Modifier.drawBehind {
+                    val h = (textH + 6.dp.toPx()).coerceAtMost(size.height)
+                    drawRoundRect(
+                        accent.goldSoft, topLeft = Offset(0f, (size.height - h) / 2f),
+                        size = Size(size.width - pillEnd.toPx(), h), cornerRadius = CornerRadius(h / 2f),
+                    )
+                }.padding(start = 10.dp, end = if (editable) 0.dp else 10.dp, top = 2.dp, bottom = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("#$t", style = small, color = accent.onGoldSoft)
+                Text("#$t", style = small, color = accent.onGoldSoft, modifier = Modifier.onSizeChanged { textH = it.height })
                 if (editable) {
                     val rm = stringResource(R.string.page_tag_remove)
                     Box(
-                        Modifier.size(24.dp).clickable(onClickLabel = rm, role = Role.Button) { set(ed.tags - t) }
+                        Modifier.minimumInteractiveComponentSize().clickable(onClickLabel = rm, role = Role.Button) { set(ed.tags - t) }
                             .androidx_semantics(rm),
                         contentAlignment = Alignment.Center,
-                    ) { Text("×", style = small, color = muted) }
+                    ) { Text("×", style = small, color = accent.onGoldSoft) }
                 }
             }
         }
@@ -312,11 +329,19 @@ internal fun TagsRow(ed: PageEditor, repo: SagaRepository) {
                 val q = text.lowercase()
                 known.filter { it !in ed.tags && (q.isEmpty() || it.lowercase().contains(q)) }.take(6).forEach { s ->
                     Text("#$s", style = small, color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.clickable { text = s; add() }.padding(horizontal = 4.dp, vertical = 4.dp))
+                        modifier = Modifier.minimumInteractiveComponentSize().clickable { text = s; add() }.padding(horizontal = 4.dp, vertical = 4.dp))
                 }
             } else {
-                Text(stringResource(R.string.page_tag_add), style = small, color = muted.copy(alpha = 0.7f),
-                    modifier = Modifier.clickable(role = Role.Button) { adding = true }.padding(vertical = 4.dp))
+                // A11Y-05: volle onSurfaceVariant, Symbol "Hinzufuegen" statt "+"-Zeichen, Aktion "Tag hinzufuegen"
+                Row(
+                    Modifier.minimumInteractiveComponentSize()
+                        .clickable(onClickLabel = stringResource(R.string.page_tag_add_action), role = Role.Button) { adding = true }
+                        .padding(end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(androidx.compose.material.icons.Icons.Outlined.Add, null, Modifier.size(18.dp), tint = muted)
+                    Text(stringResource(R.string.page_tag_add), style = small, color = muted)
+                }
             }
         }
     }

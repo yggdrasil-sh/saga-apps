@@ -11,7 +11,7 @@
     <string name="page_icon_random">Случайный</string>
     <string name="page_icon_remove">Удалить значок</string>
     <string name="page_header_locked">Страница заблокирована – значок и обложку можно изменить только после разблокировки.</string>
-    <string name="page_tag_add">+ Тег</string>
+    <string name="page_tag_add">Тег</string>
     <string name="page_tag_remove">Удалить тег</string>
     <string name="page_tag_hint">Тег</string>
     <string name="page_backlinks">Ссылки сюда</string>
@@ -19,4 +19,9 @@
     <string name="page_cover_reposition">Изменить положение</string>
     <string name="page_cover_drag">Перетащите изображение</string>
     <string name="page_cover_save">Сохранить</string>
+    <!-- A11Y-05/A11Y-09 -->
+    <string name="page_tag_add_action">Добавить тег</string>
+    <string name="page_icon_change">Изменить значок страницы</string>
+    <string name="page_icon_desc">Значок страницы: %1$s</string>
+    <string name="page_icon_desc_image">Значок страницы</string>
 </resources>

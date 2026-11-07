@@ -11,7 +11,7 @@
     <string name="page_icon_random">Aleatorio</string>
     <string name="page_icon_remove">Quitar icono</string>
     <string name="page_header_locked">La página está bloqueada: el icono y la portada solo se pueden cambiar tras desbloquearla.</string>
-    <string name="page_tag_add">+ Etiqueta</string>
+    <string name="page_tag_add">Etiqueta</string>
     <string name="page_tag_remove">Quitar etiqueta</string>
     <string name="page_tag_hint">Etiqueta</string>
     <string name="page_backlinks">Enlazado desde</string>
@@ -19,4 +19,9 @@
     <string name="page_cover_reposition">Recolocar</string>
     <string name="page_cover_drag">Arrastra la imagen para colocarla</string>
     <string name="page_cover_save">Guardar</string>
+    <!-- A11Y-05/A11Y-09 -->
+    <string name="page_tag_add_action">Añadir etiqueta</string>
+    <string name="page_icon_change">Cambiar el icono de la página</string>
+    <string name="page_icon_desc">Icono de la página: %1$s</string>
+    <string name="page_icon_desc_image">Icono de la página</string>
 </resources>
