@@ -9,6 +9,20 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Android: Design-Runde 1 „Vertrauen & schnelle Gewinne“ (Navigation, Anmeldung)
+
+- **Aufgabenzahlen stimmen überein:** Kopf, Zahl und Liste auf „Heute“ zählen dieselbe Liste; das Badge in der
+  Seitenleiste zählt wie im Web „fällig heute + überfällig“.
+- **Aufgaben** auch mit Aufgabenquellen gruppiert (Überfällig, Heute, Morgen, Später, Ohne Datum). Rot heißt nur noch
+  „Überfällig · …“ (mit Wort), hohe Priorität zeigt eine kleine Flagge; TalkBack sagt beides an.
+- **Offline sichtbar:** Leiste oben „Offline – du siehst den Stand von …“ (nach 3 s ohne Verbindung), „Aktualisieren“
+  meldet offline „Keine Verbindung“ mit „Erneut versuchen“. Das Live-Lämpchen zeigt offline einen Ring statt Punkt.
+- Schublade öffnen schließt die Tastatur.
+- **Anmeldung:** oben ausgerichtet (springt nicht mehr mit der Tastatur), QR-Code abgesetzt, Fehler direkt am Feld
+  mit klarer Ursache (kein Netz, Adresse nicht gefunden, Server antwortet nicht, kein Saga-Server), QR-Hilfe als Blatt.
+- Benachrichtigungen: Ungelesene deutlicher und für TalkBack angesagt, „Alle gelesen“ nur bei Ungelesenen.
+  Konto-Avatar in der Seitenleiste wird als „Konto: Name“ vorgelesen.
+
 ### Geändert – Mac: Die Desktop-Hülle ist jetzt die Mac-App (P3 Umstellung)
 
 - **Die Mac-App ist ab jetzt die Desktop-Hülle** (Ziel `SagaShell`, Web-Oberfläche im `WKWebView`) – Entscheidung des
