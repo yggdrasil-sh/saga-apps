@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.graph
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.view.accessibility.AccessibilityManager
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
@@ -34,12 +36,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
@@ -339,10 +335,10 @@ fun GraphScreenContent(
     Column(Modifier.fillMaxSize()) {
         SagaTopBar(stringResource(R.string.graph_title), nav, chrome) {
             IconButton(onClick = { asList = !asList }, enabled = tools) {
-                if (asList) Icon(painterResource(R.drawable.ic_graph), stringResource(R.string.graph_show_canvas))
-                else Icon(Icons.AutoMirrored.Filled.List, stringResource(R.string.graph_show_list))
+                if (asList) SagaIcon(SagaIcons.graph, stringResource(R.string.graph_show_canvas))
+                else SagaIcon(SagaIcons.list, stringResource(R.string.graph_show_list))
             }
-            IconButton(onClick = { showFilters = true }, enabled = tools) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.graph_filters)) }
+            IconButton(onClick = { showFilters = true }, enabled = tools) { SagaIcon(SagaIcons.filter, stringResource(R.string.graph_filters)) }
         }
         // Kopf (kompakt): Alle Seiten | Lokal, Tiefe, Suche, Zaehler
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
@@ -371,8 +367,8 @@ fun GraphScreenContent(
             OutlinedTextField(
                 query, { query = it }, Modifier.fillMaxWidth().padding(top = 6.dp).heightIn(min = 48.dp),
                 placeholder = { Text(stringResource(R.string.graph_search), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                leadingIcon = { Icon(Icons.Filled.Search, null) },
-                trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Clear, stringResource(R.string.graph_search_clear)) } },
+                leadingIcon = { SagaIcon(SagaIcons.search, null) },
+                trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { SagaIcon(SagaIcons.x, stringResource(R.string.graph_search_clear)) } },
                 singleLine = true, shape = MaterialTheme.shapes.extraLarge, enabled = tools,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { focusMgr.clearFocus(); if (matches.isNotEmpty() && !asList) select(matches[0]) }),
@@ -394,13 +390,13 @@ fun GraphScreenContent(
             val st = loaded
             when {
                 st == null -> Message(loading = true, title = stringResource(R.string.graph_loading))
-                st is GraphLoad.Unsupported -> Message(icon = R.drawable.ic_upgrade, title = stringResource(R.string.graph_needs_server), sub = stringResource(R.string.graph_needs_server_hint))
-                st is GraphLoad.Offline -> Message(icon = R.drawable.ic_cloud_off, title = stringResource(R.string.graph_offline), sub = stringResource(R.string.graph_offline_hint), action = stringResource(R.string.graph_retry)) { attempt++ }
+                st is GraphLoad.Unsupported -> Message(icon = SagaIcons.arrowUpCircle, title = stringResource(R.string.graph_needs_server), sub = stringResource(R.string.graph_needs_server_hint))
+                st is GraphLoad.Offline -> Message(icon = SagaIcons.cloudOff, title = stringResource(R.string.graph_offline), sub = stringResource(R.string.graph_offline_hint), action = stringResource(R.string.graph_retry)) { attempt++ }
                 st is GraphLoad.Failed -> Message(error = true, title = stringResource(R.string.graph_error), sub = st.text.asString(res), action = stringResource(R.string.graph_retry)) { attempt++ }
                 data != null && data.nodes.isEmpty() -> Message(title = stringResource(R.string.graph_empty), sub = stringResource(R.string.graph_empty_hint))
                 g == null -> Message(loading = true, title = stringResource(R.string.graph_loading))
                 local && g.missing -> Message(title = stringResource(R.string.graph_local_missing), sub = stringResource(R.string.graph_local_missing_hint), action = stringResource(R.string.graph_mode_all)) { mode = Mode.ALL }
-                g.n == 0 -> Message(icon = R.drawable.ic_filter, title = stringResource(R.string.graph_filter_empty), action = stringResource(R.string.graph_filter_reset)) {
+                g.n == 0 -> Message(icon = SagaIcons.filter, title = stringResource(R.string.graph_filter_empty), action = stringResource(R.string.graph_filter_reset)) {
                     fLinks = true; fChildren = true; fRel = true; fTags = false; fOrphans = true
                 }
                 asList -> NodeList(g, matches.takeIf { query.isNotBlank() }, pal, nf) { open(it) }
@@ -431,9 +427,9 @@ fun GraphScreenContent(
                                 autoFit = false
                                 cam = cam.zoomAt(size.width / 2f, size.height / 2f, z, 0.04f * density.density, 8f * density.density)
                             }
-                            GraphTool(R.drawable.ic_zoom_in, stringResource(R.string.graph_zoom_in)) { zoomBy(1.4f) }
-                            GraphTool(R.drawable.ic_zoom_out, stringResource(R.string.graph_zoom_out)) { zoomBy(1 / 1.4f) }
-                            GraphTool(R.drawable.ic_center_focus, stringResource(R.string.graph_fit)) {
+                            GraphTool(SagaIcons.zoomIn, stringResource(R.string.graph_zoom_in)) { zoomBy(1.4f) }
+                            GraphTool(SagaIcons.zoomOut, stringResource(R.string.graph_zoom_out)) { zoomBy(1 / 1.4f) }
+                            GraphTool(SagaIcons.focus, stringResource(R.string.graph_fit)) {
                                 val f = frameState.value
                                 if (f != null && f.x.size == g.n) cam = Camera.fit(f.x, f.y, g.n, size.width.toFloat(), size.height.toFloat(), with(density) { 48.dp.toPx() }, with(density) { 2.dp.toPx() })
                             }
@@ -493,8 +489,8 @@ private fun Message(loading: Boolean = false, icon: Int? = null, error: Boolean 
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
     ) {
         if (loading) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)) }
-        else if (error) Icon(Icons.Filled.Warning, null, Modifier.size(40.dp).padding(bottom = 4.dp), tint = MaterialTheme.colorScheme.error)
-        else Icon(painterResource(icon ?: R.drawable.ic_graph), null, Modifier.size(40.dp).padding(bottom = 4.dp), tint = LocalSagaAccent.current.gold)
+        else if (error) SagaIcon(SagaIcons.warning, null, Modifier.size(40.dp).padding(bottom = 4.dp), tint = MaterialTheme.colorScheme.error)
+        else SagaIcon(icon ?: SagaIcons.graph, null, Modifier.size(40.dp).padding(bottom = 4.dp), tint = LocalSagaAccent.current.gold)
         Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
         if (sub != null) Text(sub, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
         if (action != null) FilledTonalButton(onClick = onAction, modifier = Modifier.padding(top = 16.dp).heightIn(min = 48.dp)) { Text(action) }
@@ -582,7 +578,7 @@ private fun NodeCard(g: GraphModel, i: Int, p: GraphPalette, nf: java.text.Numbe
                 onClick = onOpen, colors = ButtonDefaults.buttonColors(containerColor = acc.goldSoft, contentColor = acc.onGoldSoft),
                 modifier = Modifier.padding(start = 8.dp).heightIn(min = 48.dp),
             ) { Text(stringResource(if (g.isTag(i)) R.string.graph_filter_tag else R.string.graph_open), fontWeight = FontWeight.SemiBold) }
-            IconButton(onClick = onClose) { Icon(Icons.Filled.Close, stringResource(R.string.graph_card_close)) }
+            IconButton(onClick = onClose) { SagaIcon(SagaIcons.x, stringResource(R.string.graph_card_close)) }
         }
     }
 }

@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.services
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.ui.res.stringResource
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.util.UiText
@@ -7,7 +9,6 @@ import io.github.yggdrasil_sh.saga.util.resolve
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,9 +21,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -105,7 +103,7 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 OutlinedTextField(
                     value = q, onValueChange = { q = it }, singleLine = true, placeholder = { Text(stringResource(R.string.services_search)) },
-                    leadingIcon = { Icon(Icons.Filled.Search, null) }, modifier = Modifier.fillMaxWidth().padding(4.dp),
+                    leadingIcon = { SagaIcon(SagaIcons.search, null) }, modifier = Modifier.fillMaxWidth().padding(4.dp),
                 )
             }
             error?.let { e -> item(span = { GridItemSpan(maxLineSpan) }) { Text(e.resolve(), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(8.dp)) } }

@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.ai
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,8 +21,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -31,7 +31,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -396,7 +395,8 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
                 // Zielsprache (aus status.targets)
                 AssistChip(
                     onClick = { targetMenu = true }, enabled = targets.isNotEmpty(),
-                    label = { Text(Locale.forLanguageTag(target).getDisplayLanguage(uiLocale).ifEmpty { target } + " ▾") },
+                    label = { Text(Locale.forLanguageTag(target).getDisplayLanguage(uiLocale).ifEmpty { target }) },
+                    trailingIcon = { SagaIcon(SagaIcons.caretDown, null, Modifier.size(androidx.compose.material3.AssistChipDefaults.IconSize)) },
                 )
                 DropdownMenu(expanded = targetMenu, onDismissRequest = { targetMenu = false }) {
                     targets.forEach { t ->
@@ -600,7 +600,7 @@ private fun HistoryDialog(repo: SagaRepository, st: AiStatus?, onDismiss: () -> 
                             supportingContent = { Text(h.answer, maxLines = 3, overflow = TextOverflow.Ellipsis) },
                             trailingContent = {
                                 IconButton(onClick = { repo.launchAction { repo.ai.deleteHistory(h.id); items = items.filter { it.id != h.id } } }) {
-                                    Icon(Icons.Filled.Delete, stringResource(R.string.action_delete))
+                                    SagaIcon(SagaIcons.trash, stringResource(R.string.action_delete))
                                 }
                             },
                         )

@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.tasks
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import io.github.yggdrasil_sh.saga.R
@@ -8,10 +10,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material3.Icon
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -103,7 +101,7 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                                 .clickable(role = Role.Button) { showDone = !showDone }.padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(if (showDone) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            SagaIcon(if (showDone) SagaIcons.chevronDown else SagaIcons.chevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(pluralStringResource(R.plurals.tasks_completed, done.size, done.size), color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 6.dp))
                         }
@@ -133,8 +131,8 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                                 .padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(
-                                if (showDone) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, null,
+                            SagaIcon(
+                                if (showDone) SagaIcons.chevronDown else SagaIcons.chevronRight, null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(

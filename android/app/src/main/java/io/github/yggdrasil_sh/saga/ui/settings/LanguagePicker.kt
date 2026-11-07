@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.settings
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -17,7 +19,6 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -32,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -70,13 +70,13 @@ fun LanguageRow(modifier: Modifier = Modifier) {
     ListItem(
         headlineContent = { Text(stringResource(R.string.language)) },
         supportingContent = { Text(optionLabel(chosen)) },
-        leadingContent = { Icon(painterResource(R.drawable.ic_language), contentDescription = null) },
+        leadingContent = { SagaIcon(SagaIcons.globe, contentDescription = null) },
         modifier = modifier.clickable { open = true },
     )
     if (open) {
         AlertDialog(
             onDismissRequest = { open = false },
-            icon = { Icon(painterResource(R.drawable.ic_language), contentDescription = null) },
+            icon = { SagaIcon(SagaIcons.globe, contentDescription = null) },
             title = { Text(stringResource(R.string.language)) },
             text = {
                 Column(Modifier.selectableGroup()) {
@@ -112,9 +112,10 @@ fun LanguageMenuButton(modifier: Modifier = Modifier) {
     Box(modifier) {
         val desc = stringResource(R.string.language_change)
         TextButton(onClick = { open = true }, modifier = Modifier.semantics { contentDescription = "$desc: ${AppLanguage.nativeName(shown)}" }) {
-            Icon(painterResource(R.drawable.ic_language), contentDescription = null, modifier = Modifier.size(18.dp))
+            SagaIcon(SagaIcons.globe, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text(AppLanguage.nativeName(shown) + " ▾")
+            Text(AppLanguage.nativeName(shown))
+            SagaIcon(SagaIcons.caretDown, contentDescription = null, modifier = Modifier.padding(start = 4.dp).size(18.dp))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             AppLanguage.OPTIONS.forEach { tag ->

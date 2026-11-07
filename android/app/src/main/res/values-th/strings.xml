@@ -424,7 +424,7 @@
     <string name="comments_empty_block">ยังไม่มีความคิดเห็นในบล็อกนี้</string>
     <string name="comments_empty_ro">ยังไม่มีความคิดเห็น</string>
     <string name="comments_empty_tap">ยังไม่มีความคิดเห็น แตะย่อหน้าเพื่อแสดงความคิดเห็น</string>
-    <string name="comments_empty">ยังไม่มีความคิดเห็น แสดงความคิดเห็นในย่อหน้าด้วย 💬 ที่ขอบขวา หรือเขียนความคิดเห็นสำหรับทั้งหน้าด้านล่าง</string>
+    <string name="comments_empty">ยังไม่มีความคิดเห็น แสดงความคิดเห็นในย่อหน้าด้วยไอคอนความคิดเห็นที่ขอบขวา หรือเขียนความคิดเห็นสำหรับทั้งหน้าด้านล่าง</string>
     <string name="comments_menu">ความคิดเห็น</string>
     <plurals name="shared_unread_pages">
         <item quantity="other">%d หน้ามีความคิดเห็นใหม่</item>

@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.settings
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,15 +19,10 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemColors
 import androidx.compose.material3.ListItemDefaults
@@ -117,7 +114,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     },
                     supportingContent = { Text(host, maxLines = 1) },
                     leadingContent = { io.github.yggdrasil_sh.saga.ui.chat.ChatAvatar(account.ifEmpty { "?" }, 56.dp, avatar = ownAvatar) },
-                    trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                    trailingContent = { SagaIcon(SagaIcons.chevronRight, null) },
                     colors = SEG,
                     modifier = w.padding(top = 8.dp).sagaSegment(0, 1, color = MaterialTheme.colorScheme.surfaceContainer)
                         .clickable(onClickLabel = stringResource(R.string.settings_account)) { nav.push(Dest.SettingsAccount) }
@@ -128,20 +125,20 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 Column(w.padding(top = 16.dp)) {
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.nav_settings)) },
-                        leadingContent = { Icon(Icons.Filled.Settings, null) },
-                        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                        leadingContent = { SagaIcon(SagaIcons.settings, null) },
+                        trailingContent = { SagaIcon(SagaIcons.chevronRight, null) },
                         colors = SEG, modifier = Modifier.sagaSegment(0, 2).clickable { nav.push(Dest.SettingsGeneral) },
                     )
                     val dotLabel = stringResource(R.string.settings_update_dot)
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.settings_info)) },
-                        leadingContent = { Icon(Icons.Filled.Info, null) },
+                        leadingContent = { SagaIcon(SagaIcons.info, null) },
                         trailingContent = {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 if (update != null) {
                                     Box(Modifier.size(10.dp).background(MaterialTheme.colorScheme.error, CircleShape).semantics { contentDescription = dotLabel })
                                 }
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
+                                SagaIcon(SagaIcons.chevronRight, null)
                             }
                         },
                         colors = SEG, modifier = Modifier.sagaSegment(1, 2).clickable { nav.push(Dest.SettingsInfo) },
@@ -351,7 +348,7 @@ fun SettingsGeneralScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.push_title)) },
                         supportingContent = { Text(stringResource(R.string.push_settings_hint)) },
-                        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                        trailingContent = { SagaIcon(SagaIcons.chevronRight, null) },
                         colors = SEG, modifier = w.padding(top = if (notifKinds.isNotEmpty()) 10.dp else 0.dp).sagaSegment(0, 1).clickable { nav.push(Dest.Push) },
                     )
                 }
@@ -371,7 +368,7 @@ fun SettingsGeneralScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.chat_devices)) },
                         supportingContent = { Text(stringResource(R.string.chat_devices_hint)) },
-                        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                        trailingContent = { SagaIcon(SagaIcons.chevronRight, null) },
                         colors = SEG, modifier = w.sagaSegment(0, 1).clickable { nav.push(Dest.ChatDevices) },
                     )
                 }
@@ -384,7 +381,7 @@ fun SettingsGeneralScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
                     var open by remember { mutableStateOf(false) }
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.std_blocked_list)) },
-                        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                        trailingContent = { SagaIcon(SagaIcons.chevronRight, null) },
                         colors = SEG, modifier = w.padding(top = 4.dp).sagaSegment(0, n).clickable { open = true },
                     )
                     if (open) io.github.yggdrasil_sh.saga.ui.chat.LocalBlocksDialog(repo) { open = false }

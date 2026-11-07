@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.nav
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import io.github.yggdrasil_sh.saga.data.avatarState
@@ -22,10 +23,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Badge
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -227,7 +224,7 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                     if (creating) {
                         androidx.compose.material3.CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                     } else {
-                        Icon(Icons.Filled.Add, stringResource(R.string.sidebar_new_page))
+                        SagaIcon(SagaIcons.plus, stringResource(R.string.sidebar_new_page))
                     }
                 }
                 DropdownMenu(expanded = newMenu, onDismissRequest = { newMenu = false }) {
@@ -303,7 +300,7 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 Row(Modifier.fillMaxWidth().padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     // G9: einfarbiges Gruppen-Symbol statt 👥
                     Row(Modifier.weight(1f).padding(start = 28.dp, top = 20.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(painterResource(R.drawable.ic_group), null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        SagaIcon(SagaIcons.users, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
                             stringResource(R.string.shared_with_me), style = MaterialTheme.typography.labelLarge, color = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.goldText,
                             modifier = Modifier.padding(start = 8.dp),
@@ -454,14 +451,14 @@ private fun PageRowItem(
             }
             if (p.shared && !foreign) {
                 val d = stringResource(R.string.shared_icon_desc)
-                Icon(
-                    painterResource(R.drawable.ic_group), d, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                SagaIcon(
+                    SagaIcons.users, d, tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 4.dp).size(16.dp),
                 )
             }
             if (hasChildren) {
                 IconButton(onClick = onToggle) {
-                    Icon(if (isExpanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(if (isExpanded) R.string.action_collapse else R.string.action_expand))
+                    SagaIcon(if (isExpanded) SagaIcons.chevronDown else SagaIcons.chevronRight, stringResource(if (isExpanded) R.string.action_collapse else R.string.action_expand))
                 }
             } else if (p.shared || p.unread) {
                 Spacer(Modifier.width(48.dp))      // Nr. 22: Geteilt-Symbol/Punkt stehen buendig mit denen neben dem Pfeil

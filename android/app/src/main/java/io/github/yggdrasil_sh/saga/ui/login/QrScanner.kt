@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.login
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.ui.res.stringResource
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.util.UiText
@@ -24,10 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -153,7 +152,7 @@ fun QrScannerDialog(onDismiss: () -> Unit, onResult: (String) -> Boolean) {
                 }
             }
             IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(8.dp)) {
-                Icon(Icons.Filled.Close, stringResource(R.string.action_close), tint = Color.White)
+                SagaIcon(SagaIcons.x, stringResource(R.string.action_close), tint = Color.White)
             }
         }
     }

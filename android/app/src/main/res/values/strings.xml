@@ -453,7 +453,7 @@
     <string name="comments_empty_block">No comments on this block yet.</string>
     <string name="comments_empty_ro">No comments yet.</string>
     <string name="comments_empty_tap">No comments yet. Tap a paragraph to comment on it.</string>
-    <string name="comments_empty">No comments yet. Comment on a paragraph with 💬 in the right margin, or write a comment on the whole page below.</string>
+    <string name="comments_empty">No comments yet. Comment on a paragraph with the comment icon in the right margin, or write a comment on the whole page below.</string>
     <string name="comments_menu">Comments</string>
     <plurals name="shared_unread_pages">
         <item quantity="one">1 page with new comments</item>

@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.tasks
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.ui.res.stringResource
 import io.github.yggdrasil_sh.saga.R
 import androidx.compose.foundation.clickable
@@ -13,17 +15,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -79,8 +76,8 @@ fun Modifier.taskCheckSemantics(text: String, done: Boolean, overdue: Boolean = 
 /** NAV-12/A11Y-06: kleine Flagge vor dem Titel fuer hohe Prioritaet (statt roten Kaestchenrands) - dekorativ, die Ansage kommt ueber stateDescription */
 @Composable
 fun PrioFlag() {
-    Icon(
-        androidx.compose.ui.res.painterResource(R.drawable.ic_flag), null,
+    SagaIcon(
+        SagaIcons.flag, null,
         Modifier.padding(end = 4.dp).size(14.dp),
         // R1-Nachbesserung: Saga-Gold statt Blau; goldText (nicht gold), damit das Symbol >= 3:1 zur Flaeche hat
         tint = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.goldText,
@@ -206,15 +203,15 @@ fun QuickAddTask(
             singleLine = true, modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { add() }),
-            trailingIcon = { IconButton(onClick = { add() }, enabled = text.isNotBlank() && !busy) { Icon(Icons.Filled.Add, stringResource(R.string.action_add)) } },
+            trailingIcon = { IconButton(onClick = { add() }, enabled = text.isNotBlank() && !busy) { SagaIcon(SagaIcons.plus, stringResource(R.string.action_add)) } },
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             AssistChip(
                 onClick = { pick = true },
                 label = { Text(due?.let { stringResource(R.string.task_due, dueText(it)) } ?: stringResource(R.string.task_due_chip)) },
-                leadingIcon = { Icon(Icons.Filled.DateRange, null) },
+                leadingIcon = { SagaIcon(SagaIcons.calendar, null) },
             )
-            if (due != null) IconButton(onClick = { due = null }) { Icon(Icons.Filled.Clear, stringResource(R.string.task_due_remove)) }
+            if (due != null) IconButton(onClick = { due = null }) { SagaIcon(SagaIcons.x, stringResource(R.string.task_due_remove)) }
             TargetChip(targets, tgt) { target = it }
         }
     }
@@ -259,8 +256,8 @@ fun TaskEditDialog(t: TaskItem, repo: SagaRepository, onClose: () -> Unit) {
                 OutlinedTextField(value = text, onValueChange = { text = it }, label = { Text(stringResource(R.string.task_title)) }, modifier = Modifier.fillMaxWidth())
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AssistChip(onClick = { pick = true }, label = { Text(due?.let { stringResource(R.string.task_due, dueText(it)) } ?: stringResource(R.string.task_no_due)) },
-                        leadingIcon = { Icon(Icons.Filled.DateRange, null) })
-                    if (due != null) IconButton(onClick = { due = null }) { Icon(Icons.Filled.Clear, stringResource(R.string.task_due_remove)) }
+                        leadingIcon = { SagaIcon(SagaIcons.calendar, null) })
+                    if (due != null) IconButton(onClick = { due = null }) { SagaIcon(SagaIcons.x, stringResource(R.string.task_due_remove)) }
                 }
                 Text(stringResource(R.string.task_priority), style = MaterialTheme.typography.labelLarge)
                 val labels = listOf(1 to stringResource(R.string.prio_high), 2 to stringResource(R.string.prio_normal), 3 to stringResource(R.string.prio_low))

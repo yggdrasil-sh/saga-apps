@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.notifications
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,11 +16,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -70,7 +69,7 @@ fun NotificationsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome)
         SagaTopBar(stringResource(R.string.notifications), nav, chrome) {
             // "Alle gelesen" sichtbar als Textknopf (wie im Web); NAV-22: ohne Ungelesene ausgeblendet statt grau (wirkte wie ein Fehler)
             if (unread > 0) TextButton(onClick = { repo.launchAction { live.markAllRead() } }) { Text(stringResource(R.string.notifications_mark_all)) }
-            IconButton(onClick = { io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, "notifs", replace = true) }) { Icon(Icons.Filled.Settings, stringResource(R.string.notifications_settings)) }
+            IconButton(onClick = { io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, "notifs", replace = true) }) { SagaIcon(SagaIcons.settings, stringResource(R.string.notifications_settings)) }
         }
     }) { pad ->
         PullToRefreshBox(
@@ -148,18 +147,30 @@ private fun NotificationRow(n: NotifItem, modifier: Modifier, onClick: () -> Uni
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Avatar(io.github.yggdrasil_sh.saga.util.PersonName.shown(n.actor?.name, n.actor?.username), icon = if (n.kind.startsWith("chat.")) R.drawable.ic_chat else if (NotifLogic.isSystem(n)) R.drawable.ic_cloud_upload else null, avatar = n.actor?.avatar)
+        Avatar(io.github.yggdrasil_sh.saga.util.PersonName.shown(n.actor?.name, n.actor?.username), icon = if (n.kind.startsWith("chat.")) SagaIcons.chats else if (NotifLogic.isSystem(n)) SagaIcons.cloudUpload else null, avatar = n.actor?.avatar)
         Column(Modifier.weight(1f)) {
             Text(
                 n.text, style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (n.read) FontWeight.Normal else FontWeight.SemiBold,
                 color = if (tap) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Text(
-                listOfNotNull(if (n.chat != null) "💬" else if (NotifLogic.isSystem(n)) "⚠️" else n.note?.icon?.takeIf { it.isNotEmpty() && !it.startsWith("/") } ?: "📄", n.title).joinToString(" "),
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
+            // A11Y-21: Chat/System/Seite als Liniensymbol statt Emoji; ein eigenes Seitensymbol (Emoji) ist Inhalt und bleibt
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val pageIcon = n.note?.icon?.takeIf { it.isNotEmpty() && !it.startsWith("/") }
+                val line = when {
+                    n.chat != null -> SagaIcons.chats
+                    NotifLogic.isSystem(n) -> SagaIcons.warning
+                    pageIcon == null -> SagaIcons.file
+                    else -> null
+                }
+                if (line != null) SagaIcon(line, null, Modifier.padding(end = 4.dp).size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                else Text("$pageIcon ", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    n.title.orEmpty(),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
             n.excerpt?.takeIf { it.isNotBlank() }?.let {
                 Text(
                     "„$it“", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.publish
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -29,7 +31,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -49,7 +50,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -92,7 +92,7 @@ fun PublishSheet(model: PublishModel, scope: CoroutineScope, onDismiss: () -> Un
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(painterResource(R.drawable.ic_public), null, tint = MaterialTheme.colorScheme.primary)
+                SagaIcon(SagaIcons.globe, null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(10.dp))
                 Text(stringResource(R.string.publish_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
             }

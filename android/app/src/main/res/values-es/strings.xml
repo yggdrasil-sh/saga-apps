@@ -452,7 +452,7 @@
     <string name="comments_empty_block">Aún no hay comentarios en este bloque.</string>
     <string name="comments_empty_ro">Aún no hay comentarios.</string>
     <string name="comments_empty_tap">Aún no hay comentarios. Toca un párrafo para comentarlo.</string>
-    <string name="comments_empty">Aún no hay comentarios. Comenta un párrafo con 💬 en el margen derecho o escribe abajo un comentario sobre toda la página.</string>
+    <string name="comments_empty">Aún no hay comentarios. Comenta un párrafo con el icono de comentario en el margen derecho o escribe abajo un comentario sobre toda la página.</string>
     <string name="comments_menu">Comentarios</string>
     <plurals name="shared_unread_pages">
         <item quantity="one">1 página con comentarios nuevos</item>

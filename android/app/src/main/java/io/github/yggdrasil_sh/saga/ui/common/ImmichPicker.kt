@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.common
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -15,13 +17,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -130,9 +127,9 @@ fun ImmichPicker(repo: SagaRepository, onDismiss: () -> Unit, onPick: (ImmichAss
                     title = { Text(album?.name ?: stringResource(R.string.immich_title), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     navigationIcon = {
                         if (album != null) {
-                            IconButton(onClick = { album = null }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.immich_albums)) }
+                            IconButton(onClick = { album = null }) { SagaIcon(SagaIcons.arrowLeft, stringResource(R.string.immich_albums)) }
                         } else {
-                            IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, stringResource(R.string.action_cancel)) }
+                            IconButton(onClick = onDismiss) { SagaIcon(SagaIcons.x, stringResource(R.string.action_cancel)) }
                         }
                     },
                 )
@@ -147,7 +144,7 @@ fun ImmichPicker(repo: SagaRepository, onDismiss: () -> Unit, onPick: (ImmichAss
                     OutlinedTextField(
                         value = query, onValueChange = { query = it }, singleLine = true,
                         placeholder = { Text(stringResource(R.string.immich_search_hint)) },
-                        leadingIcon = { Icon(Icons.Filled.Search, null) },
+                        leadingIcon = { SagaIcon(SagaIcons.search, null) },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { scope.launch { loadItems(true) } }),
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),

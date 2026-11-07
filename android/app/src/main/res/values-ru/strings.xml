@@ -430,7 +430,7 @@
     <string name="comments_empty_block">К этому блоку пока нет комментариев.</string>
     <string name="comments_empty_ro">Комментариев пока нет.</string>
     <string name="comments_empty_tap">Комментариев пока нет. Нажми на абзац, чтобы его прокомментировать.</string>
-    <string name="comments_empty">Комментариев пока нет. Прокомментируй абзац через 💬 на правом поле или напиши ниже комментарий ко всей странице.</string>
+    <string name="comments_empty">Комментариев пока нет. Прокомментируй абзац через значок комментария на правом поле или напиши ниже комментарий ко всей странице.</string>
     <string name="comments_menu">Комментарии</string>
     <plurals name="shared_unread_pages">
         <item quantity="one">%d страница с новыми комментариями</item>

@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.common
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -7,11 +9,8 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -70,7 +69,7 @@ fun NotificationPermissionPrompt() {
     }
     AlertDialog(
         onDismissRequest = { close(true) },
-        icon = { Icon(Icons.Filled.Notifications, null) },
+        icon = { SagaIcon(SagaIcons.bell, null) },
         title = { Text(stringResource(R.string.notif_prompt_title)) },
         text = { Text(stringResource(R.string.notif_prompt_text)) },
         confirmButton = { TextButton(onClick = { close(false) }) { Text(stringResource(R.string.notif_prompt_allow)) } },

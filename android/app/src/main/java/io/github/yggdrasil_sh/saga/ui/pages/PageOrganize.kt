@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.pages
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,13 +15,10 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -187,7 +186,7 @@ fun TrashDialog(repo: SagaRepository, onDismiss: () -> Unit) {
             Column(Modifier.statusBarsPadding()) {
                 TopAppBar(
                     title = { Text(stringResource(R.string.tr_title)) },
-                    navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, stringResource(R.string.action_close)) } },
+                    navigationIcon = { IconButton(onClick = onDismiss) { SagaIcon(SagaIcons.x, stringResource(R.string.action_close)) } },
                     actions = {
                         if (st.items?.isNotEmpty() == true) TextButton(onClick = { askEmpty = true }) {
                             Text(stringResource(R.string.tr_empty), color = MaterialTheme.colorScheme.error)

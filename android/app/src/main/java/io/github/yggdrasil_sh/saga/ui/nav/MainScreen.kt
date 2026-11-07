@@ -3,6 +3,9 @@ package io.github.yggdrasil_sh.saga.ui.nav
 import androidx.compose.ui.res.stringResource
 import androidx.annotation.StringRes
 import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.ui.theme.SagaColors
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,16 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
@@ -64,8 +58,6 @@ import io.github.yggdrasil_sh.saga.ui.login.PairConfirmDialog
 import io.github.yggdrasil_sh.saga.ui.share.ShareDialog
 import io.github.yggdrasil_sh.saga.util.UiText
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -85,8 +77,6 @@ import io.github.yggdrasil_sh.saga.ui.chat.ChatsScreen
 import io.github.yggdrasil_sh.saga.ui.chat.ChatDevicesScreen
 import io.github.yggdrasil_sh.saga.ui.chat.ChatLinkApproval
 import io.github.yggdrasil_sh.saga.ui.push.PushScreen
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -172,14 +162,14 @@ object SnackPolicy {
         currentActive && currentHasAction && !nextHasAction
 }
 
-private data class MainItem(val dest: Dest, @StringRes val label: Int, val icon: ImageVector)
+private data class MainItem(val dest: Dest, @StringRes val label: Int, @androidx.annotation.DrawableRes val icon: Int)
 
 private val mainItems = listOf(
-    MainItem(Dest.Today, R.string.nav_today, Icons.Filled.Home),
-    MainItem(Dest.Tasks, R.string.nav_tasks, Icons.Filled.CheckCircle),
-    MainItem(Dest.Events, R.string.nav_events, Icons.Filled.DateRange),
-    MainItem(Dest.Services, R.string.nav_services, Icons.Filled.Build),
-    MainItem(Dest.Search, R.string.nav_search, Icons.Filled.Search),
+    MainItem(Dest.Today, R.string.nav_today, SagaIcons.today),
+    MainItem(Dest.Tasks, R.string.nav_tasks, SagaIcons.tasks),
+    MainItem(Dest.Events, R.string.nav_events, SagaIcons.calendar),
+    MainItem(Dest.Services, R.string.nav_services, SagaIcons.server),
+    MainItem(Dest.Search, R.string.nav_search, SagaIcons.search),
 )
 
 /** Adaptiv: Handy = Seitenleiste als Schublade; Tablet hochkant = Navigation Rail + Schublade; breit = feste Seitenleiste */
@@ -310,12 +300,12 @@ fun MainScreen(
                 if (medium) {
                     Row(Modifier.fillMaxSize()) {
                         NavigationRail(Modifier.statusBarsPadding(), header = {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Filled.Menu, stringResource(R.string.pages)) }
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) { SagaIcon(SagaIcons.menu, stringResource(R.string.pages)) }
                         }) {
                             mainItems.forEach { it ->
                                 NavigationRailItem(
                                     selected = nav.root == it.dest, onClick = { nav.top(it.dest) },
-                                    icon = { Icon(it.icon, null) }, label = { Text(stringResource(it.label)) },
+                                    icon = { SagaIcon(it.icon, null) }, label = { Text(stringResource(it.label)) },
                                 )
                             }
                             // Saga 2.0: Chats (Ende-zu-Ende) und Benachrichtigungen mit Zaehler
@@ -326,21 +316,21 @@ fun MainScreen(
                             if (chatOn) {
                                 NavigationRailItem(
                                     selected = nav.root == Dest.Chats || nav.root is Dest.Chat, onClick = { nav.top(Dest.Chats) },
-                                    icon = { BadgeIcon(chatUnread) { Icon(painterResource(R.drawable.ic_chat), null) } },
+                                    icon = { BadgeIcon(chatUnread) { SagaIcon(SagaIcons.chats, null) } },
                                     label = { Text(stringResource(R.string.chats)) },
                                 )
                             }
                             if (notifOn) {
                                 NavigationRailItem(
                                     selected = nav.root == Dest.Notifications, onClick = { nav.top(Dest.Notifications) },
-                                    icon = { BadgeIcon(notifUnread) { Icon(Icons.Filled.Notifications, null) } },
+                                    icon = { BadgeIcon(notifUnread) { SagaIcon(SagaIcons.bell, null) } },
                                     label = { NavLabel(stringResource(R.string.notifications)) },
                                 )
                             }
                             Spacer(Modifier.weight(1f))
                             NavigationRailItem(
                                 selected = nav.root == Dest.Settings, onClick = { nav.top(Dest.Settings) },
-                                icon = { Icon(Icons.Filled.Settings, null) }, label = { Text(stringResource(R.string.nav_settings)) },
+                                icon = { SagaIcon(SagaIcons.settings, null) }, label = { Text(stringResource(R.string.nav_settings)) },
                                 modifier = Modifier.padding(bottom = 12.dp),
                             )
                         }
@@ -459,7 +449,7 @@ fun BadgeIcon(count: Int, icon: @Composable () -> Unit) {
  * 4.11.: Live-Laempchen oben links (wie iOS/Mac) - live, solange der Live-Kanal steht (Inhalte kommen frisch vom
  * Server), sonst gespeicherter Stand. Nur Anzeige, keine Tippflaeche (liegt neben der Statusleiste).
  * Server ohne Live-Kanal: kein Laempchen. A11Y-13: Zustand auch ueber die Form (live = gefuellter Punkt, offline =
- * hohler Ring) und Farben passend zum Thema (offline = colorScheme.error, live = Web-Token --ok hell/dunkel).
+ * hohler Ring) und Signalfarben wie im Web (live = SagaColors --ok, offline = --down).
  */
 @Composable
 private fun LiveLamp(repo: SagaRepository, modifier: Modifier = Modifier) {
@@ -467,10 +457,8 @@ private fun LiveLamp(repo: SagaRepository, modifier: Modifier = Modifier) {
     val connected by repo.live.connected.collectAsState()
     if (!supported) return
     val desc = stringResource(if (connected) R.string.live_lamp_on else R.string.live_lamp_off)
-    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    // Theme: eigener Token (z. B. SagaColor.ok) in ui/theme - bis dahin die Web-Werte von --ok
-    val ok = if (dark) androidx.compose.ui.graphics.Color(0xFF3FB950) else androidx.compose.ui.graphics.Color(0xFF1F7A33)
-    val color by androidx.compose.animation.animateColorAsState(if (connected) ok else MaterialTheme.colorScheme.error, label = "lamp")
+    val signals = SagaColors.current
+    val color by androidx.compose.animation.animateColorAsState(if (connected) signals.ok else signals.down, label = "lamp")
     val shape = androidx.compose.foundation.shape.CircleShape
     Box(
         modifier.statusBarsPadding().padding(start = 4.dp, top = 2.dp).size(8.dp)

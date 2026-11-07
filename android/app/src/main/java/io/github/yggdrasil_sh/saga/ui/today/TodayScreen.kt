@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.today
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.ui.res.stringResource
 import io.github.yggdrasil_sh.saga.R
 import androidx.compose.foundation.layout.Box
@@ -9,10 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -34,7 +33,7 @@ import io.github.yggdrasil_sh.saga.data.TaskItem
 import io.github.yggdrasil_sh.saga.ui.common.Chrome
 import io.github.yggdrasil_sh.saga.ui.common.SagaTopBar
 import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
-import io.github.yggdrasil_sh.saga.ui.theme.SagaEmptyState
+import io.github.yggdrasil_sh.saga.ui.common.SagaLineEmptyState
 import io.github.yggdrasil_sh.saga.ui.theme.SagaSectionTitle
 import io.github.yggdrasil_sh.saga.ui.theme.SagaSpace
 import io.github.yggdrasil_sh.saga.ui.theme.sagaAppear
@@ -91,7 +90,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     }
     Scaffold(topBar = {
         SagaTopBar(stringResource(R.string.nav_today), nav, chrome) {
-            IconButton(onClick = { refresh() }) { Icon(Icons.Filled.Refresh, stringResource(R.string.action_refresh)) }
+            IconButton(onClick = { refresh() }) { SagaIcon(SagaIcons.refresh, stringResource(R.string.action_refresh)) }
         }
     }) { pad ->
         PullToRefreshBox(isRefreshing = loading, onRefresh = { refresh() }, modifier = Modifier.padding(pad).fillMaxSize()) {
@@ -122,7 +121,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 if (events.isEmpty()) {
                     item(key = "ev-empty") {
                         Box(Modifier.widthIn(max = maxW).fillMaxWidth().sagaSegment(0, 1).sagaAppear(1)) {
-                            SagaEmptyState(stringResource(R.string.today_no_events), emoji = "🗓️", text = stringResource(R.string.today_events_empty_hint), compact = true)
+                            SagaLineEmptyState(stringResource(R.string.today_no_events), SagaIcons.calendar, text = stringResource(R.string.today_events_empty_hint), compact = true)
                         }
                     }
                 }
@@ -149,9 +148,9 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 if (ml == null && todayTasks.isEmpty() || ml != null && todayItems.isNullOrEmpty()) {
                     item(key = "t-empty") {
                         Box(Modifier.widthIn(max = maxW).fillMaxWidth().padding(top = SagaSpace.s).sagaSegment(0, 1)) {
-                            SagaEmptyState(
+                            SagaLineEmptyState(
                                 stringResource(if (events.isEmpty()) R.string.today_nothing_planned else R.string.today_no_tasks),
-                                emoji = "☕", text = stringResource(R.string.today_tasks_empty_hint), compact = true,
+                                SagaIcons.tasks, text = stringResource(R.string.today_tasks_empty_hint), compact = true,
                             )
                         }
                     }

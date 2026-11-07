@@ -450,7 +450,7 @@
     <string name="comments_empty_block">Noch keine Kommentare zu diesem Block.</string>
     <string name="comments_empty_ro">Noch keine Kommentare.</string>
     <string name="comments_empty_tap">Noch keine Kommentare. Tippe auf einen Absatz, um ihn zu kommentieren.</string>
-    <string name="comments_empty">Noch keine Kommentare. Kommentiere einen Absatz über 💬 am rechten Rand oder schreibe unten einen Kommentar zur ganzen Seite.</string>
+    <string name="comments_empty">Noch keine Kommentare. Kommentiere einen Absatz über das Kommentar-Symbol am rechten Rand oder schreibe unten einen Kommentar zur ganzen Seite.</string>
     <string name="comments_menu">Kommentare</string>
     <plurals name="shared_unread_pages">
         <item quantity="one">1 Seite mit neuen Kommentaren</item>

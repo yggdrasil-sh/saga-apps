@@ -1,13 +1,12 @@
 package io.github.yggdrasil_sh.saga.ui.common
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.Icon
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.annotation.DrawableRes
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -20,10 +19,10 @@ import androidx.compose.ui.semantics.semantics
  * N-07 "Neuer Termin". Alle Listen-Bildschirme nutzen diesen Knopf.
  */
 @Composable
-fun LabeledFab(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector = Icons.Filled.Add) {
+fun LabeledFab(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, @DrawableRes icon: Int = SagaIcons.plus) {
     ExtendedFloatingActionButton(
         onClick = onClick,
-        icon = { Icon(icon, null) },
+        icon = { SagaIcon(icon, null) },
         text = { Text(label, modifier = Modifier.clearAndSetSemantics {}) },
         modifier = modifier.semantics { contentDescription = label; role = Role.Button },
     )

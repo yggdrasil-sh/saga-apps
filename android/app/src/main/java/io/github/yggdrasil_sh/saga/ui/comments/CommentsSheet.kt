@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.comments
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,16 +24,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -121,7 +119,7 @@ fun CommentsSheet(model: CommentsModel, scope: CoroutineScope, quote: (String) -
                         }
                     }
                     Spacer(Modifier.weight(1f))
-                    IconButton(onClick = { model.close() }) { Icon(Icons.Filled.Close, stringResource(R.string.comments_close)) }
+                    IconButton(onClick = { model.close() }) { SagaIcon(SagaIcons.x, stringResource(R.string.comments_close)) }
                 }
                 if (model.block != null) {
                     TextButton(onClick = { model.showAll() }, modifier = Modifier.padding(start = 12.dp)) { Text(stringResource(R.string.comments_all_threads)) }
@@ -372,7 +370,7 @@ private fun CommentView(
         }
         if (actions.isNotEmpty()) {
             Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.comments_actions)) }
+                IconButton(onClick = { menu = true }) { SagaIcon(SagaIcons.moreVert, stringResource(R.string.comments_actions)) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     actions.forEach { a ->
                         val label = when (a) {

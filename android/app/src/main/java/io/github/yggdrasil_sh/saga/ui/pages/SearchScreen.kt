@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.pages
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.ui.res.stringResource
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.ui.common.pageTitle
@@ -14,14 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.IconButton
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -33,7 +31,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
-import io.github.yggdrasil_sh.saga.ui.theme.SagaEmptyState
+import io.github.yggdrasil_sh.saga.ui.common.SagaLineEmptyState
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIconTile
 import io.github.yggdrasil_sh.saga.ui.theme.SagaSectionTitle
 import io.github.yggdrasil_sh.saga.ui.theme.SagaSpace
@@ -104,10 +102,10 @@ fun SearchScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 // Suchfeld als Pille (wie die Material-Suchleiste), mit Loeschen-Knopf
                 TextField(
                     value = q, onValueChange = { q = it }, singleLine = true,
-                    placeholder = { Text(stringResource(R.string.search_placeholder)) }, leadingIcon = { Icon(Icons.Filled.Search, null) },
+                    placeholder = { Text(stringResource(R.string.search_placeholder)) }, leadingIcon = { SagaIcon(SagaIcons.search, null) },
                     trailingIcon = {
                         if (q.isNotEmpty()) IconButton(onClick = { q = ""; runCatching { focus.requestFocus() } }) {
-                            Icon(Icons.Filled.Close, stringResource(R.string.action_clear_search))
+                            SagaIcon(SagaIcons.x, stringResource(R.string.action_clear_search))
                         }
                     },
                     shape = CircleShape,
@@ -124,8 +122,8 @@ fun SearchScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             error?.let { item(key = "err") { Text(it.resolve(), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) } }
             if (q.trim().length < 2) {
                 item(key = "hint") {
-                    SagaEmptyState(
-                        stringResource(R.string.search_empty_title), emoji = "🔎", text = stringResource(R.string.search_empty_hint),
+                    SagaLineEmptyState(
+                        stringResource(R.string.search_empty_title), SagaIcons.search, text = stringResource(R.string.search_empty_hint),
                         compact = recent.isNotEmpty(), modifier = Modifier.sagaAppear(0),
                     )
                 }
@@ -137,7 +135,7 @@ fun SearchScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 }
             } else if (searched && results.isEmpty() && error == null) {
                 item(key = "none") {
-                    SagaEmptyState(stringResource(R.string.search_no_hits_title), emoji = "🫥", text = stringResource(R.string.search_no_hits_hint))
+                    SagaLineEmptyState(stringResource(R.string.search_no_hits_title), SagaIcons.search, text = stringResource(R.string.search_no_hits_hint))
                 }
             }
             if (q.trim().length >= 2) itemsIndexed(results, key = { _, p -> p.id }) { i, p ->
@@ -161,8 +159,8 @@ private fun ResultTile(p: PageMeta, repo: SagaRepository, q: String, index: Int,
             Text(highlight(pageTitle(p), q, accent.goldText), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (p.foreign) {
                 Row(verticalAlignment = Alignment.CenterVertically) {         // G9: einfarbiges Symbol statt 👥
-                    androidx.compose.material3.Icon(
-                        androidx.compose.ui.res.painterResource(R.drawable.ic_group), null,
+                    SagaIcon(
+                        SagaIcons.users, null,
                         Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(

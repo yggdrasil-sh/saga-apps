@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.tasks
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,9 +11,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
@@ -19,7 +18,6 @@ import io.github.yggdrasil_sh.saga.data.TaskCounts
 import io.github.yggdrasil_sh.saga.ui.common.todayIso
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
@@ -114,7 +112,7 @@ fun TargetChip(targets: List<TaskSource>, current: Long?, onPick: (Long?) -> Uni
         AssistChip(
             onClick = { open = true },
             label = { Text(cur?.let { (it.icon.ifEmpty { "☑️" }) + " " + it.title } ?: stringResource(R.string.e2_task_inbox), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, null) },
+            trailingIcon = { SagaIcon(SagaIcons.caretDown, null) },
         )
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(text = { Text(stringResource(R.string.e2_task_inbox)) }, onClick = { open = false; onPick(null) })
@@ -161,7 +159,7 @@ fun TaskSourcesDialog(repo: SagaRepository, onOpen: (Long) -> Unit, onClose: () 
                                 )
                                 IconButton(onClick = {
                                     repo.launchAction(onSuccess = { reload++ }) { repo.removeTaskSource(s.db) }
-                                }) { Icon(Icons.Filled.Delete, stringResource(R.string.e2_task_source_remove)) }
+                                }) { SagaIcon(SagaIcons.trash, stringResource(R.string.e2_task_source_remove)) }
                             }
                             val state = when {
                                 s.inactive -> stringResource(R.string.e2_task_source_inactive)

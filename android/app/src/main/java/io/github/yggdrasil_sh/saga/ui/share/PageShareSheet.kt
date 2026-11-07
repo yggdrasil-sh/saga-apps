@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.share
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -22,15 +24,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -39,7 +36,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -195,8 +191,8 @@ fun PageShareSheet(
                                     selected = has != null, onClick = { scope.launch { model.add("group", g, g) } }, enabled = !model.busy,
                                     label = { Text(g) },
                                     leadingIcon = {
-                                        if (has != null) Icon(Icons.Filled.Check, null, Modifier.size(FilterChipDefaults.IconSize))
-                                        else Icon(painterResource(R.drawable.ic_group), null, Modifier.size(FilterChipDefaults.IconSize), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        if (has != null) SagaIcon(SagaIcons.check, null, Modifier.size(FilterChipDefaults.IconSize))
+                                        else SagaIcon(SagaIcons.users, null, Modifier.size(FilterChipDefaults.IconSize), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     },
                                     modifier = Modifier.semantics { contentDescription = "$g · $desc" },
                                 )
@@ -286,7 +282,7 @@ private fun Avatar(type: String, name: String, avatar: String? = null) {
         contentAlignment = Alignment.Center,
     ) {
         if (type == "group" || type == "remote_group") {
-            Icon(painterResource(R.drawable.ic_group), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            SagaIcon(SagaIcons.users, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             Text(
                 name.trim().take(1).uppercase().ifEmpty { "?" },
@@ -343,7 +339,7 @@ private fun EntryRow(e: ShareEntry, model: ShareModel, scope: CoroutineScope, on
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { PersonRow(e.type, e.name.ifEmpty { e.target }, ShareLogic.entrySub(e.type, e.target, e.members).resolve(), via, e.avatar) }
             RolePicker(Role.of(e.role), stringResource(R.string.share_role_of, e.name)) { r -> scope.launch { model.changeRole(e, r) } }
-            IconButton(onClick = onRemove) { Icon(Icons.Filled.Close, stringResource(R.string.share_remove_for, e.name)) }
+            IconButton(onClick = onRemove) { SagaIcon(SagaIcons.x, stringResource(R.string.share_remove_for, e.name)) }
         }
         model.itemErrors[ShareLogic.key(e.type, e.target)]?.let {
             Text(it.resolve(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
@@ -394,7 +390,7 @@ private fun RolePicker(current: Role, label: String, modifier: Modifier = Modifi
         ) {
             Text(name, maxLines = 1)
             Spacer(Modifier.width(2.dp))
-            Icon(Icons.Filled.ArrowDropDown, null)
+            SagaIcon(SagaIcons.caretDown, null)
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             ShareLogic.ROLES.forEach { r ->
