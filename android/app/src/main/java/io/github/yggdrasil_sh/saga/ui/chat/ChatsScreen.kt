@@ -1,6 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import kotlinx.serialization.json.put
 import io.github.yggdrasil_sh.saga.chat.quietly
@@ -204,7 +205,7 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
                         placeholder = { Text(stringResource(R.string.chat_search_list)) },
                         leadingIcon = { SagaIcon(SagaIcons.search, null) },
                         trailingIcon = { if (query.isNotEmpty()) androidx.compose.material3.IconButton(onClick = { query = "" }) { SagaIcon(SagaIcons.x, stringResource(R.string.action_close)) } },
-                        shape = RoundedCornerShape(28.dp),
+                        shape = RoundedCornerShape(SagaRadius.md),
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
                     )
                 }
@@ -265,7 +266,7 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
 @Composable
 private fun ArchivedHeader(count: Int, unread: Int, open: Boolean, onToggle: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).clip(RoundedCornerShape(16.dp))
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).clip(RoundedCornerShape(SagaRadius.md))
             .clickable(onClickLabel = stringResource(if (open) R.string.action_close else R.string.action_open), onClick = onToggle)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -347,7 +348,7 @@ private fun ChatListEntry(repo: SagaRepository, c: ChatSummary, name: String, se
             },
             backgroundContent = {
                 Row(
-                    Modifier.fillMaxSize().padding(horizontal = 8.dp).clip(RoundedCornerShape(16.dp))
+                    Modifier.fillMaxSize().padding(horizontal = 8.dp).clip(RoundedCornerShape(SagaRadius.md))
                         .background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 20.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End,
                 ) {
@@ -384,7 +385,7 @@ private fun ChatRow(repo: SagaRepository, c: ChatSummary, name: String, selected
     val unread = c.unread > 0
     val strong = unread && !mutedNow
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(20.dp))
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(SagaRadius.md))
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)
             .combinedClickable(
                 onClick = onClick, onLongClick = onLongClick,
@@ -406,7 +407,7 @@ private fun ChatRow(repo: SagaRepository, c: ChatSummary, name: String, selected
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                 )
                 // 2.5 (chatpin1): angeheftet
-                if (c.pinned) Text("📌", Modifier.padding(start = 4.dp), style = MaterialTheme.typography.labelMedium)
+                if (c.pinned) SagaIcon(SagaIcons.pin, stringResource(R.string.std_pinned), Modifier.padding(start = 4.dp).size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (mutedNow) {
                     val d = muteLabel(c, nowSec)
                     SagaIcon(SagaIcons.bellOff, d, Modifier.padding(start = 4.dp).size(16.dp),
@@ -460,12 +461,12 @@ private fun ChatRow(repo: SagaRepository, c: ChatSummary, name: String, selected
 @Composable
 private fun HiddenHeader(count: Int, open: Boolean, onToggle: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).clip(RoundedCornerShape(16.dp))
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).clip(RoundedCornerShape(SagaRadius.md))
             .clickable(onClickLabel = stringResource(if (open) R.string.action_close else R.string.action_open), onClick = onToggle)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("🙈", Modifier.size(22.dp))
+        SagaIcon(SagaIcons.eyeOff, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(stringResource(R.string.std_hidden_n, count), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f).padding(start = 16.dp))
         Icon(painterResource(if (open) SagaIcons.chevronUp else SagaIcons.chevronDown), null, Modifier.padding(start = 8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -502,7 +503,11 @@ fun AlltagMenuItems(repo: SagaRepository, c: ChatSummary, onPatched: (ChatSummar
         repo.launchAction { onPatched(svc.patchChat(c.id, b)) }
     }
     if (std.mute2) {
-        DropdownMenuItem(text = { Text((if (ChatStd.mutedNow(c, nowSec)) "🔕 " else "🔔 ") + muteLabel(c, nowSec) + " …") }, onClick = { sub = true })
+        DropdownMenuItem(
+            text = { Text(muteLabel(c, nowSec) + " …") },
+            leadingIcon = { SagaIcon(if (ChatStd.mutedNow(c, nowSec)) SagaIcons.bellOff else SagaIcons.bell, null) },
+            onClick = { sub = true },
+        )
         DropdownMenu(expanded = sub, onDismissRequest = { sub = false }) {
             val now = System.currentTimeMillis() / 1000
             if (ChatStd.mutedNow(c, nowSec)) DropdownMenuItem(text = { Text(stringResource(R.string.std_mute_off)) }, onClick = {
@@ -535,10 +540,10 @@ fun AlltagMenuItems(repo: SagaRepository, c: ChatSummary, onPatched: (ChatSummar
             }
         }
     }
-    if (std.chatPin) DropdownMenuItem(text = { Text("📌 " + stringResource(if (c.pinned) R.string.std_chat_unpin else R.string.std_chat_pin)) }, onClick = {
+    if (std.chatPin) DropdownMenuItem(text = { Text(stringResource(if (c.pinned) R.string.std_chat_unpin else R.string.std_chat_pin)) }, leadingIcon = { SagaIcon(SagaIcons.pin, null) }, onClick = {
         go(kotlinx.serialization.json.buildJsonObject { put("pinned", !c.pinned) })
     })
-    if (std.markUnread && c.unread == 0 && !c.unreadMark) DropdownMenuItem(text = { Text("● " + stringResource(R.string.std_mark_unread)) }, onClick = {
+    if (std.markUnread && c.unread == 0 && !c.unreadMark) DropdownMenuItem(text = { Text(stringResource(R.string.std_mark_unread)) }, leadingIcon = { SagaIcon(SagaIcons.dot, null) }, onClick = {
         go(kotlinx.serialization.json.buildJsonObject { put("unread_mark", true) })
     })
     if (std.hide && c.canHide) DropdownMenuItem(text = { Text(stringResource(if (c.hidden) R.string.std_unhide else R.string.std_hide)) }, onClick = {
