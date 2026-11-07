@@ -14,6 +14,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.Hyphens
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -61,9 +63,15 @@ val SagaShapes = Shapes(
 /**
  * Schrift: Systemschrift (keine eingebettete Schriftdatei), aber kraeftigere Titel mit etwas engerem Zeichenabstand
  * (Expressive "emphasized"), Fliesstext ruhig mit kleinerem Zeichenabstand als der Material-Standard.
+ *
+ * Umbruch (ED-13): Silbentrennung (Hyphens.Auto) und Absatz-Umbruch (LineBreak.Paragraph) in allen Stilen, damit
+ * lange deutsche Komposita mit Trennstrich statt mitten im Wort umbrechen ("Datenschutz-Schulun / g"). Die Sprache
+ * kommt ohne eigene localeList aus Locale.getDefault(): ab Android 13 setzt der LocaleManager sie auf die App-Sprache,
+ * darunter AppLanguage.wrap/applyToApp per Locale.setDefault. Ohne Trennmuster (z. B. Thai) bleibt es beim Umbruch.
  */
 val SagaTypography: Typography = Typography().let { t ->
-    fun TextStyle.w(weight: FontWeight, spacing: Float? = null) = copy(fontWeight = weight, letterSpacing = spacing?.sp ?: letterSpacing)
+    fun TextStyle.w(weight: FontWeight, spacing: Float? = null) =
+        copy(fontWeight = weight, letterSpacing = spacing?.sp ?: letterSpacing).wrap()
     Typography(
         displayLarge = t.displayLarge.w(FontWeight.Bold, -0.5f),
         displayMedium = t.displayMedium.w(FontWeight.Bold, -0.5f),
@@ -74,14 +82,17 @@ val SagaTypography: Typography = Typography().let { t ->
         titleLarge = t.titleLarge.w(FontWeight.SemiBold, 0f),
         titleMedium = t.titleMedium.w(FontWeight.SemiBold, 0.1f),
         titleSmall = t.titleSmall.w(FontWeight.SemiBold, 0.1f),
-        bodyLarge = t.bodyLarge.copy(letterSpacing = 0.15.sp),
-        bodyMedium = t.bodyMedium.copy(letterSpacing = 0.2.sp),
-        bodySmall = t.bodySmall.copy(letterSpacing = 0.3.sp),
+        bodyLarge = t.bodyLarge.copy(letterSpacing = 0.15.sp).wrap(),
+        bodyMedium = t.bodyMedium.copy(letterSpacing = 0.2.sp).wrap(),
+        bodySmall = t.bodySmall.copy(letterSpacing = 0.3.sp).wrap(),
         labelLarge = t.labelLarge.w(FontWeight.SemiBold, 0.1f),
         labelMedium = t.labelMedium.w(FontWeight.SemiBold, 0.3f),
         labelSmall = t.labelSmall.w(FontWeight.Medium, 0.4f),
     )
 }
+
+/** Silbentrennung und Absatz-Umbruch (ED-13) */
+internal fun TextStyle.wrap(): TextStyle = copy(hyphens = Hyphens.Auto, lineBreak = LineBreak.Paragraph)
 
 /**
  * Bewegung im Stil von Material 3 Expressive: raeumliche Federn mit leichtem Nachschwingen, Effekte (Alpha, Farbe)
