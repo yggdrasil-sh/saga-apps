@@ -143,7 +143,7 @@ fun ReadOnlyBlocks(arrayPath: JsonPath, env: BlockEnv) {
                     val t = (it2 as? JsonObject)?.let { o -> BlockDoc.str(o, "content") } ?: (it2 as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
                     Row { Text("• ", color = MaterialTheme.colorScheme.onSurfaceVariant); RichTextView(t, MaterialTheme.typography.bodyLarge, env.onLink) }
                 }
-                "code" -> Text(BlockDoc.str(d, "code"), style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace))
+                "code" -> Text(BlockDoc.str(d, "code"), style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace, hyphens = androidx.compose.ui.text.style.Hyphens.None))
                 "math" -> RenderPreview.render(d)?.let { RenderImage(it, BlockDoc.str(d, "tex"), env) } ?: Text(BlockDoc.str(d, "tex"), fontFamily = FontFamily.Monospace)
                 else -> Text("▪ " + BlockDoc.type(b), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

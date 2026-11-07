@@ -226,7 +226,7 @@ private fun BlockViewInner(block: JsonObject, path: JsonPath, env: BlockEnv) {
             val lang = BlockDoc.str(d, "language")
             RichField(
                 BlockDoc.str(d, "code"), key, ed, path,
-                MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace), { ed.setString(path + listOf("data", "code"), it) },
+                MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace, hyphens = androidx.compose.ui.text.style.Hyphens.None), { ed.setString(path + listOf("data", "code"), it) },
                 modifier = Modifier.padding(top = if (lang.isEmpty()) 0.dp else 14.dp), placeholder = stringResource(R.string.block_code), raw = true,
             )
             if (lang.isNotEmpty()) {

@@ -424,7 +424,7 @@ private fun RecoverForm(svc: ChatService, onBack: () -> Unit) {
         value = key, onValueChange = { key = it }, label = { Text(stringResource(R.string.chat_recovery_key)) },
         placeholder = { Text("XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX") },
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
-        textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
+        textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace, hyphens = androidx.compose.ui.text.style.Hyphens.None),
         modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
     )
     err?.let { ErrorText(it) }
