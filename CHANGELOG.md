@@ -25,6 +25,19 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Listen:** eine gemeinsame Markerspalte (28 dp) für Punkt, Nummer und Kästchen; Checklisten so dicht wie
   Aufzählungen.
 
+### Geändert – Android: Design-Runde 3 „Datenbank-Ansichten“
+
+- **Tabelle auf dem Handy als kompakte Liste:** unter 600 dp Titel groß, darunter bis zu drei Eigenschaften (Status,
+  „Start 02.11.“, Person, Fortschritt); im Ansichten-Menü schaltet „Als Tabelle“ je Ansicht auf die volle Tabelle
+  (lokal gemerkt). Gilt auch für eingebettete Datenbanken.
+- **Tabelle:** Spalten rasten beim Wischen ein, Linie und leichter Schatten an der fixierten Titelspalte, schmalere
+  Auswahl- und Datumsspalten mit Kurzdatum.
+- **Ansichten-Pillen** blenden am Rand aus und scrollen zur aktiven Ansicht. **„Neuer Eintrag“** als zweigeteilter
+  Knopf mit Spalt (beide Teile 48 dp).
+- **Board/Galerie:** Datum mit Kurzlabel bzw. als Zeitraum „16.11. → 18.12.2026“; Board-Spalten rasten ein (Handy:
+  Bildschirmbreite − 48 dp). **Kalender auf dem Handy:** Punkte statt gekürzter Texte, darunter immer die
+  Tagesagenda (heute vorausgewählt).
+
 ### Geändert – Android: Design-Runde 2 „Saga-Look“ (Farben und Ecken wie im Web)
 
 - **Grundton Schiefergrau wie im Web:** Text, Nebentext, Flächen und Ränder kommen jetzt aus den Web-Tokens (hell:

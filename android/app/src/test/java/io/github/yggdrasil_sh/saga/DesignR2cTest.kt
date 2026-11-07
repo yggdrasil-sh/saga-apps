@@ -86,11 +86,12 @@ class DesignR2cTest {
         val d = read("ui/database/DatabaseView.kt")
         val head = d.substring(d.indexOf("internal fun TableHead("), d.indexOf("/** ED-17"))
         // Scrollbereich gewichtet, Pfeil in eigener Box danach, kein Ueberlagern mehr per align(CenterEnd)
-        assertTrue(head.contains("Row(Modifier.weight(1f, fill = false).horizontalScroll(st.hScroll))"))
+        // R3/ED-14: zusaetzlich Linie an der fixierten Spalte und Einrasten - der Pfeil bleibt in seiner eigenen Spalte
+        assertTrue(head.contains("Row(Modifier.weight(1f, fill = false).frozenEdge(st.hScroll).horizontalScroll(st.hScroll, flingBehavior = snap))"))
         assertTrue(head.contains("Box(Modifier.size(MORE_COLUMNS_SLOT)"))
         assertFalse(head.contains("Alignment.CenterEnd"))
         val row = d.substring(d.indexOf("internal fun TableRow("), d.indexOf("// ---------------------------------------------------------------- Liste"))
-        assertTrue(row.contains("Row(Modifier.weight(1f, fill = false).horizontalScroll(st.hScroll)"))
+        assertTrue(row.contains("Row(Modifier.weight(1f, fill = false).frozenEdge(st.hScroll).horizontalScroll(st.hScroll, flingBehavior = snap)"))
         assertTrue(row.contains("if (moving.isNotEmpty()) Spacer(Modifier.width(MORE_COLUMNS_SLOT))"))
     }
 }

@@ -63,6 +63,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.layout.ContentScale
@@ -186,7 +192,7 @@ internal fun DbMissing(modifier: Modifier = Modifier, style: androidx.compose.ui
 
 /** Zeilen und Werkzeugleiste der Datenbank als Eintraege der Seiten-LazyColumn */
 fun LazyListScope.databaseItems(st: DbViewState, repo: SagaRepository, onOpen: (Long) -> Unit, wide: Boolean) {
-    item(key = "db-toolbar", contentType = "db-toolbar") { DbToolbar(st, onOpen, repo) }
+    item(key = "db-toolbar", contentType = "db-toolbar") { DbToolbar(st, onOpen, repo, wide) }
     val s = st.schema
     if (st.noAccess) {
         item(key = "db-noaccess") { DbMissing(Modifier.padding(vertical = 12.dp)) }
@@ -215,12 +221,14 @@ fun LazyListScope.databaseItems(st: DbViewState, repo: SagaRepository, onOpen: (
         }
         else -> {
             val list = v.type == "list"
-            if (!list) item(key = "db-th", contentType = "db-th") { TableHead(st, v, wide) }
+            // ED-12: Tabelle unter 600 dp als kompakte Liste, ausser "Als Tabelle" ist fuer die Ansicht an
+            val compact = !list && DbCompact.compactList(v.type, wide, st.asTable(v.id))
+            if (!list && !compact) item(key = "db-th", contentType = "db-th") { TableHead(st, v, wide) }
             val entries = withGroups(st, v)
             items(entries.size, key = { i -> entries[i].let { e -> if (e is DbRow) "r:${e.id}" else "h:${(e as GroupHead).id}" } },
-                contentType = { i -> if (entries[i] is DbRow) (if (list) "db-li" else "db-tr") else "db-gh" }) { i ->
+                contentType = { i -> if (entries[i] is DbRow) (if (list) "db-li" else if (compact) "db-ci" else "db-tr") else "db-gh" }) { i ->
                 when (val e = entries[i]) {
-                    is DbRow -> if (list) ListRow(st, repo, e, v, onOpen) else TableRow(st, repo, e, v, wide, onOpen)
+                    is DbRow -> if (list) ListRow(st, repo, e, v, onOpen) else if (compact) CompactTableRow(st, repo, e, v, onOpen) else TableRow(st, repo, e, v, wide, onOpen)
                     is GroupHead -> GroupHeader(st, e)
                 }
             }
@@ -301,7 +309,7 @@ internal fun statusGroupName(g: String): String = stringResource(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaRepository? = null) {
+internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaRepository? = null, wide: Boolean = true) {
     if (st.managing) TemplateManager(st, onOpen)
     val features by (repo?.serverFeatures ?: kotlinx.coroutines.flow.MutableStateFlow(emptySet())).collectAsState()
     val s = st.schema
@@ -317,10 +325,12 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaReposi
             val ns = v.sorts.size
             // Design 2.5: mehrere Ansichten direkt als Pillen (ein Tippen wechselt), das Menue bleibt fuer Einstellungen
             val pills = st.views.size > 1
+            // ED-12: Schalter "Als Tabelle" nur auf dem Handy und nur bei Tabellen
+            val tableToggle = DbCompact.offerTableToggle(v.type, wide)
             if (pills) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { ViewPills(st.views, v.id) { st.selectView(it) } }
                 // Menue (Ansicht bearbeiten, neue Ansicht, Vorlagen) rechts neben den Pillen
-                if (st.canEditViews || st.canManageTemplates || (repo != null && "tasksrc1" in features)) IconButton(onClick = { viewMenu = true }) {
+                if (tableToggle || st.canEditViews || st.canManageTemplates || (repo != null && "tasksrc1" in features)) IconButton(onClick = { viewMenu = true }) {
                     SagaIcon(SagaIcons.moreVert, stringResource(R.string.dbv_views_menu))
                 }
             }
@@ -342,6 +352,10 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaReposi
                                 trailingIcon = { if (x.id == v.id) SagaIcon(SagaIcons.check, null) },
                                 onClick = { viewMenu = false; if (x.id != v.id) st.selectView(x.id) },
                             )
+                        }
+                        if (tableToggle) {
+                            androidx.compose.material3.HorizontalDivider()
+                            AsTableMenuItem(st.asTable(v.id)) { st.setAsTable(v.id, it); viewMenu = false }
                         }
                         if (st.canEditViews) {
                             androidx.compose.material3.HorizontalDivider()
@@ -391,37 +405,48 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaReposi
                     val dflt = st.defaultTemplate
                     val action = DbViews.newAction(st.templates, dflt)
                     val dfltName = dflt?.title?.ifEmpty { null } ?: stringResource(R.string.tpl_template)
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.clip(MaterialTheme.shapes.small).combinedClickable(
-                            role = Role.Button,
-                            onClickLabel = if (action == DbViews.NewAction.DEFAULT_TEMPLATE) stringResource(R.string.tpl_new_from_default, dfltName) else null,
-                            onLongClickLabel = if (st.templates.isNotEmpty()) stringResource(R.string.tpl_more_choices) else null,
-                            onLongClick = if (st.templates.isNotEmpty()) ({ newMenu = true }) else null,
+                    // ED-18: zweigeteilter Knopf - links "+ Neuer Eintrag", rechts ▾ (weitere Moeglichkeiten), sichtbarer Spalt,
+                    // beide Ziele mindestens 48 dp. Langer Druck auf den linken Teil oeffnet das Menue zusaetzlich.
+                    val split = st.templates.isNotEmpty()
+                    val outer = SagaRadius.s
+                    val inner = SagaRadius.xs
+                    val leadShape = if (split) RoundedCornerShape(topStart = outer, bottomStart = outer, topEnd = inner, bottomEnd = inner) else RoundedCornerShape(outer)
+                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = leadShape,
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.weight(1f, fill = false).clip(leadShape).combinedClickable(
+                                role = Role.Button,
+                                onClickLabel = if (action == DbViews.NewAction.DEFAULT_TEMPLATE) stringResource(R.string.tpl_new_from_default, dfltName) else null,
+                                onLongClickLabel = if (split) stringResource(R.string.tpl_more_choices) else null,
+                                onLongClick = if (split) ({ newMenu = true }) else null,
+                            ) {
+                                when (action) {
+                                    DbViews.NewAction.BLANK -> scope.launch { st.create()?.let(onOpen) }
+                                    DbViews.NewAction.DEFAULT_TEMPLATE -> dflt?.let { t -> scope.launch { st.createFrom(t)?.let(onOpen) } }
+                                    DbViews.NewAction.MENU -> newMenu = true
+                                }
+                            },
                         ) {
-                            when (action) {
-                                DbViews.NewAction.BLANK -> scope.launch { st.create()?.let(onOpen) }
-                                DbViews.NewAction.DEFAULT_TEMPLATE -> dflt?.let { t -> scope.launch { st.createFrom(t)?.let(onOpen) } }
-                                DbViews.NewAction.MENU -> newMenu = true
+                            Row(Modifier.heightIn(min = 48.dp).widthIn(min = 48.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                SagaIcon(SagaIcons.plus, null, Modifier.size(18.dp))
+                                // A17: Text darf kuerzen ("Neuer Ein…"), der Pfeil bleibt als eigener Teil immer sichtbar
+                                Text(stringResource(R.string.dbv_new_entry), modifier = Modifier.padding(start = 4.dp).weight(1f, fill = false), maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge)
                             }
-                        },
-                    ) {
-                        Row(Modifier.heightIn(min = 40.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            SagaIcon(SagaIcons.plus, null, Modifier.size(18.dp))
-                            // A17: Text darf kuerzen ("Neuer Ein…"), der Pfeil bleibt immer sichtbar - und oeffnet selbst das Menue
-                            Text(stringResource(R.string.dbv_new_entry), modifier = Modifier.padding(start = 4.dp).weight(1f, fill = false), maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge)
-                            if (st.templates.isNotEmpty()) {
-                                val moreLabel = stringResource(R.string.tpl_more_choices)
-                                Box(
-                                    Modifier.padding(start = 2.dp).size(28.dp).clip(androidx.compose.foundation.shape.CircleShape)
-                                        .clickable(role = Role.Button, onClickLabel = moreLabel) { newMenu = true }
-                                        .semantics { contentDescription = moreLabel },
-                                    contentAlignment = Alignment.Center,
-                                ) { SagaIcon(SagaIcons.caretDown, null, Modifier.size(20.dp)) }
-                            }
+                        }
+                        if (split) {
+                            val moreLabel = stringResource(R.string.tpl_more_choices)
+                            val trailShape = RoundedCornerShape(topStart = inner, bottomStart = inner, topEnd = outer, bottomEnd = outer)
+                            Surface(
+                                shape = trailShape,
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(48.dp).clip(trailShape)
+                                    .clickable(role = Role.Button, onClickLabel = moreLabel) { newMenu = true }
+                                    .semantics { contentDescription = moreLabel },
+                            ) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { SagaIcon(SagaIcons.caretDown, null, Modifier.size(20.dp)) } }
                         }
                     }
                     DropdownMenu(expanded = newMenu, onDismissRequest = { newMenu = false }) {
@@ -470,8 +495,39 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaReposi
 @Composable
 internal fun ViewPills(views: List<DbView>, current: String, onSelect: (String) -> Unit) {
     val accent = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current
+    // ED-16: Raender per Verlauf ausblenden (zeigt, dass es weitergeht) und zur aktiven Pille scrollen
+    val sc = androidx.compose.foundation.rememberScrollState()
+    val bounds = remember { androidx.compose.runtime.mutableStateMapOf<String, IntRange>() }
+    var viewport by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val fade = with(density) { 24.dp.toPx() }
+    val active = bounds[current]
+    var first by remember { mutableStateOf(true) }
+    LaunchedEffect(current, active, viewport) {
+        val b = active ?: return@LaunchedEffect
+        if (viewport <= 0) return@LaunchedEffect
+        val target = DbCompact.pillScroll(b.first, b.last, viewport, sc.value, sc.maxValue, fade.toInt())
+        if (target != sc.value) { if (first) sc.scrollTo(target) else sc.animateScrollTo(target) }
+        first = false
+    }
     Row(
-        Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()).selectableGroup(),
+        Modifier.fillMaxWidth()
+            .onSizeChanged { viewport = it.width }
+            .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                val w = minOf(fade, size.width / 4)
+                if (sc.value > 0) drawRect(
+                    androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(androidx.compose.ui.graphics.Color.Black, androidx.compose.ui.graphics.Color.Transparent), startX = 0f, endX = w),
+                    size = androidx.compose.ui.geometry.Size(w, size.height), blendMode = androidx.compose.ui.graphics.BlendMode.DstOut,
+                )
+                if (sc.value < sc.maxValue) drawRect(
+                    androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(androidx.compose.ui.graphics.Color.Transparent, androidx.compose.ui.graphics.Color.Black), startX = size.width - w, endX = size.width),
+                    topLeft = androidx.compose.ui.geometry.Offset(size.width - w, 0f), size = androidx.compose.ui.geometry.Size(w, size.height),
+                    blendMode = androidx.compose.ui.graphics.BlendMode.DstOut,
+                )
+            }
+            .horizontalScroll(sc).selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
         views.forEach { x ->
@@ -481,7 +537,8 @@ internal fun ViewPills(views: List<DbView>, current: String, onSelect: (String) 
                 io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.defaultEffects(), label = "pill",
             )
             Row(
-                Modifier.minimumInteractiveComponentSize().clip(androidx.compose.foundation.shape.CircleShape).background(bg)
+                Modifier.onPlaced { c -> val l = c.positionInParent().x.toInt(); val r = l..(l + c.size.width); if (bounds[x.id] != r) bounds[x.id] = r }
+                    .minimumInteractiveComponentSize().clip(androidx.compose.foundation.shape.CircleShape).background(bg)
                     .then(if (sel) Modifier.border(1.dp, accent.gold.copy(alpha = 0.6f), androidx.compose.foundation.shape.CircleShape) else Modifier)
                     .selectable(selected = sel, role = Role.Tab) { if (!sel) onSelect(x.id) }
                     .heightIn(min = 36.dp).padding(horizontal = 14.dp),
@@ -506,7 +563,10 @@ internal fun colWidth(p: DbProp?, wide: Boolean): Dp = when (p?.type) {
     null -> if (wide) 280.dp else 200.dp
     "checkbox" -> 72.dp
     "number", "calc" -> 110.dp
-    "date", "created", "edited" -> 130.dp
+    // ED-14: Datum im Kurzformat ("02.11.", "02.11.25") und Auswahl (Chip + 16 dp) schmaler - mehr Spalten auf dem Handy
+    "date" -> 96.dp
+    "select" -> 96.dp
+    "created", "edited" -> 130.dp
     "multi_select", "relation" -> 190.dp
     "text" -> 200.dp
     else -> 150.dp
@@ -517,6 +577,7 @@ internal fun TableHead(st: DbViewState, v: DbView, wide: Boolean) {
     val s = st.schema ?: return
     // 2.5 tableopts1: fixierte Spalten (freeze, 1 = Name) stehen beim waagrechten Scrollen
     val (frozen, moving) = DbViews.frozenSplit(s.visibleProps(v), v.freeze)
+    val snap = rememberColumnSnap(st.hScroll, moving.map { colWidth(it, wide) })
     Column {
         // ED-15 / R2c: mindestens so hoch wie der Pfeil, damit die Kopfzeile am Scroll-Ende nicht springt.
         // Der Pfeil "Weitere Spalten" hat einen eigenen Platz rechts NEBEN dem Scrollbereich (MORE_COLUMNS_SLOT). Frueher
@@ -529,7 +590,8 @@ internal fun TableHead(st: DbViewState, v: DbView, wide: Boolean) {
                 Text(p.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.width(colWidth(p, wide)).padding(horizontal = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Row(Modifier.weight(1f, fill = false).horizontalScroll(st.hScroll)) {
+            // ED-14: einrasten an Spaltenkanten, Linie + Schatten an der fixierten Spalte, sobald gescrollt
+            Row(Modifier.weight(1f, fill = false).frozenEdge(st.hScroll).horizontalScroll(st.hScroll, flingBehavior = snap)) {
                 moving.forEach { p ->
                     Text(p.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.width(colWidth(p, wide)).padding(horizontal = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -589,6 +651,7 @@ internal fun TableRow(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbView
     val fmt = rememberDbFormat({ id -> repo.page(id)?.title }, st.people)
     val tint = rowColor(st, r, v)
     val (frozen, moving) = DbViews.frozenSplit(s.visibleProps(v), v.freeze)
+    val snap = rememberColumnSnap(st.hScroll, moving.map { colWidth(it, wide) })
     @Composable
     fun cell(p: DbProp) {
         val value = DbQuery(s).value(p, r)
@@ -602,7 +665,7 @@ internal fun TableRow(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbView
                 .semantics(mergeDescendants = true) { contentDescription = desc }
                 .padding(horizontal = 6.dp, vertical = 4.dp),
             contentAlignment = Alignment.CenterStart,
-        ) { DbValueView(p, value, fmt, maxLines = if (v.wraps(p.id)) 8 else 2, err = r.fxErr[p.id]) }
+        ) { CompactValue(p, value, fmt, err = r.fxErr[p.id], labeled = false, maxLines = if (v.wraps(p.id)) 8 else 2) }
     }
     Column(Modifier.then(if (tint != null) Modifier.background(tint) else Modifier)) {
         Row(Modifier.heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -617,7 +680,7 @@ internal fun TableRow(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbView
             }
             frozen.forEach { cell(it) }
             // gleiche Inhaltsbreite wie die Kopfzeile (ED-15), sonst rechnen Kopf und Zeilen mit verschiedenem Scroll-Ende
-            Row(Modifier.weight(1f, fill = false).horizontalScroll(st.hScroll), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.weight(1f, fill = false).frozenEdge(st.hScroll).horizontalScroll(st.hScroll, flingBehavior = snap), verticalAlignment = Alignment.CenterVertically) {
                 moving.forEach { cell(it) }
             }
             // R2c: gleiche Spalte wie der Pfeil im Kopf, damit Kopf und Zeilen denselben Scrollbereich haben
@@ -703,7 +766,8 @@ internal fun GalleryCard(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbV
                 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
                 androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     s.visibleProps(v).filter { p -> (!DbQuery.isEmpty(DbQuery(s).value(p, r)) || r.fxErr[p.id] != null) && p.type != "text" }.take(3).forEach { p ->
-                        DbValueView(p, DbQuery(s).value(p, r), fmt, err = r.fxErr[p.id])
+                        // ED-19: Datum mit Kurzlabel bzw. als Zeitraum mit Kalender-Symbol
+                        CompactValue(p, DbQuery(s).value(p, r), fmt, err = r.fxErr[p.id])
                     }
                 }
             }
@@ -727,13 +791,18 @@ internal fun DbBoard(st: DbViewState, repo: SagaRepository, onOpen: (Long) -> Un
     val keys: List<String?> = st.boardKeys.ifEmpty { listOf<String?>(null) + gp.options.map { it.id } }
     // 2.5: nach Formel/Rollup/Person gruppiert - nur lesend (kein Ziehen, "+ Neu" ohne Wert)
     val readOnlyGroups = gp.type != "select"
-    LazyRow(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    // ED-20: Spalten rasten ein; auf dem Handy Spaltenbreite = Bildschirm − 48 dp (die naechste Spalte schaut hervor)
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier.fillMaxWidth()) {
+    val colW = DbCompact.boardColumnWidth(maxWidth.value).dp
+    val rowState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val snap = androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior(rowState, androidx.compose.foundation.gestures.snapping.SnapPosition.Start)
+    LazyRow(Modifier.fillMaxSize(), state = rowState, flingBehavior = snap, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         items(keys.size, key = { "c:" + (keys[it] ?: "-") }) { i ->
             val k = keys[i]
             val col = st.columns[k]
             if (k == null && (col?.matched ?: 0) == 0) return@items       // "Ohne" leer: wie im Web nicht zeigen
             Column(
-                Modifier.width(280.dp).fillMaxHeight().clip(MaterialTheme.shapes.medium)
+                Modifier.width(colW).fillMaxHeight().clip(MaterialTheme.shapes.medium)
                     .background(MaterialTheme.colorScheme.surfaceContainerLow).padding(10.dp),
             ) {
                 Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { heading() }, verticalAlignment = Alignment.CenterVertically) {
@@ -760,6 +829,7 @@ internal fun DbBoard(st: DbViewState, repo: SagaRepository, onOpen: (Long) -> Un
                 }
             }
         }
+    }
     }
 }
 
@@ -801,7 +871,8 @@ internal fun BoardCard(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbVie
                     }
                 }
                 s.visibleProps(v).filter { p -> p.id != gp.id && p.type != "text" && (!DbQuery.isEmpty(DbQuery(s).value(p, r)) || r.fxErr[p.id] != null) }.take(3).forEach { p ->
-                    DbValueView(p, DbQuery(s).value(p, r), fmt, err = r.fxErr[p.id])
+                    // ED-19: Datum mit Kurzlabel ("Start 16.11.") bzw. als Zeitraum "16.11. → 18.12.2026"
+                    CompactValue(p, DbQuery(s).value(p, r), fmt, err = r.fxErr[p.id])
                 }
             }
             }
@@ -899,6 +970,11 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
         return
     }
     val month = st.month
+    // ED-21: Handy (< 600 dp) - Zellen mit Punkten, darunter immer die Tagesagenda (vorausgewaehlt heute)
+    val compact = !wide
+    val shown: LocalDate? = selected ?: if (compact) DbCompact.agendaDay(month, today) else null
+    val agenda = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    fun dotColor(r: DbRow): androidx.compose.ui.graphics.Color = q.color(r, v)?.let { optColor(it) } ?: accent.gold
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { st.showMonth(month.minusMonths(1)) }) { SagaIcon(SagaIcons.chevronLeft, stringResource(R.string.dbv_prev_month)) }
@@ -923,12 +999,16 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
                     val inMonth = day.month == month.month
                     val items = byDay[day.toString()].orEmpty()
                     val desc = day.format(dayFmt) + if (items.isNotEmpty()) ", " + items.size else ""
-                    val isSel = day == selected
+                    val isSel = day == shown
                     Column(
-                        Modifier.weight(1f).heightIn(min = 64.dp).padding(1.5.dp).clip(RoundedCornerShape(SagaRadius.md))
+                        Modifier.weight(1f).heightIn(min = if (compact) 48.dp else 64.dp).padding(1.5.dp).clip(RoundedCornerShape(SagaRadius.md))
                             .background(if (isSel) accent.goldSoft else MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = if (inMonth) 1f else 0.4f))
                             .then(if (isSel) Modifier.border(1.5.dp, accent.gold, RoundedCornerShape(SagaRadius.md)) else Modifier)
-                            .clickable { selected = day }.semantics(mergeDescendants = true) { contentDescription = desc; this.selected = isSel }.padding(3.dp),
+                            .clickable {
+                                selected = day
+                                if (compact) scope.launch { agenda.bringIntoView() }      // Agenda bleibt sichtbar
+                            }.semantics(mergeDescendants = true) { contentDescription = desc; this.selected = isSel }.padding(3.dp),
+                        horizontalAlignment = if (compact) Alignment.CenterHorizontally else Alignment.Start,
                     ) {
                         // heute: Tageszahl in einem Goldkreis
                         Box(
@@ -940,23 +1020,34 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
                                 fontWeight = if (day == today) FontWeight.Bold else FontWeight.Normal,
                                 color = if (day == today) MaterialTheme.colorScheme.onPrimary else if (inMonth) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        items.take(2).forEach { r ->
+                        if (compact) {
+                            // bis zu 3 Punkte in der Eintragsfarbe (Farbe der Ansicht, sonst Gold)
+                            if (items.isNotEmpty()) Row(Modifier.padding(top = 3.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                items.take(DbCompact.dots(items.size)).forEach { r ->
+                                    Box(Modifier.size(6.dp).clip(androidx.compose.foundation.shape.CircleShape).background(dotColor(r)))
+                                }
+                            }
+                        } else items.take(2).forEach { r ->
                             Text(label(r), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 color = accent.onGoldSoft,
                                 modifier = Modifier.padding(top = 2.dp).fillMaxWidth().clip(RoundedCornerShape(SagaRadius.xs))
                                     .background(if (isSel) MaterialTheme.colorScheme.surface.copy(alpha = 0.7f) else accent.goldSoft).padding(horizontal = 3.dp))
                         }
-                        if (items.size > 2) Text(androidx.compose.ui.res.pluralStringResource(R.plurals.dbv_more_entries, items.size - 2, items.size - 2), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (!compact && items.size > 2) Text(androidx.compose.ui.res.pluralStringResource(R.plurals.dbv_more_entries, items.size - 2, items.size - 2), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
         }
-        val sel = selected
-        if (sel != null) {
+        val sel = shown
+        if (sel != null) Column(Modifier.fillMaxWidth().bringIntoViewRequester(agenda)) {
             Text(sel.format(dayFmt), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp).semantics { heading() })
-            byDay[sel.toString()].orEmpty().forEach { r ->
+            val dayItems = byDay[sel.toString()].orEmpty()
+            if (dayItems.isEmpty()) Text(stringResource(R.string.dbv_agenda_empty), color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 8.dp))
+            dayItems.forEach { r ->
                 Row(Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.dbv_open_entry)) { onOpen(r.id) }.padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (compact) Box(Modifier.size(8.dp).clip(androidx.compose.foundation.shape.CircleShape).background(dotColor(r)))
                     PageIcon(r.icon, repo, size = 18.dp)
                     Text(label(r), maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }

@@ -112,6 +112,20 @@ class DbViewState(
     /** Tabelle: alle Zeilen scrollen gemeinsam waagrecht */
     val hScroll = androidx.compose.foundation.ScrollState(0)
 
+    /** ED-12: Zaehler fuer den Schalter "Als Tabelle" - Lesen in der Oberflaeche zeichnet nach dem Umschalten neu */
+    private var asTableRev by androidx.compose.runtime.mutableIntStateOf(0)
+
+    /** ED-12: Ansicht auf dem Handy als echte Tabelle statt kompakter Liste (lokal je Ansicht gemerkt, nie auf dem Server) */
+    fun asTable(viewId: String): Boolean {
+        if (asTableRev < 0) return false                              // liest den Zaehler (Neuzeichnen nach Umschalten)
+        return repo.appContextPrefs()?.getBoolean(DbCompact.asTableKey(dbId, embed?.prefKey, viewId), false) ?: false
+    }
+
+    fun setAsTable(viewId: String, on: Boolean) {
+        repo.appContextPrefs()?.edit { putBoolean(DbCompact.asTableKey(dbId, embed?.prefKey, viewId), on) }
+        asTableRev++
+    }
+
     /** Server wendet die Ansicht an (2.2+); sonst alle Zeilen lokal */
     private var serverPaged = true
     private var allRows: List<DbRow>? = null

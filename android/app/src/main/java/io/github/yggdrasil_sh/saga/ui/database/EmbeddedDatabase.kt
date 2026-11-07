@@ -72,10 +72,12 @@ fun EmbeddedDatabase(dbId: Long, data: JsonObject, pageId: Long, blockId: String
                         }
                     }
                     else -> {
-                        TableHead(st, v, wide)
+                        // ED-12: dieselbe Regel wie im Vollbild - unter 600 dp kompakte Liste, ausser "Als Tabelle"
+                        val compact = DbCompact.compactList(v.type, wide, st.asTable(v.id))
+                        if (!compact) TableHead(st, v, wide)
                         withGroups(st, v).forEach { e ->
                             when (e) {
-                                is DbRow -> TableRow(st, repo, e, v, wide, onOpen)
+                                is DbRow -> if (compact) CompactTableRow(st, repo, e, v, onOpen) else TableRow(st, repo, e, v, wide, onOpen)
                                 is GroupHead -> GroupHeader(st, e)
                             }
                         }
@@ -85,7 +87,10 @@ fun EmbeddedDatabase(dbId: Long, data: JsonObject, pageId: Long, blockId: String
                     Text(stringResource(R.string.dbv_empty_view), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                 }
                 st.error?.let { Text(it.resolve(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // FlowRow: auf schmalen Handys rutscht ein Knopf in die naechste Zeile statt abgeschnitten zu werden
+                @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), itemVerticalAlignment = Alignment.CenterVertically) {
+                    if (DbCompact.offerTableToggle(v.type, wide)) AsTableToggleButton(st.asTable(v.id)) { st.setAsTable(v.id, it) }
                     if (st.hasMore && v.type in setOf("table", "list", "gallery")) {
                         SagaTextButton(onClick = { onOpen(dbId) }) { Text(stringResource(R.string.db_more, st.matched)) }
                     }

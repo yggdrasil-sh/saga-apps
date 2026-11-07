@@ -89,4 +89,8 @@
         <item quantity="many">ещё %d</item>
         <item quantity="other">ещё %d</item>
     </plurals>
+    <!-- Android-Design R3 (ED-12, ED-21) -->
+    <string name="dbv_as_table">Как таблица</string>
+    <string name="dbv_as_list">Как список</string>
+    <string name="dbv_agenda_empty">В этот день нет записей</string>
 </resources>

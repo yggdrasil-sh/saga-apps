@@ -86,4 +86,8 @@
     <plurals name="dbv_more_entries">
         <item quantity="other">อีก %d รายการ</item>
     </plurals>
+    <!-- Android-Design R3 (ED-12, ED-21) -->
+    <string name="dbv_as_table">แสดงเป็นตาราง</string>
+    <string name="dbv_as_list">แสดงเป็นรายการ</string>
+    <string name="dbv_agenda_empty">ไม่มีรายการในวันนี้</string>
 </resources>

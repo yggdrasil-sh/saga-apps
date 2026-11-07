@@ -87,4 +87,8 @@
         <item quantity="one">%d weiterer</item>
         <item quantity="other">%d weitere</item>
     </plurals>
+    <!-- Android-Design R3 (ED-12, ED-21) -->
+    <string name="dbv_as_table">Als Tabelle</string>
+    <string name="dbv_as_list">Als Liste</string>
+    <string name="dbv_agenda_empty">Keine Einträge an diesem Tag</string>
 </resources>
