@@ -41,6 +41,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.selection.toggleable
@@ -800,9 +801,9 @@ private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modi
 }
 
 /**
- * CH-02: gescheiterter Anruf - der Endbildschirm bleibt stehen (schliesst nach 30 s ohne Eingabe, siehe
- * CallLogic.endDismissMs): "Erneut anrufen" (eigener 1:1-Anruf), "Schliessen" und - falls vorhanden - der technische
- * Grund unter "Details" (z. B. TURN-Hinweis fuer Admins).
+ * CH-02: gescheiterter bzw. nicht angenommener Anruf - der Endbildschirm bleibt stehen (schliesst nach 30 s ohne
+ * Eingabe, siehe CallLogic.endScreen/endDismissMs): "Erneut anrufen" (eigener 1:1-Anruf), "Schliessen" und - falls
+ * vorhanden - der technische Grund unter "Details" (z. B. TURN-Hinweis fuer Admins).
  */
 @Composable
 private fun EndedFailed(calls: CallManager, st: CallUiState) {
@@ -818,15 +819,32 @@ private fun EndedFailed(calls: CallManager, st: CallUiState) {
                 modifier = Modifier.padding(bottom = 12.dp).semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { calls.dismiss() }) { Text(stringResource(R.string.action_close)) }
-            if (st.canRedial) androidx.compose.material3.FilledTonalButton(onClick = { calls.redial() }) {
-                Icon(painterResource(R.drawable.ic_call), null, Modifier.size(18.dp))
-                Text(stringResource(R.string.r1_call_redial), modifier = Modifier.padding(start = 8.dp))
-            }
+        // Hauptaktion "Erneut anrufen" tonal gefuellt (helles Gold auf Nachtblau), "Schliessen" umrandet, "Details" als
+        // Textknopf; alle mindestens 48 dp hoch, Farben fest fuer den dunklen Anrufhintergrund
+        if (st.canRedial) androidx.compose.material3.FilledTonalButton(
+            onClick = { calls.redial() },
+            colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                containerColor = CallDesign.actionContainer, contentColor = CallDesign.onActionContainer,
+            ),
+            modifier = Modifier.padding(bottom = 12.dp).heightIn(min = 48.dp).widthIn(min = 200.dp),
+        ) {
+            Icon(painterResource(R.drawable.ic_call), null, Modifier.size(18.dp))
+            Text(stringResource(R.string.r1_call_redial), modifier = Modifier.padding(start = 8.dp))
         }
-        if (detail != null) TextButton(onClick = { details = !details; calls.touchEnded() }, modifier = Modifier.padding(top = 4.dp)) {
-            Text(stringResource(if (details) R.string.r1_call_details_hide else R.string.r1_call_details))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.OutlinedButton(
+                onClick = { calls.dismiss() },
+                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                border = androidx.compose.foundation.BorderStroke(1.dp, CallDesign.actionOutline),
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) { Text(stringResource(R.string.action_close)) }
+            if (detail != null) TextButton(
+                onClick = { details = !details; calls.touchEnded() },
+                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = CallDesign.actionText),
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Text(stringResource(if (details) R.string.r1_call_details_hide else R.string.r1_call_details))
+            }
         }
     }
 }
@@ -856,7 +874,7 @@ private fun Controls(
                 }
             }
         }
-        CallPhase.ENDED -> if (st.error) EndedFailed(calls, st) else {
+        CallPhase.ENDED -> if (st.error || st.canRedial) EndedFailed(calls, st) else {
             TextButton(onClick = { calls.dismiss() }, modifier = Modifier.padding(bottom = 24.dp)) { Text(stringResource(R.string.action_close)) }
         }
         else -> {

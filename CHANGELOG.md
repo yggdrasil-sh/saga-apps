@@ -33,6 +33,9 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Gescheiterter Anruf: Der Endbildschirm bleibt mit einer verständlichen Meldung stehen, mit „Erneut anrufen“ und
   „Schließen“ (schließt nach 30 s ohne Eingabe); der technische Grund (TURN/Admin) steht unter „Details“. Der
   Verlaufseintrag zeigt die Richtung als Symbol, Fehler in Fehlerfarbe und bei eigenem Anruf „Erneut anrufen“.
+  Das gilt auch beim Anrufer, wenn die Gegenseite den Verbindungsfehler zuerst meldet; nach „besetzt“, „abgelehnt“
+  oder „keine Antwort“ bietet der Endbildschirm ebenfalls „Erneut anrufen“. „Erneut anrufen“ ist ein tonal
+  gefüllter Knopf, „Schließen“ umrandet, alle mindestens 48 dp hoch.
 - Tastatur verdeckt nichts mehr: Wiederherstellungsschlüssel (mit Hinweis am Feld „Letzte 4 Zeichen“ und „Fertig“ auf
   der Tastatur) und Chat-Dialoge mit Textfeld (neuer Helfer `ui/common/ImeDialog.kt`).
 - Chat-Kopf mit Online-Stand zeigt nur „online“ bzw. „zuletzt online …“ plus Schloss; der Verschlüsselungshinweis steht

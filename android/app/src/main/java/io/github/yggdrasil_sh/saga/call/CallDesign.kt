@@ -28,6 +28,15 @@ internal object CallDesign {
     /** Hintergrund ohne Video: Nachtblau, nach unten etwas heller, oben ein Hauch Gold */
     val backdrop: Brush = Brush.verticalGradient(listOf(Color(0xFF1A1F2A), SagaNight, Color(0xFF151C27)))
 
+    /**
+     * CH-02: Aktionen auf dem Endbildschirm (immer dunkler Hintergrund). Hauptaktion: helles Gold mit dunkler Schrift
+     * (Schrift 10:1, Flaeche gegen Nachtblau 12:1); "Schliessen" weiss mit grauem Rand (Rand 5:1); Textknopf in Gold (9:1).
+     */
+    val actionContainer = Color(0xFFF3E2BC)
+    val onActionContainer = Color(0xFF3D2C00)
+    val actionOutline = Color(0xFF8D919A)
+    val actionText = Color(0xFFE2C07E)
+
     /** Abstand der Ringe um den Profilkreis beim Klingeln/Verbinden (Anteil des Radius) */
     const val HALO_SPREAD = 0.55f
 }

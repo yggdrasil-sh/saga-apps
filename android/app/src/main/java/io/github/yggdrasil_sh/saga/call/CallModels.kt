@@ -188,6 +188,39 @@ object CallLogic {
     /** CH-02: Restzeit bis zum Schliessen nach der letzten Eingabe `touch` (0 = keine); <= 0 heisst schliessen */
     fun endIdleLeft(ms: Long, touch: Long, now: Long): Long = if (touch <= 0) 0 else touch + ms - now
 
+    /**
+     * CH-02: Art des Anruf-Endes. CLOSED: aufgelegt (selbst oder Gegenueber) bzw. nach bestehender Verbindung beendet;
+     * UNANSWERED: abgelehnt, besetzt, keine Antwort (eigene Texte); FAILED: Verbindung kam nicht zustande (eigener
+     * ICE-Fehler oder der des Gegenuebers, gemeldet als Grund "failed"); SECURITY: Sicherheitspruefung gescheitert.
+     */
+    enum class EndKind { CLOSED, UNANSWERED, FAILED, SECURITY }
+
+    /** CH-02: Ende vom Gegenueber bzw. Server (Grund aus `/end` bzw. Ereignis) - nach bestehender Verbindung immer CLOSED */
+    fun remoteEndKind(reason: String?, connected: Boolean): EndKind = when {
+        connected -> EndKind.CLOSED
+        reason == "failed" -> EndKind.FAILED
+        reason == "declined" || reason == "busy" || reason == "timeout" -> EndKind.UNANSWERED
+        else -> EndKind.CLOSED
+    }
+
+    /**
+     * CH-02: Endbildschirm. stays: bleibt mit Aktionen stehen (30 s ohne Eingabe, [END_ERROR_IDLE_MS]) statt nach 3 s
+     * zu schliessen; redial: "Erneut anrufen"; failed: Fehler (Meldung in Alltagssprache, Grund unter "Details").
+     */
+    data class EndScreen(val stays: Boolean, val redial: Boolean, val failed: Boolean)
+
+    /** CH-02: ownDm = selbst gestarteter 1:1-Anruf (siehe [ownDm]) */
+    fun endScreen(kind: EndKind, ownDm: Boolean): EndScreen = when (kind) {
+        EndKind.FAILED -> EndScreen(stays = true, redial = ownDm, failed = true)
+        EndKind.SECURITY -> EndScreen(stays = true, redial = false, failed = true)   // erst Sicherheitsnummer pruefen
+        EndKind.UNANSWERED -> EndScreen(stays = ownDm, redial = ownDm, failed = false)
+        EndKind.CLOSED -> EndScreen(stays = false, redial = false, failed = false)
+    }
+
+    /** CH-02: selbst gestarteter 1:1-Anruf (nicht Raum/Gruppe, nicht ueber den Knoten, nicht "Grund bleibt stehen") */
+    fun ownDm(caller: Boolean, dm: Boolean, inRoom: Boolean, horn: Boolean, sticky: Boolean): Boolean =
+        caller && dm && !inRoom && !horn && !sticky
+
     fun validId(id: String?): Boolean = id != null && ID_RE.matches(id)
 
     fun parseEntry(bodyCt: String): CallEntry? = try {

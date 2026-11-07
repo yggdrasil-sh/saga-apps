@@ -1,6 +1,7 @@
 package io.github.yggdrasil_sh.saga
 
 import io.github.yggdrasil_sh.saga.call.CallLogic
+import io.github.yggdrasil_sh.saga.call.CallLogic.EndKind as K
 import io.github.yggdrasil_sh.saga.ui.chat.BubbleA11y
 import io.github.yggdrasil_sh.saga.ui.chat.RecoveryLast4
 import org.junit.Assert.assertEquals
@@ -59,5 +60,39 @@ class R1ChatDesignTest {
         assertEquals(20_000L, CallLogic.endIdleLeft(30_000L, 990_000L, 1_000_000L))
         // Eingabe vor 40 s: schliessen
         assertTrue(CallLogic.endIdleLeft(30_000L, 960_000L, 1_000_000L) <= 0)
+    }
+
+    @Test
+    fun endScreenDecision() {
+        // Gegenueber meldet "failed" vor der Verbindung (Fall 58: Anrufer endete bisher nach 3 s ohne Aktionen)
+        assertEquals(K.FAILED, CallLogic.remoteEndKind("failed", connected = false))
+        assertEquals(K.CLOSED, CallLogic.remoteEndKind("failed", connected = true))
+        for (r in listOf("declined", "busy", "timeout")) {
+            assertEquals(K.UNANSWERED, CallLogic.remoteEndKind(r, connected = false))
+            assertEquals(K.CLOSED, CallLogic.remoteEndKind(r, connected = true))
+        }
+        for (r in listOf(null, "hangup", "cancelled", "lost", "gone", "ended")) assertEquals(K.CLOSED, CallLogic.remoteEndKind(r, false))
+
+        val own = CallLogic.ownDm(caller = true, dm = true, inRoom = false, horn = false, sticky = false)
+        assertTrue(own)
+        assertFalse(CallLogic.ownDm(caller = false, dm = true, inRoom = false, horn = false, sticky = false))
+        assertFalse(CallLogic.ownDm(caller = true, dm = false, inRoom = false, horn = false, sticky = false))
+        assertFalse(CallLogic.ownDm(caller = true, dm = true, inRoom = true, horn = false, sticky = false))
+        assertFalse(CallLogic.ownDm(caller = true, dm = true, inRoom = false, horn = true, sticky = false))
+        assertFalse(CallLogic.ownDm(caller = true, dm = true, inRoom = false, horn = false, sticky = true))
+
+        // Anrufer: Verbindungsfehler -> bleibt, Erneut anrufen, Fehler; Angerufener: bleibt (Details), ohne Wahlwiederholung
+        assertEquals(CallLogic.EndScreen(stays = true, redial = true, failed = true), CallLogic.endScreen(K.FAILED, own))
+        assertEquals(CallLogic.EndScreen(stays = true, redial = false, failed = true), CallLogic.endScreen(K.FAILED, false))
+        // besetzt/abgelehnt/keine Antwort: eigener Text, beim Anrufer mit Erneut anrufen
+        assertEquals(CallLogic.EndScreen(stays = true, redial = true, failed = false), CallLogic.endScreen(K.UNANSWERED, own))
+        assertEquals(CallLogic.EndScreen(stays = false, redial = false, failed = false), CallLogic.endScreen(K.UNANSWERED, false))
+        // Sicherheitspruefung: bleibt, aber nicht gleich neu anrufen
+        assertFalse(CallLogic.endScreen(K.SECURITY, own).redial)
+        assertTrue(CallLogic.endScreen(K.SECURITY, own).stays)
+        // selbst aufgelegt bzw. normal beendet: 3 s, keine Aktionen
+        assertEquals(CallLogic.EndScreen(stays = false, redial = false, failed = false), CallLogic.endScreen(K.CLOSED, own))
+        assertEquals(3000L, CallLogic.endDismissMs(error = false, sticky = false))
+        assertEquals(30_000L, CallLogic.endDismissMs(error = CallLogic.endScreen(K.UNANSWERED, own).stays, sticky = false))
     }
 }
