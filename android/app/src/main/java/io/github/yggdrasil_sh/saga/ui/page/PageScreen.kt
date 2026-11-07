@@ -95,6 +95,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -105,7 +106,6 @@ import io.github.yggdrasil_sh.saga.blocks.BlockDoc
 import io.github.yggdrasil_sh.saga.blocks.InlineStyle
 import io.github.yggdrasil_sh.saga.blocks.JsonPath
 import io.github.yggdrasil_sh.saga.data.SagaRepository
-import io.github.yggdrasil_sh.saga.data.ncSettings
 import io.github.yggdrasil_sh.saga.ui.common.Chrome
 import io.github.yggdrasil_sh.saga.ui.common.PageIcon
 import io.github.yggdrasil_sh.saga.ui.common.SagaTopBar
@@ -1108,23 +1108,28 @@ private fun DraftBanner(stamp: Long, onRestore: () -> Unit, onDiscard: () -> Uni
     }
 }
 
-/** Werkzeugleiste ueber der Tastatur: Block einfuegen/umwandeln, Formatierung, Link, verschieben, loeschen */
+/**
+ * Werkzeugleiste ueber der Tastatur. R3 (AND-ED-01/04/05/06, Entscheidung des Maintainers): links scrollend
+ * + · Aa · B I U S · Link · @ · Farbe (Liniensymbole), rechts fest nur ⋮ Block (Nach oben, Nach unten, Verschieben
+ * nach …, Typ, Blockfarbe, Loeschen) und Fertig.
+ */
 @Composable
 private fun EditorToolbar(
     ed: PageEditor, active: ActiveField, onLink: (String) -> Unit, onPasteImage: (() -> Unit)? = null,
-    repo: io.github.yggdrasil_sh.saga.data.SagaRepository? = null, ncInsert: Boolean = false,
-    /** 2.4: "+" oeffnet die Auswahl aller Blocktypen (mit Suche) */
-    inserter: BlockInserter? = null,
+    repo: io.github.yggdrasil_sh.saga.data.SagaRepository? = null,
+    /** "+" oeffnet dieselbe Liste wie "/" (BlockInserter) */
+    inserter: BlockInserter,
 ) {
     val context = LocalContext.current
-    val res = LocalResources.current
     val focus = LocalFocusManager.current
-    var addMenu by remember { mutableStateOf(false) }
-    var ncPick by remember { mutableStateOf(false) }
     var typeMenu by remember { mutableStateOf(false) }
     var colorMenu by remember { mutableStateOf(false) }
-    var linkDialog by remember { mutableStateOf(false) }
+    var blockColorMenu by remember { mutableStateOf(false) }
     var inlineColorMenu by remember { mutableStateOf(false) }
+    var blockMenu by remember { mutableStateOf(false) }
+    var blockTypeMenu by remember { mutableStateOf(false) }
+    var blockColorFromMenu by remember { mutableStateOf(false) }
+    var linkDialog by remember { mutableStateOf(false) }
     var mathDialog by remember { mutableStateOf<String?>(null) }
     var mentionPick by remember { mutableStateOf(false) }
     var movePick by remember { mutableStateOf(false) }
@@ -1132,6 +1137,26 @@ private fun EditorToolbar(
     LaunchedEffect(trig) { if (trig != null && trig.fieldKey == active.key) mentionPick = true }
     val blockPath: JsonPath = active.blockPath()
     val isText = active.toggle != null
+    val item = active.itemPath()
+    val block = ed.block(blockPath)
+    val canType = (item == null && block?.let { BlockDoc.mainText(it) != null } == true) || item != null
+    val styleBlock = if (io.github.yggdrasil_sh.saga.blocks.Gestalten.canStyle(block)) block else null
+    val colors = EditorChromeLogic.colorSections(active.hasSelection(), isText && active.setColor != null, styleBlock != null)
+    val moveFeatures = repo?.serverFeatures?.collectAsState()?.value.orEmpty()
+    val canMoveTo = repo != null && item == null && ed.editable && io.github.yggdrasil_sh.saga.blocks.MoveLogic.available(ed.id, moveFeatures) &&
+        block?.let { BlockDoc.id(it) } != null
+    val wBlock = block?.takeIf { BlockDoc.type(it) == "widget" && item == null }
+    val dbBlock = block?.takeIf { BlockDoc.type(it) == "database" && item == null }
+    val delete: () -> Unit = {
+        if (item != null) ed.removeItem(blockPath, item) else {
+            // 2.4: Block loeschen mit "Rueckgaengig" (holt ihn unveraendert an dieselbe Stelle zurueck)
+            val undo = ed.deleteBlockUndoable(blockPath)
+            if (undo != null) repo?.notify(UiText.Res(R.string.ed24_block_deleted), UiText.Res(R.string.action_undo)) { undo() }
+        }
+    }
+    val upLabel = stringResource(R.string.block_move_up)
+    val downLabel = stringResource(R.string.block_move_down)
+    val deleteLabel = stringResource(R.string.action_delete)
 
     // Design 2.5: schwebende Werkzeugleiste (Pille ueber der Tastatur, wie die Expressive-Toolbar)
     val toolBg = MaterialTheme.colorScheme.surfaceContainerHigh
@@ -1140,169 +1165,153 @@ private fun EditorToolbar(
         color = toolBg, shadowElevation = 6.dp,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
     ) {
-        Column {
-            // Nr. 16: Hoch/Runter/Loeschen/Fertig fest rechts, nur Einfuegen und Formate scrollen (vorher lagen die Knoepfe
-            // am Ende der scrollenden Leiste ausserhalb des Bildschirms)
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            // A16: scrollende Formatleiste mit Hinweis am rechten Rand (Verlauf + Pfeil), solange es weiter geht -
-            // sonst wirkt der angeschnittene Knopf (U) kaputt und Durchgestrichen/Link findet man nicht
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            // A16: scrollende Formatleiste mit Hinweis am rechten Rand (Verlauf + Pfeil), solange es weiter geht
             val toolScroll = rememberScrollState()
             val toolScope = rememberCoroutineScope()
             Box(Modifier.weight(1f)) {
-            Row(
-                Modifier.horizontalScroll(toolScroll).padding(start = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box {
-                    IconButton(onClick = { if (inserter != null) inserter.pickerAfter = blockPath else addMenu = true }) { SagaIcon(SagaIcons.plus, stringResource(R.string.block_insert)) }
-                    DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
-                        BLOCK_TYPES.forEach { choice ->
-                            val (_, type, level) = choice
-                            DropdownMenuItem(text = { Text(choice.title()) }, onClick = {
-                                addMenu = false
-                                ed.insertBlockAfter(blockPath, BlockDoc.newBlock(type, level = if (level == 0) 2 else level))
-                            })
-                        }
-                        // 2.3: Datei aus der eigenen Nextcloud (nur eigene Seiten dieses Servers mit verknuepfter Nextcloud)
-                        if (ncInsert) DropdownMenuItem(text = { Text(stringResource(R.string.nc_file_insert)) }, onClick = { addMenu = false; ncPick = true })
+                Row(Modifier.horizontalScroll(toolScroll).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { inserter.pickerAfter = blockPath }) { SagaIcon(SagaIcons.plus, stringResource(R.string.block_insert)) }
+                    // Bild aus der Zwischenablage (nur sichtbar, wenn dort eins liegt) - das Feld selbst nimmt nur Text an
+                    if (onPasteImage != null) {
+                        IconButton(onClick = onPasteImage) { SagaIcon(SagaIcons.clipboard, stringResource(R.string.paste_image)) }
                     }
-                }
-                // Bild aus der Zwischenablage (nur sichtbar, wenn dort eins liegt) - das Feld selbst nimmt nur Text an
-                if (onPasteImage != null) {
-                    IconButton(onClick = onPasteImage) { SagaIcon(SagaIcons.clipboard, stringResource(R.string.paste_image)) }
-                }
-                if (active.itemPath() == null && ed.block(blockPath)?.let { BlockDoc.mainText(it) != null } == true) {
-                    Box {
-                        IconButton(onClick = { typeMenu = true }) { SagaIcon(SagaIcons.edit, stringResource(R.string.block_change_type)) }
-                        DropdownMenu(expanded = typeMenu, onDismissRequest = { typeMenu = false }) {
-                            BLOCK_TYPES.filter { it.type != "delimiter" }.forEach { choice ->
-                                val (_, type, level) = choice
-                                DropdownMenuItem(text = { Text(choice.title()) }, onClick = {
-                                    typeMenu = false
-                                    ed.convertBlock(blockPath, type, if (level == 0) 2 else level)
-                                })
+                    if (canType) Box {
+                        IconButton(onClick = { typeMenu = true }) {
+                            SagaIcon(SagaIcons.type, stringResource(if (item != null) R.string.list_change_type else R.string.block_change_type))
+                        }
+                        TypeMenu(typeMenu, item != null, onDismiss = { typeMenu = false }) { t, lvl -> typeMenu = false; ed.convertBlock(blockPath, t, lvl) }
+                    }
+                    if (isText) {
+                        FormatButton(SagaIcons.bold, stringResource(R.string.format_bold), active.styleOn(InlineStyle.BOLD), active.hasSelection()) { active.toggle.invoke(InlineStyle.BOLD) }
+                        FormatButton(SagaIcons.italic, stringResource(R.string.format_italic), active.styleOn(InlineStyle.ITALIC), active.hasSelection()) { active.toggle.invoke(InlineStyle.ITALIC) }
+                        FormatButton(SagaIcons.underline, stringResource(R.string.format_underline), active.styleOn(InlineStyle.UNDERLINE), active.hasSelection()) { active.toggle.invoke(InlineStyle.UNDERLINE) }
+                        FormatButton(SagaIcons.strikethrough, stringResource(R.string.format_strike), active.styleOn(InlineStyle.STRIKE), active.hasSelection()) { active.toggle.invoke(InlineStyle.STRIKE) }
+                        IconButton(onClick = { linkDialog = true }, enabled = active.hasSelection()) { SagaIcon(SagaIcons.link, stringResource(R.string.format_link)) }
+                        if (active.insertMention != null && ed.mentionSupported) {
+                            IconButton(onClick = { mentionPick = true }) { SagaIcon(SagaIcons.at, stringResource(R.string.e2_mention_title)) }
+                        }
+                    }
+                    // AND-ED-04: ein Farb-Knopf (Tropfen) mit den Abschnitten "Markierter Text" und "Ganzer Block"
+                    if ((isText && active.setColor != null) || styleBlock != null) Box {
+                        IconButton(onClick = { colorMenu = true }) { SagaIcon(SagaIcons.droplet, stringResource(R.string.gest_color)) }
+                        DropdownMenu(expanded = colorMenu, onDismissRequest = { colorMenu = false }) {
+                            if (isText && active.setColor != null) {
+                                MenuSection(stringResource(R.string.r3_color_section_text))
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(stringResource(R.string.r3_color_pick))
+                                            if (!colors.text) Text(stringResource(R.string.r3_color_needs_selection), style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    },
+                                    leadingIcon = { SagaIcon(SagaIcons.text, null) }, enabled = colors.text,
+                                    onClick = { colorMenu = false; inlineColorMenu = true },
+                                )
+                            }
+                            if (styleBlock != null) {
+                                if (isText && active.setColor != null) HorizontalDivider()
+                                MenuSection(stringResource(R.string.r3_color_section_block))
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.r3_color_pick)) }, leadingIcon = { SagaIcon(SagaIcons.droplet, null) },
+                                    onClick = { colorMenu = false; blockColorMenu = true },
+                                )
                             }
                         }
-                    }
-                } else if (active.itemPath() != null) {
-                    Box {
-                        IconButton(onClick = { typeMenu = true }) { SagaIcon(SagaIcons.edit, stringResource(R.string.list_change_type)) }
-                        DropdownMenu(expanded = typeMenu, onDismissRequest = { typeMenu = false }) {
-                            listOf(R.string.block_bulleted to "unordered", R.string.block_numbered to "ordered", R.string.block_checklist to "checklist", R.string.block_text to "paragraph").forEach { (label, t) ->
-                                DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = {
-                                    typeMenu = false
-                                    ed.convertBlock(blockPath, t)
-                                })
+                        if (active.setColor != null) {
+                            InlineColorMenu(inlineColorMenu, active.colorAt?.invoke(false), active.colorAt?.invoke(true), onDismiss = { inlineColorMenu = false }) { c, bg ->
+                                inlineColorMenu = false
+                                active.setColor.invoke(c, bg)
                             }
                         }
-                    }
-                }
-                // G3 (2.5): Block-Farbe (Text oder Hintergrund) aus der Palette
-                val styleBlock = ed.block(blockPath)
-                if (io.github.yggdrasil_sh.saga.blocks.Gestalten.canStyle(styleBlock)) {
-                    Box {
-                        val cur = styleBlock?.let { io.github.yggdrasil_sh.saga.blocks.Gestalten.style(it) }
-                        SagaTextButton(onClick = { colorMenu = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.gest_color)) }
-                        BlockColorMenu(colorMenu, cur, onDismiss = { colorMenu = false }) { c, bg ->
-                            colorMenu = false
+                        BlockColorMenu(blockColorMenu, styleBlock?.let { io.github.yggdrasil_sh.saga.blocks.Gestalten.style(it) }, onDismiss = { blockColorMenu = false }) { c, bg ->
+                            blockColorMenu = false
                             ed.setBlockStyle(blockPath, c, bg)
                         }
                     }
-                }
-                if (isText) {
-                    FormatButton(stringResource(R.string.format_bold_short), stringResource(R.string.format_bold), active.styleOn(InlineStyle.BOLD), active.hasSelection(), fontWeight = FontWeight.Bold) { active.toggle.invoke(InlineStyle.BOLD) }
-                    FormatButton(stringResource(R.string.format_italic_short), stringResource(R.string.format_italic), active.styleOn(InlineStyle.ITALIC), active.hasSelection(), fontStyle = FontStyle.Italic) { active.toggle.invoke(InlineStyle.ITALIC) }
-                    FormatButton(stringResource(R.string.format_underline_short), stringResource(R.string.format_underline), active.styleOn(InlineStyle.UNDERLINE), active.hasSelection(), deco = TextDecoration.Underline) { active.toggle.invoke(InlineStyle.UNDERLINE) }
-                    FormatButton(stringResource(R.string.format_strike_short), stringResource(R.string.format_strike), active.styleOn(InlineStyle.STRIKE), active.hasSelection(), deco = TextDecoration.LineThrough) { active.toggle.invoke(InlineStyle.STRIKE) }
-                    SagaTextButton(onClick = { linkDialog = true }, enabled = active.hasSelection(), modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.format_link)) }
-                    // 2.5 E2 (P6-8): Farbe der Auswahl, Inline-Mathe, Erwaehnung
-                    if (active.setColor != null) Box {
-                        SagaTextButton(onClick = { inlineColorMenu = true }, enabled = active.hasSelection(), modifier = Modifier.heightIn(min = 48.dp)) {
-                            Text(stringResource(R.string.e2_inline_color))
-                        }
-                        InlineColorMenu(inlineColorMenu, active.colorAt?.invoke(false), active.colorAt?.invoke(true), onDismiss = { inlineColorMenu = false }) { c, bg ->
-                            inlineColorMenu = false
-                            active.setColor.invoke(c, bg)
-                        }
+                    if (isText && active.setMath != null) {
+                        IconButton(onClick = { mathDialog = active.mathAtCursor?.invoke() ?: "" }) { SagaIcon(SagaIcons.sigma, stringResource(R.string.e2_inline_math)) }
                     }
-                    if (active.setMath != null) {
-                        SagaTextButton(onClick = { mathDialog = active.mathAtCursor?.invoke() ?: "" }, modifier = Modifier.heightIn(min = 48.dp)) {
-                            Text(stringResource(R.string.e2_inline_math))
+                    if (isText) active.linkAtCursor?.invoke()?.let { href ->
+                        IconButton(onClick = { onLink(href) }) { SagaIcon(SagaIcons.external, stringResource(R.string.link_open)) }
+                    }
+                    Spacer(Modifier.width(if (toolScroll.maxValue > 0) 36.dp else 0.dp))   // letzter Knopf nicht unter dem Hinweis
+                }
+                if (toolScroll.canScrollForward) {
+                    val bg = toolBg
+                    val px = with(LocalDensity.current) { 144.dp.toPx() }
+                    Box(
+                        Modifier.align(Alignment.CenterEnd).width(40.dp).height(48.dp)
+                            .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(bg.copy(alpha = 0f), bg, bg))),
+                        contentAlignment = Alignment.CenterEnd,
+                    ) {
+                        IconButton(onClick = { toolScope.launch { toolScroll.animateScrollBy(px) } }, modifier = Modifier.width(32.dp)) {
+                            SagaIcon(SagaIcons.chevronRight, stringResource(R.string.toolbar_more))
                         }
                     }
-                    if (active.insertMention != null && ed.mentionSupported) {
-                        SagaTextButton(onClick = { mentionPick = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("@") }
-                    }
-                    active.linkAtCursor?.invoke()?.let { href ->
-                        SagaTextButton(onClick = { onLink(href) }) { Text(stringResource(R.string.link_open)) }
-                    }
                 }
-                Spacer(Modifier.width(if (toolScroll.maxValue > 0) 36.dp else 0.dp))   // letzter Knopf nicht unter dem Hinweis
-            }
-            if (toolScroll.canScrollForward) {
-                val bg = toolBg
-                val px = with(androidx.compose.ui.platform.LocalDensity.current) { 144.dp.toPx() }
-                Box(
-                    Modifier.align(Alignment.CenterEnd).width(40.dp).height(48.dp)
-                        .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(bg.copy(alpha = 0f), bg, bg))),
-                    contentAlignment = Alignment.CenterEnd,
-                ) {
-                    IconButton(onClick = { toolScope.launch { toolScroll.animateScrollBy(px) } }, modifier = Modifier.width(32.dp)) {
-                        SagaIcon(SagaIcons.chevronRight, stringResource(R.string.toolbar_more))
-                    }
-                }
-            }
-            }
-            // 2.5: Widget - Einstellungen nur im Web (Etappe 1): Seite mit Block-Anker im Browser
-            val wBlock = ed.block(blockPath)?.takeIf { BlockDoc.type(it) == "widget" && active.itemPath() == null }
-            if (wBlock != null && !ed.isRemote && repo != null) {
-                SagaTextButton(onClick = {
-                    ed.flush()
-                    openUrl(context, io.github.yggdrasil_sh.saga.blocks.Gestalten.webUrl(repo.absoluteUrl("notes"), ed.id, BlockDoc.id(wBlock)))
-                }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.pw_edit_web)) }
-            }
-            // 2.5 E2 (move1): Block auf eine andere Seite verschieben (nur Seiten dieses Servers)
-            val moveFeatures = repo?.serverFeatures?.collectAsState()?.value.orEmpty()
-            if (repo != null && active.itemPath() == null && ed.editable && io.github.yggdrasil_sh.saga.blocks.MoveLogic.available(ed.id, moveFeatures) &&
-                ed.block(blockPath)?.let { BlockDoc.id(it) } != null) {
-                SagaTextButton(onClick = { movePick = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.e2_move)) }
-            }
-            val dbBlock = ed.block(blockPath)?.takeIf { BlockDoc.type(it) == "database" && active.itemPath() == null }
-            if (dbBlock != null) {                                  // 2.5: Datenbanktitel des Blocks ein-/ausblenden (wie Web/iOS)
-                val hidden = (BlockDoc.data(dbBlock)["hide_title"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true"
-                SagaTextButton(onClick = {
-                    ed.updateBlock(blockPath) { b ->
-                        val d = LinkedHashMap(BlockDoc.data(b)).apply { if (hidden) remove("hide_title") else put("hide_title", kotlinx.serialization.json.JsonPrimitive(true)) }
-                        kotlinx.serialization.json.JsonObject(LinkedHashMap(b).apply { put("data", kotlinx.serialization.json.JsonObject(d)) })
-                    }
-                }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(if (hidden) R.string.db_title_show else R.string.db_title_hide)) }
             }
             androidx.compose.material3.VerticalDivider(Modifier.height(28.dp))
-            Row(Modifier.padding(end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { ed.moveBlock(blockPath, -1) }) { SagaIcon(SagaIcons.chevronUp, stringResource(R.string.block_move_up)) }
-                IconButton(onClick = { ed.moveBlock(blockPath, 1) }) { SagaIcon(SagaIcons.chevronDown, stringResource(R.string.block_move_down)) }
-                IconButton(onClick = {
-                    val ip = active.itemPath()
-                    if (ip != null) ed.removeItem(blockPath, ip) else {
-                        // 2.4: Block loeschen mit "Rueckgaengig" (holt ihn unveraendert an dieselbe Stelle zurueck)
-                        val undo = ed.deleteBlockUndoable(blockPath)
-                        if (undo != null) repo?.notify(UiText.Res(R.string.ed24_block_deleted), UiText.Res(R.string.action_undo)) { undo() }
+            // fest rechts: ⋮ Block + Fertig
+            Box {
+                IconButton(
+                    onClick = { blockMenu = true },
+                    // Bedienhilfe: Hoch/Runter/Loeschen direkt als Aktionen (ohne das Menue zu oeffnen)
+                    modifier = Modifier.semantics {
+                        customActions = listOf(
+                            androidx.compose.ui.semantics.CustomAccessibilityAction(upLabel) { ed.moveBlock(blockPath, -1); true },
+                            androidx.compose.ui.semantics.CustomAccessibilityAction(downLabel) { ed.moveBlock(blockPath, 1); true },
+                            androidx.compose.ui.semantics.CustomAccessibilityAction(deleteLabel) { delete(); true },
+                        )
+                    },
+                ) { SagaIcon(SagaIcons.moreVert, stringResource(R.string.r3_block_menu)) }
+                DropdownMenu(expanded = blockMenu, onDismissRequest = { blockMenu = false }) {
+                    DropdownMenuItem(text = { Text(upLabel) }, leadingIcon = { SagaIcon(SagaIcons.chevronUp, null) }, onClick = { blockMenu = false; ed.moveBlock(blockPath, -1) })
+                    DropdownMenuItem(text = { Text(downLabel) }, leadingIcon = { SagaIcon(SagaIcons.chevronDown, null) }, onClick = { blockMenu = false; ed.moveBlock(blockPath, 1) })
+                    // 2.5 E2 (move1): Block auf eine andere Seite verschieben (nur Seiten dieses Servers)
+                    if (canMoveTo) DropdownMenuItem(text = { Text(stringResource(R.string.e2_move)) }, leadingIcon = { SagaIcon(SagaIcons.move, null) }, onClick = { blockMenu = false; movePick = true })
+                    if (canType) DropdownMenuItem(text = { Text(stringResource(R.string.r3_type_change)) }, leadingIcon = { SagaIcon(SagaIcons.type, null) }, onClick = { blockMenu = false; blockTypeMenu = true })
+                    if (styleBlock != null) DropdownMenuItem(text = { Text(stringResource(R.string.r3_block_color)) }, leadingIcon = { SagaIcon(SagaIcons.droplet, null) }, onClick = { blockMenu = false; blockColorFromMenu = true })
+                    // 2.5: Widget - Einstellungen nur im Web (Etappe 1): Seite mit Block-Anker im Browser
+                    if (wBlock != null && !ed.isRemote && repo != null) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.pw_edit_web)) }, leadingIcon = { SagaIcon(SagaIcons.external, null) }, onClick = {
+                            blockMenu = false
+                            ed.flush()
+                            openUrl(context, io.github.yggdrasil_sh.saga.blocks.Gestalten.webUrl(repo.absoluteUrl("notes"), ed.id, BlockDoc.id(wBlock)))
+                        })
                     }
-                }) { SagaIcon(SagaIcons.trash, stringResource(R.string.action_delete)) }
-                IconButton(onClick = { focus.clearFocus(); ed.active = null }) { SagaIcon(SagaIcons.check, stringResource(R.string.action_done)) }
+                    if (dbBlock != null) {                                  // 2.5: Datenbanktitel des Blocks ein-/ausblenden (wie Web/iOS)
+                        val hidden = (BlockDoc.data(dbBlock)["hide_title"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true"
+                        DropdownMenuItem(
+                            text = { Text(stringResource(if (hidden) R.string.db_title_show else R.string.db_title_hide)) },
+                            leadingIcon = { SagaIcon(if (hidden) SagaIcons.eye else SagaIcons.eyeOff, null) },
+                            onClick = {
+                                blockMenu = false
+                                ed.updateBlock(blockPath) { b ->
+                                    val d = LinkedHashMap(BlockDoc.data(b)).apply { if (hidden) remove("hide_title") else put("hide_title", kotlinx.serialization.json.JsonPrimitive(true)) }
+                                    kotlinx.serialization.json.JsonObject(LinkedHashMap(b).apply { put("data", kotlinx.serialization.json.JsonObject(d)) })
+                                }
+                            },
+                        )
+                    }
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text(deleteLabel, color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { SagaIcon(SagaIcons.trash, null, tint = MaterialTheme.colorScheme.error) },
+                        onClick = { blockMenu = false; delete() },
+                    )
+                }
+                TypeMenu(blockTypeMenu, item != null, onDismiss = { blockTypeMenu = false }) { t, lvl -> blockTypeMenu = false; ed.convertBlock(blockPath, t, lvl) }
+                BlockColorMenu(blockColorFromMenu, styleBlock?.let { io.github.yggdrasil_sh.saga.blocks.Gestalten.style(it) }, onDismiss = { blockColorFromMenu = false }) { c, bg ->
+                    blockColorFromMenu = false
+                    ed.setBlockStyle(blockPath, c, bg)
+                }
             }
-            }
-        }
-    }
-
-    if (ncPick && repo != null) {
-        NextcloudPickerDialog(repo, onDismiss = { ncPick = false }) { data ->
-            ncPick = false
-            ed.insertBlockAfter(blockPath, kotlinx.serialization.json.buildJsonObject {
-                put("id", kotlinx.serialization.json.JsonPrimitive(BlockDoc.newId()))
-                put("type", kotlinx.serialization.json.JsonPrimitive("nextcloud"))
-                put("data", data)
-            }, focus = false)
+            io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton(
+                onClick = { focus.clearFocus(); ed.active = null },
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp),
+                modifier = Modifier.padding(start = 2.dp, end = 6.dp).heightIn(min = 40.dp),
+            ) { Text(stringResource(R.string.action_done)) }
         }
     }
 
@@ -1363,35 +1372,74 @@ private fun EditorToolbar(
     }
 }
 
-/** Format-Knopf als Umschalter: 48 dp, TalkBack liest Namen und Zustand (an/aus) */
+/** Format-Knopf als Umschalter mit Liniensymbol (AND-ED-05): 48 dp, aktiv in secondaryContainer, TalkBack liest Namen und Zustand */
 @Composable
-private fun FormatButton(
-    label: String, description: String, on: Boolean, enabled: Boolean,
-    fontWeight: FontWeight? = null, fontStyle: FontStyle? = null, deco: TextDecoration? = null, onClick: () -> Unit,
-) {
+private fun FormatButton(@androidx.annotation.DrawableRes icon: Int, description: String, on: Boolean, enabled: Boolean, onClick: () -> Unit) {
     IconToggleButton(
         checked = on, onCheckedChange = { onClick() }, enabled = enabled,
         colors = IconButtonDefaults.iconToggleButtonColors(
-            checkedContainerColor = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.goldSoft,
-            checkedContentColor = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.onGoldSoft,
+            checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+            checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         ),
-        modifier = Modifier.semantics { contentDescription = description },
-    ) {
-        Text(label, fontWeight = fontWeight, fontStyle = fontStyle, textDecoration = deco, fontSize = 18.sp, modifier = Modifier.clearAndSetSemantics { })
+    ) { SagaIcon(icon, description) }
+}
+
+/** Abschnittskopf in einem Menue (labelMedium) */
+@Composable
+private fun MenuSection(text: String) {
+    Text(
+        text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp).semantics { heading() },
+    )
+}
+
+/** Blocktyp bzw. Listenart aendern (Aa in der Leiste und "Typ ändern" im Block-Menue) */
+@Composable
+private fun TypeMenu(expanded: Boolean, isItem: Boolean, onDismiss: () -> Unit, onPick: (String, Int) -> Unit) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        if (isItem) {
+            listOf(R.string.block_bulleted to "unordered", R.string.block_numbered to "ordered", R.string.block_checklist to "checklist", R.string.block_text to "paragraph").forEach { (label, t) ->
+                DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { onPick(t, 2) })
+            }
+        } else {
+            BLOCK_TYPES.filter { it.type != "delimiter" }.forEach { choice ->
+                DropdownMenuItem(text = { Text(choice.title()) }, onClick = { onPick(choice.type, if (choice.level == 0) 2 else choice.level) })
+            }
+        }
     }
 }
 
-/** Titelleiste: speichert gerade / gespeichert / nicht gespeichert (wie "Gespeichert ✓" im Web) */
+/**
+ * Titelleiste: speichert gerade / gespeichert / nicht gespeichert. R3 (AND-ED-06): gespeichert als Wolke (kein ✓ -
+ * der Haken gehoert zu "Fertig"), nach dem Speichern 2 s lang "Gespeichert" daneben. Nur Anzeige, nicht antippbar.
+ */
 @Composable
 private fun SaveState(ed: PageEditor) {
     val color = MaterialTheme.colorScheme.onSurfaceVariant
+    var justSaved by remember { mutableStateOf(false) }
+    val at = ed.savedAt
+    LaunchedEffect(at) {
+        if (at != null) {
+            justSaved = true
+            kotlinx.coroutines.delay(2000)
+            justSaved = false
+        }
+    }
     when {
         ed.saving -> CircularProgressIndicator(Modifier.size(18.dp).padding(end = 4.dp), strokeWidth = 2.dp)
         ed.conflict -> {}                                   // das Konflikt-Banner zeigt das (kein zweites Warnsymbol)
         ed.error != null -> SagaIcon(SagaIcons.warning, stringResource(R.string.save_state_unsaved), tint = MaterialTheme.colorScheme.error, modifier = Modifier.padding(end = 4.dp))
         // als Symbol statt "Speichert…" neben dem Titel (der Titel bleibt lesbar)
-        ed.dirty -> SagaIcon(SagaIcons.cloudUpload, stringResource(R.string.save_state_pending), tint = color, modifier = Modifier.padding(end = 4.dp).size(20.dp))
-        ed.savedAt != null -> SagaIcon(SagaIcons.check, stringResource(R.string.save_state_saved), tint = color, modifier = Modifier.padding(end = 4.dp).size(20.dp))
+        ed.dirty -> SagaIcon(SagaIcons.cloudUpload, stringResource(R.string.save_state_pending), tint = color, modifier = Modifier.padding(end = 4.dp).size(18.dp))
+        at != null -> {
+            val desc = stringResource(R.string.save_state_saved)
+            Row(Modifier.padding(end = 4.dp).semantics(mergeDescendants = true) { contentDescription = desc }, verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.animation.AnimatedVisibility(justSaved) {
+                    Text(desc, style = MaterialTheme.typography.labelSmall, color = color, modifier = Modifier.padding(end = 4.dp).clearAndSetSemantics { })
+                }
+                SagaIcon(SagaIcons.cloud, null, tint = color, modifier = Modifier.size(18.dp))
+            }
+        }
     }
 }
 
