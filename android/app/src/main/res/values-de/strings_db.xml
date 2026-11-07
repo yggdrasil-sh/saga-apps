@@ -62,7 +62,6 @@
     <string name="dbv_move_to">Verschieben nach</string>
     <string name="dbv_prev_month">Voriger Monat</string>
     <string name="dbv_next_month">Nächster Monat</string>
-    <string name="dbv_this_month">Dieser Monat</string>
     <string name="dbv_new_on_day">Neuer Eintrag am %1$s</string>
     <string name="dbv_value_of">%1$s: %2$s</string>
     <string name="dbv_checked">angehakt</string>

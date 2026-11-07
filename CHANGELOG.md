@@ -36,6 +36,19 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Kopieren als Aktionen. Stummschalten-Untermenü mit Radio-Auswahl.
 - „Gesperrte Personen“ jetzt im ⋮-Menü der Chat-Liste; einheitlich „Ende-zu-Ende-verschlüsselt“.
 
+### Geändert – Android: Editor und Datenbanken barrierearmer (Design-Runde 1)
+
+- Silbentrennung und Absatz-Umbruch in allen Textstilen: lange Wörter brechen mit Trennstrich statt mitten im Wort um.
+- TalkBack: Seitentitel und Überschrift-Blöcke (auch Toggle-Überschriften) sind Überschriften, beim Lesen wie Bearbeiten.
+  Das Seitensymbol heißt „Seitensymbol: …“ mit der Aktion „Seitensymbol ändern“.
+- Options- und Status-Chips wie im Web: farbiger Text auf zarter Fläche, 6-dp-Ecken; alle neun Farben hell und dunkel
+  mindestens 4,5:1 (mit Unit-Test).
+- Nebentexte in Seiten und Datenbanken („Leer“, Nachbarmonatstage, Widget-Quellen) in `onSurfaceVariant` statt `outline`.
+- Seitenkopf: „Tag“ mit Hinzufügen-Symbol und Aktion „Tag hinzufügen“; „Tag entfernen“, „Symbol/Titelbild
+  hinzufügen“ und Tag-Vorschläge mit 48-dp-Zielflächen.
+- Datenbank: Pfeil „Weitere Spalten“ 48 × 48 dp mit freiem Platz am Ende; Zähler an Filter/Sortierung in Gold statt
+  Rot; der Kalender heißt in Monat und Woche einheitlich „Heute“.
+
 ### Geändert – Mac: Die Desktop-Hülle ist jetzt die Mac-App (P3 Umstellung)
 
 - **Die Mac-App ist ab jetzt die Desktop-Hülle** (Ziel `SagaShell`, Web-Oberfläche im `WKWebView`) – Entscheidung des

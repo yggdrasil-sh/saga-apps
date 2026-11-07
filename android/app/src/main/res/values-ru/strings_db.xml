@@ -62,7 +62,6 @@
     <string name="dbv_move_to">Переместить в</string>
     <string name="dbv_prev_month">Предыдущий месяц</string>
     <string name="dbv_next_month">Следующий месяц</string>
-    <string name="dbv_this_month">Этот месяц</string>
     <string name="dbv_new_on_day">Новая запись на %1$s</string>
     <string name="dbv_value_of">%1$s: %2$s</string>
     <string name="dbv_checked">отмечено</string>

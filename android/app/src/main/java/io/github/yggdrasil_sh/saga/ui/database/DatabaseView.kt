@@ -366,13 +366,13 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaReposi
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { searchOpen = !searchOpen || q.isNotEmpty() }) { Icon(Icons.Filled.Search, stringResource(R.string.dbv_search)) }
                 IconButton(onClick = { st.sheet = "filter" }, enabled = st.canEditViews || nf > 0) {
-                    androidx.compose.material3.BadgedBox(badge = { if (nf > 0) androidx.compose.material3.Badge { Text("$nf") } }) {
+                    androidx.compose.material3.BadgedBox(badge = { if (nf > 0) ActiveBadge(nf) }) {
                         Icon(painterResource(R.drawable.ic_filter), if (nf > 0) stringResource(R.string.dbv_filter_count, nf) else stringResource(R.string.dbv_filter),
                             tint = if (nf > 0) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current)
                     }
                 }
                 IconButton(onClick = { st.sheet = "sort" }, enabled = st.canEditViews || ns > 0) {
-                    androidx.compose.material3.BadgedBox(badge = { if (ns > 0) androidx.compose.material3.Badge { Text("$ns") } }) {
+                    androidx.compose.material3.BadgedBox(badge = { if (ns > 0) ActiveBadge(ns) }) {
                         Icon(painterResource(R.drawable.ic_sort), if (ns > 0) stringResource(R.string.dbv_sort_count, ns) else stringResource(R.string.dbv_sort),
                             tint = if (ns > 0) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current)
                     }
@@ -513,7 +513,8 @@ internal fun TableHead(st: DbViewState, v: DbView, wide: Boolean) {
     val (frozen, moving) = DbViews.frozenSplit(s.visibleProps(v), v.freeze)
     Column {
         Box {
-            Row(Modifier.padding(vertical = 6.dp)) {
+            // ED-15: mindestens so hoch wie der Pfeil, damit die Kopfzeile am Scroll-Ende nicht springt
+            Row(Modifier.heightIn(min = MORE_COLUMNS_SLOT).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(s.titleName ?: stringResource(R.string.dbv_name_col), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.width(colWidth(null, wide)).padding(horizontal = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 frozen.forEach { p ->
@@ -525,6 +526,8 @@ internal fun TableHead(st: DbViewState, v: DbView, wide: Boolean) {
                         Text(p.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.width(colWidth(p, wide)).padding(horizontal = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
+                    // ED-15: Platz fuer den Pfeil "Weitere Spalten" - der letzte Spaltenkopf liegt am Ende nicht darunter
+                    if (moving.isNotEmpty()) Spacer(Modifier.width(MORE_COLUMNS_SLOT))
                 }
             }
             // Nr. 23: es gibt weitere Spalten rechts - Pfeil mit Verlauf (antippen = ein Stueck weiter)
@@ -533,7 +536,8 @@ internal fun TableHead(st: DbViewState, v: DbView, wide: Boolean) {
                 val scope = rememberCoroutineScope()
                 val more = stringResource(R.string.dbv_more_columns)
                 Box(
-                    Modifier.align(Alignment.CenterEnd).width(40.dp).height(32.dp)
+                    // ED-15: Zielflaeche 48 x 48 dp
+                    Modifier.align(Alignment.CenterEnd).size(MORE_COLUMNS_SLOT)
                         .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(bg.copy(alpha = 0f), bg)))
                         .clickable(onClickLabel = more) { scope.launch { st.hScroll.animateScrollBy(240f) } },
                     contentAlignment = Alignment.CenterEnd,
@@ -543,6 +547,15 @@ internal fun TableHead(st: DbViewState, v: DbView, wide: Boolean) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
+
+/** ED-17: Zahl an Filter/Sortierung meldet "aktiv", kein Problem - Saga-Gold (primary) statt Fehler-Rot */
+@Composable
+private fun ActiveBadge(n: Int) {
+    androidx.compose.material3.Badge(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Text("$n") }
+}
+
+/** ED-15: Breite/Hoehe des Pfeils "Weitere Spalten" und der dafuer freigehaltene Platz am Ende der Spalten */
+private val MORE_COLUMNS_SLOT = 48.dp
 
 @Composable
 internal fun rowColor(st: DbViewState, r: DbRow, v: DbView): androidx.compose.ui.graphics.Color? {
@@ -601,7 +614,11 @@ internal fun TableRow(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbView
                 if (r.blocked) BlockedMark()
             }
             frozen.forEach { cell(it) }
-            Row(Modifier.horizontalScroll(st.hScroll), verticalAlignment = Alignment.CenterVertically) { moving.forEach { cell(it) } }
+            // gleiche Inhaltsbreite wie die Kopfzeile (ED-15), sonst rechnen Kopf und Zeilen mit verschiedenem Scroll-Ende
+            Row(Modifier.horizontalScroll(st.hScroll), verticalAlignment = Alignment.CenterVertically) {
+                moving.forEach { cell(it) }
+                if (moving.isNotEmpty()) Spacer(Modifier.width(MORE_COLUMNS_SLOT))
+            }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
     }
@@ -884,7 +901,7 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
             IconButton(onClick = { st.showMonth(month.minusMonths(1)) }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(R.string.dbv_prev_month)) }
             Text(month.month.getDisplayName(TextStyle.FULL_STANDALONE, locale) + " " + month.year, style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f).semantics { heading() })
-            TextButton(onClick = { st.showMonth(LocalDate.now()) }) { Text(stringResource(R.string.dbv_this_month)) }
+            TextButton(onClick = { st.showMonth(LocalDate.now()) }) { Text(stringResource(R.string.e1_today)) }
             IconButton(onClick = { st.showMonth(month.plusMonths(1)) }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.dbv_next_month)) }
         }
         // Wochentage ab Montag (wie im Web)
