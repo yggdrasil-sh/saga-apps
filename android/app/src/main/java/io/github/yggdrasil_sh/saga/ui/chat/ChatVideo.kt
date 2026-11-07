@@ -459,8 +459,8 @@ fun VideoUploadsBar(repo: SagaRepository, chatId: Long, onDone: () -> Unit) {
                             ) + " · " + Videos.nameOf(w),
                             style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
-                        if (w.state == WorkInfo.State.RUNNING && p > 0f) LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
-                        else LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+                        if (w.state == WorkInfo.State.RUNNING && p > 0f) LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp), trackColor = io.github.yggdrasil_sh.saga.ui.theme.SagaProgressTrack)
+                        else LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), trackColor = io.github.yggdrasil_sh.saga.ui.theme.SagaProgressTrack)
                     }
                     SagaTextButton(onClick = { Videos.cancel(context.applicationContext, w.id) }) { Text(stringResource(R.string.action_cancel)) }
                 }

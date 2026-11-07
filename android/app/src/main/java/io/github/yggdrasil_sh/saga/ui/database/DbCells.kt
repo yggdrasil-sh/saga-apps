@@ -227,7 +227,7 @@ fun DbValueView(p: DbProp, v: JsonElement?, fmt: DbFormat, maxLines: Int = 1, er
                 val n = (v as? JsonPrimitive)?.doubleOrNull
                 if (n != null && p.fmt == "percent" && (p.show == "bar" || p.show == "ring")) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        LinearProgressIndicator(progress = { (n / 100).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.width(56.dp))
+                        LinearProgressIndicator(progress = { (n / 100).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.width(56.dp), trackColor = io.github.yggdrasil_sh.saga.ui.theme.SagaProgressTrack)
                         Text(fmt.number(p, n), style = MaterialTheme.typography.bodySmall)
                     }
                 } else Text(fmt.text(p, v), maxLines = maxLines, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
@@ -254,7 +254,7 @@ fun DbValueView(p: DbProp, v: JsonElement?, fmt: DbFormat, maxLines: Int = 1, er
             val n = (v as? JsonPrimitive)?.doubleOrNull
             if (n != null && p.fmt == "percent" && (p.show == "bar" || p.show == "ring")) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    LinearProgressIndicator(progress = { (n / 100).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.width(56.dp))
+                    LinearProgressIndicator(progress = { (n / 100).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.width(56.dp), trackColor = io.github.yggdrasil_sh.saga.ui.theme.SagaProgressTrack)
                     Text(fmt.number(p, n), style = MaterialTheme.typography.bodySmall)
                 }
             } else Text(fmt.text(p, v), maxLines = maxLines, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)

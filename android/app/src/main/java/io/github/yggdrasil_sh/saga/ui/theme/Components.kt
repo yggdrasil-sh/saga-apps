@@ -47,6 +47,13 @@ import androidx.compose.ui.unit.dp
  * Druck- und Einblend-Bewegung). Alle respektieren "Animationen entfernen" (LocalReducedMotion).
  */
 
+/**
+ * Spur der Fortschrittsbalken (Design-Runde 2c): outline statt Material-Standard (secondaryContainer), der im Dunkeln
+ * auf Karten unsichtbar war. outline erreicht >= 3:1 gegen alle Karten und Container, hell und dunkel (ThemeContrastTest);
+ * der Fuellstrich (Gold bzw. Akzent) hebt sich durch den Farbton ab.
+ */
+val SagaProgressTrack: Color @Composable get() = MaterialTheme.colorScheme.outline
+
 /** Karte: tonale Flaeche, Ecken wie Web-Karten (--r-md, 10 dp), mit feiner Kante. onClick != null -> ganze Karte tippbar */
 @Composable
 fun SagaCard(

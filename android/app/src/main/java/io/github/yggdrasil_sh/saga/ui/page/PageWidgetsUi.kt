@@ -337,7 +337,7 @@ private fun ProgressBody(s: PageWidgets.Spec, v: PageWidgets.Value?, sz: SizeSpe
     val locale = appLocale()
     Text(PageWidgets.format(p.percent.toDouble(), "pct", locale), style = sz.value(), color = accent)
     LinearProgressIndicator(
-        progress = { p.fraction }, color = accent, trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        progress = { p.fraction }, color = accent, trackColor = io.github.yggdrasil_sh.saga.ui.theme.SagaProgressTrack,
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
     )
     Text(
@@ -356,7 +356,7 @@ private fun MetricBody(s: PageWidgets.Spec, v: PageWidgets.Value?, sz: SizeSpec,
     if (goal != null && value != null) {
         LinearProgressIndicator(
             progress = { (value / goal).coerceIn(0.0, 1.0).toFloat() }, color = accent,
-            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+            trackColor = io.github.yggdrasil_sh.saga.ui.theme.SagaProgressTrack, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
         )
         Text(stringResource(R.string.pw_goal, PageWidgets.format(goal, fmt, locale)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
