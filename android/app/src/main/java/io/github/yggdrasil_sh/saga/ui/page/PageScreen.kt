@@ -1184,8 +1184,9 @@ private fun EditorToolbar(
                 // angeschnittenen naechsten Knopf, nie ueber dem letzten voll sichtbaren
                 val toolBtn = 48.dp
                 val toolStart = 4.dp
-                val toolFit = ((maxWidth - toolStart - 32.dp) / toolBtn).toInt().coerceAtLeast(1)
-                val hintW = (maxWidth - toolStart - toolBtn * toolFit).coerceAtLeast(32.dp)
+                // Rest rechts mindestens 24 dp fuer den Pfeil (er wird so breit wie der Rest, hoechstens 32 dp)
+                val toolFit = ((maxWidth - toolStart - 24.dp) / toolBtn).toInt().coerceAtLeast(1)
+                val hintW = (maxWidth - toolStart - toolBtn * toolFit).coerceAtLeast(24.dp)
                 Row(Modifier.horizontalScroll(toolScroll).padding(start = toolStart), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { inserter.pickerAfter = blockPath }) { SagaIcon(SagaIcons.plus, stringResource(R.string.block_insert)) }
                     // Bild aus der Zwischenablage (nur sichtbar, wenn dort eins liegt) - das Feld selbst nimmt nur Text an
@@ -1263,7 +1264,7 @@ private fun EditorToolbar(
                             .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(bg.copy(alpha = 0f), bg.copy(alpha = 0.9f), bg))),
                         contentAlignment = Alignment.CenterEnd,
                     ) {
-                        IconButton(onClick = { toolScope.launch { toolScroll.animateScrollBy(px) } }, modifier = Modifier.width(32.dp)) {
+                        IconButton(onClick = { toolScope.launch { toolScroll.animateScrollBy(px) } }, modifier = Modifier.width(minOf(32.dp, hintW))) {
                             SagaIcon(SagaIcons.chevronRight, stringResource(R.string.toolbar_more))
                         }
                     }
