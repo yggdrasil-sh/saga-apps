@@ -118,6 +118,17 @@ class ThemeContrastTest {
         assertEquals(Color(0xFF2EA043), LightSignals.callGreen); assertEquals(Color(0xFFDA3633), DarkSignals.callRed)
     }
 
+    /** Anruf-Buehne (immer dunkel): Schrift/Symbole auf --cl-*-Flaechen, Hinweis-Link in Info-Blau der dunklen Palette */
+    @Test
+    fun anrufBuehne() {
+        for (sig in listOf(LightSignals, DarkSignals)) {
+            assertTrue("Weiss auf callRed", ChatUi.contrast(Color.White, sig.callRed) >= 4.5)
+            assertTrue("Weiss auf callGreen (Symbol)", ChatUi.contrast(Color.White, sig.callGreen) >= 3.0)
+            for (bg in listOf(sig.callBg, sig.callPanel, sig.callBtn)) assertTrue("callFg auf ${hex(bg)}", ChatUi.contrast(sig.callFg, bg) >= 4.5)
+            assertTrue("info auf callBg", ChatUi.contrast(DarkSignals.info, sig.callBg) >= 4.5)
+        }
+    }
+
     /** A11Y-19: Radien wie im Web (--r-sm 6, --r-md 10) */
     @Test
     fun radienWieWeb() {

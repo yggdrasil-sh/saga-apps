@@ -718,7 +718,8 @@ internal fun MeetCall(
                             Row(Modifier.padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(stringResource(R.string.meet_sharing_chip, t.name), style = MaterialTheme.typography.labelLarge)
                                 TextButton(onClick = { ms.callPref = Meeting.Pref.PRESENTATION; ms.galleryHint = null }) {
-                                    Text(stringResource(R.string.meet_show), color = SagaColors.current.info)
+                                    // Anruf-Buehne ist immer dunkel: Info-Blau der dunklen Palette (hell #0B5CAD hat dort nur 2,9:1)
+                                    Text(stringResource(R.string.meet_show), color = io.github.yggdrasil_sh.saga.ui.theme.DarkSignals.info)
                                 }
                             }
                         }
