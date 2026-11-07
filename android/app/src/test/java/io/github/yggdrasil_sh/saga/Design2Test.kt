@@ -69,12 +69,15 @@ class Design2Test {
         val d = Density(1f)
         val size = Size(200f, 100f)
         fun corners(s: RoundedCornerShape) = listOf(s.topStart, s.topEnd, s.bottomEnd, s.bottomStart).map { it.toPx(size, d) }
+        // Radien aus den Tokens (R2: wie im Web, aussen SagaRadius.l = 14, eng SagaRadius.xs = 4)
+        val r = io.github.yggdrasil_sh.saga.ui.theme.SagaRadius.l.value
+        val n = io.github.yggdrasil_sh.saga.ui.theme.SagaRadius.xs.value
         // eigene Blase, einzeln: Zipfel unten rechts
-        assertEquals(listOf(20f, 20f, 4f, 20f), corners(ChatDesign.bubbleShape(mine = true, first = true, last = true)))
+        assertEquals(listOf(r, r, 4f, r), corners(ChatDesign.bubbleShape(mine = true, first = true, last = true)))
         // eigene Blase mitten in einer Folge: rechts eng
-        assertEquals(listOf(20f, 6f, 6f, 20f), corners(ChatDesign.bubbleShape(mine = true, first = false, last = false)))
+        assertEquals(listOf(r, n, n, r), corners(ChatDesign.bubbleShape(mine = true, first = false, last = false)))
         // fremde, letzte der Folge: Zipfel unten links, oben links eng
-        assertEquals(listOf(6f, 20f, 20f, 4f), corners(ChatDesign.bubbleShape(mine = false, first = false, last = true)))
+        assertEquals(listOf(n, r, r, 4f), corners(ChatDesign.bubbleShape(mine = false, first = false, last = true)))
     }
 
     @Test
