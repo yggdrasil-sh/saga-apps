@@ -361,7 +361,7 @@ fun InsertPickerDialog(needs: Set<SlashLogic.Need>, onDismiss: () -> Unit, onPic
     }
     val list: @Composable (Modifier) -> Unit = { m ->
         LazyColumn(m) {
-            slashListItems(items, highlightFirst = q.isNotBlank(), onPick = onPick)
+            slashListItems(items, highlightFirst = q.isNotBlank(), onPick = onPick, groups = q.isBlank())
             if (items.isEmpty()) item { Text(stringResource(R.string.ed24_slash_none, q), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp)) }
         }
     }

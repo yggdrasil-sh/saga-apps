@@ -4,7 +4,6 @@
     <string name="r3_block_menu">การทำงานของบล็อก</string>
     <string name="r3_color_section_text">ข้อความที่เลือก</string>
     <string name="r3_color_section_block">ทั้งบล็อก</string>
-    <string name="r3_color_pick">ข้อความและพื้นหลัง …</string>
     <string name="r3_color_needs_selection">เลือกข้อความก่อน</string>
     <string name="r3_block_color">สีของบล็อก</string>
     <string name="r3_type_change">เปลี่ยนประเภท</string>
@@ -40,4 +39,12 @@
     <string name="r3_sd_tasks">งานที่ค้างอยู่ของคุณ</string>
     <string name="r3_sd_calendar">กิจกรรมที่จะมาถึงของคุณ</string>
     <string name="r3_sd_nextcloud">ไฟล์จาก Nextcloud ของคุณ</string>
+    <!-- Nachbesserung R3 Editor -->
+    <string name="r3e_color_pick_text">สีข้อความ …</string>
+    <string name="r3e_color_pick_block">สีบล็อก …</string>
+    <string name="r3e_slash_action">แทรกบล็อก: %1$s</string>
+    <string name="r3e_slash_pane">แทรกบล็อก</string>
+    <plurals name="r3e_slash_count">
+        <item quantity="other">%d รายการแนะนำ</item>
+    </plurals>
 </resources>

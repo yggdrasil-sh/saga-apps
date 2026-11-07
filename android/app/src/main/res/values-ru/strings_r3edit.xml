@@ -4,7 +4,6 @@
     <string name="r3_block_menu">Действия с блоком</string>
     <string name="r3_color_section_text">Выделенный текст</string>
     <string name="r3_color_section_block">Весь блок</string>
-    <string name="r3_color_pick">Текст и фон …</string>
     <string name="r3_color_needs_selection">Сначала выделите текст</string>
     <string name="r3_block_color">Цвет блока</string>
     <string name="r3_type_change">Изменить тип</string>
@@ -40,4 +39,15 @@
     <string name="r3_sd_tasks">Ваши открытые задачи</string>
     <string name="r3_sd_calendar">Ваши ближайшие события</string>
     <string name="r3_sd_nextcloud">Файл из вашего Nextcloud</string>
+    <!-- Nachbesserung R3 Editor -->
+    <string name="r3e_color_pick_text">Цвет текста …</string>
+    <string name="r3e_color_pick_block">Цвет блока …</string>
+    <string name="r3e_slash_action">Вставить блок: %1$s</string>
+    <string name="r3e_slash_pane">Вставить блок</string>
+    <plurals name="r3e_slash_count">
+        <item quantity="one">%d вариант</item>
+        <item quantity="few">%d варианта</item>
+        <item quantity="many">%d вариантов</item>
+        <item quantity="other">%d варианта</item>
+    </plurals>
 </resources>

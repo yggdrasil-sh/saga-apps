@@ -24,6 +24,12 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Datenbankzeilen zeigen „Notizen hinzufügen – oder / für Blöcke“.
 - **Listen:** eine gemeinsame Markerspalte (28 dp) für Punkt, Nummer und Kästchen; Checklisten so dicht wie
   Aufzählungen.
+- **Formate ohne Markierung:** Fett/Kursiv/Unterstrichen/Durchgestrichen wirken ohne Auswahl auf das nächste Tippen;
+  der Knopf zeigt den Zustand an der Schreibmarke. Formatierte Markierungen sind sofort sichtbar. Im Farbmenü
+  „Textfarbe …“ und „Blockfarbe …“; bei der Suche im „/“-Menü keine Gruppenköpfe; die Treffer sind für TalkBack als
+  Aktionen am Textfeld erreichbar.
+- **Behoben:** Rücktaste in einem leeren Absatz konnte den Block darunter (z. B. ein Bild) löschen, wenn die
+  Tastatur sie doppelt meldete.
 
 ### Geändert – Android: Design-Runde 3 „Datenbank-Ansichten“
 

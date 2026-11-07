@@ -181,6 +181,8 @@ private fun BlockViewInner(block: JsonObject, path: JsonPath, env: BlockEnv) {
                     text, key, ed, path, body, { ed.setString(path + listOf("data", "text"), it) },
                     placeholder = stringResource(if (pageEmpty) R.string.r3_empty_body else R.string.placeholder_paragraph),
                     alwaysShowPlaceholder = pageEmpty,
+                    // Nachbesserung R3: "/"-Treffer fuer TalkBack als Aktionen am Feld
+                    modifier = if (slashQ != null && pick != null && ed.active?.key == key) slashActions(slashLabels) { pick(path, it) } else Modifier,
                     onEnter = { left, right ->
                         val first = slashLabels.firstOrNull()
                         if (pick != null && first != null && io.github.yggdrasil_sh.saga.blocks.SlashLogic.query(left.text) != null && right.text.isEmpty()) pick(path, first)
@@ -413,6 +415,7 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
                             },
                             { ed.setString(contentPath, it) },
                             itemPath = itemPath,
+                            modifier = if (slashQ != null && ed.active?.key == fieldKey) slashActions(slashLabels) { slashPick(it) } else Modifier,
                             placeholder = stringResource(R.string.placeholder_list_item),
                             onEnter = { left, right ->
                                 val first = slashLabels.firstOrNull()

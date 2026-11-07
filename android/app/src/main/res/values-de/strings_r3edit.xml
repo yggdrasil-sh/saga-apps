@@ -4,7 +4,6 @@
     <string name="r3_block_menu">Blockaktionen</string>
     <string name="r3_color_section_text">Markierter Text</string>
     <string name="r3_color_section_block">Ganzer Block</string>
-    <string name="r3_color_pick">Text und Hintergrund …</string>
     <string name="r3_color_needs_selection">Erst Text markieren</string>
     <string name="r3_block_color">Blockfarbe</string>
     <string name="r3_type_change">Typ ändern</string>
@@ -40,4 +39,13 @@
     <string name="r3_sd_tasks">Deine offenen Aufgaben</string>
     <string name="r3_sd_calendar">Deine nächsten Termine</string>
     <string name="r3_sd_nextcloud">Datei aus deiner Nextcloud</string>
+    <!-- Nachbesserung R3 Editor -->
+    <string name="r3e_color_pick_text">Textfarbe …</string>
+    <string name="r3e_color_pick_block">Blockfarbe …</string>
+    <string name="r3e_slash_action">Block einfügen: %1$s</string>
+    <string name="r3e_slash_pane">Block einfügen</string>
+    <plurals name="r3e_slash_count">
+        <item quantity="one">%d Vorschlag</item>
+        <item quantity="other">%d Vorschläge</item>
+    </plurals>
 </resources>

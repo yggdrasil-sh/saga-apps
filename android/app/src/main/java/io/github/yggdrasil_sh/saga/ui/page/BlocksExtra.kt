@@ -54,6 +54,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -192,10 +196,12 @@ private fun slashGroupLabel(g: EditorChromeLogic.SlashGroup): String = stringRes
  */
 internal fun androidx.compose.foundation.lazy.LazyListScope.slashListItems(
     items: List<SlashLogic.Item>, highlightFirst: Boolean, onPick: (SlashLogic.Item) -> Unit,
+    /** Nachbesserung R3 (25c): bei einer Suche ohne Gruppenkoepfe - Treffer sind nach Relevanz sortiert */
+    groups: Boolean = true,
 ) {
     items.forEachIndexed { i, it ->
         val g = EditorChromeLogic.group(it.id)
-        if (i == 0 || EditorChromeLogic.group(items[i - 1].id) != g) {
+        if (groups && (i == 0 || EditorChromeLogic.group(items[i - 1].id) != g)) {
             item(key = "g:" + g.name) {
                 Text(
                     slashGroupLabel(g), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -238,10 +244,18 @@ fun SlashMenuCard(query: String, needs: Set<SlashLogic.Need>, viewport: androidx
     val items = slashItems(query, needs)
     val density = androidx.compose.ui.platform.LocalDensity.current
     var anchor by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
-    // Messpunkt: die Zeile mit dem Feld (das Popup selbst haengt am gleichen Elternteil)
+    // Messpunkt: die Zeile mit dem Feld (das Popup selbst haengt am gleichen Elternteil). Darin (Nachbesserung R3) die
+    // Ansage "N Vorschlaege" als Live-Region im Hauptfenster - das Popup-Fenster ist nicht fokussierbar und damit fuer
+    // Bedienhilfen nicht das aktive Fenster; die Eintraege selbst stehen als Aktionen am Textfeld (slashActions)
+    val countText = androidx.compose.ui.platform.LocalResources.current.getQuantityString(R.plurals.r3e_slash_count, items.size, items.size)
     Box(Modifier.fillMaxWidth().height(0.dp).onGloballyPositioned { c ->
         c.parentLayoutCoordinates?.boundsInWindow()?.let { anchor = it }
-    })
+    }) {
+        Box(Modifier.requiredSize(1.dp).semantics {
+            liveRegion = androidx.compose.ui.semantics.LiveRegionMode.Polite
+            contentDescription = countText
+        })
+    }
     val a = anchor ?: return
     val gap = with(density) { 4.dp.roundToPx() }
     val vTop = viewport.top.toInt()
@@ -265,10 +279,11 @@ fun SlashMenuCard(query: String, needs: Set<SlashLogic.Need>, viewport: androidx
         popupPositionProvider = provider,
         properties = androidx.compose.ui.window.PopupProperties(focusable = false, clippingEnabled = true),
     ) {
+        val pane = stringResource(R.string.r3e_slash_pane)
         Surface(
             tonalElevation = 4.dp, shadowElevation = 6.dp, shape = RoundedCornerShape(SagaRadius.md),
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.widthIn(min = 260.dp, max = 360.dp),
+            modifier = Modifier.widthIn(min = 260.dp, max = 360.dp).semantics { paneTitle = pane },
         ) {
             val maxH = with(density) { placement.maxHeight.toDp() }.coerceAtLeast(120.dp)
             if (items.isEmpty()) {
@@ -276,10 +291,27 @@ fun SlashMenuCard(query: String, needs: Set<SlashLogic.Need>, viewport: androidx
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
             } else {
                 androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = maxH).padding(vertical = 4.dp)) {
-                    slashListItems(items, highlightFirst = true, onPick = onPick)
+                    slashListItems(items, highlightFirst = true, onPick = onPick, groups = query.isEmpty())
                 }
             }
         }
+    }
+}
+
+/** Nachbesserung R3: hoechstens so viele "/"-Treffer als Bedienhilfe-Aktionen am Textfeld */
+internal const val SLASH_A11Y_MAX = 10
+
+/**
+ * Nachbesserung R3: die ersten "/"-Treffer als Bedienhilfe-Aktionen am Textfeld ("Block einfuegen: Tabelle") -
+ * TalkBack erreicht sie im Aktionen-Menue, der Tastatur-Fokus bleibt im Feld. Leer -> Modifier.
+ */
+@Composable
+internal fun slashActions(items: List<SlashLogic.Item>, onPick: (SlashLogic.Item) -> Unit): Modifier {
+    if (items.isEmpty()) return Modifier
+    val shown = items.take(SLASH_A11Y_MAX)
+    val labels = shown.map { stringResource(R.string.r3e_slash_action, slashLabel(it)) }
+    return Modifier.semantics {
+        customActions = shown.mapIndexed { i, item -> androidx.compose.ui.semantics.CustomAccessibilityAction(labels[i]) { onPick(item); true } }
     }
 }
 

@@ -120,6 +120,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
@@ -608,6 +609,11 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
             CompositionLocalProvider(LocalPageImageSink provides imageSink, LocalMentionName provides mentionName) {
             // G9 (2.5): Schrift und kleiner Text der Seite gelten fuer Titel, Inhalt und Eigenschaften
             MaterialTheme(colorScheme = MaterialTheme.colorScheme, typography = pageTypography(MaterialTheme.typography, ed.font, ed.small), shapes = MaterialTheme.shapes) {
+            // Nachbesserung R3 (25b): Kommentar-Pille auf Hoehe der ersten Zeile (Versatz aus der Zeilenhoehe)
+            val bubbleLift = MaterialTheme.typography.bodyLarge.lineHeight.let { lh ->
+                val line = if (lh.isSp) with(LocalDensity.current) { lh.toDp() } else 24.dp
+                -((48.dp - line) / 2).coerceAtLeast(0.dp)
+            }
             // Rand als contentPadding (nicht padding): das Titelbild darf bis an den Rand reichen, ohne abgeschnitten zu werden
             LazyColumn(Modifier.widthIn(max = if (dbState != null) 1400.dp else 820.dp + 36.dp).fillMaxSize(), state = listState,
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp)) {
@@ -644,7 +650,9 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                             ) {
                                 Box(Modifier.weight(1f)) { BlockView(obj, path, env) }
                                 if (bid != null && (n > 0 || add)) {
-                                    BlockBubble(n, bid in unread) {
+                                    // Nachbesserung R3 (25b): Pille optisch an der ersten Zeile statt mittig in der 48-dp-Flaeche -
+                                    // sonst ragt sie unter die Zeile und wird von der Werkzeugleiste angeschnitten
+                                    BlockBubble(n, bid in unread, Modifier.offset(y = bubbleLift)) {
                                         selectedBlock = null
                                         comments.openBlock(bid)
                                         scope.launch { listState.animateScrollToItem(i + 1) }      // Block bleibt ueber dem Sheet sichtbar
@@ -1202,7 +1210,7 @@ private fun EditorToolbar(
                                 DropdownMenuItem(
                                     text = {
                                         Column {
-                                            Text(stringResource(R.string.r3_color_pick))
+                                            Text(stringResource(R.string.r3e_color_pick_text))
                                             if (!colors.text) Text(stringResource(R.string.r3_color_needs_selection), style = MaterialTheme.typography.bodySmall)
                                         }
                                     },
@@ -1214,7 +1222,7 @@ private fun EditorToolbar(
                                 if (isText && active.setColor != null) HorizontalDivider()
                                 MenuSection(stringResource(R.string.r3_color_section_block))
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.r3_color_pick)) }, leadingIcon = { SagaIcon(SagaIcons.droplet, null) },
+                                    text = { Text(stringResource(R.string.r3e_color_pick_block)) }, leadingIcon = { SagaIcon(SagaIcons.droplet, null) },
                                     onClick = { colorMenu = false; blockColorMenu = true },
                                 )
                             }
@@ -1564,11 +1572,11 @@ private fun CommentsButton(open: Int, unread: Int, onClick: () -> Unit) {
 
 /** Am Block: kleine Zahl (offene Unterhaltungen) bzw. Sprechblase + Plus am ausgewaehlten Block - dezent, 48 dp Trefferflaeche */
 @Composable
-private fun BlockBubble(count: Int, unread: Boolean, onClick: () -> Unit) {
+private fun BlockBubble(count: Int, unread: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val res = LocalResources.current
     val desc = if (count > 0) res.getQuantityString(R.plurals.comments_block_threads, count, count) else stringResource(R.string.comments_add)
     Box(
-        Modifier.size(48.dp).clip(CircleShape).clickable(onClick = onClick).semantics { contentDescription = desc },
+        modifier.size(48.dp).clip(CircleShape).clickable(onClick = onClick).semantics { contentDescription = desc },
         contentAlignment = Alignment.Center,
     ) {
         Surface(
