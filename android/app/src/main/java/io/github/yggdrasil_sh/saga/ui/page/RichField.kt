@@ -172,7 +172,8 @@ internal class FieldState(html: String, val raw: Boolean, val pre: String) {
     var backspaceDone: Pair<Any?, Any?>? = null
     /** Nachbesserung R3: fuer das naechste Tippen vorgemerkte Formate (B/I/U/S ohne Auswahl) an der Stelle marksAt */
     var marks by mutableStateOf<Map<io.github.yggdrasil_sh.saga.blocks.InlineStyle, Boolean>>(emptyMap())
-    var marksAt = -1
+    /** Nachbesserung R3 (24f): als State - der Knopf zeigt die Vormerkung sofort, nicht erst beim naechsten Tippen */
+    var marksAt by mutableStateOf(-1)
 
     fun isExternalChange(html: String): Boolean = html != external && html != current && html !in sent
 
@@ -380,7 +381,11 @@ fun RichField(
             },
             isActive = if (raw) null else { s ->
                 sel().let { r ->
-                    if (r.collapsed) io.github.yggdrasil_sh.saga.blocks.PendingMarks.isOn(st.rich, r.start, s, if (st.marksAt == r.start) st.marks else emptyMap())
+                    // Nachbesserung R3 (24f): marks immer lesen (sonst beobachtet Compose die Vormerkung nicht, solange
+                    // marksAt noch nicht passt, und der Knopf wurde erst beim naechsten Tippen aktiv)
+                    val m = st.marks
+                    val at = st.marksAt
+                    if (r.collapsed) io.github.yggdrasil_sh.saga.blocks.PendingMarks.isOn(st.rich, r.start, s, if (at == r.start) m else emptyMap())
                     else InlineHtml.isActive(st.rich, r.min, r.max, s)
                 }
             },
