@@ -341,6 +341,7 @@ class PageEditor(
             val p = repo.withPageLock(id) { repo.loadPage(id) }
             if (dirty && fetched) return                     // eigene, noch nicht gespeicherte Eingaben schuetzen
             val parsed = withContext(cpu) { parse(p) }
+            if (dirty && fetched) return                     // Pruefer R3: auch waehrend des Parsens Getipptes schuetzen
             apply(p, parsed)
             if (discardFields) discardFieldStates()
             offline = false
