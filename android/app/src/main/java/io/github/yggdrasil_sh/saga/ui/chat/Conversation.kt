@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.content.Context
@@ -994,7 +995,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             } else androidx.compose.material3.TextField(
                 state = input,
                 placeholder = { Text(stringResource(if (s.editing != null) R.string.x3_edit_hint else R.string.chat_message_hint)) },
-                lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6), shape = RoundedCornerShape(24.dp),
+                lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6), shape = RoundedCornerShape(SagaRadius.xl),
                 // Design 2: gefuelltes Eingabefeld als Pille, ohne Unterstrich und Rahmen
                 colors = androidx.compose.material3.TextFieldDefaults.colors(
                     focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh, unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -1735,7 +1736,7 @@ internal fun Bubble(
                         // Symbol in Warnfarbe, Text in Sekundaerfarbe (>= 4,5:1), antippbar -> Erklaerung + "Sicherheitsnummer prüfen"
                         val scheme = MaterialTheme.colorScheme
                         Row(
-                            Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onUnverified)
+                            Modifier.clip(RoundedCornerShape(SagaRadius.s)).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onUnverified)
                                 .heightIn(min = 32.dp).padding(end = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -1814,7 +1815,7 @@ internal fun Bubble(
                     // A11Y-01: Zeit, "bearbeitet" und Haken stehen in der Blasen-Beschreibung; antippbar ("Gelesen von") bleibt ein eigener Knopf
                     Row(
                         Modifier.align(Alignment.End).then(if (mediaOnly) Modifier.padding(end = 8.dp, top = 2.dp, bottom = 2.dp) else Modifier)
-                            .then(if (onReadBy != null) Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClickLabel = stringResource(R.string.chat_read_by), onClick = onReadBy)
+                            .then(if (onReadBy != null) Modifier.clip(RoundedCornerShape(SagaRadius.s)).clickable(onClickLabel = stringResource(R.string.chat_read_by), onClick = onReadBy)
                                 .semantics { contentDescription = time + (tickDesc?.let { ", $it" } ?: "") }
                             else Modifier.clearAndSetSemantics {}),
                         verticalAlignment = Alignment.CenterVertically,
@@ -2031,7 +2032,7 @@ private fun CallEntryRow(
         else -> SagaIcons.phoneIn to R.string.r1_call_dir_in
     }
     Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), contentAlignment = Alignment.Center) {
-        Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(16.dp)) {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(SagaRadius.md)) {
             Row(
                 Modifier.padding(start = 12.dp, end = 4.dp).heightIn(min = 40.dp).semantics(mergeDescendants = true) {},
                 verticalAlignment = Alignment.CenterVertically,
@@ -2055,7 +2056,7 @@ private fun CallEntryRow(
 @Composable
 private fun ChatDayDivider(d: java.time.LocalDate) {
     Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-        Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(12.dp)) {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(SagaRadius.pill)) {
             Text(
                 // "heute"/"gestern" stehen klein (fuer Faelligkeiten im Satz) - als Ueberschrift gross
                 io.github.yggdrasil_sh.saga.ui.common.dueText(d.toString()).replaceFirstChar { it.titlecase(io.github.yggdrasil_sh.saga.ui.common.appLocale()) },
