@@ -23,7 +23,8 @@ are machine-translated; corrections by native speakers are welcome.
 
 | Platform | Technology | Folder | Instructions |
 |---|---|---|---|
-| iOS, iPadOS, macOS | SwiftUI, WidgetKit | [`ios/`](ios/) | [ios/README.md](ios/README.md) |
+| iOS, iPadOS | SwiftUI, WidgetKit | [`ios/`](ios/) | [ios/README.md](ios/README.md) |
+| macOS | Web interface in a Swift WKWebView shell, WidgetKit | [`ios/Shell/`](ios/Shell/) | [ios/README.md](ios/README.md) |
 | Linux (GNOME) | Python, GTK4 + libadwaita, RPM | [`linux/`](linux/) | [linux/README.md](linux/README.md) |
 | Android | Kotlin, Jetpack Compose | [`android/`](android/) | [android/README.md](android/README.md) |
 

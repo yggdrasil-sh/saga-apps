@@ -72,6 +72,7 @@ struct ShellSignInView: View {
 struct ShellSettingsView: View {
     @ObservedObject var model: ShellModel
     @ObservedObject var push = ShellModel.shared.push
+    @ObservedObject var updater = ShellUpdater.shared
     @Environment(\.dismiss) private var dismiss
     @AppStorage("SagaInspectable") private var inspectable = false
 
@@ -91,6 +92,10 @@ struct ShellSettingsView: View {
                     if let m = push.message { Text(m).font(.caption).foregroundStyle(.red) }
                     Text(String(localized: "Worüber und wann: in Saga unter Einstellungen → Mitteilungen."))
                         .font(.caption).foregroundStyle(.secondary)
+                }
+                if updater.enabled {
+                    Toggle(String(localized: "Automatisch nach Updates suchen"),
+                           isOn: Binding(get: { updater.autoCheck }, set: { updater.setAutoCheck($0) }))
                 }
                 Toggle(String(localized: "Web-Inspektor erlauben"), isOn: $inspectable)
                     .onChange(of: inspectable) { _, v in model.webView.isInspectable = v }

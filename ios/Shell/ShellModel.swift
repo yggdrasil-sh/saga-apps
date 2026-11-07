@@ -25,6 +25,7 @@ final class ShellModel: NSObject, ObservableObject {
     @Published var title = "Saga"
     @Published var accountName = UserDefaults.standard.string(forKey: "shellAccountName") ?? ""
     @Published var showSettings = false
+    private var switchNotice = false                  // P3: einmaliger Hinweis nach der Umstellung von der nativen App
     @Published var toast: String?
     @Published var serverField = AppConfig.serverString
 
@@ -93,6 +94,10 @@ final class ShellModel: NSObject, ObservableObject {
     // MARK: Start, Sitzung
 
     func start() {
+        let d = UserDefaults.standard
+        switchNotice = ShellLogic.showsSwitchNotice(noticeShown: d.bool(forKey: "shellSwitchNoticeShown"),
+                                                    hasDeviceToken: AppConfig.hasServer && ShellKeys.deviceToken() != nil,
+                                                    hasShellAccount: d.object(forKey: "shellAccountName") != nil)
         guard AppConfig.hasServer, ShellKeys.deviceToken() != nil else { phase = .signIn; return }
         Task { await resumeAndLoad(pendingPath ?? "/") }
     }
@@ -393,6 +398,7 @@ final class ShellModel: NSObject, ObservableObject {
         case "ready":
             webReady = true; loading = false
             if let p = pendingPath { pendingPath = nil; openPath(p) }
+            if switchNotice { switchNotice = false; showSwitchNotice() }
         case "badge":
             let l = ShellLogic.badgeLabel(body["n"])
             NSApp.dockTile.badgeLabel = l.isEmpty ? nil : l
@@ -430,6 +436,16 @@ final class ShellModel: NSObject, ObservableObject {
                 Task { @MainActor in self?.widgetTimer = nil; self?.reloadWidgets(force: true) }
             }
         }
+    }
+
+    /// Nach der Umstellung von der nativen Mac-App (gleiche App-ID, Anmeldung uebernommen): einmal erklaeren, was neu ist
+    private func showSwitchNotice() {
+        UserDefaults.standard.set(true, forKey: "shellSwitchNoticeShown")
+        let a = NSAlert()
+        a.messageText = String(localized: "Saga am Mac ist jetzt die Web-Oberfläche")
+        a.informativeText = String(localized: "Deine Anmeldung, die Widgets und das Teilen-Menü bleiben. Für verschlüsselte Chats bestätigst du diesen Mac einmal neu, wenn Saga danach fragt.")
+        a.addButton(withTitle: String(localized: "OK"))
+        if let w = webView.window { a.beginSheetModal(for: w) } else { a.runModal() }
     }
 
     func show(toast t: String) {

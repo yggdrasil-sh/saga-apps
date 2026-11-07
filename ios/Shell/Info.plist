@@ -34,6 +34,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>$(SAGA_SHELL_URL_SCHEME)</string>
+				<string>$(SAGA_SHELL_URL_SCHEME_ALT)</string>
 			</array>
 		</dict>
 	</array>

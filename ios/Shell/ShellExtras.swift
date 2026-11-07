@@ -144,6 +144,7 @@ final class ShellUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
     static let shared = ShellUpdater()
     let enabled = UpdateLogic.isEnabled(Bundle.main.infoDictionary ?? [:])
     @Published private(set) var canCheck = false
+    @Published private(set) var autoCheck = false
     private var controller: SPUStandardUpdaterController?
 
     func start() {
@@ -151,8 +152,11 @@ final class ShellUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {
         let c = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
         controller = c
         c.updater.publisher(for: \.canCheckForUpdates).receive(on: RunLoop.main).assign(to: &$canCheck)
+        c.updater.publisher(for: \.automaticallyChecksForUpdates).receive(on: RunLoop.main).assign(to: &$autoCheck)
     }
     func check() { controller?.checkForUpdates(nil) }
+    /// App-Einstellungen: „Automatisch nach Updates suchen“ (Sparkle merkt sich die Wahl selbst, Vorgabe aus SUEnableAutomaticChecks)
+    func setAutoCheck(_ on: Bool) { controller?.updater.automaticallyChecksForUpdates = on }
 }
 
 struct ShellUpdateButton: View {

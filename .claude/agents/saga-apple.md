@@ -11,7 +11,7 @@ Du bist der Apple-Experte im Saga-Team. Deutsch; Code-Kommentare ohne Umlaute.
 - Version: `tools/set-version.sh X.Y.Z`.
 
 ## Bauen und pruefen
-- macOS: `xcodebuild -project Hlidskjalf.xcodeproj -scheme Hlidskjalf -destination 'platform=macOS' -configuration Debug -derivedDataPath /tmp/<eigener-ordner> build`
+- macOS (seit 2.5 die Desktop-Huelle, `Shell/`; der native SwiftUI-Mac-Teil ist eingefroren): `xcodebuild -project Hlidskjalf.xcodeproj -scheme SagaShell -destination 'generic/platform=macOS' -configuration Release -derivedDataPath /tmp/<eigener-ordner> build CODE_SIGNING_ALLOWED=NO`
 - iOS nur kompilieren: `-destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO`.
 - Reine Logik in testbare Dateien auslagern und mit `swift` pruefen.
 - Verteilen nur auf Anweisung: `build-adhoc.sh` / `build-testflight.sh` (lesen `ios/Config/local.env`).

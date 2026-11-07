@@ -23,6 +23,7 @@ else
   b -project Hlidskjalf.xcodeproj -scheme Hlidskjalf -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/hk-dd CODE_SIGNING_ALLOWED=NO build || { echo "iOS-Build FEHLGESCHLAGEN"; exit 1; }
   echo "iPhone: nicht verbunden - iOS nur geprueft (kompiliert), nicht aufgespielt"
 fi
-b -project Hlidskjalf.xcodeproj -scheme Hlidskjalf -destination 'platform=macOS' -configuration Release -derivedDataPath /tmp/hk-dd-mac -allowProvisioningUpdates build || { echo "Mac-Build FEHLGESCHLAGEN - nichts aufgespielt"; exit 1; }
-osascript -e "quit app id \"$BUNDLE_ID\"" 2>/dev/null; for i in $(seq 1 20); do pgrep -x Hlidskjalf >/dev/null || break; sleep 0.5; done
-rm -rf /Applications/Hlidskjalf.app /Applications/Saga.app && ditto /tmp/hk-dd-mac/Build/Products/Release/Hlidskjalf.app /Applications/Saga.app && sleep 1 && open /Applications/Saga.app && echo "Mac: aufgespielt (/Applications/Saga.app)"
+# Mac: seit 2.5 (P3) die Desktop-Huelle (Ziel SagaShell, Saga.app) mit derselben App-ID
+b -project Hlidskjalf.xcodeproj -scheme SagaShell -destination 'platform=macOS' -configuration Release -derivedDataPath /tmp/hk-dd-mac -allowProvisioningUpdates build || { echo "Mac-Build FEHLGESCHLAGEN - nichts aufgespielt"; exit 1; }
+osascript -e "quit app id \"$BUNDLE_ID\"" 2>/dev/null; for i in $(seq 1 20); do { pgrep -x Hlidskjalf || pgrep -x Saga; } >/dev/null || break; sleep 0.5; done
+rm -rf /Applications/Hlidskjalf.app /Applications/Saga.app && ditto /tmp/hk-dd-mac/Build/Products/Release/Saga.app /Applications/Saga.app && sleep 1 && open /Applications/Saga.app && echo "Mac: aufgespielt (/Applications/Saga.app)"

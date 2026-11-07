@@ -2609,6 +2609,111 @@
           }
         }
       }
+    },
+    "Automatisch nach Updates suchen": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatisch nach Updates suchen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatically check for updates"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar actualizaciones automáticamente"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Автоматически проверять обновления"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตรวจหาอัปเดตโดยอัตโนมัติ"
+          }
+        }
+      }
+    },
+    "Saga am Mac ist jetzt die Web-Oberfläche": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saga am Mac ist jetzt die Web-Oberfläche"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saga on the Mac now uses the web interface"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saga en el Mac ahora usa la interfaz web"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saga на Mac теперь использует веб-интерфейс"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saga บน Mac ตอนนี้ใช้หน้าเว็บแล้ว"
+          }
+        }
+      }
+    },
+    "Deine Anmeldung, die Widgets und das Teilen-Menü bleiben. Für verschlüsselte Chats bestätigst du diesen Mac einmal neu, wenn Saga danach fragt.": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deine Anmeldung, die Widgets und das Teilen-Menü bleiben. Für verschlüsselte Chats bestätigst du diesen Mac einmal neu, wenn Saga danach fragt."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your sign-in, widgets and the Share menu stay. For encrypted chats, confirm this Mac once more when Saga asks."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu inicio de sesión, los widgets y el menú Compartir se mantienen. Para los chats cifrados, confirma este Mac una vez más cuando Saga lo pida."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вход, виджеты и меню «Поделиться» сохраняются. Для зашифрованных чатов подтвердите этот Mac ещё раз, когда Saga попросит."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การลงชื่อเข้าใช้ วิดเจ็ต และเมนูแชร์ยังคงอยู่ สำหรับแชทที่เข้ารหัส ให้ยืนยัน Mac เครื่องนี้อีกครั้งเมื่อ Saga ถาม"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -23,7 +23,8 @@ y el ruso están traducidos automáticamente; las correcciones de hablantes nati
 
 | Plataforma | Tecnología | Carpeta | Instrucciones |
 |---|---|---|---|
-| iOS, iPadOS, macOS | SwiftUI, WidgetKit | [`ios/`](ios/) | [ios/README.md](ios/README.md) |
+| iOS, iPadOS | SwiftUI, WidgetKit | [`ios/`](ios/) | [ios/README.md](ios/README.md) |
+| macOS | Interfaz web en un contenedor Swift (WKWebView), WidgetKit | [`ios/Shell/`](ios/Shell/) | [ios/README.md](ios/README.md) |
 | Linux (GNOME) | Python, GTK4 + libadwaita, RPM | [`linux/`](linux/) | [linux/README.md](linux/README.md) |
 | Android | Kotlin, Jetpack Compose | [`android/`](android/) | [android/README.md](android/README.md) |
 

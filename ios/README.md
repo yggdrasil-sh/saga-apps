@@ -1,6 +1,9 @@
 # Saga für iPhone, iPad und Mac
 
-Native App (SwiftUI) für einen [Saga](https://github.com/yggdrasil-sh/saga)-Server – eine Codebasis für iOS, iPadOS und macOS.
+Native App (SwiftUI) für einen [Saga](https://github.com/yggdrasil-sh/saga)-Server für iOS und iPadOS. **Mac (seit 2.5):**
+die Desktop-Hülle `SagaShell` (`Shell/`) – die Web-Oberfläche im `WKWebView` mit Widgets, Teilen-Menü, Mitteilungen,
+Menüleiste, Spotlight und Selbst-Update, gleiche App-ID wie zuvor die native Mac-App. Der SwiftUI-Mac-Teil ist eingefroren
+(Code bleibt, wird nicht gebaut; siehe Kommentar am Ziel `Hlidskjalf` in `project.yml`).
 
 ## Was die App kann
 - **Seiten und Notizen** lesen und bearbeiten (Blöcke, Titelbild, Symbol, Unterseiten, Favoriten, zuletzt geöffnet)

@@ -119,4 +119,12 @@ func shellTests2(_ srv: URL) {
           && ShellLogic.notificationPath(nil, server: srv) == "/" && ShellLogic.notificationPath(3, server: srv) == "/", "Mitteilung fremde Ziele")
     check(ShellLogic.isRinging(kind: "call") && ShellLogic.isRinging(kind: "call.group") && !ShellLogic.isRinging(kind: "chat.message")
           && !ShellLogic.isRinging(kind: nil), "Anruf klingelt")
+
+    // P3: Hinweis nach der Umstellung nur einmal und nur, wenn die native App angemeldet war
+    check(ShellLogic.showsSwitchNotice(noticeShown: false, hasDeviceToken: true, hasShellAccount: false), "Umstellung: Hinweis")
+    check(!ShellLogic.showsSwitchNotice(noticeShown: true, hasDeviceToken: true, hasShellAccount: false)
+          && !ShellLogic.showsSwitchNotice(noticeShown: false, hasDeviceToken: false, hasShellAccount: false)
+          && !ShellLogic.showsSwitchNotice(noticeShown: false, hasDeviceToken: true, hasShellAccount: true), "Umstellung: kein Hinweis")
+    check(ShellLogic.route(URL(string: "hlidskjalf://page/7")!) == .path("/notes#7") && ShellLogic.route(URL(string: "saga://tasks")!) == .path("/notes?v=tasks"),
+          "Umstellung: alte Widget-Links")
 }

@@ -9,6 +9,22 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Mac: Die Desktop-Hülle ist jetzt die Mac-App (P3 Umstellung)
+
+- **Die Mac-App ist ab jetzt die Desktop-Hülle** (Ziel `SagaShell`, Web-Oberfläche im `WKWebView`) – Entscheidung des
+  Maintainers. Sie trägt dieselbe App-ID, App-Gruppe und Link-Schemata (`saga://`, `hlidskjalf://`) wie bisher die
+  native Mac-App und heißt wieder „Saga“. Damit gehen Anmeldung (Geräte-Schlüssel im Schlüsselbund), Widgets auf dem
+  Schreibtisch, das Teilen-Menü und Mitteilungen ohne Neuanmeldung über; Sparkle aktualisiert bestehende DMG-Installationen
+  auf die Hülle. Beim ersten Start nach der Umstellung erklärt ein Hinweis einmal, was neu ist (verschlüsselte Chats
+  bestätigen den Mac einmal neu).
+- **Der native SwiftUI-Mac-Teil ist eingefroren:** Das Ziel `Hlidskjalf` baut nur noch iPhone/iPad, `HlidskjalfWidget`
+  nur iOS, `HlidskjalfShareMac` hängt an nichts mehr. Der Code bleibt im Repo und kann wieder aufgenommen werden.
+  iPhone, iPad und Android bleiben nativ.
+- `build-dmg.sh` (und damit die DMG der CI) sowie `build-install.sh` bauen das Scheme `SagaShell` als `Saga.app`.
+- App-Einstellungen: neuer Schalter „Automatisch nach Updates suchen“ (nur in DMG-Builds mit Selbst-Update).
+- Eine Test-Hülle neben einer anderen Mac-App bleibt möglich (`SAGA_SHELL_*` in `Config/Local.xcconfig`, siehe
+  `Config/Base.xcconfig`). Die letzte DMG der nativen Mac-App bleibt im bisherigen Release als Rückfall.
+
 ### Neu – Mac: Desktop-Hülle „Saga Web“ (Vorabversion mit Test-ID, P2 Etappe 1)
 
 - Neues macOS-Ziel `SagaShell`: die Web-Oberfläche des eigenen Saga-Servers in einem `WKWebView` – soll die native

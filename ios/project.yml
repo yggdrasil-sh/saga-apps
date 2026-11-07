@@ -37,9 +37,12 @@ settings:
     SWIFT_EMIT_LOC_STRINGS: YES                    # Texte aus dem Code fuer die String Catalogs (Xcode gleicht beim Bauen ab)
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
 targets:
+  # 2.5 P3: nur noch iPhone/iPad - der Mac-Teil (SwiftUI) ist eingefroren (Code bleibt, wird nicht gebaut/ausgeliefert);
+  # die Mac-App ist die Desktop-Huelle SagaShell (unten). Wieder aufnehmen: macOS in supportedDestinations und die
+  # macOS-Abhaengigkeiten (Sparkle, HlidskjalfShareMac) zurueck, SAGA_SHELL_BUNDLE_ID auf eine eigene ID.
   Hlidskjalf:
     type: application
-    supportedDestinations: [iOS, macOS]
+    supportedDestinations: [iOS]
     sources: [App, Shared]
     info:
       path: App/Info.plist
@@ -83,19 +86,14 @@ targets:
         product: Clibsodium
       - package: WebRTC
         product: WebRTC
-      - package: Sparkle
-        product: Sparkle
-        destinationFilters: [macOS]                       # nie im iOS-Teil
       - target: HlidskjalfWidget
       - target: HlidskjalfShare
         destinationFilters: [iOS]
-      - target: HlidskjalfShareMac
-        destinationFilters: [macOS]
       - target: HlidskjalfBroadcast                       # 2.4: Bildschirm teilen (ReplayKit), nur iPhone/iPad
         destinationFilters: [iOS]
   HlidskjalfWidget:
     type: app-extension
-    supportedDestinations: [iOS, macOS]
+    supportedDestinations: [iOS]                         # Mac: SagaShellWidget (gleiche Quellen)
     sources: [Widget, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/TaskSourceLogic.swift, Shared/ColorHex.swift, Shared/DBQuery.swift, Shared/DBDates.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
     info:
       path: Widget/Info.plist
@@ -166,6 +164,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).broadcast
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_ENTITLEMENTS: Broadcast/Broadcast.entitlements
+  # Eingefroren seit P3 (gehoerte zur nativen Mac-App, keine Abhaengigkeit mehr) - die Huelle nutzt SagaShellShareMac
   HlidskjalfShareMac:
     type: app-extension
     platform: macOS
@@ -197,7 +196,7 @@ targets:
   # Downloads, Offline-Seite. Etappe 2: Widget- und Teilen-Erweiterung (SagaShellWidget, SagaShellShareMac: gleicher
   # Code wie HlidskjalfWidget/HlidskjalfShareMac, App-ID und App-Gruppe der Huelle), APNs (Shell/Shell-push.entitlements
   # ueber SAGA_MAC_PUSH_SUFFIX), Menueleisten-Erfassung, Spotlight, Sparkle, QR-Kopplung, saga://new nativ.
-  # Bis zur Umstellung (P3) mit Test-ID (SAGA_SHELL_BUNDLE_ID, Config/Base.xcconfig) neben der normalen App.
+  # Seit P3 die Mac-App: gleiche App-ID/Gruppe/Link-Schemata wie die bisherige Mac-App (Config/Base.xcconfig, SAGA_SHELL_*).
   # Shell/offline.html = Kopie von static/offline.html (Server).
   # xcodebuild -scheme SagaShell -destination 'generic/platform=macOS' build
   SagaShell:
@@ -232,11 +231,11 @@ targets:
         NSLocalNetworkUsageDescription: Calls connect directly to devices in your network when possible
         CFBundleURLTypes:
           - CFBundleURLName: $(SAGA_SHELL_BUNDLE_ID)
-            CFBundleURLSchemes: [$(SAGA_SHELL_URL_SCHEME)]
+            CFBundleURLSchemes: [$(SAGA_SHELL_URL_SCHEME), $(SAGA_SHELL_URL_SCHEME_ALT)]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_SHELL_BUNDLE_ID)
-        PRODUCT_NAME: Saga Web
+        PRODUCT_NAME: Saga                                   # Saga.app (ersetzt die bisherige Mac-App)
         CODE_SIGN_ENTITLEMENTS: Shell/Shell$(SAGA_MAC_PUSH_SUFFIX).entitlements    # Mitteilungen: Config/Base.xcconfig
         ENABLE_HARDENED_RUNTIME: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -248,8 +247,8 @@ targets:
       - target: SagaShellShareMac
   # Etappe 2: Erweiterungen der Huelle - Quellen wie HlidskjalfWidget/HlidskjalfShareMac, aber App-ID unter der Huelle
   # und deren App-Gruppe (SAGA_APP_GROUP/SAGA_KEYCHAIN_GROUP hier ueberschrieben; die Entitlements lesen die Variable).
-  # Links aus dem Widget nutzen das Schema der Huelle (SagaLinkScheme). Bei der Umstellung (P3) wird
-  # SAGA_SHELL_BUNDLE_ID = $(SAGA_BUNDLE_ID) - dann tragen sie dieselben IDs wie heute die Erweiterungen der Mac-App.
+  # Links aus dem Widget nutzen das Schema der Huelle (SagaLinkScheme). Seit P3 ist SAGA_SHELL_BUNDLE_ID = $(SAGA_BUNDLE_ID):
+  # dieselben IDs wie bisher die Erweiterungen der Mac-App (vorhandene Widgets auf dem Schreibtisch bleiben).
   SagaShellWidget:
     type: app-extension
     platform: macOS

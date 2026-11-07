@@ -93,9 +93,11 @@ DMG="dist/Saga-$LABEL-macOS.dmg"
 if command -v xcodegen >/dev/null 2>&1; then xcodegen generate --quiet
 elif [ ! -d Hlidskjalf.xcodeproj ]; then die "xcodegen fehlt (brew install xcodegen)"; fi
 echo "baue Saga $LABEL ($BN) fuer macOS: $BUNDLE_ID, Gruppe $GROUP, Team $TEAM"
-if ! xcodebuild -project Hlidskjalf.xcodeproj -scheme Hlidskjalf -configuration Release \
+# Seit 2.5 (P3) ist die Mac-App die Desktop-Huelle (Ziel SagaShell, Web-Oberflaeche im WKWebView) mit derselben
+# App-ID wie die bisherige SwiftUI-Mac-App - Sparkle aktualisiert bestehende Installationen darauf.
+if ! xcodebuild -project Hlidskjalf.xcodeproj -scheme SagaShell -configuration Release \
       -destination 'generic/platform=macOS' -archivePath "$WORK/Saga.xcarchive" -derivedDataPath "$WORK/dd" \
-      SAGA_BUNDLE_ID="$BUNDLE_ID" SAGA_APP_GROUP="$GROUP" \
+      SAGA_BUNDLE_ID="$BUNDLE_ID" SAGA_APP_GROUP="$GROUP" SAGA_SHELL_BUNDLE_ID="$BUNDLE_ID" SAGA_SHELL_APP_GROUP="$GROUP" \
       SAGA_DEFAULT_SERVER="${SAGA_DEFAULT_SERVER:-}" SAGA_MOVED_SERVERS="${SAGA_MOVED_SERVERS:-}" \
       DEVELOPMENT_TEAM="$TEAM" MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BN" SAGA_VERSION_LABEL="$LABEL" \
       CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- PROVISIONING_PROFILE_SPECIFIER= PROVISIONING_PROFILE= \
@@ -109,7 +111,7 @@ fi
 STAGE="$WORK/dmg"
 APP="$STAGE/Saga.app"
 mkdir -p "$STAGE"
-ditto "$WORK/Saga.xcarchive/Products/Applications/Hlidskjalf.app" "$APP"
+ditto "$WORK/Saga.xcarchive/Products/Applications/Saga.app" "$APP"
 
 # Selbst-Update (Sparkle 2, sandboxed: Installer-XPC-Dienst). Den Downloader-Dienst braucht die App nicht
 # (sie hat network.client) - entfernen, dann muss er auch nicht signiert werden.

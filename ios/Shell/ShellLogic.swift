@@ -7,8 +7,8 @@ enum ShellLogic {
     /// Fähigkeiten, die die Mac-Huelle meldet. Kein `notify`: Mitteilungen kommen am Mac ueber APNs (sonst doppelt).
     static let caps = ["badge", "widgets", "openExternal", "settings", "token"]
 
-    /// Link-Schemata, die die Huelle annimmt. `saga-test` registriert nur die Test-Huelle (eigene App-ID), damit
-    /// Links aus Widgets/Spotlight weiter bei der normalen Saga-App landen; Inhalt wie `saga://`.
+    /// Link-Schemata, die die Huelle annimmt (registriert: SAGA_SHELL_URL_SCHEME/_ALT = saga, hlidskjalf).
+    /// `saga-test` nur fuer eine Test-Huelle mit eigener App-ID (Config/Base.xcconfig); Inhalt wie `saga://`.
     static let linkSchemes: Set<String> = ["saga", "hlidskjalf", "saga-test"]
 
     /// Bereiche, die `saga://settings/<bereich>` oeffnen darf (wie static/host.js)
@@ -241,4 +241,13 @@ enum ShellLogic {
     }
     /// Klingelnder Anruf (Server-Art `call` bzw. `call.group`): Dock-Aufmerksamkeit
     static func isRinging(kind: Any?) -> Bool { (kind as? String) == "call" || (kind as? String) == "call.group" }
+
+    // MARK: Umstellung von der nativen Mac-App (P3)
+
+    /// Einmaliger Hinweis beim ersten Start der Huelle, wenn vorher die native Mac-App angemeldet war (gleiche App-ID:
+    /// derselbe Container und Geraete-Schluessel, die Anmeldung geht ueber). Die Huelle selbst merkt sich ein Konto erst
+    /// nach eigener Anmeldung (`shellAccountName`) - fehlt das, stammt ein vorhandener Geraete-Schluessel von der nativen App.
+    static func showsSwitchNotice(noticeShown: Bool, hasDeviceToken: Bool, hasShellAccount: Bool) -> Bool {
+        !noticeShown && hasDeviceToken && !hasShellAccount
+    }
 }
