@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.tasks
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.ui.res.stringResource
@@ -28,7 +29,6 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -227,11 +227,11 @@ fun DueDatePicker(initial: String?, onDismiss: () -> Unit, onPick: (String?) -> 
     DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = {
+            SagaTextButton(onClick = {
                 onPick(state.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString() })
             }) { Text(stringResource(R.string.action_apply)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     ) { DatePicker(state) }
 }
 
@@ -267,21 +267,21 @@ fun TaskEditDialog(t: TaskItem, repo: SagaRepository, onClose: () -> Unit) {
                     }
                 }
                 if (t.rep != null) Text(stringResource(R.string.task_repeat_info, repeatName(t.rep)), style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = { confirmDelete = true }) { Text(stringResource(R.string.task_delete), color = MaterialTheme.colorScheme.error) }
+                SagaTextButton(onClick = { confirmDelete = true }) { Text(stringResource(R.string.task_delete), color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
-            TextButton(onClick = { run { repo.updateTask(t.id, text.trim(), due, prio) } }, enabled = text.isNotBlank()) { Text(stringResource(R.string.action_save)) }
+            SagaTextButton(onClick = { run { repo.updateTask(t.id, text.trim(), due, prio) } }, enabled = text.isNotBlank()) { Text(stringResource(R.string.action_save)) }
         },
-        dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } },
     )
     if (pick) DueDatePicker(due, onDismiss = { pick = false }) { due = it; pick = false }
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text(stringResource(R.string.task_delete_confirm)) },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; run { repo.deleteTask(t.id) } }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.action_cancel)) } },
+            confirmButton = { SagaTextButton(onClick = { confirmDelete = false; run { repo.deleteTask(t.id) } }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { SagaTextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

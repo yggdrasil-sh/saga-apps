@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -36,7 +37,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -174,7 +174,7 @@ fun ForwardTargetDialog(repo: SagaRepository, from: Long, onDismiss: () -> Unit,
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -202,8 +202,8 @@ fun ToPageDialog(onDismiss: () -> Unit, onNew: () -> Unit, onAppend: () -> Unit)
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { if (append) onAppend() else onNew() }) { Text(stringResource(R.string.cs_page_ok)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = { SagaTextButton(onClick = { if (append) onAppend() else onNew() }) { Text(stringResource(R.string.cs_page_ok)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -242,7 +242,7 @@ fun PageTargetDialog(repo: SagaRepository, onDismiss: () -> Unit, onPick: (ChatN
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -267,10 +267,10 @@ fun DeleteSelectionDialog(count: Int, forAll: Boolean, onDismiss: () -> Unit, on
         // "Für mich löschen" steht als roter Textknopf direkt neben "Abbrechen"; "Für alle löschen" (falls moeglich) darueber
         confirmButton = {
             Column(horizontalAlignment = Alignment.End) {
-                if (forAll) TextButton(onClick = onForAll, modifier = Modifier.testTag("cs-delete-all")) { Text(stringResource(R.string.cs_delete_all), color = red) }
+                if (forAll) SagaTextButton(onClick = onForAll, modifier = Modifier.testTag("cs-delete-all")) { Text(stringResource(R.string.cs_delete_all), color = red) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-                    TextButton(onClick = onForMe, modifier = Modifier.testTag("cs-delete-me")) { Text(stringResource(R.string.cs_delete_me), color = red) }
+                    SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+                    SagaTextButton(onClick = onForMe, modifier = Modifier.testTag("cs-delete-me")) { Text(stringResource(R.string.cs_delete_me), color = red) }
                 }
             }
         },
@@ -284,8 +284,8 @@ fun DeleteAllConfirm(onDismiss: () -> Unit, onConfirm: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.cs_delete_all_confirm)) },
         text = { Text(stringResource(R.string.cs_delete_all_hint)) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.cs_delete_all), color = MaterialTheme.colorScheme.error) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = { SagaTextButton(onClick = onConfirm) { Text(stringResource(R.string.cs_delete_all), color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -327,8 +327,8 @@ fun X3InfoButton(h: X3Hint, startOpen: Boolean = false, onDevices: () -> Unit) {
                 Text(stringResource(R.string.cs_x3_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(x3HintText(h), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.End) {
-                    if (h is X3Hint.Devices && h.mine.isNotEmpty()) TextButton(onClick = { open = false; onDevices() }) { Text(stringResource(R.string.cs_x3_devices_link)) }
-                    TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_close)) }
+                    if (h is X3Hint.Devices && h.mine.isNotEmpty()) SagaTextButton(onClick = { open = false; onDevices() }) { Text(stringResource(R.string.cs_x3_devices_link)) }
+                    SagaTextButton(onClick = { open = false }) { Text(stringResource(R.string.action_close)) }
                 }
             }
         }

@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.common
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -10,7 +11,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -50,7 +50,7 @@ fun LocalNetworkPrompt(repo: SagaRepository) {
         title = { Text(stringResource(R.string.local_network_title)) },
         text = { Text(stringResource(if (denied) R.string.local_network_denied else R.string.local_network_text, h)) },
         confirmButton = {
-            TextButton(onClick = {
+            SagaTextButton(onClick = {
                 if (toSettings) {
                     openAppSettings(context)
                     repo.localNetworkAnswered(false)
@@ -59,7 +59,7 @@ fun LocalNetworkPrompt(repo: SagaRepository) {
                 }
             }) { Text(stringResource(if (toSettings) R.string.local_network_settings else R.string.local_network_allow)) }
         },
-        dismissButton = { TextButton(onClick = { repo.localNetworkAnswered(false) }) { Text(stringResource(R.string.action_later)) } },
+        dismissButton = { SagaTextButton(onClick = { repo.localNetworkAnswered(false) }) { Text(stringResource(R.string.action_later)) } },
     )
 }
 

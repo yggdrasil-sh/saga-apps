@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -103,7 +103,7 @@ fun SyncedBlock(block: JsonObject, path: JsonPath, env: BlockEnv) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("⟳ " + label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.weight(1f))
             if (src != null && src.note != null && src.note != env.editor.id) {
-                TextButton(onClick = { env.onLink("/notes#${src.note}") }) { Text(stringResource(R.string.e1_synced_open)) }
+                SagaTextButton(onClick = { env.onLink("/notes#${src.note}") }) { Text(stringResource(R.string.e1_synced_open)) }
             }
         }
         if (!RenderPreview.syncedHasBlocks(d)) {

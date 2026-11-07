@@ -23,7 +23,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
@@ -108,7 +107,8 @@ fun SearchScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                             SagaIcon(SagaIcons.x, stringResource(R.string.action_clear_search))
                         }
                     },
-                    shape = CircleShape,
+                    // R2c: Felder 6 dp wie Web (--r-sm)
+                    shape = MaterialTheme.shapes.small,
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,

@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.clickable
@@ -23,10 +25,8 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -94,7 +94,7 @@ fun <T> Picker(
     val shown = items.firstOrNull { it.first == selected }?.second ?: label
     val cd = pickerDescription(role, shown)
     Box(modifier) {
-        OutlinedButton(onClick = { open = true }, enabled = enabled, modifier = Modifier.fillMaxWidth().semantics { contentDescription = cd }) {
+        SagaOutlinedButton(onClick = { open = true }, enabled = enabled, modifier = Modifier.fillMaxWidth().semantics { contentDescription = cd }) {
             Text(shown, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             SagaIcon(SagaIcons.caretDown, null)
         }
@@ -179,7 +179,7 @@ private fun FilterDialog(s: DbSchema, v: DbView, editable: Boolean, features: Se
                     HorizontalDivider()
                 }
                 if (editable && fs.size < 50) {
-                    TextButton(onClick = { fs.add(DbFilter("title", DbFilter.ops("text").first(), "")) }) {
+                    SagaTextButton(onClick = { fs.add(DbFilter("title", DbFilter.ops("text").first(), "")) }) {
                         SagaIcon(SagaIcons.plus, null)
                         Text(stringResource(R.string.dbv_add_filter))
                     }
@@ -187,10 +187,10 @@ private fun FilterDialog(s: DbSchema, v: DbView, editable: Boolean, features: Se
             }
         },
         confirmButton = {
-            if (editable) TextButton(onClick = { onApply(fs.toList()); onDismiss() }) { Text(stringResource(R.string.action_apply)) }
-            else TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            if (editable) SagaTextButton(onClick = { onApply(fs.toList()); onDismiss() }) { Text(stringResource(R.string.action_apply)) }
+            else SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         },
-        dismissButton = { if (editable) TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { if (editable) SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -216,7 +216,7 @@ private fun FilterValue(p: DbProp, f: DbFilter, editable: Boolean, onChange: (St
         "select", "multi_select" -> Picker(stringResource(R.string.dbv_value_empty), p.options.map { it.id to it.name }, f.value, enabled = editable, role = stringResource(R.string.dbv_filter_value), onPick = onChange, modifier = Modifier.fillMaxWidth())
         "date", "created", "edited" -> {
             var pick by remember { mutableStateOf(false) }
-            OutlinedButton(onClick = { pick = true }, enabled = editable, modifier = Modifier.fillMaxWidth()) {
+            SagaOutlinedButton(onClick = { pick = true }, enabled = editable, modifier = Modifier.fillMaxWidth()) {
                 Text(f.value.ifEmpty { stringResource(R.string.dbv_value_empty) })
             }
             if (pick) DueDatePicker(f.value.ifEmpty { null }, onDismiss = { pick = false }) { onChange(it.orEmpty()); pick = false }
@@ -260,7 +260,7 @@ private fun SortDialog(s: DbSchema, v: DbView, editable: Boolean, onApply: (List
                     }
                 }
                 if (editable && ss.size < 3) {
-                    TextButton(onClick = { ss.add(DbSort("title")) }) {
+                    SagaTextButton(onClick = { ss.add(DbSort("title")) }) {
                         SagaIcon(SagaIcons.plus, null)
                         Text(stringResource(R.string.dbv_add_sort))
                     }
@@ -268,10 +268,10 @@ private fun SortDialog(s: DbSchema, v: DbView, editable: Boolean, onApply: (List
             }
         },
         confirmButton = {
-            if (editable) TextButton(onClick = { onApply(ss.toList()); onDismiss() }) { Text(stringResource(R.string.action_apply)) }
-            else TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            if (editable) SagaTextButton(onClick = { onApply(ss.toList()); onDismiss() }) { Text(stringResource(R.string.action_apply)) }
+            else SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
         },
-        dismissButton = { if (editable) TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { if (editable) SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -322,12 +322,12 @@ private fun ViewDialog(st: DbViewState, s: DbSchema, v: DbView, onDismiss: () ->
                 }
                 if (s.views.size > 1) {
                     HorizontalDivider()
-                    TextButton(onClick = { confirmDelete = true }) { Text(stringResource(R.string.dbv_view_delete), color = MaterialTheme.colorScheme.error) }
+                    SagaTextButton(onClick = { confirmDelete = true }) { Text(stringResource(R.string.dbv_view_delete), color = MaterialTheme.colorScheme.error) }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            SagaTextButton(onClick = {
                 if (name.trim() != v.name && name.isNotBlank()) st.editSchema { DbViews.rename(it, v.id, name) }
                 onDismiss()
             }) { Text(stringResource(R.string.action_apply)) }
@@ -338,11 +338,11 @@ private fun ViewDialog(st: DbViewState, s: DbSchema, v: DbView, onDismiss: () ->
             onDismissRequest = { confirmDelete = false },
             text = { Text(stringResource(R.string.dbv_view_delete_q, v.name.ifEmpty { viewLabel(v.type) })) },
             confirmButton = {
-                TextButton(onClick = { confirmDelete = false; onDismiss(); st.editSchema { DbViews.delete(it, v.id) } }) {
+                SagaTextButton(onClick = { confirmDelete = false; onDismiss(); st.editSchema { DbViews.delete(it, v.id) } }) {
                     Text(stringResource(R.string.dbv_view_delete), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }
@@ -364,8 +364,8 @@ private fun NewViewDialog(onCreate: (String, String) -> Unit, onDismiss: () -> U
                     placeholder = { Text(defaultName) }, modifier = Modifier.fillMaxWidth())
             }
         },
-        confirmButton = { TextButton(onClick = { onCreate(type, name.ifBlank { defaultName }); onDismiss() }) { Text(stringResource(R.string.action_apply)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = { SagaTextButton(onClick = { onCreate(type, name.ifBlank { defaultName }); onDismiss() }) { Text(stringResource(R.string.action_apply)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -424,9 +424,9 @@ internal fun TemplateManager(st: DbViewState, onOpen: (Long) -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { saveNames(); st.managing = false }) { Text(stringResource(R.string.action_done)) } },
+        confirmButton = { SagaTextButton(onClick = { saveNames(); st.managing = false }) { Text(stringResource(R.string.action_done)) } },
         dismissButton = {
-            TextButton(onClick = {
+            SagaTextButton(onClick = {
                 saveNames()
                 scope.launch { st.tplNew(newTitle)?.let { st.managing = false; onOpen(it) } }
             }) { Text(stringResource(R.string.tpl_new)) }
@@ -437,8 +437,8 @@ internal fun TemplateManager(st: DbViewState, onOpen: (Long) -> Unit) {
             onDismissRequest = { trash = null },
             title = { Text(stringResource(R.string.tpl_trash_q, t.title.ifEmpty { untitled })) },
             text = { Text(stringResource(R.string.tpl_trash_hint)) },
-            confirmButton = { TextButton(onClick = { st.tplTrash(t); trash = null }) { Text(stringResource(R.string.tpl_trash), color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { trash = null }) { Text(stringResource(R.string.action_cancel)) } },
+            confirmButton = { SagaTextButton(onClick = { st.tplTrash(t); trash = null }) { Text(stringResource(R.string.tpl_trash), color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { SagaTextButton(onClick = { trash = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

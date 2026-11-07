@@ -396,6 +396,8 @@ private fun NavItem(label: String, icon: ImageVector?, selected: Boolean, badge:
         selected = selected,
         onClick = onClick,
         badge = badge?.let { { Badge { Text("$it") } } },
+        // R2c: gewaehlte Zeile 6 dp wie Web-Steuerelemente (--r-sm) statt Material-Pille
+        shape = MaterialTheme.shapes.small,
         modifier = Modifier.padding(horizontal = 12.dp),
     )
 }
@@ -424,7 +426,7 @@ private fun PageRowItem(
     val canTemplate = onTemplate != null && canSub && io.github.yggdrasil_sh.saga.data.Gallery.canBeParent(p)
     Box {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(CircleShape)
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(MaterialTheme.shapes.small)
                 .background(if (selected) io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.goldSoft else androidx.compose.ui.graphics.Color.Transparent)
                 .combinedClickable(
                     onClick = onOpen, onLongClick = if (canFavorite || canSub || canMove || canTemplate) ({ menu = true }) else null,

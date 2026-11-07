@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.settings
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.app.Activity
@@ -23,7 +24,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -98,7 +98,7 @@ fun LanguageRow(modifier: Modifier = Modifier) {
                     )
                 }
             },
-            confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_close)) } },
+            confirmButton = { SagaTextButton(onClick = { open = false }) { Text(stringResource(R.string.action_close)) } },
         )
     }
 }
@@ -111,7 +111,7 @@ fun LanguageMenuButton(modifier: Modifier = Modifier) {
     val shown = AppLanguage.normalize(chosen).ifEmpty { AppLanguage.normalize(stringResource(R.string.app_language)) }
     Box(modifier) {
         val desc = stringResource(R.string.language_change)
-        TextButton(onClick = { open = true }, modifier = Modifier.semantics { contentDescription = "$desc: ${AppLanguage.nativeName(shown)}" }) {
+        SagaTextButton(onClick = { open = true }, modifier = Modifier.semantics { contentDescription = "$desc: ${AppLanguage.nativeName(shown)}" }) {
             SagaIcon(SagaIcons.globe, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(AppLanguage.nativeName(shown))

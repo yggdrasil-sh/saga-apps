@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.tasks
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.clickable
@@ -24,7 +25,6 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -184,6 +184,6 @@ fun TaskSourcesDialog(repo: SagaRepository, onOpen: (Long) -> Unit, onClose: () 
                 Text(stringResource(R.string.e2_task_sources_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
-        confirmButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_done)) } },
+        confirmButton = { SagaTextButton(onClick = onClose) { Text(stringResource(R.string.action_done)) } },
     )
 }

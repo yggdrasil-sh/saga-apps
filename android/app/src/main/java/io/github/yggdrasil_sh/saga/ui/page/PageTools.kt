@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -17,7 +18,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -181,12 +181,12 @@ fun VersionsDialog(ed: PageEditor, repo: SagaRepository, onDismiss: () -> Unit) 
         confirmButton = {
             val v = sel
             if (v != null && PageToolsLogic.canRestore(ed.share.role, ed.locked)) {
-                TextButton(enabled = !busy && preview != null, onClick = { confirm = true }) { Text(stringResource(R.string.versions_restore)) }
+                SagaTextButton(enabled = !busy && preview != null, onClick = { confirm = true }) { Text(stringResource(R.string.versions_restore)) }
             } else {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+                SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
             }
         },
-        dismissButton = if (sel != null) ({ TextButton(onClick = { sel = null }) { Text(stringResource(R.string.versions_back)) } }) else null,
+        dismissButton = if (sel != null) ({ SagaTextButton(onClick = { sel = null }) { Text(stringResource(R.string.versions_back)) } }) else null,
     )
     val cv = sel
     if (confirm && cv != null) {
@@ -201,7 +201,7 @@ fun VersionsDialog(ed: PageEditor, repo: SagaRepository, onDismiss: () -> Unit) 
                 )
             },
             confirmButton = {
-                TextButton(enabled = !busy, onClick = {
+                SagaTextButton(enabled = !busy, onClick = {
                     confirm = false
                     val v = cv
                     busy = true
@@ -222,7 +222,7 @@ fun VersionsDialog(ed: PageEditor, repo: SagaRepository, onDismiss: () -> Unit) 
                     }
                 }) { Text(stringResource(R.string.versions_restore)) }
             },
-            dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { confirm = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

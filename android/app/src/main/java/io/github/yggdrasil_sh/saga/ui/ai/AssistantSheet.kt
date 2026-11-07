@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.ai
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.horizontalScroll
@@ -23,7 +26,6 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -35,14 +37,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -125,7 +125,7 @@ fun AssistantSheet(repo: SagaRepository, editor: PageEditor?, initialTab: Int, o
                         Text("✦ " + stringResource(R.string.ai_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                     }
                     // Verlauf nur, wenn der Admin ihn erlaubt
-                    if (st?.enabled == true && st.historyAllowed) TextButton(onClick = { history = true }) { Text(stringResource(R.string.ai_history)) }
+                    if (st?.enabled == true && st.historyAllowed) SagaTextButton(onClick = { history = true }) { Text(stringResource(R.string.ai_history)) }
                 }
                 if (history) HistoryDialog(repo, st) { history = false }
                 if (st != null && !st.enabled) {
@@ -261,9 +261,9 @@ private fun AskTab(repo: SagaRepository, st: AiStatus?, onOpenPage: (Long) -> Un
         }
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.End) {
             if (running) {
-                OutlinedButton(onClick = { job?.cancel(); turns.lastOrNull()?.running = false }) { Text(stringResource(R.string.ai_stop)) }
+                SagaOutlinedButton(onClick = { job?.cancel(); turns.lastOrNull()?.running = false }) { Text(stringResource(R.string.ai_stop)) }
             } else {
-                Button(onClick = {
+                SagaButton(onClick = {
                     val t = AskTurn(q.trim())
                     turns.add(t)
                     q = ""
@@ -374,9 +374,9 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
 
     Column(Modifier.padding(horizontal = 20.dp).verticalScroll(rememberScrollState())) {
         FlowRow(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            OutlinedButton(onClick = { run("summarize") }, enabled = !running) { Text(stringResource(R.string.ai_summarize)) }
-            OutlinedButton(onClick = { run("tasks") }, enabled = !running) { Text(stringResource(R.string.ai_suggest_tasks)) }
-            OutlinedButton(onClick = {
+            SagaOutlinedButton(onClick = { run("summarize") }, enabled = !running) { Text(stringResource(R.string.ai_summarize)) }
+            SagaOutlinedButton(onClick = { run("tasks") }, enabled = !running) { Text(stringResource(R.string.ai_suggest_tasks)) }
+            SagaOutlinedButton(onClick = {
                 asgOpen = true; asgDbs = null; action = null; done = null; text = ""; err = null
                 scope.launch {
                     if (canEdit) ed.saveAndWait()                                   // neu eingebettete Datenbank zuerst speichern
@@ -389,8 +389,8 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
             }, enabled = !running) { Text(stringResource(R.string.ai_assign)) }
         }
         FlowRow(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            OutlinedButton(onClick = { run("improve") }, enabled = !running && selected.isNotEmpty()) { Text(stringResource(R.string.ai_improve)) }
-            OutlinedButton(onClick = { run("translate") }, enabled = !running && selected.isNotEmpty()) { Text(stringResource(R.string.ai_translate_to)) }
+            SagaOutlinedButton(onClick = { run("improve") }, enabled = !running && selected.isNotEmpty()) { Text(stringResource(R.string.ai_improve)) }
+            SagaOutlinedButton(onClick = { run("translate") }, enabled = !running && selected.isNotEmpty()) { Text(stringResource(R.string.ai_translate_to)) }
             Box {
                 // Zielsprache (aus status.targets)
                 AssistChip(
@@ -405,7 +405,7 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
                 }
             }
         }
-        TextButton(onClick = { pickBlocks = !pickBlocks }) { Text(androidx.compose.ui.res.pluralStringResource(R.plurals.ai_selected_blocks, selected.size, selected.size)) }
+        SagaTextButton(onClick = { pickBlocks = !pickBlocks }) { Text(androidx.compose.ui.res.pluralStringResource(R.plurals.ai_selected_blocks, selected.size, selected.size)) }
         if (pickBlocks) {
             Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
                 blocks.forEach { (bid, t) ->
@@ -444,7 +444,7 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
                     androidx.compose.material3.OutlinedTextField(value = asgHint, onValueChange = { asgHint = it.take(300) }, singleLine = true,
                         label = { Text(stringResource(R.string.ai_assign_hint_label)) }, modifier = Modifier.fillMaxWidth())
                     if (!db.editable) Text(stringResource(R.string.ai_assign_read_only), style = MaterialTheme.typography.bodySmall)
-                    Button(onClick = {
+                    SagaButton(onClick = {
                         asgOff.clear(); asgApplied = false; asgOpen = false
                         run("assign", kotlinx.serialization.json.buildJsonObject {
                             put("db", kotlinx.serialization.json.JsonPrimitive(db.id)); put("prop", kotlinx.serialization.json.JsonPrimitive(asgProp ?: ""))
@@ -464,7 +464,7 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
                 Text(thinkingText(persona), modifier = Modifier.padding(start = 8.dp))
             }
         }
-        if (running) TextButton(onClick = { job?.cancel(); running = false }) { Text(stringResource(R.string.ai_stop)) }
+        if (running) SagaTextButton(onClick = { job?.cancel(); running = false }) { Text(stringResource(R.string.ai_stop)) }
         val d = done
         val ts = d?.tasks
         val asg = d?.assign
@@ -488,7 +488,7 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
                 val unsure = (asg?.get("unsure") as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 0
                 if (unsure > 0) Text(androidx.compose.ui.res.pluralStringResource(R.plurals.ai_assign_unsure, unsure, unsure), style = MaterialTheme.typography.bodySmall)
                 if (d.more > 0) Text(stringResource(R.string.ai_assign_more, d.more), style = MaterialTheme.typography.bodySmall)
-                Button(onClick = {
+                SagaButton(onClick = {
                     val pid = s(pr, "id")
                     val chosen = items.filter { (s(it, "id").toDoubleOrNull()?.toLong() ?: -1) !in asgOff }
                     asgApplied = true
@@ -517,13 +517,13 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
             }
             val chosen = ts.filterIndexed { i, _ -> taskOn.getOrElse(i) { true } }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-                Button(onClick = {
+                SagaButton(onClick = {
                     repo.launchAction {
                         chosen.forEach { repo.addTask(it, null) }
                         repo.notify(UiText.Plural(R.plurals.ai_tasks_added, chosen.size))
                     }
                 }, enabled = chosen.isNotEmpty()) { Text(stringResource(R.string.ai_add_tasks)) }
-                if (canEdit) OutlinedButton(onClick = { ed.appendChecklist(chosen) }, enabled = chosen.isNotEmpty()) { Text(stringResource(R.string.ai_insert_checklist)) }
+                if (canEdit) SagaOutlinedButton(onClick = { ed.appendChecklist(chosen) }, enabled = chosen.isNotEmpty()) { Text(stringResource(R.string.ai_insert_checklist)) }
             }
         } else if (text.isNotEmpty()) {
             AnswerText(text, emptyList(), onOpenPage)
@@ -533,12 +533,12 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
                 val replaceable = canEdit && segs != null && bl != null && bl.size == segs.size && bl.all { it.replaceable }
                 FlowRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     if ((action == "improve" || action == "translate") && replaceable) {
-                        Button(onClick = { confirmReplace = true }) { Text(stringResource(R.string.ai_replace)) }
+                        SagaButton(onClick = { confirmReplace = true }) { Text(stringResource(R.string.ai_replace)) }
                     }
                     if ((action == "improve" || action == "translate") && canEdit) {
-                        OutlinedButton(onClick = { ed.insertParagraphsAfter(bl?.lastOrNull()?.id ?: selected.lastOrNull(), text) }) { Text(stringResource(R.string.ai_insert_below)) }
+                        SagaOutlinedButton(onClick = { ed.insertParagraphsAfter(bl?.lastOrNull()?.id ?: selected.lastOrNull(), text) }) { Text(stringResource(R.string.ai_insert_below)) }
                     }
-                    OutlinedButton(onClick = { copyText(context, text); repo.notify(UiText.Res(R.string.text_copied)) }) { Text(stringResource(R.string.text_copy)) }
+                    SagaOutlinedButton(onClick = { copyText(context, text); repo.notify(UiText.Res(R.string.text_copied)) }) { Text(stringResource(R.string.text_copy)) }
                 }
             }
         }
@@ -550,7 +550,7 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
             onDismissRequest = { confirmReplace = false },
             title = { Text(stringResource(R.string.ai_replace_confirm)) },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     confirmReplace = false
                     val d = done
                     val bl = d?.blocks.orEmpty()
@@ -558,7 +558,7 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
                     ed.replaceBlockTexts(bl.zip(segs).associate { (b, s) -> b.id to s })
                 }) { Text(stringResource(R.string.ai_replace)) }
             },
-            dismissButton = { TextButton(onClick = { confirmReplace = false }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { confirmReplace = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }
@@ -608,19 +608,19 @@ private fun HistoryDialog(repo: SagaRepository, st: AiStatus?, onDismiss: () -> 
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
     if (confirmOff) {
         AlertDialog(
             onDismissRequest = { confirmOff = false },
             title = { Text(stringResource(R.string.ai_history_off_confirm)) },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     confirmOff = false
                     repo.launchAction { repo.ai.setHistory(false); on = false; items = emptyList() }
                 }) { Text(stringResource(R.string.ai_history_off), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { confirmOff = false }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { confirmOff = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.settings
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -26,10 +28,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -135,7 +135,7 @@ fun SecurityBlock(repo: SagaRepository, modifier: Modifier, reloadKey: Any?) {
             // Der Browser zeigt die Seite des DORT angemeldeten Kontos - Konto der App nennen und mitgeben (user=),
             // damit der Server bei einem anderen Konto warnen kann
             val account = repo.account.collectAsState().value.trim()
-            OutlinedButton(onClick = { openUrl(context, io.github.yggdrasil_sh.saga.auth.LoginFlow.securityUrl(repo.server.value, account), inApp = true) }) {
+            SagaOutlinedButton(onClick = { openUrl(context, io.github.yggdrasil_sh.saga.auth.LoginFlow.securityUrl(repo.server.value, account), inApp = true) }) {
                 Text(stringResource(R.string.security_manage))
             }
             if (account.isNotEmpty()) {
@@ -168,7 +168,7 @@ fun CallsFullScreenHint(modifier: Modifier) {
         headlineContent = { Text(stringResource(R.string.call_settings_title)) },
         supportingContent = { Text(stringResource(R.string.call_fullscreen_hint)) },
         trailingContent = {
-            TextButton(onClick = {
+            SagaTextButton(onClick = {
                 try {
                     context.startActivity(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:" + context.packageName)))
                 } catch (_: Exception) {
@@ -198,7 +198,7 @@ fun CallsPushHint(push: io.github.yggdrasil_sh.saga.push.PushService, modifier: 
     ListItem(
         headlineContent = { Text(stringResource(R.string.call_push_title)) },
         supportingContent = { Text(stringResource(R.string.call_push_hint)) },
-        trailingContent = { TextButton(onClick = onSetup) { Text(stringResource(R.string.call_push_setup)) } },
+        trailingContent = { SagaTextButton(onClick = onSetup) { Text(stringResource(R.string.call_push_setup)) } },
         modifier = modifier,
     )
 }
@@ -210,8 +210,8 @@ fun CallPushHintDialog(onSetup: () -> Unit, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.call_push_title)) },
         text = { Text(stringResource(R.string.call_push_hint)) },
-        confirmButton = { TextButton(onClick = onSetup) { Text(stringResource(R.string.call_push_setup)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.call_push_later)) } },
+        confirmButton = { SagaTextButton(onClick = onSetup) { Text(stringResource(R.string.call_push_setup)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.call_push_later)) } },
     )
 }
 
@@ -287,11 +287,11 @@ fun ProfilePictureBlock(repo: SagaRepository, account: String, modifier: Modifie
             if (busy) CircularProgressIndicator(Modifier.padding(start = 8.dp))
         }
         FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !busy) {
+            SagaOutlinedButton(onClick = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !busy) {
                 Text(stringResource(R.string.avatar_upload))
             }
             if (s.upload) {
-                TextButton(onClick = { run({ repo.deleteAvatar() }, UiText.Res(R.string.avatar_removed)) }, enabled = !busy) {
+                SagaTextButton(onClick = { run({ repo.deleteAvatar() }, UiText.Res(R.string.avatar_removed)) }, enabled = !busy) {
                     Text(stringResource(R.string.avatar_remove), color = MaterialTheme.colorScheme.error)
                 }
             }
@@ -442,13 +442,13 @@ private fun AvatarCropDialog(bmp: Bitmap, onCancel: () -> Unit, onDone: (Pair<By
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            SagaTextButton(onClick = {
                 if (view <= 0f) return@TextButton
                 val (l, t, side) = AvatarCrop.cropRect(bmp.width, bmp.height, view, scale, offset)
                 onDone(AvatarCrop.encode(bmp, l, t, side))
             }) { Text(stringResource(R.string.action_save)) }
         },
-        dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 

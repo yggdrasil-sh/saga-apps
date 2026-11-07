@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,7 +12,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -289,7 +289,7 @@ fun PageLiveBanner(st: PageLiveState, onReload: () -> Unit) {
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
                 )
-                TextButton(onClick = onReload) { Text(stringResource(R.string.live_reload)) }
+                SagaTextButton(onClick = onReload) { Text(stringResource(R.string.live_reload)) }
             }
         }
         HorizontalDivider()

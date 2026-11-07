@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.notifications
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.background
@@ -20,10 +22,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -68,7 +68,7 @@ fun NotificationsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome)
     Scaffold(topBar = {
         SagaTopBar(stringResource(R.string.notifications), nav, chrome) {
             // "Alle gelesen" sichtbar als Textknopf (wie im Web); NAV-22: ohne Ungelesene ausgeblendet statt grau (wirkte wie ein Fehler)
-            if (unread > 0) TextButton(onClick = { repo.launchAction { live.markAllRead() } }) { Text(stringResource(R.string.notifications_mark_all)) }
+            if (unread > 0) SagaTextButton(onClick = { repo.launchAction { live.markAllRead() } }) { Text(stringResource(R.string.notifications_mark_all)) }
             IconButton(onClick = { io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, "notifs", replace = true) }) { SagaIcon(SagaIcons.settings, stringResource(R.string.notifications_settings)) }
         }
     }) { pad ->
@@ -105,7 +105,7 @@ fun NotificationsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome)
                 }
                 if (more) {
                     item {
-                        OutlinedButton(onClick = { repo.launchAction { live.loadMore() } }, modifier = Modifier.padding(16.dp)) {
+                        SagaOutlinedButton(onClick = { repo.launchAction { live.loadMore() } }, modifier = Modifier.padding(16.dp)) {
                             Text(stringResource(R.string.notifications_load_older))
                         }
                     }

@@ -195,7 +195,7 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
                 // 2.3: Nachrichtenanfragen (Personen anderer Server, noch nicht angenommen) oben in eigenem Bereich
                 // wie iOS: Suchfeld ueber der Liste (Name des Chats bzw. der Person)
                 if (chats.isNotEmpty() || query.isNotEmpty()) item(key = "search") {
-                    // Design 2: Suchfeld als gefuellte Pille (wie die Suchleiste in Material 3)
+                    // Design 2: gefuelltes Suchfeld; R2c: Ecken 6 dp wie Web-Felder (--r-sm)
                     androidx.compose.material3.TextField(
                         value = query, onValueChange = { query = it.take(100) }, singleLine = true,
                         colors = androidx.compose.material3.TextFieldDefaults.colors(
@@ -205,7 +205,7 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
                         placeholder = { Text(stringResource(R.string.chat_search_list)) },
                         leadingIcon = { SagaIcon(SagaIcons.search, null) },
                         trailingIcon = { if (query.isNotEmpty()) androidx.compose.material3.IconButton(onClick = { query = "" }) { SagaIcon(SagaIcons.x, stringResource(R.string.action_close)) } },
-                        shape = RoundedCornerShape(SagaRadius.md),
+                        shape = MaterialTheme.shapes.small,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
                     )
                 }

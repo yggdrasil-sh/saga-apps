@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -17,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -25,10 +27,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -108,8 +108,8 @@ fun FedTrustBanner(p: ChatPerson, st: FedKeyState, onSafety: () -> Unit, onAckno
                 Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 8.dp))
             }
             FlowRow(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                if (st.trust != TofuV2.REJECT) TextButton(onClick = onSafety) { Text(stringResource(R.string.chat_safety_number), color = MaterialTheme.colorScheme.onErrorContainer) }
-                if (st.trust == TofuV2.WARN) TextButton(onClick = onAcknowledge) { Text(stringResource(R.string.fed_understood), color = MaterialTheme.colorScheme.onErrorContainer) }
+                if (st.trust != TofuV2.REJECT) SagaTextButton(onClick = onSafety) { Text(stringResource(R.string.chat_safety_number), color = MaterialTheme.colorScheme.onErrorContainer) }
+                if (st.trust == TofuV2.WARN) SagaTextButton(onClick = onAcknowledge) { Text(stringResource(R.string.fed_understood), color = MaterialTheme.colorScheme.onErrorContainer) }
             }
         }
     }
@@ -141,7 +141,7 @@ fun FedStateBar(sum: ChatSummary, request: Boolean, onAnswer: (String, String) -
             var menu by remember { mutableStateOf(false) }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
                 Box {
-                    TextButton(onClick = { menu = true }) { Text(stringResource(R.string.fed_block_menu), color = MaterialTheme.colorScheme.error) }
+                    SagaTextButton(onClick = { menu = true }) { Text(stringResource(R.string.fed_block_menu), color = MaterialTheme.colorScheme.error) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.fed_block_person, name), color = MaterialTheme.colorScheme.error) },
@@ -153,8 +153,8 @@ fun FedStateBar(sum: ChatSummary, request: Boolean, onAnswer: (String, String) -
                         )
                     }
                 }
-                OutlinedButton(onClick = { onAnswer("decline", "person") }) { Text(stringResource(R.string.fed_decline)) }
-                Button(onClick = { onAnswer("accept", "person") }) { Text(stringResource(R.string.fed_accept)) }
+                SagaOutlinedButton(onClick = { onAnswer("decline", "person") }) { Text(stringResource(R.string.fed_decline)) }
+                SagaButton(onClick = { onAnswer("accept", "person") }) { Text(stringResource(R.string.fed_accept)) }
             }
         }
     }
@@ -225,7 +225,7 @@ fun FedBlocksDialog(repo: SagaRepository, onDismiss: () -> Unit) {
                                     Text(if (b.kind == "instance") stringResource(R.string.fed_blocks_instance, b.host ?: b.target) else stringResource(R.string.fed_blocks_person))
                                 },
                                 trailingContent = {
-                                    TextButton(onClick = { repo.launchAction { repo.chat.fed.unblock(b.target); tick++ } }) { Text(stringResource(R.string.fed_unblock)) }
+                                    SagaTextButton(onClick = { repo.launchAction { repo.chat.fed.unblock(b.target); tick++ } }) { Text(stringResource(R.string.fed_unblock)) }
                                 },
                             )
                         }
@@ -233,6 +233,6 @@ fun FedBlocksDialog(repo: SagaRepository, onDismiss: () -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }

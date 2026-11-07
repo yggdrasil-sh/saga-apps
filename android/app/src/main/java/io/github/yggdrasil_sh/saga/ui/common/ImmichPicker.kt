@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.common
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -22,7 +23,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
@@ -194,7 +194,7 @@ fun ImmichPicker(repo: SagaRepository, onDismiss: () -> Unit, onPick: (ImmichAss
                             if (next != null && !loading) {
                                 item(span = { GridItemSpan(maxLineSpan) }) {
                                     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                        OutlinedButton(onClick = { scope.launch { loadItems(false) } }, modifier = Modifier.padding(8.dp)) {
+                                        SagaOutlinedButton(onClick = { scope.launch { loadItems(false) } }, modifier = Modifier.padding(8.dp)) {
                                             Text(stringResource(R.string.immich_more))
                                         }
                                     }

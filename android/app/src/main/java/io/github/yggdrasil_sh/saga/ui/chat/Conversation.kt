@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -41,11 +43,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.platform.LocalDensity
@@ -697,7 +697,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                         stringResource(R.string.chat_safety_changed, who), style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.weight(1f).padding(start = 8.dp),
                     )
-                    TextButton(onClick = { dialog = "safety" }) { Text(stringResource(R.string.chat_show), color = MaterialTheme.colorScheme.onErrorContainer) }
+                    SagaTextButton(onClick = { dialog = "safety" }) { Text(stringResource(R.string.chat_show), color = MaterialTheme.colorScheme.onErrorContainer) }
                 }
             }
         }
@@ -812,7 +812,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 if (s.more && search == null) {
                     item {
                         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            OutlinedButton(onClick = { repo.launchAction { s.loadOlder() } }, modifier = Modifier.padding(8.dp)) {
+                            SagaOutlinedButton(onClick = { repo.launchAction { s.loadOlder() } }, modifier = Modifier.padding(8.dp)) {
                                 Text(stringResource(R.string.notifications_load_older))
                             }
                         }
@@ -1114,11 +1114,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             title = { Text(stringResource(R.string.std_moddel_title)) },
             text = { Text(stringResource(R.string.std_moddel_text, senderName(m).ifEmpty { "?" })) },
             confirmButton = {
-                TextButton(onClick = { modDel = null; repo.launchAction { s.deleteAsAdmin(m) } }) {
+                SagaTextButton(onClick = { modDel = null; repo.launchAction { s.deleteAsAdmin(m) } }) {
                     Text(stringResource(R.string.std_delete), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { modDel = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { modDel = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
     // 2.4: "Gelesen von" einer eigenen Nachricht (Gruppen)
@@ -1162,7 +1162,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 onDismissRequest = { selDialog = null; if (!selecting) selected = emptySet() },
                 title = { Text(pluralStringResource(R.plurals.cs_forward_confirm, selMsgs.size, selMsgs.size, name)) },
                 confirmButton = {
-                    TextButton(onClick = {
+                    SagaTextButton(onClick = {
                         val msgs = selMsgs
                         endSelection()
                         forwarding = true
@@ -1174,7 +1174,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                         }
                     }) { Text(stringResource(R.string.cs_forward)) }
                 },
-                dismissButton = { TextButton(onClick = { selDialog = null; if (!selecting) selected = emptySet() }) { Text(stringResource(R.string.action_cancel)) } },
+                dismissButton = { SagaTextButton(onClick = { selDialog = null; if (!selecting) selected = emptySet() }) { Text(stringResource(R.string.action_cancel)) } },
             )
         }
         "page" -> ToPageDialog(onDismiss = { selDialog = null }, onNew = { selDialog = "page_new" }, onAppend = { selDialog = "page_pick" })
@@ -1221,11 +1221,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             title = { Text(stringResource(R.string.chat_unverified)) },
             text = { Text(stringResource(R.string.chat_unverified_explain)) },
             confirmButton = {
-                TextButton(onClick = { unverifiedOf = null; safetyFor = who.ifEmpty { null }; dialog = "safety" }) {
+                SagaTextButton(onClick = { unverifiedOf = null; safetyFor = who.ifEmpty { null }; dialog = "safety" }) {
                     Text(stringResource(R.string.chat_check_safety))
                 }
             },
-            dismissButton = { TextButton(onClick = { unverifiedOf = null }) { Text(stringResource(R.string.action_close)) } },
+            dismissButton = { SagaTextButton(onClick = { unverifiedOf = null }) { Text(stringResource(R.string.action_close)) } },
         )
     }
     when (dialog) {
@@ -1271,7 +1271,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             title = { Text(stringResource(R.string.chat_ai_allow_title, aiName)) },
             text = { Text(stringResource(R.string.chat_ai_allow_text, aiName, AiChatLogic.CTX_MAX, aiHost)) },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     dialog = null
                     repo.launchAction {
                         s.setAi(true)
@@ -1279,19 +1279,19 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     }
                 }) { Text(stringResource(R.string.chat_ai_allow_ok)) }
             },
-            dismissButton = { TextButton(onClick = { dialog = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { dialog = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
         "page" -> PagePickDialog(repo, onDismiss = { dialog = null }) { n -> dialog = null; if (noteIds.none { it.id == n.id }) noteIds.add(n) }
         "leave" -> AlertDialog(
             onDismissRequest = { dialog = null },
             title = { Text(stringResource(R.string.chat_leave_title)) },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     dialog = null
                     repo.launchAction { s.leave(); nav.top(Dest.Chats) }
                 }) { Text(stringResource(R.string.chat_leave), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { dialog = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { dialog = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }
@@ -1787,7 +1787,7 @@ internal fun Bubble(
                         c.preview?.takeIf { ChatStd.showPreview(it) }?.let { pv -> PreviewCard(pv, s) }
                         c.notes.filter { id -> !c.text.contains("[[note:$id]]") }.forEach { id ->
                             val ref = s.notes[id]
-                            if (ref != null) TextButton(onClick = { onOpenNote(id) }) {
+                            if (ref != null) SagaTextButton(onClick = { onOpenNote(id) }) {
                                 SagaIcon(SagaIcons.file, null, Modifier.padding(end = 6.dp).size(16.dp))
                                 Text(ref.title)
                             } else Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1899,9 +1899,9 @@ internal fun Bubble(
             onDismissRequest = { confirmDelete = false },
             title = { Text(stringResource(R.string.chat_delete_all_title)) },
             confirmButton = {
-                TextButton(onClick = { confirmDelete = false; onDelete() }) { Text(stringResource(R.string.chat_delete_all), color = MaterialTheme.colorScheme.error) }
+                SagaTextButton(onClick = { confirmDelete = false; onDelete() }) { Text(stringResource(R.string.chat_delete_all), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }
@@ -1920,7 +1920,7 @@ internal fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit,
     }
     // 2.4: neueres Format (x > 2) nicht still scheitern lassen
     if (f.unsupported) {
-        TextButton(onClick = {}, enabled = false) {
+        SagaTextButton(onClick = {}, enabled = false) {
             SagaIcon(SagaIcons.paperclip, null, Modifier.padding(end = 6.dp).size(16.dp))
             Text(f.n + " · " + stringResource(R.string.video_newer_version), maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
@@ -2043,9 +2043,9 @@ private fun CallEntryRow(
                     modifier = Modifier.padding(start = 6.dp, end = 8.dp),
                 )
                 if (missed && canCall) {
-                    TextButton(onClick = { onCall(e.media == "video") }) { Text(stringResource(R.string.call_back)) }
+                    SagaTextButton(onClick = { onCall(e.media == "video") }) { Text(stringResource(R.string.call_back)) }
                 } else if (logic.redial(e, me) && canCall) {
-                    TextButton(onClick = { onCall(e.media == "video") }) { Text(stringResource(R.string.r1_call_redial)) }
+                    SagaTextButton(onClick = { onCall(e.media == "video") }) { Text(stringResource(R.string.r1_call_redial)) }
                 }
             }
         }

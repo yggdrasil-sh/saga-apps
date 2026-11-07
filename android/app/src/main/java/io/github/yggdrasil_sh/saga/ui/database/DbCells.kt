@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.ui.graphics.luminance
@@ -28,7 +29,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -314,15 +314,15 @@ private fun LegacyDateDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement
     DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = {
+            SagaTextButton(onClick = {
                 onSet(DbValues.date(state.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }))
                 onDismiss()
             }) { Text(stringResource(R.string.action_apply)) }
         },
         dismissButton = {
             Row {
-                if (value != null && value !is JsonNull) TextButton(onClick = { onSet(JsonNull); onDismiss() }) { Text(stringResource(R.string.dbv_clear)) }
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+                if (value != null && value !is JsonNull) SagaTextButton(onClick = { onSet(JsonNull); onDismiss() }) { Text(stringResource(R.string.dbv_clear)) }
+                SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
             }
         },
     ) { DatePicker(state) }
@@ -343,15 +343,15 @@ private fun PropValueEditorBase(
             DatePickerDialog(
                 onDismissRequest = onDismiss,
                 confirmButton = {
-                    TextButton(onClick = {
+                    SagaTextButton(onClick = {
                         onSet(DbValues.date(state.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }))
                         onDismiss()
                     }) { Text(stringResource(R.string.action_apply)) }
                 },
                 dismissButton = {
                     Row {
-                        if (value != null && value !is JsonNull) TextButton(onClick = { onSet(JsonNull); onDismiss() }) { Text(stringResource(R.string.dbv_clear)) }
-                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+                        if (value != null && value !is JsonNull) SagaTextButton(onClick = { onSet(JsonNull); onDismiss() }) { Text(stringResource(R.string.dbv_clear)) }
+                        SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
                     }
                 },
             ) { DatePicker(state) }
@@ -381,7 +381,7 @@ private fun PropValueEditorBase(
                     )
                 },
                 confirmButton = {
-                    TextButton(onClick = {
+                    SagaTextButton(onClick = {
                         val v = if (num) DbValues.number(text, locale) else DbValues.text(text)
                         if (v == null) bad = true else {
                             onSet(v)
@@ -389,7 +389,7 @@ private fun PropValueEditorBase(
                         }
                     }) { Text(stringResource(R.string.action_apply)) }
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+                dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
             )
         }
     }
@@ -442,12 +442,12 @@ private fun OptionDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -
             }
         },
         confirmButton = {
-            if (multi) TextButton(onClick = { onSet(cur); onDismiss() }) { Text(stringResource(R.string.action_apply)) }
+            if (multi) SagaTextButton(onClick = { onSet(cur); onDismiss() }) { Text(stringResource(R.string.action_apply)) }
         },
         dismissButton = {
             Row {
-                if (DbValues.ids(value).isNotEmpty()) TextButton(onClick = { onSet(JsonNull); onDismiss() }) { Text(stringResource(R.string.dbv_clear)) }
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+                if (DbValues.ids(value).isNotEmpty()) SagaTextButton(onClick = { onSet(JsonNull); onDismiss() }) { Text(stringResource(R.string.dbv_clear)) }
+                SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
             }
         },
     )
@@ -491,8 +491,8 @@ private fun RelationDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?)
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onSet(cur ?: JsonNull); onDismiss() }) { Text(stringResource(R.string.action_apply)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = { SagaTextButton(onClick = { onSet(cur ?: JsonNull); onDismiss() }) { Text(stringResource(R.string.action_apply)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -518,7 +518,7 @@ fun PropRow(p: DbProp, v: JsonElement?, fmt: DbFormat, editable: Boolean, onEdit
         }
         val link = if (p.type == "url" || p.type == "email" || p.type == "phone") DbValues.safeLink(p.type, v.prim().orEmpty()) else null
         if (link != null && onLink != null) {
-            TextButton(onClick = { onLink(link) }) { Text(stringResource(R.string.dbv_open_link)) }
+            SagaTextButton(onClick = { onLink(link) }) { Text(stringResource(R.string.dbv_open_link)) }
         }
     }
 }

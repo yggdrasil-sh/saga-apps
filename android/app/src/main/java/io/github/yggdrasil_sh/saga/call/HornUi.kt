@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.call
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.foundation.background
@@ -29,10 +31,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -351,7 +351,7 @@ private fun Tile(
 fun HornRunesDialog(ui: HornUi, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
         title = { Text(stringResource(R.string.horn_runes), modifier = Modifier.semantics { heading() }) },
         text = { HornRunesBody(ui) },
     )
@@ -383,7 +383,7 @@ fun HornRunesBody(ui: HornUi) {
 fun HornPeopleDialog(ui: HornUi, onMute: (String) -> Unit, onRemove: (String) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
         title = { Text(stringResource(R.string.horn_people, ui.people.size), modifier = Modifier.semantics { heading() }) },
         text = { HornPeopleList(ui, onMute, onRemove) },
     )
@@ -420,11 +420,11 @@ fun HornPeopleList(ui: HornUi, onMute: (String) -> Unit, onRemove: (String) -> U
                 if (p.moderate) {
                     val muteCd = stringResource(R.string.horn_mute_cd, p.name)
                     val rmCd = stringResource(R.string.horn_remove_cd, p.name)
-                    if (p.mic) TextButton(onClick = { onMute(p.dev) }, modifier = Modifier.semantics { contentDescription = muteCd }) {
+                    if (p.mic) SagaTextButton(onClick = { onMute(p.dev) }, modifier = Modifier.semantics { contentDescription = muteCd }) {
                         Text(stringResource(R.string.horn_mute))
                     }
                     val isSure = sure == p.dev
-                    OutlinedButton(modifier = Modifier.semantics { contentDescription = if (isSure) rmCd + "?" else rmCd }, onClick = {
+                    SagaOutlinedButton(modifier = Modifier.semantics { contentDescription = if (isSure) rmCd + "?" else rmCd }, onClick = {
                         if (isSure) {
                             sure = null
                             onRemove(p.dev)

@@ -66,7 +66,7 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     Scaffold(topBar = {
         SagaTopBar(stringResource(R.string.nav_tasks), nav, chrome) {
             if (merged != null) {
-                androidx.compose.material3.TextButton(onClick = { manage = true }) { Text(stringResource(R.string.e2_task_sources)) }
+                io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton(onClick = { manage = true }) { Text(stringResource(R.string.e2_task_sources)) }
             }
         }
     }) { pad ->

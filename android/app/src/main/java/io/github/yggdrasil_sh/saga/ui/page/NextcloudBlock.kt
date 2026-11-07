@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.material3.ButtonDefaults
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
@@ -25,10 +27,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -179,7 +179,7 @@ fun NextcloudCard(d: JsonObject, env: BlockEnv) {
         }
         if (ok || !loaded) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (!dir && ok) {
-                OutlinedButton(onClick = {
+                SagaOutlinedButton(onClick = {
                     if (downloading) return@OutlinedButton
                     downloading = true
                     scope.launch {
@@ -193,7 +193,7 @@ fun NextcloudCard(d: JsonObject, env: BlockEnv) {
                 }
             }
             NcLogic.openUrl(d, remote)?.let { u ->
-                OutlinedButton(onClick = { openUrl(context, u) }) {
+                SagaOutlinedButton(onClick = { openUrl(context, u) }) {
                     Text(stringResource(R.string.nc_open))
                     SagaIcon(SagaIcons.external, null, Modifier.padding(start = 6.dp).size(ButtonDefaults.IconSize))
                 }
@@ -291,7 +291,7 @@ fun NextcloudPickerDialog(repo: SagaRepository, onDismiss: () -> Unit, onPick: (
                 OutlinedTextField(value = q, onValueChange = { q = it }, singleLine = true, label = { Text(stringResource(R.string.nc_search)) }, modifier = Modifier.fillMaxWidth())
                 if (mode == "dirs" && q.isBlank()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (path != "/") TextButton(onClick = { path = path.trimEnd('/').substringBeforeLast('/').ifEmpty { "/" } }) { Text("‹ " + stringResource(R.string.nc_up)) }
+                        if (path != "/") SagaTextButton(onClick = { path = path.trimEnd('/').substringBeforeLast('/').ifEmpty { "/" } }) { Text("‹ " + stringResource(R.string.nc_up)) }
                         Text(path, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
@@ -308,7 +308,7 @@ fun NextcloudPickerDialog(repo: SagaRepository, onDismiss: () -> Unit, onPick: (
                             supportingContent = {
                                 Text(listOfNotNull(if (it.dir) stringResource(R.string.nc_folder) else BackupLogic.size(it.size), it.mtime?.let { t -> epochDay(t) }).joinToString(" · "))
                             },
-                            trailingContent = if (browse) { { TextButton(onClick = { onPick(NcLogic.newBlockData(it, me.orEmpty())) }) { Text(stringResource(R.string.nc_insert)) } } } else null,
+                            trailingContent = if (browse) { { SagaTextButton(onClick = { onPick(NcLogic.newBlockData(it, me.orEmpty())) }) { Text(stringResource(R.string.nc_insert)) } } } else null,
                             modifier = Modifier.clickable {
                                 if (browse) path = it.path.ifEmpty { "/" + it.name }
                                 else onPick(NcLogic.newBlockData(it, me.orEmpty()))
@@ -318,6 +318,6 @@ fun NextcloudPickerDialog(repo: SagaRepository, onDismiss: () -> Unit, onPick: (
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

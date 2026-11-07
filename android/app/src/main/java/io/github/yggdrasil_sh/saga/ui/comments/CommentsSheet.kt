@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.comments
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -26,7 +28,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,7 +43,6 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -123,7 +123,7 @@ fun CommentsSheet(model: CommentsModel, scope: CoroutineScope, quote: (String) -
                     IconButton(onClick = { model.close() }) { SagaIcon(SagaIcons.x, stringResource(R.string.comments_close)) }
                 }
                 if (model.block != null) {
-                    TextButton(onClick = { model.showAll() }, modifier = Modifier.padding(start = 12.dp)) { Text(stringResource(R.string.comments_all_threads)) }
+                    SagaTextButton(onClick = { model.showAll() }, modifier = Modifier.padding(start = 12.dp)) { Text(stringResource(R.string.comments_all_threads)) }
                 }
                 HorizontalDivider()
                 if (model.loading && !model.loaded) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -177,12 +177,12 @@ fun CommentsSheet(model: CommentsModel, scope: CoroutineScope, quote: (String) -
             title = { Text(stringResource(title)) },
             text = { Text(stringResource(text)) },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     confirm = null
                     scope.launch { model.delete(c.id, a == CommentAction.DELETE_THREAD) }
                 }) { Text(stringResource(R.string.comments_delete), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { confirm = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }
@@ -240,7 +240,7 @@ private fun Editor(
                 })
             },
             trailingIcon = if (mm != null) ({
-                TextButton(onClick = { mm.pick { ref -> onValue((value.trimEnd() + (if (value.isBlank()) "" else " ") + io.github.yggdrasil_sh.saga.data.CommentMentions.token(ref) + " ").take(CommentLogic.MAX)) } }) { Text("@") }
+                SagaTextButton(onClick = { mm.pick { ref -> onValue((value.trimEnd() + (if (value.isBlank()) "" else " ") + io.github.yggdrasil_sh.saga.data.CommentMentions.token(ref) + " ").take(CommentLogic.MAX)) } }) { Text("@") }
             }) else null,
             modifier = Modifier.fillMaxWidth().semantics { contentDescription = placeholder },
             minLines = 1, maxLines = 6,
@@ -252,8 +252,8 @@ private fun Editor(
                 if (n > CommentLogic.MAX - 200) stringResource(R.string.comments_counter, n, CommentLogic.MAX) else "",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f),
             )
-            if (onCancel != null) TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
-            Button(onClick = onOk, enabled = value.isNotBlank() && !busy, modifier = Modifier.padding(start = 8.dp)) { Text(ok) }
+            if (onCancel != null) SagaTextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
+            SagaButton(onClick = onOk, enabled = value.isNotBlank() && !busy, modifier = Modifier.padding(start = 8.dp)) { Text(ok) }
         }
     }
 }
@@ -324,11 +324,11 @@ private fun ThreadCard(
             }
             Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (model.replyTo != t.id) {
-                    TextButton(onClick = { model.replyTo = t.id; model.editing = null }) { Text(stringResource(R.string.comments_reply)) }
+                    SagaTextButton(onClick = { model.replyTo = t.id; model.editing = null }) { Text(stringResource(R.string.comments_reply)) }
                 }
                 Spacer(Modifier.weight(1f))
                 val desc = stringResource(if (t.resolved) R.string.comments_reopen_desc else R.string.comments_resolve_desc)
-                TextButton(
+                SagaTextButton(
                     onClick = {
                         scope.launch {
                             model.resolve(t, !t.resolved) { scope.launch { model.resolve(t, false) } }

@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.events
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,11 +17,9 @@ import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
@@ -123,13 +123,13 @@ fun EventDialog(repo: SagaRepository, event: CalEvent?, day: LocalDate, onDismis
                 }
                 Text(stringResource(R.string.ev_start), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
                 Row {
-                    OutlinedButton(onClick = { pickDate = 0 }, enabled = !ro) { Text(form.startDate.format(dateFmt)) }
-                    if (!form.allday) OutlinedButton(onClick = { pickTime = 0 }, enabled = !ro, modifier = Modifier.padding(start = 8.dp)) { Text(form.startTime.format(timeFmt)) }
+                    SagaOutlinedButton(onClick = { pickDate = 0 }, enabled = !ro) { Text(form.startDate.format(dateFmt)) }
+                    if (!form.allday) SagaOutlinedButton(onClick = { pickTime = 0 }, enabled = !ro, modifier = Modifier.padding(start = 8.dp)) { Text(form.startTime.format(timeFmt)) }
                 }
                 Text(stringResource(R.string.ev_end), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
                 Row {
-                    OutlinedButton(onClick = { pickDate = 1 }, enabled = !ro) { Text(form.endDate.format(dateFmt)) }
-                    if (!form.allday) OutlinedButton(onClick = { pickTime = 1 }, enabled = !ro, modifier = Modifier.padding(start = 8.dp)) { Text(form.endTime.format(timeFmt)) }
+                    SagaOutlinedButton(onClick = { pickDate = 1 }, enabled = !ro) { Text(form.endDate.format(dateFmt)) }
+                    if (!form.allday) SagaOutlinedButton(onClick = { pickTime = 1 }, enabled = !ro, modifier = Modifier.padding(start = 8.dp)) { Text(form.endTime.format(timeFmt)) }
                 }
                 if (event == null) {
                     val list = targets.orEmpty()
@@ -164,14 +164,14 @@ fun EventDialog(repo: SagaRepository, event: CalEvent?, day: LocalDate, onDismis
             }
         },
         confirmButton = {
-            if (!ro) TextButton(enabled = !busy && !noTargets && (event != null || targets != null), onClick = {
+            if (!ro) SagaTextButton(enabled = !busy && !noTargets && (event != null || targets != null), onClick = {
                 run({ repo.saveEvent(form, targets?.getOrNull(form.target), event, fallback) }, UiText.Res(if (event == null) R.string.ev_created else R.string.ev_saved))
             }) { Text(stringResource(if (event == null) R.string.ev_create else R.string.ev_save)) }
         },
         dismissButton = {
             Row {
-                if (event != null && !ro) TextButton(onClick = { askDelete = true }, enabled = !busy) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
-                TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(if (ro) R.string.action_close else R.string.action_cancel)) }
+                if (event != null && !ro) SagaTextButton(onClick = { askDelete = true }, enabled = !busy) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
+                SagaTextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(if (ro) R.string.action_close else R.string.action_cancel)) }
             }
         },
     )
@@ -182,11 +182,11 @@ fun EventDialog(repo: SagaRepository, event: CalEvent?, day: LocalDate, onDismis
             title = { Text(stringResource(R.string.ev_delete_title, event.summary.ifEmpty { fallback })) },
             text = { Text(stringResource(R.string.ev_delete_text)) },
             confirmButton = {
-                TextButton(onClick = { askDelete = false; run({ repo.deleteEvent(event) }, UiText.Res(R.string.ev_deleted)) }) {
+                SagaTextButton(onClick = { askDelete = false; run({ repo.deleteEvent(event) }, UiText.Res(R.string.ev_deleted)) }) {
                     Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { askDelete = false }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { askDelete = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 
@@ -196,7 +196,7 @@ fun EventDialog(repo: SagaRepository, event: CalEvent?, day: LocalDate, onDismis
         DatePickerDialog(
             onDismissRequest = { pickDate = null },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     st.selectedDateMillis?.let { ms ->
                         val d = Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate()
                         form = (if (which == 0) {
@@ -207,7 +207,7 @@ fun EventDialog(repo: SagaRepository, event: CalEvent?, day: LocalDate, onDismis
                     pickDate = null
                 }) { Text(stringResource(R.string.action_apply)) }
             },
-            dismissButton = { TextButton(onClick = { pickDate = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { pickDate = null }) { Text(stringResource(R.string.action_cancel)) } },
         ) { DatePicker(st) }
     }
     pickTime?.let { which ->
@@ -217,7 +217,7 @@ fun EventDialog(repo: SagaRepository, event: CalEvent?, day: LocalDate, onDismis
             onDismissRequest = { pickTime = null },
             text = { TimePicker(st) },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     val t = LocalTime.of(st.hour, st.minute)
                     form = (if (which == 0) {
                         val dur = Duration.between(form.startDate.atTime(form.startTime), form.endDate.atTime(form.endTime))
@@ -228,7 +228,7 @@ fun EventDialog(repo: SagaRepository, event: CalEvent?, day: LocalDate, onDismis
                     pickTime = null
                 }) { Text(stringResource(R.string.action_apply)) }
             },
-            dismissButton = { TextButton(onClick = { pickTime = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { pickTime = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

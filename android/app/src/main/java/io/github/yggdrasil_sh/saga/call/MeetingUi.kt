@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.call
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import android.content.Context
 import android.graphics.SurfaceTexture
 import android.view.TextureView
@@ -46,7 +47,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -387,7 +387,7 @@ private fun StageView(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 12.dp)) {
                 Text(stringResource(R.string.meet_zoom, (scale * 100).toInt()), style = MaterialTheme.typography.labelLarge)
-                TextButton(onClick = { scale = 1f; off = Offset.Zero }) { Text(stringResource(R.string.meet_zoom_reset), color = Color.White) }
+                SagaTextButton(onClick = { scale = 1f; off = Offset.Zero }) { Text(stringResource(R.string.meet_zoom_reset), color = Color.White) }
             }
         }
     }

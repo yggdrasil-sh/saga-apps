@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.call
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import android.Manifest
@@ -55,7 +56,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -371,11 +371,11 @@ private fun CallScreen(
             text = if (!p.third) ({ Text(stringResource(R.string.meet_echo_manual, p.second)) }) else null,
             confirmButton = {
                 Column(horizontalAlignment = Alignment.End) {
-                    if (p.third) TextButton(onClick = { echoAsk = null; calls.askMute(p.first); doEcho(what) }) {
+                    if (p.third) SagaTextButton(onClick = { echoAsk = null; calls.askMute(p.first); doEcho(what) }) {
                         Text(stringResource(R.string.meet_echo_here, p.second))
                     }
-                    TextButton(onClick = { echoAsk = null; doEcho(what) }) { Text(stringResource(R.string.meet_echo_anyway)) }
-                    TextButton(onClick = { echoAsk = null }) { Text(stringResource(R.string.action_cancel)) }
+                    SagaTextButton(onClick = { echoAsk = null; doEcho(what) }) { Text(stringResource(R.string.meet_echo_anyway)) }
+                    SagaTextButton(onClick = { echoAsk = null }) { Text(stringResource(R.string.action_cancel)) }
                 }
             },
         )
@@ -616,7 +616,7 @@ internal fun MeetCall(
         })
         AlertDialog(
             onDismissRequest = { meshPeople = false; menuOpen = false },
-            confirmButton = { TextButton(onClick = { meshPeople = false; menuOpen = false }) { Text(stringResource(R.string.action_close)) } },
+            confirmButton = { SagaTextButton(onClick = { meshPeople = false; menuOpen = false }) { Text(stringResource(R.string.action_close)) } },
             title = { Text(meetPersons(model.persons), modifier = Modifier.semantics { heading() }) },
             text = { HornPeopleList(ui, {}, {}) },
         )
@@ -705,7 +705,7 @@ internal fun MeetCall(
                     Icon(painterResource(SagaIcons.screenShare), null, Modifier.size(16.dp))
                     Text(stringResource(R.string.call_screen_you), style = MaterialTheme.typography.labelLarge, maxLines = 1,
                         modifier = Modifier.padding(start = 6.dp).semantics { liveRegion = LiveRegionMode.Polite })
-                    TextButton(onClick = { calls.stopScreen() }) { Text(stringResource(R.string.call_screen_stop), color = Color.White) }
+                    SagaTextButton(onClick = { calls.stopScreen() }) { Text(stringResource(R.string.call_screen_stop), color = Color.White) }
                 }
             }
         },
@@ -717,7 +717,7 @@ internal fun MeetCall(
                         Surface(color = dark.copy(alpha = 0.8f), contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.pill)) {
                             Row(Modifier.padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(stringResource(R.string.meet_sharing_chip, t.name), style = MaterialTheme.typography.labelLarge)
-                                TextButton(onClick = { ms.callPref = Meeting.Pref.PRESENTATION; ms.galleryHint = null }) {
+                                SagaTextButton(onClick = { ms.callPref = Meeting.Pref.PRESENTATION; ms.galleryHint = null }) {
                                     // Anruf-Buehne ist immer dunkel: Info-Blau der dunklen Palette (hell #0B5CAD hat dort nur 2,9:1)
                                     Text(stringResource(R.string.meet_show), color = io.github.yggdrasil_sh.saga.ui.theme.DarkSignals.info)
                                 }
@@ -822,7 +822,7 @@ private fun EndedFailed(calls: CallManager, st: CallUiState) {
         }
         // Hauptaktion "Erneut anrufen" tonal gefuellt (helles Gold auf Nachtblau), "Schliessen" umrandet, "Details" als
         // Textknopf; alle mindestens 48 dp hoch, Farben fest fuer den dunklen Anrufhintergrund
-        if (st.canRedial) androidx.compose.material3.FilledTonalButton(
+        if (st.canRedial) io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton(
             onClick = { calls.redial() },
             colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
                 containerColor = CallDesign.actionContainer, contentColor = CallDesign.onActionContainer,
@@ -833,13 +833,13 @@ private fun EndedFailed(calls: CallManager, st: CallUiState) {
             Text(stringResource(R.string.r1_call_redial), modifier = Modifier.padding(start = 8.dp))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            androidx.compose.material3.OutlinedButton(
+            io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton(
                 onClick = { calls.dismiss() },
                 colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                 border = androidx.compose.foundation.BorderStroke(1.dp, CallDesign.actionOutline),
                 modifier = Modifier.heightIn(min = 48.dp),
             ) { Text(stringResource(R.string.action_close)) }
-            if (detail != null) TextButton(
+            if (detail != null) SagaTextButton(
                 onClick = { details = !details; calls.touchEnded() },
                 colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = CallDesign.actionText),
                 modifier = Modifier.heightIn(min = 48.dp),
@@ -876,7 +876,7 @@ private fun Controls(
             }
         }
         CallPhase.ENDED -> if (st.error || st.canRedial) EndedFailed(calls, st) else {
-            TextButton(onClick = { calls.dismiss() }, modifier = Modifier.padding(bottom = 24.dp)) { Text(stringResource(R.string.action_close)) }
+            SagaTextButton(onClick = { calls.dismiss() }, modifier = Modifier.padding(bottom = 24.dp)) { Text(stringResource(R.string.action_close)) }
         }
         else -> {
             val tc = MaterialTheme.colorScheme.surfaceContainerHighest
@@ -973,9 +973,9 @@ private fun ShareBar(calls: CallManager, st: CallUiState) {
                     text, style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(start = 6.dp).semantics { liveRegion = LiveRegionMode.Polite },
                 )
-                if (st.sharing) TextButton(onClick = { calls.stopScreen() }) {
+                if (st.sharing) SagaTextButton(onClick = { calls.stopScreen() }) {
                     Text(stringResource(R.string.call_screen_stop), color = Color.White)
-                } else if (st.remoteSmall) TextButton(onClick = { calls.swapView() }) {
+                } else if (st.remoteSmall) SagaTextButton(onClick = { calls.swapView() }) {
                     Text(stringResource(R.string.call_screen_swap), color = Color.White)
                 }
             }
@@ -1017,7 +1017,7 @@ private fun RoomLine(st: CallUiState, onDark: Boolean, persons: Int? = null) {
 private fun RoomActions(calls: CallManager, st: CallUiState, withMic: (() -> Unit) -> Unit) {
     val room = st.room ?: return
     if (!room.canTakeOver || st.phase == CallPhase.ENDED || st.phase == CallPhase.INCOMING) return
-    androidx.compose.material3.FilledTonalButton(onClick = { withMic { calls.takeOver() } }, modifier = Modifier.padding(bottom = 12.dp)) {
+    io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton(onClick = { withMic { calls.takeOver() } }, modifier = Modifier.padding(bottom = 12.dp)) {
         Icon(painterResource(SagaIcons.devices), null, Modifier.size(18.dp))
         Text(stringResource(R.string.room_take_over), modifier = Modifier.padding(start = 8.dp))
     }
@@ -1116,8 +1116,8 @@ private fun ScreenHintDialog(group: Boolean, onDismiss: () -> Unit, onContinue: 
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onContinue(dontShow) }) { Text(stringResource(R.string.call_screen_continue)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = { SagaTextButton(onClick = { onContinue(dontShow) }) { Text(stringResource(R.string.call_screen_continue)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 

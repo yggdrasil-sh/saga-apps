@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,7 +14,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -85,7 +85,7 @@ fun MentionPicker(ed: PageEditor, repo: SagaRepository, onDismiss: () -> Unit, o
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
     confirm?.let { u ->
         AlertDialog(
@@ -93,7 +93,7 @@ fun MentionPicker(ed: PageEditor, repo: SagaRepository, onDismiss: () -> Unit, o
             title = { Text(stringResource(R.string.e2_mention_share_title)) },
             text = { Text(stringResource(R.string.e2_mention_share_text, u.name)) },
             confirmButton = {
-                TextButton(enabled = !busy, onClick = {
+                SagaTextButton(enabled = !busy, onClick = {
                     busy = true
                     repo.launchAction(onError = { busy = false }, onSuccess = { busy = false }) {
                         repo.putShare(ed.id, "user", u.username, "view")
@@ -104,7 +104,7 @@ fun MentionPicker(ed: PageEditor, repo: SagaRepository, onDismiss: () -> Unit, o
                     }
                 }) { Text(stringResource(R.string.e2_mention_share_do)) }
             },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { confirm = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

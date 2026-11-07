@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.widget
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
@@ -24,7 +25,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -123,14 +123,14 @@ private fun ConfigScreen(
     Scaffold(topBar = {
         TopAppBar(
             title = { Text(stringResource(R.string.widget_config_title)) },
-            actions = { TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) } },
+            actions = { SagaTextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) } },
         )
     }) { pad ->
         Column(Modifier.padding(pad).fillMaxSize()) {
             when {
                 signedOut -> Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(stringResource(R.string.widget_config_signed_out), style = MaterialTheme.typography.bodyLarge)
-                    TextButton(onClick = onOpenApp) { Text(stringResource(R.string.widget_open_app)) }
+                    SagaTextButton(onClick = onOpenApp) { Text(stringResource(R.string.widget_open_app)) }
                 }
                 loading -> Text(stringResource(R.string.widget_loading), Modifier.padding(24.dp))
                 else -> {

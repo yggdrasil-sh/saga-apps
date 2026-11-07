@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -87,10 +87,10 @@ fun EmbeddedDatabase(dbId: Long, data: JsonObject, pageId: Long, blockId: String
                 st.error?.let { Text(it.resolve(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (st.hasMore && v.type in setOf("table", "list", "gallery")) {
-                        TextButton(onClick = { onOpen(dbId) }) { Text(stringResource(R.string.db_more, st.matched)) }
+                        SagaTextButton(onClick = { onOpen(dbId) }) { Text(stringResource(R.string.db_more, st.matched)) }
                     }
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = { onOpen(dbId) }) { Text(stringResource(R.string.e1_open_full)) }
+                    SagaTextButton(onClick = { onOpen(dbId) }) { Text(stringResource(R.string.e1_open_full)) }
                 }
             }
         }

@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -21,7 +22,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -138,7 +138,7 @@ fun ChartBlock(c: DbChart.Result, height: Dp, showTable: Boolean) {
         if (c.truncated || c.other > 0) Text(stringResource(R.string.e1_chart_truncated), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (showTable) {
             var open by remember { mutableStateOf(false) }
-            TextButton(onClick = { open = !open }) { Text(stringResource(if (open) R.string.e1_chart_hide_values else R.string.e1_chart_values)) }
+            SagaTextButton(onClick = { open = !open }) { Text(stringResource(if (open) R.string.e1_chart_hide_values else R.string.e1_chart_values)) }
             if (open) ChartTable(c, labels) { fmt(it) }
         }
     }

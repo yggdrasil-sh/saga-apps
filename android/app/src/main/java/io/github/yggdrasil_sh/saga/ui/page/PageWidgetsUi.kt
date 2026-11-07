@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -27,7 +28,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -395,7 +395,7 @@ private fun NewerVersionCard(s: PageWidgets.Spec, env: BlockEnv) {
             Text(stringResource(R.string.pw_newer), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (!ed.isRemote) {
-            TextButton(onClick = {
+            SagaTextButton(onClick = {
                 ed.flush()
                 io.github.yggdrasil_sh.saga.ui.common.openUrl(context, Gestalten.webUrl(env.repo.absoluteUrl("notes"), ed.id, s.id))
             }) { Text(stringResource(R.string.gest_open_web)) }

@@ -1,5 +1,9 @@
 package io.github.yggdrasil_sh.saga.ui.graph
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.view.accessibility.AccessibilityManager
@@ -43,18 +47,15 @@ import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -62,7 +63,6 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -376,7 +376,7 @@ fun GraphScreenContent(
                 placeholder = { Text(stringResource(R.string.graph_search), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 leadingIcon = { SagaIcon(SagaIcons.search, null) },
                 trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { SagaIcon(SagaIcons.x, stringResource(R.string.graph_search_clear)) } },
-                singleLine = true, shape = MaterialTheme.shapes.extraLarge, enabled = tools,
+                singleLine = true, shape = MaterialTheme.shapes.small, enabled = tools,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { focusMgr.clearFocus(); if (matches.isNotEmpty() && !asList) select(matches[0]) }),
             )
@@ -471,8 +471,8 @@ fun GraphScreenContent(
                 FilterRow(stringResource(R.string.graph_f_tags), fTags) { fTags = it }
                 FilterRow(stringResource(R.string.graph_f_orphans), fOrphans, enabled = !local) { fOrphans = it }
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { relayout = 1; showFilters = false }) { Text(stringResource(R.string.graph_relayout)) }
-                    TextButton(onClick = { fLinks = true; fChildren = true; fRel = true; fTags = false; fOrphans = true }) { Text(stringResource(R.string.graph_filter_reset)) }
+                    SagaOutlinedButton(onClick = { relayout = 1; showFilters = false }) { Text(stringResource(R.string.graph_relayout)) }
+                    SagaTextButton(onClick = { fLinks = true; fChildren = true; fRel = true; fTags = false; fOrphans = true }) { Text(stringResource(R.string.graph_filter_reset)) }
                 }
             }
         }
@@ -500,7 +500,7 @@ private fun Message(loading: Boolean = false, icon: Int? = null, error: Boolean 
         else SagaIcon(icon ?: SagaIcons.graph, null, Modifier.size(40.dp).padding(bottom = 4.dp), tint = LocalSagaAccent.current.gold)
         Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
         if (sub != null) Text(sub, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
-        if (action != null) FilledTonalButton(onClick = onAction, modifier = Modifier.padding(top = 16.dp).heightIn(min = 48.dp)) { Text(action) }
+        if (action != null) SagaFilledTonalButton(onClick = onAction, modifier = Modifier.padding(top = 16.dp).heightIn(min = 48.dp)) { Text(action) }
     }
 }
 
@@ -581,7 +581,7 @@ private fun NodeCard(g: GraphModel, i: Int, p: GraphPalette, nf: java.text.Numbe
                 }
                 Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Button(
+            SagaButton(
                 onClick = onOpen, colors = ButtonDefaults.buttonColors(containerColor = acc.goldSoft, contentColor = acc.onGoldSoft),
                 modifier = Modifier.padding(start = 8.dp).heightIn(min = 48.dp),
             ) { Text(stringResource(if (g.isTag(i)) R.string.graph_filter_tag else R.string.graph_open), fontWeight = FontWeight.SemiBold) }

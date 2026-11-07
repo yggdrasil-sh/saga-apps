@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.settings
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
@@ -30,19 +33,16 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -239,10 +239,10 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             BackupLogic.lastError(s)?.let { e -> item { Hint("✗ $e", w, error = true) } }
             item {
                 FlowRow(w.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = {
+                    SagaButton(onClick = {
                         act({ statusMsg = it }, UiText.Res(R.string.ub_started)) { repo.backupRun(); delay(1500); load() }
                     }, enabled = s.ready && !s.running) { Text(stringResource(R.string.ub_run_now)) }
-                    OutlinedButton(onClick = { act({ statusMsg = it }) { remote = null; remote = repo.backupRemote() } }, enabled = s.target != null) {
+                    SagaOutlinedButton(onClick = { act({ statusMsg = it }) { remote = null; remote = repo.backupRemote() } }, enabled = s.target != null) {
                         Text(stringResource(R.string.ub_show_remote))
                     }
                 }
@@ -278,12 +278,12 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     item { Hint(stringResource(R.string.nc_flow_wait), w) }
                     item {
                         FlowRow(w.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { openUrl(context, s.flow.login.orEmpty(), inApp = true) }) {
+                            SagaButton(onClick = { openUrl(context, s.flow.login.orEmpty(), inApp = true) }) {
                                 Text(stringResource(R.string.nc_sign_in))
                                 Spacer(Modifier.width(androidx.compose.material3.ButtonDefaults.IconSpacing))
                                 SagaIcon(SagaIcons.external, null, Modifier.size(androidx.compose.material3.ButtonDefaults.IconSize))
                             }
-                            OutlinedButton(onClick = { act({ targetMsg = it }) { repo.backupFlowCancel(); load() } }) { Text(stringResource(R.string.action_cancel)) }
+                            SagaOutlinedButton(onClick = { act({ targetMsg = it }) { repo.backupFlowCancel(); load() } }) { Text(stringResource(R.string.action_cancel)) }
                         }
                     }
                 }
@@ -301,14 +301,14 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     if (!t.allowed) item { Hint(stringResource(R.string.ub_target_not_allowed), w, error = true) }
                     item {
                         FlowRow(w.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = {
+                            SagaOutlinedButton(onClick = {
                                 repo.launchAction(onError = { e -> targetMsg = Msg(repo.friendly(e), false) }) {
                                     targetMsg = Msg(UiText.Res(R.string.ub_checking), true)
                                     val free = repo.backupTest()
                                     targetMsg = Msg(UiText.Res(R.string.ub_test_ok, free?.let { BackupLogic.size(it) } ?: UiText.Res(R.string.ub_unknown)), true)
                                 }
                             }) { Text(stringResource(R.string.ub_test)) }
-                            OutlinedButton(onClick = { askDisconnect = true }) { Text(stringResource(R.string.ub_disconnect), color = MaterialTheme.colorScheme.error) }
+                            SagaOutlinedButton(onClick = { askDisconnect = true }) { Text(stringResource(R.string.ub_disconnect), color = MaterialTheme.colorScheme.error) }
                         }
                     }
                 }
@@ -323,7 +323,7 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                                 visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                                 modifier = Modifier.fillMaxWidth())
                             OutlinedTextField(folder, { folder = it }, label = { Text(stringResource(R.string.ub_folder)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                            Button(onClick = {
+                            SagaButton(onClick = {
                                 act({ targetMsg = it }) {
                                     targetMsg = Msg(UiText.Res(R.string.ub_checking), true)
                                     val flow = repo.backupConnect(url, user, pw, folder)
@@ -348,7 +348,7 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 ListItem(
                     headlineContent = { Text(k.short, fontFamily = FontFamily.Monospace) },
                     supportingContent = { Text(k.fp, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall) },
-                    trailingContent = { TextButton(onClick = { askKeyDelete = k.fp }) { Text(stringResource(R.string.ub_remove), color = MaterialTheme.colorScheme.error) } },
+                    trailingContent = { SagaTextButton(onClick = { askKeyDelete = k.fp }) { Text(stringResource(R.string.ub_remove), color = MaterialTheme.colorScheme.error) } },
                     modifier = w,
                 )
             }
@@ -357,16 +357,16 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 item {
                     Row(w.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(R.string.ub_key_pending), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { act({ keyMsg = it }) { repo.backupKeyDrop(); load() } }) { Text(stringResource(R.string.ub_discard)) }
+                        SagaTextButton(onClick = { act({ keyMsg = it }) { repo.backupKeyDrop(); load() } }) { Text(stringResource(R.string.ub_discard)) }
                     }
                 }
             }
             item {
                 Column(w.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedButton(onClick = { act({ keyMsg = it }) { newKey = repo.backupKeyGenerate() } }, enabled = s.ageOk) { Text(stringResource(R.string.ub_key_generate)) }
+                    SagaOutlinedButton(onClick = { act({ keyMsg = it }) { newKey = repo.backupKeyGenerate() } }, enabled = s.ageOk) { Text(stringResource(R.string.ub_key_generate)) }
                     OutlinedTextField(pub, { pub = it }, label = { Text(stringResource(R.string.ub_key_own)) }, placeholder = { Text("age1…") },
                         textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace), minLines = 2, modifier = Modifier.fillMaxWidth())
-                    OutlinedButton(onClick = { act({ keyMsg = it }) { repo.backupKeyAdd(pub); pub = ""; load() } }, enabled = pub.isNotBlank()) { Text(stringResource(R.string.ub_add)) }
+                    SagaOutlinedButton(onClick = { act({ keyMsg = it }) { repo.backupKeyAdd(pub); pub = ""; load() } }, enabled = pub.isNotBlank()) { Text(stringResource(R.string.ub_add)) }
                 }
             }
             keyMsg?.let { m -> item { Hint(m.text.resolve(), w, error = !m.ok) } }
@@ -392,14 +392,14 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                         ListItem(
                             headlineContent = { Text((p?.icon?.takeIf { it.isNotEmpty() }?.let { "$it " } ?: "") + (p?.title?.ifEmpty { null } ?: if (p == null) "#$id" else stringResource(R.string.page_untitled))) },
                             supportingContent = { Text(stringResource(R.string.ub_with_subpages)) },
-                            trailingContent = { TextButton(onClick = { exclude.remove(id) }) { Text(stringResource(R.string.ub_remove)) } },
+                            trailingContent = { SagaTextButton(onClick = { exclude.remove(id) }) { Text(stringResource(R.string.ub_remove)) } },
                             modifier = w,
                         )
                     }
-                    item { TextButton(onClick = { pickPage = true }, modifier = w.padding(horizontal = 8.dp)) { Text(stringResource(R.string.ub_exclude_add)) } }
+                    item { SagaTextButton(onClick = { pickPage = true }, modifier = w.padding(horizontal = 8.dp)) { Text(stringResource(R.string.ub_exclude_add)) } }
                 }
                 item {
-                    Button(onClick = {
+                    SagaButton(onClick = {
                         act({ contentMsg = it }, UiText.Res(R.string.ub_saved)) {
                             take(repo.backupSettings(BackupLogic.contentBody(cats.toMap(), exclude.toList())), form = false)
                         }
@@ -429,14 +429,14 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             item {
                 Row(w.padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(stringResource(R.string.ub_time))
-                    OutlinedButton(onClick = {
+                    SagaOutlinedButton(onClick = {
                         val (h, m) = time.split(":").let { (it.getOrNull(0)?.toIntOrNull() ?: 3) to (it.getOrNull(1)?.toIntOrNull() ?: 0) }
                         TimePickerDialog(context, { _, hh, mm -> time = "%02d:%02d".format(hh, mm) }, h, m, android.text.format.DateFormat.is24HourFormat(context)).show()
                     }) { Text(time) }
                     if (schedule == "weekly") {
                         var open by remember { mutableStateOf(false) }
                         Column {
-                            OutlinedButton(onClick = { open = true }) { Text(stringResource(weekdays[weekday.coerceIn(0, 6)])) }
+                            SagaOutlinedButton(onClick = { open = true }) { Text(stringResource(weekdays[weekday.coerceIn(0, 6)])) }
                             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
                                 weekdays.forEachIndexed { i, r -> DropdownMenuItem(text = { Text(stringResource(r)) }, onClick = { weekday = i; open = false }) }
                             }
@@ -453,7 +453,7 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             }
             item { Hint(stringResource(R.string.ub_keep_hint, s.limits.maxMb), w) }
             item {
-                Button(onClick = {
+                SagaButton(onClick = {
                     act({ planMsg = it }, UiText.Res(R.string.ub_saved)) {
                         take(repo.backupSettings(BackupLogic.settingsBody(schedule, time, weekday, keep.toIntOrNull() ?: s.keep)), form = false)
                     }
@@ -467,7 +467,7 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             item { SectionHeader(stringResource(R.string.ub_restore), w) }
             item { Hint(stringResource(R.string.ub_restore_web), w) }
             item {
-                OutlinedButton(onClick = { openUrl(context, repo.absoluteUrl("/?settings=backup")) }, modifier = w.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                SagaOutlinedButton(onClick = { openUrl(context, repo.absoluteUrl("/?settings=backup")) }, modifier = w.padding(horizontal = 16.dp, vertical = 4.dp)) {
                     Text(stringResource(R.string.action_open_in_browser))
                 }
             }
@@ -492,11 +492,11 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             title = { Text(stringResource(R.string.ub_disconnect_title)) },
             text = { Text(stringResource(R.string.ub_disconnect_text)) },
             confirmButton = {
-                TextButton(onClick = { askDisconnect = false; act({ targetMsg = it }) { repo.backupDisconnect(); load() } }) {
+                SagaTextButton(onClick = { askDisconnect = false; act({ targetMsg = it }) { repo.backupDisconnect(); load() } }) {
                     Text(stringResource(R.string.ub_disconnect), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { askDisconnect = false }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { askDisconnect = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
     askKeyDelete?.let { fp ->
@@ -505,11 +505,11 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             title = { Text(stringResource(R.string.ub_key_remove_title)) },
             text = { Text(stringResource(R.string.ub_key_remove_text)) },
             confirmButton = {
-                TextButton(onClick = { askKeyDelete = null; act({ keyMsg = it }) { repo.backupKeyDelete(fp); load() } }) {
+                SagaTextButton(onClick = { askKeyDelete = null; act({ keyMsg = it }) { repo.backupKeyDelete(fp); load() } }) {
                     Text(stringResource(R.string.ub_remove), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { askKeyDelete = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { askKeyDelete = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
     if (pickPage) {
@@ -531,7 +531,7 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { pickPage = false }) { Text(stringResource(R.string.action_close)) } },
+            confirmButton = { SagaTextButton(onClick = { pickPage = false }) { Text(stringResource(R.string.action_close)) } },
         )
     }
 }
@@ -556,8 +556,8 @@ private fun NewKeyDialog(k: GeneratedKey, onDone: (String, (UiText) -> Unit) -> 
                     Text(k.private, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
                 }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { shareSecret(context, k) }) { Text(stringResource(R.string.ub_key_share)) }
-                    OutlinedButton(onClick = { copySecret(context, k.private) }) { Text(stringResource(R.string.ub_key_copy)) }
+                    SagaOutlinedButton(onClick = { shareSecret(context, k) }) { Text(stringResource(R.string.ub_key_share)) }
+                    SagaOutlinedButton(onClick = { copySecret(context, k.private) }) { Text(stringResource(R.string.ub_key_copy)) }
                 }
                 Text(stringResource(R.string.ub_key_store_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(last6, { last6 = it.trim().take(6) }, label = { Text(stringResource(R.string.ub_key_last6)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -565,9 +565,9 @@ private fun NewKeyDialog(k: GeneratedKey, onDone: (String, (UiText) -> Unit) -> 
             }
         },
         confirmButton = {
-            TextButton(onClick = { err = null; onDone(last6) { err = it } }, enabled = BackupLogic.last6Valid(last6)) { Text(stringResource(R.string.ub_key_confirm)) }
+            SagaTextButton(onClick = { err = null; onDone(last6) { err = it } }, enabled = BackupLogic.last6Valid(last6)) { Text(stringResource(R.string.ub_key_confirm)) }
         },
-        dismissButton = { TextButton(onClick = onDrop) { Text(stringResource(R.string.ub_discard)) } },
+        dismissButton = { SagaTextButton(onClick = onDrop) { Text(stringResource(R.string.ub_discard)) } },
     )
 }
 

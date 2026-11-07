@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.call
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -15,7 +16,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -147,13 +147,13 @@ fun RunningCallBar(calls: CallManager, own: CallUiState?, modifier: Modifier = M
                 Text(CallRoom.blockText(b.block, b.limit).resolve(), style = MaterialTheme.typography.labelMedium)
                 // 2.5 (handover2, E6): voller Anruf - Hinzufuegen nicht, Hierher uebernehmen schon (das ersetzte Geraet zaehlt nicht)
                 if (b.takeover) Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                    TextButton(onClick = { go(CallRoom.ROLE_HANDOVER) }) { Text(stringResource(R.string.room_take_over)) }
+                    SagaTextButton(onClick = { go(CallRoom.ROLE_HANDOVER) }) { Text(stringResource(R.string.room_take_over)) }
                 }
             } else Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                 if (b.mineRunning) {
-                    TextButton(onClick = { go(CallRoom.ROLE_COMPANION) }) { Text(stringResource(R.string.room_add_device)) }
-                    TextButton(onClick = { go(CallRoom.ROLE_HANDOVER) }) { Text(stringResource(R.string.room_take_over)) }
-                } else TextButton(onClick = { go(CallRoom.ROLE_MEMBER) }) { Text(stringResource(R.string.room_join)) }
+                    SagaTextButton(onClick = { go(CallRoom.ROLE_COMPANION) }) { Text(stringResource(R.string.room_add_device)) }
+                    SagaTextButton(onClick = { go(CallRoom.ROLE_HANDOVER) }) { Text(stringResource(R.string.room_take_over)) }
+                } else SagaTextButton(onClick = { go(CallRoom.ROLE_MEMBER) }) { Text(stringResource(R.string.room_join)) }
             }
         }
     }

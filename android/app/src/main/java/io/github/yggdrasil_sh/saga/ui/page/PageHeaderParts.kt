@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
@@ -27,7 +28,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -178,8 +178,8 @@ internal fun PageCover(ed: PageEditor, repo: SagaRepository, url: String, pad: D
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(stringResource(R.string.page_cover_drag), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f, fill = false))
-            TextButton(onClick = { repositioning = false }) { Text(stringResource(R.string.action_cancel)) }
-            androidx.compose.material3.FilledTonalButton(onClick = {
+            SagaTextButton(onClick = { repositioning = false }) { Text(stringResource(R.string.action_cancel)) }
+            io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton(onClick = {
                 val p = pos; repositioning = false
                 repo.launchAction { ed.setHeader(buildJsonObject { put("cover_pos", Math.round(p * 10) / 10.0) }) }
             }) { Text(stringResource(R.string.page_cover_save)) }
@@ -208,11 +208,11 @@ internal fun HeaderAddRow(ed: PageEditor, repo: SagaRepository, onIcon: () -> Un
     val c = MaterialTheme.colorScheme.onSurfaceVariant
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
         // A11Y-11: Zielflaeche mindestens 48 dp hoch
-        if (ed.icon.isEmpty()) TextButton(onClick = onIcon, modifier = Modifier.minimumInteractiveComponentSize().heightIn(min = 48.dp)) {
+        if (ed.icon.isEmpty()) SagaTextButton(onClick = onIcon, modifier = Modifier.minimumInteractiveComponentSize().heightIn(min = 48.dp)) {
             SagaIcon(SagaIcons.smile, null, Modifier.size(18.dp), tint = c)
             Text(stringResource(R.string.page_icon_add), color = c, modifier = Modifier.padding(start = 6.dp))
         }
-        if (ed.cover == null) TextButton(onClick = pick, enabled = !busy, modifier = Modifier.minimumInteractiveComponentSize().heightIn(min = 48.dp)) {
+        if (ed.cover == null) SagaTextButton(onClick = pick, enabled = !busy, modifier = Modifier.minimumInteractiveComponentSize().heightIn(min = 48.dp)) {
             SagaIcon(SagaIcons.image, null, Modifier.size(18.dp), tint = c)
             Text(stringResource(R.string.page_cover_add), color = c, modifier = Modifier.padding(start = 6.dp))
         }
@@ -237,10 +237,10 @@ internal fun IconPickerDialog(ed: PageEditor, repo: SagaRepository, onDismiss: (
         text = {
             Column {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    TextButton(onClick = pick, enabled = !busy) {
+                    SagaTextButton(onClick = pick, enabled = !busy) {
                         SagaIcon(SagaIcons.image, null, Modifier.size(18.dp)); Text(stringResource(R.string.page_icon_image), Modifier.padding(start = 6.dp))
                     }
-                    TextButton(onClick = { set(RANDOM.random()) }, enabled = !busy) { Text(stringResource(R.string.page_icon_random)) }
+                    SagaTextButton(onClick = { set(RANDOM.random()) }, enabled = !busy) { Text(stringResource(R.string.page_icon_random)) }
                 }
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 AndroidView(
@@ -254,9 +254,9 @@ internal fun IconPickerDialog(ed: PageEditor, repo: SagaRepository, onDismiss: (
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
         dismissButton = {
-            if (ed.icon.isNotEmpty()) TextButton(onClick = { set("") }) { Text(stringResource(R.string.page_icon_remove)) }
+            if (ed.icon.isNotEmpty()) SagaTextButton(onClick = { set("") }) { Text(stringResource(R.string.page_icon_remove)) }
         },
     )
 }

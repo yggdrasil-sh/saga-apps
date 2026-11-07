@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,10 +16,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -107,14 +107,14 @@ fun ChatDevicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                             },
                             // dieses Geraet nicht hier entfernen (dafuer: abmelden bzw. "Neu beginnen")
                             trailingContent = if (current) null else ({
-                                TextButton(onClick = { drop = d }) { Text(stringResource(R.string.chat_device_remove), color = MaterialTheme.colorScheme.error) }
+                                SagaTextButton(onClick = { drop = d }) { Text(stringResource(R.string.chat_device_remove), color = MaterialTheme.colorScheme.error) }
                             }),
                         )
                     }
                     item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
                     item {
                         Column(Modifier.padding(16.dp)) {
-                            OutlinedButton(onClick = { newKey = svc.newRecoveryKey() }) { Text(stringResource(R.string.chat_new_recovery)) }
+                            SagaOutlinedButton(onClick = { newKey = svc.newRecoveryKey() }) { Text(stringResource(R.string.chat_new_recovery)) }
                             Text(
                                 stringResource(R.string.chat_new_recovery_text), style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
@@ -132,11 +132,11 @@ fun ChatDevicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             title = { Text(stringResource(R.string.chat_device_remove_title)) },
             text = { Text(stringResource(R.string.chat_device_remove_text, d.name)) },
             confirmButton = {
-                TextButton(onClick = { drop = null; repo.launchAction { svc.removeDevice(d.id) } }) {
+                SagaTextButton(onClick = { drop = null; repo.launchAction { svc.removeDevice(d.id) } }) {
                     Text(stringResource(R.string.chat_device_remove), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { drop = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { drop = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -34,7 +35,6 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -160,13 +160,13 @@ fun GroupInfoStdSection(repo: SagaRepository, s: ChatSession, c: ChatSummary) {
                 supportingText = { Text("${t.length} / ${ChatStd.DESC_MAX}") }, modifier = Modifier.fillMaxWidth(),
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { repo.launchAction { s.setDesc(t.trim()); editing = false } }) { Text(stringResource(R.string.action_save)) }
-                TextButton(onClick = { editing = false }) { Text(stringResource(R.string.action_cancel)) }
+                SagaTextButton(onClick = { repo.launchAction { s.setDesc(t.trim()); editing = false } }) { Text(stringResource(R.string.action_save)) }
+                SagaTextButton(onClick = { editing = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         } else {
             if (desc != null) Text(desc, style = MaterialTheme.typography.bodyMedium)
             else if (r.info2) Text(stringResource(R.string.std_desc_none), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (r.info2) TextButton(onClick = { editing = true }) {
+            if (r.info2) SagaTextButton(onClick = { editing = true }) {
                 Text(stringResource(if (desc != null) R.string.std_desc_edit else R.string.std_desc_add))
             }
         }
@@ -247,7 +247,7 @@ fun StdNoteRow(text: String, action: String? = null, @androidx.annotation.Drawab
             Row(Modifier.padding(horizontal = 12.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (icon != null) SagaIcon(icon, null, Modifier.padding(end = 6.dp).size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp))
-                if (action != null) TextButton(onClick = onAction) { Text(action) }
+                if (action != null) SagaTextButton(onClick = onAction) { Text(action) }
             }
         }
     }
@@ -275,12 +275,12 @@ fun BlockConfirm(repo: SagaRepository, name: String, target: String, onBlock: su
         title = { Text(stringResource(R.string.std_block_title, name)) },
         text = { Text(stringResource(R.string.std_block_text, name)) },
         confirmButton = {
-            TextButton(onClick = {
+            SagaTextButton(onClick = {
                 onDismiss()
                 repo.launchAction { onBlock(target); repo.notify(UiText.Res(R.string.std_blocked_done, name)) }
             }) { Text(stringResource(R.string.std_block), color = MaterialTheme.colorScheme.error) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -321,12 +321,12 @@ fun ReportDialog(repo: SagaRepository, s: ChatSession, msgs: List<ChatMessage>, 
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            SagaTextButton(onClick = {
                 onDismiss()
                 repo.launchAction { s.report(msgs.map { it.id }, reason, if (include) text else null); repo.notify(UiText.Res(R.string.std_report_done)) }
             }) { Text(stringResource(R.string.std_report), color = MaterialTheme.colorScheme.error) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -354,14 +354,14 @@ fun LocalBlocksDialog(repo: SagaRepository, onDismiss: () -> Unit) {
                 l.orEmpty().forEach { b ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(b.label?.ifBlank { null } ?: b.name ?: "?", modifier = Modifier.weight(1f))
-                        TextButton(onClick = { repo.launchAction { repo.chat.unblock(b.target); repo.notify(UiText.Res(R.string.std_unblocked_done)) } }) {
+                        SagaTextButton(onClick = { repo.launchAction { repo.chat.unblock(b.target); repo.notify(UiText.Res(R.string.std_unblocked_done)) } }) {
                             Text(stringResource(R.string.std_unblock))
                         }
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }
 

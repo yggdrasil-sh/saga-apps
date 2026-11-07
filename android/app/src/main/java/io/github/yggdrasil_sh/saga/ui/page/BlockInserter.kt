@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -20,7 +21,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -286,7 +286,7 @@ fun BlockInserterDialogs(ins: BlockInserter, ed: PageEditor, repo: SagaRepositor
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = close) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = close) { Text(stringResource(R.string.action_cancel)) } },
         )
         "immich_image" -> ImmichPicker(repo, onDismiss = close) { asset ->
             close()
@@ -357,7 +357,7 @@ fun InsertPickerDialog(needs: Set<SlashLogic.Need>, onDismiss: () -> Unit, onPic
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -378,8 +378,8 @@ fun EmbedDialog(onDismiss: () -> Unit, onDone: (String, String) -> Unit) {
                 Text(stringResource(R.string.ed24_embed_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
             }
         },
-        confirmButton = { TextButton(onClick = { norm?.let { onDone(it, title) } }, enabled = norm != null) { Text(stringResource(R.string.action_apply)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = { SagaTextButton(onClick = { norm?.let { onDone(it, title) } }, enabled = norm != null) { Text(stringResource(R.string.action_apply)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -406,6 +406,6 @@ fun PagePickerDialog(title: String, pool: List<PageMeta>, repo: SagaRepository, 
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

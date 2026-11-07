@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.login
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.focus.onFocusChanged
@@ -44,14 +47,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -235,7 +235,7 @@ fun LoginScreen(repo: SagaRepository) {
                             }
                             .semantics { if (fieldError != null) error(fieldError) },
                     )
-                    Button(onClick = { login() }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                    SagaButton(onClick = { login() }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
                         Text(stringResource(if (busy) R.string.login_button_busy else R.string.login_button))
                     }
                 }
@@ -243,7 +243,7 @@ fun LoginScreen(repo: SagaRepository) {
                 // Browser ohne Ergebnis verlassen (abgebrochen, kein Code): neutraler Hinweis + erneut versuchen
                 if (localError == null && loginError == null && !busy) loginHint?.let {
                     Text(it.resolve(), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
-                    if (server.isNotBlank()) TextButton(onClick = { login() }) { Text(stringResource(R.string.action_retry)) }
+                    if (server.isNotBlank()) SagaTextButton(onClick = { login() }) { Text(stringResource(R.string.action_retry)) }
                 }
                 // Kontowechsel ohne privaten Tab (Browser kann es nicht): der Browser bleibt beim bisherigen Konto angemeldet
                 val switchHint = remember { repo.freshLogin && !io.github.yggdrasil_sh.saga.ui.common.ephemeralTabsSupported(context) }
@@ -263,7 +263,7 @@ fun LoginScreen(repo: SagaRepository) {
                     )
                     HorizontalDivider(Modifier.weight(1f))
                 }
-                OutlinedButton(onClick = { startScan() }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                SagaOutlinedButton(onClick = { startScan() }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
                     Text(stringResource(R.string.login_qr))
                 }
                 if (cameraDenied) {
@@ -271,7 +271,7 @@ fun LoginScreen(repo: SagaRepository) {
                         stringResource(R.string.login_camera_denied), textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    TextButton(onClick = {
+                    SagaTextButton(onClick = {
                         context.startActivity(
                             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -279,7 +279,7 @@ fun LoginScreen(repo: SagaRepository) {
                     }) { Text(stringResource(R.string.login_open_app_settings)) }
                 }
                 // NAV-29: statt der dauerhaften Hinweis-Karte ein Textknopf mit Blatt (QR-Weg, Zwei-Faktor)
-                TextButton(onClick = { qrHelp = true }) { Text(stringResource(R.string.r1_login_qr_where)) }
+                SagaTextButton(onClick = { qrHelp = true }) { Text(stringResource(R.string.r1_login_qr_where)) }
                 // Sprache vor dem Anmelden waehlbar (fremdes Geraet in einer anderen Sprache)
                 io.github.yggdrasil_sh.saga.ui.settings.LanguageMenuButton()
                 Spacer(Modifier.height(8.dp))
@@ -319,7 +319,7 @@ private fun LoginHelpSheet(onDismiss: () -> Unit) {
             Text(stringResource(R.string.login_qr_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             // 2.1: Zwei-Faktor-Anmeldung laeuft im Browserfenster (Passkey/Code) - die App braucht dafuer nichts
             Text(stringResource(R.string.login_2fa_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.action_done)) }
+            SagaTextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.action_done)) }
         }
     }
 }

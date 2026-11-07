@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
@@ -52,7 +53,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -392,10 +392,10 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaReposi
                     val action = DbViews.newAction(st.templates, dflt)
                     val dfltName = dflt?.title?.ifEmpty { null } ?: stringResource(R.string.tpl_template)
                     Surface(
-                        shape = androidx.compose.material3.ButtonDefaults.filledTonalShape,
+                        shape = MaterialTheme.shapes.small,
                         color = MaterialTheme.colorScheme.secondaryContainer,
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.clip(androidx.compose.material3.ButtonDefaults.filledTonalShape).combinedClickable(
+                        modifier = Modifier.clip(MaterialTheme.shapes.small).combinedClickable(
                             role = Role.Button,
                             onClickLabel = if (action == DbViews.NewAction.DEFAULT_TEMPLATE) stringResource(R.string.tpl_new_from_default, dfltName) else null,
                             onLongClickLabel = if (st.templates.isNotEmpty()) stringResource(R.string.tpl_more_choices) else null,
@@ -856,7 +856,7 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
                 Text(week.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)) + " – " +
                     week.plusDays(6).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)),
                     style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).semantics { heading() })
-                TextButton(onClick = { st.showWeek(LocalDate.now()) }) { Text(stringResource(R.string.e1_today)) }
+                SagaTextButton(onClick = { st.showWeek(LocalDate.now()) }) { Text(stringResource(R.string.e1_today)) }
                 IconButton(onClick = { st.showWeek(week.plusWeeks(1)) }) { SagaIcon(SagaIcons.chevronRight, stringResource(R.string.e1_next_week)) }
             }
             val days = (0 until 7).map { week.plusDays(it.toLong()) }
@@ -873,7 +873,7 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
                                 modifier = Modifier.padding(top = 3.dp).fillMaxWidth().clip(RoundedCornerShape(SagaRadius.xs)).background(MaterialTheme.colorScheme.surface)
                                     .clickable(onClickLabel = stringResource(R.string.dbv_open_entry)) { onOpen(r.id) }.padding(3.dp))
                         }
-                        if (st.canAdd && dp.type == "date") TextButton(onClick = { scope.launch { st.create(mapOf(dp.id to DbValues.date(day)))?.let(onOpen) } }) {
+                        if (st.canAdd && dp.type == "date") SagaTextButton(onClick = { scope.launch { st.create(mapOf(dp.id to DbValues.date(day)))?.let(onOpen) } }) {
                             SagaIcon(SagaIcons.plus, stringResource(R.string.dbv_new_on_day, day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))), Modifier.size(16.dp))
                         }
                     }
@@ -906,7 +906,7 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
             IconButton(onClick = { st.showMonth(month.minusMonths(1)) }) { SagaIcon(SagaIcons.chevronLeft, stringResource(R.string.dbv_prev_month)) }
             Text(month.month.getDisplayName(TextStyle.FULL_STANDALONE, locale) + " " + month.year, style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f).semantics { heading() })
-            TextButton(onClick = { st.showMonth(LocalDate.now()) }) { Text(stringResource(R.string.e1_today)) }
+            SagaTextButton(onClick = { st.showMonth(LocalDate.now()) }) { Text(stringResource(R.string.e1_today)) }
             IconButton(onClick = { st.showMonth(month.plusMonths(1)) }) { SagaIcon(SagaIcons.chevronRight, stringResource(R.string.dbv_next_month)) }
         }
         // Wochentage ab Montag (wie im Web)
@@ -965,7 +965,7 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
             if (st.canAdd && dp.type == "date") {
-                TextButton(onClick = { scope.launch { st.create(mapOf(dp.id to DbValues.date(sel)))?.let(onOpen) } }) {
+                SagaTextButton(onClick = { scope.launch { st.create(mapOf(dp.id to DbValues.date(sel)))?.let(onOpen) } }) {
                     SagaIcon(SagaIcons.plus, null)
                     Text(stringResource(R.string.dbv_new_on_day, sel.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))))
                 }

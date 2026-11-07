@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.net.Uri
@@ -25,11 +27,9 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
@@ -144,9 +144,9 @@ fun PersonDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSet(if (cur.isEmpty()) JsonNull else JsonArray(cur.map(::JsonPrimitive))); onDismiss() }) { Text(stringResource(R.string.action_apply)) }
+            SagaTextButton(onClick = { onSet(if (cur.isEmpty()) JsonNull else JsonArray(cur.map(::JsonPrimitive))); onDismiss() }) { Text(stringResource(R.string.action_apply)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -189,7 +189,7 @@ fun FilesDialog(
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
-                    OutlinedButton(onClick = { pick.launch("*/*") }, enabled = !busy && cur.size < p.max) {
+                    SagaOutlinedButton(onClick = { pick.launch("*/*") }, enabled = !busy && cur.size < p.max) {
                         SagaIcon(SagaIcons.plus, null)
                         Text(stringResource(R.string.e1_file_add))
                     }
@@ -199,9 +199,9 @@ fun FilesDialog(
             }
         },
         confirmButton = {
-            TextButton(enabled = !busy, onClick = { onSet(DbFiles.toValue(cur)); onDismiss() }) { Text(stringResource(R.string.action_apply)) }
+            SagaTextButton(enabled = !busy, onClick = { onSet(DbFiles.toValue(cur)); onDismiss() }) { Text(stringResource(R.string.action_apply)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -231,13 +231,13 @@ fun DateTimeDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -> Unit
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { picking = "start" }) { Text(start.format(dayFmt)) }
-                    if (withTime) OutlinedButton(onClick = { picking = "startTime" }) { Text((startTime ?: LocalTime.of(9, 0)).format(timeFmt)) }
+                    SagaOutlinedButton(onClick = { picking = "start" }) { Text(start.format(dayFmt)) }
+                    if (withTime) SagaOutlinedButton(onClick = { picking = "startTime" }) { Text((startTime ?: LocalTime.of(9, 0)).format(timeFmt)) }
                 }
                 if (withEnd) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("–")
-                    OutlinedButton(onClick = { picking = "end" }) { Text((end ?: start).format(dayFmt)) }
-                    if (withTime) OutlinedButton(onClick = { picking = "endTime" }) { Text((endTime ?: (startTime ?: LocalTime.of(9, 0)).plusHours(1)).format(timeFmt)) }
+                    SagaOutlinedButton(onClick = { picking = "end" }) { Text((end ?: start).format(dayFmt)) }
+                    if (withTime) SagaOutlinedButton(onClick = { picking = "endTime" }) { Text((endTime ?: (startTime ?: LocalTime.of(9, 0)).plusHours(1)).format(timeFmt)) }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.e1_date_time), modifier = Modifier.weight(1f))
@@ -251,7 +251,7 @@ fun DateTimeDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -> Unit
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            SagaTextButton(onClick = {
                 val st = if (withTime) startTime ?: LocalTime.of(9, 0) else null
                 val e = if (withEnd) (end ?: start) else null
                 val et = if (withTime && e != null) (endTime ?: st?.plusHours(1)) else null
@@ -262,8 +262,8 @@ fun DateTimeDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -> Unit
         },
         dismissButton = {
             Row {
-                if (old != null) TextButton(onClick = { onSet(JsonNull); onDismiss() }) { Text(stringResource(R.string.dbv_clear)) }
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+                if (old != null) SagaTextButton(onClick = { onSet(JsonNull); onDismiss() }) { Text(stringResource(R.string.dbv_clear)) }
+                SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
             }
         },
     )
@@ -274,7 +274,7 @@ fun DateTimeDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -> Unit
             DatePickerDialog(
                 onDismissRequest = { picking = null },
                 confirmButton = {
-                    TextButton(onClick = {
+                    SagaTextButton(onClick = {
                         state.selectedDateMillis?.let { ms ->
                             val d = Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate()
                             if (k == "start") { val shift = java.time.temporal.ChronoUnit.DAYS.between(start, d); start = d; end = end?.plusDays(shift) } else end = d
@@ -282,7 +282,7 @@ fun DateTimeDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -> Unit
                         picking = null
                     }) { Text(stringResource(R.string.action_apply)) }
                 },
-                dismissButton = { TextButton(onClick = { picking = null }) { Text(stringResource(R.string.action_cancel)) } },
+                dismissButton = { SagaTextButton(onClick = { picking = null }) { Text(stringResource(R.string.action_cancel)) } },
             ) { DatePicker(state) }
         }
         "startTime", "endTime" -> {
@@ -292,13 +292,13 @@ fun DateTimeDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -> Unit
                 onDismissRequest = { picking = null },
                 text = { TimePicker(state) },
                 confirmButton = {
-                    TextButton(onClick = {
+                    SagaTextButton(onClick = {
                         val t = LocalTime.of(state.hour, state.minute)
                         if (k == "startTime") startTime = t else endTime = t
                         picking = null
                     }) { Text(stringResource(R.string.action_apply)) }
                 },
-                dismissButton = { TextButton(onClick = { picking = null }) { Text(stringResource(R.string.action_cancel)) } },
+                dismissButton = { SagaTextButton(onClick = { picking = null }) { Text(stringResource(R.string.action_cancel)) } },
             )
         }
     }

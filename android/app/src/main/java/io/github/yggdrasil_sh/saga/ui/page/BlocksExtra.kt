@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.foundation.layout.size
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
@@ -35,7 +36,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -206,19 +206,19 @@ fun TableBlock(block: JsonObject, path: JsonPath, key: String, env: BlockEnv) {
         if (ed.editable) {
             var more by remember { mutableStateOf(false) }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     val at = (cur?.first ?: (rows.size - 1)) + 1
                     ed.updateBlock(path) { BlockOps.insertRow(it, at) }
                     keepCursor(row = at)
                 }) { Text(stringResource(R.string.ed24_row_add)) }
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     val at = (cur?.second ?: (ncols - 1)) + 1
                     ed.updateBlock(path) { BlockOps.insertColumn(it, at) }
                     keepCursor(col = at)
                 }) { Text(stringResource(R.string.ed24_col_add)) }
                 Box {
                     val moreLabel = stringResource(R.string.ed24_table_more)
-                    TextButton(onClick = { more = true }, modifier = Modifier.semantics { contentDescription = moreLabel }) { Text("⋯") }
+                    SagaTextButton(onClick = { more = true }, modifier = Modifier.semantics { contentDescription = moreLabel }) { Text("⋯") }
                     DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
                         DropdownMenuItem(text = { Text(stringResource(if (heads) R.string.ed24_headings_off else R.string.ed24_headings_on)) }, onClick = {
                             more = false
@@ -272,7 +272,7 @@ fun ColumnsBlockEdit(block: JsonObject, path: JsonPath, env: BlockEnv) {
             if (controls) Text(stringResource(R.string.ed24_column_n, ci + 1), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             BlockColumn(inner, env)
             if (controls) {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     val n = ((BlockDoc.data(ed.block(path))["cols"] as? JsonArray)?.getOrNull(ci) as? JsonObject)?.get("blocks").let { (it as? JsonArray)?.size ?: 0 }
                     ed.insertInto(inner, n, BlockDoc.newBlock("paragraph"))
                 }) { Text(stringResource(R.string.ed24_add_block)) }
@@ -407,7 +407,7 @@ fun AttachesBlock(d: JsonObject, env: BlockEnv) {
             Text(InlineHtml.decodeEntities(name), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (size != null && size > 0) Text(humanSize(size.toLong()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (edit && u.isNotEmpty()) TextButton(onClick = { env.onLink(u) }) { Text(stringResource(R.string.action_open)) }
+        if (edit && u.isNotEmpty()) SagaTextButton(onClick = { env.onLink(u) }) { Text(stringResource(R.string.action_open)) }
     }
 }
 

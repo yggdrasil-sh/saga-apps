@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.pages
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.clickable
@@ -21,11 +23,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -131,7 +131,7 @@ fun MovePageDialog(repo: SagaRepository, page: PageMeta, onDismiss: () -> Unit, 
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.action_cancel)) } },
     )
 
     confirm?.let { t ->
@@ -139,8 +139,8 @@ fun MovePageDialog(repo: SagaRepository, page: PageMeta, onDismiss: () -> Unit, 
             onDismissRequest = { confirm = null },
             title = { Text(stringResource(R.string.mv_shared_confirm_title)) },
             text = { Text(stringResource(R.string.mv_shared_confirm_text, t.page?.title?.ifEmpty { untitled } ?: "")) },
-            confirmButton = { TextButton(onClick = { confirm = null; go(t) }) { Text(stringResource(R.string.mv_move)) } },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text(stringResource(R.string.action_cancel)) } },
+            confirmButton = { SagaTextButton(onClick = { confirm = null; go(t) }) { Text(stringResource(R.string.mv_move)) } },
+            dismissButton = { SagaTextButton(onClick = { confirm = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }
@@ -188,7 +188,7 @@ fun TrashDialog(repo: SagaRepository, onDismiss: () -> Unit) {
                     title = { Text(stringResource(R.string.tr_title)) },
                     navigationIcon = { IconButton(onClick = onDismiss) { SagaIcon(SagaIcons.x, stringResource(R.string.action_close)) } },
                     actions = {
-                        if (st.items?.isNotEmpty() == true) TextButton(onClick = { askEmpty = true }) {
+                        if (st.items?.isNotEmpty() == true) SagaTextButton(onClick = { askEmpty = true }) {
                             Text(stringResource(R.string.tr_empty), color = MaterialTheme.colorScheme.error)
                         }
                     },
@@ -200,7 +200,7 @@ fun TrashDialog(repo: SagaRepository, onDismiss: () -> Unit) {
                     st.loading -> CircularProgressIndicator(Modifier.padding(24.dp))
                     err != null && st.items == null -> Column(Modifier.padding(16.dp)) {
                         Text(err.resolve(), color = MaterialTheme.colorScheme.error)
-                        TextButton(onClick = { st = TrashState(); scope.launch { load() } }) { Text(stringResource(R.string.action_retry)) }
+                        SagaTextButton(onClick = { st = TrashState(); scope.launch { load() } }) { Text(stringResource(R.string.action_retry)) }
                     }
                     st.empty -> Text(stringResource(R.string.tr_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp))
                     else -> LazyColumn(Modifier.fillMaxWidth().widthIn(max = 820.dp)) {
@@ -220,11 +220,11 @@ fun TrashDialog(repo: SagaRepository, onDismiss: () -> Unit) {
                                 Text(parts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(top = 2.dp))
                                 Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    OutlinedButton(onClick = {
+                                    SagaOutlinedButton(onClick = {
                                         act(t, { repo.trashRestore(t.id) }, UiText.Res(R.string.tr_restored))
                                     }, enabled = !busy) { Text(stringResource(R.string.tr_restore)) }
                                     Spacer(Modifier.size(8.dp))
-                                    TextButton(onClick = { askPurge = t }, enabled = !busy) { Text(stringResource(R.string.tr_purge), color = MaterialTheme.colorScheme.error) }
+                                    SagaTextButton(onClick = { askPurge = t }, enabled = !busy) { Text(stringResource(R.string.tr_purge), color = MaterialTheme.colorScheme.error) }
                                     if (busy) CircularProgressIndicator(Modifier.padding(start = 8.dp).size(20.dp), strokeWidth = 2.dp)
                                 }
                             }
@@ -242,12 +242,12 @@ fun TrashDialog(repo: SagaRepository, onDismiss: () -> Unit) {
             title = { Text(stringResource(R.string.tr_purge_title, t.title.ifEmpty { stringResource(R.string.page_untitled) })) },
             text = { Text(if (t.subpages > 0) pluralStringResource(R.plurals.tr_purge_text_sub, t.subpages, t.subpages) else stringResource(R.string.tr_purge_text)) },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     askPurge = null
                     act(t, { repo.trashPurge(t.id) }, UiText.Res(R.string.tr_purged))
                 }) { Text(stringResource(R.string.tr_purge), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { askPurge = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { askPurge = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
     if (askEmpty) {
@@ -256,7 +256,7 @@ fun TrashDialog(repo: SagaRepository, onDismiss: () -> Unit) {
             title = { Text(stringResource(R.string.tr_empty_title)) },
             text = { Text(stringResource(R.string.tr_empty_text)) },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     askEmpty = false
                     scope.launch {
                         try {
@@ -270,7 +270,7 @@ fun TrashDialog(repo: SagaRepository, onDismiss: () -> Unit) {
                     }
                 }) { Text(stringResource(R.string.tr_empty), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { askEmpty = false }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { askEmpty = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.settings
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
@@ -16,15 +19,12 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -109,12 +109,12 @@ fun NextcloudScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     item { Hint(stringResource(R.string.nc_flow_wait), w) }
                     item {
                         FlowRow(w.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { openUrl(context, s.flow.login.orEmpty(), inApp = true) }) {
+                            SagaButton(onClick = { openUrl(context, s.flow.login.orEmpty(), inApp = true) }) {
                                 Text(stringResource(R.string.nc_sign_in))
                                 Spacer(Modifier.width(androidx.compose.material3.ButtonDefaults.IconSpacing))
                                 SagaIcon(SagaIcons.external, null, Modifier.size(androidx.compose.material3.ButtonDefaults.IconSize))
                             }
-                            OutlinedButton(onClick = { repo.launchAction { repo.ncCancel(); load() } }) { Text(stringResource(R.string.action_cancel)) }
+                            SagaOutlinedButton(onClick = { repo.launchAction { repo.ncCancel(); load() } }) { Text(stringResource(R.string.action_cancel)) }
                         }
                     }
                 }
@@ -130,7 +130,7 @@ fun NextcloudScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     item { ListItem(headlineContent = { Text(stringResource(R.string.nc_used)) }, trailingContent = { Text(s.used?.let { dateTimeText((it * 1000).toLong(), true) } ?: "–") }, modifier = w) }
                     item { Hint(stringResource(R.string.nc_connected_hint), w) }
                     item {
-                        OutlinedButton(onClick = { askOff = true }, modifier = w.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                        SagaOutlinedButton(onClick = { askOff = true }, modifier = w.padding(horizontal = 16.dp, vertical = 4.dp)) {
                             Text(stringResource(R.string.ub_disconnect), color = MaterialTheme.colorScheme.error)
                         }
                     }
@@ -142,7 +142,7 @@ fun NextcloudScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                                 url.orEmpty(), { url = it }, label = { Text(stringResource(R.string.nc_address)) }, placeholder = { Text("https://cloud.example.org") },
                                 singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth(),
                             )
-                            Button(onClick = {
+                            SagaButton(onClick = {
                                 busy = true
                                 msg = UiText.Res(R.string.ub_checking) to true
                                 repo.launchAction(onError = { e -> busy = false; msg = repo.friendly(e) to false }) {
@@ -166,11 +166,11 @@ fun NextcloudScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             title = { Text(stringResource(R.string.nc_disconnect_title)) },
             text = { Text(stringResource(R.string.nc_disconnect_text)) },
             confirmButton = {
-                TextButton(onClick = { askOff = false; repo.launchAction { repo.ncDisconnect(); msg = null; load() } }) {
+                SagaTextButton(onClick = { askOff = false; repo.launchAction { repo.ncDisconnect(); msg = null; load() } }) {
                     Text(stringResource(R.string.ub_disconnect), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { askOff = false }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { askOff = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

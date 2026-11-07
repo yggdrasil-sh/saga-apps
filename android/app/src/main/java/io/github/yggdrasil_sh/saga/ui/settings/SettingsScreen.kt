@@ -1,5 +1,9 @@
 package io.github.yggdrasil_sh.saga.ui.settings
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.background
@@ -20,17 +24,13 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemColors
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -148,7 +148,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             item(key = "logout") {
                 Column(w.padding(start = 16.dp, end = 16.dp, top = 28.dp, bottom = 16.dp)) {
                     // Design 2: Abmelden als tonaler Warnknopf ueber die ganze Breite (gut zu treffen, klar als Warnung)
-                    FilledTonalButton(
+                    SagaFilledTonalButton(
                         onClick = { confirmLogout = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                         colors = ButtonDefaults.filledTonalButtonColors(
                             containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer,
@@ -167,9 +167,9 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             onDismissRequest = { confirmLogout = false },
             title = { Text(stringResource(R.string.settings_sign_out_this_device)) },
             confirmButton = {
-                TextButton(onClick = { confirmLogout = false; repo.launchAction { repo.logout() } }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) }
+                SagaTextButton(onClick = { confirmLogout = false; repo.launchAction { repo.logout() } }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { confirmLogout = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }
@@ -257,7 +257,7 @@ fun SettingsAccountScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
                         },
                         // Nr. 33: dieses Geraet kennzeichnen; Abmelden hier ueber den normalen Weg (Startliste), nicht per Liste
                         overlineContent = if (d.current) ({ Text(stringResource(R.string.settings_device_current), color = MaterialTheme.colorScheme.primary) }) else null,
-                        trailingContent = { if (!d.current) TextButton(onClick = { drop = d }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) } },
+                        trailingContent = { if (!d.current) SagaTextButton(onClick = { drop = d }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) } },
                         colors = SEG, modifier = w.padding(top = if (i == 0) 8.dp else 0.dp).sagaSegment(i, a.devices.size),
                     )
                 }
@@ -279,7 +279,7 @@ fun SettingsAccountScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
             title = { Text(stringResource(R.string.settings_sign_out_device_title, d.name)) },
             text = { Text(stringResource(R.string.settings_sign_out_device_text)) },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     drop = null
                     scope.launch {
                         try {
@@ -293,7 +293,7 @@ fun SettingsAccountScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
                     }
                 }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { drop = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { drop = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }
@@ -505,7 +505,7 @@ private fun DiagSection(modifier: Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                FilledTonalButton(onClick = { result = null; open = true }, enabled = enabled) { Text(stringResource(R.string.diag_send)) }
+                SagaFilledTonalButton(onClick = { result = null; open = true }, enabled = enabled) { Text(stringResource(R.string.diag_send)) }
             }
         }
     }
@@ -549,13 +549,13 @@ private fun DiagSection(modifier: Modifier) {
             confirmButton = {
                 if (r is io.github.yggdrasil_sh.saga.diag.ClientLogger.DiagResult.Ok) {
                     val copied = stringResource(R.string.diag_copied)
-                    TextButton(onClick = {
+                    SagaTextButton(onClick = {
                         val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                         cm.setPrimaryClip(android.content.ClipData.newPlainText("Saga", r.id))
                         if (android.os.Build.VERSION.SDK_INT < 33) android.widget.Toast.makeText(context, copied, android.widget.Toast.LENGTH_SHORT).show()
                     }) { Text(stringResource(R.string.diag_copy)) }
                 } else {
-                    TextButton(enabled = !busy && enabled, onClick = {
+                    SagaTextButton(enabled = !busy && enabled, onClick = {
                         busy = true
                         scope.launch {
                             result = io.github.yggdrasil_sh.saga.diag.ClientLogger.diag(note)
@@ -565,7 +565,7 @@ private fun DiagSection(modifier: Modifier) {
                 }
             },
             dismissButton = {
-                TextButton(enabled = !busy, onClick = { open = false; if (r is io.github.yggdrasil_sh.saga.diag.ClientLogger.DiagResult.Ok) note = "" }) {
+                SagaTextButton(enabled = !busy, onClick = { open = false; if (r is io.github.yggdrasil_sh.saga.diag.ClientLogger.DiagResult.Ok) note = "" }) {
                     Text(stringResource(if (r is io.github.yggdrasil_sh.saga.diag.ClientLogger.DiagResult.Ok) R.string.action_done else R.string.action_cancel))
                 }
             },
@@ -610,10 +610,10 @@ private fun UpdateHintSection(modifier: Modifier) {
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     when (UpdateHint.button(checking, available)) {
-                        UpdateHint.Button.CHECKING -> OutlinedButton(onClick = {}, enabled = false) { Text(stringResource(R.string.update_checking)) }
-                        UpdateHint.Button.CHECK -> OutlinedButton(onClick = { UpdateHintModel.checkNow() }) { Text(stringResource(R.string.update_check)) }
+                        UpdateHint.Button.CHECKING -> SagaOutlinedButton(onClick = {}, enabled = false) { Text(stringResource(R.string.update_checking)) }
+                        UpdateHint.Button.CHECK -> SagaOutlinedButton(onClick = { UpdateHintModel.checkNow() }) { Text(stringResource(R.string.update_check)) }
                         // "Update": APK (sonst Release-Seite) im Browser bzw. Download-Manager - nie als ausgeschriebene URL
-                        UpdateHint.Button.UPDATE -> Button(onClick = {
+                        UpdateHint.Button.UPDATE -> SagaButton(onClick = {
                             available?.let(UpdateHint::action)?.let { io.github.yggdrasil_sh.saga.ui.common.openUrl(context, it) }
                         }) { Text(stringResource(R.string.update_button)) }
                     }
@@ -776,14 +776,14 @@ private fun TaskDigestRow(repo: SagaRepository, w: Modifier) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { pick = false },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = {
+                io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton(onClick = {
                     pick = false
                     val t = "%02d:%02d".format(st.hour, st.minute)
                     d = cur.copy(time = t)
                     repo.launchAction(onError = { d = cur }) { repo.setTaskDigest(time = t) }
                 }) { Text(stringResource(R.string.action_apply)) }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { pick = false }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton(onClick = { pick = false }) { Text(stringResource(R.string.action_cancel)) } },
             text = { androidx.compose.material3.TimePicker(st) },
         )
     }

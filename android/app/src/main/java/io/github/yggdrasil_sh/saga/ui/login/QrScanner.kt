@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.login
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -27,7 +28,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -148,7 +148,7 @@ fun QrScannerDialog(onDismiss: () -> Unit, onResult: (String) -> Boolean) {
                     hint.resolve(), color = Color.White, textAlign = TextAlign.Center,
                     modifier = Modifier.background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(SagaRadius.md)).padding(12.dp),
                 )
-                FilledTonalButton(onClick = paste, modifier = Modifier.padding(top = 12.dp)) {
+                SagaFilledTonalButton(onClick = paste, modifier = Modifier.padding(top = 12.dp)) {
                     Text(stringResource(R.string.qr_paste_link))
                 }
             }

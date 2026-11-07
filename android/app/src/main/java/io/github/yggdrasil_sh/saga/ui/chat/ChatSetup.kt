@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.layout.heightIn
@@ -31,7 +34,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -39,10 +41,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -134,7 +134,7 @@ fun ChatSetupView(svc: ChatService, st: ChatSetup) {
                 ChatSetup.OFF -> Info(stringResource(R.string.chat_off))
                 ChatSetup.ERROR -> {
                     Info(error?.resolve() ?: stringResource(R.string.error_generic))
-                    Button(onClick = { scope.launch { svc.refresh() } }, Modifier.padding(top = 12.dp)) { Text(stringResource(R.string.action_retry)) }
+                    SagaButton(onClick = { scope.launch { svc.refresh() } }, Modifier.padding(top = 12.dp)) { Text(stringResource(R.string.action_retry)) }
                 }
                 ChatSetup.NEW_ACCOUNT -> NewAccount(svc)
                 ChatSetup.NEW_DEVICE -> NewDevice(svc)
@@ -181,7 +181,7 @@ private fun NewAccount(svc: ChatService) {
         if (a != null && a.canEdit) {
             io.github.yggdrasil_sh.saga.ui.settings.DisplayNameField(dn.orEmpty(), { dn = it }, enabled = !busy, modifier = Modifier.padding(top = 16.dp))
         }
-        Button(onClick = {
+        SagaButton(onClick = {
             busy = true
             scope.launch {
                 try {
@@ -261,8 +261,8 @@ fun RecoveryKeyConfirm(key: String, busy: Boolean, err: UiText?, onCancel: () ->
         CodeRows(ChatFormat.recoveryRows(key), 22.sp, Modifier.padding(16.dp))
     }
     Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = { copyText(context, key, sensitive = true) }) { Text(stringResource(R.string.text_copy)) }
-        OutlinedButton(onClick = { shareText(context, key) }) { Text(stringResource(R.string.chat_share)) }
+        SagaOutlinedButton(onClick = { copyText(context, key, sensitive = true) }) { Text(stringResource(R.string.text_copy)) }
+        SagaOutlinedButton(onClick = { shareText(context, key) }) { Text(stringResource(R.string.chat_share)) }
     }
     Row(
         Modifier.padding(top = 12.dp).fillMaxWidth().toggleable(value = stored, role = Role.Checkbox) { stored = it }.padding(vertical = 4.dp),
@@ -289,8 +289,8 @@ fun RecoveryKeyConfirm(key: String, busy: Boolean, err: UiText?, onCancel: () ->
     )
     err?.let { ErrorText(it) }
     Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        TextButton(onClick = onCancel, enabled = !busy) { Text(stringResource(R.string.action_cancel)) }
-        Button(onClick = onConfirm, enabled = ok && !busy) { Text(stringResource(R.string.chat_recovery_done)) }
+        SagaTextButton(onClick = onCancel, enabled = !busy) { Text(stringResource(R.string.action_cancel)) }
+        SagaButton(onClick = onConfirm, enabled = ok && !busy) { Text(stringResource(R.string.chat_recovery_done)) }
         if (busy) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
     }
     if (busy) {
@@ -315,8 +315,8 @@ private fun NewDevice(svc: ChatService) {
                 stringResource(R.string.chat_new_device_text), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
             )
-            Button(onClick = { mode = "link" }, modifier = Modifier.padding(top = 20.dp).fillMaxWidth()) { Text(stringResource(R.string.chat_link_other)) }
-            OutlinedButton(onClick = { mode = "recover" }, modifier = Modifier.padding(top = 8.dp).fillMaxWidth()) { Text(stringResource(R.string.chat_enter_recovery)) }
+            SagaButton(onClick = { mode = "link" }, modifier = Modifier.padding(top = 20.dp).fillMaxWidth()) { Text(stringResource(R.string.chat_link_other)) }
+            SagaOutlinedButton(onClick = { mode = "recover" }, modifier = Modifier.padding(top = 8.dp).fillMaxWidth()) { Text(stringResource(R.string.chat_enter_recovery)) }
             StartOverButton(Modifier.padding(top = 16.dp)) { mode = "restart" }
         }
     }
@@ -325,7 +325,7 @@ private fun NewDevice(svc: ChatService) {
 /** "Neu beginnen" (rot) mit Folgen-Hinweis darunter */
 @Composable
 fun StartOverButton(modifier: Modifier = Modifier, start: Boolean = false, onClick: () -> Unit) {
-    TextButton(onClick = onClick, modifier = modifier) {
+    SagaTextButton(onClick = onClick, modifier = modifier) {
         Column(horizontalAlignment = if (start) Alignment.Start else Alignment.CenterHorizontally) {
             Text(stringResource(R.string.chat_start_over), color = MaterialTheme.colorScheme.error)
             Text(
@@ -400,14 +400,14 @@ private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
     } else if (end != null || err != null) {
         // abgelaufen / abgelehnt / Start ohne Netz gescheitert: erneut versuchen
         if (end != null) Info(stringResource(if (end == "gone") R.string.chat_link_denied else R.string.chat_link_expired))
-        Button(onClick = { ended = null; ls = null; scope.launch { start() } }, modifier = Modifier.padding(top = 12.dp)) {
+        SagaButton(onClick = { ended = null; ls = null; scope.launch { start() } }, modifier = Modifier.padding(top = 12.dp)) {
             Text(stringResource(R.string.action_retry))
         }
     } else {
         CircularProgressIndicator(Modifier.padding(top = 16.dp))
     }
     err?.let { ErrorText(it) }
-    TextButton(onClick = {
+    SagaTextButton(onClick = {
         onBack()                                       // zieht die Anfrage beim Verlassen zurueck (DisposableEffect)
     }, modifier = Modifier.padding(top = 12.dp)) { Text(stringResource(R.string.action_cancel)) }
 }
@@ -428,8 +428,8 @@ private fun RecoverForm(svc: ChatService, onBack: () -> Unit) {
     )
     err?.let { ErrorText(it) }
     Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        TextButton(onClick = onBack, enabled = !busy) { Text(stringResource(R.string.action_cancel)) }
-        Button(onClick = {
+        SagaTextButton(onClick = onBack, enabled = !busy) { Text(stringResource(R.string.action_cancel)) }
+        SagaButton(onClick = {
             busy = true
             err = null
             scope.launch {
@@ -474,7 +474,7 @@ fun StartOver(svc: ChatService, onBack: () -> Unit) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     confirmed = true
                     scope.launch {
                         try {
@@ -488,7 +488,7 @@ fun StartOver(svc: ChatService, onBack: () -> Unit) {
                     }
                 }) { Text(stringResource(R.string.chat_start_over), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = onBack) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = onBack) { Text(stringResource(R.string.action_cancel)) } },
         )
         return
     }
@@ -498,7 +498,7 @@ fun StartOver(svc: ChatService, onBack: () -> Unit) {
     }
     if (needLogin) {
         Info(stringResource(R.string.chat_reauth_login))
-        TextButton(onClick = onBack, modifier = Modifier.padding(top = 12.dp)) { Text(stringResource(R.string.action_close)) }
+        SagaTextButton(onClick = onBack, modifier = Modifier.padding(top = 12.dp)) { Text(stringResource(R.string.action_close)) }
         return
     }
     if (needPassword) {

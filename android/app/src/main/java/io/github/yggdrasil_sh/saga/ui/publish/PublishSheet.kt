@@ -1,5 +1,9 @@
 package io.github.yggdrasil_sh.saga.ui.publish
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -26,21 +30,17 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -105,7 +105,7 @@ fun PublishSheet(model: PublishModel, scope: CoroutineScope, onDismiss: () -> Un
                         stringResource(R.string.publish_load_failed, model.loadError?.resolve().orEmpty()),
                         color = MaterialTheme.colorScheme.error, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     )
-                    if (!model.unsupported) Button(onClick = { scope.launch { model.load() } }) { Text(stringResource(R.string.action_retry)) }
+                    if (!model.unsupported) SagaButton(onClick = { scope.launch { model.load() } }) { Text(stringResource(R.string.action_retry)) }
                 }
                 model.step == PublishStep.NAME -> NameStep(model, scope)
                 else -> MainStep(model, scope, onOpenPage, onStop = { confirmStop = true }, onChangeSlug = { confirmSlug = true })
@@ -142,11 +142,11 @@ internal fun ConfirmDialog(title: String, text: String, confirm: String, onConfi
         title = { Text(title) },
         text = { Text(text) },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
+            SagaTextButton(onClick = onConfirm) {
                 Text(confirm, color = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -176,7 +176,7 @@ private fun ColumnScope.NameStep(model: PublishModel, scope: CoroutineScope) {
     Text(Publish.breakable(model.namePreview), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
     if (bad == null) NameStatusText(model.nameStatus)
     if (model.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-    Button(onClick = { scope.launch { model.confirmName() } }, enabled = model.canContinue, modifier = Modifier.align(Alignment.End)) {
+    SagaButton(onClick = { scope.launch { model.confirmName() } }, enabled = model.canContinue, modifier = Modifier.align(Alignment.End)) {
         Text(stringResource(R.string.publish_continue))
     }
 }
@@ -264,7 +264,7 @@ private fun ColumnScope.MainStep(model: PublishModel, scope: CoroutineScope, onO
             modifier = Modifier.fillMaxWidth(),
         )
         if (v.showChangeAddress) {
-            OutlinedButton(onClick = onChangeSlug, enabled = v.changeAddressEnabled && !busy, modifier = Modifier.align(Alignment.End)) {
+            SagaOutlinedButton(onClick = onChangeSlug, enabled = v.changeAddressEnabled && !busy, modifier = Modifier.align(Alignment.End)) {
                 Text(stringResource(R.string.publish_change_address))
             }
         }
@@ -305,7 +305,7 @@ private fun ColumnScope.MainStep(model: PublishModel, scope: CoroutineScope, onO
     Text(stringResource(R.string.publish_name_footer, v.name), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     // 5 Beenden
     if (v.showStop) {
-        OutlinedButton(
+        SagaOutlinedButton(
             onClick = onStop, enabled = !busy,
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
         ) { Text(stringResource(R.string.publish_stop)) }
@@ -322,8 +322,8 @@ private fun ViaCard(title: String, url: String, onCopy: () -> Unit, onOpen: () -
             Text(stringResource(R.string.publish_via_text, t), color = MaterialTheme.colorScheme.onSecondaryContainer)
             Text(Publish.breakable(url), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onCopy) { Text(stringResource(R.string.publish_copy_link)) }
-                TextButton(onClick = onOpen) { Text(stringResource(R.string.publish_open_title, t)) }
+                SagaTextButton(onClick = onCopy) { Text(stringResource(R.string.publish_copy_link)) }
+                SagaTextButton(onClick = onOpen) { Text(stringResource(R.string.publish_open_title, t)) }
             }
             Text(stringResource(R.string.publish_via_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
         }
@@ -346,9 +346,9 @@ private fun LinkCard(url: String, active: Boolean, profile: String?, onCopy: (St
             )
             if (active) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    FilledTonalButton(onClick = { onCopy(url) }) { Text(stringResource(R.string.publish_copy_link)) }
-                    OutlinedButton(onClick = onOpen) { Text(stringResource(R.string.publish_open)) }
-                    OutlinedButton(onClick = onShare) { Text(stringResource(R.string.publish_share)) }
+                    SagaFilledTonalButton(onClick = { onCopy(url) }) { Text(stringResource(R.string.publish_copy_link)) }
+                    SagaOutlinedButton(onClick = onOpen) { Text(stringResource(R.string.publish_open)) }
+                    SagaOutlinedButton(onClick = onShare) { Text(stringResource(R.string.publish_share)) }
                 }
             }
             if (profile != null) {
@@ -358,7 +358,7 @@ private fun LinkCard(url: String, active: Boolean, profile: String?, onCopy: (St
                         Text(stringResource(R.string.publish_profile_address), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(Publish.breakable(profile), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                     }
-                    TextButton(onClick = { onCopy(profile) }) { Text(stringResource(R.string.publish_copy_link)) }
+                    SagaTextButton(onClick = { onCopy(profile) }) { Text(stringResource(R.string.publish_copy_link)) }
                 }
             }
         }

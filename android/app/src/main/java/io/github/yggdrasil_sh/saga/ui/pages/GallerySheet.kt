@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.pages
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -28,7 +29,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -121,7 +121,7 @@ fun GallerySheet(
                         stringResource(R.string.gal_load_failed, loadError?.resolve().orEmpty()), color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     )
-                    Button(onClick = { reload++ }) { Text(stringResource(R.string.action_retry)) }
+                    SagaButton(onClick = { reload++ }) { Text(stringResource(R.string.action_retry)) }
                 }
                 list.isEmpty() -> Text(
                     stringResource(R.string.gal_empty), color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -265,7 +265,7 @@ private fun GalleryConfirm(
                         enabled = !busy, modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { search() }),
                     )
-                    TextButton(enabled = !busy && !searching && Gallery.geocodePath(query) != null, onClick = { search() }) {
+                    SagaTextButton(enabled = !busy && !searching && Gallery.geocodePath(query) != null, onClick = { search() }) {
                         if (searching) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                         else Text(stringResource(R.string.gal_weather_search))
                     }
@@ -313,16 +313,16 @@ private fun GalleryConfirm(
         },
         confirmButton = {
             if (placeStep) {
-                TextButton(enabled = !busy, onClick = { create(null) }) {
+                SagaTextButton(enabled = !busy, onClick = { create(null) }) {
                     if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                     else Text(stringResource(R.string.gal_weather_skip))
                 }
-            } else Button(enabled = !busy, onClick = { if (askWeather) placeStep = true else create(null) }) {
+            } else SagaButton(enabled = !busy, onClick = { if (askWeather) placeStep = true else create(null) }) {
                 if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 else Text(stringResource(R.string.gal_use))
             }
         },
-        dismissButton = { TextButton(enabled = !busy, onClick = onCancel) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(enabled = !busy, onClick = onCancel) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 

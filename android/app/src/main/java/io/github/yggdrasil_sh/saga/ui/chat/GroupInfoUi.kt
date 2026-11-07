@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -27,13 +29,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
@@ -139,7 +139,7 @@ fun GroupInfoDialog(
                 if (mh != null) hint("h-ro", mh.asString(res)) else if (r.readOnly) hint("h-ro", res.getString(R.string.gi_readonly))
                 // 2.5 (chatmedia1): Medien, Dateien, Links
                 if (std.media) item(key = "media") {
-                    TextButton(onClick = { media = true }, modifier = Modifier.padding(start = 8.dp)) {
+                    SagaTextButton(onClick = { media = true }, modifier = Modifier.padding(start = 8.dp)) {
                         SagaIcon(SagaIcons.image, null, Modifier.padding(end = 6.dp).size(18.dp))
                         Text(stringResource(R.string.std_media_title))
                     }
@@ -159,7 +159,7 @@ fun GroupInfoDialog(
                 }
                 if (canAdd) {
                     item(key = "add") {
-                        TextButton(onClick = { adding = !adding }, modifier = Modifier.padding(start = 8.dp)) { Text("+ " + stringResource(R.string.gi_add)) }
+                        SagaTextButton(onClick = { adding = !adding }, modifier = Modifier.padding(start = 8.dp)) { Text("+ " + stringResource(R.string.gi_add)) }
                     }
                     if (adding) addMemberItems(repo, s, c) { adding = false }
                 }
@@ -172,20 +172,20 @@ fun GroupInfoDialog(
                     ) {
                         if (std.mute2) Box {
                             var mm by remember { mutableStateOf(false) }
-                            OutlinedButton(onClick = { mm = true }) { Text(muteLabel(c, System.currentTimeMillis() / 1000.0)) }
+                            SagaOutlinedButton(onClick = { mm = true }) { Text(muteLabel(c, System.currentTimeMillis() / 1000.0)) }
                             DropdownMenu(expanded = mm, onDismissRequest = { mm = false }) {
                                 AlltagMenuItems(repo, c, onPatched = { s.applySummary(it) }) { mm = false }
                             }
-                        } else OutlinedButton(onClick = { repo.launchAction { s.setMuted(!c.muted) } }) {
+                        } else SagaOutlinedButton(onClick = { repo.launchAction { s.setMuted(!c.muted) } }) {
                             Text(stringResource(if (c.muted) R.string.chat_unmute else R.string.chat_mute))
                         }
                         if (s.canArchive) {
                             val arch = c.archived == true
-                            OutlinedButton(onClick = { repo.launchAction { s.setArchived(!arch) } }) {
+                            SagaOutlinedButton(onClick = { repo.launchAction { s.setArchived(!arch) } }) {
                                 Text(stringResource(if (arch) R.string.chatdel_unarchive else R.string.chatdel_archive))
                             }
                         }
-                        if (c.kind == "free") OutlinedButton(onClick = onLeave) {
+                        if (c.kind == "free") SagaOutlinedButton(onClick = onLeave) {
                             Text(stringResource(R.string.chat_leave), color = MaterialTheme.colorScheme.error)
                         }
                     }
@@ -207,12 +207,12 @@ fun GroupInfoDialog(
             title = { Text(stringResource(R.string.gi_remove_title, n)) },
             text = { Text(stringResource(R.string.gi_remove_text, n)) },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     removing = null
                     repo.launchAction { s.removeMember(m.username); repo.notify(UiText.Res(R.string.gi_removed, n)) }
                 }) { Text(stringResource(R.string.chat_member_remove), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { removing = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { removing = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

@@ -1,12 +1,12 @@
 package io.github.yggdrasil_sh.saga.ui.settings
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -132,7 +132,7 @@ fun DisplayNameBlock(repo: SagaRepository, modifier: Modifier = Modifier, reload
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
-        Button(onClick = { save() }, enabled = !busy && input.trim() != i.name, modifier = Modifier.align(Alignment.End)) {
+        SagaButton(onClick = { save() }, enabled = !busy && input.trim() != i.name, modifier = Modifier.align(Alignment.End)) {
             Text(stringResource(R.string.action_save))
         }
     }

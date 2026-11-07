@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.login
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -7,7 +8,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -71,11 +71,11 @@ fun PairConfirmDialog(repo: SagaRepository, target: PairTarget, appScope: Corout
             }
         },
         confirmButton = {
-            TextButton(onClick = { appScope.launch { repo.confirmPair() } }, enabled = !busy) {
+            SagaTextButton(onClick = { appScope.launch { repo.confirmPair() } }, enabled = !busy) {
                 Text(stringResource(R.string.pair_confirm_button))
             }
         },
-        dismissButton = { TextButton(onClick = { repo.cancelPair() }, enabled = !busy) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = { repo.cancelPair() }, enabled = !busy) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -88,6 +88,6 @@ fun PairRejectedDialog(repo: SagaRepository) {
         onDismissRequest = { repo.pairRejected.value = null },
         title = { Text(stringResource(R.string.pair_rejected_title)) },
         text = { Text(m.resolve()) },
-        confirmButton = { TextButton(onClick = { repo.pairRejected.value = null }) { Text(stringResource(android.R.string.ok)) } },
+        confirmButton = { SagaTextButton(onClick = { repo.pairRejected.value = null }) { Text(stringResource(android.R.string.ok)) } },
     )
 }

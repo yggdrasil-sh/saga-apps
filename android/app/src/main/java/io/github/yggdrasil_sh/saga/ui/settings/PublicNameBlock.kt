@@ -1,11 +1,11 @@
 package io.github.yggdrasil_sh.saga.ui.settings
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -85,7 +85,7 @@ fun PublicNameBlock(backend: PublishBackend, modifier: Modifier = Modifier, relo
                 ?: stringResource(R.string.publish_name_hint_unset),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Button(onClick = { save() }, enabled = model.canSave, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.publish_name_save)) }
+        SagaButton(onClick = { save() }, enabled = model.canSave, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.publish_name_save)) }
     }
 
     if (confirm) {

@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.share
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -30,7 +33,6 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -40,11 +42,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -114,7 +114,7 @@ fun PageShareSheet(
                         stringResource(R.string.share_load_failed, model.loadError?.resolve().orEmpty()),
                         color = MaterialTheme.colorScheme.error, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     )
-                    Button(onClick = { scope.launch { model.load() } }) { Text(stringResource(R.string.action_retry)) }
+                    SagaButton(onClick = { scope.launch { model.load() } }) { Text(stringResource(R.string.action_retry)) }
                 }
                 else -> {
                     if (!st.enabled) Warn(stringResource(R.string.share_disabled_warn))
@@ -223,7 +223,7 @@ fun PageShareSheet(
                                 Box(Modifier.weight(1f)) { PersonRow(x.type, x.name.ifEmpty { x.target }, ShareLogic.entrySub(x.type, x.target, null).resolve()) }
                                 Column(horizontalAlignment = Alignment.End) {
                                     Text(stringResource(ShareLogic.roleName(Role.of(x.role))), style = MaterialTheme.typography.labelMedium)
-                                    TextButton(
+                                    SagaTextButton(
                                         onClick = { onOpenParent(x.noteId) },
                                         modifier = Modifier.semantics { contentDescription = "$toParent: ${x.title}" },
                                     ) { Text(stringResource(R.string.share_from, x.title), maxLines = 1, overflow = TextOverflow.Ellipsis) }
@@ -239,7 +239,7 @@ fun PageShareSheet(
                     Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(SagaRadius.md), modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(link, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
-                            OutlinedButton(onClick = { copy(context, link); onCopied() }) { Text(stringResource(R.string.share_copy_link)) }
+                            SagaOutlinedButton(onClick = { copy(context, link); onCopied() }) { Text(stringResource(R.string.share_copy_link)) }
                         }
                     }
                     Text(stringResource(R.string.share_link_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -254,11 +254,11 @@ fun PageShareSheet(
             title = { Text(stringResource(R.string.share_remove_title)) },
             text = { Text(ShareLogic.removeText(e).resolve()) },
             confirmButton = {
-                TextButton(onClick = { confirm = null; scope.launch { model.remove(e) } }) {
+                SagaTextButton(onClick = { confirm = null; scope.launch { model.remove(e) } }) {
                     Text(stringResource(R.string.share_remove_button), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { confirm = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }
@@ -384,7 +384,7 @@ private fun RolePicker(current: Role, label: String, modifier: Modifier = Modifi
     var open by remember { mutableStateOf(false) }
     val name = stringResource(ShareLogic.roleName(current))
     Box(modifier) {
-        OutlinedButton(
+        SagaOutlinedButton(
             onClick = { open = true }, enabled = enabled,
             contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 14.dp, end = 8.dp),
             modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = "$label: $name" },

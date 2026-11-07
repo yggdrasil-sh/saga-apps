@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.ui.graphics.isSpecified
 import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
@@ -31,7 +32,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -331,7 +331,7 @@ private fun Unsupported(blockId: String?, env: BlockEnv) {
         )
         // Seiten anderer Server haben keine Adresse im eigenen Web-Editor
         if (!ed.isRemote) {
-            TextButton(onClick = {
+            SagaTextButton(onClick = {
                 ed.flush()
                 io.github.yggdrasil_sh.saga.ui.common.openUrl(context, io.github.yggdrasil_sh.saga.blocks.Gestalten.webUrl(env.repo.absoluteUrl("notes"), ed.id, blockId))
             }) { Text(stringResource(R.string.gest_open_web)) }
@@ -465,7 +465,7 @@ private fun ToggleBlock(block: JsonObject, path: JsonPath, key: String, env: Blo
             val arr = JsonTree.get(ed.doc, inner) as? JsonArray
             Box(Modifier.padding(start = 32.dp, top = 4.dp)) {
                 if (arr.isNullOrEmpty()) {
-                    if (ed.editable) TextButton(onClick = { ed.insertInto(inner, 0, BlockDoc.newBlock("paragraph")) }) {
+                    if (ed.editable) SagaTextButton(onClick = { ed.insertInto(inner, 0, BlockDoc.newBlock("paragraph")) }) {
                         Text(stringResource(R.string.toggle_empty_tap))
                     } else Text(stringResource(R.string.toggle_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
@@ -490,8 +490,8 @@ private fun ConflictFrame(cf: io.github.yggdrasil_sh.saga.blocks.MergeLogic.Conf
             Text(stringResource(R.string.e2_conflict_title, name), style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
             if (ed.editable && bid != null) {
-                TextButton(onClick = { ed.acceptConflict(bid) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.e2_conflict_accept)) }
-                TextButton(onClick = { ed.discardConflict(bid) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.e2_conflict_discard)) }
+                SagaTextButton(onClick = { ed.acceptConflict(bid) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.e2_conflict_accept)) }
+                SagaTextButton(onClick = { ed.discardConflict(bid) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.e2_conflict_discard)) }
             }
         }
         content()

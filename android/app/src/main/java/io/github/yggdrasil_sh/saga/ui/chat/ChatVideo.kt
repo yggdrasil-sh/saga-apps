@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -36,7 +37,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -462,7 +462,7 @@ fun VideoUploadsBar(repo: SagaRepository, chatId: Long, onDone: () -> Unit) {
                         if (w.state == WorkInfo.State.RUNNING && p > 0f) LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
                         else LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
                     }
-                    TextButton(onClick = { Videos.cancel(context.applicationContext, w.id) }) { Text(stringResource(R.string.action_cancel)) }
+                    SagaTextButton(onClick = { Videos.cancel(context.applicationContext, w.id) }) { Text(stringResource(R.string.action_cancel)) }
                 }
             }
         }

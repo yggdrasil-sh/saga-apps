@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
@@ -53,7 +56,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -65,7 +67,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import io.github.yggdrasil_sh.saga.data.FreshEntries
@@ -133,7 +134,6 @@ import io.github.yggdrasil_sh.saga.ui.comments.CommentsSheet
 import io.github.yggdrasil_sh.saga.ui.share.PageShareSheet
 import io.github.yggdrasil_sh.saga.ui.share.ShareLogic
 import io.github.yggdrasil_sh.saga.ui.share.ShareModel
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.style.TextAlign
@@ -688,7 +688,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
             title = { Text(stringResource(R.string.page_trash_confirm)) },
             text = { Text(stringResource(R.string.page_trash_text)) },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     confirmTrash = false
                     repo.launchAction {
                         ed.saveAndWait()
@@ -700,7 +700,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                     }
                 }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { confirmTrash = false }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { confirmTrash = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
     shareModel?.let { m ->
@@ -745,13 +745,13 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
             title = { Text(stringResource(R.string.conflict_by_title, by)) },
             text = { Text(stringResource(R.string.conflict_by_text)) },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     conflictDialog = false
                     repo.launchAction { copyDraft = ed.loadServerVersion() }
                 }) { Text(stringResource(R.string.conflict_load_new)) }
             },
             dismissButton = {
-                TextButton(onClick = { conflictDialog = false; confirmOverwrite = true }) { Text(stringResource(R.string.conflict_keep_version)) }
+                SagaTextButton(onClick = { conflictDialog = false; confirmOverwrite = true }) { Text(stringResource(R.string.conflict_keep_version)) }
             },
         )
     }
@@ -762,12 +762,12 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
             title = { Text(stringResource(R.string.conflict_overwrite_title, who)) },
             text = { Text(stringResource(R.string.conflict_overwrite_text, who)) },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     confirmOverwrite = false
                     repo.launchAction { ed.keepMine() }
                 }) { Text(stringResource(R.string.conflict_overwrite), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { confirmOverwrite = false }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { confirmOverwrite = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
     copyDraft?.let { text ->
@@ -787,13 +787,13 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
             title = { Text(stringResource(R.string.conflict_title)) },
             text = { Text(stringResource(R.string.conflict_text)) },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     conflictDialog = false
                     repo.launchAction { ed.keepMine() }
                 }) { Text(stringResource(R.string.conflict_keep_mine)) }
             },
             dismissButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     conflictDialog = false
                     repo.launchAction {
                         val copy = ed.saveCopyAndLoadServer(copyTitle)
@@ -937,9 +937,9 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
             NoAccess(onRetry = { scope.launch { ed.load() } }, onShared = { repo.showSharedRequest.value++ })
         } else if (!ed.loading && !ed.fetched) {                   // Laden fehlgeschlagen: nichts Bearbeitbares zeigen
             Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { scope.launch { ed.load() } }) { Text(stringResource(R.string.action_retry)) }
+                SagaButton(onClick = { scope.launch { ed.load() } }) { Text(stringResource(R.string.action_retry)) }
                 // 403 "oeffentlicher Name fehlt" (Seite einer anderen Instanz): Weg zu den Einstellungen
-                if (ed.needsPublicName) OutlinedButton(onClick = onSettings) { Text(stringResource(R.string.nav_settings)) }
+                if (ed.needsPublicName) SagaOutlinedButton(onClick = onSettings) { Text(stringResource(R.string.nav_settings)) }
             }
         }
     }
@@ -980,8 +980,8 @@ private fun DraftBanner(stamp: Long, onRestore: () -> Unit, onDiscard: () -> Uni
                 fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = onDiscard) { Text(stringResource(R.string.draft_discard)) }
-                TextButton(onClick = onRestore) { Text(stringResource(R.string.draft_restore)) }
+                SagaTextButton(onClick = onDiscard) { Text(stringResource(R.string.draft_discard)) }
+                SagaTextButton(onClick = onRestore) { Text(stringResource(R.string.draft_restore)) }
             }
         }
     }
@@ -1081,7 +1081,7 @@ private fun EditorToolbar(
                 if (io.github.yggdrasil_sh.saga.blocks.Gestalten.canStyle(styleBlock)) {
                     Box {
                         val cur = styleBlock?.let { io.github.yggdrasil_sh.saga.blocks.Gestalten.style(it) }
-                        TextButton(onClick = { colorMenu = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.gest_color)) }
+                        SagaTextButton(onClick = { colorMenu = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.gest_color)) }
                         BlockColorMenu(colorMenu, cur, onDismiss = { colorMenu = false }) { c, bg ->
                             colorMenu = false
                             ed.setBlockStyle(blockPath, c, bg)
@@ -1093,10 +1093,10 @@ private fun EditorToolbar(
                     FormatButton(stringResource(R.string.format_italic_short), stringResource(R.string.format_italic), active.styleOn(InlineStyle.ITALIC), active.hasSelection(), fontStyle = FontStyle.Italic) { active.toggle.invoke(InlineStyle.ITALIC) }
                     FormatButton(stringResource(R.string.format_underline_short), stringResource(R.string.format_underline), active.styleOn(InlineStyle.UNDERLINE), active.hasSelection(), deco = TextDecoration.Underline) { active.toggle.invoke(InlineStyle.UNDERLINE) }
                     FormatButton(stringResource(R.string.format_strike_short), stringResource(R.string.format_strike), active.styleOn(InlineStyle.STRIKE), active.hasSelection(), deco = TextDecoration.LineThrough) { active.toggle.invoke(InlineStyle.STRIKE) }
-                    TextButton(onClick = { linkDialog = true }, enabled = active.hasSelection(), modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.format_link)) }
+                    SagaTextButton(onClick = { linkDialog = true }, enabled = active.hasSelection(), modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.format_link)) }
                     // 2.5 E2 (P6-8): Farbe der Auswahl, Inline-Mathe, Erwaehnung
                     if (active.setColor != null) Box {
-                        TextButton(onClick = { inlineColorMenu = true }, enabled = active.hasSelection(), modifier = Modifier.heightIn(min = 48.dp)) {
+                        SagaTextButton(onClick = { inlineColorMenu = true }, enabled = active.hasSelection(), modifier = Modifier.heightIn(min = 48.dp)) {
                             Text(stringResource(R.string.e2_inline_color))
                         }
                         InlineColorMenu(inlineColorMenu, active.colorAt?.invoke(false), active.colorAt?.invoke(true), onDismiss = { inlineColorMenu = false }) { c, bg ->
@@ -1105,15 +1105,15 @@ private fun EditorToolbar(
                         }
                     }
                     if (active.setMath != null) {
-                        TextButton(onClick = { mathDialog = active.mathAtCursor?.invoke() ?: "" }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        SagaTextButton(onClick = { mathDialog = active.mathAtCursor?.invoke() ?: "" }, modifier = Modifier.heightIn(min = 48.dp)) {
                             Text(stringResource(R.string.e2_inline_math))
                         }
                     }
                     if (active.insertMention != null && ed.mentionSupported) {
-                        TextButton(onClick = { mentionPick = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("@") }
+                        SagaTextButton(onClick = { mentionPick = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("@") }
                     }
                     active.linkAtCursor?.invoke()?.let { href ->
-                        TextButton(onClick = { onLink(href) }) { Text(stringResource(R.string.link_open)) }
+                        SagaTextButton(onClick = { onLink(href) }) { Text(stringResource(R.string.link_open)) }
                     }
                 }
                 Spacer(Modifier.width(if (toolScroll.maxValue > 0) 36.dp else 0.dp))   // letzter Knopf nicht unter dem Hinweis
@@ -1135,7 +1135,7 @@ private fun EditorToolbar(
             // 2.5: Widget - Einstellungen nur im Web (Etappe 1): Seite mit Block-Anker im Browser
             val wBlock = ed.block(blockPath)?.takeIf { BlockDoc.type(it) == "widget" && active.itemPath() == null }
             if (wBlock != null && !ed.isRemote && repo != null) {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     ed.flush()
                     openUrl(context, io.github.yggdrasil_sh.saga.blocks.Gestalten.webUrl(repo.absoluteUrl("notes"), ed.id, BlockDoc.id(wBlock)))
                 }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.pw_edit_web)) }
@@ -1144,12 +1144,12 @@ private fun EditorToolbar(
             val moveFeatures = repo?.serverFeatures?.collectAsState()?.value.orEmpty()
             if (repo != null && active.itemPath() == null && ed.editable && io.github.yggdrasil_sh.saga.blocks.MoveLogic.available(ed.id, moveFeatures) &&
                 ed.block(blockPath)?.let { BlockDoc.id(it) } != null) {
-                TextButton(onClick = { movePick = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.e2_move)) }
+                SagaTextButton(onClick = { movePick = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.e2_move)) }
             }
             val dbBlock = ed.block(blockPath)?.takeIf { BlockDoc.type(it) == "database" && active.itemPath() == null }
             if (dbBlock != null) {                                  // 2.5: Datenbanktitel des Blocks ein-/ausblenden (wie Web/iOS)
                 val hidden = (BlockDoc.data(dbBlock)["hide_title"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true"
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     ed.updateBlock(blockPath) { b ->
                         val d = LinkedHashMap(BlockDoc.data(b)).apply { if (hidden) remove("hide_title") else put("hide_title", kotlinx.serialization.json.JsonPrimitive(true)) }
                         kotlinx.serialization.json.JsonObject(LinkedHashMap(b).apply { put("data", kotlinx.serialization.json.JsonObject(d)) })
@@ -1196,9 +1196,9 @@ private fun EditorToolbar(
                     textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace))
             },
             confirmButton = {
-                TextButton(onClick = { mathDialog = null; active.setMath?.invoke(tex) }, enabled = tex.isNotBlank()) { Text(stringResource(R.string.action_apply)) }
+                SagaTextButton(onClick = { mathDialog = null; active.setMath?.invoke(tex) }, enabled = tex.isNotBlank()) { Text(stringResource(R.string.action_apply)) }
             },
-            dismissButton = { TextButton(onClick = { mathDialog = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { mathDialog = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
     if (movePick && repo != null) {
@@ -1227,7 +1227,7 @@ private fun EditorToolbar(
                 OutlinedTextField(value = href, onValueChange = { href = it }, singleLine = true, label = { Text(stringResource(R.string.link_address_label)) })
             },
             confirmButton = {
-                TextButton(onClick = {
+                SagaTextButton(onClick = {
                     linkDialog = false
                     val h = href.trim()
                     if (h.isEmpty() || h == "https://") active.setLink?.invoke("")
@@ -1236,7 +1236,7 @@ private fun EditorToolbar(
                 }) { Text(stringResource(R.string.action_apply)) }
             },
             dismissButton = {
-                TextButton(onClick = { linkDialog = false; active.setLink?.invoke("") }) { Text(stringResource(R.string.link_remove)) }
+                SagaTextButton(onClick = { linkDialog = false; active.setLink?.invoke("") }) { Text(stringResource(R.string.link_remove)) }
             },
         )
     }
@@ -1325,8 +1325,8 @@ private fun NoAccess(onRetry: () -> Unit, onShared: () -> Unit) {
             textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp),
         )
         Column(Modifier.padding(top = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onShared) { Text(stringResource(R.string.no_access_to_shared)) }
-            OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+            SagaButton(onClick = onShared) { Text(stringResource(R.string.no_access_to_shared)) }
+            SagaOutlinedButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
         }
     }
 }
@@ -1348,7 +1348,7 @@ private fun ConflictBanner(by: String?, onChoose: () -> Unit) {
                 )
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = onChoose) { Text(stringResource(R.string.conflict_choose), color = MaterialTheme.colorScheme.onErrorContainer) }
+                SagaTextButton(onClick = onChoose) { Text(stringResource(R.string.conflict_choose), color = MaterialTheme.colorScheme.onErrorContainer) }
             }
         }
     }
@@ -1362,7 +1362,7 @@ private fun CommentsButton(open: Int, unread: Int, onClick: () -> Unit) {
     val desc = (if (open == 0) res.getString(R.string.comments_add) else res.getQuantityString(R.plurals.comments_open_threads, open, open)) +
         if (unread > 0) " · " + res.getQuantityString(R.plurals.comments_unread, unread, unread) else ""
     Row(
-        Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(SagaRadius.pill)).clickable(onClick = onClick).padding(horizontal = 10.dp)
+        Modifier.heightIn(min = 48.dp).clip(MaterialTheme.shapes.small).clickable(onClick = onClick).padding(horizontal = 10.dp)
             .semantics(mergeDescendants = true) { contentDescription = desc },
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1428,12 +1428,12 @@ private fun CopyTextDialog(title: String, text: String, draft: String, onClose: 
             }
         },
         confirmButton = {
-            Button(onClick = {
+            SagaButton(onClick = {
                 copy(context, draft)
                 android.widget.Toast.makeText(context, copied, android.widget.Toast.LENGTH_SHORT).show()
             }) { Text(stringResource(R.string.text_copy)) }
         },
-        dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_close)) } },
+        dismissButton = { SagaTextButton(onClick = onClose) { Text(stringResource(R.string.action_close)) } },
     )
 }
 
@@ -1451,7 +1451,7 @@ private fun MergeHintLine(h: MergeHint, onVersions: (() -> Unit)?, onDismiss: ()
             modifier = Modifier.weight(1f).clickable { onDismiss() },
         )
         if (h.versions && onVersions != null) {
-            TextButton(onClick = { onDismiss(); onVersions() }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.e2_merged_versions)) }
+            SagaTextButton(onClick = { onDismiss(); onVersions() }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.e2_merged_versions)) }
         }
     }
 }

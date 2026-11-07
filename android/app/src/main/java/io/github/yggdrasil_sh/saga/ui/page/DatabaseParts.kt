@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.foundation.layout.size
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
@@ -16,9 +17,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -115,7 +114,7 @@ fun DatabaseRows(dbId: Long, repo: SagaRepository, onOpen: (Long) -> Unit, limit
             }
         }
         if (limit != null && rows.size > limit) {
-            androidx.compose.material3.FilledTonalButton(
+            io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton(
                 onClick = { onOpen(dbId) }, modifier = Modifier.padding(top = 6.dp),
                 colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
                     containerColor = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.goldSoft,
@@ -282,7 +281,7 @@ fun ButtonsBlock(d: JsonObject, env: BlockEnv) {
                 val action = BlockDoc.str(b, "action")
                 val usable = io.github.yggdrasil_sh.saga.blocks.ButtonRights.usable(action, target != null, canAct)
                 val taskDefault = stringResource(R.string.button_task_default)
-                OutlinedButton(
+                SagaOutlinedButton(
                     onClick = {
                         if (busy != null) return@OutlinedButton
                         when (action) {

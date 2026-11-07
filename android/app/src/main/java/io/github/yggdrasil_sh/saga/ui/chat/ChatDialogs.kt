@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.material3.Icon
@@ -32,7 +33,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -99,7 +99,7 @@ fun FedChatHint(v2: Boolean = false) {
         Text(stringResource(if (v2) R.string.fed_chat_hint_v2 else R.string.chat_fed_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(stringResource(R.string.chat_fed_hint_local), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp))
-        TextButton(onClick = { openUrl(ctx, ChatFedHint.guideUrl(lang)) }) { Text(stringResource(R.string.chat_fed_guide)) }
+        SagaTextButton(onClick = { openUrl(ctx, ChatFedHint.guideUrl(lang)) }) { Text(stringResource(R.string.chat_fed_guide)) }
     }
 }
 
@@ -238,7 +238,7 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
         },
         confirmButton = {
             if (multi) {
-                TextButton(
+                SagaTextButton(
                     onClick = {
                         repo.launchAction {
                             val c = if (pickedRemote.isEmpty()) svc.createFree(picked.map { it.username })
@@ -259,7 +259,7 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                 }
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -296,7 +296,7 @@ fun SafetyDialog(s: ChatSession, initial: String? = null, onDismiss: () -> Unit)
                         val bmp = remember(number) { qrBitmap(ChatFormat.safetyQr(number)).asImageBitmap() }
                         Image(bmp, stringResource(R.string.chat_safety_qr), Modifier.padding(top = 12.dp).size(220.dp).align(Alignment.CenterHorizontally))
                     }
-                    TextButton(onClick = { qr = !qr }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                    SagaTextButton(onClick = { qr = !qr }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                         Text(stringResource(if (qr) R.string.chat_safety_hide_qr else R.string.chat_safety_qr))
                     }
                     who?.let { w ->
@@ -316,12 +316,12 @@ fun SafetyDialog(s: ChatSession, initial: String? = null, onDismiss: () -> Unit)
         confirmButton = {
             val w = who
             if (w != null && number != null && !s.isVerified(w)) {
-                TextButton(onClick = { s.acknowledge(w, true); onDismiss() }) { Text(stringResource(R.string.chat_mark_verified)) }
+                SagaTextButton(onClick = { s.acknowledge(w, true); onDismiss() }) { Text(stringResource(R.string.chat_mark_verified)) }
             } else {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+                SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
             }
         },
-        dismissButton = { if (who != null && number != null && who?.let { s.isVerified(it) } == false) TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        dismissButton = { if (who != null && number != null && who?.let { s.isVerified(it) } == false) SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }
 
@@ -375,14 +375,14 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
                         leadingContent = { Avatar(m.name, size = 32, avatar = m.avatar) },
                         // Admins einer freien Gruppe: Person entfernen (wie Web, iOS/macOS und Linux)
                         trailingContent = if (admin && ChatLogic.canRemoveMember(m)) { {
-                            TextButton(onClick = { removing = m }) { Text(stringResource(R.string.chat_member_remove), color = MaterialTheme.colorScheme.error) }
+                            SagaTextButton(onClick = { removing = m }) { Text(stringResource(R.string.chat_member_remove), color = MaterialTheme.colorScheme.error) }
                         } } else null,
                     )
                 }
                 if (sum?.kind == "free" && sum.role == "admin") {
                     item { HorizontalDivider() }
                     if (!add) {
-                        item { TextButton(onClick = { add = true }) { Text(stringResource(R.string.chat_add_member)) } }
+                        item { SagaTextButton(onClick = { add = true }) { Text(stringResource(R.string.chat_add_member)) } }
                     } else {
                         item {
                             OutlinedTextField(
@@ -409,7 +409,7 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        confirmButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
     removing?.let { m ->
         AlertDialog(
@@ -417,11 +417,11 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
             title = { Text(stringResource(R.string.chat_member_remove_title, ChatLogic.shown(m))) },
             text = { Text(stringResource(R.string.chat_member_remove_text)) },
             confirmButton = {
-                TextButton(onClick = { removing = null; repo.launchAction { s.removeMember(m.username) } }) {
+                SagaTextButton(onClick = { removing = null; repo.launchAction { s.removeMember(m.username) } }) {
                     Text(stringResource(R.string.chat_member_remove), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { removing = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { removing = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }
@@ -451,8 +451,8 @@ fun RetentionDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit)
                 Text(stringResource(R.string.chat_retention_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
             }
         },
-        confirmButton = { TextButton(onClick = { onDismiss(); repo.launchAction { s.setRetention(sel) } }) { Text(stringResource(R.string.action_save)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = { SagaTextButton(onClick = { onDismiss(); repo.launchAction { s.setRetention(sel) } }) { Text(stringResource(R.string.action_save)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -466,9 +466,9 @@ fun RenameDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
         title = { Text(stringResource(R.string.chat_rename)) },
         text = { OutlinedTextField(value = t, onValueChange = { if (it.length <= 80) t = it }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
         confirmButton = {
-            TextButton(onClick = { onDismiss(); repo.launchAction { s.rename(t) } }, enabled = t.isNotBlank()) { Text(stringResource(R.string.action_save)) }
+            SagaTextButton(onClick = { onDismiss(); repo.launchAction { s.rename(t) } }, enabled = t.isNotBlank()) { Text(stringResource(R.string.action_save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -506,7 +506,7 @@ fun PagePickDialog(repo: SagaRepository, onDismiss: () -> Unit, onPick: (ChatNot
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -528,8 +528,8 @@ fun ChatLinkApproval(repo: SagaRepository) {
                 LinkCodeView(code.orEmpty(), 22.sp, Modifier.padding(top = 16.dp), minOneLine = 16.sp)
             }
         },
-        confirmButton = { TextButton(onClick = { repo.launchAction { svc.approve(l) } }, enabled = code != null) { Text(stringResource(R.string.chat_link_confirm)) } },
-        dismissButton = { TextButton(onClick = { repo.launchAction { svc.reject(l) } }) { Text(stringResource(R.string.chat_link_reject), color = MaterialTheme.colorScheme.error) } },
+        confirmButton = { SagaTextButton(onClick = { repo.launchAction { svc.approve(l) } }, enabled = code != null) { Text(stringResource(R.string.chat_link_confirm)) } },
+        dismissButton = { SagaTextButton(onClick = { repo.launchAction { svc.reject(l) } }) { Text(stringResource(R.string.chat_link_reject), color = MaterialTheme.colorScheme.error) } },
     )
 }
 

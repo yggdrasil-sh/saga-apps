@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.share
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,7 +12,6 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,7 +62,7 @@ fun ShareDialog(repo: SagaRepository, content: SharedContent, onOpenPage: (Long)
             }
         },
         confirmButton = {
-            TextButton(enabled = !busy, onClick = {
+            SagaTextButton(enabled = !busy, onClick = {
                 busy = true
                 val k = kind
                 val t = title.trim()
@@ -74,6 +74,6 @@ fun ShareDialog(repo: SagaRepository, content: SharedContent, onOpenPage: (Long)
                 }
             }) { Text(stringResource(R.string.action_save)) }
         },
-        dismissButton = { TextButton(onClick = { repo.pendingShare.value = null }, enabled = !busy) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = { repo.pendingShare.value = null }, enabled = !busy) { Text(stringResource(R.string.action_cancel)) } },
     )
 }

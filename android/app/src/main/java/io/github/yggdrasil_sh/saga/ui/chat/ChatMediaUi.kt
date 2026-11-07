@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -36,7 +37,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -398,7 +398,7 @@ private fun ViewerPage(repo: SagaRepository, s: ChatSession, f: ChatFile, zs: Zo
             ) {
                 Text(stringResource(R.string.media_load_failed), color = Color.White, style = MaterialTheme.typography.bodyMedium)
                 // Ausweg: mit einer anderen App oeffnen (wie bisher)
-                TextButton(onClick = { scope.launch { openFile(context, s, f) { repo.notify(it) } } }) {
+                SagaTextButton(onClick = { scope.launch { openFile(context, s, f) { repo.notify(it) } } }) {
                     Text(stringResource(R.string.media_open_with), color = Color.White)
                 }
             }

@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -27,7 +28,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -228,7 +228,7 @@ fun MediaDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
                     }
                     if (busy) CircularProgressIndicator(Modifier.align(Alignment.Center))
                 }
-                if (more) OutlinedButton(onClick = loadMore, enabled = !busy, modifier = Modifier.align(Alignment.CenterHorizontally).padding(8.dp)) {
+                if (more) SagaOutlinedButton(onClick = loadMore, enabled = !busy, modifier = Modifier.align(Alignment.CenterHorizontally).padding(8.dp)) {
                     Text(stringResource(R.string.std_load_older))
                 }
             }

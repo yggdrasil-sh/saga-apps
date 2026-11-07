@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.services
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,7 +10,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -81,7 +81,7 @@ fun BookmarkDialog(repo: SagaRepository, item: ServiceItem?, defaultCategory: St
             }
         },
         confirmButton = {
-            TextButton(enabled = urlOk && !busy, onClick = {
+            SagaTextButton(enabled = urlOk && !busy, onClick = {
                 val body = BookmarkLogic.payload(name, url, category, icon)
                 if (id == null) run({ repo.addBookmark(body) }, UiText.Res(R.string.bm_added))
                 else run({ repo.updateBookmark(id, body) }, UiText.Res(R.string.bm_saved))
@@ -89,8 +89,8 @@ fun BookmarkDialog(repo: SagaRepository, item: ServiceItem?, defaultCategory: St
         },
         dismissButton = {
             Row {
-                if (id != null) TextButton(onClick = { askDelete = true }, enabled = !busy) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
-                TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.action_cancel)) }
+                if (id != null) SagaTextButton(onClick = { askDelete = true }, enabled = !busy) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
+                SagaTextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.action_cancel)) }
             }
         },
     )
@@ -99,11 +99,11 @@ fun BookmarkDialog(repo: SagaRepository, item: ServiceItem?, defaultCategory: St
             onDismissRequest = { askDelete = false },
             title = { Text(stringResource(R.string.bm_delete_title, item.name)) },
             confirmButton = {
-                TextButton(onClick = { askDelete = false; run({ repo.deleteBookmark(id) }, UiText.Res(R.string.bm_deleted)) }) {
+                SagaTextButton(onClick = { askDelete = false; run({ repo.deleteBookmark(id) }, UiText.Res(R.string.bm_deleted)) }) {
                     Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { askDelete = false }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { askDelete = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

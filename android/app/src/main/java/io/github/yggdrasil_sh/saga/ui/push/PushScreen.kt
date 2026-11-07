@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.push
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import android.Manifest
 import android.app.TimePickerDialog
 import android.content.pm.PackageManager
@@ -21,11 +23,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -138,7 +138,7 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 item {
                     Column(w.padding(horizontal = 16.dp)) {
                         Text(stringResource(R.string.push_permission_revoked), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = openSettings) { Text(stringResource(R.string.login_open_app_settings)) }
+                        SagaTextButton(onClick = openSettings) { Text(stringResource(R.string.login_open_app_settings)) }
                     }
                 }
             }
@@ -158,7 +158,7 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             val sub = push.local()?.subId
             if (state == PushState.ON && sub != null) {
                 item {
-                    OutlinedButton(onClick = {
+                    SagaOutlinedButton(onClick = {
                         repo.launchAction {
                             val r = push.test(sub)
                             repo.notify(if (r.result == "ok") UiText.Res(R.string.push_test_ok) else UiText.Res(R.string.push_test_fail, r.error ?: r.result))
@@ -233,9 +233,9 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                                 }, h, m, android.text.format.DateFormat.is24HourFormat(context)).show()
                             }
                             Text(stringResource(R.string.push_quiet_from))
-                            OutlinedButton(onClick = { pickTime(set.quiet.from, "from") }, enabled = catsOn) { Text(set.quiet.from) }
+                            SagaOutlinedButton(onClick = { pickTime(set.quiet.from, "from") }, enabled = catsOn) { Text(set.quiet.from) }
                             Text(stringResource(R.string.push_quiet_to))
-                            OutlinedButton(onClick = { pickTime(set.quiet.to, "to") }, enabled = catsOn) { Text(set.quiet.to) }
+                            SagaOutlinedButton(onClick = { pickTime(set.quiet.to, "to") }, enabled = catsOn) { Text(set.quiet.to) }
                         }
                     }
                 }
@@ -256,7 +256,7 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                                 ).joinToString(" · "),
                             )
                         },
-                        trailingContent = { TextButton(onClick = { drop = d }) { Text(stringResource(R.string.chat_device_remove), color = MaterialTheme.colorScheme.error) } },
+                        trailingContent = { SagaTextButton(onClick = { drop = d }) { Text(stringResource(R.string.chat_device_remove), color = MaterialTheme.colorScheme.error) } },
                         modifier = w,
                     )
                     HorizontalDivider(w.padding(start = 16.dp))
@@ -277,7 +277,7 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = { choose = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { choose = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
     drop?.let { d ->
@@ -286,11 +286,11 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             title = { Text(stringResource(R.string.push_remove_title)) },
             text = { Text(stringResource(R.string.push_remove_text, d.name.ifEmpty { d.type })) },
             confirmButton = {
-                TextButton(onClick = { drop = null; repo.launchAction { push.removeDevice(d.id) } }) {
+                SagaTextButton(onClick = { drop = null; repo.launchAction { push.removeDevice(d.id) } }) {
                     Text(stringResource(R.string.chat_device_remove), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { drop = null }) { Text(stringResource(R.string.action_cancel)) } },
+            dismissButton = { SagaTextButton(onClick = { drop = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }
@@ -384,12 +384,12 @@ private fun StreamBlock(repo: SagaRepository, w: Modifier, state: PushState, onA
             if (!exempt) {
                 Text(stringResource(R.string.push_stream_battery), style = MaterialTheme.typography.bodySmall, color = muted,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                TextButton(onClick = { requestBatteryException(context) }, modifier = Modifier.padding(start = 8.dp)) {
+                SagaTextButton(onClick = { requestBatteryException(context) }, modifier = Modifier.padding(start = 8.dp)) {
                     Text(stringResource(R.string.push_stream_battery_button))
                 }
             }
         }
-        TextButton(onClick = {
+        SagaTextButton(onClick = {
             io.github.yggdrasil_sh.saga.ui.common.openUrl(context, "https://ntfy.sh/")
         }, modifier = Modifier.padding(start = 8.dp)) { Text(stringResource(R.string.push_stream_get_ntfy)) }
     }

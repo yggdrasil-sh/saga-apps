@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -37,7 +38,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -181,7 +181,7 @@ fun EmojiPickDialog(recent: List<String>, onPick: (String) -> Unit, onDismiss: (
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -418,7 +418,7 @@ fun MicDeniedDialog(onDismiss: () -> Unit) {
         title = { Text(stringResource(R.string.voice_mic_title)) },
         text = { Text(stringResource(R.string.voice_mic_denied)) },
         confirmButton = {
-            TextButton(onClick = {
+            SagaTextButton(onClick = {
                 onDismiss()
                 try {
                     context.startActivity(
@@ -429,6 +429,6 @@ fun MicDeniedDialog(onDismiss: () -> Unit) {
                 }
             }) { Text(stringResource(R.string.voice_open_settings)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }
