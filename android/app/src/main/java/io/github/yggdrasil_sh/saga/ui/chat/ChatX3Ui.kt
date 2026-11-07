@@ -27,14 +27,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -77,6 +69,9 @@ import io.github.yggdrasil_sh.saga.chat.ChatX3
 import io.github.yggdrasil_sh.saga.chat.ReactionChip
 import io.github.yggdrasil_sh.saga.chat.voice.VoiceLogic
 import io.github.yggdrasil_sh.saga.chat.voice.VoicePlayer
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaTheme
 import kotlinx.coroutines.delay
 
@@ -93,14 +88,14 @@ fun ReactionBar(mine: String?, onPick: (String) -> Unit, onMore: () -> Unit) {
             val on = e == mine
             val label = if (on) stringResource(R.string.x3_react_remove) else stringResource(R.string.x3_react_with, e)
             Box(
-                Modifier.size(44.dp).clip(CircleShape)
+                Modifier.size(48.dp).clip(CircleShape)
                     .background(if (on) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
                     .clickable { onPick(e) }.semantics { contentDescription = label },
                 contentAlignment = Alignment.Center,
             ) { Text(e, fontSize = 24.sp) }
         }
         val more = stringResource(R.string.x3_more_emojis)
-        IconButton(onClick = onMore, modifier = Modifier.semantics { contentDescription = more }) { Icon(Icons.Filled.Add, null) }
+        IconButton(onClick = onMore, modifier = Modifier.semantics { contentDescription = more }) { SagaIcon(SagaIcons.plus, null) }
     }
 }
 
@@ -118,7 +113,7 @@ fun ReactionChips(chips: List<ReactionChip>, mineSide: Boolean, onToggle: ((Stri
         chips.forEach { c ->
             val sc = MaterialTheme.colorScheme
             val desc = stringResource(R.string.x3_react_chip, c.e, c.n)
-            val pill = RoundedCornerShape(50)
+            val pill = CircleShape
             Surface(
                 color = if (c.mine) sc.secondaryContainer else sc.surfaceContainerHighest,
                 contentColor = if (c.mine) sc.onSecondaryContainer else sc.onSurface,
@@ -173,7 +168,7 @@ fun EmojiPickDialog(recent: List<String>, onPick: (String) -> Unit, onDismiss: (
             Column {
                 if (recent.isNotEmpty()) Row(Modifier.horizontalScroll(rememberScrollState()).padding(bottom = 8.dp)) {
                     recent.forEach { e ->
-                        Box(Modifier.size(40.dp).clip(CircleShape).clickable { onPick(e) }, contentAlignment = Alignment.Center) { Text(e, fontSize = 22.sp) }
+                        Box(Modifier.size(48.dp).clip(CircleShape).clickable { onPick(e) }, contentAlignment = Alignment.Center) { Text(e, fontSize = 22.sp) }
                     }
                 }
                 AndroidView(
@@ -198,12 +193,12 @@ fun EditBar(original: String, onCancel: () -> Unit) {
         Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(start = 16.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Filled.Edit, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+        SagaIcon(SagaIcons.edit, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
         Column(Modifier.weight(1f).padding(start = 10.dp, top = 6.dp, bottom = 6.dp)) {
             Text(stringResource(R.string.x3_edit), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             Text(original, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
         }
-        IconButton(onClick = onCancel) { Icon(Icons.Filled.Close, stringResource(R.string.action_cancel)) }
+        IconButton(onClick = onCancel) { SagaIcon(SagaIcons.x, stringResource(R.string.action_cancel)) }
     }
 }
 
@@ -231,14 +226,14 @@ fun VoiceBubbleView(
     Row(Modifier.widthIn(min = 220.dp, max = 300.dp).padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         val label = stringResource(if (playing) R.string.voice_pause else R.string.voice_play)
         Box(
-            Modifier.size(40.dp).clip(CircleShape).background(fg.copy(alpha = 0.12f)).clickable(onClick = onPlay).semantics { contentDescription = label },
+            Modifier.size(48.dp).clip(CircleShape).background(fg.copy(alpha = 0.12f)).clickable(onClick = onPlay).semantics { contentDescription = label },
             contentAlignment = Alignment.Center,
         ) {
             when {
                 loading -> CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = fg)
-                failed -> Text("⚠", color = fg)
-                playing -> Text("❚❚", color = fg, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                else -> Icon(Icons.Filled.PlayArrow, null, tint = fg)
+                failed -> SagaIcon(SagaIcons.warning, null, Modifier.size(20.dp), tint = fg)
+                playing -> SagaIcon(SagaIcons.pause, null, tint = fg)
+                else -> SagaIcon(SagaIcons.play, null, tint = fg)
             }
         }
         Column(Modifier.weight(1f).padding(start = 8.dp)) {
@@ -249,7 +244,7 @@ fun VoiceBubbleView(
                 val sp = stringResource(R.string.voice_speed)
                 Text(
                     VoiceLogic.speedLabel(speed, decimalSep()), style = MaterialTheme.typography.labelMedium, color = fg, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onSpeed).padding(horizontal = 8.dp, vertical = 4.dp)
+                    modifier = Modifier.clip(RoundedCornerShape(SagaRadius.s)).clickable(onClick = onSpeed).padding(horizontal = 8.dp, vertical = 4.dp)
                         .semantics { contentDescription = sp },
                 )
             }
@@ -306,12 +301,12 @@ internal fun X3PreviewContent() {
     val sc = MaterialTheme.colorScheme
     Surface(color = sc.background) {
         Column(Modifier.padding(12.dp).width(360.dp)) {
-            Surface(color = sc.surfaceContainer, shape = RoundedCornerShape(24.dp), shadowElevation = 3.dp) {
+            Surface(color = sc.surfaceContainer, shape = RoundedCornerShape(SagaRadius.pill), shadowElevation = 3.dp) {
                 ReactionBar(mine = "❤️", onPick = {}, onMore = {})
             }
             Spacer(Modifier.height(10.dp))
             Column(horizontalAlignment = Alignment.Start) {
-                Surface(color = ChatUi.bubble(sc, false), border = androidx.compose.foundation.BorderStroke(1.dp, ChatUi.bubbleBorder(sc, false)), shape = RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)) {
+                Surface(color = ChatUi.bubble(sc, false), border = androidx.compose.foundation.BorderStroke(1.dp, ChatUi.bubbleBorder(sc, false)), shape = ChatUi.bubbleShape(mine = false, first = true, last = true)) {
                     Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                         Text("Treffen wir uns um 9?", style = MaterialTheme.typography.bodyLarge)
                         Row(Modifier.align(Alignment.End)) {
@@ -326,14 +321,14 @@ internal fun X3PreviewContent() {
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Surface(color = ChatUi.bubble(sc, true), contentColor = sc.onSurface, border = androidx.compose.foundation.BorderStroke(1.dp, ChatUi.bubbleBorder(sc, true)), shape = RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp)) {
+                Surface(color = ChatUi.bubble(sc, true), contentColor = sc.onSurface, border = androidx.compose.foundation.BorderStroke(1.dp, ChatUi.bubbleBorder(sc, true)), shape = ChatUi.bubbleShape(mine = true, first = true, last = true)) {
                     Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                         VoiceBubbleView(PREVIEW_BARS, 12.4, 4.1, true, false, false, 1.5f, sc.onSurface, {}, {}, {})
                     }
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Surface(color = ChatUi.bubble(sc, false), border = androidx.compose.foundation.BorderStroke(1.dp, ChatUi.bubbleBorder(sc, false)), shape = RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)) {
+            Surface(color = ChatUi.bubble(sc, false), border = androidx.compose.foundation.BorderStroke(1.dp, ChatUi.bubbleBorder(sc, false)), shape = ChatUi.bubbleShape(mine = false, first = true, last = true)) {
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                     VoiceBubbleView(PREVIEW_BARS.reversedArray(), 63.0, 0.0, false, false, false, 1f, sc.onSurface, {}, {}, {})
                 }
@@ -360,7 +355,7 @@ private fun X3PreviewDark() = SagaTheme(dark = true) { X3PreviewContent() }
 @Composable
 fun VoiceRecordingBar(secs: Double, levels: List<Float>, locked: Boolean, warn: Boolean, onStop: () -> Unit, onCancel: () -> Unit) {
     val sc = MaterialTheme.colorScheme
-    Surface(color = sc.surfaceContainerHigh, shape = RoundedCornerShape(24.dp)) {
+    Surface(color = sc.surfaceContainerHigh, shape = RoundedCornerShape(SagaRadius.pill)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(10.dp).clip(CircleShape).background(sc.error))
@@ -376,14 +371,14 @@ fun VoiceRecordingBar(secs: Double, levels: List<Float>, locked: Boolean, warn: 
                 }
                 WaveBars(bars, VoiceLogic.WAVE_N, sc.primary, sc.primary, Modifier.weight(1f))
                 if (locked) {
-                    IconButton(onClick = onCancel) { Icon(Icons.Filled.Delete, stringResource(R.string.voice_discard), tint = sc.error) }
+                    IconButton(onClick = onCancel) { SagaIcon(SagaIcons.trash, stringResource(R.string.voice_discard), tint = sc.error) }
                     IconButton(onClick = onStop) { Text("■", color = sc.primary, fontSize = 20.sp) }
                 }
             }
             if (!locked) Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("‹ " + stringResource(R.string.voice_slide_cancel), style = MaterialTheme.typography.labelSmall, color = sc.onSurfaceVariant)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Lock, null, Modifier.size(12.dp), tint = sc.onSurfaceVariant)
+                    SagaIcon(SagaIcons.lock, null, Modifier.size(12.dp), tint = sc.onSurfaceVariant)
                     Text(" " + stringResource(R.string.voice_slide_lock), style = MaterialTheme.typography.labelSmall, color = sc.onSurfaceVariant)
                 }
             }
@@ -399,14 +394,14 @@ fun VoicePreviewBar(
     onSpeed: () -> Unit,
 ) {
     val sc = MaterialTheme.colorScheme
-    Surface(color = sc.surfaceContainerHigh, shape = RoundedCornerShape(24.dp)) {
+    Surface(color = sc.surfaceContainerHigh, shape = RoundedCornerShape(SagaRadius.pill)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onDiscard) { Icon(Icons.Filled.Delete, stringResource(R.string.voice_discard), tint = sc.error) }
+            IconButton(onClick = onDiscard) { SagaIcon(SagaIcons.trash, stringResource(R.string.voice_discard), tint = sc.error) }
             Box(Modifier.weight(1f)) {
                 VoiceBubbleView(bars, dur, pos, playing, false, false, speed, sc.onSurface, onPlay, {}, onSpeed)
             }
             IconButton(onClick = onSend) {
-                Icon(Icons.AutoMirrored.Filled.Send, stringResource(R.string.chat_send), tint = sc.primary)
+                SagaIcon(SagaIcons.send, stringResource(R.string.chat_send), tint = sc.primary)
             }
         }
     }
