@@ -57,8 +57,8 @@ class SagaIconsTest {
             val field = R.drawable::class.java.getField("si_" + name.replace('-', '_'))
             assertEquals(name, field.getInt(null), id)
         }
-        // jede @DrawableRes-Eigenschaft steht auch in byName
-        val props = SagaIcons::class.java.declaredFields.filter { it.type == Int::class.javaPrimitiveType && it.name != "INSTANCE" }
+        // jede @DrawableRes-Eigenschaft steht auch in byName (ohne Compose-Feld $stable)
+        val props = SagaIcons::class.java.declaredFields.filter { it.type == Int::class.javaPrimitiveType && !it.name.startsWith("$") }
         assertEquals(byName.size, props.size)
         assertNotNull(SagaIcons.res("chevron-right"))
         assertEquals(null, SagaIcons.res("gibt-es-nicht"))
