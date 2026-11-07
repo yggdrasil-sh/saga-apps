@@ -381,7 +381,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 IconButton(onClick = { repo.launchAction { ed.setPinned(!ed.pinned) } }) {
                     // Linien-Stern wie im Web: Favorit = Gold (Text-Gold fuer Kontrast), sonst gedaempft
                     val favDesc = stringResource(if (ed.pinned) R.string.favorite_remove else R.string.favorite_add)
-                    if (ed.pinned) SagaIcon(SagaIcons.star, favDesc, tint = LocalSagaAccent.current.goldText)
+                    if (ed.pinned) SagaIcon(R.drawable.saga_star_filled, favDesc, tint = LocalSagaAccent.current.goldText)  // gefuellt: Zustand nicht nur ueber Farbe (WCAG 1.4.1)
                     else SagaIcon(SagaIcons.star, favDesc, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }

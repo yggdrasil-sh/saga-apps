@@ -22,8 +22,8 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 
 - **Liniensymbole wie im Web:** `tools/icons-android.py` erzeugt aus `static/icons.js` des Servers (plus
   Android-Ergänzungen in `tools/icons-android-extra.json`, gleicher Stil) VectorDrawables `si_*` (Strich 1,75, runde
-  Enden); `SagaIcons`/`SagaIcon` sind die eine Quelle in der App. Die Seitenleiste nutzt sie schon (Heute mit Sonne,
-  Aufgaben, Termine, Chats …), der Rest folgt.
+  Enden); `SagaIcons`/`SagaIcon` sind die eine Quelle in der App. Die ganze App nutzt sie (Heute mit Sonne, Aufgaben,
+  Termine, Chats …); Favorit als gefüllter Stern, damit der Zustand nicht nur an der Farbe hängt.
 - **Navigation, Heute, Aufgaben, Einstellungen, Graph, Suche, Teilen, Mitteilungen, Kommentare und Dienste** mit
   Liniensymbolen; Heute auch in der schmalen Leiste mit Sonne. Leere Zustände, Aufklapp- und Extern-Pfeile sowie
   die Mitteilungszeilen zeigen Symbole statt Emojis und Zeichen (▾ ↗ 💬). Live-Lämpchen in den Signalfarben.

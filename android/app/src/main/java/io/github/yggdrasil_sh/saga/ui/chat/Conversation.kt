@@ -2027,7 +2027,7 @@ private fun CallEntryRow(
     // CH-22: Richtung als Symbol (statt "↗"/"↙" im Text, das TalkBack als "Pfeil nach rechts oben" las) - mit Beschreibung
     val (icon, dirLabel) = when (logic.direction(e, me)) {
         "missed" -> SagaIcons.phoneMissed to R.string.r1_call_dir_missed
-        "out_failed" -> SagaIcons.phoneMissed to R.string.r1_call_dir_out
+        "out_failed" -> SagaIcons.phoneOff to R.string.r1_call_dir_out
         "out" -> SagaIcons.phoneOut to R.string.r1_call_dir_out
         else -> SagaIcons.phoneIn to R.string.r1_call_dir_in
     }
