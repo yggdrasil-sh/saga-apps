@@ -27,6 +27,9 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Navigation, Heute, Aufgaben, Einstellungen, Graph, Suche, Teilen, Mitteilungen, Kommentare und Dienste** mit
   Liniensymbolen; Heute auch in der schmalen Leiste mit Sonne. Leere Zustände, Aufklapp- und Extern-Pfeile sowie
   die Mitteilungszeilen zeigen Symbole statt Emojis und Zeichen (▾ ↗ 💬). Live-Lämpchen in den Signalfarben.
+- **Seiten und Datenbanken:** alle Symbole als Liniensymbole; die Ansichtsreiter zeigen Tabelle, Board, Liste,
+  Galerie, Kalender, Diagramm und Zeitleiste als Symbol statt ▦ ▥ 🗓; Emoji-Bedienzeichen (⛔ 🔒 📎 ↗ ✓ 🗓 💬+)
+  sind Symbole mit Vorlesetext. Favorit als Linien-Stern in Gold. Ecken und Karten wie im Web (6/10 dp).
 
 ### Geändert – Android: Chat-Blasen wie im Web (Design-Runde 2 „Saga-Look“)
 
