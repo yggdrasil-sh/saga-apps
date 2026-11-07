@@ -267,13 +267,17 @@ fun TaskEditDialog(t: TaskItem, repo: SagaRepository, onClose: () -> Unit) {
                     }
                 }
                 if (t.rep != null) Text(stringResource(R.string.task_repeat_info, repeatName(t.rep)), style = MaterialTheme.typography.bodySmall)
-                SagaTextButton(onClick = { confirmDelete = true }) { Text(stringResource(R.string.task_delete), color = MaterialTheme.colorScheme.error) }
             }
         },
+        // AND-ED-24: "Aufgabe löschen" an den Rand (links, Fehlerfarbe), rechts nur Abbrechen und Speichern
         confirmButton = {
-            SagaTextButton(onClick = { run { repo.updateTask(t.id, text.trim(), due, prio) } }, enabled = text.isNotBlank()) { Text(stringResource(R.string.action_save)) }
+            io.github.yggdrasil_sh.saga.ui.database.DbDlgButtons(
+                onCancel = onClose,
+                clearLabel = stringResource(R.string.action_delete), onClear = { confirmDelete = true }, destructive = true,
+                confirmLabel = stringResource(R.string.action_save), onConfirm = { run { repo.updateTask(t.id, text.trim(), due, prio) } },
+                confirmEnabled = text.isNotBlank(),
+            )
         },
-        dismissButton = { SagaTextButton(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } },
     )
     if (pick) DueDatePicker(due, onDismiss = { pick = false }) { due = it; pick = false }
     if (confirmDelete) {

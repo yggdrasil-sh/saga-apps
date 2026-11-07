@@ -6,11 +6,16 @@ import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.ripple
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -21,15 +26,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -61,8 +62,6 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import java.text.DateFormat
-import java.time.Instant
-import java.time.ZoneOffset
 import java.util.Date
 import java.util.Locale
 
@@ -301,31 +300,10 @@ fun PropValueEditor(
     when (p.type) {
         "person" -> if (people != null && fmt != null) PersonDialog(p, value, fmt, people, onSet, onDismiss) else LaunchedEffect(Unit) { onDismiss() }
         "files" -> if (upload != null) FilesDialog(p, value, upload, onSet, onDismiss) else LaunchedEffect(Unit) { onDismiss() }
-        "date" -> if (datetime) DateTimeDialog(p, value, onSet, onDismiss) else LegacyDateDialog(p, value, onSet, onDismiss)
+        // ED-26: direkt der Kalender (mit Schnellwahl); Uhrzeit/Ende nur mit datetime1
+        "date" -> DbDlgDateDialog(p, value, datetime, onSet, onDismiss)
         else -> PropValueEditorBase(p, value, onSet, onDismiss, onNewOption, relationRows, locale)
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun LegacyDateDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -> Unit, onDismiss: () -> Unit) {
-    val init = DbValues.parseDate(value)?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
-    val state = rememberDatePickerState(initialSelectedDateMillis = init)
-    DatePickerDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            SagaTextButton(onClick = {
-                onSet(DbValues.date(state.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }))
-                onDismiss()
-            }) { Text(stringResource(R.string.action_apply)) }
-        },
-        dismissButton = {
-            Row {
-                if (value != null && value !is JsonNull) SagaTextButton(onClick = { onSet(JsonNull); onDismiss() }) { Text(stringResource(R.string.dbv_clear)) }
-                SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-            }
-        },
-    ) { DatePicker(state) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -337,25 +315,6 @@ private fun PropValueEditorBase(
     when (p.type) {
         "select", "multi_select" -> OptionDialog(p, value, onSet, onDismiss, onNewOption)
         "relation" -> RelationDialog(p, value, onSet, onDismiss, relationRows)
-        "date" -> {
-            val init = DbValues.parseDate(value)?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
-            val state = rememberDatePickerState(initialSelectedDateMillis = init)
-            DatePickerDialog(
-                onDismissRequest = onDismiss,
-                confirmButton = {
-                    SagaTextButton(onClick = {
-                        onSet(DbValues.date(state.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }))
-                        onDismiss()
-                    }) { Text(stringResource(R.string.action_apply)) }
-                },
-                dismissButton = {
-                    Row {
-                        if (value != null && value !is JsonNull) SagaTextButton(onClick = { onSet(JsonNull); onDismiss() }) { Text(stringResource(R.string.dbv_clear)) }
-                        SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-                    }
-                },
-            ) { DatePicker(state) }
-        }
         "checkbox", "calc", "created", "edited" -> LaunchedEffect(Unit) { onDismiss() }
         else -> {
             val num = p.type == "number"
@@ -380,79 +339,84 @@ private fun PropValueEditorBase(
                         modifier = Modifier.fillMaxWidth().heightIn(max = 240.dp),
                     )
                 },
+                // ED-24: "Leeren" links abgesetzt, rechts Abbrechen und Uebernehmen
                 confirmButton = {
-                    SagaTextButton(onClick = {
-                        val v = if (num) DbValues.number(text, locale) else DbValues.text(text)
-                        if (v == null) bad = true else {
-                            onSet(v)
-                            onDismiss()
-                        }
-                    }) { Text(stringResource(R.string.action_apply)) }
+                    DbDlgButtons(
+                        onCancel = onDismiss,
+                        clearLabel = stringResource(R.string.dbv_clear),
+                        onClear = if (!DbQuery.isEmpty(value)) ({ onSet(JsonNull); onDismiss() }) else null,
+                        onConfirm = {
+                            val v = if (num) DbValues.number(text, locale) else DbValues.text(text)
+                            if (v == null) bad = true else {
+                                onSet(v)
+                                onDismiss()
+                            }
+                        },
+                    )
                 },
-                dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
             )
         }
     }
 }
 
+/**
+ * Auswahl/Mehrfachauswahl (ED-24/-25): Einfachauswahl uebernimmt beim Tippen sofort. Mehrfachauswahl uebernimmt erst
+ * mit "Übernehmen"; Tippen ausserhalb verwirft (mit "Rückgängig", falls etwas geaendert war). "Leeren" links.
+ */
 @Composable
 private fun OptionDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -> Unit, onDismiss: () -> Unit, onNewOption: ((String) -> Unit)?) {
     val multi = p.type == "multi_select"
     var cur by remember { mutableStateOf(value) }
     var q by remember { mutableStateOf("") }
     val chosen = DbValues.ids(cur).toSet()
+    val discard = rememberDbDlgDiscard()
+    val changed = multi && DbDlg.changed(DbValues.ids(value), DbValues.ids(cur))
     AlertDialog(
-        onDismissRequest = { if (multi) onSet(cur); onDismiss() },
+        onDismissRequest = { discard.dismiss(changed, close = onDismiss, undo = { onSet(cur ?: JsonNull) }) },
         title = { Text(p.name) },
         text = {
             Column {
                 OutlinedTextField(q, { q = it.take(40) }, singleLine = true, placeholder = { Text(stringResource(R.string.dbv_option_search)) }, modifier = Modifier.fillMaxWidth())
                 // 2.5 Status: nach Gruppen geordnet (Zu erledigen, In Arbeit, Erledigt), Gruppensymbol vor dem Namen
-        val shown = p.optionsGrouped().filter { q.isBlank() || it.name.contains(q.trim(), ignoreCase = true) }
-                LazyColumn(Modifier.heightIn(max = 320.dp).padding(top = 8.dp)) {
+                val shown = p.optionsGrouped().filter { q.isBlank() || it.name.contains(q.trim(), ignoreCase = true) }
+                LazyColumn(Modifier.heightIn(max = 360.dp).padding(top = 8.dp)) {
                     items(shown, key = { it.id }) { o ->
-                        val on = o.id in chosen
-                        Row(
-                            Modifier.fillMaxWidth().clickable(role = if (multi) Role.Checkbox else Role.RadioButton) {
-                                if (multi) cur = DbValues.toggle(cur, o.id) else {
-                                    onSet(DbValues.select(value, o.id))
-                                    onDismiss()
-                                }
-                            }.padding(vertical = 10.dp).semantics { contentDescription = o.name + if (on) ", " else "" },
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
+                        DbDlgOptionRow(multi, selected = o.id in chosen, onClick = {
+                            if (multi) cur = DbValues.toggle(cur, o.id) else {
+                                onSet(DbValues.select(value, o.id))
+                                onDismiss()
+                            }
+                        }) {
                             OptChip(if (p.status) io.github.yggdrasil_sh.saga.db.DbProp.groupSymbol(o.group) + " " + o.name else o.name, o.color)
-                            Spacer(Modifier.weight(1f))
-                            if (on) SagaIcon(SagaIcons.check, stringResource(R.string.dbv_checked), tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                     val name = q.trim()
                     if (onNewOption != null && name.isNotEmpty() && p.options.none { it.name.equals(name, ignoreCase = true) }) {
                         item(key = "new") {
-                            Row(
-                                Modifier.fillMaxWidth().clickable { onNewOption(name); onDismiss() }.padding(vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                SagaIcon(SagaIcons.plus, null)
-                                Text(stringResource(R.string.dbv_new_option, name))
-                            }
+                            ListItem(
+                                headlineContent = { Text(stringResource(R.string.dbv_new_option, name)) },
+                                leadingContent = { SagaIcon(SagaIcons.plus, null) },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button) { onNewOption(name); onDismiss() },
+                            )
                         }
                     }
                 }
             }
         },
         confirmButton = {
-            if (multi) SagaTextButton(onClick = { onSet(cur); onDismiss() }) { Text(stringResource(R.string.action_apply)) }
-        },
-        dismissButton = {
-            Row {
-                if (DbValues.ids(value).isNotEmpty()) SagaTextButton(onClick = { onSet(JsonNull); onDismiss() }) { Text(stringResource(R.string.dbv_clear)) }
-                SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-            }
+            DbDlgButtons(
+                onCancel = onDismiss,
+                clearLabel = stringResource(R.string.dbv_clear),
+                onClear = if (DbValues.ids(value).isNotEmpty()) ({ onSet(JsonNull); onDismiss() }) else null,
+                onConfirm = if (multi) ({ onSet(cur ?: JsonNull); onDismiss() }) else null,
+            )
         },
     )
+    DbDlgDiscardAsk(discard, close = onDismiss)
 }
 
+/** Relation (Mehrfachauswahl): Zeilen mit Checkbox, "Übernehmen"; ausserhalb tippen verwirft (ED-24) */
 @Composable
 private fun RelationDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -> Unit, onDismiss: () -> Unit, source: (suspend (String) -> List<Pair<Long, String>>)?) {
     var cur by remember { mutableStateOf(value) }
@@ -469,52 +433,67 @@ private fun RelationDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?)
         }
     }
     val chosen = DbValues.relationIds(cur).toSet()
+    val discard = rememberDbDlgDiscard()
+    val changed = DbDlg.changed(DbValues.relationIds(value), DbValues.relationIds(cur))
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { discard.dismiss(changed, close = onDismiss, undo = { onSet(cur ?: JsonNull) }) },
         title = { Text(p.name) },
         text = {
             Column {
                 OutlinedTextField(q, { q = it.take(200) }, singleLine = true, placeholder = { Text(stringResource(R.string.dbv_relation_search)) }, modifier = Modifier.fillMaxWidth())
-                LazyColumn(Modifier.heightIn(max = 320.dp).padding(top = 8.dp)) {
+                LazyColumn(Modifier.heightIn(max = 360.dp).padding(top = 8.dp)) {
                     if (found.isEmpty()) item { Text(stringResource(R.string.dbv_no_entries), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp)) }
                     items(found, key = { it.first }) { (id, title) ->
-                        val on = id in chosen
-                        Row(
-                            Modifier.fillMaxWidth().clickable(role = Role.Checkbox) { cur = DbValues.toggleRelation(cur, id) }.padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(title.ifEmpty { stringResource(R.string.page_untitled) }, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            if (on) SagaIcon(SagaIcons.check, stringResource(R.string.dbv_checked), tint = MaterialTheme.colorScheme.primary)
+                        DbDlgOptionRow(multi = true, selected = id in chosen, onClick = { cur = DbValues.toggleRelation(cur, id) }) {
+                            Text(title.ifEmpty { stringResource(R.string.page_untitled) }, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
                 }
             }
         },
-        confirmButton = { SagaTextButton(onClick = { onSet(cur ?: JsonNull); onDismiss() }) { Text(stringResource(R.string.action_apply)) } },
-        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        confirmButton = {
+            DbDlgButtons(
+                onCancel = onDismiss,
+                clearLabel = stringResource(R.string.dbv_clear),
+                onClear = if (DbValues.relationIds(value).isNotEmpty()) ({ onSet(JsonNull); onDismiss() }) else null,
+                onConfirm = { onSet(cur ?: JsonNull); onDismiss() },
+            )
+        },
     )
+    DbDlgDiscardAsk(discard, close = onDismiss)
 }
 
-/** Zeile "Name  Wert" zum Antippen (Eintrag als Seite, Karte) */
+/**
+ * Zeile "Name  Wert" zum Antippen (Eintrag als Seite, Karte). ED-28: mindestens 48 dp, Ripple ueber die volle Breite,
+ * leere Werte als Platzhalter "Hinzufügen …" (onSurfaceVariant 60 %), Hover-Zustand fuer Maus/Trackpad (Tablet).
+ */
 @Composable
 fun PropRow(p: DbProp, v: JsonElement?, fmt: DbFormat, editable: Boolean, onEdit: () -> Unit, onToggle: () -> Unit, onLink: ((String) -> Unit)? = null, err: String? = null) {
     val desc = valueDescription(p, v, fmt)
     val canEdit = editable && p.editable
+    val src = remember { MutableInteractionSource() }
+    val hovered by src.collectIsHoveredAsState()
+    val cs = MaterialTheme.colorScheme
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 40.dp)
-            .then(if (canEdit) Modifier.clickable(onClickLabel = stringResource(R.string.dbv_edit_prop, p.name), role = if (p.type == "checkbox") Role.Checkbox else Role.Button) { if (p.type == "checkbox") onToggle() else onEdit() } else Modifier)
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(SagaRadius.xs))
+            .then(if (canEdit && hovered) Modifier.background(cs.onSurface.copy(alpha = 0.06f)) else Modifier)
+            .then(
+                if (canEdit) Modifier.hoverable(src).clickable(
+                    interactionSource = src, indication = ripple(),
+                    onClickLabel = stringResource(R.string.dbv_edit_prop, p.name), role = if (p.type == "checkbox") Role.Checkbox else Role.Button,
+                ) { if (p.type == "checkbox") onToggle() else onEdit() } else Modifier,
+            )
             .semantics(mergeDescendants = true) { contentDescription = desc }
-            .padding(vertical = 4.dp),
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(p.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Text(p.name, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,
             modifier = Modifier.width(120.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
         Column(Modifier.weight(1f)) {
             if (DbQuery.isEmpty(v) && p.effType != "checkbox" && err == null) {
-                Text(if (canEdit) stringResource(R.string.dbv_value_empty) else "", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                Text(if (canEdit) stringResource(R.string.r3d_add_value) else "", color = cs.onSurfaceVariant.copy(alpha = 0.6f), style = MaterialTheme.typography.bodyMedium)
             } else DbValueView(p, v, fmt, maxLines = 4, err = err)
-            if (p.computed) Text(stringResource(R.string.e1_fx_web), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (p.computed) Text(stringResource(R.string.e1_fx_web), style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant)
         }
         val link = if (p.type == "url" || p.type == "email" || p.type == "phone") DbValues.safeLink(p.type, v.prim().orEmpty()) else null
         if (link != null && onLink != null) {

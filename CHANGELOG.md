@@ -38,6 +38,19 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Bildschirmbreite − 48 dp). **Kalender auf dem Handy:** Punkte statt gekürzter Texte, darunter immer die
   Tagesagenda (heute vorausgewählt).
 
+### Geändert – Android: Design-Runde 3 „Datenbank-Dialoge“
+
+- **Eine Regel für Auswahl-Dialoge:** Einfachauswahl übernimmt sofort; außerhalb tippen verwirft immer (bisher
+  speicherte die Mehrfachauswahl dabei). Gab es Änderungen, kommt „Änderungen verworfen · Rückgängig“. „Leeren“ bzw.
+  „Löschen“ steht links abgesetzt, rechts nur Abbrechen und Übernehmen/Speichern – auch „Aufgabe löschen“.
+- **Optionszeilen** mindestens 56 dp mit Radio (einfach) bzw. Checkbox (mehrfach) links; Bedienungshilfen lesen den
+  Zustand mit.
+- **Datum direkt im Kalender** mit Schnellwahl „Heute“, „Morgen“, „Nächste Woche“ (2 Taps) und den Schaltern
+  „Mit Uhrzeit“ und „Enddatum“ (Zeitraum-Kalender) darunter.
+- **Filter und Sortieren** als Bottom Sheet: eine Karte je Regel mit Klartext-Kopf („Status · ist nicht ·
+  Abgeschlossen“) und ✕, Felder als Auswahllisten, unten „+ hinzufügen“ und „Übernehmen“.
+- **Eigenschaften einer Zeile** mindestens 48 dp, leere Werte als „Hinzufügen …“, Hover mit Maus/Trackpad.
+
 ### Geändert – Android: Design-Runde 2 „Saga-Look“ (Farben und Ecken wie im Web)
 
 - **Grundton Schiefergrau wie im Web:** Text, Nebentext, Flächen und Ränder kommen jetzt aus den Web-Tokens (hell:

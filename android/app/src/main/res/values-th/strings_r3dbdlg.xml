@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 3: Auswahl- und Regel-Dialoge der Datenbanken (AND-ED-23 bis -28) -->
+<resources>
+    <string name="r3d_discarded">ยกเลิกการเปลี่ยนแปลงแล้ว</string>
+    <string name="r3d_discard_q">ยกเลิกการเปลี่ยนแปลงหรือไม่</string>
+    <string name="r3d_discard">ยกเลิกการเปลี่ยนแปลง</string>
+    <string name="r3d_keep_editing">แก้ไขต่อ</string>
+    <string name="r3d_add_value">เพิ่ม …</string>
+    <string name="r3d_start_time">เวลาเริ่ม: %1$s</string>
+    <string name="r3d_end_time">เวลาสิ้นสุด: %1$s</string>
+    <string name="r3d_remove_rule">ลบกฎ: %1$s</string>
+    <string name="r3d_no_filters">ยังไม่มีตัวกรอง</string>
+    <string name="r3d_no_sorts">ยังไม่มีการเรียงลำดับ</string>
+    <string name="r3d_sort_dir">ทิศทาง</string>
+</resources>

@@ -20,19 +20,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,29 +35,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.yggdrasil_sh.saga.R
-import io.github.yggdrasil_sh.saga.db.DbDate
 import io.github.yggdrasil_sh.saga.db.DbFiles
 import io.github.yggdrasil_sh.saga.db.DbPerson
 import io.github.yggdrasil_sh.saga.db.DbProp
 import io.github.yggdrasil_sh.saga.db.DbValues
-import io.github.yggdrasil_sh.saga.ui.common.appLocale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
-import java.time.Instant
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.ZoneId
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 
 // 2.5 Etappe 1: Personen, Dateien, Datum mit Uhrzeit/Zeitraum - Anzeige und Bearbeiten in Tabelle/Karte/Eintrag.
 
@@ -110,8 +92,12 @@ fun PersonDialog(
         }
     }
     fun name(ref: String) = known[ref]?.name?.ifBlank { null } ?: fmt.personName(ref)
+    fun toValue(): JsonElement = if (cur.isEmpty()) JsonNull else JsonArray(cur.map(::JsonPrimitive))
+    // ED-24: ausserhalb tippen verwirft (mit "Rückgängig", falls die Auswahl geaendert war)
+    val discard = rememberDbDlgDiscard()
+    val changed = p.multi && DbDlg.changed(DbValues.ids(value), cur)
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { discard.dismiss(changed, close = onDismiss, undo = { onSet(toValue()) }) },
         title = { Text(p.name) },
         text = {
             Column {
@@ -127,27 +113,27 @@ fun PersonDialog(
                     if (l == null) item { CircularProgressIndicator(Modifier.size(20.dp).padding(8.dp), strokeWidth = 2.dp) }
                     else if (l.isEmpty()) item { Text(stringResource(R.string.e1_person_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp)) }
                     else items(l, key = { it.ref }) { x ->
-                        val on = x.ref in cur
-                        Row(
-                            Modifier.fillMaxWidth().clickable(role = if (p.multi) Role.Checkbox else Role.RadioButton) {
-                                if (p.multi) cur = if (on) cur - x.ref else (cur + x.ref).take(20)
-                                else { onSet(JsonArray(listOf(JsonPrimitive(x.ref)))); onDismiss() }
-                            }.padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(x.name.ifBlank { "–" } + if (x.me) " · " + stringResource(R.string.e1_person_me) else "", modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            if (on) SagaIcon(SagaIcons.check, stringResource(R.string.dbv_checked), tint = MaterialTheme.colorScheme.primary)
+                        // ED-25: Radio (eine Person) bzw. Checkbox (mehrere); eine Person uebernimmt sofort
+                        DbDlgOptionRow(p.multi, selected = x.ref in cur, onClick = {
+                            if (p.multi) cur = if (x.ref in cur) cur - x.ref else (cur + x.ref).take(20)
+                            else { onSet(JsonArray(listOf(JsonPrimitive(x.ref)))); onDismiss() }
+                        }) {
+                            Text(x.name.ifBlank { "–" } + if (x.me) " · " + stringResource(R.string.e1_person_me) else "", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
                 }
             }
         },
         confirmButton = {
-            SagaTextButton(onClick = { onSet(if (cur.isEmpty()) JsonNull else JsonArray(cur.map(::JsonPrimitive))); onDismiss() }) { Text(stringResource(R.string.action_apply)) }
+            DbDlgButtons(
+                onCancel = onDismiss,
+                clearLabel = stringResource(R.string.dbv_clear),
+                onClear = if (DbValues.ids(value).isNotEmpty()) ({ onSet(JsonNull); onDismiss() }) else null,
+                onConfirm = if (p.multi) ({ onSet(toValue()); onDismiss() }) else null,
+            )
         },
-        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
+    DbDlgDiscardAsk(discard, close = onDismiss)
 }
 
 /** Dateien bearbeiten: Liste (entfernen), "Datei hinzufuegen" laedt hoch (POST /api/files?note=) und setzt die ganze Liste */
@@ -175,8 +161,10 @@ fun FilesDialog(
             }
         }
     }
+    val discard = rememberDbDlgDiscard()
+    val changed = DbDlg.changed(DbFiles.parse(value).map { it.url }, cur.map { it.url })
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!busy) discard.dismiss(changed, close = onDismiss, undo = { onSet(DbFiles.toValue(cur)) }) },
         title = { Text(p.name) },
         text = {
             Column {
@@ -199,107 +187,10 @@ fun FilesDialog(
             }
         },
         confirmButton = {
-            SagaTextButton(enabled = !busy, onClick = { onSet(DbFiles.toValue(cur)); onDismiss() }) { Text(stringResource(R.string.action_apply)) }
+            DbDlgButtons(onCancel = onDismiss, onConfirm = { onSet(DbFiles.toValue(cur)); onDismiss() }, confirmEnabled = !busy)
         },
-        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
+    DbDlgDiscardAsk(discard, close = onDismiss)
 }
 
-/**
- * Datum mit Uhrzeit / Zeitraum (datetime1): Tag, optional Uhrzeit, optional Ende. "Uhrzeit entfernen" bei gleichem Tag
- * schickt `Tag/Tag` (der Server speichert dann den reinen Tag).
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DateTimeDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -> Unit, onDismiss: () -> Unit) {
-    val zone = remember { ZoneId.systemDefault() }
-    val locale = appLocale()
-    val old = (value as? JsonPrimitive)?.takeIf { it.isString }?.content
-    val v = remember(old) { DbDate.parse(old, zone) }
-    var start by remember { mutableStateOf(v?.start?.localDay(zone) ?: LocalDate.now(zone)) }
-    var startTime by remember { mutableStateOf(v?.start?.localTime(zone)) }
-    var end by remember { mutableStateOf(v?.end?.localDay(zone)) }
-    var endTime by remember { mutableStateOf(v?.end?.localTime(zone)) }
-    var withTime by remember { mutableStateOf(startTime != null || (v == null && p.time)) }
-    var withEnd by remember { mutableStateOf(end != null || (v == null && p.range)) }
-    var picking by remember { mutableStateOf<String?>(null) }
-    val dayFmt = remember(locale) { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale) }
-    val timeFmt = remember(locale) { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(p.name) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SagaOutlinedButton(onClick = { picking = "start" }) { Text(start.format(dayFmt)) }
-                    if (withTime) SagaOutlinedButton(onClick = { picking = "startTime" }) { Text((startTime ?: LocalTime.of(9, 0)).format(timeFmt)) }
-                }
-                if (withEnd) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("–")
-                    SagaOutlinedButton(onClick = { picking = "end" }) { Text((end ?: start).format(dayFmt)) }
-                    if (withTime) SagaOutlinedButton(onClick = { picking = "endTime" }) { Text((endTime ?: (startTime ?: LocalTime.of(9, 0)).plusHours(1)).format(timeFmt)) }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.e1_date_time), modifier = Modifier.weight(1f))
-                    Switch(withTime, { withTime = it; if (it && startTime == null) startTime = LocalTime.of(9, 0) })
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.e1_date_end), modifier = Modifier.weight(1f))
-                    Switch(withEnd, { withEnd = it; if (it && end == null) end = start })
-                }
-                if (end != null && withEnd && end!!.isBefore(start)) Text(stringResource(R.string.e1_date_end_before), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            }
-        },
-        confirmButton = {
-            SagaTextButton(onClick = {
-                val st = if (withTime) startTime ?: LocalTime.of(9, 0) else null
-                val e = if (withEnd) (end ?: start) else null
-                val et = if (withTime && e != null) (endTime ?: st?.plusHours(1)) else null
-                if (e != null && (e.isBefore(start) || (e == start && et != null && st != null && et.isBefore(st)))) return@SagaTextButton
-                onSet(JsonPrimitive(DbDate.encode(start, st, e, et, zone, old, datetime1 = true)))
-                onDismiss()
-            }) { Text(stringResource(R.string.action_apply)) }
-        },
-        dismissButton = {
-            Row {
-                if (old != null) SagaTextButton(onClick = { onSet(JsonNull); onDismiss() }) { Text(stringResource(R.string.dbv_clear)) }
-                SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-            }
-        },
-    )
-    when (val k = picking) {
-        "start", "end" -> {
-            val init = (if (k == "start") start else end ?: start).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-            val state = rememberDatePickerState(initialSelectedDateMillis = init)
-            DatePickerDialog(
-                onDismissRequest = { picking = null },
-                confirmButton = {
-                    SagaTextButton(onClick = {
-                        state.selectedDateMillis?.let { ms ->
-                            val d = Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate()
-                            if (k == "start") { val shift = java.time.temporal.ChronoUnit.DAYS.between(start, d); start = d; end = end?.plusDays(shift) } else end = d
-                        }
-                        picking = null
-                    }) { Text(stringResource(R.string.action_apply)) }
-                },
-                dismissButton = { SagaTextButton(onClick = { picking = null }) { Text(stringResource(R.string.action_cancel)) } },
-            ) { DatePicker(state) }
-        }
-        "startTime", "endTime" -> {
-            val t0 = (if (k == "startTime") startTime else endTime) ?: LocalTime.of(9, 0)
-            val state = rememberTimePickerState(t0.hour, t0.minute, android.text.format.DateFormat.is24HourFormat(androidx.compose.ui.platform.LocalContext.current))
-            AlertDialog(
-                onDismissRequest = { picking = null },
-                text = { TimePicker(state) },
-                confirmButton = {
-                    SagaTextButton(onClick = {
-                        val t = LocalTime.of(state.hour, state.minute)
-                        if (k == "startTime") startTime = t else endTime = t
-                        picking = null
-                    }) { Text(stringResource(R.string.action_apply)) }
-                },
-                dismissButton = { SagaTextButton(onClick = { picking = null }) { Text(stringResource(R.string.action_cancel)) } },
-            )
-        }
-    }
-}
+// Datum mit Uhrzeit / Zeitraum (datetime1): seit Android-Design-Runde 3 in DbDlgDate.kt (DbDlgDateDialog, AND-ED-26).

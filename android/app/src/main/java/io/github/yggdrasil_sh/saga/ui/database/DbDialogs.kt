@@ -29,7 +29,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,17 +45,20 @@ import kotlinx.coroutines.launch
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.data.dbPeople
 import io.github.yggdrasil_sh.saga.data.uploadRowFile
-import io.github.yggdrasil_sh.saga.db.DbFilter
 import io.github.yggdrasil_sh.saga.db.DbProp
 import io.github.yggdrasil_sh.saga.db.DbSchema
-import io.github.yggdrasil_sh.saga.db.DbSort
 import io.github.yggdrasil_sh.saga.db.DbView
 import io.github.yggdrasil_sh.saga.db.DbViews
-import io.github.yggdrasil_sh.saga.ui.tasks.DueDatePicker
 
 /** Dialoge der Datenbank-Ansicht - ausserhalb der LazyColumn (beim Scrollen bleiben sie offen) */
 @Composable
 fun DatabaseDialogs(st: DbViewState, repo: SagaRepository) {
+    // R3/ED-24: Repository fuer "Änderungen verworfen · Rückgängig" (und Avatare) auch ausserhalb der eingebetteten Ansicht
+    androidx.compose.runtime.CompositionLocalProvider(LocalDbRepo provides repo) { DatabaseDialogsInner(st, repo) }
+}
+
+@Composable
+private fun DatabaseDialogsInner(st: DbViewState, repo: SagaRepository) {
     st.editing?.let { (row, prop) ->
         val cur = st.rows.firstOrNull { it.id == row.id } ?: st.monthRows.firstOrNull { it.id == row.id } ?: row
         val ctx = androidx.compose.ui.platform.LocalContext.current
@@ -76,8 +78,9 @@ fun DatabaseDialogs(st: DbViewState, repo: SagaRepository) {
     val s = st.schema ?: return
     val v = st.view ?: return
     when (st.sheet) {
-        "filter" -> FilterDialog(s, v, st.canEditViews, repo.serverFeatures.value, onApply = { st.setFilters(it) }, onDismiss = { st.sheet = null })
-        "sort" -> SortDialog(s, v, st.canEditViews, onApply = { st.setSorts(it) }, onDismiss = { st.sheet = null })
+        // ED-23: Bottom Sheet (Phone) mit einer Karte je Regel, siehe DbDlgRules.kt
+        "filter" -> FilterSheet(s, v, st.canEditViews, repo.serverFeatures.value, repo, onApply = { st.setFilters(it) }, onDismiss = { st.sheet = null })
+        "sort" -> SortSheet(s, v, st.canEditViews, repo, onApply = { st.setSorts(it) }, onDismiss = { st.sheet = null })
         "view" -> ViewDialog(st, s, v, onDismiss = { st.sheet = null })
         "new_view" -> NewViewDialog(onCreate = { type, name -> st.addView(type, name) }, onDismiss = { st.sheet = null })
     }
@@ -145,134 +148,6 @@ fun opLabel(op: String, type: String): String = when (op) {
     "on_or_before" -> stringResource(R.string.e1_op_on_or_before)
     "on_or_after" -> stringResource(R.string.e1_op_on_or_after)
     else -> op
-}
-
-/** Spalten zum Filtern/Sortieren: Name + alle Eigenschaften */
-@Composable
-private fun propChoices(s: DbSchema): List<Pair<String, String>> =
-    listOf("title" to (s.titleName ?: stringResource(R.string.dbv_name_col))) + s.props.map { it.id to it.name }
-
-@Composable
-private fun FilterDialog(s: DbSchema, v: DbView, editable: Boolean, features: Set<String>, onApply: (List<DbFilter>) -> Unit, onDismiss: () -> Unit) {
-    val fs = remember(v.id) { mutableStateListOf<DbFilter>().apply { addAll(v.filters) } }
-    val choices = propChoices(s)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.dbv_filter)) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (!editable) Text(stringResource(R.string.dbv_locked), style = MaterialTheme.typography.bodySmall)
-                fs.forEachIndexed { i, f ->
-                    val p = s.prop(f.pid) ?: DbProp.TITLE
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Picker(stringResource(R.string.dbv_filter_prop), choices, f.pid, enabled = editable, role = stringResource(R.string.dbv_filter_prop), onPick = { pid ->
-                                fs[i] = DbFilter(pid, DbFilter.ops(s.prop(pid) ?: DbProp.TITLE, features).first(), "")
-                            }, modifier = Modifier.weight(1f))
-                            if (editable) IconButton(onClick = { fs.removeAt(i) }) { SagaIcon(SagaIcons.x, stringResource(R.string.dbv_remove)) }
-                        }
-                        // unbekannter Operator (neuere Version) bleibt waehlbar und unveraendert
-                        val ops = DbFilter.ops(p, features).let { if (f.op in it) it else it + f.op }
-                        Picker("", ops.map { it to opLabel(it, p.effType) }, f.op, enabled = editable, role = stringResource(R.string.dbv_filter_cond), onPick = { op -> fs[i] = f.copy(op = op) }, modifier = Modifier.fillMaxWidth())
-                        if (!f.noValue) FilterValue(p, f, editable) { fs[i] = f.copy(value = it) }
-                    }
-                    HorizontalDivider()
-                }
-                if (editable && fs.size < 50) {
-                    SagaTextButton(onClick = { fs.add(DbFilter("title", DbFilter.ops("text").first(), "")) }) {
-                        SagaIcon(SagaIcons.plus, null)
-                        Text(stringResource(R.string.dbv_add_filter))
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            if (editable) SagaTextButton(onClick = { onApply(fs.toList()); onDismiss() }) { Text(stringResource(R.string.action_apply)) }
-            else SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-        },
-        dismissButton = { if (editable) SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
-}
-
-/** Wert eines Filters: Auswahl aus den Optionen, Datum per Kalender, sonst Text/Zahl */
-@Composable
-private fun FilterValue(p: DbProp, f: DbFilter, editable: Boolean, onChange: (String) -> Unit) {
-    if (f.op == "status_group") {
-        Picker(stringResource(R.string.dbv_value_empty), listOf("open" to stringResource(R.string.e1_status_open), "todo" to stringResource(R.string.e1_status_todo),
-            "doing" to stringResource(R.string.e1_status_doing), "done" to stringResource(R.string.e1_status_done)), f.value, enabled = editable,
-            role = stringResource(R.string.dbv_filter_value), onPick = onChange, modifier = Modifier.fillMaxWidth())
-        return
-    }
-    if (f.op == "next_days" || f.op == "past_days") {
-        var text by remember(f.pid, f.op) { mutableStateOf(f.value) }
-        OutlinedTextField(text, { t -> text = t.filter { it.isDigit() }.take(3); onChange(text) }, enabled = editable, singleLine = true,
-            label = { Text(stringResource(R.string.e1_filter_days)) }, modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
-        return
-    }
-    // Person "enthaelt": Kennung waehlen nur im Web; "ist mir zugewiesen" (me) braucht keinen Wert
-    if (p.type == "person") return
-    when (p.effType) {
-        "select", "multi_select" -> Picker(stringResource(R.string.dbv_value_empty), p.options.map { it.id to it.name }, f.value, enabled = editable, role = stringResource(R.string.dbv_filter_value), onPick = onChange, modifier = Modifier.fillMaxWidth())
-        "date", "created", "edited" -> {
-            var pick by remember { mutableStateOf(false) }
-            SagaOutlinedButton(onClick = { pick = true }, enabled = editable, modifier = Modifier.fillMaxWidth()) {
-                Text(f.value.ifEmpty { stringResource(R.string.dbv_value_empty) })
-            }
-            if (pick) DueDatePicker(f.value.ifEmpty { null }, onDismiss = { pick = false }) { onChange(it.orEmpty()); pick = false }
-        }
-        "relation" -> {}
-        else -> {
-            val num = p.type == "number" || p.type == "calc"
-            var text by remember(f.pid) { mutableStateOf(f.value) }
-            OutlinedTextField(
-                value = text, enabled = editable, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.dbv_filter_value)) },          // Nr. 28: Feld beschriften
-                onValueChange = { t ->
-                    text = t.take(200)
-                    // Zahlenfilter: Eingabe in der Sprache der Oberflaeche, gespeichert als "1200.5" (wie numStore im Web)
-                    onChange(if (num) io.github.yggdrasil_sh.saga.db.DbValues.parseNumber(text)?.let { io.github.yggdrasil_sh.saga.db.DbQuery.numText(it) } ?: text.trim() else text)
-                },
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = if (num) androidx.compose.ui.text.input.KeyboardType.Decimal else androidx.compose.ui.text.input.KeyboardType.Text),
-            )
-        }
-    }
-}
-
-@Composable
-private fun SortDialog(s: DbSchema, v: DbView, editable: Boolean, onApply: (List<DbSort>) -> Unit, onDismiss: () -> Unit) {
-    val ss = remember(v.id) { mutableStateListOf<DbSort>().apply { addAll(v.sorts) } }
-    val choices = propChoices(s)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.dbv_sort)) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                ss.forEachIndexed { i, x ->
-                    // N-06: Eigenschaft und Richtung untereinander in voller Breite (nebeneinander abgeschnitten: "Dat…", "Abs…")
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Picker("", choices, x.pid, enabled = editable, onPick = { ss[i] = x.copy(pid = it) }, modifier = Modifier.fillMaxWidth())
-                            Picker("", listOf(false to stringResource(R.string.dbv_asc), true to stringResource(R.string.dbv_desc)), x.desc, enabled = editable,
-                                onPick = { ss[i] = x.copy(desc = it) }, modifier = Modifier.fillMaxWidth())
-                        }
-                        if (editable) IconButton(onClick = { ss.removeAt(i) }) { SagaIcon(SagaIcons.x, stringResource(R.string.dbv_remove)) }
-                    }
-                }
-                if (editable && ss.size < 3) {
-                    SagaTextButton(onClick = { ss.add(DbSort("title")) }) {
-                        SagaIcon(SagaIcons.plus, null)
-                        Text(stringResource(R.string.dbv_add_sort))
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            if (editable) SagaTextButton(onClick = { onApply(ss.toList()); onDismiss() }) { Text(stringResource(R.string.action_apply)) }
-            else SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-        },
-        dismissButton = { if (editable) SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
 }
 
 @Composable
