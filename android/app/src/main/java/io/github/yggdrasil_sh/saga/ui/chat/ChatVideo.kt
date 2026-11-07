@@ -395,7 +395,8 @@ fun PendingVideoChips(videos: MutableList<PendingVideo>) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 InputChip(
                     selected = false, onClick = { videos.remove(v) },
-                    label = { Text((if (v.video) "🎬 " else "📎 ") + v.name, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 180.dp)) },
+                    label = { Text(v.name, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 180.dp)) },
+                    leadingIcon = { SagaIcon(if (v.video) SagaIcons.video else SagaIcons.paperclip, null, Modifier.size(16.dp)) },
                     trailingIcon = { SagaIcon(SagaIcons.x, stringResource(R.string.action_delete), Modifier.size(16.dp)) },
                 )
                 if (v.video) {
@@ -442,6 +443,7 @@ fun VideoUploadsBar(repo: SagaRepository, chatId: Long, onDone: () -> Unit) {
             val prep = !file && w.progress.getInt(VideoUploadWorker.KEY_PHASE, VideoUploadWorker.PHASE_PREPARE) == VideoUploadWorker.PHASE_PREPARE
             Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(SagaRadius.md), modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
                 Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    SagaIcon(if (file) SagaIcons.paperclip else SagaIcons.video, null, Modifier.padding(end = 8.dp).size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
                         Text(
                             stringResource(
@@ -454,7 +456,7 @@ fun VideoUploadsBar(repo: SagaRepository, chatId: Long, onDone: () -> Unit) {
                                     file -> R.string.file_uploading
                                     else -> R.string.video_uploading
                                 },
-                            ).let { (if (file) "📎 " else "🎬 ") + it } + " · " + Videos.nameOf(w),
+                            ) + " · " + Videos.nameOf(w),
                             style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                         if (w.state == WorkInfo.State.RUNNING && p > 0f) LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))

@@ -256,7 +256,7 @@ private fun MediaTile(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit) {
     }
     Box(Modifier.fillMaxSize().clickable { onOpen(f) }, contentAlignment = Alignment.Center) {
         val b = img
-        if (b != null) Image(b, f.n, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) else Text("🖼")
-        if (f.isVideo) Text("▶", style = MaterialTheme.typography.titleLarge, color = androidx.compose.ui.graphics.Color.White)
+        if (b != null) Image(b, f.n, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) else SagaIcon(SagaIcons.image, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (f.isVideo) SagaIcon(SagaIcons.play, null, Modifier.size(28.dp), tint = androidx.compose.ui.graphics.Color.White)
     }
 }

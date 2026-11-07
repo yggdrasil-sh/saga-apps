@@ -123,7 +123,11 @@ fun GroupHeadAvatar(repo: SagaRepository, s: ChatSession, c: ChatSummary) {
     Box {
         Box(Modifier.clip(CircleShape).clickable(onClickLabel = label) { if (has) menu = true else pick.launch("image/*") }) {
             GroupAvatar(repo, c, s.name, 56.dp)
-            Text("📷", Modifier.align(Alignment.BottomEnd), style = MaterialTheme.typography.labelSmall)
+            SagaIcon(
+                SagaIcons.camera, null,
+                Modifier.align(Alignment.BottomEnd).size(20.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(3.dp),
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(text = { Text(stringResource(R.string.std_avatar_pick)) }, onClick = { menu = false; pick.launch("image/*") })
@@ -218,10 +222,13 @@ fun PinBar(s: ChatSession, canPin: Boolean, onJump: (String) -> Unit, onUnpin: (
                     if (pins.size > 1) i = (i + 1) % pins.size
                 }.padding(vertical = 6.dp),
             ) {
-                Text(
-                    "📌 " + (if (pins.size > 1) stringResource(R.string.std_pinned_n, i + 1, pins.size) else stringResource(R.string.std_pinned)),
-                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SagaIcon(SagaIcons.pin, null, Modifier.padding(end = 4.dp).size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                    Text(
+                        if (pins.size > 1) stringResource(R.string.std_pinned_n, i + 1, pins.size) else stringResource(R.string.std_pinned),
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold,
+                    )
+                }
                 Text(
                     if (m != null) (nameOf(m).let { if (it.isNotEmpty()) "$it: " else "" } + textOf(m)) else stringResource(R.string.std_pin_older),
                     style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -250,8 +257,13 @@ fun StdNoteRow(text: String, action: String? = null, @androidx.annotation.Drawab
 @Composable
 fun SendBlockedBar(t: UiText) {
     Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
-        Text((if (t == UiText.Res(R.string.std_send_blocked_person)) "⛔ " else "🔒 ") + t.resolve(), style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            SagaIcon(
+                if (t == UiText.Res(R.string.std_send_blocked_person)) SagaIcons.ban else SagaIcons.lock, null,
+                Modifier.padding(end = 8.dp).size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(t.resolve(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -138,10 +139,18 @@ fun GroupInfoDialog(
                 if (mh != null) hint("h-ro", mh.asString(res)) else if (r.readOnly) hint("h-ro", res.getString(R.string.gi_readonly))
                 // 2.5 (chatmedia1): Medien, Dateien, Links
                 if (std.media) item(key = "media") {
-                    TextButton(onClick = { media = true }, modifier = Modifier.padding(start = 8.dp)) { Text("🖼 " + stringResource(R.string.std_media_title)) }
+                    TextButton(onClick = { media = true }, modifier = Modifier.padding(start = 8.dp)) {
+                        SagaIcon(SagaIcons.image, null, Modifier.padding(end = 6.dp).size(18.dp))
+                        Text(stringResource(R.string.std_media_title))
+                    }
                 }
                 if (c.remote) hint("h-home", if (c.homeSelf) res.getString(R.string.fed_members_home_self) else res.getString(R.string.fed_members_home_other, c.home ?: "?"))
-                if (c.readonly) hint("h-lock", "🔒 " + (c.readonlyReason ?: ""))
+                if (c.readonly) item(key = "h-lock") {
+                    Row(Modifier.padding(horizontal = 16.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        SagaIcon(SagaIcons.lock, null, Modifier.padding(end = 6.dp).size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(c.readonlyReason ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
                 item(key = "mh") {
                     Text(
                         pluralStringResource(R.plurals.gi_members_n, c.memberCount, c.memberCount),
@@ -229,7 +238,7 @@ private fun MemberRow(
                 Text(ChatLogic.shown(m), fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
                 if (m.me) Chip(stringResource(R.string.gi_you))
                 if (m.admin) Chip(stringResource(R.string.gi_admin), strong = true)
-                if (m.blocked) Chip("⛔")
+                if (m.blocked) SagaIcon(SagaIcons.ban, stringResource(R.string.fed_blocked_chip), Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
             }
         },
         supportingContent = if (sub.isNotEmpty()) ({ Text(sub, maxLines = 1) }) else null,

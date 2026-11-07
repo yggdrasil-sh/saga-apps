@@ -300,12 +300,15 @@ fun SafetyDialog(s: ChatSession, initial: String? = null, onDismiss: () -> Unit)
                         Text(stringResource(if (qr) R.string.chat_safety_hide_qr else R.string.chat_safety_qr))
                     }
                     who?.let { w ->
-                        if (s.isVerified(w)) Text("✓ " + stringResource(R.string.chat_verified), color = MaterialTheme.colorScheme.primary, modifier = Modifier.align(Alignment.CenterHorizontally))
+                        if (s.isVerified(w)) Row(Modifier.align(Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+                            SagaIcon(SagaIcons.check, null, Modifier.padding(end = 4.dp).size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.chat_verified), color = MaterialTheme.colorScheme.primary)
+                        }
                         // 2.5: Vertrauen aus v1 uebernommen - die Ziffern sehen anders aus, der Schluessel ist derselbe
-                        if (s.isMigrated(w)) Text(
-                            "ⓘ " + stringResource(R.string.x3_safety_migrated), style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
-                        )
+                        if (s.isMigrated(w)) Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.Top) {
+                            SagaIcon(SagaIcons.info, null, Modifier.padding(end = 6.dp, top = 1.dp).size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.x3_safety_migrated), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }

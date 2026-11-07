@@ -375,7 +375,10 @@ fun VoiceRecordingBar(secs: Double, levels: List<Float>, locked: Boolean, warn: 
                 }
             }
             if (!locked) Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("‹ " + stringResource(R.string.voice_slide_cancel), style = MaterialTheme.typography.labelSmall, color = sc.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SagaIcon(SagaIcons.chevronLeft, null, Modifier.size(12.dp), tint = sc.onSurfaceVariant)
+                    Text(" " + stringResource(R.string.voice_slide_cancel), style = MaterialTheme.typography.labelSmall, color = sc.onSurfaceVariant)
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     SagaIcon(SagaIcons.lock, null, Modifier.size(12.dp), tint = sc.onSurfaceVariant)
                     Text(" " + stringResource(R.string.voice_slide_lock), style = MaterialTheme.typography.labelSmall, color = sc.onSurfaceVariant)

@@ -122,10 +122,13 @@ fun FedStateBar(sum: ChatSummary, request: Boolean, onAnswer: (String, String) -
     Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
             if (!request) {
-                Text(
-                    "🔒 " + (sum.readonlyReason?.ifBlank { null } ?: stringResource(R.string.fed_readonly)),
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SagaIcon(SagaIcons.lock, null, Modifier.padding(end = 8.dp).size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        sum.readonlyReason?.ifBlank { null } ?: stringResource(R.string.fed_readonly),
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 return@Column
             }
             // Direkt-Chat: Gegenueber; Gruppe/Seiten-Chat eines anderen Servers (2.3, E5): wer eingeladen hat ("block" sperrt
