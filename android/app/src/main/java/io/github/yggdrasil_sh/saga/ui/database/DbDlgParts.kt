@@ -75,19 +75,24 @@ fun DbDlgButtons(
         verticalArrangement = Arrangement.spacedBy(4.dp),
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
+        // Nachbesserung R3 (35b): bei Schrift 1,0 passen Leeren · Abbrechen · Uebernehmen in eine Zeile - schmalere
+        // Innenabstaende, und "Leeren" nimmt nur seine eigene Breite (der Abstand nach rechts ist ein gewichteter
+        // Leerraum, der auf 0 schrumpfen kann). Umbruch erst, wenn die Texte wirklich nicht passen (grosse Schrift).
         if (onClear != null && clearLabel != null) {
-            Row(Modifier.weight(1f)) {
-                SagaTextButton(onClick = onClear) {
-                    DbDlgButtonText(clearLabel, color = if (destructive) MaterialTheme.colorScheme.error else Color.Unspecified)
-                }
+            SagaTextButton(onClick = onClear, contentPadding = DLG_TEXT_PAD) {
+                DbDlgButtonText(clearLabel, color = if (destructive) MaterialTheme.colorScheme.error else Color.Unspecified)
             }
+            Spacer(Modifier.weight(1f))
         }
-        SagaTextButton(onClick = onCancel) { DbDlgButtonText(stringResource(R.string.action_cancel)) }
-        if (onConfirm != null) SagaFilledTonalButton(onClick = onConfirm, enabled = confirmEnabled) {
+        SagaTextButton(onClick = onCancel, contentPadding = DLG_TEXT_PAD) { DbDlgButtonText(stringResource(R.string.action_cancel)) }
+        if (onConfirm != null) SagaFilledTonalButton(onClick = onConfirm, enabled = confirmEnabled, contentPadding = DLG_TONAL_PAD) {
             DbDlgButtonText(confirmLabel ?: stringResource(R.string.action_apply))
         }
     }
 }
+
+private val DLG_TEXT_PAD = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+private val DLG_TONAL_PAD = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp)
 
 /** Knopftext: einzeilig, ohne Silbentrennung und ohne weichen Umbruch (R3-Nachbesserung 78) */
 @Composable

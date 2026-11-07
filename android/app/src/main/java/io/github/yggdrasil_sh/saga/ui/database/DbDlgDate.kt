@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -164,8 +167,27 @@ fun DbDlgDateDialog(p: DbProp, value: JsonElement?, datetime: Boolean, onSet: (J
                 // Schnellwahl: uebernimmt sofort (ein vorhandenes Ende wandert mit, die Uhrzeit bleibt).
                 // R3-Nachbesserung (36): eine Zeile ohne Symbole (der Kalender steht direkt darunter); reicht die Breite
                 // nicht (grosse Schrift), laesst sie sich seitlich wischen - kein Text wird gekuerzt
+                // Nachbesserung R3 (78): am Rand, hinter dem es weitergeht, weich ausblenden (wie die Ansichts-Pillen) statt
+                // eines harten Schnitts mitten im Chip
+                val quickScroll = rememberScrollState()
+                val quickFade = with(androidx.compose.ui.platform.LocalDensity.current) { 28.dp.toPx() }
                 Row(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 4.dp),
+                    Modifier.fillMaxWidth()
+                        .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                        .drawWithContent {
+                            drawContent()
+                            val w = minOf(quickFade, size.width / 4)
+                            if (quickScroll.value > 0) drawRect(
+                                androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), startX = 0f, endX = w),
+                                size = androidx.compose.ui.geometry.Size(w, size.height), blendMode = androidx.compose.ui.graphics.BlendMode.DstOut,
+                            )
+                            if (quickScroll.value < quickScroll.maxValue) drawRect(
+                                androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = size.width - w, endX = size.width),
+                                topLeft = androidx.compose.ui.geometry.Offset(size.width - w, 0f), size = androidx.compose.ui.geometry.Size(w, size.height),
+                                blendMode = androidx.compose.ui.graphics.BlendMode.DstOut,
+                            )
+                        }
+                        .horizontalScroll(quickScroll).padding(horizontal = 20.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     listOf(DbDlg.Quick.TODAY to R.string.e1_today, DbDlg.Quick.TOMORROW to R.string.e1_tomorrow, DbDlg.Quick.NEXT_WEEK to R.string.e1_next_week)

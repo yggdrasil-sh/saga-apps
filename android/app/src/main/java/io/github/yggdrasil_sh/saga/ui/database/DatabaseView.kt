@@ -610,6 +610,7 @@ internal fun TableHead(st: DbViewState, v: DbView, wide: Boolean) {
                     Text(p.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.width(colWidth(p, wide)).padding(horizontal = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+                ColumnEndPad(st.hScroll, movingW)
             }
             if (moving.isNotEmpty()) Box(Modifier.size(MORE_COLUMNS_SLOT), contentAlignment = Alignment.Center) {
                 // Nr. 23: es gibt weitere Spalten rechts - Pfeil (antippen = ein Stueck weiter), ED-15: Zielflaeche 48 x 48 dp
@@ -708,6 +709,7 @@ internal fun TableRow(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbView
             // gleiche Inhaltsbreite wie die Kopfzeile (ED-15), sonst rechnen Kopf und Zeilen mit verschiedenem Scroll-Ende
             Row(Modifier.weight(1f, fill = false).frozenEdge(st.hScroll).wholeColumns(st.hScroll, movingW).horizontalScroll(st.hScroll, flingBehavior = snap), verticalAlignment = Alignment.CenterVertically) {
                 moving.forEach { cell(it) }
+                ColumnEndPad(st.hScroll, movingW)
             }
             // R2c: gleiche Spalte wie der Pfeil im Kopf, damit Kopf und Zeilen denselben Scrollbereich haben
             if (moving.isNotEmpty()) Spacer(Modifier.width(MORE_COLUMNS_SLOT))

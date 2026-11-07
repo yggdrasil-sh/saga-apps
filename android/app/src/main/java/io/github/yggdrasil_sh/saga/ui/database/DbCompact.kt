@@ -154,6 +154,23 @@ object DbCompact {
     }
 
     /**
+     * Nachbesserung R3 (80b): Leerraum am Inhaltsende, damit das Scroll-Ende genau auf einer Spaltenkante liegt. Sonst
+     * endet der Pfeil bei maxValue mit einer links angeschnittenen Spalte, die wholeColumns ausblendet - es blieb eine
+     * Luecke zwischen der fixierten und der ersten sichtbaren Spalte. Mit dem Leerraum steht die Luecke nur rechts am
+     * Ende. 0, wenn alles ins Fenster passt.
+     */
+    fun endPad(widths: List<Float>, viewport: Float): Float {
+        val total = widths.sum()
+        if (viewport <= 0f || total <= viewport + 0.5f) return 0f
+        var x = 0f
+        for (w in widths) {
+            if (total - x <= viewport + 0.5f) return (viewport - (total - x)).coerceAtLeast(0f)
+            x += w
+        }
+        return 0f
+    }
+
+    /**
      * R3-Nachbesserung (28c): Ziel fuer den Pfeil "Weitere Spalten" - die linke Kante der ersten Spalte, die rechts nicht
      * mehr ganz ins Fenster passt (sie steht danach ganz sichtbar am linken Rand), hoechstens [max].
      */

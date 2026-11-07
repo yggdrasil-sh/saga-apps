@@ -1178,8 +1178,15 @@ private fun EditorToolbar(
             // A16: scrollende Formatleiste mit Hinweis am rechten Rand (Verlauf + Pfeil), solange es weiter geht
             val toolScroll = rememberScrollState()
             val toolScope = rememberCoroutineScope()
-            Box(Modifier.weight(1f)) {
-                Row(Modifier.horizontalScroll(toolScroll).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f)) {
+                // Nachbesserung R3 (79): alle Knoepfe der Leiste sind 48 dp breit. Der Hinweis rechts (Verlauf + Pfeil) ist
+                // genau so breit, dass links davon nur ganze Knoepfe stehen - der Verlauf liegt dann nur ueber dem
+                // angeschnittenen naechsten Knopf, nie ueber dem letzten voll sichtbaren
+                val toolBtn = 48.dp
+                val toolStart = 4.dp
+                val toolFit = ((maxWidth - toolStart - 32.dp) / toolBtn).toInt().coerceAtLeast(1)
+                val hintW = (maxWidth - toolStart - toolBtn * toolFit).coerceAtLeast(32.dp)
+                Row(Modifier.horizontalScroll(toolScroll).padding(start = toolStart), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { inserter.pickerAfter = blockPath }) { SagaIcon(SagaIcons.plus, stringResource(R.string.block_insert)) }
                     // Bild aus der Zwischenablage (nur sichtbar, wenn dort eins liegt) - das Feld selbst nimmt nur Text an
                     if (onPasteImage != null) {
@@ -1245,16 +1252,15 @@ private fun EditorToolbar(
                     if (isText) active.linkAtCursor?.invoke()?.let { href ->
                         IconButton(onClick = { onLink(href) }) { SagaIcon(SagaIcons.external, stringResource(R.string.link_open)) }
                     }
-                    Spacer(Modifier.width(if (toolScroll.maxValue > 0) 52.dp else 0.dp))   // letzter Knopf nicht unter dem Hinweis
                 }
+                // Verlauf + Pfeil nur, solange die Leiste wirklich weiter scrollt
                 if (toolScroll.canScrollForward) {
                     val bg = toolBg
-                    val px = with(LocalDensity.current) { 144.dp.toPx() }
+                    // Pfeil: um ganze Knoepfe weiter (bleibt auf dem 48-dp-Raster)
+                    val px = with(LocalDensity.current) { (toolBtn * maxOf(1, toolFit - 1)).toPx() }
                     Box(
-                        // Nachbesserung R3 (Schrift 1,3): breiterer, weicher Verlauf - ein angeschnittener Knopf blendet aus,
-                        // statt direkt am Pfeil zu stehen
-                        Modifier.align(Alignment.CenterEnd).width(56.dp).height(48.dp)
-                            .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(bg.copy(alpha = 0f), bg.copy(alpha = 0.85f), bg, bg))),
+                        Modifier.align(Alignment.CenterEnd).width(hintW).height(48.dp)
+                            .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(bg.copy(alpha = 0f), bg.copy(alpha = 0.9f), bg))),
                         contentAlignment = Alignment.CenterEnd,
                     ) {
                         IconButton(onClick = { toolScope.launch { toolScroll.animateScrollBy(px) } }, modifier = Modifier.width(32.dp)) {
@@ -1462,8 +1468,16 @@ private fun SaveState(ed: PageEditor) {
         at != null -> {
             val desc = stringResource(R.string.save_state_saved)
             Row(Modifier.padding(end = 4.dp).semantics(mergeDescendants = true) { contentDescription = desc }, verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.animation.AnimatedVisibility(justSaved) {
-                    Text(desc, style = MaterialTheme.typography.labelSmall, color = color, modifier = Modifier.padding(end = 4.dp).clearAndSetSemantics { })
+                // Nachbesserung R3 (24b2/25c): nur ein-/ausblenden - die Standard-Einblendung (expandIn) liess den Text von
+                // rechts wachsen und schnitt ihn links ab ("speichert"). So ist der Platz sofort reserviert (der Titel in
+                // der Leiste kuerzt sich mit "…"), der Text bleibt immer ganz.
+                androidx.compose.animation.AnimatedVisibility(
+                    justSaved,
+                    enter = androidx.compose.animation.fadeIn(),
+                    exit = androidx.compose.animation.fadeOut(),
+                ) {
+                    Text(desc, style = MaterialTheme.typography.labelSmall, color = color, maxLines = 1, softWrap = false,
+                        modifier = Modifier.padding(end = 4.dp).clearAndSetSemantics { })
                 }
                 SagaIcon(SagaIcons.cloud, null, tint = color, modifier = Modifier.size(18.dp))
             }

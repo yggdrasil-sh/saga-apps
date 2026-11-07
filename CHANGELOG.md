@@ -30,6 +30,12 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Aktionen am Textfeld erreichbar.
 - **Behoben:** Rücktaste in einem leeren Absatz konnte den Block darunter (z. B. ein Bild) löschen, wenn die
   Tastatur sie doppelt meldete.
+- **Behoben:** Nach Enter am Anfang eines Listenpunkts und Rücktaste im neuen leeren Punkt zeigte die App einen
+  gefüllten Punkt leer an (das Dokument war richtig; der Fehler überstand sogar „Neu laden“). Listenpunkte gleichen
+  sich jetzt mit dem Dokument ab; „Neu laden“ und „Version wiederherstellen“ setzen alle Textfelder neu auf.
+- **Aktive Zustände sichtbar:** aktive Format-Knöpfe, getönte Knöpfe („Übernehmen“) und gewählte Segmente in
+  Gold-Soft (Format-Knöpfe zusätzlich mit goldenem Rand); „Gespeichert“ blendet ein, ohne abgeschnitten zu werden;
+  der Verlauf am Ende der Werkzeugleiste liegt nur über einem angeschnittenen Knopf.
 
 ### Geändert – Android: Design-Runde 3 „Datenbank-Ansichten“
 
@@ -38,6 +44,7 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   (lokal gemerkt). Gilt auch für eingebettete Datenbanken.
 - **Tabelle:** Spalten rasten beim Wischen ein, Linie und leichter Schatten an der fixierten Titelspalte, schmalere
   Auswahl- und Datumsspalten mit Kurzdatum.
+- **Tabelle (Tablet):** am Ende der weiteren Spalten keine Lücke mehr zwischen sichtbaren Spalten.
 - **Ansichten-Pillen** blenden am Rand aus und scrollen zur aktiven Ansicht. **„Neuer Eintrag“** als zweigeteilter
   Knopf mit Spalt (beide Teile 48 dp).
 - **Board/Galerie:** Datum mit Kurzlabel bzw. als Zeitraum „16.11. → 18.12.2026“; Board-Spalten rasten ein (Handy:
@@ -49,6 +56,8 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Eine Regel für Auswahl-Dialoge:** Einfachauswahl übernimmt sofort; außerhalb tippen verwirft immer (bisher
   speicherte die Mehrfachauswahl dabei). Gab es Änderungen, kommt „Änderungen verworfen · Rückgängig“. „Leeren“ bzw.
   „Löschen“ steht links abgesetzt, rechts nur Abbrechen und Übernehmen/Speichern – auch „Aufgabe löschen“.
+- **Knopfzeile:** bei normaler Schrift passen Leeren · Abbrechen · Übernehmen in eine Zeile; die Datums-Schnellwahl
+  blendet am Dialogrand weich aus statt hart abzuschneiden.
 - **Optionszeilen** mindestens 56 dp mit Radio (einfach) bzw. Checkbox (mehrfach) links; Bedienungshilfen lesen den
   Zustand mit.
 - **Datum direkt im Kalender** mit Schnellwahl „Heute“, „Morgen“, „Nächste Woche“ (2 Taps, eine Zeile) und den

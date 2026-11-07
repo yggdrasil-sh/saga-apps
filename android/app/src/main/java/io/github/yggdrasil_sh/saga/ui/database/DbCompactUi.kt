@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -190,3 +191,12 @@ internal fun Modifier.wholeColumns(state: androidx.compose.foundation.ScrollStat
         clipRect(left = l, top = 0f, right = r, bottom = size.height) { this@drawWithContent.drawContent() }
     })
 
+
+/** Nachbesserung R3 (80b): Leerraum am Ende der beweglichen Spalten (DbCompact.endPad) - in Kopf und Zeilen gleich */
+@Composable
+internal fun ColumnEndPad(state: androidx.compose.foundation.ScrollState, widths: List<androidx.compose.ui.unit.Dp>) {
+    val d = androidx.compose.ui.platform.LocalDensity.current
+    val vp = state.viewportSize
+    val pad = with(d) { DbCompact.endPad(widths.map { it.toPx() }, vp.toFloat()).toDp() }
+    if (pad > 0.dp) androidx.compose.foundation.layout.Spacer(Modifier.width(pad))
+}
