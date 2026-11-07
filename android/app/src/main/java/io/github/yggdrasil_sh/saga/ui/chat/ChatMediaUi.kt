@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.app.Activity
@@ -175,7 +176,7 @@ internal fun QuoteThumb(f: ChatFile, s: ChatSession, size: Dp = 36.dp) {
             }
         }
     }
-    Box(Modifier.size(size).clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
+    Box(Modifier.size(size).clip(RoundedCornerShape(SagaRadius.s)).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
         img?.let { Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
     }
 }
@@ -279,7 +280,7 @@ internal fun ImageViewer(repo: SagaRepository, s: ChatSession, items: List<ChatM
             // Kopfzeile unter Statusleiste/Aussparung (decorFitsSystemWindows = false), wie im Video-Vollbild
             Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing)) {
                 Row(
-                    Modifier.fillMaxWidth().padding(4.dp).background(Color(0x66000000), RoundedCornerShape(12.dp)).padding(4.dp),
+                    Modifier.fillMaxWidth().padding(4.dp).background(MediaScrim.copy(alpha = 0.4f), RoundedCornerShape(SagaRadius.md)).padding(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IconButton(onClick = onClose) { SagaIcon(SagaIcons.x, stringResource(R.string.action_close), tint = Color.White) }
@@ -309,7 +310,7 @@ internal fun ImageViewer(repo: SagaRepository, s: ChatSession, items: List<ChatM
                     Text(
                         stringResource(if (ok) R.string.media_saved else R.string.media_save_failed), color = Color.White,
                         modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 12.dp)
-                            .background(Color(0xCC000000), RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 6.dp)
+                            .background(MediaScrim.copy(alpha = 0.8f), RoundedCornerShape(SagaRadius.s)).padding(horizontal = 12.dp, vertical = 6.dp)
                             .semantics { liveRegion = LiveRegionMode.Polite },
                     )
                 }
@@ -392,7 +393,7 @@ private fun ViewerPage(repo: SagaRepository, s: ChatSession, f: ChatFile, zs: Zo
         if (failed) {
             Column(
                 Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing).padding(16.dp)
-                    .background(Color(0xCC000000), RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
+                    .background(MediaScrim.copy(alpha = 0.8f), RoundedCornerShape(SagaRadius.s)).padding(horizontal = 12.dp, vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(stringResource(R.string.media_load_failed), color = Color.White, style = MaterialTheme.typography.bodyMedium)

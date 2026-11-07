@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.content.Context
@@ -278,7 +279,7 @@ fun VideoAttachment(f: ChatFile, s: ChatSession, onLongPress: (() -> Unit)? = nu
     val saver = rememberVideoSaver(host, s)
     Box {
     Box(
-        Modifier.padding(vertical = 4.dp).size(dims.first.dp, dims.second.dp).clip(RoundedCornerShape(10.dp))
+        Modifier.padding(vertical = 4.dp).size(dims.first.dp, dims.second.dp).clip(RoundedCornerShape(SagaRadius.md))
             .background(Color.Black)
             .combinedClickable(
                 enabled = !playing, onClick = { host.play(s, f) },
@@ -298,21 +299,21 @@ fun VideoAttachment(f: ChatFile, s: ChatSession, onLongPress: (() -> Unit)? = nu
             )
             IconButton(
                 onClick = { host.fullscreen = true },
-                modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(36.dp).background(Color(0x66000000), CircleShape),
+                modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(36.dp).background(MediaScrim.copy(alpha = 0.4f), CircleShape),
             ) { SagaIcon(SagaIcons.maximize, stringResource(R.string.video_fullscreen), tint = Color.White) }
         } else {
             img?.let { Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
             if (playing && host.failed) {
                 Text(stringResource(R.string.video_failed), color = Color.White, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(8.dp))
             } else {
-                Box(Modifier.size(48.dp).background(Color(0x99000000), CircleShape), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(48.dp).background(MediaScrim.copy(alpha = 0.6f), CircleShape), contentAlignment = Alignment.Center) {
                     SagaIcon(SagaIcons.play, null, tint = Color.White, modifier = Modifier.size(32.dp))
                 }
             }
             if (f.dur != null) {
                 Text(
                     VideoLogic.durText(f.dur), color = Color.White, style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp).background(Color(0x99000000), RoundedCornerShape(4.dp))
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(6.dp).background(MediaScrim.copy(alpha = 0.6f), RoundedCornerShape(SagaRadius.xs))
                         .padding(horizontal = 4.dp, vertical = 1.dp),
                 )
             }
@@ -355,7 +356,7 @@ fun VideoFullscreen(host: VideoPlayerHost, s: ChatSession) {
                 onRelease = { it.player = null },
                 modifier = Modifier.fillMaxSize(),
             )
-            Row(Modifier.fillMaxWidth().background(Color(0x66000000), RoundedCornerShape(12.dp)).padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().background(MediaScrim.copy(alpha = 0.4f), RoundedCornerShape(SagaRadius.md)).padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { host.release() }) { SagaIcon(SagaIcons.x, stringResource(R.string.action_close), tint = Color.White) }
                 Text(f.n, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 val sv = host.saving
@@ -378,7 +379,7 @@ fun VideoFullscreen(host: VideoPlayerHost, s: ChatSession) {
                 Text(
                     stringResource(if (ok) R.string.video_saved else R.string.video_save_failed), color = Color.White,
                     modifier = Modifier.align(Alignment.TopCenter).padding(top = 64.dp)
-                        .background(Color(0xCC000000), RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
+                        .background(MediaScrim.copy(alpha = 0.8f), RoundedCornerShape(SagaRadius.s)).padding(horizontal = 12.dp, vertical = 6.dp),
                 )
             }
         }
@@ -439,7 +440,7 @@ fun VideoUploadsBar(repo: SagaRepository, chatId: Long, onDone: () -> Unit) {
             val p = w.progress.getFloat(VideoUploadWorker.KEY_PROGRESS, 0f)
             val file = Videos.isFile(w)
             val prep = !file && w.progress.getInt(VideoUploadWorker.KEY_PHASE, VideoUploadWorker.PHASE_PREPARE) == VideoUploadWorker.PHASE_PREPARE
-            Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+            Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(SagaRadius.md), modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
                 Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
                         Text(

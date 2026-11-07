@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.Image
@@ -93,11 +94,11 @@ fun PreviewCard(p: ChatPreview, s: ChatSession) {
 private fun PreviewBox(site: String, title: String, desc: String, img: ImageBitmap?, modifier: Modifier, trailing: (@Composable () -> Unit)? = null) {
     // CH-13: feiner Rand wie `.ct-unf-card`, damit die Karte auch auf der hellen fremden Blase absetzt
     Surface(
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), shape = RoundedCornerShape(SagaRadius.md),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = modifier.widthIn(max = 420.dp),
     ) {
         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (img != null) Image(img, null, Modifier.size(56.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop)
+            if (img != null) Image(img, null, Modifier.size(56.dp).clip(RoundedCornerShape(SagaRadius.s)), contentScale = ContentScale.Crop)
             Column(Modifier.weight(1f, fill = false).padding(start = if (img != null) 8.dp else 0.dp)) {
                 if (site.isNotBlank()) Text(site.take(80), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 if (title.isNotBlank()) Text(title.take(200), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -205,7 +206,7 @@ fun MediaDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
                             val items = files.filter { ChatStd.inTab(it, tab) }
                             if (items.isEmpty() && !busy) Empty()
                             LazyVerticalGrid(GridCells.Adaptive(110.dp), Modifier.fillMaxSize().padding(4.dp)) {
-                                items(items, key = { it.id }) { f -> Box(Modifier.padding(2.dp).aspectRatio(1f).clip(RoundedCornerShape(6.dp))) { MediaTile(f, s, open) } }
+                                items(items, key = { it.id }) { f -> Box(Modifier.padding(2.dp).aspectRatio(1f).clip(RoundedCornerShape(SagaRadius.s))) { MediaTile(f, s, open) } }
                             }
                         }
                         ChatStd.MediaTab.FILES -> {

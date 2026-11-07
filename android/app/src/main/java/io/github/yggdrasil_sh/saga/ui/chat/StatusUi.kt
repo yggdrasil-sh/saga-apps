@@ -40,9 +40,6 @@ import java.time.format.FormatStyle
 
 // Saga 2.4: Gelesen-Haken, "Gelesen von", Online-Status (wie WhatsApp)
 
-/** Gruen des Online-Punkts (wie ueblich), mit Rand in Hintergrundfarbe */
-private val OnlineGreen = Color(0xFF2EB85C)
-
 /**
  * Online-Abo dieser Ansicht, solange sie sichtbar ist (Lebenszyklus STARTED): im Hintergrund bzw. beim Verlassen abmelden
  * (Akku, kein unnoetiges Abo).
@@ -70,7 +67,7 @@ fun OnlineDot(modifier: Modifier = Modifier) {
     val d = stringResource(R.string.chat_online)
     Box(
         modifier.size(12.dp).border(2.dp, MaterialTheme.colorScheme.surface, CircleShape).padding(1.dp)
-            .background(OnlineGreen, CircleShape).semantics { contentDescription = d },
+            .background(io.github.yggdrasil_sh.saga.ui.theme.SagaColors.current.up, CircleShape).semantics { contentDescription = d },
     )
 }
 

@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.background
@@ -303,7 +304,7 @@ private fun Chip(t: String, strong: Boolean = false) {
     Text(
         t, style = MaterialTheme.typography.labelSmall,
         color = if (strong) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
-        modifier = Modifier.clip(RoundedCornerShape(8.dp))
+        modifier = Modifier.clip(RoundedCornerShape(SagaRadius.s))
             .background(if (strong) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer)
             .padding(horizontal = 6.dp, vertical = 1.dp),
     )
@@ -422,7 +423,7 @@ fun ContactRow(repo: SagaRepository, k: ChatContact, onRemoved: () -> Unit, onPi
         },
         backgroundContent = {
             Row(
-                Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.errorContainer).padding(horizontal = 16.dp),
+                Modifier.fillMaxSize().clip(RoundedCornerShape(SagaRadius.md)).background(MaterialTheme.colorScheme.errorContainer).padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End,
             ) { Text(stringResource(R.string.ct_remove), color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.labelLarge) }
         },

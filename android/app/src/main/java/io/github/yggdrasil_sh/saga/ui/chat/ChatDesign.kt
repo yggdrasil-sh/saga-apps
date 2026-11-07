@@ -22,6 +22,12 @@ import androidx.compose.ui.unit.sp
 import io.github.yggdrasil_sh.saga.ui.common.AvatarOverlay
 
 /**
+ * Abdunklung ueber Bildern und Videos (Schliessen, Teilen, Dauer, Abspielen): bewusst Schwarz in beiden Schemata,
+ * weil das Medium selbst der Hintergrund ist; die Deckkraft waehlt die Stelle (0,4 / 0,6 / 0,8), Schrift darauf Weiss.
+ */
+internal val MediaScrim = Color.Black
+
+/**
  * Design 2 (Chats, Anrufe): gemeinsame Bausteine der Chat- und Anrufbildschirme - Profilkreise in ruhigen Tonfarben
  * (aus dem Namen, immer gleich je Person), Blasenformen fuer zusammenhaengende Nachrichten und "Bewegung reduziert".
  */

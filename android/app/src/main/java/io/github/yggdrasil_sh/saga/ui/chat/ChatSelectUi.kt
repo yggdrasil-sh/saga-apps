@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.border
@@ -192,7 +193,7 @@ fun ToPageDialog(onDismiss: () -> Unit, onNew: () -> Unit, onAppend: () -> Unit)
                 }
                 listOf(false to R.string.cs_page_new, true to R.string.cs_page_append).forEach { (a, label) ->
                     Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).selectable(append == a, role = Role.RadioButton) { append = a }.heightIn(min = 48.dp),
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(SagaRadius.s)).selectable(append == a, role = Role.RadioButton) { append = a }.heightIn(min = 48.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         RadioButton(selected = append == a, onClick = null)

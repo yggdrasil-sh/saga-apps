@@ -745,10 +745,10 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     if (m.tomb) {
                         // 2.5 (moddel1): Grabstein
                         val who = senderName(m)
-                        StdNoteRow("🗑 " + if (who.isNotEmpty()) stringResource(R.string.std_tomb_of, who) else stringResource(R.string.std_tomb))
+                        StdNoteRow(if (who.isNotEmpty()) stringResource(R.string.std_tomb_of, who) else stringResource(R.string.std_tomb), icon = SagaIcons.trash)
                     } else if (!m.mine && std.block && m.id !in s.unblocked && ChatStd.blockedInGroup(s.summary, m.sender, m.senderHandle)) {
                         // 2.5 (block2): Nachricht einer gesperrten Person eingeklappt
-                        StdNoteRow("⛔ " + stringResource(R.string.std_blocked_msg), stringResource(R.string.std_show)) { s.unblocked = s.unblocked + m.id }
+                        StdNoteRow(stringResource(R.string.std_blocked_msg), stringResource(R.string.std_show), icon = SagaIcons.ban) { s.unblocked = s.unblocked + m.id }
                     } else if (sys != null) {
                         SysRow(m, sys, s.summary?.myHandle)
                     } else if (call != null) {
@@ -908,7 +908,8 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                         trailingIcon = { SagaIcon(SagaIcons.x, stringResource(R.string.action_delete), Modifier.size(16.dp)) })
                 }
                 noteIds.forEach { n ->
-                    InputChip(selected = false, onClick = { noteIds.remove(n) }, label = { Text("📄 " + n.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    InputChip(selected = false, onClick = { noteIds.remove(n) }, label = { Text(n.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        leadingIcon = { SagaIcon(SagaIcons.file, null, Modifier.size(16.dp)) },
                         trailingIcon = { SagaIcon(SagaIcons.x, stringResource(R.string.action_delete), Modifier.size(16.dp)) })
                 }
             }
@@ -975,8 +976,8 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_file)) }, onClick = { attach = false; pick.launch("*/*") })
                     // 2.5: Kamera (Foto/Video) - nur mit Kamera am Geraet
                     if (context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_CAMERA_ANY)) {
-                        DropdownMenuItem(text = { Text("📷 " + stringResource(R.string.std_camera_photo)) }, onClick = { attach = false; openCamera(false) })
-                        DropdownMenuItem(text = { Text("🎥 " + stringResource(R.string.std_camera_video)) }, onClick = { attach = false; openCamera(true) })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.std_camera_photo)) }, leadingIcon = { SagaIcon(SagaIcons.camera, null) }, onClick = { attach = false; openCamera(false) })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.std_camera_video)) }, leadingIcon = { SagaIcon(SagaIcons.video, null) }, onClick = { attach = false; openCamera(true) })
                     }
                     DropdownMenuItem(text = { Text(stringResource(R.string.video_attach)) }, onClick = { attach = false; pickVideo.launch("video/*") })
                     // gleiche Pruefung wie beim Bild-Einfuegen auf Seiten: nur wenn Immich fuer mich eingerichtet ist
@@ -1740,9 +1741,10 @@ internal fun Bubble(
                         ) {
                             SagaIcon(SagaIcons.warning, null, Modifier.size(16.dp), tint = ChatUi.unverifiedIcon(scheme, mineSide))
                             Text(
-                                stringResource(R.string.chat_unverified) + " ⓘ", style = MaterialTheme.typography.labelMedium,
+                                stringResource(R.string.chat_unverified), style = MaterialTheme.typography.labelMedium,
                                 color = ChatUi.unverifiedText(scheme, mineSide), modifier = Modifier.padding(start = 4.dp),
                             )
+                            SagaIcon(SagaIcons.info, null, Modifier.padding(start = 4.dp).size(14.dp), tint = ChatUi.unverifiedText(scheme, mineSide))
                         }
                     }
                     m.replyTo?.let { rid ->
@@ -1784,21 +1786,29 @@ internal fun Bubble(
                         c.preview?.takeIf { ChatStd.showPreview(it) }?.let { pv -> PreviewCard(pv, s) }
                         c.notes.filter { id -> !c.text.contains("[[note:$id]]") }.forEach { id ->
                             val ref = s.notes[id]
-                            if (ref != null) TextButton(onClick = { onOpenNote(id) }) { Text("📄 " + ref.title) }
-                            else Text("📄 " + stringResource(R.string.chat_page_no_access), style = MaterialTheme.typography.bodySmall)
+                            if (ref != null) TextButton(onClick = { onOpenNote(id) }) {
+                                SagaIcon(SagaIcons.file, null, Modifier.padding(end = 6.dp).size(16.dp))
+                                Text(ref.title)
+                            } else Row(verticalAlignment = Alignment.CenterVertically) {
+                                SagaIcon(SagaIcons.file, null, Modifier.padding(end = 6.dp).size(14.dp))
+                                Text(stringResource(R.string.chat_page_no_access), style = MaterialTheme.typography.bodySmall)
+                            }
                         }
                     }
                     // 2.3: Zustellstand in Chats ueber Servergrenzen
                     when (m.fstate) {
-                        "pending" -> Text(
-                            "⏳ " + stringResource(R.string.fed_msg_pending), style = MaterialTheme.typography.labelSmall, color = meta,
-                            modifier = Modifier.align(Alignment.End),
-                        )
-                        "failed" -> Text(
-                            "⚠ " + stringResource(R.string.fed_msg_failed), style = MaterialTheme.typography.labelSmall,
-                            color = ChatUi.unverifiedText(MaterialTheme.colorScheme, mineSide), fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                            modifier = Modifier.align(Alignment.End),
-                        )
+                        "pending" -> Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                            SagaIcon(SagaIcons.clock, null, Modifier.padding(end = 4.dp).size(12.dp), tint = meta)
+                            Text(stringResource(R.string.fed_msg_pending), style = MaterialTheme.typography.labelSmall, color = meta)
+                        }
+                        "failed" -> Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                            val warnC = ChatUi.unverifiedText(MaterialTheme.colorScheme, mineSide)
+                            SagaIcon(SagaIcons.warning, null, Modifier.padding(end = 4.dp).size(12.dp), tint = warnC)
+                            Text(
+                                stringResource(R.string.fed_msg_failed), style = MaterialTheme.typography.labelSmall,
+                                color = warnC, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                            )
+                        }
                     }
                     // Uhrzeit + Haken (2.4): ⏳ → ✓ → ✓✓; in Gruppen fuehrt Antippen zu "Gelesen von"
                     // A11Y-01: Zeit, "bearbeitet" und Haken stehen in der Blasen-Beschreibung; antippbar ("Gelesen von") bleibt ein eigener Knopf
@@ -1910,7 +1920,8 @@ internal fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit,
     // 2.4: neueres Format (x > 2) nicht still scheitern lassen
     if (f.unsupported) {
         TextButton(onClick = {}, enabled = false) {
-            Text("📎 " + f.n + " · " + stringResource(R.string.video_newer_version), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            SagaIcon(SagaIcons.paperclip, null, Modifier.padding(end = 6.dp).size(16.dp))
+            Text(f.n + " · " + stringResource(R.string.video_newer_version), maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         return
     }
@@ -1962,7 +1973,10 @@ internal fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit,
                 onLongClickLabel = if (onLongPress != null) stringResource(R.string.chat_message_actions) else null)
             .padding(horizontal = 8.dp, vertical = 10.dp),
     ) {
-        Text("📎 " + f.n + " · " + (if (f.s == 0L) stringResource(R.string.chat_file_empty_short) else android.text.format.Formatter.formatShortFileSize(LocalContext.current, f.s)), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SagaIcon(SagaIcons.paperclip, null, Modifier.padding(end = 6.dp).size(16.dp))
+            Text(f.n + " · " + (if (f.s == 0L) stringResource(R.string.chat_file_empty_short) else android.text.format.Formatter.formatShortFileSize(LocalContext.current, f.s)), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
@@ -2138,7 +2152,7 @@ private fun StdMessageMenu(
     val r = ChatStd.rights(c, std)
     if (r.pin && m.fstate == null && m.content != null) {
         val pinned = m.id in c.pins
-        DropdownMenuItem(text = { Text("📌 " + stringResource(if (pinned) R.string.std_unpin else R.string.std_pin)) }, onClick = {
+        DropdownMenuItem(text = { Text(stringResource(if (pinned) R.string.std_unpin else R.string.std_pin)) }, leadingIcon = { SagaIcon(SagaIcons.pin, null) }, onClick = {
             close()
             repo.launchAction { s.pin(m.id, !pinned); repo.notify(UiText.Res(if (pinned) R.string.std_unpinned_done else R.string.std_pinned_done)) }
         })

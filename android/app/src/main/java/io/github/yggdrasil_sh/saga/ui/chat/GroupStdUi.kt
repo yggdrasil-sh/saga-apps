@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.net.Uri
@@ -233,10 +234,11 @@ fun PinBar(s: ChatSession, canPin: Boolean, onJump: (String) -> Unit, onUnpin: (
 
 /** Zeile statt einer Nachricht: Grabstein ("Von einem Admin gelöscht") bzw. eingeklappte Nachricht einer gesperrten Person */
 @Composable
-fun StdNoteRow(text: String, action: String? = null, onAction: () -> Unit = {}) {
+fun StdNoteRow(text: String, action: String? = null, @androidx.annotation.DrawableRes icon: Int? = null, onAction: () -> Unit = {}) {
     Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), contentAlignment = Alignment.Center) {
-        Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(16.dp)) {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(SagaRadius.md)) {
             Row(Modifier.padding(horizontal = 12.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (icon != null) SagaIcon(icon, null, Modifier.padding(end = 6.dp).size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(text, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 6.dp))
                 if (action != null) TextButton(onClick = onAction) { Text(action) }
             }

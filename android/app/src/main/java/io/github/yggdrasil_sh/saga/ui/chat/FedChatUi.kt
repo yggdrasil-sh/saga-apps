@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.clickable
@@ -165,7 +166,7 @@ fun SysRow(m: ChatMessage, sys: ChatSys, myHandle: String?) {
     // KI ein/aus, "ab jetzt ueber Servergrenzen", Mitglieder (mit Herkunft) - FedSysText (wie das Web)
     val text = io.github.yggdrasil_sh.saga.chat.FedSysText.text(sys, myHandle).resolve()
     Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), contentAlignment = Alignment.Center) {
-        Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(16.dp)) {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(SagaRadius.md)) {
             Text(
                 "$text · $time", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
