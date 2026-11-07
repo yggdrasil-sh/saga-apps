@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -73,7 +74,7 @@ private fun Swatch(c: String?, bg: Boolean) {
     if (c == null) {
         Box(Modifier.size(18.dp).clip(CircleShape).border(1.dp, line, CircleShape))
     } else if (bg) {
-        Box(Modifier.size(18.dp).clip(RoundedCornerShape(4.dp)).background(Color(Gestalten.bgArgb(c, dark))))
+        Box(Modifier.size(18.dp).clip(RoundedCornerShape(SagaRadius.xs)).background(Color(Gestalten.bgArgb(c, dark))))
     } else {
         Text("A", color = Color(Gestalten.textArgb(c, dark)), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
     }

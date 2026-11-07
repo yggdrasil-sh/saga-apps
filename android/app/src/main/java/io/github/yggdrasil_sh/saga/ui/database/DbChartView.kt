@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -321,7 +322,7 @@ fun DbTimeline(st: DbViewState, repo: SagaRepository, onOpen: (Long) -> Unit, wi
                         val desc = b.row.title + ": " + b.start.format(dayFmt) + " – " + b.end.format(dayFmt)
                         Row(Modifier.height(32.dp).width(dayW * days), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.width(dayW * off))
-                            Box(Modifier.width(dayW * len).height(20.dp).clip(RoundedCornerShape(6.dp)).background(accent.copy(alpha = 0.75f))
+                            Box(Modifier.width(dayW * len).height(20.dp).clip(RoundedCornerShape(SagaRadius.s)).background(accent.copy(alpha = 0.75f))
                                 .clickable(onClickLabel = stringResource(R.string.dbv_open_entry)) { onOpen(b.row.id) }.semantics { contentDescription = desc })
                         }
                     }

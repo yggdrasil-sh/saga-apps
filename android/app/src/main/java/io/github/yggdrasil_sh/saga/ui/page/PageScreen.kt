@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -593,7 +594,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                             val focused = comments.visible && comments.block != null && comments.block == bid
                             Row(
                                 Modifier.padding(vertical = 4.dp)
-                                    .then(if (focused) Modifier.clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh) else Modifier)
+                                    .then(if (focused) Modifier.clip(RoundedCornerShape(SagaRadius.s)).background(MaterialTheme.colorScheme.surfaceContainerHigh) else Modifier)
                                     .then(
                                         if (tap) Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                                             selectedBlock = if (selectedBlock == bid) null else bid
@@ -970,7 +971,7 @@ private fun PublicChip(viaTitle: String?, onClick: (() -> Unit)?) {
 private fun DraftBanner(stamp: Long, onRestore: () -> Unit, onDiscard: () -> Unit) {
     val time = io.github.yggdrasil_sh.saga.ui.common.dateTimeText(stamp)
     Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(SagaRadius.md),
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
     ) {
         Column(Modifier.padding(start = 12.dp, end = 4.dp, top = 10.dp, bottom = 2.dp)) {
@@ -1014,7 +1015,7 @@ private fun EditorToolbar(
     // Design 2.5: schwebende Werkzeugleiste (Pille ueber der Tastatur, wie die Expressive-Toolbar)
     val toolBg = MaterialTheme.colorScheme.surfaceContainerHigh
     Surface(
-        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp), shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp), shape = androidx.compose.foundation.shape.RoundedCornerShape(SagaRadius.pill),
         color = toolBg, shadowElevation = 6.dp,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
     ) {
@@ -1361,7 +1362,7 @@ private fun CommentsButton(open: Int, unread: Int, onClick: () -> Unit) {
     val desc = (if (open == 0) res.getString(R.string.comments_add) else res.getQuantityString(R.plurals.comments_open_threads, open, open)) +
         if (unread > 0) " · " + res.getQuantityString(R.plurals.comments_unread, unread, unread) else ""
     Row(
-        Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(24.dp)).clickable(onClick = onClick).padding(horizontal = 10.dp)
+        Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(SagaRadius.pill)).clickable(onClick = onClick).padding(horizontal = 10.dp)
             .semantics(mergeDescendants = true) { contentDescription = desc },
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1381,7 +1382,7 @@ private fun BlockBubble(count: Int, unread: Boolean, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Surface(
-            shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(SagaRadius.md), color = MaterialTheme.colorScheme.surface,
             border = androidx.compose.foundation.BorderStroke(1.dp, if (unread) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
         ) {
             Row(Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1413,7 +1414,7 @@ private fun CopyTextDialog(title: String, text: String, draft: String, onClose: 
             Column {
                 Text(text)
                 Surface(
-                    color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(SagaRadius.s),
                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(max = maxField),
                 ) {

@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -682,9 +683,9 @@ internal fun GalleryCard(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbV
     val src = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val ccol = cardTint(st, r, v)
     Surface(
-        shape = MaterialTheme.shapes.large, color = ccol?.first ?: cardColor(),
+        shape = MaterialTheme.shapes.medium, color = ccol?.first ?: cardColor(),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
-        modifier = Modifier.fillMaxWidth().sagaPress(src).clip(MaterialTheme.shapes.large)
+        modifier = Modifier.fillMaxWidth().sagaPress(src).clip(MaterialTheme.shapes.medium)
             .clickable(interactionSource = src, indication = androidx.compose.foundation.LocalIndication.current, onClickLabel = stringResource(R.string.dbv_open_entry)) { onOpen(r.id) },
     ) {
         Column {
@@ -734,7 +735,7 @@ internal fun DbBoard(st: DbViewState, repo: SagaRepository, onOpen: (Long) -> Un
             val col = st.columns[k]
             if (k == null && (col?.matched ?: 0) == 0) return@items       // "Ohne" leer: wie im Web nicht zeigen
             Column(
-                Modifier.width(280.dp).fillMaxHeight().clip(MaterialTheme.shapes.large)
+                Modifier.width(280.dp).fillMaxHeight().clip(MaterialTheme.shapes.medium)
                     .background(MaterialTheme.colorScheme.surfaceContainerLow).padding(10.dp),
             ) {
                 Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { heading() }, verticalAlignment = Alignment.CenterVertically) {
@@ -862,14 +863,14 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
             if (wide) Row(Modifier.fillMaxWidth()) {
                 days.forEach { day ->
                     Column(
-                        Modifier.weight(1f).heightIn(min = 160.dp).padding(2.dp).clip(RoundedCornerShape(10.dp))
+                        Modifier.weight(1f).heightIn(min = 160.dp).padding(2.dp).clip(RoundedCornerShape(SagaRadius.md))
                             .background(if (day == today) accent.goldSoft else MaterialTheme.colorScheme.surfaceContainerLow).padding(4.dp),
                     ) {
                         Text(day.dayOfWeek.getDisplayName(TextStyle.SHORT, locale) + " " + day.dayOfMonth, style = MaterialTheme.typography.labelMedium,
                             fontWeight = if (day == today) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.semantics { heading() })
                         byDay[day.toString()].orEmpty().forEach { r ->
                             Text(label(r), style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(top = 3.dp).fillMaxWidth().clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surface)
+                                modifier = Modifier.padding(top = 3.dp).fillMaxWidth().clip(RoundedCornerShape(SagaRadius.xs)).background(MaterialTheme.colorScheme.surface)
                                     .clickable(onClickLabel = stringResource(R.string.dbv_open_entry)) { onOpen(r.id) }.padding(3.dp))
                         }
                         if (st.canAdd && dp.type == "date") TextButton(onClick = { scope.launch { st.create(mapOf(dp.id to DbValues.date(day)))?.let(onOpen) } }) {
@@ -926,9 +927,9 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
                     val desc = day.format(dayFmt) + if (items.isNotEmpty()) ", " + items.size else ""
                     val isSel = day == selected
                     Column(
-                        Modifier.weight(1f).heightIn(min = 64.dp).padding(1.5.dp).clip(RoundedCornerShape(10.dp))
+                        Modifier.weight(1f).heightIn(min = 64.dp).padding(1.5.dp).clip(RoundedCornerShape(SagaRadius.md))
                             .background(if (isSel) accent.goldSoft else MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = if (inMonth) 1f else 0.4f))
-                            .then(if (isSel) Modifier.border(1.5.dp, accent.gold, RoundedCornerShape(10.dp)) else Modifier)
+                            .then(if (isSel) Modifier.border(1.5.dp, accent.gold, RoundedCornerShape(SagaRadius.md)) else Modifier)
                             .clickable { selected = day }.semantics(mergeDescendants = true) { contentDescription = desc; this.selected = isSel }.padding(3.dp),
                     ) {
                         // heute: Tageszahl in einem Goldkreis
@@ -944,7 +945,7 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
                         items.take(2).forEach { r ->
                             Text(label(r), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 color = accent.onGoldSoft,
-                                modifier = Modifier.padding(top = 2.dp).fillMaxWidth().clip(RoundedCornerShape(4.dp))
+                                modifier = Modifier.padding(top = 2.dp).fillMaxWidth().clip(RoundedCornerShape(SagaRadius.xs))
                                     .background(if (isSel) MaterialTheme.colorScheme.surface.copy(alpha = 0.7f) else accent.goldSoft).padding(horizontal = 3.dp))
                         }
                         if (items.size > 2) Text(androidx.compose.ui.res.pluralStringResource(R.plurals.dbv_more_entries, items.size - 2, items.size - 2), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

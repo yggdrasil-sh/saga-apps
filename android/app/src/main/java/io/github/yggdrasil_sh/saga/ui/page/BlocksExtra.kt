@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.foundation.layout.size
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -123,7 +124,7 @@ fun SlashMenuCard(query: String, needs: Set<SlashLogic.Need>, onPick: (SlashLogi
         }
     }
     Surface(
-        tonalElevation = 4.dp, shadowElevation = 4.dp, shape = RoundedCornerShape(12.dp),
+        tonalElevation = 4.dp, shadowElevation = 4.dp, shape = RoundedCornerShape(SagaRadius.md),
         modifier = Modifier.padding(top = 4.dp).widthIn(max = 320.dp).bringIntoViewRequester(bring),
     ) {
         Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()).padding(vertical = 4.dp)) {
@@ -173,7 +174,7 @@ fun TableBlock(block: JsonObject, path: JsonPath, key: String, env: BlockEnv) {
     }
     Column(Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-            Column(Modifier.border(1.dp, line, RoundedCornerShape(6.dp)).clip(RoundedCornerShape(6.dp))) {
+            Column(Modifier.border(1.dp, line, RoundedCornerShape(SagaRadius.s)).clip(RoundedCornerShape(SagaRadius.s))) {
                 rows.forEachIndexed { r, row ->
                     // Alle Zellen einer Zeile gleich hoch - leere Zellen (beim Leser ohne Feld) waren sonst flacher,
                     // Rahmen und Linien lagen versetzt (N-05)
@@ -354,15 +355,15 @@ fun ImageBlockEdit(block: JsonObject, path: JsonPath, key: String, env: BlockEnv
         if (url.isNotEmpty()) MediaBox(d) {
             val sized = if ((url.startsWith("/files/") || url.startsWith("/api/fed/files/")) && !url.contains("?")) "$url?w=2000" else url
             Box(
-                Modifier.fillMaxWidth().then(if (bg) Modifier.clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(12.dp) else Modifier),
+                Modifier.fillMaxWidth().then(if (bg) Modifier.clip(RoundedCornerShape(SagaRadius.s)).background(MaterialTheme.colorScheme.surfaceContainer).padding(12.dp) else Modifier),
                 contentAlignment = Alignment.Center,
             ) {
                 AsyncImage(
                     // N-07: ohne Bildunterschrift wenigstens "Bild" (TalkBack las sonst nichts)
                     model = env.repo.absoluteUrl(sized), contentDescription = InlineHtml.plain(BlockDoc.str(d, "caption")).ifEmpty { stringResource(R.string.ed24_image) },
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxWidth(if (bg && !wide) 0.6f else 1f).heightIn(min = 60.dp, max = 900.dp).clip(RoundedCornerShape(8.dp))
-                        .then(if (border) Modifier.border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)) else Modifier),
+                    modifier = Modifier.fillMaxWidth(if (bg && !wide) 0.6f else 1f).heightIn(min = 60.dp, max = 900.dp).clip(RoundedCornerShape(SagaRadius.s))
+                        .then(if (border) Modifier.border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(SagaRadius.s)) else Modifier),
                 )
             }
         }
@@ -397,7 +398,7 @@ fun AttachesBlock(d: JsonObject, env: BlockEnv) {
     // Bearbeiten: Antippen waehlt den Block (Verschieben/Loeschen), Oeffnen ueber den Knopf
     val edit = env.editor.editable
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(SagaRadius.s)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(SagaRadius.s))
             .clickable(enabled = u.isNotEmpty() && !edit) { env.onLink(u) }.padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -421,7 +422,7 @@ internal fun humanSize(b: Long): String = when {
 fun TasksBlock(env: BlockEnv) {
     val tasks by env.repo.tasks.collectAsState()
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(8.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(SagaRadius.s)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(SagaRadius.s)).padding(8.dp),
     ) {
         IconLabel(SagaIcons.checkbox, stringResource(R.string.blocktype_tasks), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(4.dp))
         if (tasks.isEmpty()) Text(stringResource(R.string.ed24_tasks_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(4.dp))
@@ -444,7 +445,7 @@ fun CalendarBlock(d: JsonObject, env: BlockEnv) {
     var events by remember(days) { mutableStateOf<List<CalEvent>?>(null) }
     LaunchedEffect(days) { events = env.repo.events(days) ?: emptyList() }
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(vertical = 8.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(SagaRadius.s)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(SagaRadius.s)).padding(vertical = 8.dp),
     ) {
         IconLabel(SagaIcons.calendar, stringResource(R.string.blocktype_calendar), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
         val l = events

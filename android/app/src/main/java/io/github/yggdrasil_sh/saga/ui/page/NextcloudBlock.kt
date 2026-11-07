@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.material3.ButtonDefaults
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -141,8 +142,8 @@ fun NextcloudCard(d: JsonObject, env: BlockEnv) {
         "Nextcloud",
     ).joinToString(" · ")
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp)).padding(12.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(SagaRadius.md))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(SagaRadius.md)).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -167,7 +168,7 @@ fun NextcloudCard(d: JsonObject, env: BlockEnv) {
                 AsyncImage(
                     model = env.repo.absoluteUrl(p), contentDescription = name, contentScale = ContentScale.Fit,
                     modifier = (if (kind == "image") Modifier.fillMaxWidth().heightIn(min = 60.dp, max = 900.dp) else Modifier.size(160.dp))
-                        .clip(RoundedCornerShape(8.dp)),
+                        .clip(RoundedCornerShape(SagaRadius.s)),
                 )
             }
         }

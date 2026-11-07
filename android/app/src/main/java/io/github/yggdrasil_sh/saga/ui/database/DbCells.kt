@@ -66,18 +66,11 @@ import java.time.ZoneOffset
 import java.util.Date
 import java.util.Locale
 
-/** Farbe einer Option (wie .opt-<farbe> im Web) - als Hintergrund mit Deckkraft, Text in Vordergrundfarbe */
-fun optColor(name: String?): Color = when (name) {
-    "brown" -> Color(0xFF9F6B53)
-    "orange" -> Color(0xFFD9730D)
-    "yellow" -> Color(0xFFDFAB01)
-    "green" -> Color(0xFF0F7B6C)
-    "blue" -> Color(0xFF0B6E99)
-    "purple" -> Color(0xFF6940A5)
-    "pink" -> Color(0xFFAD1A72)
-    "red" -> Color(0xFFE03E3E)
-    else -> Color(0xFF9B9A97)
-}
+/**
+ * Farbe einer Option (wie .opt-<farbe> im Web) - als Hintergrund mit Deckkraft, Text in Vordergrundfarbe.
+ * Grundton Web --hue-* (Nutzerfarben-Palette, eine Quelle: Gestalten.baseRgb), unbekannt -> Grau.
+ */
+fun optColor(name: String?): Color = Color(io.github.yggdrasil_sh.saga.blocks.Gestalten.baseRgb(OptPalette.norm(name)) or (0xFF shl 24))
 
 /** A11Y-03/A11Y-20: Chip wie im Web - Tonfarbe --tc-* auf zarter Flaeche --bc-*, 6-dp-Ecken (OptPalette) */
 @Composable
@@ -188,7 +181,7 @@ fun PersonChip(ref: String, fmt: DbFormat) {
     val name = fmt.personName(ref)
     val cs = MaterialTheme.colorScheme
     Row(
-        Modifier.clip(RoundedCornerShape(10.dp)).background(if (p?.me == true) cs.primaryContainer.copy(alpha = 0.6f) else cs.surfaceContainerHigh)
+        Modifier.clip(RoundedCornerShape(SagaRadius.md)).background(if (p?.me == true) cs.primaryContainer.copy(alpha = 0.6f) else cs.surfaceContainerHigh)
             .padding(start = 2.dp, end = 6.dp, top = 1.dp, bottom = 1.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {

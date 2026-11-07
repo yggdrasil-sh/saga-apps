@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.Canvas
@@ -180,7 +181,7 @@ fun PageWidgetBlock(block: JsonObject, env: BlockEnv) {
     if (s.serverValue) LaunchedEffect(Unit) { cache.ensure() }
     Column(
         Modifier.fillMaxWidth().heightIn(min = sz.minHeight)
-            .then(if (card) Modifier.clip(RoundedCornerShape(12.dp)).background(bg).border(1.dp, cs.outlineVariant, RoundedCornerShape(12.dp)) else Modifier)
+            .then(if (card) Modifier.clip(RoundedCornerShape(SagaRadius.md)).background(bg).border(1.dp, cs.outlineVariant, RoundedCornerShape(SagaRadius.md)) else Modifier)
             .padding(horizontal = if (card) 14.dp else 2.dp, vertical = if (card) 12.dp else 4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -384,8 +385,8 @@ private fun NewerVersionCard(s: PageWidgets.Spec, env: BlockEnv) {
     val context = LocalContext.current
     val ed = env.editor
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainer)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(SagaRadius.s)).background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(SagaRadius.s)).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SagaIcon(SagaIcons.info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 10.dp).size(20.dp))
@@ -472,7 +473,7 @@ private fun HabitBody(s: PageWidgets.Spec, v: PageWidgets.Value?, env: BlockEnv,
                     val on = x.done.getOrNull(offset + j) == true
                     val desc = x.name + ", " + d.format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(locale)) +
                         ", " + stringResource(if (on) R.string.dbv_checked else R.string.dbv_unchecked)
-                    Box(Modifier.weight(1f).aspectRatio(1f).padding(2.dp).clip(RoundedCornerShape(4.dp))
+                    Box(Modifier.weight(1f).aspectRatio(1f).padding(2.dp).clip(RoundedCornerShape(SagaRadius.xs))
                         .background(if (on) accent else MaterialTheme.colorScheme.surfaceContainerHighest)
                         .then(if (canCheck) Modifier.clickable(role = androidx.compose.ui.semantics.Role.Checkbox) {
                             failed = false

@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -47,7 +48,7 @@ fun RenderImage(r: RenderPreview.Render, label: String, env: BlockEnv) {
             model = env.repo.absoluteUrl(r.png), contentDescription = label, contentScale = ContentScale.Fit,
             modifier = Modifier.widthIn(max = (r.w ?: 600).coerceIn(24, 900).dp).fillMaxWidth()
                 .then(if (ratio != null) Modifier.aspectRatio(ratio) else Modifier.heightIn(min = 32.dp))
-                .clip(RoundedCornerShape(6.dp)).background(Color.White).padding(4.dp),
+                .clip(RoundedCornerShape(SagaRadius.s)).background(Color.White).padding(4.dp),
         )
         if (r.stale) {
             Text(stringResource(R.string.e1_render_stale), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary,
@@ -95,8 +96,8 @@ fun SyncedBlock(block: JsonObject, path: JsonPath, env: BlockEnv) {
     val ownOriginal = io.github.yggdrasil_sh.saga.blocks.SyncEdit.isOriginal(d) || (src == null && RenderPreview.syncedHasBlocks(d))
     val label = stringResource(R.string.e1_synced)
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-            .border(1.5.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.55f), RoundedCornerShape(8.dp)).padding(10.dp)
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(SagaRadius.s))
+            .border(1.5.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.55f), RoundedCornerShape(SagaRadius.s)).padding(10.dp)
             .semantics { contentDescription = label },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

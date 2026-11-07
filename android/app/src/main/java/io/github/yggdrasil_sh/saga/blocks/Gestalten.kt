@@ -104,8 +104,10 @@ object Gestalten {
     }
 
     /**
-     * Farbwerte (ARGB) je Palette-Farbe wie .opt-<farbe> im Web. Text: hell abgedunkelt, dunkel aufgehellt (lesbar,
-     * WCAG AA auf der Seitenflaeche); Hintergrund wie die Auswahl-Chips der App (optBg).
+     * Grundtoene (RGB) der Palette = Web --hue-<farbe>. Daraus: Textfarbe (hell abgedunkelt, dunkel aufgehellt; lesbar,
+     * WCAG AA auf der Seitenflaeche) und halbdurchsichtiger Hintergrund fuer Block- und Textmarkierungen (hk-c-* und hk-bg-*).
+     * Die Options-/Status-Chips der Datenbank nutzen diese Hintergruende nicht mehr, sondern die festen Web-Paare
+     * --tc-* und --bc-* aus [io.github.yggdrasil_sh.saga.ui.database.OptPalette] (Runde 1, A11Y-03/A11Y-20).
      */
     private val BASE = mapOf(
         "gray" to 0x9B9A97, "brown" to 0x9F6B53, "orange" to 0xD9730D, "yellow" to 0xDFAB01, "green" to 0x0F7B6C,
@@ -133,7 +135,7 @@ object Gestalten {
         return 0xFF000000L or rgb.toLong()
     }
 
-    /** Hintergrund (ARGB mit Deckkraft) - hell 35 %, dunkel aufgehellt und 55 % (wie optBg) */
+    /** Hintergrund (ARGB mit Deckkraft) fuer Block-/Textmarkierungen - hell Grundton zu 35 %, dunkel 18 % aufgehellt zu 55 % */
     fun bgArgb(name: String, dark: Boolean): Long {
         val base = baseRgb(name)
         return if (dark) (0x8CL shl 24) or mix(base, 0xFFFFFF, 0.18f).toLong()

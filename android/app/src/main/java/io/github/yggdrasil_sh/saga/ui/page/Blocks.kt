@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.ui.graphics.isSpecified
 import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
@@ -134,7 +135,7 @@ private fun BlockViewStyled(block: JsonObject, path: JsonPath, env: BlockEnv) {
     val dark = cs.surface.luminance() < 0.5f
     val g = io.github.yggdrasil_sh.saga.blocks.Gestalten
     if (st.bg) {
-        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(Color(g.bgArgb(st.color, dark))).padding(horizontal = 8.dp, vertical = 4.dp)) {
+        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(SagaRadius.s)).background(Color(g.bgArgb(st.color, dark))).padding(horizontal = 8.dp, vertical = 4.dp)) {
             BlockViewInner(block, path, env)
         }
     } else {
@@ -208,7 +209,7 @@ private fun BlockViewInner(block: JsonObject, path: JsonPath, env: BlockEnv) {
             }
         }
         "callout" -> Row(
-            Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(14.dp),
+            Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(14.dp),
         ) {
             Text(BlockDoc.str(d, "emoji").ifEmpty { "💡" }, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(end = 12.dp))
             RichField(
@@ -267,8 +268,8 @@ private fun Selectable(key: String, path: JsonPath, env: BlockEnv, content: @Com
     val focus: FocusManager = LocalFocusManager.current
     val selected = ed.active?.key == key
     Box(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-            .then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)) else Modifier)
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(SagaRadius.s))
+            .then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(SagaRadius.s)) else Modifier)
             .then(if (ed.editable) Modifier.clickable {
                 focus.clearFocus()
                 ed.active = if (selected) null else ActiveField(key, { path })
@@ -305,8 +306,8 @@ private fun OwnerOnly(type: String) {
     IconLabel(
         icon, what + " · " + stringResource(R.string.owner_only),
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(12.dp),
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(SagaRadius.s))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(SagaRadius.s)).padding(12.dp),
     )
 }
 
@@ -319,8 +320,8 @@ private fun Unsupported(blockId: String?, env: BlockEnv) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val ed = env.editor
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainer)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(SagaRadius.s)).background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(SagaRadius.s)).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SagaIcon(SagaIcons.info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 10.dp).size(20.dp))
@@ -479,10 +480,10 @@ private fun ToggleBlock(block: JsonObject, path: JsonPath, key: String, env: Blo
 @Composable
 private fun ConflictFrame(cf: io.github.yggdrasil_sh.saga.blocks.MergeLogic.ConflictInfo, bid: String?, env: BlockEnv, content: @Composable () -> Unit) {
     val ed = env.editor
-    val yellow = Color(0xFFE6B800)
+    val yellow = io.github.yggdrasil_sh.saga.ui.theme.SagaColors.current.warn   // Signalfarbe --warn statt Hex
     val name = cf.name.ifBlank { stringResource(R.string.e2_conflict_someone) }
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(2.dp, yellow, RoundedCornerShape(8.dp))
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(SagaRadius.s)).border(2.dp, yellow, RoundedCornerShape(SagaRadius.s))
             .background(yellow.copy(alpha = 0.08f)).padding(8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

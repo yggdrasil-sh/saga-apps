@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.foundation.layout.size
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -180,8 +181,8 @@ fun RowProperties(ed: PageEditor, repo: SagaRepository) {
         }
     }
     Column(
-        Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(8.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 4.dp),
+        Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(SagaRadius.s))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(SagaRadius.s)).padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
         if (meta.blocked) Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             SagaIcon(SagaIcons.ban, null, Modifier.padding(end = 6.dp).size(14.dp), tint = MaterialTheme.colorScheme.error)
@@ -228,8 +229,8 @@ fun DatabaseBlock(d: JsonObject, env: BlockEnv, path: io.github.yggdrasil_sh.sag
     val meta = dbId?.let { id -> all.firstOrNull { it.id == id } }
     // Karte im Saga-Stil (tonal, 20 dp) statt Rahmen
     Column(
-        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f), MaterialTheme.shapes.large).padding(horizontal = 14.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f), MaterialTheme.shapes.medium).padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         if (dbId == null || (meta == null && dbId >= 0)) {
             io.github.yggdrasil_sh.saga.ui.database.DbMissing(style = MaterialTheme.typography.bodyMedium)

@@ -53,6 +53,9 @@ val LocalPageImageSink = compositionLocalOf<((IncomingImage, JsonPath) -> Unit)?
 // ---------------------------------------------------------------- Darstellung
 
 /** 2.5 P6-2: neue Inline-Formen (Farben wie Web tc/bc-Variablen, Erwaehnung als Chip, Inline-Mathe als Code-Chip) */
+/** Textmarker (<mark>): bewusste Sonderfarbe, Gelb mit 40 % Deckkraft wie im Web - in hell und dunkel gleich */
+private val MARK_BG = Color(0x66F2C94C)
+
 private fun styleFor(sp: io.github.yggdrasil_sh.saga.blocks.Span, c: ColorScheme): SpanStyle? {
     val dark = c.surface.luminance() < 0.5f
     return when (val f = io.github.yggdrasil_sh.saga.blocks.InlineForms.form(sp)) {
@@ -72,7 +75,7 @@ private fun styleFor(tag: String, c: ColorScheme): SpanStyle? = when (tag) {
     "i", "em" -> SpanStyle(fontStyle = FontStyle.Italic)
     "u" -> SpanStyle(textDecoration = TextDecoration.Underline)
     "s", "strike", "del" -> SpanStyle(textDecoration = TextDecoration.LineThrough)
-    "mark" -> SpanStyle(background = Color(0x66F2C94C))
+    "mark" -> SpanStyle(background = MARK_BG)
     "code" -> SpanStyle(fontFamily = FontFamily.Monospace, background = c.surfaceContainerHighest)
     "a" -> SpanStyle(color = c.primary, textDecoration = TextDecoration.Underline)
     "time" -> SpanStyle(color = c.tertiary)

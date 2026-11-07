@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -172,7 +173,7 @@ internal fun PageCover(ed: PageEditor, repo: SagaRepository, url: String, pad: D
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.BottomCenter))
         if (repositioning) Row(
             Modifier.align(Alignment.BottomCenter).padding(10.dp)
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), androidx.compose.foundation.shape.RoundedCornerShape(50))
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), androidx.compose.foundation.shape.RoundedCornerShape(SagaRadius.pill))
                 .padding(start = 14.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
