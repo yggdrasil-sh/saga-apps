@@ -42,20 +42,40 @@ object SagaSpace {
     val touch = 48.dp
 }
 
-/** Eckenradien: weich und deutlich runder als Material-Standard (Expressive), Karten 20 dp */
+/**
+ * Eckenradien wie im Web (Entscheidung des Maintainers, A11Y-19; static/tokens.css VD-32/AE-22):
+ * | Token | dp  | Web                         | wofuer                                                    |
+ * |-------|-----|-----------------------------|-----------------------------------------------------------|
+ * | xs    |  4  | (nur chat.css: Blasen-Ecke) | kleine Marken, die "nahe" Ecke von Sprechblasen           |
+ * | s     |  6  | --r-sm                      | Steuerelemente: Felder, Knoepfe, Etiketten, Menue-Eintraege |
+ * | md    | 10  | --r-md                      | Karten, Menues, Popups, Kacheln, Segmentlisten            |
+ * | l     | 14  | 14px (Blasen, Anruf-Kacheln) | Sprechblasen, Video-Kacheln, grosse Flaechen             |
+ * | xl    | 16  | 16px (mobile Blaetter)      | Blaetter, Dialoge, Sheets (oben)                          |
+ * | pill  | 999 | --r-pill                    | Pillen, Suchfeld, Chips mit Vollrundung                   |
+ * Avatare: CircleShape (Web 50 %). Keine weiteren Groessen - Literale ausserhalb von ui/theme ersetzt Phase B.
+ * xl ist 16 statt 20: das Web rundet mobile Blaetter (.cm-panel, .gr-panel, Gruppeninfo) mit 16 px; 20 kommt im
+ * Web nur beim runden Eingabefeld vor, das hier pill ist.
+ */
 object SagaRadius {
-    val xs = 6.dp
-    val s = 10.dp
-    val m = 14.dp
-    val l = 20.dp
-    val xl = 28.dp
+    val xs = 4.dp
+    val s = 6.dp
+    val md = 10.dp
+    /** Alias fuer [md] (frueher 14 dp) */
+    val m = md
+    val l = 14.dp
+    val xl = 16.dp
     val pill = 999.dp
 }
 
+/**
+ * Material-Formen auf die Web-Radien. extraSmall = 6 statt Material 4: Material nimmt extraSmall fuer Textfelder,
+ * Menues, Snackbar und Tooltips, das Web rundet Felder und Steuerelemente mit --r-sm (6); 4 gibt es im Web nicht als
+ * Flaechenradius. Karten (Material: medium) = 10 wie Web-Karten, Blaetter/Dialoge (extraLarge) = 16.
+ */
 val SagaShapes = Shapes(
-    extraSmall = RoundedCornerShape(SagaRadius.xs),
+    extraSmall = RoundedCornerShape(SagaRadius.s),
     small = RoundedCornerShape(SagaRadius.s),
-    medium = RoundedCornerShape(SagaRadius.m),
+    medium = RoundedCornerShape(SagaRadius.md),
     large = RoundedCornerShape(SagaRadius.l),
     extraLarge = RoundedCornerShape(SagaRadius.xl),
 )
@@ -150,3 +170,66 @@ internal val LightAccent = SagaAccent(gold = SagaGold, goldText = Color(0xFF7A5A
 internal val DarkAccent = SagaAccent(gold = SagaGold, goldText = Color(0xFFE2C07E), goldSoft = Color(0xFF3A3020), onGoldSoft = Color(0xFFF3E2BC))
 
 val LocalSagaAccent = compositionLocalOf { LightAccent }
+
+/**
+ * Signalfarben (A11Y-22), Werte 1:1 aus static/tokens.css, hell und dunkel. Zugriff: SagaColors.current.ok usw.
+ * Textfarben (ok, warn, down, overdue, info) erreichen wie im Web >= 4,5:1 auf background und Karte
+ * (surfaceContainerLow); auf hoeheren Containern fuer Text overdue statt down nehmen (siehe ThemeContrastTest).
+ * up/unk nur fuer Punkte und Balken. call* = Anruf-Buehne (--cl-*), bewusst in beiden Schemata gleich und dunkel.
+ */
+@Immutable
+data class SagaSignals(
+    /** --ok: Gruen fuer Text, Live-Lampe */
+    val ok: Color,
+    /** --up: Gruen nur fuer Punkte/Balken */
+    val up: Color,
+    /** --warn */
+    val warn: Color,
+    /** --down: Fehler/ausgefallen */
+    val down: Color,
+    /** --overdue: ueberfaellig, Text-sicheres Rot */
+    val overdue: Color,
+    /** --info */
+    val info: Color,
+    /** --unk: unbekannt (Punkte) */
+    val unk: Color,
+    /** --warnbg: Flaeche fuer Warnungen */
+    val warnBg: Color,
+    /** --critbg: Flaeche fuer Fehler */
+    val critBg: Color,
+    /** --cl-green: Anruf annehmen */
+    val callGreen: Color = Color(0xFF2EA043),
+    /** --cl-red: Anruf auflegen/ablehnen */
+    val callRed: Color = Color(0xFFDA3633),
+    /** --cl-ok/--cl-warn/--cl-err: Verbindungsguete auf der Anruf-Buehne */
+    val callOk: Color = Color(0xFF56D364),
+    val callWarn: Color = Color(0xFFE3B341),
+    val callErr: Color = Color(0xFFF85149),
+    /** --cl-bg/--cl-panel/--cl-pop/--cl-btn/--cl-line/--cl-edge/--cl-fg: Flaechen der Anruf-Buehne */
+    val callBg: Color = Color(0xFF0B0F15),
+    val callPanel: Color = Color(0xFF151C27),
+    val callPop: Color = Color(0xFF1A2230),
+    val callBtn: Color = Color(0xFF2A3444),
+    val callLine: Color = Color(0xFF3A475B),
+    val callEdge: Color = Color(0xFF263242),
+    val callFg: Color = Color(0xFFE6EBF2),
+)
+
+internal val LightSignals = SagaSignals(
+    ok = Color(0xFF1F7A33), up = Color(0xFF3FB950), warn = Color(0xFF8A5A00), down = Color(0xFFCF222E),
+    overdue = Color(0xFFB3121F), info = Color(0xFF0B5CAD), unk = Color(0xFFB3BAC5),
+    warnBg = Color(0xFFFBF0D4), critBg = Color(0xFFFBE0DE),
+)
+internal val DarkSignals = SagaSignals(
+    ok = Color(0xFF3FB950), up = Color(0xFF3FB950), warn = Color(0xFFD29922), down = Color(0xFFF85149),
+    overdue = Color(0xFFFF7B72), info = Color(0xFF58A6FF), unk = Color(0xFF5A6577),
+    warnBg = Color(0xFF3A2F12), critBg = Color(0xFF3D1718),
+)
+
+val LocalSagaColors = compositionLocalOf { LightSignals }
+
+/** Signalfarben des aktuellen Schemas (aus SagaTheme) */
+object SagaColors {
+    val current: SagaSignals
+        @Composable get() = LocalSagaColors.current
+}

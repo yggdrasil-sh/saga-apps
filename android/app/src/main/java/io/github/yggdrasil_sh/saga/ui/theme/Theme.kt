@@ -15,9 +15,34 @@ val SagaNight = Color(0xFF0F141C)
 val SagaGold = Color(0xFFC9A45C)
 
 /**
- * Vollstaendige Material-3-Palette (alle Rollen gesetzt, sonst kaemen violettgraue Standardwerte durch):
- * hell = warmes Papier mit Gold, dunkel = Nachtblau (Hintergrund des App-Symbols) mit Gold. Quelle: Seed #C9A45C,
- * Nebenfarben auf das Nachtblau abgestimmt. Kontraste Text/Flaeche >= 4.5:1.
+ * Vollstaendige Material-3-Palette (alle Rollen gesetzt, sonst kaemen violettgraue Standardwerte durch).
+ * Grundton wie im Web (Entscheidung des Maintainers, A11Y-17): kuehles Schiefergrau fuer Text, Flaechen aus
+ * static/tokens.css, Gold (primary, SagaAccent) unveraendert. Hell = Papier #FDFCFA mit weissen Karten, dunkel =
+ * Nachtblau (Hintergrund des App-Symbols). Pruefung: ThemeContrastTest (Text >= 4,5:1, outline >= 3:1).
+ *
+ * Zuordnung Web-Token -> Material-Rolle (hell / dunkel):
+ * | Web-Token     | Rolle(n)                                    | hell     | dunkel   |
+ * |---------------|---------------------------------------------|----------|----------|
+ * | --bg          | background, surface, surfaceBright(hell)    | #FDFCFA  | #0F141C  |
+ * | --fg          | onBackground, onSurface, onSecondaryCont.   | #1D2430  | #E6EBF2  |
+ * | --muted       | onSurfaceVariant, secondary                 | #5D6878  | #8B97A8  |
+ * | --card        | surfaceContainerLowest(hell), ...Low        | #FFFFFF  | #18202C  |
+ * | --card-h      | surfaceContainer                            | #F6F3EC  | #202B3A  |
+ * | --side-row    | surfaceContainerHigh, surfaceVariant,       | #EBE7DE  | #222C3A  |
+ * |               | secondaryContainer, surfaceDim(hell)        |          |          |
+ * | --code        | surfaceContainerHighest (hell)              | #EBE6DA  |    -     |
+ * | --border      | outlineVariant (Karten, Trennlinien)        | #E7E2D7  | #263242  |
+ * | --field       | outline (Feldraender, >= 3:1)               | #8F8670  | *#717E93 |
+ * | --overdue     | error (Text-sichere Rotstufe)               | #B3121F  | #FF7B72  |
+ * | --critbg      | errorContainer                              | #FBE0DE  | #3D1718  |
+ * | --accent      | primary (hell), SagaAccent.goldText         | #7A5A12  | (Gold)   |
+ * Ohne Web-Gegenstueck (Android-Stufen, gleiche Familie): dunkel surfaceContainerLowest #0A0E14,
+ * surfaceContainerHighest/surfaceBright #252F3D (dunkelste Stufe, auf der --muted noch 4,5:1 erreicht).
+ * * dunkel outline: Web --field #5E6B80 erreicht 3:1 nur auf --bg/--card; Android legt Felder auch auf
+ *   surfaceContainer (Eingabeleisten), daher eine Stufe heller (>= 3:1 auf allen Containern).
+ * error: Web --down (#CF222E / #F85149) erreicht 4,5:1 nur auf --bg/--card; error steht in der App oft als Text auf
+ *   Containern, daher --overdue. --down selbst gibt es 1:1 in SagaColors.
+ * Text immer onSurface/onSurfaceVariant, nie outline (A11Y-04): outline ist nur fuer Raender gedacht.
  */
 internal val Light = lightColorScheme(
     primary = Color(0xFF7A5A12),
@@ -25,37 +50,37 @@ internal val Light = lightColorScheme(
     primaryContainer = Color(0xFFF3E2BC),
     onPrimaryContainer = Color(0xFF261A00),
     inversePrimary = Color(0xFFE8C26E),
-    secondary = Color(0xFF675E4A),
+    secondary = Color(0xFF5D6878),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE6E1D6),
-    onSecondaryContainer = Color(0xFF1D1B16),
+    secondaryContainer = Color(0xFFEBE7DE),
+    onSecondaryContainer = Color(0xFF1D2430),
     tertiary = Color(0xFF3A6A8C),
     onTertiary = Color.White,
     tertiaryContainer = Color(0xFFCBE6FF),
     onTertiaryContainer = Color(0xFF001E30),
-    error = Color(0xFFBA1A1A),
+    error = Color(0xFFB3121F),
     onError = Color.White,
-    errorContainer = Color(0xFFFFDAD6),
+    errorContainer = Color(0xFFFBE0DE),
     onErrorContainer = Color(0xFF410002),
-    background = Color(0xFFFBF9F5),
-    onBackground = Color(0xFF1E1B16),
-    surface = Color(0xFFFBF9F5),
-    onSurface = Color(0xFF1E1B16),
-    surfaceVariant = Color(0xFFEDE1CF),
-    onSurfaceVariant = Color(0xFF4D4639),
+    background = Color(0xFFFDFCFA),
+    onBackground = Color(0xFF1D2430),
+    surface = Color(0xFFFDFCFA),
+    onSurface = Color(0xFF1D2430),
+    surfaceVariant = Color(0xFFEBE7DE),
+    onSurfaceVariant = Color(0xFF5D6878),
     surfaceTint = Color(0xFF7A5A12),
-    inverseSurface = Color(0xFF33302A),
-    inverseOnSurface = Color(0xFFF7F0E7),
-    outline = Color(0xFF7F7667),
-    outlineVariant = Color(0xFFD0C5B4),
+    inverseSurface = Color(0xFF1D2430),
+    inverseOnSurface = Color(0xFFE6EBF2),
+    outline = Color(0xFF8F8670),
+    outlineVariant = Color(0xFFE7E2D7),
     scrim = Color.Black,
-    surfaceBright = Color(0xFFFBF9F5),
-    surfaceDim = Color(0xFFDCD9D2),
+    surfaceBright = Color(0xFFFDFCFA),
+    surfaceDim = Color(0xFFEBE7DE),
     surfaceContainerLowest = Color.White,
-    surfaceContainerLow = Color(0xFFF6F3EC),
-    surfaceContainer = Color(0xFFF1EDE4),
-    surfaceContainerHigh = Color(0xFFEBE7DD),
-    surfaceContainerHighest = Color(0xFFE5E1D7),
+    surfaceContainerLow = Color.White,
+    surfaceContainer = Color(0xFFF6F3EC),
+    surfaceContainerHigh = Color(0xFFEBE7DE),
+    surfaceContainerHighest = Color(0xFFEBE6DA),
 )
 
 internal val Dark = darkColorScheme(
@@ -64,37 +89,37 @@ internal val Dark = darkColorScheme(
     primaryContainer = Color(0xFF5A4410),
     onPrimaryContainer = Color(0xFFF3E2BC),
     inversePrimary = Color(0xFF7A5A12),
-    secondary = Color(0xFFCCC6B9),
-    onSecondary = Color(0xFF33302A),
-    secondaryContainer = Color(0xFF2B313B),
-    onSecondaryContainer = Color(0xFFE6E1D6),
+    secondary = Color(0xFF8B97A8),
+    onSecondary = SagaNight,
+    secondaryContainer = Color(0xFF222C3A),
+    onSecondaryContainer = Color(0xFFE6EBF2),
     tertiary = Color(0xFF9CC9EC),
     onTertiary = Color(0xFF00344F),
     tertiaryContainer = Color(0xFF1E4B6A),
     onTertiaryContainer = Color(0xFFCBE6FF),
-    error = Color(0xFFFFB4AB),
-    onError = Color(0xFF690005),
-    errorContainer = Color(0xFF93000A),
+    error = Color(0xFFFF7B72),
+    onError = Color(0xFF410002),
+    errorContainer = Color(0xFF3D1718),
     onErrorContainer = Color(0xFFFFDAD6),
     background = SagaNight,
-    onBackground = Color(0xFFE4E2DD),
+    onBackground = Color(0xFFE6EBF2),
     surface = SagaNight,
-    onSurface = Color(0xFFE4E2DD),
-    surfaceVariant = Color(0xFF2A3240),
-    onSurfaceVariant = Color(0xFFC3C7CF),
+    onSurface = Color(0xFFE6EBF2),
+    surfaceVariant = Color(0xFF222C3A),
+    onSurfaceVariant = Color(0xFF8B97A8),
     surfaceTint = SagaGold,
-    inverseSurface = Color(0xFFE4E2DD),
-    inverseOnSurface = Color(0xFF2C3038),
-    outline = Color(0xFF8D919A),
-    outlineVariant = Color(0xFF3F4652),
+    inverseSurface = Color(0xFFE6EBF2),
+    inverseOnSurface = Color(0xFF1D2430),
+    outline = Color(0xFF717E93),
+    outlineVariant = Color(0xFF263242),
     scrim = Color.Black,
-    surfaceBright = Color(0xFF353B45),
+    surfaceBright = Color(0xFF252F3D),
     surfaceDim = SagaNight,
     surfaceContainerLowest = Color(0xFF0A0E14),
-    surfaceContainerLow = Color(0xFF141A24),
-    surfaceContainer = Color(0xFF18202B),
-    surfaceContainerHigh = Color(0xFF1F2733),
-    surfaceContainerHighest = Color(0xFF27303D),
+    surfaceContainerLow = Color(0xFF18202C),
+    surfaceContainer = Color(0xFF202B3A),
+    surfaceContainerHigh = Color(0xFF222C3A),
+    surfaceContainerHighest = Color(0xFF252F3D),
 )
 
 @Composable
@@ -113,6 +138,7 @@ fun SagaTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> 
             LocalReducedMotion provides reduced,
             LocalSagaMotion provides motion,
             LocalSagaAccent provides if (dark) DarkAccent else LightAccent,
+            LocalSagaColors provides if (dark) DarkSignals else LightSignals,
             content = content,
         )
     }

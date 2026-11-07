@@ -47,13 +47,13 @@ import androidx.compose.ui.unit.dp
  * Druck- und Einblend-Bewegung). Alle respektieren "Animationen entfernen" (LocalReducedMotion).
  */
 
-/** Karte: tonale Flaeche mit weichen Ecken, im Hellen mit feiner Kante. onClick != null -> ganze Karte tippbar */
+/** Karte: tonale Flaeche, Ecken wie Web-Karten (--r-md, 10 dp), mit feiner Kante. onClick != null -> ganze Karte tippbar */
 @Composable
 fun SagaCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     color: Color = MaterialTheme.colorScheme.surfaceContainerLow,
-    shape: androidx.compose.ui.graphics.Shape = MaterialTheme.shapes.large,
+    shape: androidx.compose.ui.graphics.Shape = MaterialTheme.shapes.medium,
     padding: Dp = SagaSpace.l,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -191,10 +191,10 @@ fun Modifier.sagaAppear(index: Int = 0): Modifier {
 }
 
 /**
- * Form eines Eintrags in einer segmentierten Liste (Material 3 Expressive): aussen stark gerundet, innen nur leicht,
+ * Form eines Eintrags in einer segmentierten Liste: aussen wie eine Web-Karte (10 dp), innen nur leicht (4 dp),
  * dazwischen 2 dp Luft - so wirkt eine Liste wie eine zusammenhaengende Karte aus einzelnen Kacheln.
  */
-fun sagaSegmentShape(index: Int, count: Int, outer: Dp = SagaRadius.l, inner: Dp = SagaRadius.xs): androidx.compose.ui.graphics.Shape {
+fun sagaSegmentShape(index: Int, count: Int, outer: Dp = SagaRadius.md, inner: Dp = SagaRadius.xs): androidx.compose.ui.graphics.Shape {
     val first = index == 0
     val last = index == count - 1
     return RoundedCornerShape(

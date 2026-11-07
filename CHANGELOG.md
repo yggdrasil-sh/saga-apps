@@ -9,6 +9,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Android: Design-Runde 2 „Saga-Look“ (Farben und Ecken wie im Web)
+
+- **Grundton Schiefergrau wie im Web:** Text, Nebentext, Flächen und Ränder kommen jetzt aus den Web-Tokens (hell:
+  Papier mit weißen Karten, kühler Schiefer-Text; dunkel: hellerer Text, gedämpfter Nebentext). Gold bleibt.
+  Nebentext erreicht auf allen Flächen mindestens 4,5:1, Feldränder 3:1.
+- **Ecken wie im Web:** Steuerelemente 6 dp, Karten und Menüs 10 dp, Blätter und Dialoge 16 dp.
+- **Signalfarben** (ok, Warnung, Fehler, überfällig, Info, Anruf grün/rot) als gemeinsame Werte wie im Web;
+  Fehlertexte nutzen die gut lesbare Rotstufe.
+
 ### Geändert – Android: Design-Runde 1 „Vertrauen & schnelle Gewinne“ (Navigation, Anmeldung)
 
 - **Aufgabenzahlen stimmen überein:** Kopf, Zahl und Liste auf „Heute“ zählen dieselbe Liste; das Badge in der
