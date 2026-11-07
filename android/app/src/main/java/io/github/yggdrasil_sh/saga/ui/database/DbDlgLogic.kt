@@ -75,4 +75,20 @@ object DbDlg {
         end == start && startMin != null && endMin != null -> endMin >= startMin
         else -> true
     }
+
+    /** R3-Nachbesserung (36c): welches Ende des Zeitraums ein Tipp in den Kalender setzt */
+    enum class Edge { START, END }
+
+    /**
+     * R3-Nachbesserung (36c): Zeitraum im selben Kalender wie ohne Enddatum - der gewaehlte Tag [picked] setzt das aktive
+     * Ende [active]. Es gilt immer Ende >= Start: liegt ein neuer Beginn nach dem Ende, wandert das Ende mit; liegt ein
+     * neues Ende vor dem Beginn, wird der Zeitraum zu diesem einen Tag (so zeigt der Kalender den gewaehlten Tag als Ende).
+     */
+    fun pickRange(start: LocalDate, end: LocalDate, active: Edge, picked: LocalDate): Pair<LocalDate, LocalDate> = when (active) {
+        Edge.START -> picked to if (end.isBefore(picked)) picked else end
+        Edge.END -> if (picked.isBefore(start)) picked to picked else start to picked
+    }
+
+    /** Welcher Tag im Kalender als gewaehlt erscheint: der des aktiven Endes */
+    fun shownDay(start: LocalDate, end: LocalDate, active: Edge): LocalDate = if (active == Edge.START) start else end
 }

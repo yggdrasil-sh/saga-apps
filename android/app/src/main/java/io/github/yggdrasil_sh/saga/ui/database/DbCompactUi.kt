@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
+import androidx.compose.ui.graphics.drawscope.clipRect
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -171,3 +173,20 @@ internal fun Modifier.frozenEdge(state: androidx.compose.foundation.ScrollState)
         }
     })
 }
+
+/**
+ * R3-Nachbesserung (28c/29/80): im Ruhezustand nur ganz sichtbare Spalten zeichnen. Eine am Fensterrand angeschnittene
+ * Spalte ("Star", "02.1", halber Fortschrittsbalken) bleibt leer, bis man weiterwischt; waehrend des Wischens ist alles
+ * sichtbar. Vor `horizontalScroll` anwenden (Koordinaten = Fenster).
+ */
+@Composable
+internal fun Modifier.wholeColumns(state: androidx.compose.foundation.ScrollState, widths: List<androidx.compose.ui.unit.Dp>): Modifier =
+    this.then(Modifier.drawWithContent {
+        if (state.isScrollInProgress) { drawContent(); return@drawWithContent }
+        val px = widths.map { it.toPx() }
+        val (a, b) = DbCompact.wholeColumns(px, state.value.toFloat(), size.width)
+        val l = (a - state.value).coerceIn(0f, size.width)
+        val r = (b - state.value).coerceIn(l, size.width)
+        clipRect(left = l, top = 0f, right = r, bottom = size.height) { this@drawWithContent.drawContent() }
+    })
+

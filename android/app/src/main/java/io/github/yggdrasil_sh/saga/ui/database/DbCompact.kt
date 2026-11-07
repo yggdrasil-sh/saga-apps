@@ -130,6 +130,52 @@ object DbCompact {
         return target - current
     }
 
+    /**
+     * R3-Nachbesserung (28c/29/80): Bereich [start, end) im Inhalt, der nur ganze Spalten enthaelt, die im Fenster
+     * [scroll, scroll + viewport) vollstaendig sichtbar sind. Angeschnittene Spalten am Rand werden im Ruhezustand nicht
+     * gezeichnet (keine halben Werte wie "Star", "02.1"). Passt keine Spalte ganz hinein (eine Spalte breiter als das
+     * Fenster), bleibt das ganze Fenster sichtbar.
+     */
+    fun wholeColumns(widths: List<Float>, scroll: Float, viewport: Float): Pair<Float, Float> {
+        val lo = scroll - 0.5f
+        val hi = scroll + viewport + 0.5f
+        var x = 0f
+        var start = Float.NaN
+        var end = Float.NaN
+        for (w in widths) {
+            val r = x + w
+            if (x >= lo && r <= hi) {
+                if (start.isNaN()) start = x
+                end = r
+            }
+            x = r
+        }
+        return if (start.isNaN()) scroll to scroll + viewport else start to end
+    }
+
+    /**
+     * R3-Nachbesserung (28c): Ziel fuer den Pfeil "Weitere Spalten" - die linke Kante der ersten Spalte, die rechts nicht
+     * mehr ganz ins Fenster passt (sie steht danach ganz sichtbar am linken Rand), hoechstens [max].
+     */
+    fun nextColumnScroll(widths: List<Float>, scroll: Float, viewport: Float, max: Float): Float {
+        var x = 0f
+        for (w in widths) {
+            if (x + w > scroll + viewport + 0.5f && x > scroll + 0.5f) return minOf(x, max)
+            x += w
+        }
+        return max
+    }
+
+    /**
+     * R3-Nachbesserung (80): Zeilen einer Tabellenzelle. Relationen einzeilig mit Ellipse (Titel verknuepfter Seiten
+     * brachen sonst mitten im Wort um), sonst 2 Zeilen; "Umbrechen" je Spalte (Ansicht) erlaubt bis 8.
+     */
+    fun cellLines(type: String, wraps: Boolean): Int = when {
+        wraps -> 8
+        type == "relation" -> 1
+        else -> 2
+    }
+
     // ------------------------------------------------------------------ Ansichten-Pillen
 
     /**

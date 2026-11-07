@@ -229,9 +229,9 @@ fun DbValueView(p: DbProp, v: JsonElement?, fmt: DbFormat, maxLines: Int = 1, er
                         LinearProgressIndicator(progress = { (n / 100).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.width(56.dp), trackColor = io.github.yggdrasil_sh.saga.ui.theme.SagaProgressTrack)
                         Text(fmt.number(p, n), style = MaterialTheme.typography.bodySmall)
                     }
-                } else Text(fmt.text(p, v), maxLines = maxLines, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                } else Text(fmt.text(p, v), maxLines = maxLines, overflow = TextOverflow.Ellipsis, style = cellTextStyle())
             }
-            else -> Text(fmt.text(p, v), maxLines = maxLines, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+            else -> Text(fmt.text(p, v), maxLines = maxLines, overflow = TextOverflow.Ellipsis, style = cellTextStyle())
         }
         return
     }
@@ -256,12 +256,21 @@ fun DbValueView(p: DbProp, v: JsonElement?, fmt: DbFormat, maxLines: Int = 1, er
                     LinearProgressIndicator(progress = { (n / 100).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.width(56.dp), trackColor = io.github.yggdrasil_sh.saga.ui.theme.SagaProgressTrack)
                     Text(fmt.number(p, n), style = MaterialTheme.typography.bodySmall)
                 }
-            } else Text(fmt.text(p, v), maxLines = maxLines, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+            } else Text(fmt.text(p, v), maxLines = maxLines, overflow = TextOverflow.Ellipsis, style = cellTextStyle())
         }
-        "url" -> Text(fmt.text(p, v), color = MaterialTheme.colorScheme.primary, maxLines = maxLines, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
-        else -> Text(fmt.text(p, v), maxLines = maxLines, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+        "url" -> Text(fmt.text(p, v), color = MaterialTheme.colorScheme.primary, maxLines = maxLines, overflow = TextOverflow.Ellipsis, style = cellTextStyle())
+        else -> Text(fmt.text(p, v), maxLines = maxLines, overflow = TextOverflow.Ellipsis, style = cellTextStyle())
     }
 }
+
+/**
+ * R3-Nachbesserung (80): Text in Zellen bricht nur an Wortgrenzen um (keine Silbentrennung wie "Sei-/te" aus der
+ * globalen Typografie), zu lange Werte enden mit Ellipse.
+ */
+@Composable
+internal fun cellTextStyle(): androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium.copy(
+    hyphens = androidx.compose.ui.text.style.Hyphens.None, lineBreak = androidx.compose.ui.text.style.LineBreak.Simple,
+)
 
 /** Beschreibung fuer Bedienungshilfen: "Status: In Arbeit" */
 @Composable

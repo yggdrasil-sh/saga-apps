@@ -5,7 +5,6 @@ import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
-import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -577,7 +576,10 @@ internal fun TableHead(st: DbViewState, v: DbView, wide: Boolean) {
     val s = st.schema ?: return
     // 2.5 tableopts1: fixierte Spalten (freeze, 1 = Name) stehen beim waagrechten Scrollen
     val (frozen, moving) = DbViews.frozenSplit(s.visibleProps(v), v.freeze)
-    val snap = rememberColumnSnap(st.hScroll, moving.map { colWidth(it, wide) })
+    val movingW = moving.map { colWidth(it, wide) }
+    val snap = rememberColumnSnap(st.hScroll, movingW)
+    var viewportPx by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val density = androidx.compose.ui.platform.LocalDensity.current
     Column {
         // ED-15 / R2c: mindestens so hoch wie der Pfeil, damit die Kopfzeile am Scroll-Ende nicht springt.
         // Der Pfeil "Weitere Spalten" hat einen eigenen Platz rechts NEBEN dem Scrollbereich (MORE_COLUMNS_SLOT). Frueher
@@ -591,7 +593,7 @@ internal fun TableHead(st: DbViewState, v: DbView, wide: Boolean) {
                     modifier = Modifier.width(colWidth(p, wide)).padding(horizontal = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             // ED-14: einrasten an Spaltenkanten, Linie + Schatten an der fixierten Spalte, sobald gescrollt
-            Row(Modifier.weight(1f, fill = false).frozenEdge(st.hScroll).horizontalScroll(st.hScroll, flingBehavior = snap)) {
+            Row(Modifier.weight(1f, fill = false).onSizeChanged { viewportPx = it.width }.frozenEdge(st.hScroll).wholeColumns(st.hScroll, movingW).horizontalScroll(st.hScroll, flingBehavior = snap)) {
                 moving.forEach { p ->
                     Text(p.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.width(colWidth(p, wide)).padding(horizontal = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -603,7 +605,12 @@ internal fun TableHead(st: DbViewState, v: DbView, wide: Boolean) {
                     val scope = rememberCoroutineScope()
                     val more = stringResource(R.string.dbv_more_columns)
                     Box(
-                        Modifier.matchParentSize().clickable(onClickLabel = more) { scope.launch { st.hScroll.animateScrollBy(240f) } },
+                        Modifier.matchParentSize().clickable(onClickLabel = more) {
+                            // R3-Nachbesserung: genau bis zur naechsten Spaltenkante - die bisher angeschnittene Spalte steht danach ganz links
+                            val px = with(density) { movingW.map { it.toPx() } }
+                            val target = DbCompact.nextColumnScroll(px, st.hScroll.value.toFloat(), viewportPx.toFloat(), st.hScroll.maxValue.toFloat())
+                            scope.launch { st.hScroll.animateScrollTo(target.toInt()) }
+                        },
                         contentAlignment = Alignment.Center,
                     ) { SagaIcon(SagaIcons.chevronRight, more, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
@@ -651,7 +658,8 @@ internal fun TableRow(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbView
     val fmt = rememberDbFormat({ id -> repo.page(id)?.title }, st.people)
     val tint = rowColor(st, r, v)
     val (frozen, moving) = DbViews.frozenSplit(s.visibleProps(v), v.freeze)
-    val snap = rememberColumnSnap(st.hScroll, moving.map { colWidth(it, wide) })
+    val movingW = moving.map { colWidth(it, wide) }
+    val snap = rememberColumnSnap(st.hScroll, movingW)
     @Composable
     fun cell(p: DbProp) {
         val value = DbQuery(s).value(p, r)
@@ -665,7 +673,7 @@ internal fun TableRow(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbView
                 .semantics(mergeDescendants = true) { contentDescription = desc }
                 .padding(horizontal = 6.dp, vertical = 4.dp),
             contentAlignment = Alignment.CenterStart,
-        ) { CompactValue(p, value, fmt, err = r.fxErr[p.id], labeled = false, maxLines = if (v.wraps(p.id)) 8 else 2) }
+        ) { CompactValue(p, value, fmt, err = r.fxErr[p.id], labeled = false, maxLines = DbCompact.cellLines(p.effType, v.wraps(p.id))) }
     }
     Column(Modifier.then(if (tint != null) Modifier.background(tint) else Modifier)) {
         Row(Modifier.heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -680,7 +688,7 @@ internal fun TableRow(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbView
             }
             frozen.forEach { cell(it) }
             // gleiche Inhaltsbreite wie die Kopfzeile (ED-15), sonst rechnen Kopf und Zeilen mit verschiedenem Scroll-Ende
-            Row(Modifier.weight(1f, fill = false).frozenEdge(st.hScroll).horizontalScroll(st.hScroll, flingBehavior = snap), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.weight(1f, fill = false).frozenEdge(st.hScroll).wholeColumns(st.hScroll, movingW).horizontalScroll(st.hScroll, flingBehavior = snap), verticalAlignment = Alignment.CenterVertically) {
                 moving.forEach { cell(it) }
             }
             // R2c: gleiche Spalte wie der Pfeil im Kopf, damit Kopf und Zeilen denselben Scrollbereich haben
