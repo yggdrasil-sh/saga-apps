@@ -1411,15 +1411,20 @@ private fun TypeMenu(expanded: Boolean, isItem: Boolean, onDismiss: () -> Unit, 
 
 /**
  * Titelleiste: speichert gerade / gespeichert / nicht gespeichert. R3 (AND-ED-06): gespeichert als Wolke (kein ✓ -
- * der Haken gehoert zu "Fertig"), nach dem Speichern 2 s lang "Gespeichert" daneben. Nur Anzeige, nicht antippbar.
+ * der Haken gehoert zu "Fertig"), nach einer Schreibpause 2 s lang "Gespeichert" daneben. Nur Anzeige, nicht antippbar.
  */
 @Composable
 private fun SaveState(ed: PageEditor) {
     val color = MaterialTheme.colorScheme.onSurfaceVariant
     var justSaved by remember { mutableStateOf(false) }
+    // Pruefer R3 #5: "Gespeichert" nur nach einer Schreibpause (erstes Speichern bzw. > 10 s seit dem letzten),
+    // nicht bei jedem automatischen Speichern waehrend des Tippens
+    var prevAt by remember { mutableStateOf<Long?>(null) }
     val at = ed.savedAt
     LaunchedEffect(at) {
-        if (at != null) {
+        val prev = prevAt
+        prevAt = at
+        if (at != null && (prev == null || at - prev > 10_000L)) {
             justSaved = true
             kotlinx.coroutines.delay(2000)
             justSaved = false

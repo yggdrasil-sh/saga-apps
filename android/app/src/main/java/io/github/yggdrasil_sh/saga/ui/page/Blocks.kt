@@ -369,7 +369,10 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
             val checked = BlockDoc.bool(obj?.get("meta") as? JsonObject, "checked")
             val myIdx = indices + i
             val fieldKey = prefix + "/" + myIdx.joinToString("/")
-            Row(verticalAlignment = Alignment.Top) {
+            // Pruefer R3 #1: Checklisten-Zeilen bekommen oben/unten so viel Luft, dass die 48-dp-Trefferflaechen der
+            // Kaestchen sich nicht ueberlappen (Raster 48 dp inkl. 4 dp Abstand) und keinen Text der Nachbarzeile verdecken
+            val checkPad = if (style == "checklist") maxOf((48.dp - lineH) / 2 - 2.dp, 0.dp) else 0.dp
+            Row(Modifier.padding(vertical = checkPad), verticalAlignment = Alignment.Top) {
                 // Marker an der ersten Zeile (nicht mittig ueber Text + Unterpunkte)
                 Box(Modifier.width(LIST_MARKER).height(lineH), contentAlignment = Alignment.Center) {
                 when (style) {
@@ -377,8 +380,8 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
                         val label = InlineHtml.plain(content).ifBlank { stringResource(R.string.placeholder_list_item) }
                         // G8: Lesen/Kommentieren -> sichtbar gesperrt (onSurface ~45 %, auch dunkel gut erkennbar)
                         val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
-                        // optisch 20 dp (M3-Kaestchen), Trefferflaeche 48 dp: ragt mittig ueber die 28-dp-Spalte und die
-                        // Zeilenhoehe hinaus in den Zeilenabstand (nicht abgeschnitten), die Zeile bleibt so hoch wie der Text
+                        // optisch 20 dp (M3-Kaestchen), Trefferflaeche 48 dp: ragt mittig ueber die 28-dp-Spalte hinaus in
+                        // die Zeilenluft (checkPad oben), ohne die Nachbarzeilen zu ueberdecken
                         Checkbox(                                    // TalkBack liest den Punkt mit
                             checked = checked, onCheckedChange = { ed.toggleChecked(itemPath) }, enabled = ed.editable && obj != null,
                             colors = CheckboxDefaults.colors(disabledCheckedColor = dim, disabledUncheckedColor = dim),
