@@ -23,6 +23,19 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Benachrichtigungen: Ungelesene deutlicher und für TalkBack angesagt, „Alle gelesen“ nur bei Ungelesenen.
   Konto-Avatar in der Seitenleiste wird als „Konto: Name“ vorgelesen.
 
+### Geändert – Android: Chats & Anrufe (Design-Runde 1)
+
+- Gescheiterter Anruf: Der Endbildschirm bleibt mit einer verständlichen Meldung stehen, mit „Erneut anrufen“ und
+  „Schließen“ (schließt nach 30 s ohne Eingabe); der technische Grund (TURN/Admin) steht unter „Details“. Der
+  Verlaufseintrag zeigt die Richtung als Symbol, Fehler in Fehlerfarbe und bei eigenem Anruf „Erneut anrufen“.
+- Tastatur verdeckt nichts mehr: Wiederherstellungsschlüssel (mit Hinweis am Feld „Letzte 4 Zeichen“ und „Fertig“ auf
+  der Tastatur) und Chat-Dialoge mit Textfeld (neuer Helfer `ui/common/ImeDialog.kt`).
+- Chat-Kopf mit Online-Stand zeigt nur „online“ bzw. „zuletzt online …“ plus Schloss; der Verschlüsselungshinweis steht
+  für Bedienungshilfen in der Beschreibung.
+- TalkBack: Jede Blase wird als „Du/Name: Text, Zeit, Status“ vorgelesen, ohne leeres Antippen; Antworten, Reagieren und
+  Kopieren als Aktionen. Stummschalten-Untermenü mit Radio-Auswahl.
+- „Gesperrte Personen“ jetzt im ⋮-Menü der Chat-Liste; einheitlich „Ende-zu-Ende-verschlüsselt“.
+
 ### Geändert – Mac: Die Desktop-Hülle ist jetzt die Mac-App (P3 Umstellung)
 
 - **Die Mac-App ist ab jetzt die Desktop-Hülle** (Ziel `SagaShell`, Web-Oberfläche im `WKWebView`) – Entscheidung des

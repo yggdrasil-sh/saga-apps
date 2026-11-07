@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 1 (Chats & Anrufe): CH-02/05/08/22, A11Y-01 -->
+<resources>
+    <string name="r1_recovery_last4_hint">4 последних символа ключа</string>
+    <string name="r1_recovery_last4_wrong">Не совпадает с ключом</string>
+    <string name="r1_recovery_last4_stored">Отметьте выше, что вы сохранили ключ</string>
+    <string name="r1_call_failed_net">Не удаётся установить соединение. Вероятно, сеть блокирует звонки. Попробуйте позже или через другую сеть Wi‑Fi.</string>
+    <string name="r1_call_redial">Позвонить снова</string>
+    <string name="r1_call_details">Подробнее</string>
+    <string name="r1_call_details_hide">Скрыть подробности</string>
+    <string name="r1_call_dir_out">Исходящий</string>
+    <string name="r1_call_dir_in">Входящий</string>
+    <string name="r1_call_dir_missed">Пропущенный</string>
+    <string name="r1_bubble_you">Вы</string>
+    <string name="r1_bubble_react">Отреагировать</string>
+    <string name="r1_blocked_people">Заблокированные</string>
+</resources>

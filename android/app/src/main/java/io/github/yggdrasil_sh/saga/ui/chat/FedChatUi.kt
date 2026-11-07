@@ -85,7 +85,8 @@ fun fedHeadLine(s: ChatSession, withE2e: Boolean = true): String {
     }
     if (sum.request) parts.add(stringResource(R.string.fed_request_chip))
     if (sum.readonly) parts.add("🔒 " + stringResource(R.string.fed_readonly_chip))
-    if (withE2e || parts.isEmpty()) parts.add(e2e)
+    // CH-09/A11Y-30: ohne E2E-Text (Kopf mit Online-Stand) leer lassen - der Hinweis steckt dann im Schloss bzw. der Beschreibung
+    if (withE2e) parts.add(e2e)
     return parts.joinToString(" · ")
 }
 

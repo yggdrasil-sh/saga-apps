@@ -40,6 +40,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.selection.toggleable
@@ -798,6 +799,38 @@ private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modi
     }
 }
 
+/**
+ * CH-02: gescheiterter Anruf - der Endbildschirm bleibt stehen (schliesst nach 30 s ohne Eingabe, siehe
+ * CallLogic.endDismissMs): "Erneut anrufen" (eigener 1:1-Anruf), "Schliessen" und - falls vorhanden - der technische
+ * Grund unter "Details" (z. B. TURN-Hinweis fuer Admins).
+ */
+@Composable
+private fun EndedFailed(calls: CallManager, st: CallUiState) {
+    var details by androidx.compose.runtime.saveable.rememberSaveable(st.id) { mutableStateOf(false) }
+    Column(
+        Modifier.widthIn(max = 400.dp).fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        val detail = st.detail?.resolve()
+        if (detail != null && details) {
+            Text(
+                detail, color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 12.dp).semantics { liveRegion = LiveRegionMode.Polite },
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { calls.dismiss() }) { Text(stringResource(R.string.action_close)) }
+            if (st.canRedial) androidx.compose.material3.FilledTonalButton(onClick = { calls.redial() }) {
+                Icon(painterResource(R.drawable.ic_call), null, Modifier.size(18.dp))
+                Text(stringResource(R.string.r1_call_redial), modifier = Modifier.padding(start = 8.dp))
+            }
+        }
+        if (detail != null) TextButton(onClick = { details = !details; calls.touchEnded() }, modifier = Modifier.padding(top = 4.dp)) {
+            Text(stringResource(if (details) R.string.r1_call_details_hide else R.string.r1_call_details))
+        }
+    }
+}
+
 @Composable
 private fun Controls(
     calls: CallManager, st: CallUiState, answer: (Boolean) -> Unit, onCam: () -> Unit, onShare: () -> Unit, onMic: () -> Unit,
@@ -823,7 +856,9 @@ private fun Controls(
                 }
             }
         }
-        CallPhase.ENDED -> TextButton(onClick = { calls.dismiss() }, modifier = Modifier.padding(bottom = 24.dp)) { Text(stringResource(R.string.action_close)) }
+        CallPhase.ENDED -> if (st.error) EndedFailed(calls, st) else {
+            TextButton(onClick = { calls.dismiss() }, modifier = Modifier.padding(bottom = 24.dp)) { Text(stringResource(R.string.action_close)) }
+        }
         else -> {
             val tc = MaterialTheme.colorScheme.surfaceContainerHighest
             val tf = MaterialTheme.colorScheme.onSurface

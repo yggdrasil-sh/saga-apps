@@ -89,15 +89,7 @@ fun TickMark(t: Tick, fg: Color, group: Boolean, readAt: Long?) {
     if (t.kind == TickKind.NONE) return
     val read = t.kind == TickKind.READ
     val full = read && (!group || t.all)
-    val label = when (t.kind) {
-        TickKind.PENDING -> stringResource(R.string.fed_msg_pending)
-        TickKind.SENT -> stringResource(R.string.chat_tick_sent)
-        else -> when {
-            !group -> stringResource(R.string.chat_tick_read, readAt?.let { fmtTime(it) }.orEmpty()).trim()
-            t.all -> stringResource(R.string.chat_tick_read_all)
-            else -> androidx.compose.ui.res.pluralStringResource(R.plurals.chat_tick_read_n, t.readers, t.readers)
-        }
-    }
+    val label = tickLabel(t, group, readAt).orEmpty()
     val sym = when (t.kind) {
         TickKind.PENDING -> "⏳"
         TickKind.SENT -> "✓"
@@ -109,6 +101,19 @@ fun TickMark(t: Tick, fg: Color, group: Boolean, readAt: Long?) {
         fontWeight = if (full) FontWeight.Bold else FontWeight.Normal,
         modifier = Modifier.padding(start = 4.dp).semantics { contentDescription = label },
     )
+}
+
+/** Zustellstand als Text fuer Bedienungshilfen (A11Y-01: auch Teil der Blasen-Beschreibung); NONE -> null */
+@Composable
+fun tickLabel(t: Tick, group: Boolean, readAt: Long?): String? = when (t.kind) {
+    TickKind.NONE -> null
+    TickKind.PENDING -> stringResource(R.string.fed_msg_pending)
+    TickKind.SENT -> stringResource(R.string.chat_tick_sent)
+    else -> when {
+        !group -> stringResource(R.string.chat_tick_read, readAt?.let { fmtTime(it) }.orEmpty()).trim()
+        t.all -> stringResource(R.string.chat_tick_read_all)
+        else -> androidx.compose.ui.res.pluralStringResource(R.plurals.chat_tick_read_n, t.readers, t.readers)
+    }
 }
 
 private fun fmtTime(ms: Long): String =

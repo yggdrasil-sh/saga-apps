@@ -41,7 +41,7 @@ class Tt25AndroidFixTest {
     fun t63_failedJoinReasonStaysUntilClosed() {
         assertNull(CallLogic.endDismissMs(error = true, sticky = true))
         assertNull(CallLogic.endDismissMs(error = false, sticky = true))
-        assertEquals(6000L, CallLogic.endDismissMs(error = true, sticky = false))
+        assertEquals(30_000L, CallLogic.endDismissMs(error = true, sticky = false))   // CH-02: 30 s ohne Eingabe
         assertEquals(3000L, CallLogic.endDismissMs(error = false, sticky = false))
     }
 

@@ -51,6 +51,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import io.github.yggdrasil_sh.saga.ui.common.imeDialog
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -148,6 +149,8 @@ fun ForwardTargetDialog(repo: SagaRepository, from: Long, onDismiss: () -> Unit,
     val shown = remember(chats, q) { ChatSelect.forwardTargets(chats, from, q) { svc.displayName(it) } }
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = io.github.yggdrasil_sh.saga.ui.common.ImeDialog.properties, // CH-05/A11Y-26: Tastatur verdeckt nichts
+        modifier = Modifier.imeDialog(),
         title = { Text(stringResource(R.string.cs_forward_title)) },
         text = {
             Column {
@@ -223,6 +226,8 @@ fun PageTargetDialog(repo: SagaRepository, onDismiss: () -> Unit, onPick: (ChatN
     }
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = io.github.yggdrasil_sh.saga.ui.common.ImeDialog.properties, // CH-05/A11Y-26: Tastatur verdeckt nichts
+        modifier = Modifier.imeDialog(),
         title = { Text(stringResource(R.string.cs_page_pick)) },
         text = {
             Column {

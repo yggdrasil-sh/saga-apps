@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 1 (Chats & Anrufe): CH-02/05/08/22, A11Y-01 -->
+<resources>
+    <string name="r1_recovery_last4_hint">อักขระ 4 ตัวท้ายของคีย์</string>
+    <string name="r1_recovery_last4_wrong">ไม่ตรงกับคีย์</string>
+    <string name="r1_recovery_last4_stored">ติ๊กด้านบนเพื่อยืนยันว่าคุณบันทึกคีย์แล้ว</string>
+    <string name="r1_call_failed_net">ไม่สามารถเชื่อมต่อได้ เครือข่ายอาจบล็อกการโทร ลองอีกครั้งภายหลังหรือใช้ Wi-Fi อื่น</string>
+    <string name="r1_call_redial">โทรอีกครั้ง</string>
+    <string name="r1_call_details">รายละเอียด</string>
+    <string name="r1_call_details_hide">ซ่อนรายละเอียด</string>
+    <string name="r1_call_dir_out">สายโทรออก</string>
+    <string name="r1_call_dir_in">สายเรียกเข้า</string>
+    <string name="r1_call_dir_missed">สายที่ไม่ได้รับ</string>
+    <string name="r1_bubble_you">คุณ</string>
+    <string name="r1_bubble_react">แสดงความรู้สึก</string>
+    <string name="r1_blocked_people">บุคคลที่ถูกบล็อก</string>
+</resources>

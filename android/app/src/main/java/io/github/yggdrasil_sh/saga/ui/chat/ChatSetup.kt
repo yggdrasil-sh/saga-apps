@@ -22,7 +22,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.selection.toggleable
@@ -115,7 +118,8 @@ fun ChatSetupView(svc: ChatService, st: ChatSetup) {
     val error by svc.error.collectAsState()
     val scope = rememberCoroutineScope()
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        // CH-05: die Tastatur verdeckt "Weiter" nicht (Abstand unten, fokussiertes Feld scrollt in Sicht)
+        Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Column(Modifier.widthIn(max = 560.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -239,7 +243,8 @@ fun RecoveryKeyConfirm(key: String, busy: Boolean, err: UiText?, onCancel: () ->
     var last4 by rememberSaveable(key) { mutableStateOf("") }
     val norm = ChatFormat.normRecovery(key).orEmpty()
     var stored by rememberSaveable(key) { mutableStateOf(false) }
-    val ok = stored && last4.trim().uppercase().replace('0', 'O').replace('1', 'I').replace('8', 'B') == norm.takeLast(4)
+    val check = RecoveryLast4.check(last4, norm, stored)
+    val ok = check == RecoveryLast4.OK
     Text(stringResource(R.string.chat_recovery_title), style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
     Text(
         stringResource(R.string.chat_recovery_text), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
@@ -270,7 +275,17 @@ fun RecoveryKeyConfirm(key: String, busy: Boolean, err: UiText?, onCancel: () ->
     OutlinedTextField(
         value = last4, onValueChange = { if (it.length <= 4) last4 = it }, singleLine = true,
         label = { Text(stringResource(R.string.chat_recovery_last4)) },
-        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, keyboardType = KeyboardType.Ascii),
+        // CH-05: sagen, warum "Weiter" noch grau ist (falsche Zeichen bzw. Haekchen fehlt)
+        isError = check == RecoveryLast4.WRONG,
+        supportingText = {
+            Text(stringResource(when (check) {
+                RecoveryLast4.WRONG -> R.string.r1_recovery_last4_wrong
+                RecoveryLast4.NOT_STORED -> R.string.r1_recovery_last4_stored
+                else -> R.string.r1_recovery_last4_hint
+            }))
+        },
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { if (ok && !busy) onConfirm() }),
         modifier = Modifier.padding(top = 16.dp),
     )
     err?.let { ErrorText(it) }
@@ -408,7 +423,7 @@ private fun RecoverForm(svc: ChatService, onBack: () -> Unit) {
     OutlinedTextField(
         value = key, onValueChange = { key = it }, label = { Text(stringResource(R.string.chat_recovery_key)) },
         placeholder = { Text("XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX") },
-        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, keyboardType = KeyboardType.Ascii),
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
         textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
         modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
     )
@@ -525,5 +540,23 @@ fun StartOver(svc: ChatService, onBack: () -> Unit) {
                 busy = false
             }
         }
+    }
+}
+
+/** CH-05: Pruefung der letzten 4 Zeichen des Wiederherstellungsschluessels (rein, fuer Unit-Tests) */
+internal object RecoveryLast4 {
+    const val EMPTY = 0          // noch keine 4 Zeichen
+    const val WRONG = 1          // 4 Zeichen, passen nicht
+    const val NOT_STORED = 2     // passen, aber "gespeichert" nicht angehakt
+    const val OK = 3
+
+    /** 0/1/8 werden wie O/I/B gelesen (wie der Schluessel selbst) */
+    fun norm(s: String): String = s.trim().uppercase().replace('0', 'O').replace('1', 'I').replace('8', 'B')
+
+    fun check(last4: String, normKey: String, stored: Boolean): Int {
+        val t = norm(last4)
+        if (t.length < 4) return EMPTY
+        if (t != normKey.takeLast(4)) return WRONG
+        return if (stored) OK else NOT_STORED
     }
 }

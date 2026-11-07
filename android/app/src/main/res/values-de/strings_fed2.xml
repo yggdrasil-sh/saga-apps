@@ -18,8 +18,8 @@
     <string name="export_done">Exportiert.</string>
     <string name="export_failed">Export fehlgeschlagen: %1$s</string>
     <string name="fed_sys_you_acc">dich</string>
-    <string name="fed_sys_fed">Ab jetzt mit Personen anderer Saga-Server (Ende-zu-Ende verschlüsselt).</string>
-    <string name="fed_sys_fed_ai_off">Ab jetzt mit Personen anderer Saga-Server (Ende-zu-Ende verschlüsselt). Die KI ist hier jetzt aus.</string>
+    <string name="fed_sys_fed">Ab jetzt mit Personen anderer Saga-Server (Ende-zu-Ende-verschlüsselt).</string>
+    <string name="fed_sys_fed_ai_off">Ab jetzt mit Personen anderer Saga-Server (Ende-zu-Ende-verschlüsselt). Die KI ist hier jetzt aus.</string>
     <string name="fed_sys_you_added">Du hast %1$s hinzugefügt.</string>
     <string name="fed_sys_added_by">%1$s hat %2$s hinzugefügt.</string>
     <string name="fed_sys_joined">%1$s ist jetzt dabei.</string>

@@ -57,6 +57,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.ui.semantics.selected
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
@@ -64,7 +68,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -160,7 +163,20 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
     PresenceWatch(svc.presence, "list", watch)
     val onlineOf = { c: ChatSummary -> io.github.yggdrasil_sh.saga.chat.ReceiptLogic.onlineFor(chatMe, c)?.let { presence[it]?.online } == true }
     Scaffold(
-        topBar = { SagaTopBar(stringResource(R.string.chats), if (showBack) nav else noBack, chrome) },
+        topBar = {
+            SagaTopBar(stringResource(R.string.chats), if (showBack) nav else noBack, chrome, actions = {
+                // CH-08: Sperrliste im Ueberlaufmenue (vorher Knopf "Gesperrt" in der Kopfzeile der Liste - las sich wie ein Zustand)
+                if (fedV2 == true) {
+                    var more by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { more = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more)) }
+                        DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.r1_blocked_people)) }, onClick = { more = false; blocks = true })
+                        }
+                    }
+                }
+            })
+        },
         floatingActionButton = {
             // Bedienungshilfen: Knopf traegt seinen Namen selbst (TalkBack/uiautomator fanden ihn nicht, TT 2.4 P-12)
             io.github.yggdrasil_sh.saga.ui.common.LabeledFab(stringResource(R.string.chat_new), { newChat = true })
@@ -178,8 +194,7 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
                             stringResource(R.string.chat_e2e), style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp).weight(1f),
                         )
-                        // 2.3: Sperrliste (Personen/Server anderer Instanzen) - nur mit Server ab 2.3
-                        if (fedV2 == true) TextButton(onClick = { blocks = true }) { Text(stringResource(R.string.fed_blocks_title), style = MaterialTheme.typography.labelMedium) }
+                        // 2.3: Sperrliste (Personen/Server anderer Instanzen) - CH-08: jetzt im Ueberlaufmenue der Titelleiste
                     }
                 }
                 // 2.1: archivierte Chats in einem eigenen, aufklappbaren Bereich unten (aeltere Server: alles wie bisher)
@@ -511,11 +526,20 @@ fun AlltagMenuItems(repo: SagaRepository, c: ChatSummary, onPatched: (ChatSummar
             }
             HorizontalDivider()
             Text(stringResource(R.string.std_notify), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
-            listOf("all" to R.string.std_notify_all, "mentions" to R.string.std_notify_mentions, "none" to R.string.std_notify_none).forEach { (v, label) ->
-                DropdownMenuItem(
-                    text = { Text((if ((c.notify ?: "all") == v) "✓ " else "    ") + stringResource(label)) },
-                    onClick = { sub = false; go(kotlinx.serialization.json.buildJsonObject { put("notify", v) }) },
-                )
+            // CH-25: Auswahl als Radio-Gruppe (vorher Text-Haekchen "✓ ", fuer Screenreader keine Auswahl)
+            Column(Modifier.selectableGroup()) {
+                listOf("all" to R.string.std_notify_all, "mentions" to R.string.std_notify_mentions, "none" to R.string.std_notify_none).forEach { (v, label) ->
+                    val on = (c.notify ?: "all") == v
+                    DropdownMenuItem(
+                        text = { Text(stringResource(label)) },
+                        leadingIcon = { androidx.compose.material3.RadioButton(selected = on, onClick = null) },
+                        onClick = { sub = false; go(kotlinx.serialization.json.buildJsonObject { put("notify", v) }) },
+                        modifier = Modifier.semantics {
+                            selected = on
+                            role = androidx.compose.ui.semantics.Role.RadioButton
+                        },
+                    )
+                }
             }
         }
     }

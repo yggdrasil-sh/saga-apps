@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 1 (Chats & Anrufe): CH-02/05/08/22, A11Y-01 -->
+<resources>
+    <string name="r1_recovery_last4_hint">Die 4 Zeichen am Ende des Schlüssels</string>
+    <string name="r1_recovery_last4_wrong">Passt nicht zum Schlüssel</string>
+    <string name="r1_recovery_last4_stored">Bestätige oben, dass du den Schlüssel gespeichert hast</string>
+    <string name="r1_call_failed_net">Keine Verbindung möglich. Das Netz blockiert vermutlich Anrufe. Versuch es später oder in einem anderen WLAN erneut.</string>
+    <string name="r1_call_redial">Erneut anrufen</string>
+    <string name="r1_call_details">Details</string>
+    <string name="r1_call_details_hide">Details ausblenden</string>
+    <string name="r1_call_dir_out">Ausgehend</string>
+    <string name="r1_call_dir_in">Eingehend</string>
+    <string name="r1_call_dir_missed">Verpasst</string>
+    <string name="r1_bubble_you">Du</string>
+    <string name="r1_bubble_react">Reagieren</string>
+    <string name="r1_blocked_people">Gesperrte Personen</string>
+</resources>

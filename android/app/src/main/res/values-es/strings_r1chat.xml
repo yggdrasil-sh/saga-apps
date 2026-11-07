@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 1 (Chats & Anrufe): CH-02/05/08/22, A11Y-01 -->
+<resources>
+    <string name="r1_recovery_last4_hint">Los 4 caracteres del final de la clave</string>
+    <string name="r1_recovery_last4_wrong">No coincide con la clave</string>
+    <string name="r1_recovery_last4_stored">Marca arriba que has guardado la clave</string>
+    <string name="r1_call_failed_net">No se puede conectar. Probablemente la red bloquea las llamadas. Inténtalo más tarde o en otra red Wi-Fi.</string>
+    <string name="r1_call_redial">Volver a llamar</string>
+    <string name="r1_call_details">Detalles</string>
+    <string name="r1_call_details_hide">Ocultar detalles</string>
+    <string name="r1_call_dir_out">Saliente</string>
+    <string name="r1_call_dir_in">Entrante</string>
+    <string name="r1_call_dir_missed">Perdida</string>
+    <string name="r1_bubble_you">Tú</string>
+    <string name="r1_bubble_react">Reaccionar</string>
+    <string name="r1_blocked_people">Personas bloqueadas</string>
+</resources>

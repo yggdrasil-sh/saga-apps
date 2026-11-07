@@ -81,7 +81,7 @@
     <string name="call_q_good">gute Verbindung</string>
     <string name="call_q_mid">mittlere Verbindung</string>
     <string name="call_q_bad">schwache Verbindung</string>
-    <string name="call_e2e">Ende-zu-Ende verschlüsselt</string>
+    <string name="call_e2e">Ende-zu-Ende-verschlüsselt</string>
     <string name="call_encrypted">verschlüsselt</string>
     <string name="call_e2e_info">Medien mit DTLS-SRTP verschlüsselt; der Schlüssel-Fingerabdruck ist mit dem Chat-Schlüssel der Gegenseite signiert und geprüft.</string>
     <string name="call_decline">Ablehnen</string>

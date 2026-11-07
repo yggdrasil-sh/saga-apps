@@ -43,6 +43,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import io.github.yggdrasil_sh.saga.ui.common.imeDialog
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -277,6 +278,8 @@ fun ReportDialog(repo: SagaRepository, s: ChatSession, msgs: List<ChatMessage>, 
     var text by remember { mutableStateOf(prefill.take(ChatStd.REPORT_TEXT_MAX)) }
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = io.github.yggdrasil_sh.saga.ui.common.ImeDialog.properties, // CH-05/A11Y-26: Tastatur verdeckt nichts
+        modifier = Modifier.imeDialog(),
         title = { Text(stringResource(R.string.std_report)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {

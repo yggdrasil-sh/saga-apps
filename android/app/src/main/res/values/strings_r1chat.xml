@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 1 (Chats & Anrufe): CH-02/05/08/22, A11Y-01 -->
+<resources>
+    <string name="r1_recovery_last4_hint">The 4 characters at the end of the key</string>
+    <string name="r1_recovery_last4_wrong">Doesn\'t match the key</string>
+    <string name="r1_recovery_last4_stored">Tick above that you have saved the key</string>
+    <string name="r1_call_failed_net">No connection possible. The network is probably blocking calls. Try again later or on a different Wi-Fi.</string>
+    <string name="r1_call_redial">Call again</string>
+    <string name="r1_call_details">Details</string>
+    <string name="r1_call_details_hide">Hide details</string>
+    <string name="r1_call_dir_out">Outgoing</string>
+    <string name="r1_call_dir_in">Incoming</string>
+    <string name="r1_call_dir_missed">Missed</string>
+    <string name="r1_bubble_you">You</string>
+    <string name="r1_bubble_react">React</string>
+    <string name="r1_blocked_people">Blocked people</string>
+</resources>

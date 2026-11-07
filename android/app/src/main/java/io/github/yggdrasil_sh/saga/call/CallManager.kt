@@ -120,6 +120,10 @@ data class CallUiState(
     val room: RoomUi? = null,
     /** Klingeln: Gruppenanruf (Name = Chat) */
     val group: Boolean = false,
+    /** CH-02: technischer Grund eines gescheiterten Anrufs (nur unter "Details", z. B. TURN-Hinweis fuer Admins) */
+    val detail: UiText? = null,
+    /** CH-02: eigener gescheiterter 1:1-Anruf - der Endbildschirm bietet "Erneut anrufen" */
+    val canRedial: Boolean = false,
 )
 
 /** VideoSink, dessen Ziel (SurfaceViewRenderer der Oberflaeche) wechseln darf */
@@ -3063,7 +3067,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         // 2.5 clientlog1: Verbindungsaufbau gescheitert (nur der Grund, keine Adressen)
         io.github.yggdrasil_sh.saga.diag.ClientLogger.conn("call", "error")
         io.github.yggdrasil_sh.saga.diag.ClientLogger.error(IllegalStateException(if (c.connected) "IceConnectionState failed" else "IceConnectionState failed before_connected"), "calls")
-        fail(c, UiText.Res(if (config?.hasTurn == true) R.string.call_no_turn else R.string.call_no_direct), failed = true)
+        // CH-02: Alltagssprache im Endbildschirm, der technische Grund (TURN/Admin) nur unter "Details"
+        fail(c, UiText.Res(R.string.r1_call_failed_net), failed = true,
+            detail = UiText.Res(if (config?.hasTurn == true) R.string.call_no_turn else R.string.call_no_direct))
     }
 
     private fun Any?.num(): Long = (this as? Number)?.toLong() ?: (this as? String)?.toLongOrNull() ?: 0L
@@ -3654,9 +3660,25 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (cur == null && ring == null) _ui.value = null
     }
 
+    /** CH-02: Eingabe auf dem Endbildschirm - das Schliessen nach [CallLogic.endDismissMs] beginnt von vorn */
+    fun touchEnded() {
+        endTouch = System.currentTimeMillis()
+    }
+
+    /** CH-02: "Erneut anrufen" nach eigenem gescheitertem 1:1-Anruf (gleicher Chat, gleiche Art) */
+    fun redial() {
+        val st = _ui.value ?: return
+        if (st.phase != CallPhase.ENDED || !st.canRedial || cur != null || ring != null) return
+        start(st.chatId, st.peer, st.video)
+    }
+
+    /** CH-02: Zaehler je Ende (ein alter Schliess-Timer trifft keinen neuen Endbildschirm) und letzte Eingabe dort */
+    private var endGen = 0
+    @Volatile private var endTouch = 0L
+
     private fun securityFail(c: Call) = fail(c, UiText.Res(R.string.call_security_failed), failed = true)
 
-    private fun fail(c: Call, msg: UiText, failed: Boolean = false) {
+    private fun fail(c: Call, msg: UiText, failed: Boolean = false, detail: UiText? = null) {
         if (!live(c)) return
         // 2.4: Fehler auf einer weiteren Verbindung (bzw. im Raum mit mehreren) trennt nur diese
         if (c.room != null || c.established && !c.ending && (c.rs.kind == CallRoom.KIND_GROUP || links(c).size > 1)) {
@@ -3668,7 +3690,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             put("connected", c.connected)
             put("device", myDevId())
         })
-        finish(c, msg, true)
+        finish(c, msg, true, detail)
     }
 
     private fun remoteEnded(c0: Call, reason: String?) {
@@ -3684,7 +3706,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             if (c.t0 > 0) (System.currentTimeMillis() - c.t0) / 1000 else null), false)
     }
 
-    private fun finish(c0: Call, msg: UiText, error: Boolean) {
+    private fun finish(c0: Call, msg: UiText, error: Boolean, detail: UiText? = null) {
         if (c0.room != null) {
             dropLink(c0, msg)
             return
@@ -3693,6 +3715,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (c.done) return
         c.done = true
         c.ending = true
+        // CH-02: eigener 1:1-Anruf gescheitert -> "Erneut anrufen" (vor dem Abbau von Knoten/Raum bestimmen)
+        val redial = error && c.caller && c.rs.kind == CallRoom.KIND_DM && !c.rs.inRoom && c.rs.horn == null &&
+            msg != UiText.Res(R.string.call_security_failed)        // Sicherheitsnummer erst pruefen, nicht gleich neu anrufen
         diagFinal(c)                                        // letzte Diagnose (nie blockierend)
         c.jobs.forEach { it.cancel() }
         c.rs.horn?.let { h ->                               // 2.5: Beine zum Knoten zu, bevor die eigenen Spuren freigegeben werden
@@ -3743,13 +3768,23 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         CallService.stop(app)
         val st = _ui.value
         _ui.value = (st ?: CallUiState(CallPhase.ENDED, c.id, c.chatId, c.caller, c.media == "video", c.peer))
-            .copy(phase = CallPhase.ENDED, message = msg, error = error, remoteVideo = false, cam = false, room = null)
+            .copy(phase = CallPhase.ENDED, message = msg, error = error, remoteVideo = false, cam = false, room = null,
+                detail = detail, canRedial = redial)
         val id = c.id
         if (id != null) gone.add(id)
+        val gen = ++endGen
+        endTouch = 0L
         CallLogic.endDismissMs(error, c.rs.stickyEnd)?.let { ms -> scope.launch {
-            delay(ms)
+            // CH-02: "ohne Eingabe" - jede Eingabe auf dem Endbildschirm (touchEnded) verlaengert die Frist
+            var wait = ms
+            while (true) {
+                delay(wait)
+                val rest = CallLogic.endIdleLeft(ms, endTouch, System.currentTimeMillis())
+                if (rest <= 0) break
+                wait = rest
+            }
             val now = _ui.value
-            if (now != null && now.phase == CallPhase.ENDED && cur == null && ring == null) _ui.value = null
+            if (gen == endGen && now != null && now.phase == CallPhase.ENDED && cur == null && ring == null) _ui.value = null
         } }
         repo.chat.chatsLoaded.value.let { if (it) scope.launch { io.github.yggdrasil_sh.saga.chat.quietly { repo.chat.loadChats() } } }
         refreshRun()

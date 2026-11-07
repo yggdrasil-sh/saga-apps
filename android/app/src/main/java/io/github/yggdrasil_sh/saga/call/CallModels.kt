@@ -177,10 +177,16 @@ object CallLogic {
     const val RUN_POLL_MS = 30_000L
 
     /**
-     * Wann der Endbildschirm von selbst schliesst: normal 3 s, Fehler 6 s; sticky (TT 63/67: Beitritt gescheitert bzw.
-     * Knoten nicht vertrauenswuerdig - der Grund ist die Antwort auf "warum bin ich nicht im Anruf?") nie.
+     * Wann der Endbildschirm von selbst schliesst: normal 3 s, Fehler 30 s ohne Eingabe (CH-02: Meldung lesen,
+     * "Erneut anrufen"); sticky (TT 63/67: Beitritt gescheitert bzw. Knoten nicht vertrauenswuerdig - der Grund ist die
+     * Antwort auf "warum bin ich nicht im Anruf?") nie.
      */
-    fun endDismissMs(error: Boolean, sticky: Boolean): Long? = if (sticky) null else if (error) 6000L else 3000L
+    fun endDismissMs(error: Boolean, sticky: Boolean): Long? = if (sticky) null else if (error) END_ERROR_IDLE_MS else 3000L
+
+    const val END_ERROR_IDLE_MS = 30_000L
+
+    /** CH-02: Restzeit bis zum Schliessen nach der letzten Eingabe `touch` (0 = keine); <= 0 heisst schliessen */
+    fun endIdleLeft(ms: Long, touch: Long, now: Long): Long = if (touch <= 0) 0 else touch + ms - now
 
     fun validId(id: String?): Boolean = id != null && ID_RE.matches(id)
 
@@ -226,6 +232,20 @@ object CallLogic {
 
     /** Eingehend verpasst (rot, "Zurückrufen") */
     fun missed(e: CallEntry, me: String): Boolean = e.from != me && (e.status == "missed" || e.status == "busy")
+
+    /** CH-22: Anruf ohne Verbindung (Fehlerfarbe im Verlauf) */
+    fun failed(e: CallEntry): Boolean = e.status == "failed"
+
+    /** CH-02/CH-22: eigener gescheiterter Anruf -> "Erneut anrufen" im Verlauf */
+    fun redial(e: CallEntry, me: String): Boolean = e.from == me && failed(e)
+
+    /** CH-22: Richtungs-Symbol statt Unicode-Pfeil: "out", "in", "missed" (eingehend verpasst), "out_failed" */
+    fun direction(e: CallEntry, me: String): String = when {
+        missed(e, me) -> "missed"
+        e.from == me && failed(e) -> "out_failed"
+        e.from == me -> "out"
+        else -> "in"
+    }
 
     /** Meldung, wenn das Gegenueber/der Server den Anruf beendet (wie calls.js remoteEnded) */
     fun endText(reason: String?, caller: Boolean, peer: String, connectedFor: Long?): UiText = when (reason) {

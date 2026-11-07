@@ -90,6 +90,12 @@ import io.github.yggdrasil_sh.saga.chat.ChatSelect
 import io.github.yggdrasil_sh.saga.chat.ChatMedia
 import io.github.yggdrasil_sh.saga.chat.X3Hint
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -529,8 +535,9 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 }
                 Column {
                     Text(s.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    // Nr. 54: mit Online-Stand steht "Ende-zu-Ende verschluesselt" nur noch als Schloss (und fuer Bedienungshilfen),
-                    // sonst schnitt die einzeilige Zeile Server und Hinweis ab
+                    // Nr. 54 / CH-09 / A11Y-30: mit Online-Stand steht nur "online" bzw. "zuletzt online ..." plus Schloss; der Text
+                    // "Ende-zu-Ende-verschluesselt" steckt in der Beschreibung fuer Bedienungshilfen (fedHeadLine ohne E2E ist dann leer,
+                    // ausser bei Server-Herkunft/Anfrage/schreibgeschuetzt)
                     val full = (presenceLine?.let { "$it · " } ?: "") + fedHeadLine(s)
                     val shown = presenceLine?.let { pl -> fedHeadLine(s, withE2e = false).let { r -> if (r.isEmpty()) pl else "$pl · $r" } } ?: fedHeadLine(s)
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = full }) {
@@ -1507,6 +1514,22 @@ object ChatUi {
     }
 }
 
+/** A11Y-01: Beschreibung einer Blase fuer Bedienungshilfen (rein, fuer Unit-Tests) */
+internal object BubbleA11y {
+    /** Anhang-Bezeichnung und Text, leere Teile entfallen */
+    fun body(attachment: String?, text: String?): String = listOfNotNull(attachment?.takeIf { it.isNotBlank() }, text?.takeIf { it.isNotBlank() }).joinToString(", ")
+
+    /** "Du/Name: Text, Zeit, Status" - ohne Absender bzw. Text entfallen ":" und das Komma */
+    fun describe(who: String, body: String, time: String, status: List<String>): String {
+        val head = when {
+            who.isBlank() -> body
+            body.isBlank() -> who
+            else -> "$who: $body"
+        }
+        return (listOf(head, time) + status).filter { it.isNotBlank() }.joinToString(", ")
+    }
+}
+
 /** internal: auch fuer die Bildschirmfotos im Geraete-Test (ChatSelShotsTest) */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -1552,6 +1575,39 @@ internal fun Bubble(
         Instant.ofEpochMilli(m.ts).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
     }
     val reactions = s.chipsOf(m).isNotEmpty()
+    // A11Y-01: eine Beschreibung je Blase "Du/Name: Text, Zeit, Status"; nur langes Druecken (kein leeres onClick, das TalkBack
+    // als "Doppeltippen zum Aktivieren" ansagte), Antworten/Reagieren/Kopieren als Aktionen fuer Bedienungshilfen
+    val c0 = m.content
+    val whoDesc = when {
+        isAi -> aiPersona?.name ?: c0?.aiName ?: stringResource(R.string.ai_title)
+        m.mine -> stringResource(R.string.r1_bubble_you)
+        else -> m.sender?.let { io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(it) }.orEmpty()
+    }
+    val unknownName = stringResource(R.string.chat_reply_missing)
+    val labels = mediaLabels()
+    val bodyDesc = if (c0 == null) stringResource(R.string.chat_undecryptable) else BubbleA11y.body(
+        ChatMedia.attachmentLabel(c0, labels) ?: c0.files.firstOrNull()?.n?.takeIf { c0.text.isBlank() },
+        c0.text.takeIf { it.isNotBlank() }?.let { previewText(m, s, unknownName) },
+    )
+    val editedDesc = m.editedAt?.let { at ->
+        val whenText = remember(at) {
+            Instant.ofEpochMilli((at * 1000).toLong()).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT))
+        }
+        stringResource(R.string.x3_edited_at, whenText)
+    }
+    val fedDesc = when (m.fstate) {
+        "pending" -> stringResource(R.string.fed_msg_pending)
+        "failed" -> stringResource(R.string.fed_msg_failed)
+        else -> null
+    }
+    val tickDesc = tickLabel(tick, group, readAt)
+    val bubbleDesc = BubbleA11y.describe(whoDesc, bodyDesc, time, listOfNotNull(editedDesc, fedDesc ?: tickDesc))
+    val actReply = stringResource(R.string.chat_reply)
+    val actReact = stringResource(R.string.r1_bubble_react)
+    val actCopy = stringResource(R.string.text_copy)
+    val actMenu = stringResource(R.string.chat_message_actions)
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val openMenu = { if (!selecting) { onSelect?.invoke(); menu = true } }
     // 25.10.: im Auswahlmodus Kreis links, getoente Zeile, Antippen der ganzen Zeile waehlt (Inhalt nicht bedienbar)
     Box(
         Modifier.fillMaxWidth().background(selectedRowColor(isSel))
@@ -1579,12 +1635,26 @@ internal fun Bubble(
                 shape = ChatDesign.bubbleShape(mineSide, first, last),
                 // voll deckend - auch bei "Echtheit nicht bestätigt" (kein Abdunkeln des Inhalts)
                 modifier = Modifier.widthIn(max = 520.dp)
-                    .combinedClickable(
-                        onClick = {},
-                        // langer Druck: Auswahl beginnen (diese Nachricht) und das Nachrichtenmenue zeigen
-                        onLongClick = { if (!selecting) { onSelect?.invoke(); menu = true } },
-                        onLongClickLabel = stringResource(R.string.chat_message_actions),
-                    ),
+                    // langer Druck: Auswahl beginnen (diese Nachricht) und das Nachrichtenmenue zeigen (A11Y-01: kein Tippen)
+                    .pointerInput(selecting) {
+                        detectTapGestures(onLongPress = {
+                            if (!selecting) {
+                                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                openMenu()
+                            }
+                        })
+                    }
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = bubbleDesc
+                        if (!selecting) {
+                            onLongClick(label = actMenu) { openMenu(); true }
+                            customActions = buildList {
+                                if (c0 != null) add(CustomAccessibilityAction(actReply) { onReply(); true })
+                                if (s.canReact(m)) add(CustomAccessibilityAction(actReact) { onMoreEmoji(); true })
+                                if (!c0?.text.isNullOrEmpty()) add(CustomAccessibilityAction(actCopy) { onCopy(); true })
+                            }
+                        }
+                    },
             ) {
                 // Design 2: nur Bild/Video - schmaler Rand, das Bild fuellt die Blase
                 val mediaOnly = m.content?.let { c -> c.text.isEmpty() && c.notes.isEmpty() && c.files.isNotEmpty() && c.files.all { (it.isImage || it.isVideo) && !it.isVoice } } == true &&
@@ -1604,7 +1674,8 @@ internal fun Bubble(
                     } else if (group && !m.mine && first) {
                         // Design 2: Name in der Tonfarbe der Person (wie ihr Profilkreis), nur an der ersten Blase
                         val who = m.sender?.let { io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(it) }.orEmpty()
-                        Text(who, style = MaterialTheme.typography.labelMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = ChatDesign.nameColor(who, MaterialTheme.colorScheme))
+                        Text(who, style = MaterialTheme.typography.labelMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = ChatDesign.nameColor(who, MaterialTheme.colorScheme),
+                            modifier = Modifier.clearAndSetSemantics {})   // A11Y-01: steht in der Blasen-Beschreibung
                     }
                     if (m.ai == AiReplyCheck.BAD) {
                         // gibt sich als KI-Antwort aus, Beleg fehlt/passt nicht
@@ -1678,9 +1749,12 @@ internal fun Bubble(
                         )
                     }
                     // Uhrzeit + Haken (2.4): ⏳ → ✓ → ✓✓; in Gruppen fuehrt Antippen zu "Gelesen von"
+                    // A11Y-01: Zeit, "bearbeitet" und Haken stehen in der Blasen-Beschreibung; antippbar ("Gelesen von") bleibt ein eigener Knopf
                     Row(
                         Modifier.align(Alignment.End).then(if (mediaOnly) Modifier.padding(end = 8.dp, top = 2.dp, bottom = 2.dp) else Modifier)
-                            .then(if (onReadBy != null) Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onReadBy) else Modifier),
+                            .then(if (onReadBy != null) Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClickLabel = stringResource(R.string.chat_read_by), onClick = onReadBy)
+                                .semantics { contentDescription = time + (tickDesc?.let { ", $it" } ?: "") }
+                            else Modifier.clearAndSetSemantics {}),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         // 2.5: "bearbeitet" klein neben der Zeit (Zeitpunkt fuer Bildschirmleser)
@@ -1868,33 +1942,42 @@ private fun AiPendingBubble(persona: AiPersona?, name: String, text: String) {
     }
 }
 
-/** Anruf-Eintrag (2.1): mittig, Richtung, Ergebnis, Uhrzeit; verpasst -> "Zurückrufen" */
+/** Anruf-Eintrag (2.1): mittig, Richtung, Ergebnis, Uhrzeit; verpasst -> "Zurückrufen", eigener gescheitert -> "Erneut anrufen" */
 @Composable
 private fun CallEntryRow(
     m: ChatMessage, e: io.github.yggdrasil_sh.saga.call.CallEntry, me: String, canCall: Boolean, onCall: (Boolean) -> Unit,
 ) {
-    val missed = io.github.yggdrasil_sh.saga.call.CallLogic.missed(e, me)
+    val logic = io.github.yggdrasil_sh.saga.call.CallLogic
+    val missed = logic.missed(e, me)
+    val failed = logic.failed(e)
     val time = remember(m.ts) {
         Instant.ofEpochMilli(m.ts).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
     }
-    val text = io.github.yggdrasil_sh.saga.call.CallLogic.entryText(e, me).resolve()
-    val color = if (missed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+    val text = logic.entryText(e, me).resolve()
+    // CH-22: verpasst und gescheitert in Fehlerfarbe
+    val color = if (missed || failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+    // CH-22: Richtung als Symbol (statt "↗"/"↙" im Text, das TalkBack als "Pfeil nach rechts oben" las) - mit Beschreibung
+    val (icon, dirLabel) = when (logic.direction(e, me)) {
+        "missed" -> R.drawable.ic_call_missed to R.string.r1_call_dir_missed
+        "out_failed" -> R.drawable.ic_call_missed_outgoing to R.string.r1_call_dir_out
+        "out" -> R.drawable.ic_call_made to R.string.r1_call_dir_out
+        else -> R.drawable.ic_call_received to R.string.r1_call_dir_in
+    }
     Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), contentAlignment = Alignment.Center) {
         Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(16.dp)) {
             Row(
                 Modifier.padding(start = 12.dp, end = 4.dp).heightIn(min = 40.dp).semantics(mergeDescendants = true) {},
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    painterResource(if (e.media == "video") R.drawable.ic_videocam else R.drawable.ic_call), null,
-                    Modifier.size(16.dp), tint = color,
-                )
+                Icon(painterResource(icon), stringResource(dirLabel), Modifier.size(16.dp), tint = color)
                 Text(
-                    (if (e.from == me) "↗ " else "↙ ") + text + " · " + time, style = MaterialTheme.typography.labelMedium, color = color,
+                    "$text · $time", style = MaterialTheme.typography.labelMedium, color = color,
                     modifier = Modifier.padding(start = 6.dp, end = 8.dp),
                 )
                 if (missed && canCall) {
                     TextButton(onClick = { onCall(e.media == "video") }) { Text(stringResource(R.string.call_back)) }
+                } else if (logic.redial(e, me) && canCall) {
+                    TextButton(onClick = { onCall(e.media == "video") }) { Text(stringResource(R.string.r1_call_redial)) }
                 }
             }
         }

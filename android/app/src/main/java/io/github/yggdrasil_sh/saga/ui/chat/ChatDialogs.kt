@@ -42,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import io.github.yggdrasil_sh.saga.ui.common.imeDialog
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -134,6 +135,8 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
     }
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = io.github.yggdrasil_sh.saga.ui.common.ImeDialog.properties, // CH-05/A11Y-26: Tastatur verdeckt nichts
+        modifier = Modifier.imeDialog(),
         title = { Text(stringResource(R.string.chat_new)) },
         text = {
             Column {
@@ -346,6 +349,8 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
     }
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = io.github.yggdrasil_sh.saga.ui.common.ImeDialog.properties, // CH-05/A11Y-26: Tastatur verdeckt nichts
+        modifier = Modifier.imeDialog(),
         title = { Text(stringResource(R.string.chat_members) + (sum?.let { " (${it.memberCount})" } ?: "")) },
         text = {
             LazyColumn(Modifier.heightIn(max = 420.dp)) {
@@ -453,6 +458,8 @@ fun RenameDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
     var t by remember { mutableStateOf(s.name) }
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = io.github.yggdrasil_sh.saga.ui.common.ImeDialog.properties, // CH-05/A11Y-26: Tastatur verdeckt nichts
+        modifier = Modifier.imeDialog(),
         title = { Text(stringResource(R.string.chat_rename)) },
         text = { OutlinedTextField(value = t, onValueChange = { if (it.length <= 80) t = it }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
         confirmButton = {
@@ -478,6 +485,8 @@ fun PagePickDialog(repo: SagaRepository, onDismiss: () -> Unit, onPick: (ChatNot
     }
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = io.github.yggdrasil_sh.saga.ui.common.ImeDialog.properties, // CH-05/A11Y-26: Tastatur verdeckt nichts
+        modifier = Modifier.imeDialog(),
         title = { Text(stringResource(R.string.chat_attach_page)) },
         text = {
             Column {

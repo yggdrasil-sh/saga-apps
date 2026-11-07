@@ -3,7 +3,7 @@
 <resources>
     <string name="tpl_page_hint">Vorlage – neue Einträge übernehmen Inhalt und Werte.</string>
     <string name="chat_send_offline">Keine Verbindung – die Nachricht wurde nicht gesendet. Dein Entwurf bleibt erhalten.</string>
-    <string name="call_e2e_info_horn">Ende-zu-Ende verschlüsselt über den Knoten: Der Knoten leitet nur verschlüsselten Ton und verschlüsseltes Bild weiter. Zum Prüfen das Runensiegel vergleichen.</string>
+    <string name="call_e2e_info_horn">Ende-zu-Ende-verschlüsselt über den Knoten: Der Knoten leitet nur verschlüsselten Ton und verschlüsseltes Bild weiter. Zum Prüfen das Runensiegel vergleichen.</string>
     <string name="tpl_more_cd">Mehr zu „%1$s“</string>
     <string name="dbv_filter_prop">Eigenschaft</string>
     <string name="dbv_filter_cond">Bedingung</string>
