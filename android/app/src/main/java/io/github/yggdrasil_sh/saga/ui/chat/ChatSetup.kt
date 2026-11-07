@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.layout.heightIn
 import android.app.Activity
 import android.content.ClipData
@@ -27,10 +29,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -126,7 +125,7 @@ fun ChatSetupView(svc: ChatService, st: ChatSetup) {
             // Design 2: Schloss in einer goldenen Kachel (wie die leeren Zustaende), etwas Luft nach oben
             Spacer(Modifier.height(16.dp))
             io.github.yggdrasil_sh.saga.ui.theme.SagaIconTile(size = 72.dp, container = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.goldSoft) {
-                Icon(Icons.Filled.Lock, null, Modifier.size(34.dp), tint = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.onGoldSoft)
+                SagaIcon(SagaIcons.lock, null, Modifier.size(34.dp), tint = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.onGoldSoft)
             }
             Spacer(Modifier.height(20.dp))
             when (st) {
@@ -252,7 +251,7 @@ fun RecoveryKeyConfirm(key: String, busy: Boolean, err: UiText?, onCancel: () ->
     )
     // die wichtigste Warnung in Primaertextfarbe, fett, mit Warnsymbol (nicht grau)
     Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.Top) {
-        Icon(Icons.Filled.Warning, null, Modifier.padding(top = 2.dp).size(18.dp), tint = MaterialTheme.colorScheme.error)
+        SagaIcon(SagaIcons.warning, null, Modifier.padding(top = 2.dp).size(18.dp), tint = MaterialTheme.colorScheme.error)
         Text(
             stringResource(R.string.chat_recovery_warning), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(start = 8.dp),

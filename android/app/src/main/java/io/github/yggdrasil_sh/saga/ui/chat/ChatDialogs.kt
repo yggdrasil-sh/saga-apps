@@ -1,8 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
-import androidx.compose.material.icons.Icons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.material3.Icon
-import androidx.compose.material.icons.filled.Close
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -160,14 +160,14 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                             androidx.compose.material3.InputChip(
                                 selected = false, onClick = { picked = picked.filter { it.username != u.username } },
                                 label = { Text(u.name.ifEmpty { ChatLogic.shown(u) }, maxLines = 1) },
-                                trailingIcon = { Icon(Icons.Filled.Close, "$rm: ${u.name}", Modifier.size(16.dp)) },
+                                trailingIcon = { SagaIcon(SagaIcons.x, "$rm: ${u.name}", Modifier.size(16.dp)) },
                             )
                         }
                         pickedRemote.forEach { u ->
                             androidx.compose.material3.InputChip(
                                 selected = false, onClick = { pickedRemote = pickedRemote.filter { it.handle != u.handle } },
                                 label = { Text(u.shown, maxLines = 1) },
-                                trailingIcon = { Icon(Icons.Filled.Close, "$rm: ${u.shown}", Modifier.size(16.dp)) },
+                                trailingIcon = { SagaIcon(SagaIcons.x, "$rm: ${u.shown}", Modifier.size(16.dp)) },
                             )
                         }
                     }
@@ -213,7 +213,7 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                             ListItem(
                                 headlineContent = { Text(g.name) },
                                 supportingContent = { Text(stringResource(R.string.chat_kind_group)) },
-                                leadingContent = { Avatar(g.name, size = 32, icon = R.drawable.ic_group) },
+                                leadingContent = { Avatar(g.name, size = 32, icon = SagaIcons.users) },
                                 modifier = Modifier.clickable { repo.launchAction { onOpen(svc.createGroup(g.name).id) } },
                             )
                         }

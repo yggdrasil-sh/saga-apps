@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,8 +12,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -57,7 +57,7 @@ fun DeleteChatDialog(
     val peer = chat.peer?.let { p -> p.name.ifBlank { p.username } }?.ifBlank { null } ?: name.ifBlank { stringResource(R.string.chatdel_this_person) }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        icon = { Icon(Icons.Filled.Warning, null, tint = MaterialTheme.colorScheme.error) },
+        icon = { SagaIcon(SagaIcons.warning, null, tint = MaterialTheme.colorScheme.error) },
         title = { Text(stringResource(R.string.chatdel_title, name)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {

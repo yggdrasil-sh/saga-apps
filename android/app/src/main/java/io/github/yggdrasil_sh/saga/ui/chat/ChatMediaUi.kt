@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -28,9 +30,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -59,7 +58,6 @@ import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -284,7 +282,7 @@ internal fun ImageViewer(repo: SagaRepository, s: ChatSession, items: List<ChatM
                     Modifier.fillMaxWidth().padding(4.dp).background(Color(0x66000000), RoundedCornerShape(12.dp)).padding(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = onClose) { Icon(Icons.Filled.Close, stringResource(R.string.action_close), tint = Color.White) }
+                    IconButton(onClick = onClose) { SagaIcon(SagaIcons.x, stringResource(R.string.action_close), tint = Color.White) }
                     Column(Modifier.weight(1f)) {
                         Text(
                             ChatMedia.counter(pager.currentPage, items.size), color = Color.White, style = MaterialTheme.typography.titleSmall,
@@ -293,13 +291,13 @@ internal fun ImageViewer(repo: SagaRepository, s: ChatSession, items: List<ChatM
                         Text(current.n, color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     IconButton(onClick = { scope.launch { openFile(context, s, current, share = true) { repo.notify(it) } } }) {
-                        Icon(Icons.Filled.Share, stringResource(R.string.publish_share), tint = Color.White)
+                        SagaIcon(SagaIcons.share, stringResource(R.string.publish_share), tint = Color.White)
                     }
                     if (saveSt.busy) {
                         Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp) }
                     } else {
                         IconButton(onClick = { save(current) }) {
-                            Icon(painterResource(R.drawable.ic_save_alt), stringResource(R.string.media_save_gallery), tint = Color.White)
+                            SagaIcon(SagaIcons.download, stringResource(R.string.media_save_gallery), tint = Color.White)
                         }
                     }
                 }

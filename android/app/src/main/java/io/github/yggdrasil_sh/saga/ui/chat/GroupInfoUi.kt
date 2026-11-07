@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,10 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -103,7 +101,7 @@ fun GroupInfoDialog(
             topBar = {
                 TopAppBar(
                     title = { Text(stringResource(R.string.gi_title)) },
-                    navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, stringResource(R.string.action_close)) } },
+                    navigationIcon = { IconButton(onClick = onDismiss) { SagaIcon(SagaIcons.x, stringResource(R.string.action_close)) } },
                 )
             },
         ) { pad ->
@@ -123,7 +121,7 @@ fun GroupInfoDialog(
                             )
                         }
                         if (c.kind == "free" && r.rename) IconButton(onClick = { renaming = true }) {
-                            Icon(Icons.Filled.Edit, stringResource(R.string.gi_rename))
+                            SagaIcon(SagaIcons.edit, stringResource(R.string.gi_rename))
                         }
                     }
                 }
@@ -237,7 +235,7 @@ private fun MemberRow(
         leadingContent = { Avatar(m.name, size = 40, avatar = m.avatar) },
         trailingContent = if (acts.isEmpty() && !hasExtra) null else ({
             Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.gi_actions, ChatLogic.shown(m))) }
+                IconButton(onClick = { menu = true }) { SagaIcon(SagaIcons.moreVert, stringResource(R.string.gi_actions, ChatLogic.shown(m))) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     acts.forEach { a ->
                         DropdownMenuItem(
@@ -473,7 +471,7 @@ private fun PersonRowBase(
 private fun MoreRemove(name: String, onRemove: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        IconButton(onClick = { open = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.gi_actions, name)) }
+        IconButton(onClick = { open = true }) { SagaIcon(SagaIcons.moreVert, stringResource(R.string.gi_actions, name)) }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.ct_remove), color = MaterialTheme.colorScheme.error) },

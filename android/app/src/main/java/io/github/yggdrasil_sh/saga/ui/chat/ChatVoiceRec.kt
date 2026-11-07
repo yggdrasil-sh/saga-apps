@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.Manifest
 import android.app.Activity
 import android.content.Context
@@ -33,7 +35,6 @@ import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -269,8 +270,7 @@ fun VoiceMicButton(rec: VoiceRecUi, limits: X3Limits, notify: (UiText) -> Unit, 
             },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(
-            painterResource(R.drawable.ic_mic), null,
+        SagaIcon(SagaIcons.mic, null,
             tint = when {
                 active -> sc.onErrorContainer
                 supported -> sc.primary

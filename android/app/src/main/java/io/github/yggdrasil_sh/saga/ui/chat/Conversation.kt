@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
@@ -28,16 +30,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -548,7 +540,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     val full = (presenceLine?.let { "$it · " } ?: "") + fedHeadLine(s)
                     val shown = presenceLine?.let { pl -> fedHeadLine(s, withE2e = false).let { r -> if (r.isEmpty()) pl else "$pl · $r" } } ?: fedHeadLine(s)
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = full }) {
-                        Icon(Icons.Filled.Lock, null, Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        SagaIcon(SagaIcons.lock, null, Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         // eine Zeile: bei 200 % Schrift sonst hoeher als die Kopfzeile (ragt in die Statusleiste, BUG-070)
                         Text(
                             shown, style = MaterialTheme.typography.labelSmall,
@@ -560,26 +552,26 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 }
             },
             navigationIcon = {
-                if (!twoPane && nav.canGoBack) IconButton(onClick = { nav.pop() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) }
+                if (!twoPane && nav.canGoBack) IconButton(onClick = { nav.pop() }) { SagaIcon(SagaIcons.arrowLeft, stringResource(R.string.action_back)) }
             },
             actions = {
                 if (canCall) {
-                    IconButton(onClick = { startCall(false) }) { Icon(painterResource(R.drawable.ic_call), stringResource(R.string.call_audio)) }
-                    IconButton(onClick = { startCall(true) }) { Icon(painterResource(R.drawable.ic_videocam), stringResource(R.string.call_video)) }
+                    IconButton(onClick = { startCall(false) }) { SagaIcon(SagaIcons.phone, stringResource(R.string.call_audio)) }
+                    IconButton(onClick = { startCall(true) }) { SagaIcon(SagaIcons.video, stringResource(R.string.call_video)) }
                 } else if (canGroupCall) {
                     val running = s.summary?.call?.running?.takeIf { it.kind == "group" && it.state != "ended" } != null
                     IconButton(onClick = { startCall(false) }) {
-                        Icon(painterResource(R.drawable.ic_call), stringResource(if (running) R.string.room_join_audio else R.string.room_group_audio))
+                        SagaIcon(SagaIcons.phone, stringResource(if (running) R.string.room_join_audio else R.string.room_group_audio))
                     }
                     IconButton(onClick = { startCall(true) }) {
-                        Icon(painterResource(R.drawable.ic_videocam), stringResource(if (running) R.string.room_join_video else R.string.room_group_video))
+                        SagaIcon(SagaIcons.video, stringResource(if (running) R.string.room_join_video else R.string.room_group_video))
                     }
                 }
                 // 25.10.: warum (noch) keine Reaktionen/kein Bearbeiten (x3_why) - dezentes ⓘ mit Popover
                 X3Hint.of(s.summary)?.let { h -> X3InfoButton(h) { nav.push(Dest.ChatDevices) } }
-                IconButton(onClick = { search = if (search == null) "" else null }) { Icon(Icons.Filled.Search, stringResource(R.string.chat_search)) }
+                IconButton(onClick = { search = if (search == null) "" else null }) { SagaIcon(SagaIcons.search, stringResource(R.string.chat_search)) }
                 Box {
-                    IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more)) }
+                    IconButton(onClick = { menu = true }) { SagaIcon(SagaIcons.moreVert, stringResource(R.string.action_more)) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         val sum = s.summary
                         val sum0 = sum
@@ -646,7 +638,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                                 val arch = sum.archived == true
                                 DropdownMenuItem(
                                     text = { Text(stringResource(if (arch) R.string.chatdel_unarchive else R.string.chatdel_archive)) },
-                                    leadingIcon = { Icon(painterResource(if (arch) R.drawable.ic_unarchive else R.drawable.ic_archive), null) },
+                                    leadingIcon = { Icon(painterResource(if (arch) SagaIcons.archiveOut else SagaIcons.archive), null) },
                                     onClick = {
                                         menu = false
                                         repo.launchAction {
@@ -660,7 +652,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                                 )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.chatdel_delete), color = MaterialTheme.colorScheme.error) },
-                                    leadingIcon = { Icon(Icons.Filled.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = { SagaIcon(SagaIcons.trash, null, tint = MaterialTheme.colorScheme.error) },
                                     onClick = { menu = false; dialog = "delete" },
                                 )
                             }
@@ -690,7 +682,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         search?.let { q ->
             OutlinedTextField(
                 value = q, onValueChange = { search = it }, singleLine = true, placeholder = { Text(stringResource(R.string.chat_search_hint)) },
-                trailingIcon = { IconButton(onClick = { search = null }) { Icon(Icons.Filled.Close, stringResource(R.string.action_close)) } },
+                trailingIcon = { IconButton(onClick = { search = null }) { SagaIcon(SagaIcons.x, stringResource(R.string.action_close)) } },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
             )
         }
@@ -699,7 +691,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             val who = s.summary?.members?.firstOrNull { it.username == uid }?.name ?: uid
             Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Warning, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                    SagaIcon(SagaIcons.warning, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
                     Text(
                         stringResource(R.string.chat_safety_changed, who), style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.weight(1f).padding(start = 8.dp),
@@ -894,7 +886,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     )
                 }
                 ChatMedia.quoteThumb(r.content)?.let { f -> Box(Modifier.padding(start = 8.dp)) { QuoteThumb(f, s, 40.dp) } }
-                IconButton(onClick = { s.replyTo = null }) { Icon(Icons.Filled.Close, stringResource(R.string.action_cancel)) }
+                IconButton(onClick = { s.replyTo = null }) { SagaIcon(SagaIcons.x, stringResource(R.string.action_cancel)) }
             }
         }
         if (immichBusy > 0) {
@@ -913,11 +905,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 files.forEach { f ->
                     InputChip(selected = false, onClick = { files.remove(f) }, label = { Text(f.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        trailingIcon = { Icon(Icons.Filled.Close, stringResource(R.string.action_delete), Modifier.size(16.dp)) })
+                        trailingIcon = { SagaIcon(SagaIcons.x, stringResource(R.string.action_delete), Modifier.size(16.dp)) })
                 }
                 noteIds.forEach { n ->
                     InputChip(selected = false, onClick = { noteIds.remove(n) }, label = { Text("📄 " + n.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        trailingIcon = { Icon(Icons.Filled.Close, stringResource(R.string.action_delete), Modifier.size(16.dp)) })
+                        trailingIcon = { SagaIcon(SagaIcons.x, stringResource(R.string.action_delete), Modifier.size(16.dp)) })
                 }
             }
         }
@@ -978,7 +970,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             val recording = voiceRec.phase == VoiceRecUi.Phase.HOLD || voiceRec.phase == VoiceRecUi.Phase.LOCKED
             if (!recording) Box {
                 var attach by remember { mutableStateOf(false) }
-                IconButton(onClick = { attach = true }) { Icon(Icons.Filled.Add, stringResource(R.string.chat_attach)) }
+                IconButton(onClick = { attach = true }) { SagaIcon(SagaIcons.plus, stringResource(R.string.chat_attach)) }
                 DropdownMenu(expanded = attach, onDismissRequest = { attach = false }) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_file)) }, onClick = { attach = false; pick.launch("*/*") })
                     // 2.5: Kamera (Foto/Video) - nur mit Kamera am Geraet
@@ -1093,7 +1085,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest, disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             ), modifier = Modifier.padding(start = 4.dp)) {
                 if (s.sending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else Icon(Icons.AutoMirrored.Filled.Send, stringResource(R.string.chat_send))
+                else SagaIcon(SagaIcons.send, stringResource(R.string.chat_send))
             }
         }
     }
@@ -1223,7 +1215,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     unverifiedOf?.let { who ->
         AlertDialog(
             onDismissRequest = { unverifiedOf = null },
-            icon = { Icon(Icons.Filled.Warning, null, tint = MaterialTheme.colorScheme.error) },
+            icon = { SagaIcon(SagaIcons.warning, null, tint = MaterialTheme.colorScheme.error) },
             title = { Text(stringResource(R.string.chat_unverified)) },
             text = { Text(stringResource(R.string.chat_unverified_explain)) },
             confirmButton = {
@@ -1731,7 +1723,7 @@ internal fun Bubble(
                     if (m.ai == AiReplyCheck.BAD) {
                         // gibt sich als KI-Antwort aus, Beleg fehlt/passt nicht
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
-                            Icon(Icons.Filled.Warning, null, Modifier.size(16.dp), tint = ChatUi.unverifiedIcon(MaterialTheme.colorScheme, mineSide))
+                            SagaIcon(SagaIcons.warning, null, Modifier.size(16.dp), tint = ChatUi.unverifiedIcon(MaterialTheme.colorScheme, mineSide))
                             Text(
                                 stringResource(R.string.chat_ai_unconfirmed), style = MaterialTheme.typography.labelMedium,
                                 color = ChatUi.unverifiedText(MaterialTheme.colorScheme, mineSide), modifier = Modifier.padding(start = 4.dp),
@@ -1746,7 +1738,7 @@ internal fun Bubble(
                                 .heightIn(min = 32.dp).padding(end = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(Icons.Filled.Warning, null, Modifier.size(16.dp), tint = ChatUi.unverifiedIcon(scheme, mineSide))
+                            SagaIcon(SagaIcons.warning, null, Modifier.size(16.dp), tint = ChatUi.unverifiedIcon(scheme, mineSide))
                             Text(
                                 stringResource(R.string.chat_unverified) + " ⓘ", style = MaterialTheme.typography.labelMedium,
                                 color = ChatUi.unverifiedText(scheme, mineSide), modifier = Modifier.padding(start = 4.dp),
@@ -2019,10 +2011,10 @@ private fun CallEntryRow(
     val color = if (missed || failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
     // CH-22: Richtung als Symbol (statt "↗"/"↙" im Text, das TalkBack als "Pfeil nach rechts oben" las) - mit Beschreibung
     val (icon, dirLabel) = when (logic.direction(e, me)) {
-        "missed" -> R.drawable.ic_call_missed to R.string.r1_call_dir_missed
-        "out_failed" -> R.drawable.ic_call_missed_outgoing to R.string.r1_call_dir_out
-        "out" -> R.drawable.ic_call_made to R.string.r1_call_dir_out
-        else -> R.drawable.ic_call_received to R.string.r1_call_dir_in
+        "missed" -> SagaIcons.phoneMissed to R.string.r1_call_dir_missed
+        "out_failed" -> SagaIcons.phoneMissed to R.string.r1_call_dir_out
+        "out" -> SagaIcons.phoneOut to R.string.r1_call_dir_out
+        else -> SagaIcons.phoneIn to R.string.r1_call_dir_in
     }
     Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), contentAlignment = Alignment.Center) {
         Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(16.dp)) {

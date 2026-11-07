@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.content.Context
 import android.net.Uri
 import android.os.Build
@@ -24,9 +26,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -55,7 +54,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -301,14 +299,14 @@ fun VideoAttachment(f: ChatFile, s: ChatSession, onLongPress: (() -> Unit)? = nu
             IconButton(
                 onClick = { host.fullscreen = true },
                 modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(36.dp).background(Color(0x66000000), CircleShape),
-            ) { Icon(painterResource(R.drawable.ic_fullscreen), stringResource(R.string.video_fullscreen), tint = Color.White) }
+            ) { SagaIcon(SagaIcons.maximize, stringResource(R.string.video_fullscreen), tint = Color.White) }
         } else {
             img?.let { Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
             if (playing && host.failed) {
                 Text(stringResource(R.string.video_failed), color = Color.White, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(8.dp))
             } else {
                 Box(Modifier.size(48.dp).background(Color(0x99000000), CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.PlayArrow, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                    SagaIcon(SagaIcons.play, null, tint = Color.White, modifier = Modifier.size(32.dp))
                 }
             }
             if (f.dur != null) {
@@ -358,7 +356,7 @@ fun VideoFullscreen(host: VideoPlayerHost, s: ChatSession) {
                 modifier = Modifier.fillMaxSize(),
             )
             Row(Modifier.fillMaxWidth().background(Color(0x66000000), RoundedCornerShape(12.dp)).padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { host.release() }) { Icon(Icons.Filled.Close, stringResource(R.string.action_close), tint = Color.White) }
+                IconButton(onClick = { host.release() }) { SagaIcon(SagaIcons.x, stringResource(R.string.action_close), tint = Color.White) }
                 Text(f.n, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 val sv = host.saving
                 if (sv != null) {
@@ -366,7 +364,7 @@ fun VideoFullscreen(host: VideoPlayerHost, s: ChatSession) {
                 } else {
                     IconButton(onClick = {
                         if (Build.VERSION.SDK_INT >= 29) scope.launch { host.save(s, f, null) } else saveAs.launch(f.n)
-                    }) { Icon(painterResource(R.drawable.ic_save_alt), stringResource(R.string.video_save), tint = Color.White) }
+                    }) { SagaIcon(SagaIcons.download, stringResource(R.string.video_save), tint = Color.White) }
                 }
             }
             if (host.failed) {
@@ -397,7 +395,7 @@ fun PendingVideoChips(videos: MutableList<PendingVideo>) {
                 InputChip(
                     selected = false, onClick = { videos.remove(v) },
                     label = { Text((if (v.video) "🎬 " else "📎 ") + v.name, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 180.dp)) },
-                    trailingIcon = { Icon(Icons.Filled.Close, stringResource(R.string.action_delete), Modifier.size(16.dp)) },
+                    trailingIcon = { SagaIcon(SagaIcons.x, stringResource(R.string.action_delete), Modifier.size(16.dp)) },
                 )
                 if (v.video) {
                     FilterChip(selected = v.optimize, onClick = { v.optimize = true }, label = { Text(stringResource(R.string.video_opt_720)) })

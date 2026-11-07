@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,8 +20,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -93,7 +93,7 @@ fun GroupAvatar(repo: SagaRepository, c: ChatSummary, name: String, size: Dp) {
     } else {
         ChatAvatar(
             name, size, symbol = if (c.kind == "page") "📄" else null,
-            icon = if (c.kind == "group" || c.kind == "free") R.drawable.ic_group else null, avatar = if (c.kind == "dm") c.peer?.avatar else null,
+            icon = if (c.kind == "group" || c.kind == "free") SagaIcons.users else null, avatar = if (c.kind == "dm") c.peer?.avatar else null,
         )
     }
 }
@@ -226,7 +226,7 @@ fun PinBar(s: ChatSession, canPin: Boolean, onJump: (String) -> Unit, onUnpin: (
                     style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (canPin) IconButton(onClick = { onUnpin(mid) }) { Icon(Icons.Filled.Close, stringResource(R.string.std_pin_remove)) }
+            if (canPin) IconButton(onClick = { onUnpin(mid) }) { SagaIcon(SagaIcons.x, stringResource(R.string.std_pin_remove)) }
         }
     }
 }

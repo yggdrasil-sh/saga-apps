@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,12 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -87,7 +83,7 @@ fun SelectionTopBar(count: Int, onClose: () -> Unit, onCopy: () -> Unit, onForwa
     val on = count > 0
     TopAppBar(
         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.Filled.Close, stringResource(R.string.cs_close_selection)) } },
+        navigationIcon = { IconButton(onClick = onClose) { SagaIcon(SagaIcons.x, stringResource(R.string.cs_close_selection)) } },
         title = {
             Text(
                 pluralStringResource(R.plurals.cs_selected, count, count), maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -95,11 +91,11 @@ fun SelectionTopBar(count: Int, onClose: () -> Unit, onCopy: () -> Unit, onForwa
             )
         },
         actions = {
-            SelAction(painterResource(R.drawable.ic_content_copy), stringResource(R.string.cs_copy), on, onCopy)
-            SelAction(painterResource(R.drawable.ic_forward), stringResource(R.string.cs_forward), on, onForward)
-            SelAction(painterResource(R.drawable.ic_note_add), stringResource(R.string.cs_to_page), on, onToPage)
+            SelAction(painterResource(SagaIcons.copy), stringResource(R.string.cs_copy), on, onCopy)
+            SelAction(painterResource(SagaIcons.forward), stringResource(R.string.cs_forward), on, onForward)
+            SelAction(painterResource(SagaIcons.filePlus), stringResource(R.string.cs_to_page), on, onToPage)
             SelAction(
-                androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Filled.Delete), stringResource(R.string.cs_delete), on, onDelete,
+                painterResource(SagaIcons.trash), stringResource(R.string.cs_delete), on, onDelete,
                 tint = if (on) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
@@ -129,7 +125,7 @@ fun SelectMark(selected: Boolean, modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center,
     ) {
         if (selected) Surface(color = c.primary, contentColor = c.onPrimary, shape = CircleShape, modifier = Modifier.size(22.dp)) {
-            Box(contentAlignment = Alignment.Center) { Icon(Icons.Filled.Check, null, Modifier.size(16.dp)) }
+            Box(contentAlignment = Alignment.Center) { SagaIcon(SagaIcons.check, null, Modifier.size(16.dp)) }
         }
     }
 }
@@ -163,7 +159,7 @@ fun ForwardTargetDialog(repo: SagaRepository, from: Long, onDismiss: () -> Unit,
                             leadingContent = {
                                 ChatAvatar(
                                     name, 36.dp, symbol = if (c.kind == "page") "📄" else null,
-                                    icon = if (c.kind == "group" || c.kind == "free") R.drawable.ic_group else null, avatar = if (c.kind == "dm") c.peer?.avatar else null,
+                                    icon = if (c.kind == "group" || c.kind == "free") SagaIcons.users else null, avatar = if (c.kind == "dm") c.peer?.avatar else null,
                                 )
                             },
                             colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -191,7 +187,7 @@ fun ToPageDialog(onDismiss: () -> Unit, onNew: () -> Unit, onAppend: () -> Unit)
         text = {
             Column {
                 Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), verticalAlignment = Alignment.Top) {
-                    Icon(Icons.Filled.Lock, null, Modifier.size(18.dp).padding(top = 2.dp), tint = MaterialTheme.colorScheme.error)
+                    SagaIcon(SagaIcons.lock, null, Modifier.size(18.dp).padding(top = 2.dp), tint = MaterialTheme.colorScheme.error)
                     Text(stringResource(R.string.cs_page_warn), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 8.dp))
                 }
                 listOf(false to R.string.cs_page_new, true to R.string.cs_page_append).forEach { (a, label) ->
@@ -258,7 +254,7 @@ fun DeleteSelectionDialog(count: Int, forAll: Boolean, onDismiss: () -> Unit, on
     val red = MaterialTheme.colorScheme.error
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Filled.Delete, null) },
+        icon = { SagaIcon(SagaIcons.trash, null) },
         title = { Text(pluralStringResource(R.plurals.cs_delete_title, count, count)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -324,7 +320,7 @@ fun x3HintText(h: X3Hint): String = when (h) {
 fun X3InfoButton(h: X3Hint, startOpen: Boolean = false, onDevices: () -> Unit) {
     var open by remember { mutableStateOf(startOpen) }
     Box {
-        IconButton(onClick = { open = true }) { Icon(Icons.Outlined.Info, stringResource(R.string.cs_x3_button)) }
+        IconButton(onClick = { open = true }) { SagaIcon(SagaIcons.info, stringResource(R.string.cs_x3_button)) }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             Column(Modifier.widthIn(max = 300.dp).padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text(stringResource(R.string.cs_x3_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)

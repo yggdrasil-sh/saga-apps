@@ -1,10 +1,10 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import kotlinx.serialization.json.put
 import io.github.yggdrasil_sh.saga.chat.quietly
 import io.github.yggdrasil_sh.saga.chat.ChatStd
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,12 +22,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Badge
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -58,7 +52,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.material3.IconButton
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -169,7 +162,7 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
                 if (fedV2 == true) {
                     var more by remember { mutableStateOf(false) }
                     Box {
-                        IconButton(onClick = { more = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more)) }
+                        IconButton(onClick = { more = true }) { SagaIcon(SagaIcons.moreVert, stringResource(R.string.action_more)) }
                         DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
                             DropdownMenuItem(text = { Text(stringResource(R.string.r1_blocked_people)) }, onClick = { more = false; blocks = true })
                         }
@@ -189,7 +182,7 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
             LazyColumn(Modifier.fillMaxSize()) {
                 item {
                     Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Lock, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        SagaIcon(SagaIcons.lock, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
                             stringResource(R.string.chat_e2e), style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp).weight(1f),
@@ -209,8 +202,8 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
                             focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent, unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
                         ),
                         placeholder = { Text(stringResource(R.string.chat_search_list)) },
-                        leadingIcon = { Icon(Icons.Filled.Search, null) },
-                        trailingIcon = { if (query.isNotEmpty()) androidx.compose.material3.IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Close, stringResource(R.string.action_close)) } },
+                        leadingIcon = { SagaIcon(SagaIcons.search, null) },
+                        trailingIcon = { if (query.isNotEmpty()) androidx.compose.material3.IconButton(onClick = { query = "" }) { SagaIcon(SagaIcons.x, stringResource(R.string.action_close)) } },
                         shape = RoundedCornerShape(28.dp),
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
                     )
@@ -277,7 +270,7 @@ private fun ArchivedHeader(count: Int, unread: Int, open: Boolean, onToggle: () 
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(painterResource(R.drawable.ic_archive), null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        SagaIcon(SagaIcons.archive, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             stringResource(R.string.chatdel_archived_n, count), style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.weight(1f).padding(start = 16.dp),
@@ -289,7 +282,7 @@ private fun ArchivedHeader(count: Int, unread: Int, open: Boolean, onToggle: () 
             }
         }
         Icon(
-            if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, null,
+            painterResource(if (open) SagaIcons.chevronUp else SagaIcons.chevronDown), null,
             Modifier.padding(start = 8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -327,12 +320,12 @@ private fun ChatListEntry(repo: SagaRepository, c: ChatSummary, name: String, se
                 AlltagMenuItems(repo, c) { menu = false }
                 if (supported) DropdownMenuItem(
                     text = { Text(stringResource(if (c.archived == true) R.string.chatdel_unarchive else R.string.chatdel_archive)) },
-                    leadingIcon = { Icon(painterResource(if (c.archived == true) R.drawable.ic_unarchive else R.drawable.ic_archive), null) },
+                    leadingIcon = { Icon(painterResource(if (c.archived == true) SagaIcons.archiveOut else SagaIcons.archive), null) },
                     onClick = { menu = false; toggleArchive() },
                 )
                 if (supported) DropdownMenuItem(
                     text = { Text(stringResource(R.string.chatdel_delete), color = MaterialTheme.colorScheme.error) },
-                    leadingIcon = { Icon(Icons.Filled.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                    leadingIcon = { SagaIcon(SagaIcons.trash, null, tint = MaterialTheme.colorScheme.error) },
                     onClick = { menu = false; delete = true },
                 )
             }
@@ -363,7 +356,7 @@ private fun ChatListEntry(repo: SagaRepository, c: ChatSummary, name: String, se
                         color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.labelLarge,
                     )
                     Icon(
-                        painterResource(if (c.archived == true) R.drawable.ic_unarchive else R.drawable.ic_archive), null,
+                        painterResource(if (c.archived == true) SagaIcons.archiveOut else SagaIcons.archive), null,
                         Modifier.padding(start = 8.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
                 }
@@ -416,8 +409,7 @@ private fun ChatRow(repo: SagaRepository, c: ChatSummary, name: String, selected
                 if (c.pinned) Text("📌", Modifier.padding(start = 4.dp), style = MaterialTheme.typography.labelMedium)
                 if (mutedNow) {
                     val d = muteLabel(c, nowSec)
-                    Icon(
-                        painterResource(R.drawable.ic_notifications_off), d, Modifier.padding(start = 4.dp).size(16.dp),
+                    SagaIcon(SagaIcons.bellOff, d, Modifier.padding(start = 4.dp).size(16.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -475,7 +467,7 @@ private fun HiddenHeader(count: Int, open: Boolean, onToggle: () -> Unit) {
     ) {
         Text("🙈", Modifier.size(22.dp))
         Text(stringResource(R.string.std_hidden_n, count), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f).padding(start = 16.dp))
-        Icon(if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, null, Modifier.padding(start = 8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(painterResource(if (open) SagaIcons.chevronUp else SagaIcons.chevronDown), null, Modifier.padding(start = 8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

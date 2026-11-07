@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,8 +20,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -123,7 +123,7 @@ fun ComposePreview(u: UnfurlResult, onRemove: () -> Unit) {
         }
     }
     PreviewBox(u.site, u.title, u.desc, img, Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
-        IconButton(onClick = onRemove) { Icon(Icons.Filled.Close, stringResource(R.string.std_preview_remove)) }
+        IconButton(onClick = onRemove) { SagaIcon(SagaIcons.x, stringResource(R.string.std_preview_remove)) }
     }
 }
 
@@ -187,7 +187,7 @@ fun MediaDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
         Scaffold(topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.std_media_title)) },
-                navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, stringResource(R.string.action_close)) } },
+                navigationIcon = { IconButton(onClick = onDismiss) { SagaIcon(SagaIcons.x, stringResource(R.string.action_close)) } },
             )
         }) { pad ->
             Column(Modifier.fillMaxSize().padding(pad)) {
