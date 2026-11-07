@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -137,7 +138,7 @@ fun ReadOnlyBlocks(arrayPath: JsonPath, env: BlockEnv) {
             val d = BlockDoc.data(b)
             when (BlockDoc.type(b)) {
                 "paragraph", "quote", "callout" -> RichTextView(BlockDoc.str(d, "text"), MaterialTheme.typography.bodyLarge, env.onLink)
-                "header" -> RichTextView(BlockDoc.str(d, "text"), headerStyle(BlockDoc.int(d, "level") ?: 2), env.onLink)
+                "header" -> RichTextView(BlockDoc.str(d, "text"), headerStyle(BlockDoc.int(d, "level") ?: 2), env.onLink, Modifier.semantics { heading() })
                 "list" -> (d["items"] as? kotlinx.serialization.json.JsonArray).orEmpty().forEach { it2 ->
                     val t = (it2 as? JsonObject)?.let { o -> BlockDoc.str(o, "content") } ?: (it2 as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
                     Row { Text("• ", color = MaterialTheme.colorScheme.onSurfaceVariant); RichTextView(t, MaterialTheme.typography.bodyLarge, env.onLink) }

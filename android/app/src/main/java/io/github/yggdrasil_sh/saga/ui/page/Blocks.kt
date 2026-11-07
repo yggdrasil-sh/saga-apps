@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
@@ -185,7 +186,8 @@ private fun BlockViewInner(block: JsonObject, path: JsonPath, env: BlockEnv) {
             val lvl = BlockDoc.int(d, "level") ?: 2
             RichField(
                 BlockDoc.str(d, "text"), key, ed, path, headerStyle(lvl), { ed.setString(path + listOf("data", "text"), it) },
-                modifier = Modifier.padding(top = 6.dp), placeholder = stringResource(R.string.block_heading, lvl),
+                // A11Y-02: Ueberschrift fuer die TalkBack-Navigation "Ueberschriften" (Lesen wie Bearbeiten)
+                modifier = Modifier.padding(top = 6.dp).semantics { heading() }, placeholder = stringResource(R.string.block_heading, lvl),
                 onEnter = splitToParagraph, onBackspaceAtStart = removeIfEmpty, onLink = env.onLink,
             )
         }
@@ -426,6 +428,7 @@ private fun ToggleBlock(block: JsonObject, path: JsonPath, key: String, env: Blo
                 BlockDoc.str(d, "title"), key, ed, path,
                 io.github.yggdrasil_sh.saga.blocks.Gestalten.toggleLevel(d).let { lvl -> if (lvl > 0) headerStyle(lvl) else MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold) },
                 { ed.setString(path + listOf("data", "title"), it) },
+                modifier = if (io.github.yggdrasil_sh.saga.blocks.Gestalten.toggleLevel(d) > 0) Modifier.semantics { heading() } else Modifier,
                 placeholder = stringResource(R.string.block_toggle),
                 onEnter = { _, right ->
                     open = true

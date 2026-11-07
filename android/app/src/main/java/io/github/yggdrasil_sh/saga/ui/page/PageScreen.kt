@@ -103,6 +103,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -846,7 +847,7 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
         if (ed.fetched) {
             val titleStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             if (!ed.titleEditable) {                         // gesperrt oder fremde Seite mit Lesen/Kommentieren
-                Text(ed.title.ifEmpty { stringResource(R.string.page_untitled) }, style = titleStyle)
+                Text(ed.title.ifEmpty { stringResource(R.string.page_untitled) }, style = titleStyle, modifier = Modifier.semantics { heading() })
             } else {
                 BasicTextField(
                     value = ed.title, textStyle = titleStyle, readOnly = ed.pendingDraft != null,
@@ -864,7 +865,7 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
                         val first = BlockDoc.blocks(ed.doc).firstOrNull() as? JsonObject
                         ed.requestFocus(first?.let { ed.fieldKeyFor(it, listOf("blocks", 0)) })
                     }),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().semantics { heading() },   // A11Y-02
                     decorationBox = { inner ->
                         Box {
                             // fix27 E4: neuer Eintrag aus einer Vorlage - Vorlagenname als Platzhalter ("Neues Buch")
