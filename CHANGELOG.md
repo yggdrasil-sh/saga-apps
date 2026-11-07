@@ -30,6 +30,9 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Seiten und Datenbanken:** alle Symbole als Liniensymbole; die Ansichtsreiter zeigen Tabelle, Board, Liste,
   Galerie, Kalender, Diagramm und Zeitleiste als Symbol statt ▦ ▥ 🗓; Emoji-Bedienzeichen (⛔ 🔒 📎 ↗ ✓ 🗓 💬+)
   sind Symbole mit Vorlesetext. Favorit als Linien-Stern in Gold. Ecken und Karten wie im Web (6/10 dp).
+- **Anruf und Besprechung:** alle Knöpfe und Hinweise mit den Liniensymbolen (Hörer, Mikrofon, Kamera, Teilen,
+  Lautsprecher …); die dunkle Anruf-Bühne nimmt ihre Farben aus den Web-Werten (`--cl-*`), Ecken wie im Web
+  (Kacheln 14 dp, Chips als Pille). Gold in Widgets und Mitteilungen kommt aus dem gemeinsamen Akzent.
 
 ### Geändert – Android: Chat-Blasen wie im Web (Design-Runde 2 „Saga-Look“)
 
