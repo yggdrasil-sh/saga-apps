@@ -8,4 +8,10 @@
     <string name="r1_offline_bar">Offline – you are seeing the state from %1$s. Changes will be sent as soon as you are back online.</string>
     <string name="r1_offline_bar_unknown">Offline – you are seeing the saved state. Changes will be sent as soon as you are back online.</string>
     <string name="r1_refresh_offline">No connection – couldn’t refresh</string>
+    <string name="r1_login_err_empty">Please enter the server address</string>
+    <string name="r1_login_err_offline">No internet connection</string>
+    <string name="r1_login_err_not_found">Address not found – a typo?</string>
+    <string name="r1_login_err_no_answer">The server is not responding</string>
+    <string name="r1_login_or">or</string>
+    <string name="r1_login_qr_where">Where do I find the QR code?</string>
 </resources>

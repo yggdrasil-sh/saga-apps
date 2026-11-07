@@ -17,6 +17,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -71,6 +77,7 @@ import kotlinx.coroutines.launch
  * Anmeldung wie in iOS: Server eintragen -> "Anmelden" oeffnet den Browser (Passkey, Passwort + TOTP, SSO),
  * danach kommt die App per saga://auth zurueck. Alternativ QR-Code aus dem Web (Apps & Geraete) scannen.
  */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun LoginScreen(repo: SagaRepository) {
     val context = LocalContext.current
@@ -90,6 +97,14 @@ fun LoginScreen(repo: SagaRepository) {
     }
 
     fun login() {
+        // NAV-06: neuer Versuch - alter Kamera-Hinweis weg
+        cameraDenied = false
+        // A11Y-14: Knopf bleibt aktiv; leeres Feld erklaert sich am Feld statt eines grauen, "kaputt" wirkenden Knopfs
+        if (server.isBlank()) {
+            repo.loginError.value = null
+            localError = UiText.Res(R.string.r1_login_err_empty)
+            return
+        }
         // Tastatur zu: sonst springt sie bei der Rueckkehr aus dem Browser wieder auf und verdeckt den Hinweis
         focus.clearFocus()
         localError = null
@@ -104,7 +119,9 @@ fun LoginScreen(repo: SagaRepository) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                localError = repo.friendly(e)
+                // NAV-06: kein Netz / Adresse nicht gefunden / keine Antwort / kein Saga-Server unterscheiden
+                val kind = io.github.yggdrasil_sh.saga.data.LoginErrors.classify(e, io.github.yggdrasil_sh.saga.data.NetworkState.online(context))
+                localError = io.github.yggdrasil_sh.saga.data.LoginErrors.text(kind, repo.friendly(e))
             }
         }
     }
@@ -121,6 +138,7 @@ fun LoginScreen(repo: SagaRepository) {
     }
 
     fun startScan() {
+        cameraDenied = false
         localError = null
         repo.loginError.value = null
         repo.loginHint.value = null
@@ -128,54 +146,61 @@ fun LoginScreen(repo: SagaRepository) {
         else permission.launch(Manifest.permission.CAMERA)
     }
 
+    var qrHelp by remember { mutableStateOf(false) }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         // Design 2: ein Hauch Gold von oben (wie das Licht im App-Symbol), sonst ruhige Flaeche
         val glow = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.gold.copy(alpha = 0.16f)
         Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to glow, 0.45f to androidx.compose.ui.graphics.Color.Transparent)))
-        Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding(), contentAlignment = Alignment.Center) {
+        // NAV-05: oben ausgerichtet statt zentriert - der Block springt nicht mehr mit der Tastatur (Fehltipps auf QR);
+        // bei offener Tastatur wird nur das Logo kleiner
+        Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding(), contentAlignment = Alignment.TopCenter) {
+            val ime = androidx.compose.foundation.layout.WindowInsets.isImeVisible
+            val logo by androidx.compose.animation.core.animateDpAsState(if (ime) 56.dp else 104.dp, label = "logo")
             Column(
-                Modifier.widthIn(max = 420.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(28.dp),
+                Modifier.widthIn(max = 420.dp).fillMaxWidth().verticalScroll(rememberScrollState())
+                    .padding(start = 28.dp, end = 28.dp, bottom = 28.dp, top = 48.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Image(
                     painterResource(R.drawable.ic_launcher_foreground), contentDescription = null,
-                    modifier = Modifier.size(104.dp).shadow(12.dp, RoundedCornerShape(28.dp)).clip(RoundedCornerShape(28.dp)).background(SagaNight),
+                    modifier = Modifier.size(logo).shadow(12.dp, RoundedCornerShape(logo * 0.27f)).clip(RoundedCornerShape(logo * 0.27f)).background(SagaNight),
                 )
                 Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
                 Text(
                     stringResource(R.string.login_subtitle), textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // NAV-06: Fehler direkt am Feld (isError, supportingText, Semantik error)
+                val fieldError = (localError ?: loginError)?.resolve()
                 OutlinedTextField(
-                    value = server, onValueChange = { server = it },
+                    value = server,
+                    onValueChange = {
+                        server = it
+                        // Adresse geaendert: die alte Meldung passt nicht mehr
+                        if (localError != null || loginError != null) {
+                            localError = null
+                            repo.loginError.value = null
+                        }
+                    },
                     label = { Text(stringResource(R.string.login_server_label)) },
                     // Platzhalter klar als Beispiel erkennbar (sonst wirkt er wie ein schon eingetragener Wert)
                     placeholder = { Text(stringResource(R.string.server_placeholder), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), fontStyle = FontStyle.Italic) },
-                    supportingText = { Text(stringResource(R.string.login_server_hint)) },
+                    supportingText = { Text(fieldError ?: stringResource(R.string.login_server_hint)) },
+                    isError = fieldError != null,
                     singleLine = true, enabled = !busy,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go, autoCorrectEnabled = false),
                     keyboardActions = KeyboardActions(onGo = { login() }),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().semantics { if (fieldError != null) error(fieldError) },
                 )
-                Button(onClick = { login() }, enabled = !busy && server.isNotBlank(), modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                Button(onClick = { login() }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
                     Text(stringResource(if (busy) R.string.login_button_busy else R.string.login_button))
                 }
-                OutlinedButton(onClick = { startScan() }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
-                    Text(stringResource(R.string.login_qr))
-                }
-                // Design 2: die beiden Hinweise gesammelt in einer ruhigen Karte statt loser grauer Zeilen
-                io.github.yggdrasil_sh.saga.ui.theme.SagaCard(Modifier.fillMaxWidth().padding(top = 4.dp), padding = 14.dp) {
-                    Text(
-                        stringResource(R.string.login_qr_hint),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    // 2.1: Zwei-Faktor-Anmeldung laeuft im Browserfenster (Passkey/Code) - die App braucht dafuer nichts
-                    Text(
-                        stringResource(R.string.login_2fa_hint),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
+                if (busy) CircularProgressIndicator(Modifier.size(28.dp))
+                // Browser ohne Ergebnis verlassen (abgebrochen, kein Code): neutraler Hinweis + erneut versuchen
+                if (localError == null && loginError == null && !busy) loginHint?.let {
+                    Text(it.resolve(), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
+                    if (server.isNotBlank()) TextButton(onClick = { login() }) { Text(stringResource(R.string.action_retry)) }
                 }
                 // Kontowechsel ohne privaten Tab (Browser kann es nicht): der Browser bleibt beim bisherigen Konto angemeldet
                 val switchHint = remember { repo.freshLogin && !io.github.yggdrasil_sh.saga.ui.common.ephemeralTabsSupported(context) }
@@ -186,14 +211,17 @@ fun LoginScreen(repo: SagaRepository) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (busy) CircularProgressIndicator(Modifier.size(28.dp))
-                (localError ?: loginError)?.let {
-                    Text(it.resolve(), color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
+                // NAV-05: QR-Weg deutlich von "Anmelden" abgesetzt ("oder"), damit ein verrutschter Tipp nicht die Kamera fragt
+                Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    HorizontalDivider(Modifier.weight(1f))
+                    Text(
+                        stringResource(R.string.r1_login_or), style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 12.dp),
+                    )
+                    HorizontalDivider(Modifier.weight(1f))
                 }
-                // Browser ohne Ergebnis verlassen (abgebrochen, kein Code): neutraler Hinweis + erneut versuchen
-                if (localError == null && loginError == null && !busy) loginHint?.let {
-                    Text(it.resolve(), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
-                    if (server.isNotBlank()) TextButton(onClick = { login() }) { Text(stringResource(R.string.action_retry)) }
+                OutlinedButton(onClick = { startScan() }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                    Text(stringResource(R.string.login_qr))
                 }
                 if (cameraDenied) {
                     Text(
@@ -207,12 +235,15 @@ fun LoginScreen(repo: SagaRepository) {
                         )
                     }) { Text(stringResource(R.string.login_open_app_settings)) }
                 }
+                // NAV-29: statt der dauerhaften Hinweis-Karte ein Textknopf mit Blatt (QR-Weg, Zwei-Faktor)
+                TextButton(onClick = { qrHelp = true }) { Text(stringResource(R.string.r1_login_qr_where)) }
                 // Sprache vor dem Anmelden waehlbar (fremdes Geraet in einer anderen Sprache)
                 io.github.yggdrasil_sh.saga.ui.settings.LanguageMenuButton()
                 Spacer(Modifier.height(8.dp))
             }
         }
     }
+    if (qrHelp) LoginHelpSheet { qrHelp = false }
 
     if (scanning) {
         QrScannerDialog(
@@ -226,5 +257,26 @@ fun LoginScreen(repo: SagaRepository) {
                 } else false
             },
         )
+    }
+}
+
+/** NAV-29: Hilfe zur Anmeldung als Blatt - wo der QR-Code steht, Zwei-Faktor im Browserfenster */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun LoginHelpSheet(onDismiss: () -> Unit) {
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                stringResource(R.string.r1_login_qr_where), style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() },
+            )
+            Text(stringResource(R.string.login_qr_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // 2.1: Zwei-Faktor-Anmeldung laeuft im Browserfenster (Passkey/Code) - die App braucht dafuer nichts
+            Text(stringResource(R.string.login_2fa_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.action_done)) }
+        }
     }
 }

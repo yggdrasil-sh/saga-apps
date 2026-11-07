@@ -8,4 +8,10 @@
     <string name="r1_offline_bar">ออฟไลน์ – คุณกำลังดูข้อมูล ณ %1$s การเปลี่ยนแปลงจะถูกส่งเมื่อกลับมาออนไลน์</string>
     <string name="r1_offline_bar_unknown">ออฟไลน์ – คุณกำลังดูข้อมูลที่บันทึกไว้ การเปลี่ยนแปลงจะถูกส่งเมื่อกลับมาออนไลน์</string>
     <string name="r1_refresh_offline">ไม่มีการเชื่อมต่อ – รีเฟรชไม่ได้</string>
+    <string name="r1_login_err_empty">โปรดใส่ที่อยู่เซิร์ฟเวอร์</string>
+    <string name="r1_login_err_offline">ไม่มีการเชื่อมต่ออินเทอร์เน็ต</string>
+    <string name="r1_login_err_not_found">ไม่พบที่อยู่ – พิมพ์ผิดหรือเปล่า?</string>
+    <string name="r1_login_err_no_answer">เซิร์ฟเวอร์ไม่ตอบสนอง</string>
+    <string name="r1_login_or">หรือ</string>
+    <string name="r1_login_qr_where">หารหัส QR ได้ที่ไหน?</string>
 </resources>

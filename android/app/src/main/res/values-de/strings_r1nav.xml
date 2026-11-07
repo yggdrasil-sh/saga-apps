@@ -8,4 +8,10 @@
     <string name="r1_offline_bar">Offline – du siehst den Stand von %1$s. Änderungen werden gesendet, sobald du wieder online bist.</string>
     <string name="r1_offline_bar_unknown">Offline – du siehst den gespeicherten Stand. Änderungen werden gesendet, sobald du wieder online bist.</string>
     <string name="r1_refresh_offline">Keine Verbindung – nicht aktualisiert</string>
+    <string name="r1_login_err_empty">Bitte Server-Adresse eingeben</string>
+    <string name="r1_login_err_offline">Keine Internetverbindung</string>
+    <string name="r1_login_err_not_found">Adresse nicht gefunden – Tippfehler?</string>
+    <string name="r1_login_err_no_answer">Server antwortet nicht</string>
+    <string name="r1_login_or">oder</string>
+    <string name="r1_login_qr_where">Wo finde ich den QR-Code?</string>
 </resources>

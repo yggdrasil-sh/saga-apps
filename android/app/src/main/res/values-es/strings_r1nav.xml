@@ -8,4 +8,10 @@
     <string name="r1_offline_bar">Sin conexión: ves el estado de las %1$s. Los cambios se enviarán en cuanto vuelvas a estar en línea.</string>
     <string name="r1_offline_bar_unknown">Sin conexión: ves el estado guardado. Los cambios se enviarán en cuanto vuelvas a estar en línea.</string>
     <string name="r1_refresh_offline">Sin conexión: no se pudo actualizar</string>
+    <string name="r1_login_err_empty">Introduce la dirección del servidor</string>
+    <string name="r1_login_err_offline">Sin conexión a internet</string>
+    <string name="r1_login_err_not_found">Dirección no encontrada. ¿Un error al escribir?</string>
+    <string name="r1_login_err_no_answer">El servidor no responde</string>
+    <string name="r1_login_or">o</string>
+    <string name="r1_login_qr_where">¿Dónde encuentro el código QR?</string>
 </resources>

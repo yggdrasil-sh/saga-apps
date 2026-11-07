@@ -8,4 +8,10 @@
     <string name="r1_offline_bar">Нет сети – показано состояние на %1$s. Изменения отправятся, как только связь вернётся.</string>
     <string name="r1_offline_bar_unknown">Нет сети – показано сохранённое состояние. Изменения отправятся, как только связь вернётся.</string>
     <string name="r1_refresh_offline">Нет соединения – не удалось обновить</string>
+    <string name="r1_login_err_empty">Введи адрес сервера</string>
+    <string name="r1_login_err_offline">Нет подключения к интернету</string>
+    <string name="r1_login_err_not_found">Адрес не найден – опечатка?</string>
+    <string name="r1_login_err_no_answer">Сервер не отвечает</string>
+    <string name="r1_login_or">или</string>
+    <string name="r1_login_qr_where">Где найти QR-код?</string>
 </resources>

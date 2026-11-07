@@ -1660,7 +1660,8 @@ class SagaRepository(
         } catch (e: Exception) {
             // N-09: "Server nicht erreichbar: Server nicht erreichbar" - der Grund sagt es dann schon allein
             val f = friendly(e)
-            throw UiTextException(if (probeSelfExplaining(e)) f else UiText.Res(R.string.login_probe_failed, f))
+            // NAV-06: Ursache anhaengen, damit die Anmeldung kein Netz / DNS / keine Antwort unterscheiden kann (LoginErrors)
+            throw UiTextException(if (probeSelfExplaining(e)) f else UiText.Res(R.string.login_probe_failed, f)).apply { initCause(e) }
         }
         val v = try {
             decode<VersionInfo>(text)
