@@ -228,7 +228,7 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
                 }
                 if (loaded && active.isEmpty() && archived.isEmpty()) {
                     // Design 2: freundlicher Leerzustand mit naechstem Schritt (Knopf "Neuer Chat" unten rechts)
-                    item { io.github.yggdrasil_sh.saga.ui.theme.SagaEmptyState(stringResource(R.string.chat_none), emoji = "💬", text = stringResource(R.string.d2_chat_none_hint)) }
+                    item { io.github.yggdrasil_sh.saga.ui.common.SagaLineEmptyState(stringResource(R.string.chat_none), io.github.yggdrasil_sh.saga.ui.theme.SagaIcons.chats, text = stringResource(R.string.d2_chat_none_hint)) }
                 }
                 val nameOf = { c: ChatSummary -> titles[c.id]?.takeIf { c.kind == "free" } ?: svc.displayName(c) }
                 items(active, key = { it.id }) { c ->

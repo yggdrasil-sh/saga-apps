@@ -162,7 +162,12 @@ fun NextcloudCard(d: JsonObject, env: BlockEnv) {
             dir -> Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 val es = st?.entries.orEmpty()
                 if (es.isEmpty()) Text(stringResource(R.string.nc_empty_folder), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                es.forEach { e -> Text((if (e.dir) "📁 " else "📄 ") + e.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                es.forEach { e ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        SagaIcon(if (e.dir) SagaIcons.folder else SagaIcons.file, null, Modifier.padding(end = 6.dp).size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(e.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
             kind == "image" || st?.preview == true -> NcLogic.proxyPath(noteId, d, width = if (kind == "image") 1280 else 320)?.let { p ->
                 AsyncImage(

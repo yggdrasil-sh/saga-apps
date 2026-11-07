@@ -74,6 +74,7 @@ object SagaIcons {
     @DrawableRes val eye = R.drawable.si_eye
     @DrawableRes val eyeOff = R.drawable.si_eye_off
     @DrawableRes val file = R.drawable.si_file
+    @DrawableRes val folder = R.drawable.si_folder
     @DrawableRes val filePlus = R.drawable.si_file_plus
     @DrawableRes val fileZip = R.drawable.si_file_zip
     @DrawableRes val filter = R.drawable.si_filter
@@ -149,6 +150,7 @@ object SagaIcons {
     @DrawableRes val sparkles = R.drawable.si_sparkles
     @DrawableRes val star = R.drawable.si_star
     @DrawableRes val status = R.drawable.si_status
+    @DrawableRes val stop = R.drawable.si_stop
     @DrawableRes val strikethrough = R.drawable.si_strikethrough
     @DrawableRes val sun = R.drawable.si_sun
     @DrawableRes val swap = R.drawable.si_swap
@@ -232,6 +234,7 @@ object SagaIcons {
         "eye" to eye,
         "eye-off" to eyeOff,
         "file" to file,
+        "folder" to folder,
         "file-plus" to filePlus,
         "file-zip" to fileZip,
         "filter" to filter,
@@ -307,6 +310,7 @@ object SagaIcons {
         "sparkles" to sparkles,
         "star" to star,
         "status" to status,
+        "stop" to stop,
         "strikethrough" to strikethrough,
         "sun" to sun,
         "swap" to swap,

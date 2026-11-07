@@ -371,7 +371,7 @@ fun VoiceRecordingBar(secs: Double, levels: List<Float>, locked: Boolean, warn: 
                 WaveBars(bars, VoiceLogic.WAVE_N, sc.primary, sc.primary, Modifier.weight(1f))
                 if (locked) {
                     IconButton(onClick = onCancel) { SagaIcon(SagaIcons.trash, stringResource(R.string.voice_discard), tint = sc.error) }
-                    IconButton(onClick = onStop) { Text("■", color = sc.primary, fontSize = 20.sp) }
+                    IconButton(onClick = onStop) { SagaIcon(SagaIcons.stop, stringResource(R.string.ai_stop), tint = sc.primary) }
                 }
             }
             if (!locked) Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
