@@ -33,6 +33,9 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Anruf und Besprechung:** alle Knöpfe und Hinweise mit den Liniensymbolen (Hörer, Mikrofon, Kamera, Teilen,
   Lautsprecher …); die dunkle Anruf-Bühne nimmt ihre Farben aus den Web-Werten (`--cl-*`), Ecken wie im Web
   (Kacheln 14 dp, Chips als Pille). Gold in Widgets und Mitteilungen kommt aus dem gemeinsamen Akzent.
+- **Chats:** alle Bedien-Symbole (Material, eigene `ic_*`, Glyphen wie 📌 🔔 🔕 📷 🎥 ⛔ 🗑 ⏳ ⚠ 📎 ⓘ ▶ ❚❚) sind
+  Saga-Liniensymbole; Ecken als Saga-Radien. Zahl-Badges stummer bzw. archivierter Chats sind jetzt gut lesbar
+  (vorher 3,5:1), Reaktionswahl und Abspielen von Sprachnachrichten haben 48-dp-Ziele.
 
 ### Geändert – Android: Chat-Blasen wie im Web (Design-Runde 2 „Saga-Look“)
 
