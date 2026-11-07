@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 3 (Editor): Werkzeugleiste, "/"-Menue, Seitenkopf -->
+<resources>
+    <string name="r3_block_menu">การทำงานของบล็อก</string>
+    <string name="r3_color_section_text">ข้อความที่เลือก</string>
+    <string name="r3_color_section_block">ทั้งบล็อก</string>
+    <string name="r3_color_pick">ข้อความและพื้นหลัง …</string>
+    <string name="r3_color_needs_selection">เลือกข้อความก่อน</string>
+    <string name="r3_block_color">สีของบล็อก</string>
+    <string name="r3_type_change">เปลี่ยนประเภท</string>
+    <string name="r3_empty_body">เพิ่มบันทึก – หรือ / เพื่อเลือกบล็อก</string>
+    <string name="r3_slash_g_basic">บล็อกพื้นฐาน</string>
+    <string name="r3_slash_g_media">สื่อ</string>
+    <string name="r3_slash_g_saga">Saga</string>
+    <string name="r3_slash_g_db">ฐานข้อมูล</string>
+    <string name="r3_slash_enter">กด Enter เพื่อเลือกรายการนี้</string>
+    <string name="r3_sd_paragraph">ย่อหน้าธรรมดา</string>
+    <string name="r3_sd_h1">หัวข้อใหญ่</string>
+    <string name="r3_sd_h2">หัวข้อกลาง</string>
+    <string name="r3_sd_h3">หัวข้อเล็ก</string>
+    <string name="r3_sd_h4">หัวข้อเล็กที่สุด</string>
+    <string name="r3_sd_checklist">งานที่ติ๊กได้</string>
+    <string name="r3_sd_unordered">รายการแบบจุด</string>
+    <string name="r3_sd_ordered">รายการแบบตัวเลข</string>
+    <string name="r3_sd_quote">คำพูดพร้อมที่มา</string>
+    <string name="r3_sd_callout">กล่องเน้นพร้อมไอคอน</string>
+    <string name="r3_sd_toggle">ส่วนที่พับได้</string>
+    <string name="r3_sd_code">บล็อกโค้ดพร้อมไฮไลต์</string>
+    <string name="r3_sd_delimiter">เส้นคั่นระหว่างส่วน</string>
+    <string name="r3_sd_image">อัปโหลดหรือวางรูปภาพ</string>
+    <string name="r3_sd_immich">รูปจากคลัง Immich ของคุณ</string>
+    <string name="r3_sd_table">ตารางที่มีแถวและคอลัมน์</string>
+    <string name="r3_sd_columns">บล็อกเรียงข้างกัน</string>
+    <string name="r3_sd_file">ไฟล์สำหรับดาวน์โหลด</string>
+    <string name="r3_sd_embed">ฝังวิดีโอหรือลิงก์</string>
+    <string name="r3_sd_link">ลิงก์ไปยังหน้าอื่น</string>
+    <string name="r3_sd_page">หน้าใหม่ภายในหน้านี้</string>
+    <string name="r3_sd_db_new">ฐานข้อมูลใหม่พร้อมตารางและมุมมอง</string>
+    <string name="r3_sd_db_link">แสดงฐานข้อมูลที่มีอยู่ที่นี่</string>
+    <string name="r3_sd_tasks">งานที่ค้างอยู่ของคุณ</string>
+    <string name="r3_sd_calendar">กิจกรรมที่จะมาถึงของคุณ</string>
+    <string name="r3_sd_nextcloud">ไฟล์จาก Nextcloud ของคุณ</string>
+</resources>

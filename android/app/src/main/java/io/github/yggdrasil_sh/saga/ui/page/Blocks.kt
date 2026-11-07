@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
@@ -77,6 +78,10 @@ class BlockEnv(val editor: PageEditor, val repo: SagaRepository, val onLink: (St
     var slashNeeds by mutableStateOf<Set<io.github.yggdrasil_sh.saga.blocks.SlashLogic.Need>>(emptySet())
     /** 2.5 E2: wer bearbeitet welchen Block (Block-ID -> Personen), aus presence.users[].block */
     var blockPresence by mutableStateOf<Map<String, List<PresenceUser>>>(emptyMap())
+    /** R3: sichtbarer Inhaltsbereich (Fensterpixel, zwischen Kopfzeile und Werkzeugleiste) - Grenze des "/"-Menues */
+    var viewport by mutableStateOf(androidx.compose.ui.geometry.Rect.Zero)
+    /** R3 (AND-ED-11): Seite ohne Inhalt - der erste Absatz zeigt seinen Platzhalter auch ohne Fokus */
+    var emptyBody by mutableStateOf(false)
 }
 
 @Composable
@@ -166,10 +171,13 @@ private fun BlockViewInner(block: JsonObject, path: JsonPath, env: BlockEnv) {
             val pick = env.slash
             val slashQ = if (pick != null && ed.editable && text.startsWith("/")) io.github.yggdrasil_sh.saga.blocks.SlashLogic.query(InlineHtml.plain(text)) else null
             val slashLabels = if (slashQ != null) slashItems(slashQ, env.slashNeeds) else emptyList()
+            // R3 (AND-ED-11): leere Seite bzw. leere Datenbankzeile - Hinweis auch ohne Fokus
+            val pageEmpty = EditorChromeLogic.isFirstTopLevel(path) && env.emptyBody
             Column {
                 RichField(
                     text, key, ed, path, body, { ed.setString(path + listOf("data", "text"), it) },
-                    placeholder = stringResource(R.string.placeholder_paragraph),
+                    placeholder = stringResource(if (pageEmpty) R.string.r3_empty_body else R.string.placeholder_paragraph),
+                    alwaysShowPlaceholder = pageEmpty,
                     onEnter = { left, right ->
                         val first = slashLabels.firstOrNull()
                         if (pick != null && first != null && io.github.yggdrasil_sh.saga.blocks.SlashLogic.query(left.text) != null && right.text.isEmpty()) pick(path, first)
@@ -178,7 +186,7 @@ private fun BlockViewInner(block: JsonObject, path: JsonPath, env: BlockEnv) {
                     onBackspaceAtStart = removeIfEmpty, onLink = env.onLink,
                 )
                 if (slashQ != null && pick != null && ed.active?.key == key) {
-                    SlashMenuCard(slashQ, env.slashNeeds) { pick(path, it) }
+                    SlashMenuCard(slashQ, env.slashNeeds, env.viewport) { pick(path, it) }
                 }
             }
         }
@@ -339,6 +347,9 @@ private fun Unsupported(blockId: String?, env: BlockEnv) {
     }
 }
 
+/** R3 (AND-ED-09): Breite der Markerspalte aller Listen */
+internal val LIST_MARKER = 28.dp
+
 /** Liste (ungeordnet, nummeriert, Checkliste) mit verschachtelten Punkten */
 @Composable
 private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, style: String, arrayPath: JsonPath, indices: List<Int>, env: BlockEnv) {
@@ -346,7 +357,10 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
     val prefix = ed.blockKey(block, blockPath)
     // Editor.js-List v2: nummerierte Liste kann bei meta.start beginnen (oberste Ebene)
     val start = if (indices.isEmpty()) (BlockDoc.int(BlockDoc.data(block)["meta"] as? JsonObject, "start") ?: 1) else 1
-    Column(Modifier.padding(start = if (indices.isEmpty()) 0.dp else 22.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    // R3 (AND-ED-09): eine Markerspalte von 28 dp fuer •, 1. und ☐ - Textkanten fluchten, Unterpunkte ruecken um
+    // genau eine Spalte ein; zwischen den Eintraegen einheitlich 4 dp
+    val lineH = MaterialTheme.typography.bodyLarge.lineHeight.let { lh -> if (lh.isSp) with(androidx.compose.ui.platform.LocalDensity.current) { lh.toDp() } else 24.dp }
+    Column(Modifier.padding(start = if (indices.isEmpty()) 0.dp else LIST_MARKER), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         items.forEachIndexed { i, raw ->
             val itemPath = arrayPath + i
             val obj = raw as? JsonObject
@@ -355,25 +369,25 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
             val checked = BlockDoc.bool(obj?.get("meta") as? JsonObject, "checked")
             val myIdx = indices + i
             val fieldKey = prefix + "/" + myIdx.joinToString("/")
-            // Kaestchen an der ersten Zeile ausrichten (nicht mittig ueber Text + Unterpunkte): Text um die halbe
-            // Differenz zwischen 48-dp-Kaestchen und Zeilenhoehe nach unten
-            val checkPad = if (style == "checklist") {
-                with(androidx.compose.ui.platform.LocalDensity.current) { ((48.dp - MaterialTheme.typography.bodyLarge.lineHeight.toDp()) / 2).coerceAtLeast(0.dp) }
-            } else 0.dp
             Row(verticalAlignment = Alignment.Top) {
+                // Marker an der ersten Zeile (nicht mittig ueber Text + Unterpunkte)
+                Box(Modifier.width(LIST_MARKER).height(lineH), contentAlignment = Alignment.Center) {
                 when (style) {
                     "checklist" -> {
                         val label = InlineHtml.plain(content).ifBlank { stringResource(R.string.placeholder_list_item) }
                         // G8: Lesen/Kommentieren -> sichtbar gesperrt (onSurface ~45 %, auch dunkel gut erkennbar)
                         val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
-                        Checkbox(                                    // 48 dp Trefferflaeche; TalkBack liest den Punkt mit
+                        // optisch 20 dp (M3-Kaestchen), Trefferflaeche 48 dp: ragt mittig ueber die 28-dp-Spalte und die
+                        // Zeilenhoehe hinaus in den Zeilenabstand (nicht abgeschnitten), die Zeile bleibt so hoch wie der Text
+                        Checkbox(                                    // TalkBack liest den Punkt mit
                             checked = checked, onCheckedChange = { ed.toggleChecked(itemPath) }, enabled = ed.editable && obj != null,
                             colors = CheckboxDefaults.colors(disabledCheckedColor = dim, disabledUncheckedColor = dim),
-                            modifier = Modifier.semantics { contentDescription = label },
+                            modifier = Modifier.requiredSize(48.dp).semantics { contentDescription = label },
                         )
                     }
-                    "ordered" -> Text("${i + start}.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.widthIn(min = 24.dp).padding(end = 6.dp))
-                    else -> Text("•", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.widthIn(min = 16.dp).padding(end = 6.dp))
+                    "ordered" -> Text("${i + start}.", color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false)
+                    else -> Text("•", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 }
                 // Nr. 11: "/" im letzten (obersten) Listenpunkt oeffnet das Block-Menue wie im Absatz; die Wahl beendet die
                 // Liste und setzt den Block dahinter (mitten in einer Liste waere das ein Aufteilen - dort bleibt "/" Text)
@@ -392,7 +406,6 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
                                 if (checked) it.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough) else it
                             },
                             { ed.setString(contentPath, it) },
-                            modifier = Modifier.padding(top = checkPad),
                             itemPath = itemPath,
                             placeholder = stringResource(R.string.placeholder_list_item),
                             onEnter = { left, right ->
@@ -410,7 +423,7 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
                             onLink = env.onLink,
                         )
                     }
-                    if (slashQ != null && ed.active?.key == fieldKey) SlashMenuCard(slashQ, env.slashNeeds) { slashPick(it) }
+                    if (slashQ != null && ed.active?.key == fieldKey) SlashMenuCard(slashQ, env.slashNeeds, env.viewport) { slashPick(it) }
                     val sub = obj?.get("items") as? JsonArray
                     if (sub != null && sub.isNotEmpty()) {
                         ListItems(block, blockPath, sub, style, itemPath + "items", myIdx, env)

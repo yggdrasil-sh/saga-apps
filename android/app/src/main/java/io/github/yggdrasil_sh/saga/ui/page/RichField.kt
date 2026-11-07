@@ -257,6 +257,8 @@ fun RichField(
     modifier: Modifier = Modifier,
     itemPath: JsonPath? = null,
     placeholder: String = "",
+    /** R3 (AND-ED-11): Platzhalter auch ohne Fokus (leere Seite) */
+    alwaysShowPlaceholder: Boolean = false,
     raw: Boolean = false,
     onEnter: ((RichText, RichText) -> Unit)? = null,
     onBackspaceAtStart: ((isEmpty: Boolean) -> Unit)? = null,
@@ -462,7 +464,7 @@ fun RichField(
             },
         decorationBox = { inner ->
             Box {
-                if (st.value.text.length <= p && placeholder.isNotEmpty() && editor.active?.key == fieldKey) {
+                if (st.value.text.length <= p && placeholder.isNotEmpty() && (alwaysShowPlaceholder || editor.active?.key == fieldKey)) {
                     Text(placeholder, style = style.copy(color = c.onSurfaceVariant.copy(alpha = 0.6f)))
                 }
                 inner()

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 3 (Editor): Werkzeugleiste, "/"-Menue, Seitenkopf -->
+<resources>
+    <string name="r3_block_menu">Действия с блоком</string>
+    <string name="r3_color_section_text">Выделенный текст</string>
+    <string name="r3_color_section_block">Весь блок</string>
+    <string name="r3_color_pick">Текст и фон …</string>
+    <string name="r3_color_needs_selection">Сначала выделите текст</string>
+    <string name="r3_block_color">Цвет блока</string>
+    <string name="r3_type_change">Изменить тип</string>
+    <string name="r3_empty_body">Добавьте заметки – или / для блоков</string>
+    <string name="r3_slash_g_basic">Основные блоки</string>
+    <string name="r3_slash_g_media">Медиа</string>
+    <string name="r3_slash_g_saga">Saga</string>
+    <string name="r3_slash_g_db">База данных</string>
+    <string name="r3_slash_enter">Enter выбирает этот пункт</string>
+    <string name="r3_sd_paragraph">Простой абзац</string>
+    <string name="r3_sd_h1">Большой заголовок</string>
+    <string name="r3_sd_h2">Средний заголовок</string>
+    <string name="r3_sd_h3">Малый заголовок</string>
+    <string name="r3_sd_h4">Самый маленький заголовок</string>
+    <string name="r3_sd_checklist">Задачи с галочками</string>
+    <string name="r3_sd_unordered">Маркированный список</string>
+    <string name="r3_sd_ordered">Нумерованный список</string>
+    <string name="r3_sd_quote">Цитата с источником</string>
+    <string name="r3_sd_callout">Выделенный блок со значком</string>
+    <string name="r3_sd_toggle">Раскрывающийся раздел</string>
+    <string name="r3_sd_code">Блок кода с подсветкой</string>
+    <string name="r3_sd_delimiter">Линия между разделами</string>
+    <string name="r3_sd_image">Загрузить или вставить изображение</string>
+    <string name="r3_sd_immich">Фото из вашей медиатеки Immich</string>
+    <string name="r3_sd_table">Таблица со строками и столбцами</string>
+    <string name="r3_sd_columns">Блоки рядом</string>
+    <string name="r3_sd_file">Файл для скачивания</string>
+    <string name="r3_sd_embed">Встроить видео или ссылку</string>
+    <string name="r3_sd_link">Ссылка на другую страницу</string>
+    <string name="r3_sd_page">Новая страница внутри этой</string>
+    <string name="r3_sd_db_new">Новая база данных с таблицей и представлениями</string>
+    <string name="r3_sd_db_link">Показать здесь существующую базу данных</string>
+    <string name="r3_sd_tasks">Ваши открытые задачи</string>
+    <string name="r3_sd_calendar">Ваши ближайшие события</string>
+    <string name="r3_sd_nextcloud">Файл из вашего Nextcloud</string>
+</resources>

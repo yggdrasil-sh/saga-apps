@@ -197,24 +197,34 @@ internal fun PageCover(ed: PageEditor, repo: SagaRepository, url: String, pad: D
     }
 }
 
-/** Fehlt Symbol oder Titelbild: dezent anbieten (wie iOS) */
+/** R3: Kopf bietet ueberhaupt etwas zum Hinzufuegen an (Symbol oder Titelbild fehlt) */
+internal fun headerCanAdd(ed: PageEditor): Boolean = headerEditable(ed) && (ed.icon.isEmpty() || ed.cover == null)
+
+/**
+ * Fehlt Symbol oder Titelbild: dezent anbieten (wie iOS). R3 (AND-ED-07): nur, solange der Kopf bzw. Titel den
+ * Fokus hat (visible), sonst im Seitenmenue - weich ein- und ausgeblendet, ueber Symbol und Titel.
+ */
 @Composable
-internal fun HeaderAddRow(ed: PageEditor, repo: SagaRepository, onIcon: () -> Unit) {
-    if (!headerEditable(ed) || (ed.icon.isNotEmpty() && ed.cover != null)) return
-    var busy by remember { mutableStateOf(false) }
-    val pick = rememberHeaderImagePick(ed, repo, { busy = it }) { u ->
-        ed.setHeader(buildJsonObject { put("cover", u); put("cover_pos", 50.0) })
-    }
+internal fun HeaderAddRow(ed: PageEditor, visible: Boolean, busy: Boolean, onIcon: () -> Unit, onCover: () -> Unit) {
+    if (!headerCanAdd(ed)) return
     val c = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-        // A11Y-11: Zielflaeche mindestens 48 dp hoch
-        if (ed.icon.isEmpty()) SagaTextButton(onClick = onIcon, modifier = Modifier.minimumInteractiveComponentSize().heightIn(min = 48.dp)) {
-            SagaIcon(SagaIcons.smile, null, Modifier.size(18.dp), tint = c)
-            Text(stringResource(R.string.page_icon_add), color = c, modifier = Modifier.padding(start = 6.dp))
-        }
-        if (ed.cover == null) SagaTextButton(onClick = pick, enabled = !busy, modifier = Modifier.minimumInteractiveComponentSize().heightIn(min = 48.dp)) {
-            SagaIcon(SagaIcons.image, null, Modifier.size(18.dp), tint = c)
-            Text(stringResource(R.string.page_cover_add), color = c, modifier = Modifier.padding(start = 6.dp))
+    androidx.compose.animation.AnimatedVisibility(
+        visible,
+        enter = androidx.compose.animation.expandVertically(io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.defaultSpatial()) +
+            androidx.compose.animation.fadeIn(io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.defaultEffects()),
+        exit = androidx.compose.animation.shrinkVertically(io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.fastSpatial()) +
+            androidx.compose.animation.fadeOut(io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.fastEffects()),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            // A11Y-11: Zielflaeche mindestens 48 dp hoch
+            if (ed.icon.isEmpty()) SagaTextButton(onClick = onIcon, modifier = Modifier.minimumInteractiveComponentSize().heightIn(min = 48.dp)) {
+                SagaIcon(SagaIcons.smile, null, Modifier.size(18.dp), tint = c)
+                Text(stringResource(R.string.page_icon_add), color = c, modifier = Modifier.padding(start = 6.dp))
+            }
+            if (ed.cover == null) SagaTextButton(onClick = onCover, enabled = !busy, modifier = Modifier.minimumInteractiveComponentSize().heightIn(min = 48.dp)) {
+                SagaIcon(SagaIcons.image, null, Modifier.size(18.dp), tint = c)
+                Text(stringResource(R.string.page_cover_add), color = c, modifier = Modifier.padding(start = 6.dp))
+            }
         }
     }
     if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -269,10 +279,18 @@ private val RANDOM = "📄📝📚📖✅🗓️💡⭐🔥🎯📌🗂️📦�
 /** Tags unter dem Titel (wie iOS TagsRow): Chips "#tag" mit Entfernen, "+ Tag" mit Vorschlaegen aus allen Seiten */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-internal fun TagsRow(ed: PageEditor, repo: SagaRepository) {
+internal fun TagsRow(ed: PageEditor, repo: SagaRepository, showAdd: Boolean = true, addRequest: Boolean = false, onAddHandled: () -> Unit = {}) {
     val editable = headerEditable(ed)
-    if (ed.tags.isEmpty() && !editable) return
     var adding by remember { mutableStateOf(false) }
+    // R3: "Tag hinzufuegen" aus dem Seitenmenue oeffnet das Eingabefeld direkt
+    androidx.compose.runtime.LaunchedEffect(addRequest) {
+        if (addRequest) {
+            if (editable) adding = true
+            onAddHandled()
+        }
+    }
+    // R3 (AND-ED-07): "+ Tag" nur bei Fokus auf den Kopf (sonst im Seitenmenue); ohne Tags dann gar keine Zeile
+    if (ed.tags.isEmpty() && !(editable && (showAdd || adding))) return
     var text by remember { mutableStateOf("") }
     val pages by repo.pages.collectAsState()
     val known = remember(pages) { pages.flatMap { it.tags }.toSortedSet().toList() }
@@ -332,7 +350,7 @@ internal fun TagsRow(ed: PageEditor, repo: SagaRepository) {
                     Text("#$s", style = small, color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.minimumInteractiveComponentSize().clickable { text = s; add() }.padding(horizontal = 4.dp, vertical = 4.dp))
                 }
-            } else {
+            } else if (showAdd) {
                 // A11Y-05: volle onSurfaceVariant, Symbol "Hinzufuegen" statt "+"-Zeichen, Aktion "Tag hinzufuegen"
                 Row(
                     Modifier.minimumInteractiveComponentSize()

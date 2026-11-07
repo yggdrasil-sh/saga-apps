@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 3 (Editor): Werkzeugleiste, "/"-Menue, Seitenkopf -->
+<resources>
+    <string name="r3_block_menu">Block actions</string>
+    <string name="r3_color_section_text">Selected text</string>
+    <string name="r3_color_section_block">Whole block</string>
+    <string name="r3_color_pick">Text and background …</string>
+    <string name="r3_color_needs_selection">Select text first</string>
+    <string name="r3_block_color">Block color</string>
+    <string name="r3_type_change">Change type</string>
+    <string name="r3_empty_body">Add notes – or / for blocks</string>
+    <string name="r3_slash_g_basic">Basic blocks</string>
+    <string name="r3_slash_g_media">Media</string>
+    <string name="r3_slash_g_saga">Saga</string>
+    <string name="r3_slash_g_db">Database</string>
+    <string name="r3_slash_enter">Enter picks this item</string>
+    <string name="r3_sd_paragraph">Plain paragraph</string>
+    <string name="r3_sd_h1">Large heading</string>
+    <string name="r3_sd_h2">Medium heading</string>
+    <string name="r3_sd_h3">Small heading</string>
+    <string name="r3_sd_h4">Smallest heading</string>
+    <string name="r3_sd_checklist">Tasks to tick off</string>
+    <string name="r3_sd_unordered">Bulleted list</string>
+    <string name="r3_sd_ordered">Numbered list</string>
+    <string name="r3_sd_quote">Quote with source</string>
+    <string name="r3_sd_callout">Highlighted box with icon</string>
+    <string name="r3_sd_toggle">Collapsible section</string>
+    <string name="r3_sd_code">Code block with highlighting</string>
+    <string name="r3_sd_delimiter">Line between sections</string>
+    <string name="r3_sd_image">Upload or paste an image</string>
+    <string name="r3_sd_immich">Photo from your Immich library</string>
+    <string name="r3_sd_table">Table with rows and columns</string>
+    <string name="r3_sd_columns">Blocks side by side</string>
+    <string name="r3_sd_file">File to download</string>
+    <string name="r3_sd_embed">Embed a video or link</string>
+    <string name="r3_sd_link">Link to another page</string>
+    <string name="r3_sd_page">New page inside this page</string>
+    <string name="r3_sd_db_new">New database with table and views</string>
+    <string name="r3_sd_db_link">Show an existing database here</string>
+    <string name="r3_sd_tasks">Your open tasks</string>
+    <string name="r3_sd_calendar">Your upcoming events</string>
+    <string name="r3_sd_nextcloud">File from your Nextcloud</string>
+</resources>

@@ -10,7 +10,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -336,29 +339,57 @@ private fun ChoiceRow(label: String, onClick: () -> Unit) {
     Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 48.dp).padding(vertical = 12.dp))
 }
 
-/** "+" in der Werkzeugleiste: alle Blocktypen mit Suche */
+/**
+ * "+" in der Werkzeugleiste (R3, AND-ED-03): dieselbe Liste wie "/" (Symbol, Name, Beschreibung, Gruppen) mit Suche.
+ * Phone: ModalBottomSheet, ab 600 dp Breite: Dialog. Return in der Suche nimmt den ersten Treffer.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun InsertPickerDialog(needs: Set<SlashLogic.Need>, onDismiss: () -> Unit, onPick: (SlashLogic.Item) -> Unit) {
     var q by remember { mutableStateOf("") }
     val items = slashItems(q, needs)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.block_insert)) },
-        text = {
-            Column {
-                OutlinedTextField(q, { q = it }, singleLine = true, placeholder = { Text(stringResource(R.string.ed24_search_blocks)) }, modifier = Modifier.fillMaxWidth())
-                LazyColumn(Modifier.heightIn(max = 380.dp).padding(top = 8.dp)) {
-                    items(items, key = { it.key }) { it ->
-                        Text(slashLabel(it), style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.fillMaxWidth().clickable { onPick(it) }.heightIn(min = 48.dp).padding(vertical = 12.dp, horizontal = 4.dp))
-                    }
-                    if (items.isEmpty()) item { Text(stringResource(R.string.ed24_slash_none, q), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    val wide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
+    val search: @Composable () -> Unit = {
+        OutlinedTextField(
+            q, { q = it.replace("\n", "") }, singleLine = true,
+            placeholder = { Text(stringResource(R.string.ed24_search_blocks)) },
+            leadingIcon = { io.github.yggdrasil_sh.saga.ui.theme.SagaIcon(io.github.yggdrasil_sh.saga.ui.theme.SagaIcons.search, null) },
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { items.firstOrNull()?.let(onPick) }),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    val list: @Composable (Modifier) -> Unit = { m ->
+        LazyColumn(m) {
+            slashListItems(items, highlightFirst = q.isNotBlank(), onPick = onPick)
+            if (items.isEmpty()) item { Text(stringResource(R.string.ed24_slash_none, q), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp)) }
+        }
+    }
+    if (wide) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(R.string.block_insert)) },
+            text = {
+                Column {
+                    search()
+                    list(Modifier.heightIn(max = 420.dp).padding(top = 8.dp))
                 }
+            },
+            confirmButton = {},
+            dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    } else {
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
+            Column(Modifier.fillMaxWidth()) {
+                Text(
+                    stringResource(R.string.block_insert), style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp).semantics { heading() },
+                )
+                Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { search() }
+                list(Modifier.fillMaxWidth().padding(bottom = 8.dp))
             }
-        },
-        confirmButton = {},
-        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
+        }
+    }
 }
 
 /** Einbetten: Adresse (YouTube, Website, Lesezeichen) + optionaler Titel */

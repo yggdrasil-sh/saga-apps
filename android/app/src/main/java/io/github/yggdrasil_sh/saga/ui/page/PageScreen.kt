@@ -137,6 +137,11 @@ import io.github.yggdrasil_sh.saga.ui.share.ShareModel
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
 
 private val PAGE_LINK = Regex("^/notes#(-?\\d+)$")
 
@@ -350,6 +355,14 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     // (Grenze des Sicherungs-Bundles)
     var copyDraft by rememberSaveable(saver = CopyDraftSaver) { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
+    // R3 (AND-ED-07): Hinzufuegen im Kopf (Symbol, Titelbild, Tag) - Dialog und Bildauswahl hier, damit sie auch aus
+    // dem Seitenmenue gehen, waehrend der Kopf weggescrollt (nicht komponiert) ist
+    val head = remember(ed) { HeaderUi() }
+    if (head.iconPicker) IconPickerDialog(ed, repo) { head.iconPicker = false }
+    val pickCover = rememberHeaderImagePick(ed, repo, { head.coverBusy = it }) { u ->
+        ed.setHeader(kotlinx.serialization.json.buildJsonObject { put("cover", kotlinx.serialization.json.JsonPrimitive(u)); put("cover_pos", kotlinx.serialization.json.JsonPrimitive(50.0)) })
+    }
+    LaunchedEffect(ed.active) { if (ed.active != null) head.tapped = false }     // Schreiben im Inhalt: Kopf wieder ruhig
 
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
         // G4: "Kein Zugriff": Kopfzeile ohne Titel/Symbol der Seite
@@ -393,6 +406,26 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                     onSmall = { on -> styleMenu = false; repo.launchAction { ed.setSmall(on) } },
                 )
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    // R3 (AND-ED-07): Kopf-Ergaenzungen stehen hier, solange sie im Kopf ausgeblendet sind
+                    if (ed.fetched && !ed.noAccess && headerEditable(ed)) {
+                        if (ed.icon.isEmpty()) DropdownMenuItem(
+                            text = { Text(stringResource(R.string.page_icon_add)) }, leadingIcon = { SagaIcon(SagaIcons.smile, null) },
+                            onClick = { menu = false; head.iconPicker = true },
+                        )
+                        if (ed.cover == null) DropdownMenuItem(
+                            text = { Text(stringResource(R.string.page_cover_add)) }, leadingIcon = { SagaIcon(SagaIcons.image, null) },
+                            enabled = !head.coverBusy, onClick = { menu = false; pickCover() },
+                        )
+                        if (!ed.isDatabase) DropdownMenuItem(
+                            text = { Text(stringResource(R.string.page_tag_add_action)) }, leadingIcon = { SagaIcon(SagaIcons.tag, null) },
+                            onClick = {
+                                menu = false
+                                head.tagRequest = true
+                                scope.launch { listState.animateScrollToItem(0) }
+                            },
+                        )
+                        HorizontalDivider()
+                    }
                     if (ed.fetched && caps.canShare && !ed.isRemote) {
                         DropdownMenuItem(text = { Text(stringResource(R.string.share_menu)) }, onClick = {
                             menu = false
@@ -552,8 +585,15 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
         // 2.4: Datenbank-Seite - Zustand der Ansicht (bleibt beim Scrollen erhalten)
         val dbState = if (ed.isDatabase) io.github.yggdrasil_sh.saga.ui.database.rememberDbViewState(id, repo) else null
         val dbWide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+        Box(
+            Modifier.weight(1f).fillMaxWidth()
+                // R3: Inhaltsbereich zwischen Kopfzeile und Werkzeugleiste - das "/"-Menue bleibt darin
+                .then(androidx.compose.ui.Modifier.onGloballyPositioned { env.viewport = it.boundsInWindow() }),
+            contentAlignment = Alignment.TopCenter,
+        ) {
             val blocks = BlockDoc.blocks(ed.doc)
+            val emptyBody = ed.fetched && !ed.isDatabase && EditorChromeLogic.isEmptyBody(blocks)
+            androidx.compose.runtime.SideEffect { env.emptyBody = emptyBody }
             val keys = remember(blocks) {
                 val seen = HashSet<String>()
                 // Praefix: eine Block-ID wie "header"/"footer" darf nie mit den festen Eintraegen kollidieren
@@ -573,7 +613,8 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp)) {
                 item(key = "header") {
                     PageHeader(
-                        ed, repo, onPublish = if (ed.template || publishHidden || !caps.canPublish || ed.isRemote) null else openPublish,
+                        ed, repo, head, onCover = pickCover,
+                        onPublish = if (ed.template || publishHidden || !caps.canPublish || ed.isRemote) null else openPublish,
                         live = liveSt, onVersions = { showVersions = true }, onSettings = { io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, "public", replace = true) },
                     )
                 }
@@ -612,6 +653,15 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                             }
                         }
                     }
+                    // R3 (AND-ED-11): ganz ohne Bloecke - Hinweis zum Losschreiben (der leere Absatz zeigt ihn selbst)
+                    if (blocks.isEmpty() && ed.editable) item(key = "empty") {
+                        Text(
+                            stringResource(R.string.r3_empty_body), style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.fillMaxWidth().clickable(role = androidx.compose.ui.semantics.Role.Button) { ed.continueWriting() }
+                                .heightIn(min = 48.dp).padding(vertical = 12.dp),
+                        )
+                    }
                     item(key = "backlinks") { BacklinksList(ed, repo) { pid -> nav.push(Dest.Page(pid)) } }
                     item(key = "footer") {
                         // wie Notion: in den freien Bereich unter dem letzten Block tippen -> weiterschreiben
@@ -635,21 +685,10 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
 
         val active = ed.active
         val clipHasImage = rememberClipboardHasImage()
-        // 2.3: "Nextcloud-Datei" im Einfuegen-Menue nur mit verknuepfter Nextcloud (aeltere Server: nie)
-        var ncConnected by remember { mutableStateOf(false) }
-        LaunchedEffect(ed.editable, ed.isRemote) {
-            if (ed.editable && !ed.isRemote) ncConnected = try {
-                repo.ncSettings()?.let { it.enabled && it.connected } == true
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                false
-            }
-        }
         if (active != null && ed.editable) {
             EditorToolbar(
                 ed, active, onLink, onPasteImage = if (clipHasImage && ed.can(io.github.yggdrasil_sh.saga.data.RemoteCaps.UPLOAD)) { { insertImages(clipboardImages(context), active.blockPath()) } } else null,
-                repo = repo, ncInsert = ncConnected && !ed.isRemote, inserter = inserter,
+                repo = repo, inserter = inserter,
             )
         }
     }
@@ -811,22 +850,42 @@ private fun copy(context: Context, text: String) {
 }
 
 @Composable
-private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> Unit)?, live: PageLiveState? = null, onSettings: () -> Unit = {}, onVersions: (() -> Unit)? = null) {
+private fun PageHeader(
+    ed: PageEditor, repo: SagaRepository, head: HeaderUi, onCover: () -> Unit, onPublish: (() -> Unit)?, live: PageLiveState? = null,
+    onSettings: () -> Unit = {}, onVersions: (() -> Unit)? = null,
+) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    var iconPicker by remember { mutableStateOf(false) }
-    if (iconPicker) IconPickerDialog(ed, repo) { iconPicker = false }
     val cover = ed.cover.takeIf { !ed.noAccess && ed.fetched }
-    Column(Modifier.fillMaxWidth().padding(top = if (cover != null) 0.dp else 8.dp, bottom = 8.dp)) {
+    // R3 (AND-ED-07): beim ersten Fokus auf den Titel die Hinzufuegen-Knoepfe kurz zeigen (danach nur bei Fokus/Antippen)
+    LaunchedEffect(head.firstTitleFocus) {
+        if (head.firstTitleFocus) {
+            head.hint = true
+            kotlinx.coroutines.delay(HINT_MS)
+            head.hint = false
+        }
+    }
+    val showAdds = EditorChromeLogic.headerAddsVisible(head.titleFocused, head.tapped, head.hint)
+    Column(
+        Modifier.fillMaxWidth().padding(top = if (cover != null) 0.dp else 8.dp, bottom = 8.dp)
+            // Antippen des Kopfes (ausserhalb von Titel/Symbol) blendet die Hinzufuegen-Knoepfe ein - ohne eigene
+            // Bedienhilfe-Aktion, die stehen im Seitenmenue
+            .pointerInput(ed) { detectTapGestures { if (headerCanAdd(ed) || headerEditable(ed)) head.tapped = true } },
+    ) {
         // wie iOS/Web: Titelbild ueber die volle Breite, Symbol halb darueber; fehlt eins davon: dezent anbieten
         if (cover != null) PageCover(ed, repo, cover, pad = 18.dp)
-        if (ed.icon.isNotEmpty() && !ed.noAccess) {
+        if (cover != null && ed.icon.isEmpty()) Spacer(Modifier.height(4.dp))
+        // R3: ueber Symbol und Titel (wie Notion/Web), nicht zwischen beiden
+        if (ed.fetched && !ed.noAccess) HeaderAddRow(ed, showAdds, head.coverBusy, onIcon = { head.iconPicker = true }, onCover = onCover)
+        if (ed.fetched && ed.isDatabase && !ed.noAccess) {
+            // R3 (AND-ED-08): Datenbank - kompakter Kopf: Symbol in der Zeile des Titels, Meta einzeilig
+            DatabaseHeadRow(ed, repo, head)
+        } else if (ed.icon.isNotEmpty() && !ed.noAccess) {
             val iconImage = ed.icon.trim().let { it.startsWith("/files/") || it.startsWith("/api/fed/files/") }
             val iconDesc = if (iconImage) stringResource(R.string.page_icon_desc_image) else stringResource(R.string.page_icon_desc, ed.icon.trim())
             Box(
                 Modifier.then(if (cover != null) Modifier.pullUp(36.dp) else Modifier)
                     .clickable(enabled = headerEditable(ed) || ed.locked, onClickLabel = stringResource(R.string.page_icon_change)) {
-                        if (ed.locked) repo.notify(UiText.Res(R.string.page_header_locked)) else iconPicker = true
+                        if (ed.locked) repo.notify(UiText.Res(R.string.page_header_locked)) else head.iconPicker = true
                     }
                     // A11Y-09: "Seitensymbol: <Emoji>" statt nur des Emoji-Namens; Aktion "Seitensymbol aendern"
                     .semantics { contentDescription = iconDesc },
@@ -835,45 +894,17 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
                 Box(Modifier.clearAndSetSemantics { }) { PageIcon(ed.icon, repo, ed.isDatabase, size = 72.dp) }
             }
             Spacer(Modifier.height(if (cover != null) 10.dp else 8.dp))
-        } else if (cover != null) Spacer(Modifier.height(12.dp))
-        HeaderAddRow(ed, repo) { iconPicker = true }
-        if (ed.fetched) {
-            val titleStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-            if (!ed.titleEditable) {                         // gesperrt oder fremde Seite mit Lesen/Kommentieren
-                Text(ed.title.ifEmpty { stringResource(R.string.page_untitled) }, style = titleStyle, modifier = Modifier.semantics { heading() })
-            } else {
-                BasicTextField(
-                    value = ed.title, textStyle = titleStyle, readOnly = ed.pendingDraft != null,
-                    onValueChange = { v ->
-                        // 2.4 (Test P-17): Return im Titel springt in den ersten Block, statt dort weiterzuschreiben
-                        if ('\n' in v) {
-                            ed.editTitle(v.replace("\n", ""))
-                            val first = BlockDoc.blocks(ed.doc).firstOrNull() as? JsonObject
-                            ed.requestFocus(first?.let { ed.fieldKeyFor(it, listOf("blocks", 0)) })
-                        } else ed.editTitle(v)
-                    },
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = {
-                        val first = BlockDoc.blocks(ed.doc).firstOrNull() as? JsonObject
-                        ed.requestFocus(first?.let { ed.fieldKeyFor(it, listOf("blocks", 0)) })
-                    }),
-                    modifier = Modifier.fillMaxWidth().semantics { heading() },   // A11Y-02
-                    decorationBox = { inner ->
-                        Box {
-                            // fix27 E4: neuer Eintrag aus einer Vorlage - Vorlagenname als Platzhalter ("Neues Buch")
-                            if (ed.title.isEmpty()) Text(repo.freshEntries[ed.id]?.placeholder?.ifBlank { null } ?: stringResource(R.string.page_untitled), style = titleStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)))
-                            inner()
-                        }
-                    },
-                )
-            }
+        } else if (cover != null) Spacer(Modifier.height(8.dp))
+        if (ed.fetched && !(ed.isDatabase && !ed.noAccess)) {
+            PageTitleField(ed, repo, head, MaterialTheme.typography.headlineLarge)
         }
         // Fremde Seite (G1): unter dem Titel "Geteilt von {Name} · Du kannst …" (kein Knopf), darunter wer zuletzt
-        // geaendert/angelegt hat - beide gleich gross (Sekundaertext)
-        if (ed.fetched && !ed.isDatabase && !ed.noAccess) TagsRow(ed, repo)       // wie iOS/Web: Tags unter dem Titel
-        if (ed.fetched && ed.caps.foreign) SharedByLabel(ed.share)
-        if (ed.fetched) MetaLine(ed.share)
+        // geaendert/angelegt hat - beide gleich gross (Sekundaertext); Datenbank: eine Zeile im kompakten Kopf
+        if (ed.fetched && !ed.isDatabase && !ed.noAccess) {
+            TagsRow(ed, repo, showAdd = showAdds, addRequest = head.tagRequest, onAddHandled = { head.tagRequest = false })   // wie iOS/Web: Tags unter dem Titel
+        }
+        if (ed.fetched && !ed.isDatabase && ed.caps.foreign) SharedByLabel(ed.share)
+        if (ed.fetched && !ed.isDatabase) MetaLine(ed.share)
         if (ed.fetched && ed.template && ed.parentId != null) {   // A02: Vorlage einer Datenbank erkennbar machen
             Text(
                 stringResource(R.string.tpl_page_hint),
@@ -942,6 +973,96 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
                 if (ed.needsPublicName) SagaOutlinedButton(onClick = onSettings) { Text(stringResource(R.string.nav_settings)) }
             }
         }
+    }
+}
+
+/** R3 (AND-ED-07): wie lange die Hinzufuegen-Knoepfe nach dem ersten Fokus auf den Titel sichtbar bleiben */
+private const val HINT_MS = 4000L
+
+/** R3: Zustand des Seitenkopfs (Hinzufuegen-Knoepfe nur bei Fokus/Antippen, Auftraege aus dem Seitenmenue) */
+@androidx.compose.runtime.Stable
+internal class HeaderUi {
+    var titleFocused by mutableStateOf(false)
+    var tapped by mutableStateOf(false)
+    /** einmal je Seite: erster Fokus auf den Titel */
+    var firstTitleFocus by mutableStateOf(false)
+    var hint by mutableStateOf(false)
+    var iconPicker by mutableStateOf(false)
+    var coverBusy by mutableStateOf(false)
+    /** "Tag hinzufuegen" aus dem Seitenmenue - die Tag-Zeile oeffnet ihr Feld und setzt es zurueck */
+    var tagRequest by mutableStateOf(false)
+}
+
+/** Seitentitel (bearbeitbar oder nur Text) - R3: meldet Fokus an den Kopf (Hinzufuegen-Knoepfe) */
+@Composable
+private fun PageTitleField(ed: PageEditor, repo: SagaRepository, head: HeaderUi, base: androidx.compose.ui.text.TextStyle, modifier: Modifier = Modifier) {
+    val titleStyle = base.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+    if (!ed.titleEditable) {                         // gesperrt oder fremde Seite mit Lesen/Kommentieren
+        Text(ed.title.ifEmpty { stringResource(R.string.page_untitled) }, style = titleStyle, modifier = modifier.semantics { heading() })
+        return
+    }
+    BasicTextField(
+        value = ed.title, textStyle = titleStyle, readOnly = ed.pendingDraft != null,
+        onValueChange = { v ->
+            // 2.4 (Test P-17): Return im Titel springt in den ersten Block, statt dort weiterzuschreiben
+            if ('\n' in v) {
+                ed.editTitle(v.replace("\n", ""))
+                val first = BlockDoc.blocks(ed.doc).firstOrNull() as? JsonObject
+                ed.requestFocus(first?.let { ed.fieldKeyFor(it, listOf("blocks", 0)) })
+            } else ed.editTitle(v)
+        },
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+        keyboardActions = KeyboardActions(onNext = {
+            val first = BlockDoc.blocks(ed.doc).firstOrNull() as? JsonObject
+            ed.requestFocus(first?.let { ed.fieldKeyFor(it, listOf("blocks", 0)) })
+        }),
+        modifier = modifier.fillMaxWidth().semantics { heading() }   // A11Y-02
+            .onFocusChanged { f ->
+                head.titleFocused = f.isFocused
+                if (f.isFocused) head.firstTitleFocus = true
+            },
+        decorationBox = { inner ->
+            Box {
+                // fix27 E4: neuer Eintrag aus einer Vorlage - Vorlagenname als Platzhalter ("Neues Buch")
+                if (ed.title.isEmpty()) Text(repo.freshEntries[ed.id]?.placeholder?.ifBlank { null } ?: stringResource(R.string.page_untitled), style = titleStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)))
+                inner()
+            }
+        },
+    )
+}
+
+/**
+ * R3 (AND-ED-08): kompakter Kopf einer Datenbank - Symbol (36 dp) in einer Zeile mit dem Titel (headlineSmall),
+ * darunter "Geteilt von … · Zuletzt geändert …" einzeilig in labelMedium. Spart auf dem Phone rund 150 dp.
+ */
+@Composable
+private fun DatabaseHeadRow(ed: PageEditor, repo: SagaRepository, head: HeaderUi) {
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (ed.icon.isNotEmpty()) {
+            val iconImage = ed.icon.trim().let { it.startsWith("/files/") || it.startsWith("/api/fed/files/") }
+            val iconDesc = if (iconImage) stringResource(R.string.page_icon_desc_image) else stringResource(R.string.page_icon_desc, ed.icon.trim())
+            Box(
+                Modifier.padding(end = 10.dp).size(48.dp).clip(RoundedCornerShape(SagaRadius.s))
+                    .clickable(enabled = headerEditable(ed) || ed.locked, onClickLabel = stringResource(R.string.page_icon_change)) {
+                        if (ed.locked) repo.notify(UiText.Res(R.string.page_header_locked)) else head.iconPicker = true
+                    }
+                    .semantics { contentDescription = iconDesc },
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(Modifier.clearAndSetSemantics { }) { PageIcon(ed.icon, repo, true, size = 36.dp) }
+            }
+        }
+        Box(Modifier.weight(1f)) { PageTitleField(ed, repo, head, MaterialTheme.typography.headlineSmall) }
+    }
+    val parts = ArrayList<String>()
+    if (ed.caps.foreign) parts.add(stringResource(R.string.shared_by, ed.share.owner?.name.orEmpty()) + " · " + stringResource(ShareLogic.roleYou(ed.share.role)))
+    metaParts(ed.share).forEach { parts.add(it) }
+    if (parts.isNotEmpty()) {
+        Text(
+            parts.joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp),
+        )
     }
 }
 
@@ -1296,16 +1417,22 @@ private fun SharedByLabel(info: PageShareInfo) {
 /** "Angelegt von {name}" / "Zuletzt geändert von {name} · vor …" - nur, wenn es nicht man selbst war */
 @Composable
 private fun MetaLine(info: PageShareInfo) {
-    val parts = ArrayList<String>()
-    info.createdBy?.takeIf { !it.me && it.name.isNotEmpty() }?.let { parts.add(stringResource(R.string.meta_created_by, it.name)) }
-    val up = info.updatedBy
-    val at = info.updated
-    if (up != null && !up.me && up.name.isNotEmpty() && at != null) parts.add(stringResource(R.string.meta_updated_by, up.name, relativeTime(at)))
+    val parts = metaParts(info)
     if (parts.isEmpty()) return
     Text(
         parts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 2.dp),
     )
+}
+
+@Composable
+private fun metaParts(info: PageShareInfo): List<String> {
+    val parts = ArrayList<String>()
+    info.createdBy?.takeIf { !it.me && it.name.isNotEmpty() }?.let { parts.add(stringResource(R.string.meta_created_by, it.name)) }
+    val up = info.updatedBy
+    val at = info.updated
+    if (up != null && !up.me && up.name.isNotEmpty() && at != null) parts.add(stringResource(R.string.meta_updated_by, up.name, relativeTime(at)))
+    return parts
 }
 
 /** G4: Seite geloescht oder nicht (mehr) geteilt - alles mittig, "Erneut versuchen" und "Zu „Mit mir geteilt“" */

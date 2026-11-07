@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 3 (Editor): Werkzeugleiste, "/"-Menue, Seitenkopf -->
+<resources>
+    <string name="r3_block_menu">Acciones del bloque</string>
+    <string name="r3_color_section_text">Texto seleccionado</string>
+    <string name="r3_color_section_block">Todo el bloque</string>
+    <string name="r3_color_pick">Texto y fondo …</string>
+    <string name="r3_color_needs_selection">Selecciona texto primero</string>
+    <string name="r3_block_color">Color del bloque</string>
+    <string name="r3_type_change">Cambiar tipo</string>
+    <string name="r3_empty_body">Añade notas – o / para bloques</string>
+    <string name="r3_slash_g_basic">Bloques básicos</string>
+    <string name="r3_slash_g_media">Multimedia</string>
+    <string name="r3_slash_g_saga">Saga</string>
+    <string name="r3_slash_g_db">Base de datos</string>
+    <string name="r3_slash_enter">Intro elige esta opción</string>
+    <string name="r3_sd_paragraph">Párrafo simple</string>
+    <string name="r3_sd_h1">Título grande</string>
+    <string name="r3_sd_h2">Título mediano</string>
+    <string name="r3_sd_h3">Título pequeño</string>
+    <string name="r3_sd_h4">Título mínimo</string>
+    <string name="r3_sd_checklist">Tareas para marcar</string>
+    <string name="r3_sd_unordered">Lista con viñetas</string>
+    <string name="r3_sd_ordered">Lista numerada</string>
+    <string name="r3_sd_quote">Cita con fuente</string>
+    <string name="r3_sd_callout">Recuadro destacado con icono</string>
+    <string name="r3_sd_toggle">Sección desplegable</string>
+    <string name="r3_sd_code">Bloque de código con resaltado</string>
+    <string name="r3_sd_delimiter">Línea entre secciones</string>
+    <string name="r3_sd_image">Subir o pegar una imagen</string>
+    <string name="r3_sd_immich">Foto de tu biblioteca de Immich</string>
+    <string name="r3_sd_table">Tabla con filas y columnas</string>
+    <string name="r3_sd_columns">Bloques uno al lado del otro</string>
+    <string name="r3_sd_file">Archivo para descargar</string>
+    <string name="r3_sd_embed">Insertar un vídeo o enlace</string>
+    <string name="r3_sd_link">Enlazar a otra página</string>
+    <string name="r3_sd_page">Nueva página dentro de esta</string>
+    <string name="r3_sd_db_new">Nueva base de datos con tabla y vistas</string>
+    <string name="r3_sd_db_link">Mostrar aquí una base de datos existente</string>
+    <string name="r3_sd_tasks">Tus tareas pendientes</string>
+    <string name="r3_sd_calendar">Tus próximos eventos</string>
+    <string name="r3_sd_nextcloud">Archivo de tu Nextcloud</string>
+</resources>

@@ -5,9 +5,8 @@ import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.foundation.layout.size
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -101,43 +100,183 @@ fun slashLabel(it: SlashLogic.Item): String = when (it.id) {
     else -> it.id
 }
 
-/** Gefilterte Eintraege (in Compose: Namen in der App-Sprache) */
+/** Gefilterte Eintraege (in Compose: Namen in der App-Sprache), gruppiert und sortiert wie im Web - der erste nimmt Return */
 @Composable
 fun slashItems(query: String, needs: Set<SlashLogic.Need>): List<SlashLogic.Item> {
     val labels = SlashLogic.ITEMS.associate { it.key to slashLabel(it) }
-    return remember(query, needs, labels) { SlashLogic.filter(query, needs) { labels[it.key].orEmpty() } }
+    return remember(query, needs, labels) {
+        val lab: (SlashLogic.Item) -> String = { labels[it.key].orEmpty() }
+        EditorChromeLogic.arrange(SlashLogic.filter(query, needs, lab), query, lab)
+    }
 }
 
-/** "/"-Menue unter dem Absatz: tippen waehlt, Return nimmt den ersten Eintrag. Nimmt der Tastatur nie den Fokus */
+/** Kurzbeschreibung wie im Web-"/"-Menue (desc) */
 @Composable
-fun SlashMenuCard(query: String, needs: Set<SlashLogic.Need>, onPick: (SlashLogic.Item) -> Unit) {
+fun slashDesc(it: SlashLogic.Item): String = stringResource(
+    when (it.id) {
+        "paragraph" -> R.string.r3_sd_paragraph
+        "header" -> when (it.level) {
+            1 -> R.string.r3_sd_h1
+            2 -> R.string.r3_sd_h2
+            3 -> R.string.r3_sd_h3
+            else -> R.string.r3_sd_h4
+        }
+        "checklist" -> R.string.r3_sd_checklist
+        "unordered" -> R.string.r3_sd_unordered
+        "ordered" -> R.string.r3_sd_ordered
+        "quote" -> R.string.r3_sd_quote
+        "callout" -> R.string.r3_sd_callout
+        "toggle" -> R.string.r3_sd_toggle
+        "code" -> R.string.r3_sd_code
+        "delimiter" -> R.string.r3_sd_delimiter
+        "image" -> R.string.r3_sd_image
+        "immich_image" -> R.string.r3_sd_immich
+        "table" -> R.string.r3_sd_table
+        "columns" -> R.string.r3_sd_columns
+        "file" -> R.string.r3_sd_file
+        "embed" -> R.string.r3_sd_embed
+        "link" -> R.string.r3_sd_link
+        "page" -> R.string.r3_sd_page
+        "db_new" -> R.string.r3_sd_db_new
+        "db_link" -> R.string.r3_sd_db_link
+        "tasks" -> R.string.r3_sd_tasks
+        "calendar" -> R.string.r3_sd_calendar
+        else -> R.string.r3_sd_nextcloud
+    },
+)
+
+/** Liniensymbol je Eintrag (Namen aus EditorChromeLogic.iconName, Test prueft, dass es sie gibt) */
+@androidx.annotation.DrawableRes
+fun slashIcon(it: SlashLogic.Item): Int = when (EditorChromeLogic.iconName(it)) {
+    "pilcrow" -> SagaIcons.pilcrow
+    "type" -> SagaIcons.type
+    "typeSmall" -> SagaIcons.typeSmall
+    "checkbox" -> SagaIcons.checkbox
+    "list" -> SagaIcons.list
+    "listOrdered" -> SagaIcons.listOrdered
+    "quote" -> SagaIcons.quote
+    "bulb" -> SagaIcons.bulb
+    "chevronRight" -> SagaIcons.chevronRight
+    "code" -> SagaIcons.code
+    "minus" -> SagaIcons.minus
+    "image" -> SagaIcons.image
+    "camera" -> SagaIcons.camera
+    "table" -> SagaIcons.table
+    "columns" -> SagaIcons.columns
+    "paperclip" -> SagaIcons.paperclip
+    "play" -> SagaIcons.play
+    "link" -> SagaIcons.link
+    "filePlus" -> SagaIcons.filePlus
+    "database" -> SagaIcons.database
+    "relation" -> SagaIcons.relation
+    "tasks" -> SagaIcons.tasks
+    "calendar" -> SagaIcons.calendar
+    "cloud" -> SagaIcons.cloud
+    else -> SagaIcons.plus
+}
+
+@Composable
+private fun slashGroupLabel(g: EditorChromeLogic.SlashGroup): String = stringResource(
+    when (g) {
+        EditorChromeLogic.SlashGroup.BASIC -> R.string.r3_slash_g_basic
+        EditorChromeLogic.SlashGroup.MEDIA -> R.string.r3_slash_g_media
+        EditorChromeLogic.SlashGroup.SAGA -> R.string.r3_slash_g_saga
+        EditorChromeLogic.SlashGroup.DATABASE -> R.string.r3_slash_g_db
+    },
+)
+
+/**
+ * R3 (AND-ED-02/03): gemeinsame Liste fuer "/" und "+" - ListItem mit Liniensymbol, Name und Kurzbeschreibung,
+ * Gruppenkoepfe in labelSmall. highlightFirst: erster Eintrag in secondaryContainer mit "↵" (Return nimmt ihn).
+ */
+internal fun androidx.compose.foundation.lazy.LazyListScope.slashListItems(
+    items: List<SlashLogic.Item>, highlightFirst: Boolean, onPick: (SlashLogic.Item) -> Unit,
+) {
+    items.forEachIndexed { i, it ->
+        val g = EditorChromeLogic.group(it.id)
+        if (i == 0 || EditorChromeLogic.group(items[i - 1].id) != g) {
+            item(key = "g:" + g.name) {
+                Text(
+                    slashGroupLabel(g), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = if (i == 0) 6.dp else 12.dp, bottom = 4.dp)
+                        .semantics { androidx.compose.ui.semantics.heading() },
+                )
+            }
+        }
+        item(key = it.key) { SlashRow(it, highlightFirst && i == 0) { onPick(it) } }
+    }
+}
+
+@Composable
+private fun SlashRow(it: SlashLogic.Item, first: Boolean, onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val enterHint = stringResource(R.string.r3_slash_enter)
+    androidx.compose.material3.ListItem(
+        headlineContent = { Text(slashLabel(it), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supportingContent = { Text(slashDesc(it), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        leadingContent = { SagaIcon(slashIcon(it), null, Modifier.size(20.dp), tint = if (first) cs.onSecondaryContainer else cs.onSurfaceVariant) },
+        trailingContent = if (first) ({
+            Text("↵", style = MaterialTheme.typography.labelLarge, color = cs.onSecondaryContainer, modifier = Modifier.semantics { contentDescription = enterHint })
+        }) else null,
+        colors = androidx.compose.material3.ListItemDefaults.colors(
+            containerColor = if (first) cs.secondaryContainer else Color.Transparent,
+            headlineColor = if (first) cs.onSecondaryContainer else cs.onSurface,
+            supportingColor = if (first) cs.onSecondaryContainer.copy(alpha = 0.8f) else cs.onSurfaceVariant,
+        ),
+        modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick),
+    )
+}
+
+/**
+ * "/"-Menue am Absatz: schwebt als Popup an der Zeile, oeffnet ueber ihr, wenn darunter keine 240 dp frei sind, und
+ * reicht nie ueber den Inhaltsbereich (env.viewport, zwischen Kopfzeile und Werkzeugleiste). Das Popup nimmt der
+ * Tastatur nie den Fokus (focusable = false) - Return bleibt im Feld und nimmt den ersten Eintrag.
+ */
+@Composable
+fun SlashMenuCard(query: String, needs: Set<SlashLogic.Need>, viewport: androidx.compose.ui.geometry.Rect, onPick: (SlashLogic.Item) -> Unit) {
     val items = slashItems(query, needs)
-    // TT 15: am Seitenende lag das Menue unter der Tastatur - beim Oeffnen, beim Tippen und sobald die Tastatur
-    // (ganz) da ist, in den sichtbaren Bereich holen (die Seite rechnet die Tastatur schon heraus)
-    val bring = androidx.compose.runtime.remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
-    val ime = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current)
-    androidx.compose.runtime.LaunchedEffect(query, items.size, ime) {
-        kotlinx.coroutines.delay(60)                         // erst messen lassen
-        try {
-            bring.bringIntoView()
-        } catch (_: Exception) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    var anchor by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
+    // Messpunkt: die Zeile mit dem Feld (das Popup selbst haengt am gleichen Elternteil)
+    Box(Modifier.fillMaxWidth().height(0.dp).onGloballyPositioned { c ->
+        c.parentLayoutCoordinates?.boundsInWindow()?.let { anchor = it }
+    })
+    val a = anchor ?: return
+    val gap = with(density) { 4.dp.roundToPx() }
+    val vTop = viewport.top.toInt()
+    val vBottom = if (viewport.height > 0f) viewport.bottom.toInt() else Int.MAX_VALUE / 2
+    val placement = EditorChromeLogic.slashPlacement(
+        a.top.toInt(), a.bottom.toInt(), vTop, vBottom,
+        minBelow = with(density) { 240.dp.roundToPx() }, cap = with(density) { 360.dp.roundToPx() }, gap = gap,
+    )
+    val provider = remember(placement, vTop, vBottom, gap) {
+        object : androidx.compose.ui.window.PopupPositionProvider {
+            override fun calculatePosition(
+                anchorBounds: androidx.compose.ui.unit.IntRect, windowSize: androidx.compose.ui.unit.IntSize,
+                layoutDirection: androidx.compose.ui.unit.LayoutDirection, popupContentSize: androidx.compose.ui.unit.IntSize,
+            ): androidx.compose.ui.unit.IntOffset = androidx.compose.ui.unit.IntOffset(
+                EditorChromeLogic.slashX(anchorBounds.left, popupContentSize.width, windowSize.width),
+                EditorChromeLogic.slashY(placement, anchorBounds.top, anchorBounds.bottom, popupContentSize.height, vTop, vBottom, gap),
+            )
         }
     }
-    Surface(
-        tonalElevation = 4.dp, shadowElevation = 4.dp, shape = RoundedCornerShape(SagaRadius.md),
-        modifier = Modifier.padding(top = 4.dp).widthIn(max = 320.dp).bringIntoViewRequester(bring),
+    androidx.compose.ui.window.Popup(
+        popupPositionProvider = provider,
+        properties = androidx.compose.ui.window.PopupProperties(focusable = false, clippingEnabled = true),
     ) {
-        Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()).padding(vertical = 4.dp)) {
+        Surface(
+            tonalElevation = 4.dp, shadowElevation = 6.dp, shape = RoundedCornerShape(SagaRadius.md),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier.widthIn(min = 260.dp, max = 360.dp),
+        ) {
+            val maxH = with(density) { placement.maxHeight.toDp() }.coerceAtLeast(120.dp)
             if (items.isEmpty()) {
                 Text(stringResource(R.string.ed24_slash_none, query), style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(12.dp))
-            }
-            items.forEachIndexed { i, it ->
-                Text(
-                    slashLabel(it), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = if (i == 0) FontWeight.SemiBold else FontWeight.Normal),
-                    modifier = Modifier.fillMaxWidth().clickable { onPick(it) }.heightIn(min = 44.dp).padding(horizontal = 14.dp, vertical = 11.dp)
-                        .semantics { role = Role.Button },
-                )
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+            } else {
+                androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = maxH).padding(vertical = 4.dp)) {
+                    slashListItems(items, highlightFirst = true, onPick = onPick)
+                }
             }
         }
     }
