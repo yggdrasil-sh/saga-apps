@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import io.github.yggdrasil_sh.saga.data.avatarState
 import androidx.compose.ui.res.stringResource
 import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.common.pageTitle
 import io.github.yggdrasil_sh.saga.util.resolve
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -23,16 +24,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Badge
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -244,32 +237,32 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 }
             }
         }
-        item { NavItem(stringResource(R.string.nav_today), Icons.Filled.Home, nav.root == Dest.Today) { nav.top(Dest.Today); onNavigate() } }
+        item { NavItem(stringResource(R.string.nav_today), null, nav.root == Dest.Today, painter = SagaIcons.today) { nav.top(Dest.Today); onNavigate() } }
         item {
-            NavItem(stringResource(R.string.nav_tasks), Icons.Filled.CheckCircle, nav.root == Dest.Tasks, badge = taskBadge.takeIf { it > 0 }) {
+            NavItem(stringResource(R.string.nav_tasks), null, nav.root == Dest.Tasks, badge = taskBadge.takeIf { it > 0 }, painter = SagaIcons.tasks) {
                 nav.top(Dest.Tasks); onNavigate()
             }
         }
-        item { NavItem(stringResource(R.string.nav_events), Icons.Filled.DateRange, nav.root == Dest.Events) { nav.top(Dest.Events); onNavigate() } }
-        item { NavItem(stringResource(R.string.nav_services), Icons.Filled.Build, nav.root == Dest.Services) { nav.top(Dest.Services); onNavigate() } }
-        item { NavItem(stringResource(R.string.nav_search_pages), Icons.Filled.Search, nav.root == Dest.Search) { nav.top(Dest.Search); onNavigate() } }
+        item { NavItem(stringResource(R.string.nav_events), null, nav.root == Dest.Events, painter = SagaIcons.calendar) { nav.top(Dest.Events); onNavigate() } }
+        item { NavItem(stringResource(R.string.nav_services), null, nav.root == Dest.Services, painter = SagaIcons.server) { nav.top(Dest.Services); onNavigate() } }
+        item { NavItem(stringResource(R.string.nav_search_pages), null, nav.root == Dest.Search, painter = SagaIcons.search) { nav.top(Dest.Search); onNavigate() } }
         item {
             val sv by repo.serverVersion.collectAsState()
             if (io.github.yggdrasil_sh.saga.ui.graph.GraphSupport.available(sv, repo.server.value)) {
-                NavItem(stringResource(R.string.graph_title), null, nav.root is Dest.Graph, painter = R.drawable.ic_graph) { nav.top(Dest.Graph()); onNavigate() }
+                NavItem(stringResource(R.string.graph_title), null, nav.root is Dest.Graph, painter = SagaIcons.graph) { nav.top(Dest.Graph()); onNavigate() }
             }
         }
         if (chatOn) {
             item {
                 NavItem(
                     stringResource(R.string.chats), null, nav.root == Dest.Chats || nav.root is Dest.Chat, badge = chatUnread.takeIf { it > 0 },
-                    painter = R.drawable.ic_chat,
+                    painter = SagaIcons.chats,
                 ) { nav.top(Dest.Chats); onNavigate() }
             }
         }
         if (notifOn) {
             item {
-                NavItem(stringResource(R.string.notifications), Icons.Filled.Notifications, nav.root == Dest.Notifications, badge = notifUnread.takeIf { it > 0 }) {
+                NavItem(stringResource(R.string.notifications), null, nav.root == Dest.Notifications, badge = notifUnread.takeIf { it > 0 }, painter = SagaIcons.bell) {
                     nav.top(Dest.Notifications); onNavigate()
                 }
             }
@@ -353,8 +346,8 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
         }
         item { HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)) }
         // 2.4: Papierkorb in der App (ansehen, wiederherstellen, endgueltig loeschen)
-        item { NavItem(stringResource(R.string.tr_nav), Icons.Filled.Delete, false) { showTrash = true } }
-        item { NavItem(stringResource(R.string.nav_settings), Icons.Filled.Settings, nav.root == Dest.Settings) { nav.top(Dest.Settings); onNavigate() } }
+        item { NavItem(stringResource(R.string.tr_nav), null, false, painter = SagaIcons.trash) { showTrash = true } }
+        item { NavItem(stringResource(R.string.nav_settings), null, nav.root == Dest.Settings, painter = SagaIcons.settings) { nav.top(Dest.Settings); onNavigate() } }
         error?.let { e ->
             item { Text(e.resolve(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp)) }
         }

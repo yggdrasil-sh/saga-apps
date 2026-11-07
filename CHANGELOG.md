@@ -18,6 +18,13 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Signalfarben** (ok, Warnung, Fehler, überfällig, Info, Anruf grün/rot) als gemeinsame Werte wie im Web;
   Fehlertexte nutzen die gut lesbare Rotstufe.
 
+### Geändert – Android: Design-Runde 2 „Saga-Look“ (Symbole)
+
+- **Liniensymbole wie im Web:** `tools/icons-android.py` erzeugt aus `static/icons.js` des Servers (plus
+  Android-Ergänzungen in `tools/icons-android-extra.json`, gleicher Stil) VectorDrawables `si_*` (Strich 1,75, runde
+  Enden); `SagaIcons`/`SagaIcon` sind die eine Quelle in der App. Die Seitenleiste nutzt sie schon (Heute mit Sonne,
+  Aufgaben, Termine, Chats …), der Rest folgt.
+
 ### Geändert – Android: Design-Runde 1 „Vertrauen & schnelle Gewinne“ (Navigation, Anmeldung)
 
 - **Aufgabenzahlen stimmen überein:** Kopf, Zahl und Liste auf „Heute“ zählen dieselbe Liste; das Badge in der
