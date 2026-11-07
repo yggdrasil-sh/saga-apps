@@ -1,6 +1,9 @@
 package io.github.yggdrasil_sh.saga
 
 import io.github.yggdrasil_sh.saga.blocks.BlockDoc
+import io.github.yggdrasil_sh.saga.blocks.InlineHtml
+import io.github.yggdrasil_sh.saga.blocks.InlineStyle
+import io.github.yggdrasil_sh.saga.blocks.PendingMarks
 import io.github.yggdrasil_sh.saga.blocks.JsonTree
 import io.github.yggdrasil_sh.saga.data.Drafts
 import io.github.yggdrasil_sh.saga.data.MemoryDrafts
@@ -134,5 +137,37 @@ class DesignR3EditFixTest {
         assertFalse(ed.backspaceAtItemStart(listOf("blocks", 0), "l", item))
         val items = JsonTree.get(ed.doc, listOf("blocks", 0, "data", "items")) as JsonArray
         assertEquals(listOf("a", "wichtig"), items.map { BlockDoc.str(it as JsonObject, "content") })
+    }
+
+    // ---------------------------------------------------------------- B/I/U/S ohne Auswahl (Vormerkung)
+
+    @Test fun vormerkungOhneAuswahl() {
+        val rt = InlineHtml.parse("ab <b>fett</b> x")
+        // Schreibmarke nach "fett" -> Fett ist natuerlich aktiv, nach "ab " nicht
+        assertTrue(PendingMarks.isOn(rt, 7, InlineStyle.BOLD, emptyMap()))
+        assertFalse(PendingMarks.isOn(rt, 3, InlineStyle.BOLD, emptyMap()))
+        val m = PendingMarks.toggle(rt, 3, InlineStyle.BOLD, emptyMap())
+        assertEquals(mapOf(InlineStyle.BOLD to true), m)
+        assertTrue(PendingMarks.isOn(rt, 3, InlineStyle.BOLD, m))
+        // zweiter Tipp hebt die Vormerkung wieder auf (sichtbar: Knopf nicht mehr aktiv)
+        assertEquals(emptyMap<InlineStyle, Boolean>(), PendingMarks.toggle(rt, 3, InlineStyle.BOLD, m))
+        // an fetter Stelle ausschalten
+        assertEquals(mapOf(InlineStyle.BOLD to false), PendingMarks.toggle(rt, 7, InlineStyle.BOLD, emptyMap()))
+    }
+
+    @Test fun vormerkungWirktAufEingefuegtenText() {
+        val rt = InlineHtml.parse("ab x")
+        val at = 3
+        val typed = InlineHtml.applyEdit(rt, "ab neu x")
+        assertEquals(4, PendingMarks.insertionAt(rt.text, typed.text, at))           // "neu " an der Schreibmarke
+        val r = PendingMarks.apply(typed, at, at + 4, mapOf(InlineStyle.BOLD to true, InlineStyle.ITALIC to true))
+        assertTrue(InlineHtml.isActive(r, 3, 7, InlineStyle.BOLD))
+        assertTrue(InlineHtml.isActive(r, 3, 7, InlineStyle.ITALIC))
+        assertFalse(InlineHtml.isActive(r, 0, 3, InlineStyle.BOLD))
+        assertFalse(InlineHtml.isActive(r, 7, 8, InlineStyle.BOLD))
+        // keine reine Einfuegung an der Stelle -> null (Vormerkung verfaellt)
+        assertNull(PendingMarks.insertionAt("ab x", "ab y", 3))
+        assertNull(PendingMarks.insertionAt("ab x", "Xab x", 3))
+        assertEquals(1, PendingMarks.insertionAt("aa", "aaa", 1))
     }
 }

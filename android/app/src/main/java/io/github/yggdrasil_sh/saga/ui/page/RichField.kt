@@ -170,6 +170,9 @@ internal class FieldState(html: String, val raw: Boolean, val pre: String) {
      * die Meldung ignoriert - der alte Index zeigt dann schon auf den nachgerueckten Block.
      */
     var backspaceDone: Pair<Any?, Any?>? = null
+    /** Nachbesserung R3: fuer das naechste Tippen vorgemerkte Formate (B/I/U/S ohne Auswahl) an der Stelle marksAt */
+    var marks by mutableStateOf<Map<io.github.yggdrasil_sh.saga.blocks.InlineStyle, Boolean>>(emptyMap())
+    var marksAt = -1
 
     fun isExternalChange(html: String): Boolean = html != external && html != current && html !in sent
 
@@ -339,9 +342,21 @@ fun RichField(
             itemPath = { itemNow },
             toggle = if (raw) null else { s ->
                 val r = sel()
-                if (!r.collapsed) publish(InlineHtml.toggle(st.rich, r.min, r.max, s))
+                if (!r.collapsed) {
+                    publish(InlineHtml.toggle(st.rich, r.min, r.max, s))
+                } else {
+                    // Nachbesserung R3: ohne Auswahl fuer das naechste Tippen vormerken (Knopf zeigt den Zustand sofort)
+                    val base = if (st.marksAt == r.start) st.marks else emptyMap()
+                    st.marks = io.github.yggdrasil_sh.saga.blocks.PendingMarks.toggle(st.rich, r.start, s, base)
+                    st.marksAt = r.start
+                }
             },
-            isActive = if (raw) null else { s -> sel().let { r -> InlineHtml.isActive(st.rich, r.min, r.max, s) } },
+            isActive = if (raw) null else { s ->
+                sel().let { r ->
+                    if (r.collapsed) io.github.yggdrasil_sh.saga.blocks.PendingMarks.isOn(st.rich, r.start, s, if (st.marksAt == r.start) st.marks else emptyMap())
+                    else InlineHtml.isActive(st.rich, r.min, r.max, s)
+                }
+            },
             setLink = if (raw) null else { href ->
                 val r = sel()
                 if (!r.collapsed) publish(InlineHtml.setLink(st.rich, r.min, r.max, href))
@@ -379,7 +394,10 @@ fun RichField(
         )
     }
 
-    val transformation = if (raw && p == 0) VisualTransformation.None else VisualTransformation { t ->
+    // Nachbesserung R3: an st.rich gebunden - sonst bleibt (Strong Skipping) dieselbe Instanz und das Textfeld zeigt
+    // eine neue Formatierung der markierten Stelle erst, wenn sich Text oder Auswahl aendern
+    val richNow = st.rich
+    val transformation = if (raw && p == 0) VisualTransformation.None else remember(richNow, c, foreign, p, raw) { VisualTransformation { t ->
         if (p > 0 && !t.text.startsWith(pre)) return@VisualTransformation TransformedText(t, OffsetMapping.Identity)
         val shown = t.text.substring(p)
         val r = st.rich
@@ -392,7 +410,7 @@ fun RichField(
             p == 0 -> TransformedText(ann, OffsetMapping.Identity)
             else -> TransformedText(ann, StartMapping(p, shown.length))
         }
-    }
+    } }
 
     /** Cursor/Auswahl nie vor START */
     fun clamp(v: TextFieldValue): TextFieldValue {
@@ -436,11 +454,25 @@ fun RichField(
             }
             if (nv.text == old.text) {
                 st.value = clamp(nv)
+                if (st.marks.isNotEmpty() && (!st.value.selection.collapsed || st.value.selection.start - p != st.marksAt)) st.marks = emptyMap()
                 return@BasicTextField
             }
             val before = st.rich.text
+            val marks = st.marks
+            val marksAt = st.marksAt
             st.backspaceDone = null
             applyChange(st, clamp(nv), p, raw, enter, ::publish)
+            // Nachbesserung R3: vorgemerkte Formate auf den an der Schreibmarke eingefuegten Text anwenden
+            if (marks.isNotEmpty()) {
+                val len = if (st.splitPending) null else io.github.yggdrasil_sh.saga.blocks.PendingMarks.insertionAt(before, st.rich.text, marksAt)
+                if (len != null) {
+                    val r = io.github.yggdrasil_sh.saga.blocks.PendingMarks.apply(st.rich, marksAt, marksAt + len, marks)
+                    if (r != st.rich) publish(r)
+                    st.marksAt = marksAt + len
+                } else {
+                    st.marks = emptyMap()
+                }
+            }
             // 2.5 E2: "@" am Wortanfang getippt -> Personenauswahl (nur mit mention1)
             if (!raw && editor.mentionSupported) {
                 val ins = insertedText(before, st.rich.text)
@@ -470,6 +502,7 @@ fun RichField(
                     }
                 } else {
                     st.splitPending = false
+                    st.marks = emptyMap()
                     if (editor.active?.key == fieldKey) editor.active = null
                 }
             },

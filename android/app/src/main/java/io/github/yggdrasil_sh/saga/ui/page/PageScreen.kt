@@ -1183,10 +1183,11 @@ private fun EditorToolbar(
                         TypeMenu(typeMenu, item != null, onDismiss = { typeMenu = false }) { t, lvl -> typeMenu = false; ed.convertBlock(blockPath, t, lvl) }
                     }
                     if (isText) {
-                        FormatButton(SagaIcons.bold, stringResource(R.string.format_bold), active.styleOn(InlineStyle.BOLD), active.hasSelection()) { active.toggle.invoke(InlineStyle.BOLD) }
-                        FormatButton(SagaIcons.italic, stringResource(R.string.format_italic), active.styleOn(InlineStyle.ITALIC), active.hasSelection()) { active.toggle.invoke(InlineStyle.ITALIC) }
-                        FormatButton(SagaIcons.underline, stringResource(R.string.format_underline), active.styleOn(InlineStyle.UNDERLINE), active.hasSelection()) { active.toggle.invoke(InlineStyle.UNDERLINE) }
-                        FormatButton(SagaIcons.strikethrough, stringResource(R.string.format_strike), active.styleOn(InlineStyle.STRIKE), active.hasSelection()) { active.toggle.invoke(InlineStyle.STRIKE) }
+                        // Nachbesserung R3: immer bedienbar - ohne Auswahl wirkt der Knopf auf das naechste Tippen (Vormerkung)
+                        FormatButton(SagaIcons.bold, stringResource(R.string.format_bold), active.styleOn(InlineStyle.BOLD)) { active.toggle.invoke(InlineStyle.BOLD) }
+                        FormatButton(SagaIcons.italic, stringResource(R.string.format_italic), active.styleOn(InlineStyle.ITALIC)) { active.toggle.invoke(InlineStyle.ITALIC) }
+                        FormatButton(SagaIcons.underline, stringResource(R.string.format_underline), active.styleOn(InlineStyle.UNDERLINE)) { active.toggle.invoke(InlineStyle.UNDERLINE) }
+                        FormatButton(SagaIcons.strikethrough, stringResource(R.string.format_strike), active.styleOn(InlineStyle.STRIKE)) { active.toggle.invoke(InlineStyle.STRIKE) }
                         IconButton(onClick = { linkDialog = true }, enabled = active.hasSelection()) { SagaIcon(SagaIcons.link, stringResource(R.string.format_link)) }
                         if (active.insertMention != null && ed.mentionSupported) {
                             IconButton(onClick = { mentionPick = true }) { SagaIcon(SagaIcons.at, stringResource(R.string.e2_mention_title)) }
@@ -1235,14 +1236,16 @@ private fun EditorToolbar(
                     if (isText) active.linkAtCursor?.invoke()?.let { href ->
                         IconButton(onClick = { onLink(href) }) { SagaIcon(SagaIcons.external, stringResource(R.string.link_open)) }
                     }
-                    Spacer(Modifier.width(if (toolScroll.maxValue > 0) 36.dp else 0.dp))   // letzter Knopf nicht unter dem Hinweis
+                    Spacer(Modifier.width(if (toolScroll.maxValue > 0) 52.dp else 0.dp))   // letzter Knopf nicht unter dem Hinweis
                 }
                 if (toolScroll.canScrollForward) {
                     val bg = toolBg
                     val px = with(LocalDensity.current) { 144.dp.toPx() }
                     Box(
-                        Modifier.align(Alignment.CenterEnd).width(40.dp).height(48.dp)
-                            .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(bg.copy(alpha = 0f), bg, bg))),
+                        // Nachbesserung R3 (Schrift 1,3): breiterer, weicher Verlauf - ein angeschnittener Knopf blendet aus,
+                        // statt direkt am Pfeil zu stehen
+                        Modifier.align(Alignment.CenterEnd).width(56.dp).height(48.dp)
+                            .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(bg.copy(alpha = 0f), bg.copy(alpha = 0.85f), bg, bg))),
                         contentAlignment = Alignment.CenterEnd,
                     ) {
                         IconButton(onClick = { toolScope.launch { toolScroll.animateScrollBy(px) } }, modifier = Modifier.width(32.dp)) {
@@ -1372,11 +1375,18 @@ private fun EditorToolbar(
     }
 }
 
-/** Format-Knopf als Umschalter mit Liniensymbol (AND-ED-05): 48 dp, aktiv in secondaryContainer, TalkBack liest Namen und Zustand */
+/**
+ * Format-Knopf als Umschalter mit Liniensymbol (AND-ED-05): fest 48 dp (alle gleich breit), aktiv in
+ * secondaryContainer - der Hintergrund wird selbst gezeichnet, damit der Zustand immer sichtbar ist. TalkBack liest
+ * Namen und Zustand.
+ */
 @Composable
-private fun FormatButton(@androidx.annotation.DrawableRes icon: Int, description: String, on: Boolean, enabled: Boolean, onClick: () -> Unit) {
+private fun FormatButton(@androidx.annotation.DrawableRes icon: Int, description: String, on: Boolean, onClick: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
     IconToggleButton(
-        checked = on, onCheckedChange = { onClick() }, enabled = enabled,
+        checked = on, onCheckedChange = { onClick() },
+        modifier = Modifier.size(48.dp).padding(4.dp)
+            .background(if (on) cs.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(SagaRadius.m)),
         colors = IconButtonDefaults.iconToggleButtonColors(
             checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
             checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
