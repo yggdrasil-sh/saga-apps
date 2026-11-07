@@ -69,7 +69,7 @@ import java.time.format.FormatStyle
 
 // 2.5 Etappe 1: Personen, Dateien, Datum mit Uhrzeit/Zeitraum - Anzeige und Bearbeiten in Tabelle/Karte/Eintrag.
 
-/** Dateien einer Zelle: Name als Chip (Bild mit 🖼), Antippen oeffnet */
+/** Dateien einer Zelle: Name als Chip (Symbol Bild bzw. Bueroklammer), Antippen oeffnet */
 @Composable
 fun FilesView(v: JsonElement?) {
     val files = DbFiles.parse(v)
@@ -77,11 +77,14 @@ fun FilesView(v: JsonElement?) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         files.forEach { f ->
-            Text(
-                (if (f.image) "🖼 " else "📎 ") + f.name.ifEmpty { "–" }, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.clickable(enabled = repo != null) { repo?.let { io.github.yggdrasil_sh.saga.ui.common.openUrl(ctx, it.absoluteUrl(f.url)) } }
+            Row(
+                Modifier.clickable(enabled = repo != null) { repo?.let { io.github.yggdrasil_sh.saga.ui.common.openUrl(ctx, it.absoluteUrl(f.url)) } }
                     .padding(horizontal = 4.dp, vertical = 2.dp),
-            )
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SagaIcon(if (f.image) SagaIcons.image else SagaIcons.paperclip, null, Modifier.padding(end = 4.dp).size(14.dp))
+                Text(f.name.ifEmpty { "–" }, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }
@@ -180,7 +183,8 @@ fun FilesDialog(
                 if (cur.isEmpty()) Text(stringResource(R.string.dbv_value_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 cur.forEach { f ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text((if (f.image) "🖼 " else "📎 ") + f.name, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        SagaIcon(if (f.image) SagaIcons.image else SagaIcons.paperclip, null, Modifier.padding(end = 8.dp).size(18.dp))
+                        Text(f.name, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                         IconButton(onClick = { cur = cur - f }) { SagaIcon(SagaIcons.x, stringResource(R.string.e1_file_remove, f.name)) }
                     }
                 }

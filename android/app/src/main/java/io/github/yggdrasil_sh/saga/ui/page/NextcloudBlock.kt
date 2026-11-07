@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import androidx.compose.material3.ButtonDefaults
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.border
@@ -184,7 +187,10 @@ fun NextcloudCard(d: JsonObject, env: BlockEnv) {
                 }
             }
             NcLogic.openUrl(d, remote)?.let { u ->
-                OutlinedButton(onClick = { openUrl(context, u) }) { Text(stringResource(R.string.nc_open) + " ↗") }
+                OutlinedButton(onClick = { openUrl(context, u) }) {
+                    Text(stringResource(R.string.nc_open))
+                    SagaIcon(SagaIcons.external, null, Modifier.padding(start = 6.dp).size(ButtonDefaults.IconSize))
+                }
             }
         }
     }
@@ -265,7 +271,7 @@ fun NextcloudPickerDialog(repo: SagaRepository, onDismiss: () -> Unit, onPick: (
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("☁ " + stringResource(R.string.nc_pick_title)) },
+        title = { IconLabel(SagaIcons.cloud, stringResource(R.string.nc_pick_title), iconSize = 22.dp) },
         text = {
             Column(Modifier.widthIn(max = 560.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (notConnected) {

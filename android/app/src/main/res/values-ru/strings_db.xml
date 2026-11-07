@@ -33,6 +33,7 @@
     <string name="dbv_loading_more">Загрузка записей …</string>
     <string name="dbv_locked">🔒 Эта база данных заблокирована: представления, фильтры и сортировка защищены. Записи можно редактировать.</string>
     <string name="dbv_read_only">Только чтение</string>
+    <string name="dbv_locked_short">База данных заблокирована</string>
     <string name="dbv_offline_cached">Нет сети – показано последнее известное состояние</string>
     <string name="dbv_saved_offline">Сохранено на этом устройстве – будет отправлено, как только появится сеть.</string>
     <string name="dbv_not_saved">Не сохранено: %1$s</string>

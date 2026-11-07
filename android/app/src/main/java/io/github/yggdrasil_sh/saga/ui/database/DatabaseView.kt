@@ -44,6 +44,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -161,14 +162,25 @@ fun viewLabel(type: String): String = stringResource(
     },
 )
 
-fun viewIcon(type: String): String = when (type) {
-    "board" -> "▥"
-    "list" -> "☰"
-    "gallery" -> "▣"
-    "calendar" -> "🗓"
-    "chart" -> "📊"
-    "timeline" -> "▤"
-    else -> "▦"
+/** Liniensymbol der Ansichtsart (ED-16, wie im Web) - vor dem Namen, dekorativ (der Name steht daneben) */
+@androidx.annotation.DrawableRes
+fun viewIcon(type: String): Int = when (type) {
+    "board" -> SagaIcons.board
+    "list" -> SagaIcons.list
+    "gallery" -> SagaIcons.gallery
+    "calendar" -> SagaIcons.calendar
+    "chart" -> SagaIcons.chart
+    "timeline" -> SagaIcons.timeline
+    else -> SagaIcons.table
+}
+
+/** "Datenbank nicht verfuegbar": Liniensymbol statt 🗃️ */
+@Composable
+internal fun DbMissing(modifier: Modifier = Modifier, style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyLarge) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        SagaIcon(SagaIcons.database, null, Modifier.padding(end = 8.dp).size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.db_missing), style = style, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 /** Zeilen und Werkzeugleiste der Datenbank als Eintraege der Seiten-LazyColumn */
@@ -176,7 +188,7 @@ fun LazyListScope.databaseItems(st: DbViewState, repo: SagaRepository, onOpen: (
     item(key = "db-toolbar", contentType = "db-toolbar") { DbToolbar(st, onOpen, repo) }
     val s = st.schema
     if (st.noAccess) {
-        item(key = "db-noaccess") { Text("🗃️ " + stringResource(R.string.db_missing), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 12.dp)) }
+        item(key = "db-noaccess") { DbMissing(Modifier.padding(vertical = 12.dp)) }
         return
     }
     if (s == null) {
@@ -316,14 +328,16 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaReposi
                     val typeLabel = viewLabel(v.type)
                     if (!pills) FilterChip(
                         selected = true, onClick = { viewMenu = true },
-                        label = { Text(viewIcon(v.type) + " " + v.name.ifEmpty { typeLabel }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        label = { Text(v.name.ifEmpty { typeLabel }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        leadingIcon = { SagaIcon(viewIcon(v.type), null, Modifier.size(FilterChipDefaults.IconSize)) },
                         trailingIcon = { SagaIcon(SagaIcons.caretDown, null, Modifier.size(18.dp)) },
                         modifier = Modifier.widthIn(max = 200.dp).semantics { contentDescription = v.name.ifEmpty { typeLabel } + ", " + typeLabel },
                     )
                     DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
                         st.views.forEach { x ->
                             DropdownMenuItem(
-                                text = { Text(viewIcon(x.type) + " " + x.name.ifEmpty { viewLabel(x.type) }) },
+                                text = { Text(x.name.ifEmpty { viewLabel(x.type) }) },
+                                leadingIcon = { SagaIcon(viewIcon(x.type), null, Modifier.size(18.dp)) },
                                 trailingIcon = { if (x.id == v.id) SagaIcon(SagaIcons.check, null) },
                                 onClick = { viewMenu = false; if (x.id != v.id) st.selectView(x.id) },
                             )
@@ -443,7 +457,7 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaReposi
                     Text(stringResource(R.string.dbv_count, st.matched, st.total), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (st.readOnly) Text("  · " + stringResource(R.string.dbv_read_only), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (s.locked && !st.readOnly) Text("  🔒", style = MaterialTheme.typography.labelMedium)
+                if (s.locked && !st.readOnly) SagaIcon(SagaIcons.lock, stringResource(R.string.dbv_locked_short), Modifier.padding(start = 8.dp).size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (st.offline) Text(stringResource(R.string.dbv_offline_cached), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
             st.error?.let { Text(it.resolve(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
@@ -472,10 +486,9 @@ internal fun ViewPills(views: List<DbView>, current: String, onSelect: (String) 
                     .heightIn(min = 36.dp).padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    viewIcon(x.type) + " " + x.name.ifEmpty { viewLabel(x.type) }, style = MaterialTheme.typography.labelLarge, maxLines = 1,
-                    color = if (sel) accent.onGoldSoft else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                val fg = if (sel) accent.onGoldSoft else MaterialTheme.colorScheme.onSurfaceVariant
+                SagaIcon(viewIcon(x.type), null, Modifier.padding(end = 6.dp).size(16.dp), tint = fg)
+                Text(x.name.ifEmpty { viewLabel(x.type) }, style = MaterialTheme.typography.labelLarge, maxLines = 1, color = fg)
             }
         }
     }
@@ -566,11 +579,10 @@ internal fun cardTint(st: DbViewState, r: DbRow, v: DbView): Pair<androidx.compo
     return androidx.compose.ui.graphics.Color(io.github.yggdrasil_sh.saga.blocks.InlineForms.bgArgb(c, dark)).compositeOver(cardColor()) to optColor(c)
 }
 
-/** "⛔ blockiert" (subtasks1) */
+/** "blockiert" (subtasks1): Liniensymbol "ban" in Fehlerfarbe statt ⛔ */
 @Composable
 internal fun BlockedMark() {
-    val hint = stringResource(R.string.e1_blocked)
-    Text("⛔", modifier = Modifier.padding(start = 4.dp).semantics { contentDescription = hint }, style = MaterialTheme.typography.labelMedium)
+    SagaIcon(SagaIcons.ban, stringResource(R.string.e1_blocked), Modifier.padding(start = 4.dp).size(14.dp), tint = MaterialTheme.colorScheme.error)
 }
 
 @Composable

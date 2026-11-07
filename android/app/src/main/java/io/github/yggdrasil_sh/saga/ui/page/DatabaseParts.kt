@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import androidx.compose.foundation.layout.size
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -180,8 +183,10 @@ fun RowProperties(ed: PageEditor, repo: SagaRepository) {
         Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(8.dp))
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
-        if (meta.blocked) Text("⛔ " + stringResource(R.string.e1_blocked), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
-            modifier = Modifier.padding(vertical = 4.dp))
+        if (meta.blocked) Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            SagaIcon(SagaIcons.ban, null, Modifier.padding(end = 6.dp).size(14.dp), tint = MaterialTheme.colorScheme.error)
+            Text(stringResource(R.string.e1_blocked), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
         androidx.compose.runtime.CompositionLocalProvider(io.github.yggdrasil_sh.saga.ui.database.LocalDbRepo provides repo) {
             shown.forEach { p ->
                 val v = q.value(p, row)
@@ -227,7 +232,7 @@ fun DatabaseBlock(d: JsonObject, env: BlockEnv, path: io.github.yggdrasil_sh.sag
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f), MaterialTheme.shapes.large).padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         if (dbId == null || (meta == null && dbId >= 0)) {
-            Text("🗃️ " + stringResource(R.string.db_missing), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            io.github.yggdrasil_sh.saga.ui.database.DbMissing(style = MaterialTheme.typography.bodyMedium)
             return@Column
         }
         // 2.5: Titel im Block ausgeblendet (hide_title, wie Web/iOS) - die Eintraege oeffnen sich weiter
@@ -348,8 +353,11 @@ private fun EmbedCard(url: String, title: String, d: JsonObject, env: BlockEnv) 
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium)
             .clickable(enabled = url.isNotEmpty()) { env.onLink(url) }.padding(12.dp),
     ) {
-        Text((if (BlockDoc.str(d, "kind") == "youtube") "▶ " else "🔗 ") + title.ifEmpty { url.ifEmpty { stringResource(R.string.blocktype_embed) } },
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SagaIcon(if (BlockDoc.str(d, "kind") == "youtube") SagaIcons.play else SagaIcons.link, null, Modifier.padding(end = 6.dp).size(16.dp))
+            Text(title.ifEmpty { url.ifEmpty { stringResource(R.string.blocktype_embed) } },
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
         if (url.isNotEmpty() && title.isNotEmpty()) {
             Text(url, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }

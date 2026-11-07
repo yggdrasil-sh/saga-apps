@@ -33,6 +33,7 @@
     <string name="dbv_loading_more">กำลังโหลดรายการเพิ่มเติม …</string>
     <string name="dbv_locked">🔒 ฐานข้อมูลนี้ถูกล็อก: มุมมอง ตัวกรอง และการเรียงลำดับได้รับการป้องกัน คุณยังแก้ไขรายการได้</string>
     <string name="dbv_read_only">อ่านอย่างเดียว</string>
+    <string name="dbv_locked_short">ฐานข้อมูลถูกล็อก</string>
     <string name="dbv_offline_cached">ออฟไลน์ – แสดงสถานะล่าสุดที่ทราบ</string>
     <string name="dbv_saved_offline">บันทึกไว้ในอุปกรณ์นี้แล้ว – จะส่งเมื่อคุณออนไลน์</string>
     <string name="dbv_not_saved">ไม่ได้บันทึก: %1$s</string>

@@ -40,7 +40,7 @@ fun EmbeddedDatabase(dbId: Long, data: JsonObject, pageId: Long, blockId: String
             val wide = maxWidth >= 600.dp
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (st.noAccess) {
-                    Text("🗃️ " + stringResource(R.string.db_missing), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    DbMissing(style = MaterialTheme.typography.bodyMedium)
                     return@Column
                 }
                 val s = st.schema

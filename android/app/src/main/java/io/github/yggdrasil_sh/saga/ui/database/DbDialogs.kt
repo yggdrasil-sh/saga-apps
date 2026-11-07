@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -18,6 +19,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -288,7 +290,7 @@ private fun ViewDialog(st: DbViewState, s: DbSchema, v: DbView, onDismiss: () ->
                 Text(stringResource(R.string.dbv_view_layout), style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     DbView.TYPES.forEach { t ->
-                        FilterChip(selected = v.type == t, onClick = { st.editSchema { DbViews.setType(it, v.id, t) } }, label = { Text(viewIcon(t) + " " + viewLabel(t)) })
+                        FilterChip(selected = v.type == t, onClick = { st.editSchema { DbViews.setType(it, v.id, t) } }, label = { Text(viewLabel(t)) }, leadingIcon = { SagaIcon(viewIcon(t), null, Modifier.size(FilterChipDefaults.IconSize)) })
                     }
                 }
                 when (v.type) {
@@ -356,7 +358,7 @@ private fun NewViewDialog(onCreate: (String, String) -> Unit, onDismiss: () -> U
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    DbView.TYPES.forEach { t -> FilterChip(selected = type == t, onClick = { type = t }, label = { Text(viewIcon(t) + " " + viewLabel(t)) }) }
+                    DbView.TYPES.forEach { t -> FilterChip(selected = type == t, onClick = { type = t }, label = { Text(viewLabel(t)) }, leadingIcon = { SagaIcon(viewIcon(t), null, Modifier.size(FilterChipDefaults.IconSize)) }) }
                 }
                 OutlinedTextField(name, { name = it.take(40) }, singleLine = true, label = { Text(stringResource(R.string.dbv_view_name)) },
                     placeholder = { Text(defaultName) }, modifier = Modifier.fillMaxWidth())

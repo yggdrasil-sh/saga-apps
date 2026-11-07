@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import androidx.compose.ui.graphics.isSpecified
 import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
@@ -275,16 +276,34 @@ private fun Selectable(key: String, path: JsonPath, env: BlockEnv, content: @Com
     ) { content() }
 }
 
+/**
+ * Titelzeile mit Liniensymbol davor (A11Y-10/-21: Symbol statt Emoji-Praefix wie "🗓 Kalender"). Das Symbol ist
+ * dekorativ, der Text traegt die Bedeutung. Farbe des Symbols = Textfarbe.
+ */
+@Composable
+internal fun IconLabel(
+    @androidx.annotation.DrawableRes icon: Int, text: String, modifier: Modifier = Modifier,
+    style: androidx.compose.ui.text.TextStyle = androidx.compose.material3.LocalTextStyle.current,
+    color: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Unspecified,
+    iconSize: androidx.compose.ui.unit.Dp = 16.dp,
+) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        val tint = if (color.isSpecified) color else androidx.compose.material3.LocalContentColor.current
+        SagaIcon(icon, null, Modifier.padding(end = 6.dp).size(iconSize), tint = tint)
+        Text(text, style = style, color = color)
+    }
+}
+
 /** "✓ Aufgaben · Nur für den Eigentümer sichtbar" (wie im Web) - nie Daten des Eigentuemers */
 @Composable
 private fun OwnerOnly(type: String) {
-    val what = when (type) {
-        "tasks" -> "✓ " + stringResource(R.string.owner_only_tasks)
-        "calendar" -> "🗓 " + stringResource(R.string.owner_only_calendar)
-        else -> "📷 Immich"
+    val (icon, what) = when (type) {
+        "tasks" -> SagaIcons.checkbox to stringResource(R.string.owner_only_tasks)
+        "calendar" -> SagaIcons.calendar to stringResource(R.string.owner_only_calendar)
+        else -> SagaIcons.camera to "Immich"
     }
-    Text(
-        what + " · " + stringResource(R.string.owner_only),
+    IconLabel(
+        icon, what + " · " + stringResource(R.string.owner_only),
         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(12.dp),

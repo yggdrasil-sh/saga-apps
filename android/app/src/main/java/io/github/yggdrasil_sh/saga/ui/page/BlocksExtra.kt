@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import androidx.compose.foundation.layout.size
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -398,7 +401,7 @@ fun AttachesBlock(d: JsonObject, env: BlockEnv) {
             .clickable(enabled = u.isNotEmpty() && !edit) { env.onLink(u) }.padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("📎", modifier = Modifier.padding(end = 10.dp))
+        SagaIcon(SagaIcons.paperclip, null, Modifier.padding(end = 10.dp).size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Column(Modifier.weight(1f)) {
             Text(InlineHtml.decodeEntities(name), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (size != null && size > 0) Text(humanSize(size.toLong()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -420,7 +423,7 @@ fun TasksBlock(env: BlockEnv) {
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(8.dp),
     ) {
-        Text("✓ " + stringResource(R.string.blocktype_tasks), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(4.dp))
+        IconLabel(SagaIcons.checkbox, stringResource(R.string.blocktype_tasks), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(4.dp))
         if (tasks.isEmpty()) Text(stringResource(R.string.ed24_tasks_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(4.dp))
         tasks.take(30).forEach { t ->
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -443,7 +446,7 @@ fun CalendarBlock(d: JsonObject, env: BlockEnv) {
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(vertical = 8.dp),
     ) {
-        Text("🗓 " + stringResource(R.string.blocktype_calendar), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+        IconLabel(SagaIcons.calendar, stringResource(R.string.blocktype_calendar), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
         val l = events
         when {
             l == null -> Text("…", modifier = Modifier.padding(12.dp))

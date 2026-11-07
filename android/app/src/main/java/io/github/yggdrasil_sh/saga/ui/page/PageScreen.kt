@@ -366,9 +366,9 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
             if (aiOn && ed.fetched && !ed.isDatabase) {
                 val aiDesc = aiPersona?.let { stringResource(R.string.ai_ask_name, it.name) } ?: stringResource(R.string.ai_title)
                 IconButton(onClick = { assistant = 0 }, modifier = Modifier.semantics { contentDescription = aiDesc }) {
-                    // 2.1: Profilbild der KI (ohne Bild: ✦ auf Akzentfarbe); aeltere Server: bisheriges ✦
+                    // 2.1: Profilbild der KI (ohne Bild: ✦ auf Akzentfarbe); aeltere Server: Liniensymbol "sparkles"
                     if (aiPersona != null) io.github.yggdrasil_sh.saga.ui.ai.AiAvatar(aiPersona, 26)
-                    else Text("✦", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clearAndSetSemantics { })
+                    else SagaIcon(SagaIcons.sparkles, null, tint = MaterialTheme.colorScheme.primary)
                 }
             }
             // Kommentare dezent: "💬 n" nur bei offenen Unterhaltungen, Punkt bei ungelesenen
@@ -1371,7 +1371,7 @@ private fun CommentsButton(open: Int, unread: Int, onClick: () -> Unit) {
     }
 }
 
-/** Am Block: kleine Zahl (offene Unterhaltungen) bzw. "💬+" am ausgewaehlten Block - dezent, 48 dp Trefferflaeche */
+/** Am Block: kleine Zahl (offene Unterhaltungen) bzw. Sprechblase + Plus am ausgewaehlten Block - dezent, 48 dp Trefferflaeche */
 @Composable
 private fun BlockBubble(count: Int, unread: Boolean, onClick: () -> Unit) {
     val res = LocalResources.current
@@ -1386,10 +1386,10 @@ private fun BlockBubble(count: Int, unread: Boolean, onClick: () -> Unit) {
         ) {
             Row(Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                 SagaIcon(SagaIcons.comment, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(
-                    if (count > 0) "$count" else "+", style = MaterialTheme.typography.labelSmall,
+                if (count > 0) Text(
+                    "$count", style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 2.dp),
-                )
+                ) else SagaIcon(SagaIcons.plus, null, Modifier.padding(start = 1.dp).size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (unread) Box(Modifier.padding(start = 3.dp).size(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
             }
         }

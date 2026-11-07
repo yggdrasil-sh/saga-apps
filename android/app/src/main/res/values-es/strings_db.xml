@@ -33,6 +33,7 @@
     <string name="dbv_loading_more">Cargando más entradas …</string>
     <string name="dbv_locked">🔒 Esta base de datos está bloqueada: las vistas, los filtros y el orden están protegidos. Puedes seguir editando las entradas.</string>
     <string name="dbv_read_only">Solo lectura</string>
+    <string name="dbv_locked_short">Base de datos bloqueada</string>
     <string name="dbv_offline_cached">Sin conexión: se muestra el último estado conocido</string>
     <string name="dbv_saved_offline">Guardado en este dispositivo: se enviará en cuanto tengas conexión.</string>
     <string name="dbv_not_saved">No guardado: %1$s</string>

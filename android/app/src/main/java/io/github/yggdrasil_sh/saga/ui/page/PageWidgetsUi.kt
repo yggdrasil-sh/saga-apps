@@ -535,12 +535,12 @@ private fun UpcomingBody(v: PageWidgets.Value?, env: BlockEnv) {
         )
         list.forEach { x ->
             val time = if (x.allday) null else io.github.yggdrasil_sh.saga.db.DbDate.parsePart(x.start)?.localTime(ZoneId.systemDefault())?.format(timeFmt)
-            val icon = when (x.k) { "event" -> "🗓"; "task" -> "☐"; else -> "▪" }
+            val icon = when (x.k) { "event" -> SagaIcons.calendar; "task" -> SagaIcons.checkbox; else -> SagaIcons.dot }
             Row(
                 Modifier.fillMaxWidth().then(if (x.note != null) Modifier.clickable { env.onLink("/notes#${x.note}") } else Modifier).padding(vertical = 3.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text(icon, style = MaterialTheme.typography.bodySmall)
+                SagaIcon(icon, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (time != null) Text(time, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(x.title.ifEmpty { "–" }, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 x.cal?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }

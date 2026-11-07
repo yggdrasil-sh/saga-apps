@@ -33,6 +33,7 @@
     <string name="dbv_loading_more">Weitere Einträge werden geladen …</string>
     <string name="dbv_locked">🔒 Diese Datenbank ist gesperrt: Ansichten, Filter und Sortierung sind geschützt. Einträge kannst du weiter bearbeiten.</string>
     <string name="dbv_read_only">Nur lesen</string>
+    <string name="dbv_locked_short">Datenbank gesperrt</string>
     <string name="dbv_offline_cached">Offline – zuletzt bekannter Stand</string>
     <string name="dbv_saved_offline">Auf diesem Gerät gespeichert – wird gesendet, sobald du online bist.</string>
     <string name="dbv_not_saved">Nicht gespeichert: %1$s</string>

@@ -85,14 +85,14 @@ fun BlockColorMenu(expanded: Boolean, current: Gestalten.Style?, onDismiss: () -
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         DropdownMenuItem(
             text = { Text(stringResource(R.string.gest_color_default)) }, leadingIcon = { Swatch(null, false) },
-            trailingIcon = if (current == null) ({ Text("✓") }) else null,
+            trailingIcon = if (current == null) ({ Picked() }) else null,
             onClick = { onPick(null, false) },
         )
         HorizontalDivider()
         Gestalten.PALETTE.forEach { c ->
             DropdownMenuItem(
                 text = { Text(paletteName(c)) }, leadingIcon = { Swatch(c, false) },
-                trailingIcon = if (current == Gestalten.Style(c, false)) ({ Text("✓") }) else null,
+                trailingIcon = if (current == Gestalten.Style(c, false)) ({ Picked() }) else null,
                 onClick = { onPick(c, false) },
             )
         }
@@ -100,7 +100,7 @@ fun BlockColorMenu(expanded: Boolean, current: Gestalten.Style?, onDismiss: () -
         Gestalten.PALETTE.forEach { c ->
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.gest_color_bg, paletteName(c))) }, leadingIcon = { Swatch(c, true) },
-                trailingIcon = if (current == Gestalten.Style(c, true)) ({ Text("✓") }) else null,
+                trailingIcon = if (current == Gestalten.Style(c, true)) ({ Picked() }) else null,
                 onClick = { onPick(c, true) },
             )
         }
@@ -119,14 +119,14 @@ fun PageStyleMenu(expanded: Boolean, font: String?, small: Boolean, onDismiss: (
             }
             DropdownMenuItem(
                 text = { Text(stringResource(label), fontFamily = fam) },
-                trailingIcon = if (font == f) ({ Text("✓") }) else null,
+                trailingIcon = if (font == f) ({ Picked() }) else null,
                 onClick = { onFont(f) },
             )
         }
         HorizontalDivider()
         DropdownMenuItem(
             text = { Text(stringResource(R.string.gest_small)) },
-            trailingIcon = if (small) ({ Text("✓") }) else null,
+            trailingIcon = if (small) ({ Picked() }) else null,
             onClick = { onSmall(!small) },
         )
     }
@@ -142,19 +142,28 @@ fun InlineColorMenu(expanded: Boolean, text: String?, bg: String?, onDismiss: ()
         Text(stringResource(R.string.e2_inline_text_color), style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
             modifier = androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
         DropdownMenuItem(text = { Text(stringResource(R.string.e2_inline_color_remove)) }, leadingIcon = { Swatch(null, false) },
-            trailingIcon = if (text == null) ({ Text("✓") }) else null, onClick = { onPick(null, false) })
+            trailingIcon = if (text == null) ({ Picked() }) else null, onClick = { onPick(null, false) })
         Gestalten.PALETTE.forEach { c ->
             DropdownMenuItem(text = { Text(paletteName(c)) }, leadingIcon = { Swatch(c, false) },
-                trailingIcon = if (text == c) ({ Text("✓") }) else null, onClick = { onPick(c, false) })
+                trailingIcon = if (text == c) ({ Picked() }) else null, onClick = { onPick(c, false) })
         }
         HorizontalDivider()
         Text(stringResource(R.string.e2_inline_bg_color), style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
             modifier = androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
         DropdownMenuItem(text = { Text(stringResource(R.string.e2_inline_color_remove)) }, leadingIcon = { Swatch(null, true) },
-            trailingIcon = if (bg == null) ({ Text("✓") }) else null, onClick = { onPick(null, true) })
+            trailingIcon = if (bg == null) ({ Picked() }) else null, onClick = { onPick(null, true) })
         Gestalten.PALETTE.forEach { c ->
             DropdownMenuItem(text = { Text(paletteName(c)) }, leadingIcon = { Swatch(c, true) },
-                trailingIcon = if (bg == c) ({ Text("✓") }) else null, onClick = { onPick(c, true) })
+                trailingIcon = if (bg == c) ({ Picked() }) else null, onClick = { onPick(c, true) })
         }
     }
+}
+
+/** Haken am gewaehlten Menueeintrag: Liniensymbol "check" statt "✓" (A11Y-10), TalkBack sagt "Ausgewaehlt" */
+@Composable
+private fun Picked() {
+    io.github.yggdrasil_sh.saga.ui.theme.SagaIcon(
+        io.github.yggdrasil_sh.saga.ui.theme.SagaIcons.check, androidx.compose.ui.res.stringResource(R.string.cs_state_selected),
+        androidx.compose.ui.Modifier.size(18.dp),
+    )
 }
