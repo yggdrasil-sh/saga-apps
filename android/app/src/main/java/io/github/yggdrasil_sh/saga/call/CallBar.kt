@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.util.resolve
 import kotlinx.coroutines.delay
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 
 private val BAR_GREEN = Color(0xFF1E8E3E)
 
@@ -67,7 +68,7 @@ fun OngoingCallBar(st: CallUiState?, modifier: Modifier = Modifier) {
                 .semantics(mergeDescendants = true) { contentDescription = "$text. $hint" },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(painterResource(if (st!!.video) R.drawable.ic_videocam else R.drawable.ic_call), null, Modifier.size(18.dp))
+            Icon(painterResource(if (st!!.video) SagaIcons.video else SagaIcons.phone), null, Modifier.size(18.dp))
             Text(
                 "$text – $hint", style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(start = 8.dp),
@@ -90,7 +91,7 @@ fun ReturnToCallRow(st: CallUiState?, chatId: Long, modifier: Modifier = Modifie
                 .heightIn(min = 48.dp).padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(painterResource(if (st!!.video) R.drawable.ic_videocam else R.drawable.ic_call), null, Modifier.size(20.dp))
+            Icon(painterResource(if (st!!.video) SagaIcons.video else SagaIcons.phone), null, Modifier.size(20.dp))
             Text(
                 stringResource(R.string.call_return), style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.padding(start = 12.dp),
@@ -136,7 +137,7 @@ fun RunningCallBar(calls: CallManager, own: CallUiState?, modifier: Modifier = M
     Surface(color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer, modifier = modifier.fillMaxWidth()) {
         Column((if (statusBar) Modifier.statusBarsPadding() else Modifier).padding(horizontal = 16.dp, vertical = 6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) {}) {
-                Icon(painterResource(if (b.mineRunning) R.drawable.ic_devices else R.drawable.ic_group), null, Modifier.size(18.dp))
+                Icon(painterResource(if (b.mineRunning) SagaIcons.devices else SagaIcons.users), null, Modifier.size(18.dp))
                 Text(
                     title, style = MaterialTheme.typography.labelLarge, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(start = 8.dp).weight(1f),

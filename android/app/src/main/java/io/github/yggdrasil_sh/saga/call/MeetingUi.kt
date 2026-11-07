@@ -83,8 +83,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.heading
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -101,6 +99,7 @@ import org.webrtc.VideoFrame
 import org.webrtc.VideoSink
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 
 // Meeting-Ansicht (MEETING-SPEC.md): eine Buehne fuer 1:1, Mesh und Knoten - Personenkacheln ueber `who`, Bildschirm
 // gross und ganz (contain, kein Kamera-Bild-im-Bild), Streifen, Galerie mit Seiten, Hinweis-Chip, Zoom, ausblendende
@@ -256,10 +255,10 @@ private fun NameBar(t: Meeting.Tile, speaking: Boolean, pinned: Boolean, modifie
         modifier.background(MEET_BAR, RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (t.screen) Icon(painterResource(R.drawable.ic_screen_share), null, Modifier.size(14.dp), tint = Color.White)
-        else if (!t.mic) Icon(painterResource(R.drawable.ic_mic_off), null, Modifier.size(14.dp), tint = Color.White)
-        else if (speaking) Icon(painterResource(R.drawable.ic_volume_up), null, Modifier.size(14.dp), tint = MEET_SPEAK)
-        if (pinned) Icon(painterResource(R.drawable.ic_push_pin), null, Modifier.padding(start = 2.dp).size(14.dp), tint = Color.White)
+        if (t.screen) Icon(painterResource(SagaIcons.screenShare), null, Modifier.size(14.dp), tint = Color.White)
+        else if (!t.mic) Icon(painterResource(SagaIcons.micOff), null, Modifier.size(14.dp), tint = Color.White)
+        else if (speaking) Icon(painterResource(SagaIcons.volume), null, Modifier.size(14.dp), tint = MEET_SPEAK)
+        if (pinned) Icon(painterResource(SagaIcons.pin), null, Modifier.padding(start = 2.dp).size(14.dp), tint = Color.White)
         Text(
             meetLabel(t), color = Color.White, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = 3.dp),
@@ -297,7 +296,7 @@ private fun MeetTile(
     ) {
         when {
             showVideo && t.video -> tileVideo(t, t.screen, Modifier.fillMaxSize())
-            t.screen -> Icon(painterResource(R.drawable.ic_screen_share), null, Modifier.size(if (small) 24.dp else 40.dp), tint = Color.White.copy(alpha = 0.7f))
+            t.screen -> Icon(painterResource(SagaIcons.screenShare), null, Modifier.size(if (small) 24.dp else 40.dp), tint = Color.White.copy(alpha = 0.7f))
             else -> ChatAvatar(t.name, if (small) 36.dp else 64.dp, avatar = t.avatar)
         }
         NameBar(t, speaking, pinned, Modifier.align(Alignment.BottomStart).padding(if (small) 4.dp else 8.dp).widthIn(max = 600.dp))
@@ -399,13 +398,13 @@ private fun ShareChip(t: Meeting.Tile, modifier: Modifier, onClose: () -> Unit) 
         modifier.height(32.dp).background(MEET_BAR, RoundedCornerShape(16.dp)).padding(start = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(painterResource(R.drawable.ic_screen_share), null, Modifier.size(16.dp), tint = Color.White)
+        Icon(painterResource(SagaIcons.screenShare), null, Modifier.size(16.dp), tint = Color.White)
         Text(
             text, color = Color.White, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = 6.dp).weight(1f, fill = false).semantics { liveRegion = LiveRegionMode.Polite },
         )
         IconButton(onClick = onClose, modifier = Modifier.size(48.dp).padding(8.dp)) {
-            Icon(painterResource(R.drawable.ic_close), stringResource(R.string.meet_chip_close), tint = Color.White, modifier = Modifier.size(16.dp))
+            Icon(painterResource(SagaIcons.x), stringResource(R.string.meet_chip_close), tint = Color.White, modifier = Modifier.size(16.dp))
         }
     }
 }
@@ -549,7 +548,7 @@ private fun Strip(
         IconButton(onClick = { ms.stripCollapsed = !ms.stripCollapsed }, modifier = Modifier.size(48.dp).semantics { contentDescription = handleCd }) {
             Box(Modifier.size(28.dp).clip(CircleShape).background(MEET_BAR), contentAlignment = Alignment.Center) {
                 Icon(
-                    painterResource(R.drawable.ic_chevron_right), null, tint = Color.White,
+                    painterResource(SagaIcons.chevronRight), null, tint = Color.White,
                     modifier = Modifier.size(18.dp).graphicsLayer {
                         rotationZ = when {
                             right && !ms.stripCollapsed -> 0f
@@ -648,10 +647,10 @@ private fun Gallery(
             val prev = stringResource(R.string.meet_page_prev)
             val next = stringResource(R.string.meet_page_next)
             AnimatedVisibility(controls && pager.currentPage > 0, Modifier.align(Alignment.CenterStart), enter = fadeIn(), exit = fadeOut()) {
-                PageArrow(R.drawable.ic_chevron_right, 180f, prev) { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } }
+                PageArrow(SagaIcons.chevronRight, 180f, prev) { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } }
             }
             AnimatedVisibility(controls && pager.currentPage < pages.size - 1, Modifier.align(Alignment.CenterEnd), enter = fadeIn(), exit = fadeOut()) {
-                PageArrow(R.drawable.ic_chevron_right, 0f, next) { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }
+                PageArrow(SagaIcons.chevronRight, 0f, next) { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }
             }
             val pageCd = stringResource(R.string.meet_page, pager.currentPage + 1, pages.size)
             Row(
@@ -707,7 +706,7 @@ internal fun MeetCompanions(names: List<String>, onDark: Boolean) {
     if (names.isEmpty()) return
     Surface(color = if (onDark) Color(0x66101114) else MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(50), modifier = Modifier.padding(top = 6.dp)) {
         Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(painterResource(R.drawable.ic_devices), null, Modifier.size(16.dp), tint = if (onDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(painterResource(SagaIcons.devices), null, Modifier.size(16.dp), tint = if (onDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
                 stringResource(R.string.meet_companions, names.joinToString(", ")), color = if (onDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp),
@@ -733,7 +732,7 @@ internal fun MeetLayoutButton(ms: MeetState, share: Boolean, col: Dp, bg: Color,
     val cur = ms.effPref
     Box {
         RoundButton(
-            R.drawable.ic_grid_view, stringResource(R.string.meet_layout), bg, fg, compact = true, col = col, selected = open,
+            SagaIcons.gallery, stringResource(R.string.meet_layout), bg, fg, compact = true, col = col, selected = open,
             cd = stringResource(R.string.meet_layout_cd, names[cur].orEmpty()),
         ) {
             open = true; onMenu(true)
@@ -851,7 +850,7 @@ internal fun MeetPill(title: String, info: String, e2e: String, modifier: Modifi
             )
             if (info.isNotEmpty()) Text(" · $info", style = MaterialTheme.typography.labelMedium, maxLines = 1, color = Color.White.copy(alpha = 0.85f))
             Icon(
-                Icons.Filled.Lock, e2e, Modifier.padding(start = 6.dp).size(14.dp),
+                painterResource(SagaIcons.lock), e2e, Modifier.padding(start = 6.dp).size(14.dp),
                 tint = Color(0xFF8BE28B),
             )
         }

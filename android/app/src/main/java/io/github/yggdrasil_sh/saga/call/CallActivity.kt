@@ -45,9 +45,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledIconButton
@@ -98,6 +95,7 @@ import io.github.yggdrasil_sh.saga.util.resolve
 import kotlinx.coroutines.delay
 import org.webrtc.RendererCommon
 import org.webrtc.SurfaceViewRenderer
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 
 /**
  * Anruf-Oberflaeche (Vollbild, auch auf dem Sperrbildschirm): Klingeln mit Annehmen/Ablehnen, laufender Anruf mit
@@ -136,10 +134,10 @@ class CallActivity : ComponentActivity() {
         val hangLabel = getString(R.string.call_hangup)
         val actions = listOf(
             RemoteAction(
-                Icon.createWithResource(this, if (mic) R.drawable.ic_mic else R.drawable.ic_mic_off), muteLabel, muteLabel,
+                Icon.createWithResource(this, if (mic) SagaIcons.mic else SagaIcons.micOff), muteLabel, muteLabel,
                 CallNotify.broadcast(this, CallNotify.ACTION_MUTE, 6),
             ),
-            RemoteAction(Icon.createWithResource(this, R.drawable.ic_call_end), hangLabel, hangLabel, CallNotify.broadcast(this, CallNotify.ACTION_HANGUP, 7)),
+            RemoteAction(Icon.createWithResource(this, SagaIcons.phoneOff), hangLabel, hangLabel, CallNotify.broadcast(this, CallNotify.ACTION_HANGUP, 7)),
         )
         val b = PictureInPictureParams.Builder().setAspectRatio(Rational(w, h)).setActions(actions)
         if (Build.VERSION.SDK_INT >= 31) {
@@ -488,7 +486,7 @@ private fun CallScreen(
                 val groupIcon = room?.kind == CallRoom.KIND_GROUP && room.dm != true && st.peer.avatar == null
                 CallHaloAvatar(
                     st.peer.shown, if (flat) 64.dp else 120.dp, waiting = waiting && st.phase != CallPhase.ENDED, avatar = st.peer.avatar,
-                    icon = if (groupIcon) R.drawable.ic_group else null,
+                    icon = if (groupIcon) SagaIcons.users else null,
                 )
                 Text(
                     st.peer.shown, style = if (flat) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
@@ -528,7 +526,7 @@ private fun CallScreen(
                 if (!st.mic && st.phase == CallPhase.CONNECTED) Surface(color = dark.copy(alpha = 0.75f), contentColor = Color.White, shape = RoundedCornerShape(50),
                     modifier = Modifier.padding(bottom = 10.dp)) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(painterResource(R.drawable.ic_mic_off), null, Modifier.size(16.dp))
+                        Icon(painterResource(SagaIcons.micOff), null, Modifier.size(16.dp))
                         Text(stringResource(R.string.horn_muted_hint, by), style = MaterialTheme.typography.labelLarge,
                             modifier = Modifier.padding(start = 6.dp).semantics { liveRegion = LiveRegionMode.Polite })
                     }
@@ -572,7 +570,7 @@ private fun CallScreen(
             Box(Modifier.fillMaxSize().safeDrawingPadding().padding(4.dp), contentAlignment = Alignment.TopStart) {
                 IconButton(onClick = onMinimize) {
                     Icon(
-                        Icons.Filled.KeyboardArrowDown, stringResource(R.string.call_minimize),
+                        painterResource(SagaIcons.chevronDown), stringResource(R.string.call_minimize),
                         tint = if (showVideo) Color.White else MaterialTheme.colorScheme.onSurface,
                     )
                 }
@@ -646,7 +644,7 @@ internal fun MeetCall(
             if (flat) Box(Modifier.fillMaxWidth().safeDrawingPadding().padding(horizontal = 4.dp, vertical = 4.dp)) {
                 // §8 Handy quer: eine Zeile als Pille (wie iOS) - Titel · Dauer · Personen
                 IconButton(onClick = onMinimize, modifier = Modifier.align(Alignment.CenterStart)) {
-                    Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.call_minimize), tint = Color.White)
+                    Icon(painterResource(SagaIcons.chevronDown), stringResource(R.string.call_minimize), tint = Color.White)
                 }
                 var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
                 LaunchedEffect(st.connectedAt) { while (true) { now = System.currentTimeMillis(); delay(1000) } }
@@ -664,7 +662,7 @@ internal fun MeetCall(
                 )
             } else Box(Modifier.fillMaxWidth().safeDrawingPadding().padding(horizontal = 4.dp, vertical = 4.dp)) {
                 IconButton(onClick = onMinimize, modifier = Modifier.align(Alignment.TopStart)) {
-                    Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.call_minimize), tint = Color.White)
+                    Icon(painterResource(SagaIcons.chevronDown), stringResource(R.string.call_minimize), tint = Color.White)
                 }
                 CallHeader(flat, Modifier.fillMaxWidth().padding(horizontal = 48.dp)) {
                     val title = if (room?.kind == CallRoom.KIND_GROUP && room.dm != true) room.title.ifEmpty { stringResource(R.string.room_group_audio) }
@@ -690,7 +688,7 @@ internal fun MeetCall(
                                 .clickable(role = Role.Button) { meshPeople = true; menuOpen = true }.semantics { contentDescription = pl },
                         ) {
                             Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(painterResource(R.drawable.ic_group), null, Modifier.size(16.dp), tint = Color.White)
+                                Icon(painterResource(SagaIcons.users), null, Modifier.size(16.dp), tint = Color.White)
                                 Text("${model.persons}", color = Color.White, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 4.dp))
                             }
                         }
@@ -702,7 +700,7 @@ internal fun MeetCall(
             // eigene Freigabe: rote Leiste bleibt sichtbar (Datenschutz), 32 dp, oben links
             if (st.sharing) Surface(color = SHARE_RED, contentColor = Color.White, shape = RoundedCornerShape(16.dp)) {
                 Row(Modifier.height(32.dp).padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(painterResource(R.drawable.ic_screen_share), null, Modifier.size(16.dp))
+                    Icon(painterResource(SagaIcons.screenShare), null, Modifier.size(16.dp))
                     Text(stringResource(R.string.call_screen_you), style = MaterialTheme.typography.labelLarge, maxLines = 1,
                         modifier = Modifier.padding(start = 6.dp).semantics { liveRegion = LiveRegionMode.Polite })
                     TextButton(onClick = { calls.stopScreen() }) { Text(stringResource(R.string.call_screen_stop), color = Color.White) }
@@ -732,7 +730,7 @@ internal fun MeetCall(
                 room?.mutedBy?.let { by ->
                     if (!st.mic && st.phase == CallPhase.CONNECTED) Surface(color = dark.copy(alpha = 0.75f), contentColor = Color.White, shape = RoundedCornerShape(50)) {
                         Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(painterResource(R.drawable.ic_mic_off), null, Modifier.size(16.dp))
+                            Icon(painterResource(SagaIcons.micOff), null, Modifier.size(16.dp))
                             Text(stringResource(R.string.horn_muted_hint, by), style = MaterialTheme.typography.labelLarge,
                                 modifier = Modifier.padding(start = 6.dp).semantics { liveRegion = LiveRegionMode.Polite })
                         }
@@ -793,7 +791,7 @@ private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modi
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) {
                 if (st.verified) contentDescription = "$e2e. $info"
             }) {
-                Icon(Icons.Filled.Lock, null, Modifier.size(14.dp), tint = if (st.verified) MaterialTheme.colorScheme.primary.takeUnless { onDark } ?: Color(0xFF8BE28B) else fg)
+                Icon(painterResource(SagaIcons.lock), null, Modifier.size(14.dp), tint = if (st.verified) MaterialTheme.colorScheme.primary.takeUnless { onDark } ?: Color(0xFF8BE28B) else fg)
                 Text(e2e, color = fg, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 4.dp))
             }
         }
@@ -828,7 +826,7 @@ private fun EndedFailed(calls: CallManager, st: CallUiState) {
             ),
             modifier = Modifier.padding(bottom = 12.dp).heightIn(min = 48.dp).widthIn(min = 200.dp),
         ) {
-            Icon(painterResource(R.drawable.ic_call), null, Modifier.size(18.dp))
+            Icon(painterResource(SagaIcons.phone), null, Modifier.size(18.dp))
             Text(stringResource(R.string.r1_call_redial), modifier = Modifier.padding(start = 8.dp))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -865,12 +863,12 @@ private fun Controls(
         CallPhase.INCOMING -> androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(bottom = if (flat) 4.dp else 28.dp)) {
             val col = minOf(120.dp, maxWidth / 3)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
-                RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_decline), CallLabels.HANGUP_BG, Color.White, big = true, col = col) { calls.decline() }
+                RoundButton(SagaIcons.phoneOff, stringResource(R.string.call_decline), CallLabels.HANGUP_BG, Color.White, big = true, col = col) { calls.decline() }
                 if (st.video) {
-                    RoundButton(R.drawable.ic_call, stringResource(R.string.call_answer_audio), CALL_GREEN, Color.White, big = true, col = col) { answer(false) }
-                    RoundButton(R.drawable.ic_videocam, stringResource(R.string.call_answer_video), CALL_GREEN, Color.White, big = true, col = col) { answer(true) }
+                    RoundButton(SagaIcons.phone, stringResource(R.string.call_answer_audio), CALL_GREEN, Color.White, big = true, col = col) { answer(false) }
+                    RoundButton(SagaIcons.video, stringResource(R.string.call_answer_video), CALL_GREEN, Color.White, big = true, col = col) { answer(true) }
                 } else {
-                    RoundButton(R.drawable.ic_call, stringResource(R.string.call_answer), CALL_GREEN, Color.White, big = true, col = col) { answer(false) }
+                    RoundButton(SagaIcons.phone, stringResource(R.string.call_answer), CALL_GREEN, Color.White, big = true, col = col) { answer(false) }
                 }
             }
         }
@@ -889,31 +887,31 @@ private fun Controls(
             val compact = share && st.cam || room?.companion == true
             val buttons = buildList<@Composable (androidx.compose.ui.unit.Dp) -> Unit> {
                 add { col -> RoundButton(
-                    if (st.mic) R.drawable.ic_mic else R.drawable.ic_mic_off, stringResource(if (st.mic) R.string.call_mute else R.string.call_unmute),
+                    if (st.mic) SagaIcons.mic else SagaIcons.micOff, stringResource(if (st.mic) R.string.call_mute else R.string.call_unmute),
                     if (st.mic) tc else offBg, if (st.mic) tf else offFg, compact = compact, col = col, off = !st.mic,
                 ) { onMic() } }
                 add { col -> RoundButton(
-                    if (st.cam) R.drawable.ic_videocam else R.drawable.ic_videocam_off, stringResource(if (st.cam) R.string.call_cam_off else R.string.call_cam_on),
+                    if (st.cam) SagaIcons.video else SagaIcons.videoOff, stringResource(if (st.cam) R.string.call_cam_off else R.string.call_cam_on),
                     if (st.cam) tc else offBg, if (st.cam) tf else offFg, compact = compact, col = col, off = !st.cam,
                 ) { onCam() } }
-                if (st.cam) add { col -> RoundButton(R.drawable.ic_cameraswitch, stringResource(R.string.call_switch_camera), tc, tf, compact = compact, col = col) { calls.switchCamera() } }
+                if (st.cam) add { col -> RoundButton(SagaIcons.cameraSwitch, stringResource(R.string.call_switch_camera), tc, tf, compact = compact, col = col) { calls.switchCamera() } }
                 if (share) add { col -> RoundButton(
-                    R.drawable.ic_screen_share, stringResource(if (st.sharing) R.string.call_screen_stop else R.string.call_screen_share),
+                    SagaIcons.screenShare, stringResource(if (st.sharing) R.string.call_screen_stop else R.string.call_screen_share),
                     if (st.sharing) SHARE_RED else tc, if (st.sharing) Color.White else tf, selected = st.sharing, compact = compact, col = col,
                 ) { onShare() } }
                 if (room != null && (room.companion || !room.playback)) add { col -> RoundButton(
-                    if (room.playback) R.drawable.ic_volume_up else R.drawable.ic_volume_off,
+                    if (room.playback) SagaIcons.volume else SagaIcons.volumeOff,
                     stringResource(if (room.playback) R.string.room_sound_off else R.string.room_sound_on),
                     if (room.playback) tc else offBg, if (room.playback) tf else offFg,
                     selected = room.playback, compact = compact, col = col, off = !room.playback,
                 ) { onPlayback() } }
                 else add { col -> RoundButton(
-                    R.drawable.ic_volume_up, stringResource(R.string.call_speaker),
+                    SagaIcons.volume, stringResource(R.string.call_speaker),
                     if (st.speaker) MaterialTheme.colorScheme.primary else tc, if (st.speaker) MaterialTheme.colorScheme.onPrimary else tf,
                     selected = st.speaker, compact = compact, col = col,
                 ) { calls.toggleSpeaker() } }
                 if (layoutBtn != null) add { col -> layoutBtn(col) }
-                add { col -> RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = compact || layoutBtn != null, col = col) { calls.hangup() } }
+                add { col -> RoundButton(SagaIcons.phoneOff, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = compact || layoutBtn != null, col = col) { calls.hangup() } }
             }
             if (vertical) {
                 Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(32.dp)) {
@@ -966,7 +964,7 @@ private fun ShareBar(calls: CallManager, st: CallUiState) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val text = if (st.sharing) stringResource(R.string.call_screen_you)
                 else stringResource(R.string.call_screen_peer, st.peer.shown)
-                Icon(painterResource(R.drawable.ic_screen_share), null, Modifier.size(16.dp))
+                Icon(painterResource(SagaIcons.screenShare), null, Modifier.size(16.dp))
                 Text(
                     text, style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(start = 6.dp).semantics { liveRegion = LiveRegionMode.Polite },
@@ -1016,7 +1014,7 @@ private fun RoomActions(calls: CallManager, st: CallUiState, withMic: (() -> Uni
     val room = st.room ?: return
     if (!room.canTakeOver || st.phase == CallPhase.ENDED || st.phase == CallPhase.INCOMING) return
     androidx.compose.material3.FilledTonalButton(onClick = { withMic { calls.takeOver() } }, modifier = Modifier.padding(bottom = 12.dp)) {
-        Icon(painterResource(R.drawable.ic_devices), null, Modifier.size(18.dp))
+        Icon(painterResource(SagaIcons.devices), null, Modifier.size(18.dp))
         Text(stringResource(R.string.room_take_over), modifier = Modifier.padding(start = 8.dp))
     }
 }
@@ -1073,7 +1071,7 @@ private fun Tile(calls: CallManager, t: CallTile, self: Boolean, modifier: Modif
                 .padding(horizontal = 6.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (!t.mic) Icon(painterResource(R.drawable.ic_mic_off), null, Modifier.size(14.dp), tint = Color.White)
+            if (!t.mic) Icon(painterResource(SagaIcons.micOff), null, Modifier.size(14.dp), tint = Color.White)
             Text(
                 label, color = Color.White, style = MaterialTheme.typography.labelMedium, maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(start = 2.dp),
@@ -1100,7 +1098,7 @@ private fun ScreenHintDialog(group: Boolean, onDismiss: () -> Unit, onContinue: 
     var dontShow by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(painterResource(R.drawable.ic_screen_share), null) },
+        icon = { Icon(painterResource(SagaIcons.screenShare), null) },
         title = { Text(stringResource(R.string.call_screen_hint_title)) },
         text = {
             Column {
@@ -1327,12 +1325,12 @@ internal fun CallFlatPreviewContent(onStage: (Int) -> Unit = {}, onControls: (In
                     val tc = MaterialTheme.colorScheme.secondaryContainer
                     val tf = MaterialTheme.colorScheme.onSecondaryContainer
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
-                        RoundButton(R.drawable.ic_mic, stringResource(R.string.call_mute), tc, tf, compact = true, col = col) {}
-                        RoundButton(R.drawable.ic_videocam, stringResource(R.string.call_cam_off), tc, tf, compact = true, col = col) {}
-                        RoundButton(R.drawable.ic_cameraswitch, stringResource(R.string.call_switch_camera), tc, tf, compact = true, col = col) {}
-                        RoundButton(R.drawable.ic_screen_share, stringResource(R.string.call_screen_share), tc, tf, compact = true, col = col) {}
-                        RoundButton(R.drawable.ic_volume_up, stringResource(R.string.call_speaker), tc, tf, compact = true, col = col) {}
-                        RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = true, col = col) {}
+                        RoundButton(SagaIcons.mic, stringResource(R.string.call_mute), tc, tf, compact = true, col = col) {}
+                        RoundButton(SagaIcons.video, stringResource(R.string.call_cam_off), tc, tf, compact = true, col = col) {}
+                        RoundButton(SagaIcons.cameraSwitch, stringResource(R.string.call_switch_camera), tc, tf, compact = true, col = col) {}
+                        RoundButton(SagaIcons.screenShare, stringResource(R.string.call_screen_share), tc, tf, compact = true, col = col) {}
+                        RoundButton(SagaIcons.volume, stringResource(R.string.call_speaker), tc, tf, compact = true, col = col) {}
+                        RoundButton(SagaIcons.phoneOff, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = true, col = col) {}
                     }
                 }
             }

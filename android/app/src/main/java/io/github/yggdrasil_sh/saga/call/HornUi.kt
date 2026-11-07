@@ -63,6 +63,7 @@ import io.github.yggdrasil_sh.saga.ui.notifications.Avatar
 import io.github.yggdrasil_sh.saga.util.UiText
 import io.github.yggdrasil_sh.saga.util.resolve
 import kotlinx.coroutines.delay
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 
 // Gjallarhorn (Saga 2.5, P12): Oberflaeche fuer Gruppenanrufe ueber Knoten - Kacheln mit Last-N und Sprecheransicht,
 // Weg-Anzeige mit Qualitaetspunkt, Runensiegel mit Erklaerung, Teilnehmerliste mit Moderation fuer Gastgeber.
@@ -191,7 +192,7 @@ fun HornBar(
                 modifier = Modifier.minimumInteractiveComponentSize().clip(RoundedCornerShape(50)).clickable(role = Role.Button) { onPeople() }.semantics { contentDescription = pl },
             ) {
                 Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(painterResource(R.drawable.ic_group), null, Modifier.size(16.dp), tint = fg)
+                    Icon(painterResource(SagaIcons.users), null, Modifier.size(16.dp), tint = fg)
                     val n = ui.people.size
                     Text(if (limit > 0 && n >= limit - 2) "$n/$limit" else "${persons ?: n}", color = fg, style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier.padding(start = 4.dp))
@@ -202,7 +203,7 @@ fun HornBar(
                 color = chipBg, shape = RoundedCornerShape(50),
                 modifier = Modifier.minimumInteractiveComponentSize().clip(RoundedCornerShape(50)).clickable(role = Role.Button) { onView() }.semantics { contentDescription = vl },
             ) {
-                Icon(painterResource(R.drawable.ic_fullscreen), null, Modifier.padding(horizontal = 10.dp, vertical = 4.dp).size(16.dp), tint = fg)
+                Icon(painterResource(SagaIcons.maximize), null, Modifier.padding(horizontal = 10.dp, vertical = 4.dp).size(16.dp), tint = fg)
             }
         }
         if (ui.changing) Text(
@@ -327,7 +328,7 @@ private fun Tile(
                 .padding(horizontal = 8.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (!t.mic) Icon(painterResource(R.drawable.ic_mic_off), null, Modifier.size(14.dp), tint = Color.White)
+            if (!t.mic) Icon(painterResource(SagaIcons.micOff), null, Modifier.size(14.dp), tint = Color.White)
             Text(HornLogic.shortName(t.name), color = Color.White, style = MaterialTheme.typography.labelMedium, maxLines = 1,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 2.dp))
             if (t.devName.isNotEmpty() && !self) Text(                   // Geraet wird zuerst gekuerzt
@@ -407,7 +408,7 @@ fun HornPeopleList(ui: HornUi, onMute: (String) -> Unit, onRemove: (String) -> U
                     if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (p.unverified) Text(stringResource(R.string.horn_unverified), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
                 }
-                if (!p.mic) Icon(painterResource(R.drawable.ic_mic_off), stringResource(R.string.room_muted), Modifier.size(18.dp),
+                if (!p.mic) Icon(painterResource(SagaIcons.micOff), stringResource(R.string.room_muted), Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (p.moderate) {
                     val muteCd = stringResource(R.string.horn_mute_cd, p.name)

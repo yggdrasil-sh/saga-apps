@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 
 /**
  * Debug-Quelle der Meeting-Ansicht: erfundene Teilnehmende (keine echten Daten, keine Medien, keine Kamera) fuer
@@ -129,12 +130,12 @@ fun MeetDemoContent(scenario: String, hidden: Boolean = false) {
                     Box(Modifier.fillMaxHeight().safeDrawingPadding().padding(4.dp)) {
                         Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(32.dp)) {
                             Column(Modifier.width(64.dp).fillMaxHeight().padding(vertical = 6.dp), verticalArrangement = Arrangement.SpaceEvenly, horizontalAlignment = Alignment.CenterHorizontally) {
-                                RoundButton(R.drawable.ic_mic, stringResource(R.string.call_mute), tc, tf, compact = true, col = 48.dp) {}
-                                RoundButton(R.drawable.ic_videocam, stringResource(R.string.call_cam_off), tc, tf, compact = true, col = 48.dp) {}
-                                RoundButton(R.drawable.ic_screen_share, stringResource(R.string.call_screen_share), tc, tf, compact = true, col = 48.dp) {}
-                                RoundButton(R.drawable.ic_volume_up, stringResource(R.string.call_speaker), tc, tf, compact = true, col = 48.dp) {}
+                                RoundButton(SagaIcons.mic, stringResource(R.string.call_mute), tc, tf, compact = true, col = 48.dp) {}
+                                RoundButton(SagaIcons.video, stringResource(R.string.call_cam_off), tc, tf, compact = true, col = 48.dp) {}
+                                RoundButton(SagaIcons.screenShare, stringResource(R.string.call_screen_share), tc, tf, compact = true, col = 48.dp) {}
+                                RoundButton(SagaIcons.volume, stringResource(R.string.call_speaker), tc, tf, compact = true, col = 48.dp) {}
                                 if (Meeting.layoutButton(model)) MeetLayoutButton(ms, model.screens.isNotEmpty(), 48.dp, tc, tf) {}
-                                RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = true, col = 48.dp) {}
+                                RoundButton(SagaIcons.phoneOff, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = true, col = 48.dp) {}
                             }
                         }
                     }
@@ -148,13 +149,13 @@ fun MeetDemoContent(scenario: String, hidden: Boolean = false) {
                     val tf = MaterialTheme.colorScheme.onSurface
                     Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(if (flat) 28.dp else 36.dp)) {
                         Row(Modifier.fillMaxWidth().padding(vertical = if (flat) 4.dp else 10.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
-                            RoundButton(R.drawable.ic_mic, stringResource(R.string.call_mute), tc, tf, compact = true, col = col) {}
-                            RoundButton(R.drawable.ic_videocam, stringResource(R.string.call_cam_off), tc, tf, compact = true, col = col) {}
-                            RoundButton(R.drawable.ic_cameraswitch, stringResource(R.string.call_switch_camera), tc, tf, compact = true, col = col) {}
-                            RoundButton(R.drawable.ic_screen_share, stringResource(R.string.call_screen_share), tc, tf, compact = true, col = col) {}
-                            RoundButton(R.drawable.ic_volume_up, stringResource(R.string.call_speaker), tc, tf, compact = true, col = col) {}
+                            RoundButton(SagaIcons.mic, stringResource(R.string.call_mute), tc, tf, compact = true, col = col) {}
+                            RoundButton(SagaIcons.video, stringResource(R.string.call_cam_off), tc, tf, compact = true, col = col) {}
+                            RoundButton(SagaIcons.cameraSwitch, stringResource(R.string.call_switch_camera), tc, tf, compact = true, col = col) {}
+                            RoundButton(SagaIcons.screenShare, stringResource(R.string.call_screen_share), tc, tf, compact = true, col = col) {}
+                            RoundButton(SagaIcons.volume, stringResource(R.string.call_speaker), tc, tf, compact = true, col = col) {}
                             if (showLayout) MeetLayoutButton(ms, model.screens.isNotEmpty(), col, tc, tf) {}
-                            RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = true, col = col) {}
+                            RoundButton(SagaIcons.phoneOff, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = true, col = col) {}
                         }
                     }
                 }
