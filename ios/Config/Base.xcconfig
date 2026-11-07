@@ -28,10 +28,13 @@ SAGA_MAC_PUSH_SUFFIX =
 // Desktop-Huelle (Ziel SagaShell): Web-Oberflaeche im WKWebView - seit P3 DIE Mac-App (die native SwiftUI-Mac-App ist
 // eingefroren). Gleiche App-ID, App-Gruppe und Link-Schemata wie bisher die Mac-App: Anmeldung (Geraete-Schluessel im
 // Schluesselbund), Widgets, Teilen-Menue und APNs gehen nahtlos ueber. Fuer eine Test-Huelle neben einer anderen Mac-App
-// in Config/Local.xcconfig z. B. SAGA_SHELL_BUNDLE_ID = $(SAGA_BUNDLE_ID).webshell, SAGA_SHELL_URL_SCHEME = saga-test,
-// SAGA_SHELL_URL_SCHEME_ALT = saga-test, SAGA_SHELL_NAME = Saga Web setzen.
+// in Config/Local.xcconfig z. B. SAGA_SHELL_BUNDLE_ID = $(SAGA_BUNDLE_ID).webshell, SAGA_APP_GROUP[sdk=macosx*] =
+// $(TeamIdentifierPrefix)$(SAGA_SHELL_BUNDLE_ID), SAGA_SHELL_URL_SCHEME = saga-test, SAGA_SHELL_URL_SCHEME_ALT = saga-test,
+// SAGA_SHELL_NAME = Saga Web setzen.
 SAGA_SHELL_BUNDLE_ID = $(SAGA_BUNDLE_ID)
-SAGA_SHELL_APP_GROUP = $(TeamIdentifierPrefix)$(SAGA_SHELL_BUNDLE_ID)
+// App-Gruppe der Huelle = die der App (auch wenn Local.xcconfig SAGA_APP_GROUP ueberschreibt); die Erweiterungen
+// SagaShellWidget/SagaShellShareMac nutzen SAGA_APP_GROUP direkt
+SAGA_SHELL_APP_GROUP = $(SAGA_APP_GROUP)
 // Link-Schemata der Huelle (Widgets/Spotlight nutzen das erste)
 SAGA_SHELL_URL_SCHEME = saga
 SAGA_SHELL_URL_SCHEME_ALT = hlidskjalf

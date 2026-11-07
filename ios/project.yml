@@ -245,8 +245,8 @@ targets:
         product: Sparkle
       - target: SagaShellWidget
       - target: SagaShellShareMac
-  # Etappe 2: Erweiterungen der Huelle - Quellen wie HlidskjalfWidget/HlidskjalfShareMac, aber App-ID unter der Huelle
-  # und deren App-Gruppe (SAGA_APP_GROUP/SAGA_KEYCHAIN_GROUP hier ueberschrieben; die Entitlements lesen die Variable).
+  # Etappe 2: Erweiterungen der Huelle - Quellen wie HlidskjalfWidget/HlidskjalfShareMac, App-ID unter der Huelle,
+  # App-Gruppe SAGA_APP_GROUP (seit P3 dieselbe wie die der Huelle; die Entitlements lesen die Variable).
   # Links aus dem Widget nutzen das Schema der Huelle (SagaLinkScheme). Seit P3 ist SAGA_SHELL_BUNDLE_ID = $(SAGA_BUNDLE_ID):
   # dieselben IDs wie bisher die Erweiterungen der Mac-App (vorhandene Widgets auf dem Schreibtisch bleiben).
   SagaShellWidget:
@@ -269,8 +269,6 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_SHELL_BUNDLE_ID).widget
-        SAGA_APP_GROUP: $(SAGA_SHELL_APP_GROUP)
-        SAGA_KEYCHAIN_GROUP: $(SAGA_SHELL_APP_GROUP)
         CODE_SIGN_ENTITLEMENTS: Widget/Widget-macOS.entitlements
         ENABLE_HARDENED_RUNTIME: YES
   SagaShellShareMac:
@@ -297,8 +295,6 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_SHELL_BUNDLE_ID).sharemac
-        SAGA_APP_GROUP: $(SAGA_SHELL_APP_GROUP)
-        SAGA_KEYCHAIN_GROUP: $(SAGA_SHELL_APP_GROUP)
         CODE_SIGN_ENTITLEMENTS: ShareMac/ShareMac.entitlements
         ENABLE_HARDENED_RUNTIME: YES
   # 2.5 Chat-Stufe 3 + Grundlagen: Vektoren tests/vectors/chat_v3.json (Kopie in Tests/vectors), Ogg-Muxer/-Demuxer,
