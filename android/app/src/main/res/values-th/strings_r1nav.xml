@@ -5,4 +5,7 @@
     <string name="r1_task_state_overdue">เลยกำหนด</string>
     <string name="r1_task_state_high_prio">ความสำคัญสูง</string>
     <string name="r1_task_overdue_meta">เลยกำหนด · %1$s</string>
+    <string name="r1_offline_bar">ออฟไลน์ – คุณกำลังดูข้อมูล ณ %1$s การเปลี่ยนแปลงจะถูกส่งเมื่อกลับมาออนไลน์</string>
+    <string name="r1_offline_bar_unknown">ออฟไลน์ – คุณกำลังดูข้อมูลที่บันทึกไว้ การเปลี่ยนแปลงจะถูกส่งเมื่อกลับมาออนไลน์</string>
+    <string name="r1_refresh_offline">ไม่มีการเชื่อมต่อ – รีเฟรชไม่ได้</string>
 </resources>

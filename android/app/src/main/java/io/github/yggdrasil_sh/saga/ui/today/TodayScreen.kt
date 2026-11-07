@@ -78,12 +78,23 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val todayItems = io.github.yggdrasil_sh.saga.data.TaskCounts.todayEntries(merged, today)
     val shownCount = todayItems?.size ?: todayTasks.size
 
+    // NAV-02: offline gibt "Aktualisieren" Rueckmeldung (Snackbar mit "Erneut versuchen") statt still nichts zu tun
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    fun refresh() {
+        if (io.github.yggdrasil_sh.saga.ui.common.offlineNow(ctx, repo)) {
+            repo.notify(
+                io.github.yggdrasil_sh.saga.util.UiText.Res(R.string.r1_refresh_offline),
+                io.github.yggdrasil_sh.saga.util.UiText.Res(R.string.action_retry),
+            ) { refresh() }
+        }
+        scope.launch { repo.refresh() }
+    }
     Scaffold(topBar = {
         SagaTopBar(stringResource(R.string.nav_today), nav, chrome) {
-            IconButton(onClick = { scope.launch { repo.refresh() } }) { Icon(Icons.Filled.Refresh, stringResource(R.string.action_refresh)) }
+            IconButton(onClick = { refresh() }) { Icon(Icons.Filled.Refresh, stringResource(R.string.action_refresh)) }
         }
     }) { pad ->
-        PullToRefreshBox(isRefreshing = loading, onRefresh = { scope.launch { repo.refresh() } }, modifier = Modifier.padding(pad).fillMaxSize()) {
+        PullToRefreshBox(isRefreshing = loading, onRefresh = { refresh() }, modifier = Modifier.padding(pad).fillMaxSize()) {
             val accent = LocalSagaAccent.current
             val maxW = SagaSpace.readingWidth
             LazyColumn(

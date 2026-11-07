@@ -5,4 +5,7 @@
     <string name="r1_task_state_overdue">просрочена</string>
     <string name="r1_task_state_high_prio">высокий приоритет</string>
     <string name="r1_task_overdue_meta">Просрочена · %1$s</string>
+    <string name="r1_offline_bar">Нет сети – показано состояние на %1$s. Изменения отправятся, как только связь вернётся.</string>
+    <string name="r1_offline_bar_unknown">Нет сети – показано сохранённое состояние. Изменения отправятся, как только связь вернётся.</string>
+    <string name="r1_refresh_offline">Нет соединения – не удалось обновить</string>
 </resources>

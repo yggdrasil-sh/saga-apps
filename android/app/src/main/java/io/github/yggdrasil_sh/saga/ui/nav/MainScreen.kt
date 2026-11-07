@@ -5,6 +5,7 @@ import androidx.annotation.StringRes
 import io.github.yggdrasil_sh.saga.R
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -63,6 +64,7 @@ import io.github.yggdrasil_sh.saga.ui.login.PairConfirmDialog
 import io.github.yggdrasil_sh.saga.ui.share.ShareDialog
 import io.github.yggdrasil_sh.saga.util.UiText
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -352,7 +354,8 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
             Modifier.fillMaxWidth().weight(1f)
                 .then(if (callBar) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier),
         ) {
-            if (minApp != null && repo.appTooOld) {                 // Server ist neuer, als diese App kann
+            val tooOld = minApp != null && repo.appTooOld
+            if (tooOld) {                                           // Server ist neuer, als diese App kann
                 Text(
                     stringResource(R.string.app_too_old_banner, minApp ?: ""),
                     style = MaterialTheme.typography.bodySmall,
@@ -361,7 +364,16 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
                         .statusBarsPadding().padding(horizontal = 16.dp, vertical = 6.dp),
                 )
             }
-            Box(Modifier.weight(1f)) {
+            // NAV-02: globale Offline-Leiste unter der Anruf-Leiste (entprellt); sie nimmt die Statusleiste ein, wenn
+            // nichts darueber liegt - der Bildschirm darunter rechnet sie dann nicht noch einmal ein
+            val offline = io.github.yggdrasil_sh.saga.ui.common.rememberOfflineState(repo)
+            io.github.yggdrasil_sh.saga.ui.common.OfflineBar(
+                offline, if (tooOld) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier,
+            )
+            Box(
+                Modifier.weight(1f)
+                    .then(if (tooOld || offline.visible) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier),
+            ) {
                 // Wechsel zwischen Bildschirmen: vor = leicht von rechts, zurueck = von links, oberste Ebene = Ueberblenden.
                 // contentKey = Ziel: gleicher Bildschirm (z. B. andere Stapeltiefe) bleibt ohne Animation.
                 val reduced = io.github.yggdrasil_sh.saga.ui.theme.LocalReducedMotion.current
@@ -428,9 +440,10 @@ fun BadgeIcon(count: Int, icon: @Composable () -> Unit) {
 }
 
 /**
- * 4.11.: Live-Laempchen oben links (wie iOS/Mac) - gruen, solange der Live-Kanal steht (Inhalte kommen frisch vom
- * Server), rot, wenn die App gespeicherte Staende zeigt. Nur Anzeige, keine Tippflaeche (liegt neben der Statusleiste).
- * Server ohne Live-Kanal: kein Laempchen.
+ * 4.11.: Live-Laempchen oben links (wie iOS/Mac) - live, solange der Live-Kanal steht (Inhalte kommen frisch vom
+ * Server), sonst gespeicherter Stand. Nur Anzeige, keine Tippflaeche (liegt neben der Statusleiste).
+ * Server ohne Live-Kanal: kein Laempchen. A11Y-13: Zustand auch ueber die Form (live = gefuellter Punkt, offline =
+ * hohler Ring) und Farben passend zum Thema (offline = colorScheme.error, live = Web-Token --ok hell/dunkel).
  */
 @Composable
 private fun LiveLamp(repo: SagaRepository, modifier: Modifier = Modifier) {
@@ -438,12 +451,17 @@ private fun LiveLamp(repo: SagaRepository, modifier: Modifier = Modifier) {
     val connected by repo.live.connected.collectAsState()
     if (!supported) return
     val desc = stringResource(if (connected) R.string.live_lamp_on else R.string.live_lamp_off)
-    val color by androidx.compose.animation.animateColorAsState(
-        if (connected) androidx.compose.ui.graphics.Color(0xFF34C759) else androidx.compose.ui.graphics.Color(0xFFFF3B30), label = "lamp",
-    )
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    // Theme: eigener Token (z. B. SagaColor.ok) in ui/theme - bis dahin die Web-Werte von --ok
+    val ok = if (dark) androidx.compose.ui.graphics.Color(0xFF3FB950) else androidx.compose.ui.graphics.Color(0xFF1F7A33)
+    val color by androidx.compose.animation.animateColorAsState(if (connected) ok else MaterialTheme.colorScheme.error, label = "lamp")
+    val shape = androidx.compose.foundation.shape.CircleShape
     Box(
         modifier.statusBarsPadding().padding(start = 4.dp, top = 2.dp).size(8.dp)
-            .background(color, androidx.compose.foundation.shape.CircleShape)
+            .then(
+                if (connected) Modifier.background(color, shape)
+                else Modifier.border(1.5.dp, color, shape)
+            )
             .semantics { contentDescription = desc },
     )
 }

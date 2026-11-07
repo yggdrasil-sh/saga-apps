@@ -81,4 +81,19 @@ class DesignR1NavTest {
         assertTrue(TaskCounts.overdue(TaskItem(9, "x", due = "2026-11-06"), today))
         assertFalse(TaskCounts.overdue(TaskItem(9, "x", due = today), today))
     }
+
+    @Test fun offlineRules() {
+        val L = io.github.yggdrasil_sh.saga.data.OfflineLogic
+        assertTrue(L.offline(netOnline = false, liveSupported = false, liveConnected = false))
+        assertFalse(L.offline(netOnline = true, liveSupported = false, liveConnected = false))   // alter Server ohne Live-Kanal
+        assertTrue(L.offline(netOnline = true, liveSupported = true, liveConnected = false))
+        assertFalse(L.offline(netOnline = true, liveSupported = true, liveConnected = true))
+        assertEquals(3_000L, L.DEBOUNCE_MS)
+        assertEquals(500L, L.stamp(100L, online = true, nowMs = 500L))
+        assertEquals(100L, L.stamp(100L, online = false, nowMs = 500L))
+        assertNull(L.stamp(null, online = false, nowMs = 500L))
+        val utc = java.time.ZoneOffset.UTC
+        assertTrue(L.sameDay(0L, 23 * 3_600_000L, utc))
+        assertFalse(L.sameDay(0L, 25 * 3_600_000L, utc))
+    }
 }

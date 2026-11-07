@@ -5,4 +5,7 @@
     <string name="r1_task_state_overdue">überfällig</string>
     <string name="r1_task_state_high_prio">hohe Priorität</string>
     <string name="r1_task_overdue_meta">Überfällig · %1$s</string>
+    <string name="r1_offline_bar">Offline – du siehst den Stand von %1$s. Änderungen werden gesendet, sobald du wieder online bist.</string>
+    <string name="r1_offline_bar_unknown">Offline – du siehst den gespeicherten Stand. Änderungen werden gesendet, sobald du wieder online bist.</string>
+    <string name="r1_refresh_offline">Keine Verbindung – nicht aktualisiert</string>
 </resources>

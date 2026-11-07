@@ -5,4 +5,7 @@
     <string name="r1_task_state_overdue">overdue</string>
     <string name="r1_task_state_high_prio">high priority</string>
     <string name="r1_task_overdue_meta">Overdue · %1$s</string>
+    <string name="r1_offline_bar">Offline – you are seeing the state from %1$s. Changes will be sent as soon as you are back online.</string>
+    <string name="r1_offline_bar_unknown">Offline – you are seeing the saved state. Changes will be sent as soon as you are back online.</string>
+    <string name="r1_refresh_offline">No connection – couldn’t refresh</string>
 </resources>
