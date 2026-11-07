@@ -87,11 +87,12 @@ class DesignR2cTest {
         val head = d.substring(d.indexOf("internal fun TableHead("), d.indexOf("/** ED-17"))
         // Scrollbereich gewichtet, Pfeil in eigener Box danach, kein Ueberlagern mehr per align(CenterEnd)
         // R3/ED-14: zusaetzlich Linie an der fixierten Spalte und Einrasten - der Pfeil bleibt in seiner eigenen Spalte
-        assertTrue(head.contains("Row(Modifier.weight(1f, fill = false).frozenEdge(st.hScroll).horizontalScroll(st.hScroll, flingBehavior = snap))"))
+        // R3-Nachbesserung: dazu Fensterbreite (Pfeilziel) und nur ganze Spalten im Ruhezustand
+        assertTrue(head.contains("Row(Modifier.weight(1f, fill = false).onSizeChanged { viewportPx = it.width }.frozenEdge(st.hScroll).wholeColumns(st.hScroll, movingW).horizontalScroll(st.hScroll, flingBehavior = snap))"))
         assertTrue(head.contains("Box(Modifier.size(MORE_COLUMNS_SLOT)"))
         assertFalse(head.contains("Alignment.CenterEnd"))
         val row = d.substring(d.indexOf("internal fun TableRow("), d.indexOf("// ---------------------------------------------------------------- Liste"))
-        assertTrue(row.contains("Row(Modifier.weight(1f, fill = false).frozenEdge(st.hScroll).horizontalScroll(st.hScroll, flingBehavior = snap)"))
+        assertTrue(row.contains("Row(Modifier.weight(1f, fill = false).frozenEdge(st.hScroll).wholeColumns(st.hScroll, movingW).horizontalScroll(st.hScroll, flingBehavior = snap)"))
         assertTrue(row.contains("if (moving.isNotEmpty()) Spacer(Modifier.width(MORE_COLUMNS_SLOT))"))
     }
 }
