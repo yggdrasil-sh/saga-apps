@@ -300,6 +300,9 @@ fun RichField(
     // das Listenelement (LazyColumn) den neuen Stand weiterreicht. Ein Echo setzt nie zurueck.
     if (st.isExternalChange(html)) {
         st.accept(html)
+        // Pruefer R3: neuer Inhalt von aussen (z. B. nachgerueckter Block ohne ID im selben Feld) -> Sperre loesen,
+        // sonst bliebe die naechste echte Ruecktaste wirkungslos, bis getippt wird
+        st.backspaceDone = null
         st.rich = parseHtml(html, raw)
         val sel = st.value.selection.end.coerceIn(p, p + st.rich.text.length)
         st.value = TextFieldValue(pre + st.rich.text, TextRange(sel))
@@ -492,6 +495,7 @@ fun RichField(
             .onFocusChanged {
                 if (it.isFocused) {
                     editor.active = active
+                    st.backspaceDone = null             // Pruefer R3: neuer Fokus = neue Ruecktaste, nie eine Doppelmeldung
                     // TT 10: Zeichen aus dem alten Feld (zwischen Return und Fokuswechsel) hier einsetzen
                     val c = editor.carry
                     editor.carry = ""

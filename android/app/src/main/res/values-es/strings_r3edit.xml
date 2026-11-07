@@ -46,6 +46,7 @@
     <string name="r3e_slash_pane">Insertar bloque</string>
     <plurals name="r3e_slash_count">
         <item quantity="one">%d sugerencia</item>
+        <item quantity="many">%d sugerencias</item>
         <item quantity="other">%d sugerencias</item>
     </plurals>
 </resources>
