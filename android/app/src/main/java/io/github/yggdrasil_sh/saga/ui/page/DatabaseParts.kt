@@ -283,7 +283,7 @@ fun ButtonsBlock(d: JsonObject, env: BlockEnv) {
                 val taskDefault = stringResource(R.string.button_task_default)
                 SagaOutlinedButton(
                     onClick = {
-                        if (busy != null) return@OutlinedButton
+                        if (busy != null) return@SagaOutlinedButton
                         when (action) {
                             "page" -> target?.let { env.onLink("/notes#$it") }
                             "db", "task" -> {

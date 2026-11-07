@@ -180,7 +180,7 @@ fun NextcloudCard(d: JsonObject, env: BlockEnv) {
         if (ok || !loaded) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (!dir && ok) {
                 SagaOutlinedButton(onClick = {
-                    if (downloading) return@OutlinedButton
+                    if (downloading) return@SagaOutlinedButton
                     downloading = true
                     scope.launch {
                         val err = ncDownload(context, env.repo, noteId, d, name, st?.mime ?: NcLogic.str(d, "mime"), st?.size ?: NcLogic.size(d))

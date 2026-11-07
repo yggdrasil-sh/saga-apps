@@ -255,7 +255,7 @@ fun DateTimeDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -> Unit
                 val st = if (withTime) startTime ?: LocalTime.of(9, 0) else null
                 val e = if (withEnd) (end ?: start) else null
                 val et = if (withTime && e != null) (endTime ?: st?.plusHours(1)) else null
-                if (e != null && (e.isBefore(start) || (e == start && et != null && st != null && et.isBefore(st)))) return@TextButton
+                if (e != null && (e.isBefore(start) || (e == start && et != null && st != null && et.isBefore(st)))) return@SagaTextButton
                 onSet(JsonPrimitive(DbDate.encode(start, st, e, et, zone, old, datetime1 = true)))
                 onDismiss()
             }) { Text(stringResource(R.string.action_apply)) }

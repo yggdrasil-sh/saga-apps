@@ -443,7 +443,7 @@ private fun AvatarCropDialog(bmp: Bitmap, onCancel: () -> Unit, onDone: (Pair<By
         },
         confirmButton = {
             SagaTextButton(onClick = {
-                if (view <= 0f) return@TextButton
+                if (view <= 0f) return@SagaTextButton
                 val (l, t, side) = AvatarCrop.cropRect(bmp.width, bmp.height, view, scale, offset)
                 onDone(AvatarCrop.encode(bmp, l, t, side))
             }) { Text(stringResource(R.string.action_save)) }
