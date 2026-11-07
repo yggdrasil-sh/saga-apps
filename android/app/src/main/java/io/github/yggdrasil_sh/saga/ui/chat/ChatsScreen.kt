@@ -349,16 +349,16 @@ private fun ChatListEntry(repo: SagaRepository, c: ChatSummary, name: String, se
             backgroundContent = {
                 Row(
                     Modifier.fillMaxSize().padding(horizontal = 8.dp).clip(RoundedCornerShape(SagaRadius.md))
-                        .background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 20.dp),
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(horizontal = 20.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End,
                 ) {
                     Text(
                         stringResource(if (c.archived == true) R.string.chatdel_unarchive else R.string.chatdel_archive),
-                        color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelLarge,
                     )
                     Icon(
                         painterResource(if (c.archived == true) SagaIcons.archiveOut else SagaIcons.archive), null,
-                        Modifier.padding(start = 8.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        Modifier.padding(start = 8.dp), tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
             },

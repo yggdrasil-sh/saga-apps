@@ -279,7 +279,7 @@ private fun Warn(text: String) {
 @Composable
 private fun Avatar(type: String, name: String, avatar: String? = null) {
     Box(
-        Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
+        Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
     ) {
         if (type == "group" || type == "remote_group") {
@@ -287,7 +287,7 @@ private fun Avatar(type: String, name: String, avatar: String? = null) {
         } else {
             Text(
                 name.trim().take(1).uppercase().ifEmpty { "?" },
-                color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleSmall,
             )
             io.github.yggdrasil_sh.saga.ui.common.AvatarOverlay(avatar, 36.dp)     // 2.1: Profilbild ueber den Initialen
         }

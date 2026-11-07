@@ -235,8 +235,8 @@ private fun AskTab(repo: SagaRepository, st: AiStatus?, onOpenPage: (Long) -> Un
             }
             items(turns) { t ->
                 Column(Modifier.padding(vertical = 8.dp)) {
-                    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.medium) {
-                        Text(t.q, modifier = Modifier.padding(10.dp), color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.medium) {
+                        Text(t.q, modifier = Modifier.padding(10.dp), color = MaterialTheme.colorScheme.onSurface)
                     }
                     val persona = AiPersonaLogic.effective(st)
                     if (persona != null && (t.answer.isNotEmpty() || t.running)) Box(Modifier.padding(top = 8.dp)) { AiWho(persona, persona.name) }

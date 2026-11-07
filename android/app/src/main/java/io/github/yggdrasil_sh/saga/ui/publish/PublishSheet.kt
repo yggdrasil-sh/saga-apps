@@ -316,16 +316,16 @@ private fun ColumnScope.MainStep(model: PublishModel, scope: CoroutineScope, onO
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ViaCard(title: String, url: String, onCopy: () -> Unit, onOpen: () -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(SagaRadius.md), modifier = Modifier.fillMaxWidth()) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(SagaRadius.md), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             val t = title.ifEmpty { stringResource(R.string.page_untitled) }
-            Text(stringResource(R.string.publish_via_text, t), color = MaterialTheme.colorScheme.onSecondaryContainer)
+            Text(stringResource(R.string.publish_via_text, t), color = MaterialTheme.colorScheme.onSurface)
             Text(Publish.breakable(url), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SagaTextButton(onClick = onCopy) { Text(stringResource(R.string.publish_copy_link)) }
                 SagaTextButton(onClick = onOpen) { Text(stringResource(R.string.publish_open_title, t)) }
             }
-            Text(stringResource(R.string.publish_via_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+            Text(stringResource(R.string.publish_via_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
         }
     }
 }

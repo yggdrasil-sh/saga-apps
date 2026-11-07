@@ -312,9 +312,9 @@ private fun MemberRow(
 private fun Chip(t: String, strong: Boolean = false) {
     Text(
         t, style = MaterialTheme.typography.labelSmall,
-        color = if (strong) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+        color = if (strong) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.clip(RoundedCornerShape(SagaRadius.s))
-            .background(if (strong) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer)
+            .background(if (strong) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh)
             .padding(horizontal = 6.dp, vertical = 1.dp),
     )
 }

@@ -87,6 +87,29 @@ class ThemeContrastTest {
         for ((fl, bg) in flaechen(Dark)) assertTrue("outline dunkel auf $fl", ChatUi.contrast(Dark.outline, bg) >= 3.0)
     }
 
+    /**
+     * Nachbesserung R3: aktive Zustaende (B/I/U/S, getoente Knoepfe, gewaehlte Segmente) in Gold-Soft - nie mehr gleich
+     * der Werkzeugleiste/Dialogflaeche. Text darauf >= 4,5:1; die Flaeche unterscheidet sich im Farbton (Helligkeit
+     * nur ~1,1:1), daher traegt bei den Format-Knoepfen ein Rand in goldText den Zustand (>= 3:1 gegen die Leiste und
+     * gegen die Gold-Soft-Flaeche selbst).
+     */
+    @Test
+    fun secondaryContainerIstGoldSoft() {
+        for ((s, acc, name) in listOf(Triple(Light, LightAccent, "hell"), Triple(Dark, DarkAccent, "dunkel"))) {
+            assertEquals("secondaryContainer $name", acc.goldSoft, s.secondaryContainer)
+            assertEquals("onSecondaryContainer $name", acc.onGoldSoft, s.onSecondaryContainer)
+            for ((fl, bg) in listOf("High" to s.surfaceContainerHigh, "Container" to s.surfaceContainer, "Low" to s.surfaceContainerLow,
+                "Highest" to s.surfaceContainerHighest, "surfaceVariant" to s.surfaceVariant)) {
+                assertTrue("secondaryContainer $name darf nicht gleich $fl sein", s.secondaryContainer != bg)
+            }
+            assertTrue("onSecondaryContainer $name", ChatUi.contrast(s.onSecondaryContainer, s.secondaryContainer) >= 4.5)
+            for ((fl, bg) in listOf("High" to s.surfaceContainerHigh, "Container" to s.surfaceContainer, "Low" to s.surfaceContainerLow, "goldSoft" to acc.goldSoft)) {
+                val c = ChatUi.contrast(acc.goldText, bg)
+                assertTrue("Rand goldText $name gegen $fl: $c", c >= 3.0)
+            }
+        }
+    }
+
     /** Neutralfarben = Web-Tokens (static/tokens.css) */
     @Test
     fun neutralWieWeb() {

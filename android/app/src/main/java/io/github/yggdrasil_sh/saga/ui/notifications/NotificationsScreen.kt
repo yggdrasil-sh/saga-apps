@@ -141,7 +141,7 @@ private fun NotificationRow(n: NotifItem, modifier: Modifier, onClick: () -> Uni
     val unreadState = stringResource(R.string.r1_notif_unread)
     Row(
         // NAV-22: ungelesene Zeilen deutlich getoent (dazu fetter Text), nicht nur mit dem Punkt
-        modifier.then(if (n.read) Modifier else Modifier.background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)))
+        modifier.then(if (n.read) Modifier else Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.7f)))
             .then(if (tap) Modifier.clickable(onClick = onClick) else Modifier)
             .semantics(mergeDescendants = true) { if (!n.read) stateDescription = unreadState }
             .padding(horizontal = 16.dp, vertical = 12.dp),
@@ -194,14 +194,14 @@ private fun NotificationRow(n: NotifItem, modifier: Modifier, onClick: () -> Uni
 @Composable
 fun Avatar(name: String, symbol: String? = null, size: Int = 36, icon: Int? = null, avatar: String? = null) {
     Box(
-        Modifier.size(size.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
+        Modifier.size(size.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
     ) {
         if (icon == null && symbol == null && avatar != null) {
             Text(
                 name.trim().firstOrNull()?.uppercase() ?: "?",
                 style = when { size >= 72 -> MaterialTheme.typography.headlineMedium; size >= 36 -> MaterialTheme.typography.titleSmall; else -> MaterialTheme.typography.labelSmall },
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             io.github.yggdrasil_sh.saga.ui.common.AvatarOverlay(avatar, size.dp)
             return@Box
@@ -209,14 +209,14 @@ fun Avatar(name: String, symbol: String? = null, size: Int = 36, icon: Int? = nu
         if (icon != null) {
             androidx.compose.material3.Icon(
                 androidx.compose.ui.res.painterResource(icon), null, Modifier.size((size * 0.55f).dp),
-                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                tint = MaterialTheme.colorScheme.onSurface,
             )
             return@Box
         }
         Text(
             symbol ?: name.trim().firstOrNull()?.uppercase() ?: "?",
             style = when { size >= 72 -> MaterialTheme.typography.headlineMedium; size >= 36 -> MaterialTheme.typography.titleSmall; else -> MaterialTheme.typography.labelSmall },
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }

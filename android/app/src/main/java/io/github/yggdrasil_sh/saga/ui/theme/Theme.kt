@@ -24,12 +24,14 @@ val SagaGold = Color(0xFFC9A45C)
  * | Web-Token     | Rolle(n)                                    | hell     | dunkel   |
  * |---------------|---------------------------------------------|----------|----------|
  * | --bg          | background, surface, surfaceBright(hell)    | #FDFCFA  | #0F141C  |
- * | --fg          | onBackground, onSurface, onSecondaryCont.   | #1D2430  | #E6EBF2  |
+ * | --fg          | onBackground, onSurface                     | #1D2430  | #E6EBF2  |
  * | --muted       | onSurfaceVariant, secondary                 | #5D6878  | #8B97A8  |
  * | --card        | surfaceContainerLowest(hell), ...Low        | #FFFFFF  | #18202C  |
  * | --card-h      | surfaceContainer                            | #F6F3EC  | #202B3A  |
  * | --side-row    | surfaceContainerHigh, surfaceVariant,       | #EBE7DE  | #222C3A  |
- * |               | secondaryContainer, surfaceDim(hell)        |          |          |
+ * |               | surfaceDim(hell)                            |          |          |
+ * | --gold-soft   | secondaryContainer (= SagaAccent.goldSoft)  | #F3E2BC  | #3A3020  |
+ * |               | onSecondaryContainer (= onGoldSoft)         | #3D2C00  | #F3E2BC  |
  * | --code        | surfaceContainerHighest (hell)              | #EBE6DA  |    -     |
  * | --border      | outlineVariant (Karten, Trennlinien)        | #E7E2D7  | #263242  |
  * | --field       | outline (Feldraender, >= 3:1)               | #8F8670  | *#717E93 |
@@ -43,6 +45,13 @@ val SagaGold = Color(0xFFC9A45C)
  * error: Web --down (#CF222E / #F85149) erreicht 4,5:1 nur auf --bg/--card; error steht in der App oft als Text auf
  *   Containern, daher --overdue. --down selbst gibt es 1:1 in SagaColors.
  * Text immer onSurface/onSurfaceVariant, nie outline (A11Y-04): outline ist nur fuer Raender gedacht.
+ * secondaryContainer (Nachbesserung R3, Entscheidung Koordinator): Gold-Soft wie die aktive Ansichts-Pille und die
+ *   gewaehlte Zeile der Seitenleiste. Vorher = surfaceContainerHigh -> aktive B/I/U/S-Knoepfe auf der Werkzeugleiste,
+ *   getoente Knoepfe ("Uebernehmen") und gewaehlte Segmente waren unsichtbar. Material nutzt die Rolle fuer aktive/
+ *   gewaehlte Zustaende (FilterChip, SegmentedButton, NavigationRail-Indikator, FilledTonalButton). Neutrale Flaechen
+ *   (Hinweisleisten, Avatare, Blasen) nehmen ausdruecklich surfaceContainerHigh. Kontrast: Text 10,5:1 / 10,1:1;
+ *   als Flaeche gegen surfaceContainerHigh nur ~1,1:1 (Farbton statt Helligkeit) - wo der Zustand allein an der
+ *   Flaeche haengt (Format-Knoepfe), zusaetzlich ein Rand in SagaAccent.goldText (>= 3:1, ThemeContrastTest).
  */
 internal val Light = lightColorScheme(
     primary = Color(0xFF7A5A12),
@@ -52,8 +61,8 @@ internal val Light = lightColorScheme(
     inversePrimary = Color(0xFFE8C26E),
     secondary = Color(0xFF5D6878),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFEBE7DE),
-    onSecondaryContainer = Color(0xFF1D2430),
+    secondaryContainer = Color(0xFFF3E2BC),
+    onSecondaryContainer = Color(0xFF3D2C00),
     tertiary = Color(0xFF3A6A8C),
     onTertiary = Color.White,
     tertiaryContainer = Color(0xFFCBE6FF),
@@ -91,8 +100,8 @@ internal val Dark = darkColorScheme(
     inversePrimary = Color(0xFF7A5A12),
     secondary = Color(0xFF8B97A8),
     onSecondary = SagaNight,
-    secondaryContainer = Color(0xFF222C3A),
-    onSecondaryContainer = Color(0xFFE6EBF2),
+    secondaryContainer = Color(0xFF3A3020),
+    onSecondaryContainer = Color(0xFFF3E2BC),
     tertiary = Color(0xFF9CC9EC),
     onTertiary = Color(0xFF00344F),
     tertiaryContainer = Color(0xFF1E4B6A),

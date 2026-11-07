@@ -438,6 +438,8 @@ private fun AvatarCropDialog(bmp: Bitmap, onCancel: () -> Unit, onDone: (Pair<By
                         offset = AvatarCrop.clamp(o, bmp.width, bmp.height, v, base * nz)
                     },
                     modifier = Modifier.semantics { contentDescription = zoomDesc },
+                    // R3: inaktive Spur neutral (Material-Standard waere secondaryContainer = Gold-Soft)
+                    colors = androidx.compose.material3.SliderDefaults.colors(inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh),
                 )
             }
         },

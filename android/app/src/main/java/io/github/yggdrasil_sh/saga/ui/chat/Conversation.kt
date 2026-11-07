@@ -706,7 +706,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         s.fedIssues.forEach { (p, st) -> FedTrustBanner(p, st, onSafety = { safetyFor = p.username; dialog = "safety" }) { repo.launchAction { s.trustFed(p, false) } } }
         // KI erlaubt (2.1): sichtbarer Hinweis, was an die KI geht
         if (aiHere) {
-            Surface(color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.fillMaxWidth()) {
+            Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, contentColor = MaterialTheme.colorScheme.onSurface, modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     AiAvatar(aiPersona, 20)
                     Text(

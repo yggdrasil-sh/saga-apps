@@ -115,7 +115,7 @@ fun CommentsSheet(model: CommentsModel, scope: CoroutineScope, quote: (String) -
                 Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.comments_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
                     if (model.openCount > 0) {
-                        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.padding(start = 10.dp)) {
+                        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.padding(start = 10.dp)) {
                             Text("${model.openCount}", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
                         }
                     }

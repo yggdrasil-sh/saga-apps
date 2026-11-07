@@ -27,6 +27,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import io.github.yggdrasil_sh.saga.util.UiText
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.width
@@ -1100,13 +1101,13 @@ private fun PublicChip(viaTitle: String?, onClick: (() -> Unit)?) {
 private fun DraftBanner(stamp: Long, onRestore: () -> Unit, onDiscard: () -> Unit) {
     val time = io.github.yggdrasil_sh.saga.ui.common.dateTimeText(stamp)
     Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(SagaRadius.md),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(SagaRadius.md),
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
     ) {
         Column(Modifier.padding(start = 12.dp, end = 4.dp, top = 10.dp, bottom = 2.dp)) {
             Text(
                 stringResource(R.string.draft_banner, time), style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer,
+                fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface,
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 SagaTextButton(onClick = onDiscard) { Text(stringResource(R.string.draft_discard)) }
@@ -1385,16 +1386,20 @@ private fun EditorToolbar(
 
 /**
  * Format-Knopf als Umschalter mit Liniensymbol (AND-ED-05): fest 48 dp (alle gleich breit), aktiv in
- * secondaryContainer - der Hintergrund wird selbst gezeichnet, damit der Zustand immer sichtbar ist. TalkBack liest
- * Namen und Zustand.
+ * secondaryContainer (Gold-Soft) - der Hintergrund wird selbst gezeichnet, damit der Zustand immer sichtbar ist.
+ * Nachbesserung R3: dazu ein 1-dp-Rand in goldText (>= 3:1 gegen die Werkzeugleiste; die Flaeche allein unterscheidet
+ * sich nur im Farbton). TalkBack liest Namen und Zustand.
  */
 @Composable
 private fun FormatButton(@androidx.annotation.DrawableRes icon: Int, description: String, on: Boolean, onClick: () -> Unit) {
     val cs = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(SagaRadius.m)
+    val ring = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.goldText
     IconToggleButton(
         checked = on, onCheckedChange = { onClick() },
         modifier = Modifier.size(48.dp).padding(4.dp)
-            .background(if (on) cs.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(SagaRadius.m)),
+            .background(if (on) cs.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent, shape)
+            .then(if (on) Modifier.border(1.dp, ring, shape) else Modifier),
         colors = IconButtonDefaults.iconToggleButtonColors(
             checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
             checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,

@@ -1326,8 +1326,8 @@ internal fun CallFlatPreviewContent(onStage: (Int) -> Unit = {}, onControls: (In
                     Modifier.fillMaxWidth().padding(bottom = if (flat) 2.dp else 24.dp).onSizeChanged { onControls(it.height) },
                 ) {
                     val col = minOf(72.dp, maxWidth / 6)
-                    val tc = MaterialTheme.colorScheme.secondaryContainer
-                    val tf = MaterialTheme.colorScheme.onSecondaryContainer
+                    val tc = MaterialTheme.colorScheme.surfaceContainerHigh       // neutral (R3: secondaryContainer ist Gold)
+                    val tf = MaterialTheme.colorScheme.onSurface
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
                         RoundButton(SagaIcons.mic, stringResource(R.string.call_mute), tc, tf, compact = true, col = col) {}
                         RoundButton(SagaIcons.video, stringResource(R.string.call_cam_off), tc, tf, compact = true, col = col) {}

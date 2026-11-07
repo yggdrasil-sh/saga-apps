@@ -282,11 +282,11 @@ fun PresenceAvatars(st: PageLiveState) {
 @Composable
 fun PageLiveBanner(st: PageLiveState, onReload: () -> Unit) {
     st.changedBy?.let { name ->
-        Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth()) {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {  // neutral (R3: secondaryContainer ist Gold)
             Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     if (name.isNotEmpty()) stringResource(R.string.live_changed_by, name) else stringResource(R.string.live_changed),
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
                 )
                 SagaTextButton(onClick = onReload) { Text(stringResource(R.string.live_reload)) }
