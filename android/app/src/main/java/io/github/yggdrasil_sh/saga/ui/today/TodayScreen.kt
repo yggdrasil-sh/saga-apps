@@ -71,10 +71,12 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val quickAdd by repo.focusQuickAdd.collectAsState()
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     LaunchedEffect(quickAdd) { if (quickAdd) listState.scrollToItem(3 + maxOf(1, events.size)) }
-    val todayTasks = tasks.filter { it.due.isNullOrEmpty() || it.due <= today }
+    // NAV-01: eine Quelle - Kopf, Abschnittszahl und Liste zaehlen dieselbe Liste (TaskCounts)
+    val todayTasks = io.github.yggdrasil_sh.saga.data.TaskCounts.todayTasks(tasks, today)
     // 2.5 E2: mit Aufgabenquellen die Server-Liste (heute, ueberfaellig, ohne Datum) inkl. Datenbank-Zeilen
     val merged by repo.taskList.collectAsState()
-    val todayItems = merged?.items?.filter { it.due.isNullOrEmpty() || it.due <= today }
+    val todayItems = io.github.yggdrasil_sh.saga.data.TaskCounts.todayEntries(merged, today)
+    val shownCount = todayItems?.size ?: todayTasks.size
 
     Scaffold(topBar = {
         SagaTopBar(stringResource(R.string.nav_today), nav, chrome) {
@@ -97,7 +99,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                             color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = SagaSpace.xxs).semantics { heading() },
                         )
                         val res = LocalResources.current
-                        val open = todayTasks.count { !it.done }
+                        val open = shownCount
                         val summary = listOf(
                             if (events.isEmpty()) stringResource(R.string.today_no_events) else res.getQuantityString(R.plurals.today_events_count, events.size, events.size),
                             res.getQuantityString(R.plurals.today_tasks_open, open, open),
@@ -116,7 +118,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 itemsIndexed(events, key = { i, _ -> "ev-$i" }) { i, e ->
                     Box(Modifier.widthIn(max = maxW).fillMaxWidth().sagaSegment(i, events.size).padding(vertical = SagaSpace.xs).sagaAppear(1 + i)) { EventRow(e) }
                 }
-                item(key = "t-head") { SagaSectionTitle(stringResource(R.string.nav_tasks), Modifier.widthIn(max = maxW).padding(top = SagaSpace.m), count = todayTasks.size) }
+                item(key = "t-head") { SagaSectionTitle(stringResource(R.string.nav_tasks), Modifier.widthIn(max = maxW).padding(top = SagaSpace.m), count = shownCount) }
                 item(key = "t-add") {
                     QuickAddTask(repo, Modifier.widthIn(max = maxW), defaultDue = today, focus = quickAdd, onFocused = { repo.focusQuickAdd.value = false },
                         targets = merged?.let { io.github.yggdrasil_sh.saga.data.TaskSourcesLogic.targets(it.sources) }.orEmpty())

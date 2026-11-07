@@ -15,7 +15,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
+import io.github.yggdrasil_sh.saga.data.TaskCounts
+import io.github.yggdrasil_sh.saga.ui.common.todayIso
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -56,18 +57,23 @@ fun SourceTaskRow(e: TaskEntry, source: TaskSource?, people: Map<String, TaskPer
             .padding(horizontal = 8.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // NAV-12/A11Y-06: Rot nur fuer "ueberfaellig" (mit Wort), hohe Prioritaet als Flagge statt roten Kaestchenrands
+        val overdue = TaskCounts.overdue(e, todayIso())
+        val high = e.prio == 1 && !e.done
         Checkbox(
             checked = e.done, enabled = e.edit,
             onCheckedChange = { v -> repo.toggleEntry(e, v) },
-            colors = if (e.prio == 1 && !e.done) CheckboxDefaults.colors(uncheckedColor = MaterialTheme.colorScheme.error) else CheckboxDefaults.colors(),
-            modifier = Modifier.taskCheckSemantics(e.text, e.done) { repo.toggleEntry(e, !e.done) },
+            modifier = Modifier.taskCheckSemantics(e.text, e.done, overdue, high) { repo.toggleEntry(e, !e.done) },
         )
         Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
-            Text(
-                e.text.ifBlank { stringResource(R.string.page_untitled) }, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                textDecoration = if (e.done) TextDecoration.LineThrough else null,
-                color = if (e.done || !e.edit) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (high) PrioFlag()
+                Text(
+                    e.text.ifBlank { stringResource(R.string.page_untitled) }, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    textDecoration = if (e.done) TextDecoration.LineThrough else null,
+                    color = if (e.done || !e.edit) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                )
+            }
             val extra = listOfNotNull(
                 source?.let { (it.icon.ifEmpty { "☑️" }) + " " + it.title.ifBlank { stringResource(R.string.page_untitled) } },
                 dueLabel(e),
@@ -76,10 +82,10 @@ fun SourceTaskRow(e: TaskEntry, source: TaskSource?, people: Map<String, TaskPer
                 TaskSourcesLogic.assigneeNames(e, people).takeIf { it.isNotEmpty() }?.joinToString(", ")?.let { "👤 $it" },
                 if (!e.edit) stringResource(R.string.e2_task_readonly) else null,
             )
-            if (extra.isNotEmpty()) {
+            if (extra.isNotEmpty() || overdue) {
                 Text(
-                    extra.joinToString(" · "), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    color = if (e.overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    taskMetaText(extra, overdue), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

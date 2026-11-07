@@ -83,6 +83,9 @@ private data class TreeRow(val page: PageMeta, val depth: Int, val hasChildren: 
 fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
     val pages by repo.pages.collectAsState()
     val tasks by repo.tasks.collectAsState()
+    // NAV-01: wie das Web-Badge "faellig heute + ueberfaellig" (mit Aufgabenquellen aus der zusammengefuehrten Liste)
+    val mergedTasks by repo.taskList.collectAsState()
+    val taskBadge = io.github.yggdrasil_sh.saga.data.TaskCounts.badge(mergedTasks, tasks, io.github.yggdrasil_sh.saga.ui.common.todayIso())
     val recentIds by repo.settings.recent.collectAsState()
     val error by repo.error.collectAsState()
     val loading by repo.loading.collectAsState()
@@ -230,7 +233,7 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
         }
         item { NavItem(stringResource(R.string.nav_today), Icons.Filled.Home, nav.root == Dest.Today) { nav.top(Dest.Today); onNavigate() } }
         item {
-            NavItem(stringResource(R.string.nav_tasks), Icons.Filled.CheckCircle, nav.root == Dest.Tasks, badge = tasks.size.takeIf { it > 0 }) {
+            NavItem(stringResource(R.string.nav_tasks), Icons.Filled.CheckCircle, nav.root == Dest.Tasks, badge = taskBadge.takeIf { it > 0 }) {
                 nav.top(Dest.Tasks); onNavigate()
             }
         }

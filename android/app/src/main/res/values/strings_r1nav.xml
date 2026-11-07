@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 1 (Navigation, Anmeldung, Offline) -->
+<resources>
+    <string name="r1_task_state_open">open</string>
+    <string name="r1_task_state_overdue">overdue</string>
+    <string name="r1_task_state_high_prio">high priority</string>
+    <string name="r1_task_overdue_meta">Overdue · %1$s</string>
+</resources>

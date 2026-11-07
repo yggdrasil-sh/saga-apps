@@ -3,6 +3,7 @@ package io.github.yggdrasil_sh.saga.ui.tasks
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import io.github.yggdrasil_sh.saga.R
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -39,13 +40,13 @@ import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.data.TaskItem
 import io.github.yggdrasil_sh.saga.ui.common.Chrome
 import io.github.yggdrasil_sh.saga.ui.common.SagaTopBar
-import io.github.yggdrasil_sh.saga.ui.common.SectionHeader
+import io.github.yggdrasil_sh.saga.data.TaskCounts
 import io.github.yggdrasil_sh.saga.ui.nav.AppNavigator
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /** Aufgaben wie im Dashboard: Schnell-Eingabe, Gruppen nach Faelligkeit, erledigte eingeklappt */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val tasks by repo.tasks.collectAsState()
@@ -58,13 +59,8 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
 
     val today = LocalDate.now().toString()
     val tomorrow = LocalDate.now().plusDays(1).toString()
-    val groups = listOf(
-        stringResource(R.string.tasks_overdue) to tasks.filter { !it.due.isNullOrEmpty() && it.due < today },
-        stringResource(R.string.tasks_today) to tasks.filter { it.due == today },
-        stringResource(R.string.tasks_tomorrow) to tasks.filter { it.due == tomorrow },
-        stringResource(R.string.tasks_later) to tasks.filter { !it.due.isNullOrEmpty() && it.due > tomorrow },
-        stringResource(R.string.no_date) to tasks.filter { it.due.isNullOrEmpty() },
-    ).filter { it.second.isNotEmpty() }
+    // NAV-12: dieselben Gruppen mit und ohne Aufgabenquellen (TaskCounts)
+    val groups = TaskCounts.grouped(tasks) { TaskCounts.group(it, today, tomorrow) }
 
     // 2.5 E2 (tasksrc1): zusammengefuehrte Liste aus Inbox und Aufgabenquellen - Reihenfolge vom Server
     val merged by repo.taskList.collectAsState()
@@ -88,11 +84,15 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     item { Text(stringResource(R.string.tasks_all_done), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
                 }
                 val bySrc = ml.sources.associateBy { it.db }
-                items(ml.items, key = { it.key }) { e ->
-                    androidx.compose.foundation.layout.Box(Modifier.widthIn(max = 760.dp)) {
-                        SourceTaskRow(e, e.src?.let { bySrc[it] }, ml.people, repo) { x ->
-                            if (x.isRow) nav.push(io.github.yggdrasil_sh.saga.ui.nav.Dest.Page(x.id))
-                            else editing = tasks.firstOrNull { it.id.toLong() == x.id } ?: TaskItem(x.id.toInt(), x.text, false, x.due, x.prio, x.repeat)
+                // NAV-12: auch mit Aufgabenquellen gruppiert (Ueberfaellig, Heute, Morgen, Spaeter, Ohne Datum), Reihenfolge je Gruppe vom Server
+                TaskCounts.grouped(ml.items) { TaskCounts.group(it, today, tomorrow) }.forEach { (g, list) ->
+                    stickyHeader(key = "mh-$g") { TaskGroupHeader(g, list.size) }
+                    items(list, key = { it.key }) { e ->
+                        androidx.compose.foundation.layout.Box(Modifier.widthIn(max = 760.dp)) {
+                            SourceTaskRow(e, e.src?.let { bySrc[it] }, ml.people, repo) { x ->
+                                if (x.isRow) nav.push(io.github.yggdrasil_sh.saga.ui.nav.Dest.Page(x.id))
+                                else editing = tasks.firstOrNull { it.id.toLong() == x.id } ?: TaskItem(x.id.toInt(), x.text, false, x.due, x.prio, x.repeat)
+                            }
                         }
                     }
                 }
@@ -117,10 +117,8 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 if (tasks.isEmpty()) {
                     item { Text(stringResource(R.string.tasks_all_done), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
                 }
-                groups.forEach { (name, list) ->
-                    item(key = "h-$name") {
-                        SectionHeader(name, Modifier.widthIn(max = 760.dp))
-                    }
+                groups.forEach { (g, list) ->
+                    stickyHeader(key = "h-$g") { TaskGroupHeader(g, list.size) }
                     items(list, key = { "t-${it.id}" }) { t ->
                         androidx.compose.foundation.layout.Box(Modifier.widthIn(max = 760.dp)) { TaskRow(t, repo) { editing = it } }
                     }
@@ -155,4 +153,24 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     }
     editing?.let { t -> TaskEditDialog(t, repo) { editing = null } }
     if (manage) TaskSourcesDialog(repo, onOpen = { nav.push(io.github.yggdrasil_sh.saga.ui.nav.Dest.Page(it)) }) { manage = false }
+}
+
+/** Kopf einer Faelligkeits-Gruppe (bleibt beim Scrollen oben stehen), mit Anzahl */
+@Composable
+private fun TaskGroupHeader(g: TaskCounts.Group, count: Int) {
+    val name = stringResource(
+        when (g) {
+            TaskCounts.Group.OVERDUE -> R.string.tasks_overdue
+            TaskCounts.Group.TODAY -> R.string.tasks_today
+            TaskCounts.Group.TOMORROW -> R.string.tasks_tomorrow
+            TaskCounts.Group.LATER -> R.string.tasks_later
+            TaskCounts.Group.NONE -> R.string.no_date
+        }
+    )
+    androidx.compose.foundation.layout.Box(
+        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        io.github.yggdrasil_sh.saga.ui.theme.SagaSectionTitle(name, Modifier.widthIn(max = 760.dp).padding(top = 4.dp), count = count)
+    }
 }

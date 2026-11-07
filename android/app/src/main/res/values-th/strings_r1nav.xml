@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 1 (Navigation, Anmeldung, Offline) -->
+<resources>
+    <string name="r1_task_state_open">ยังไม่เสร็จ</string>
+    <string name="r1_task_state_overdue">เลยกำหนด</string>
+    <string name="r1_task_state_high_prio">ความสำคัญสูง</string>
+    <string name="r1_task_overdue_meta">เลยกำหนด · %1$s</string>
+</resources>

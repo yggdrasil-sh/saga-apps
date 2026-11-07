@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -19,7 +20,6 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,18 +60,46 @@ import java.time.ZoneOffset
 
 /** Haken einer Aufgabe fuer Bedienungshilfen: Aufgabentext und die Aktion "Erledigen" bzw. "Wieder oeffnen" (N-07) */
 @Composable
-fun Modifier.taskCheckSemantics(text: String, done: Boolean, toggle: () -> Unit): Modifier {
+fun Modifier.taskCheckSemantics(text: String, done: Boolean, overdue: Boolean = false, highPrio: Boolean = false, toggle: () -> Unit): Modifier {
     val action = stringResource(if (done) R.string.task_reopen_action else R.string.task_complete_action)
+    // A11Y-06: "ueberfaellig" und "hohe Prioritaet" nicht nur ueber Farbe/Symbol - TalkBack liest den Zustand mit
+    // (ersetzt dabei die Standard-Zustandsansage des Kaestchens, daher "offen" vorne)
+    val extra = listOfNotNull(
+        if (overdue && !done) stringResource(R.string.r1_task_state_overdue) else null,
+        if (highPrio && !done) stringResource(R.string.r1_task_state_high_prio) else null,
+    )
+    val state = if (extra.isEmpty()) null else (listOf(stringResource(R.string.r1_task_state_open)) + extra).joinToString(", ")
     return this.semantics {
         contentDescription = text
+        if (state != null) stateDescription = state
         onClick(label = action) { toggle(); true }
     }
+}
+
+/** NAV-12/A11Y-06: kleine Flagge vor dem Titel fuer hohe Prioritaet (statt roten Kaestchenrands) - dekorativ, die Ansage kommt ueber stateDescription */
+@Composable
+fun PrioFlag() {
+    Icon(
+        androidx.compose.ui.res.painterResource(R.drawable.ic_flag), null,
+        Modifier.padding(end = 4.dp).size(14.dp),
+        tint = MaterialTheme.colorScheme.tertiary,
+    )
+}
+
+/** Metazeile: ueberfaellig = Fehlerfarbe UND das Wort "Ueberfaellig · …" (nicht nur Rot) */
+@Composable
+fun taskMetaText(parts: List<String>, overdue: Boolean): String {
+    val joined = parts.joinToString(" · ")
+    return if (!overdue) joined
+    else if (joined.isEmpty()) stringResource(R.string.tasks_overdue)
+    else stringResource(R.string.r1_task_overdue_meta, joined)
 }
 
 /** Eine Aufgabe: Haken (erledigt/wieder offen), Text, Faelligkeit; antippen = bearbeiten */
 @Composable
 fun TaskRow(t: TaskItem, repo: SagaRepository, onEdit: (TaskItem) -> Unit) {
-    val overdue = !t.done && (t.due ?: "9") < todayIso()
+    val overdue = io.github.yggdrasil_sh.saga.data.TaskCounts.overdue(t, todayIso())
+    val high = t.prio == 1 && !t.done
     Row(
         Modifier.fillMaxWidth().heightIn(min = 48.dp)
             .clickable(onClickLabel = stringResource(R.string.task_edit)) { onEdit(t) }
@@ -81,24 +110,26 @@ fun TaskRow(t: TaskItem, repo: SagaRepository, onEdit: (TaskItem) -> Unit) {
             checked = t.done,
             // im App-Scope: die Zeile verschwindet sofort aus "Heute" - ihr eigener Scope wuerde das Speichern abbrechen
             onCheckedChange = { v -> repo.toggleTask(t, v) },
-            colors = if (t.prio == 1 && !t.done) CheckboxDefaults.colors(uncheckedColor = MaterialTheme.colorScheme.error) else CheckboxDefaults.colors(),
-            // TalkBack: Aufgabentext + Zustand + Aktion "Erledigen"/"Wieder oeffnen" (N-07)
-            modifier = Modifier.taskCheckSemantics(t.text, t.done) { repo.toggleTask(t, !t.done) },
+            // TalkBack: Aufgabentext + Zustand + Aktion "Erledigen"/"Wieder oeffnen" (N-07), dazu ueberfaellig/Prioritaet (A11Y-06)
+            modifier = Modifier.taskCheckSemantics(t.text, t.done, overdue, high) { repo.toggleTask(t, !t.done) },
         )
         Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
-            Text(
-                t.text, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                textDecoration = if (t.done) TextDecoration.LineThrough else null,
-                color = if (t.done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (high) PrioFlag()
+                Text(
+                    t.text, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    textDecoration = if (t.done) TextDecoration.LineThrough else null,
+                    color = if (t.done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                )
+            }
             val extra = listOfNotNull(
                 t.due?.takeIf { it.isNotEmpty() && !t.done }?.let { dueText(it) },
                 t.rep?.let { stringResource(R.string.task_repeats) },
                 if (t.prio == 1) stringResource(R.string.task_high_priority) else null,
             )
-            if (extra.isNotEmpty()) {
+            if (extra.isNotEmpty() || overdue) {
                 Text(
-                    extra.joinToString(" · "), style = MaterialTheme.typography.bodySmall,
+                    taskMetaText(extra, overdue), style = MaterialTheme.typography.bodySmall,
                     color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
