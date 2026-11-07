@@ -9,6 +9,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import io.github.yggdrasil_sh.saga.data.LoginErrors.Kind
+import io.github.yggdrasil_sh.saga.util.UiText
 
 /** Android-Design-Runde 1: Aufgabenzahlen (NAV-01), Gruppen (NAV-12) */
 class DesignR1NavTest {
@@ -99,20 +101,18 @@ class DesignR1NavTest {
 
     @Test fun loginErrorKinds() {
         val E = io.github.yggdrasil_sh.saga.data.LoginErrors
-        val K = io.github.yggdrasil_sh.saga.data.LoginErrors.Kind
-        val UT = io.github.yggdrasil_sh.saga.util.UiText
-        fun wrapped(c: Throwable) = io.github.yggdrasil_sh.saga.util.UiTextException(UT.Res(R.string.error_server_unreachable)).apply { initCause(c) }
+        fun wrapped(c: Throwable) = io.github.yggdrasil_sh.saga.util.UiTextException(UiText.Res(R.string.error_server_unreachable)).apply { initCause(c) }
         val dns = java.net.UnknownHostException("saga.example.invalid")
-        assertEquals(K.NOT_FOUND, E.classify(wrapped(dns), online = true))
-        assertEquals(K.OFFLINE, E.classify(wrapped(dns), online = false))
-        assertEquals(K.NO_ANSWER, E.classify(wrapped(java.net.SocketTimeoutException()), online = true))
-        assertEquals(K.NO_ANSWER, E.classify(java.net.ConnectException(), online = true))
-        assertEquals(K.OFFLINE, E.classify(java.io.IOException("x"), online = false))
-        assertEquals(K.NOT_SAGA, E.classify(io.github.yggdrasil_sh.saga.util.UiTextException(UT.Res(R.string.login_not_saga)), online = true))
+        assertEquals(Kind.NOT_FOUND, E.classify(wrapped(dns), online = true))
+        assertEquals(Kind.OFFLINE, E.classify(wrapped(dns), online = false))
+        assertEquals(Kind.NO_ANSWER, E.classify(wrapped(java.net.SocketTimeoutException()), online = true))
+        assertEquals(Kind.NO_ANSWER, E.classify(java.net.ConnectException(), online = true))
+        assertEquals(Kind.OFFLINE, E.classify(java.io.IOException("x"), online = false))
+        assertEquals(Kind.NOT_SAGA, E.classify(io.github.yggdrasil_sh.saga.util.UiTextException(UiText.Res(R.string.login_not_saga)), online = true))
         // Zertifikat/https usw.: bisheriger Text bleibt
-        val cert = io.github.yggdrasil_sh.saga.util.UiTextException(UT.Res(R.string.error_certificate))
-        assertEquals(K.OTHER, E.classify(cert, online = true))
-        assertEquals(UT.Res(R.string.error_certificate), E.text(K.OTHER, UT.Res(R.string.error_certificate)))
-        assertEquals(UT.Res(R.string.r1_login_err_not_found), E.text(K.NOT_FOUND, UT.Raw("x")))
+        val cert = io.github.yggdrasil_sh.saga.util.UiTextException(UiText.Res(R.string.error_certificate))
+        assertEquals(Kind.OTHER, E.classify(cert, online = true))
+        assertEquals(UiText.Res(R.string.error_certificate), E.text(Kind.OTHER, UiText.Res(R.string.error_certificate)))
+        assertEquals(UiText.Res(R.string.r1_login_err_not_found), E.text(Kind.NOT_FOUND, UiText.Raw("x")))
     }
 }
