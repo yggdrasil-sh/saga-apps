@@ -973,18 +973,19 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             if (!recording) Box {
                 var attach by remember { mutableStateOf(false) }
                 IconButton(onClick = { attach = true }) { SagaIcon(SagaIcons.plus, stringResource(R.string.chat_attach)) }
+                // R2c: jeder Eintrag mit Liniensymbol (vorher nur Kamera-Eintraege)
                 DropdownMenu(expanded = attach, onDismissRequest = { attach = false }) {
-                    DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_file)) }, onClick = { attach = false; pick.launch("*/*") })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_file)) }, leadingIcon = { SagaIcon(SagaIcons.file, null) }, onClick = { attach = false; pick.launch("*/*") })
                     // 2.5: Kamera (Foto/Video) - nur mit Kamera am Geraet
                     if (context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_CAMERA_ANY)) {
                         DropdownMenuItem(text = { Text(stringResource(R.string.std_camera_photo)) }, leadingIcon = { SagaIcon(SagaIcons.camera, null) }, onClick = { attach = false; openCamera(false) })
                         DropdownMenuItem(text = { Text(stringResource(R.string.std_camera_video)) }, leadingIcon = { SagaIcon(SagaIcons.video, null) }, onClick = { attach = false; openCamera(true) })
                     }
-                    DropdownMenuItem(text = { Text(stringResource(R.string.video_attach)) }, onClick = { attach = false; pickVideo.launch("video/*") })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.video_attach)) }, leadingIcon = { SagaIcon(SagaIcons.video, null) }, onClick = { attach = false; pickVideo.launch("video/*") })
                     // gleiche Pruefung wie beim Bild-Einfuegen auf Seiten: nur wenn Immich fuer mich eingerichtet ist
-                    if (immichOn) DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_immich)) }, onClick = { attach = false; dialog = "immich" })
-                    if (clipHasImage) DropdownMenuItem(text = { Text(stringResource(R.string.paste_image)) }, onClick = { attach = false; addImages(clipboardImages(context)) })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_page)) }, onClick = { attach = false; dialog = "page" })
+                    if (immichOn) DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_immich)) }, leadingIcon = { SagaIcon(SagaIcons.gallery, null) }, onClick = { attach = false; dialog = "immich" })
+                    if (clipHasImage) DropdownMenuItem(text = { Text(stringResource(R.string.paste_image)) }, leadingIcon = { SagaIcon(SagaIcons.clipboard, null) }, onClick = { attach = false; addImages(clipboardImages(context)) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_page)) }, leadingIcon = { SagaIcon(SagaIcons.link, null) }, onClick = { attach = false; dialog = "page" })
                 }
             }
             if (recording) Box(Modifier.weight(1f)) {
