@@ -1,6 +1,9 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -18,8 +21,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -42,6 +43,7 @@ import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.util.UiText
 
@@ -52,6 +54,7 @@ import io.github.yggdrasil_sh.saga.util.UiText
  * rechts nur Abbrechen und - falls noetig - Uebernehmen/Speichern. Als einziger confirmButton eines AlertDialog nutzen
  * (dismissButton = null), damit die Zeile die volle Breite bekommt.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DbDlgButtons(
     onCancel: () -> Unit,
@@ -63,19 +66,36 @@ fun DbDlgButtons(
     confirmEnabled: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    // R3-Nachbesserung (78): Knopftexte nie umbrechen oder silbentrennen ("Überneh-/men" bei Schrift 1,3) - reicht die
+    // Breite nicht, bricht die Knopfzeile um (FlowRow), nicht der Text. "Leeren" bleibt links, der Rest rechts.
+    // 35b: "Übernehmen" ist die Hauptaktion und als Tonal-Knopf hervorgehoben (in allen Auswahl-Dialogen gleich).
+    FlowRow(
+        modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
         if (onClear != null && clearLabel != null) {
-            SagaTextButton(onClick = onClear) {
-                Text(clearLabel, color = if (destructive) MaterialTheme.colorScheme.error else Color.Unspecified)
-            }
-        } else Spacer(Modifier.width(1.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-            SagaTextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
-            if (onConfirm != null) SagaTextButton(onClick = onConfirm, enabled = confirmEnabled) {
-                Text(confirmLabel ?: stringResource(R.string.action_apply))
+            Row(Modifier.weight(1f)) {
+                SagaTextButton(onClick = onClear) {
+                    DbDlgButtonText(clearLabel, color = if (destructive) MaterialTheme.colorScheme.error else Color.Unspecified)
+                }
             }
         }
+        SagaTextButton(onClick = onCancel) { DbDlgButtonText(stringResource(R.string.action_cancel)) }
+        if (onConfirm != null) SagaFilledTonalButton(onClick = onConfirm, enabled = confirmEnabled) {
+            DbDlgButtonText(confirmLabel ?: stringResource(R.string.action_apply))
+        }
     }
+}
+
+/** Knopftext: einzeilig, ohne Silbentrennung und ohne weichen Umbruch (R3-Nachbesserung 78) */
+@Composable
+internal fun DbDlgButtonText(text: String, color: Color = Color.Unspecified) {
+    Text(
+        text, color = color, maxLines = 1, softWrap = false,
+        style = androidx.compose.material3.LocalTextStyle.current.copy(hyphens = androidx.compose.ui.text.style.Hyphens.None),
+    )
 }
 
 /**
@@ -87,12 +107,17 @@ fun DbDlgButtons(
 fun DbDlgOptionRow(multi: Boolean, selected: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
     val m = if (multi) Modifier.toggleable(value = selected, role = Role.Checkbox, onValueChange = { onClick() })
     else Modifier.selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
-    ListItem(
-        headlineContent = content,
-        leadingContent = { if (multi) Checkbox(checked = selected, onCheckedChange = null) else RadioButton(selected = selected, onClick = null) },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).then(m),
-    )
+    // R3-Nachbesserung (35): eigene Zeile statt ListItem - ListItem rueckt 16 dp ein, die Radio-/Checkbox-Spalte stand
+    // dadurch weiter innen als das Suchfeld darueber. Jetzt fluchtet das Symbol mit der Feldkante.
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).then(m).padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        if (multi) Checkbox(checked = selected, onCheckedChange = null) else RadioButton(selected = selected, onClick = null)
+        Box(Modifier.weight(1f)) {
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalTextStyle provides MaterialTheme.typography.bodyLarge) { content() }
+        }
+    }
 }
 
 /** Schalter mit Beschriftung, die ganze Flaeche (mind. 48 dp) schaltet */

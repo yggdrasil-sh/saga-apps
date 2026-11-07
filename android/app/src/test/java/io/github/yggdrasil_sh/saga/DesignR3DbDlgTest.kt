@@ -111,7 +111,7 @@ class DesignR3DbDlgTest {
         assertTrue(read("ui/database/DbCells25.kt").contains("discard.dismiss(changed"))
         // Leeren links, rechts Abbrechen/Uebernehmen - ueberall dieselbe Knopfzeile
         val parts = read("ui/database/DbDlgParts.kt")
-        assertTrue(parts.contains("Arrangement.SpaceBetween"))
+        assertTrue(parts.contains("Arrangement.spacedBy(4.dp, Alignment.End)"))   // R3-Nachbesserung: FlowRow, Leeren links (weight)
         assertTrue(read("ui/tasks/TaskParts.kt").contains("destructive = true"))
     }
 
@@ -138,7 +138,9 @@ class DesignR3DbDlgTest {
         assertTrue(c.contains("\"date\" -> DbDlgDateDialog("))
         assertFalse(c.contains("LegacyDateDialog"))
         val d = read("ui/database/DbDlgDate.kt")
-        assertTrue(d.contains("DateRangePicker(") && d.contains("DbDlg.Quick.NEXT_WEEK"))
+        // R3-Nachbesserung (36c): Zeitraum im selben DatePicker mit Segmenten Start/Ende statt DateRangePicker
+        assertFalse(d.contains("DateRangePicker("))
+        assertTrue(d.contains("SingleChoiceSegmentedButtonRow(") && d.contains("DbDlg.Quick.NEXT_WEEK"))
     }
 
     @Test fun eigenschaftszeilen48dp() {
@@ -151,7 +153,7 @@ class DesignR3DbDlgTest {
     @Test fun texteInAllenSprachen() {
         val res = listOf(File("src/main/res"), File("app/src/main/res")).first { it.isDirectory }
         val keys = Regex("name=\"(r3d_[a-z_]+)\"").findAll(res.resolve("values/strings_r3dbdlg.xml").readText()).map { it.groupValues[1] }.toSet()
-        assertEquals(11, keys.size)
+        assertEquals(14, keys.size)
         listOf("de", "es", "ru", "th").forEach { l ->
             val k = Regex("name=\"(r3d_[a-z_]+)\"").findAll(res.resolve("values-$l/strings_r3dbdlg.xml").readText()).map { it.groupValues[1] }.toSet()
             assertEquals(l, keys, k)

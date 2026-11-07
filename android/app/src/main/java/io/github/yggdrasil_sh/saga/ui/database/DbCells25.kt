@@ -103,8 +103,17 @@ fun PersonDialog(
             Column {
                 if (cur.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(bottom = 6.dp)) {
                     cur.forEach { r ->
+                        // R3-Nachbesserung (35b): gewaehlte Person sichtbar als gewaehlt (zartes Gold wie die aktive Ansichts-Pille)
+                        val accent = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current
                         FilterChip(selected = true, onClick = { cur = cur - r }, label = { Text(name(r)) },
-                            trailingIcon = { SagaIcon(SagaIcons.x, stringResource(R.string.e1_person_remove, name(r)), Modifier.size(16.dp)) })
+                            trailingIcon = { SagaIcon(SagaIcons.x, stringResource(R.string.e1_person_remove, name(r)), Modifier.size(16.dp)) },
+                            colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = accent.goldSoft, selectedLabelColor = accent.onGoldSoft,
+                                selectedTrailingIconColor = accent.onGoldSoft,
+                            ),
+                            border = androidx.compose.material3.FilterChipDefaults.filterChipBorder(
+                                enabled = true, selected = true, selectedBorderColor = accent.gold.copy(alpha = 0.6f), selectedBorderWidth = 1.dp,
+                            ))
                     }
                 }
                 OutlinedTextField(q, { q = it.take(80) }, singleLine = true, placeholder = { Text(stringResource(R.string.e1_person_search)) }, modifier = Modifier.fillMaxWidth())

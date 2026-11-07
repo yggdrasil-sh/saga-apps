@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -71,6 +72,7 @@ import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -326,11 +328,54 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaReposi
             val pills = st.views.size > 1
             // ED-12: Schalter "Als Tabelle" nur auf dem Handy und nur bei Tabellen
             val tableToggle = DbCompact.offerTableToggle(v.type, wide)
+            // R3-Nachbesserung (28b): Menueinhalt einmal, verankert am Knopf, der es oeffnet (⋮ neben den Pillen bzw. Ansichts-Chip)
+            val viewMenuItems: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
+                st.views.forEach { x ->
+                    DropdownMenuItem(
+                        text = { Text(x.name.ifEmpty { viewLabel(x.type) }) },
+                        leadingIcon = { SagaIcon(viewIcon(x.type), null, Modifier.size(18.dp)) },
+                        trailingIcon = { if (x.id == v.id) SagaIcon(SagaIcons.check, null) },
+                        onClick = { viewMenu = false; if (x.id != v.id) st.selectView(x.id) },
+                    )
+                }
+                if (tableToggle) {
+                    androidx.compose.material3.HorizontalDivider()
+                    // R3-Nachbesserung (28b): Schalter schaltet um und laesst das Menue offen (ein Schalter ist eine Einstellung,
+                    // keine Aktion; TalkBack bleibt auf ihm und sagt den neuen Zustand an) - schliessen per Tipp daneben
+                    AsTableMenuItem(st.asTable(v.id)) { st.setAsTable(v.id, it) }
+                }
+                if (st.canEditViews) {
+                    androidx.compose.material3.HorizontalDivider()
+                    DropdownMenuItem(text = { Text(stringResource(R.string.dbv_view_settings)) }, leadingIcon = { MenuIconSlot() }, onClick = { viewMenu = false; st.sheet = "view" })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.dbv_new_view)) }, leadingIcon = { SagaIcon(SagaIcons.plus, null) },
+                        onClick = { viewMenu = false; st.sheet = "new_view" })
+                }
+                if (st.canManageTemplates) {                    // 2.5: auch ohne Vorlagen erreichbar
+                    androidx.compose.material3.HorizontalDivider()
+                    DropdownMenuItem(text = { Text(stringResource(R.string.tpl_manage)) }, leadingIcon = { MenuIconSlot() }, onClick = { viewMenu = false; st.managing = true })
+                }
+                // 2.5 E2 (tasksrc1): abonnieren nur, wenn die Zuordnung (map) schon gesetzt ist - sonst Hinweis "im Web einrichten"
+                if (repo != null && st.embed == null && st.dbId > 0 && "tasksrc1" in features) {
+                    androidx.compose.material3.HorizontalDivider()
+                    DropdownMenuItem(text = { Text(stringResource(R.string.e2_task_source_use)) }, leadingIcon = { MenuIconSlot() }, onClick = {
+                        viewMenu = false
+                        repo.launchAction {
+                            val (mapped, subscribed) = repo.taskSourceState(st.dbId)
+                            when {
+                                subscribed -> repo.notify(io.github.yggdrasil_sh.saga.util.UiText.Res(R.string.e2_task_source_already))
+                                mapped -> { repo.subscribeTaskSource(st.dbId); repo.notify(io.github.yggdrasil_sh.saga.util.UiText.Res(R.string.e2_task_source_added)) }
+                                else -> repo.notify(io.github.yggdrasil_sh.saga.util.UiText.Res(R.string.e2_task_source_web))
+                            }
+                        }
+                    })
+                }
+            }
             if (pills) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { ViewPills(st.views, v.id) { st.selectView(it) } }
                 // Menue (Ansicht bearbeiten, neue Ansicht, Vorlagen) rechts neben den Pillen
-                if (tableToggle || st.canEditViews || st.canManageTemplates || (repo != null && "tasksrc1" in features)) IconButton(onClick = { viewMenu = true }) {
-                    SagaIcon(SagaIcons.moreVert, stringResource(R.string.dbv_views_menu))
+                if (tableToggle || st.canEditViews || st.canManageTemplates || (repo != null && "tasksrc1" in features)) Box {
+                    IconButton(onClick = { viewMenu = true }) { SagaIcon(SagaIcons.moreVert, stringResource(R.string.dbv_views_menu)) }
+                    DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }, content = viewMenuItems)
                 }
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -343,60 +388,27 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaReposi
                         trailingIcon = { SagaIcon(SagaIcons.caretDown, null, Modifier.size(18.dp)) },
                         modifier = Modifier.widthIn(max = 200.dp).semantics { contentDescription = v.name.ifEmpty { typeLabel } + ", " + typeLabel },
                     )
-                    DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
-                        st.views.forEach { x ->
-                            DropdownMenuItem(
-                                text = { Text(x.name.ifEmpty { viewLabel(x.type) }) },
-                                leadingIcon = { SagaIcon(viewIcon(x.type), null, Modifier.size(18.dp)) },
-                                trailingIcon = { if (x.id == v.id) SagaIcon(SagaIcons.check, null) },
-                                onClick = { viewMenu = false; if (x.id != v.id) st.selectView(x.id) },
-                            )
-                        }
-                        if (tableToggle) {
-                            androidx.compose.material3.HorizontalDivider()
-                            AsTableMenuItem(st.asTable(v.id)) { st.setAsTable(v.id, it); viewMenu = false }
-                        }
-                        if (st.canEditViews) {
-                            androidx.compose.material3.HorizontalDivider()
-                            DropdownMenuItem(text = { Text(stringResource(R.string.dbv_view_settings)) }, onClick = { viewMenu = false; st.sheet = "view" })
-                            DropdownMenuItem(text = { Text(stringResource(R.string.dbv_new_view)) }, leadingIcon = { SagaIcon(SagaIcons.plus, null) },
-                                onClick = { viewMenu = false; st.sheet = "new_view" })
-                        }
-                        if (st.canManageTemplates) {                    // 2.5: auch ohne Vorlagen erreichbar
-                            androidx.compose.material3.HorizontalDivider()
-                            DropdownMenuItem(text = { Text(stringResource(R.string.tpl_manage)) }, onClick = { viewMenu = false; st.managing = true })
-                        }
-                        // 2.5 E2 (tasksrc1): abonnieren nur, wenn die Zuordnung (map) schon gesetzt ist - sonst Hinweis "im Web einrichten"
-                        if (repo != null && st.embed == null && st.dbId > 0 && "tasksrc1" in features) {
-                            androidx.compose.material3.HorizontalDivider()
-                            DropdownMenuItem(text = { Text(stringResource(R.string.e2_task_source_use)) }, onClick = {
-                                viewMenu = false
-                                repo.launchAction {
-                                    val (mapped, subscribed) = repo.taskSourceState(st.dbId)
-                                    when {
-                                        subscribed -> repo.notify(io.github.yggdrasil_sh.saga.util.UiText.Res(R.string.e2_task_source_already))
-                                        mapped -> { repo.subscribeTaskSource(st.dbId); repo.notify(io.github.yggdrasil_sh.saga.util.UiText.Res(R.string.e2_task_source_added)) }
-                                        else -> repo.notify(io.github.yggdrasil_sh.saga.util.UiText.Res(R.string.e2_task_source_web))
-                                    }
-                                }
-                            })
-                        }
-                    }
+                    DropdownMenu(expanded = viewMenu && !pills, onDismissRequest = { viewMenu = false }, content = viewMenuItems)
                 }
-                Spacer(Modifier.weight(1f))
-                IconButton(onClick = { searchOpen = !searchOpen || q.isNotEmpty() }) { SagaIcon(SagaIcons.search, stringResource(R.string.dbv_search)) }
-                IconButton(onClick = { st.sheet = "filter" }, enabled = st.canEditViews || nf > 0) {
+                // R3-Nachbesserung (28/30): mit Pillen (Handy) beginnen die Symbole am Inhaltsrand (Symbolkante = Kante der
+                // Pillen), "Neuer Eintrag" bleibt rechts. Vorher schob ein Spacer sie nach rechts und links blieb eine Luecke.
+                val leftTools = pills && !wide
+                val toolShift = if (leftTools) Modifier.offset(x = (-14).dp) else Modifier
+                if (!leftTools) Spacer(Modifier.weight(1f))
+                IconButton(onClick = { searchOpen = !searchOpen || q.isNotEmpty() }, modifier = toolShift) { SagaIcon(SagaIcons.search, stringResource(R.string.dbv_search)) }
+                IconButton(onClick = { st.sheet = "filter" }, enabled = st.canEditViews || nf > 0, modifier = toolShift) {
                     androidx.compose.material3.BadgedBox(badge = { if (nf > 0) ActiveBadge(nf) }) {
                         SagaIcon(SagaIcons.filter, if (nf > 0) stringResource(R.string.dbv_filter_count, nf) else stringResource(R.string.dbv_filter),
                             tint = if (nf > 0) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current)
                     }
                 }
-                IconButton(onClick = { st.sheet = "sort" }, enabled = st.canEditViews || ns > 0) {
+                IconButton(onClick = { st.sheet = "sort" }, enabled = st.canEditViews || ns > 0, modifier = toolShift) {
                     androidx.compose.material3.BadgedBox(badge = { if (ns > 0) ActiveBadge(ns) }) {
                         SagaIcon(SagaIcons.sort, if (ns > 0) stringResource(R.string.dbv_sort_count, ns) else stringResource(R.string.dbv_sort),
                             tint = if (ns > 0) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current)
                     }
                 }
+                if (leftTools) Spacer(Modifier.weight(1f))
                 if (st.canAdd) Box {
                     // 2.5: mit Vorlagen "Neu ▾" (leer, Vorlagen, Vorlagen verwalten); ohne Vorlagen gleich ein neuer Eintrag
                     var newMenu by remember { mutableStateOf(false) }
@@ -620,6 +632,12 @@ internal fun TableHead(st: DbViewState, v: DbView, wide: Boolean) {
     }
 }
 
+/** R3-Nachbesserung (28b): leerer Platz in Symbolgroesse, damit Menueeintraege ohne Symbol gleich eingerueckt sind */
+@Composable
+internal fun MenuIconSlot() {
+    Spacer(Modifier.size(18.dp))
+}
+
 /** ED-17: Zahl an Filter/Sortierung meldet "aktiv", kein Problem - Saga-Gold (primary) statt Fehler-Rot */
 @Composable
 private fun ActiveBadge(n: Int) {
@@ -813,13 +831,16 @@ internal fun DbBoard(st: DbViewState, repo: SagaRepository, onOpen: (Long) -> Un
                 Modifier.width(colW).fillMaxHeight().clip(MaterialTheme.shapes.medium)
                     .background(MaterialTheme.colorScheme.surfaceContainerLow).padding(10.dp),
             ) {
-                Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { heading() }, verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f, fill = false)) { GroupLabel(st, gp, k, st.boardValues[k]) }
-                    Spacer(Modifier.width(8.dp))
-                    io.github.yggdrasil_sh.saga.ui.theme.SagaPill(
-                        "${col?.matched ?: 0}", container = MaterialTheme.colorScheme.surfaceContainerHighest, content = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.weight(1f))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    // R3-Nachbesserung (30b): Name + Zahl links in einer eigenen Zeile mit dem ganzen Rest, "+" ganz rechts.
+                    // Vorher teilten sich Name (weight, fill=false) und Spacer (weight) den Platz - "+" landete in der Mitte.
+                    Row(Modifier.weight(1f).semantics(mergeDescendants = true) { heading() }, verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f, fill = false)) { GroupLabel(st, gp, k, st.boardValues[k]) }
+                        Spacer(Modifier.width(8.dp))
+                        io.github.yggdrasil_sh.saga.ui.theme.SagaPill(
+                            "${col?.matched ?: 0}", container = MaterialTheme.colorScheme.surfaceContainerHighest, content = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     if (st.canAdd) {
                         IconButton(onClick = {
                             val cv = if (readOnlyGroups) null else st.columnValue(gp, k)
@@ -1006,7 +1027,8 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
                     val day = start.plusDays((w * 7 + d).toLong())
                     val inMonth = day.month == month.month
                     val items = byDay[day.toString()].orEmpty()
-                    val desc = day.format(dayFmt) + if (items.isNotEmpty()) ", " + items.size else ""
+                    // R3-Nachbesserung (31b): Anzahl mit Einheit ("1 Eintrag", "3 Einträge") statt nackter Zahl
+                    val desc = day.format(dayFmt) + if (items.isNotEmpty()) ", " + pluralStringResource(R.plurals.r3d_cal_entries, items.size, items.size) else ""
                     val isSel = day == shown
                     Column(
                         Modifier.weight(1f).heightIn(min = if (compact) 48.dp else 64.dp).padding(1.5.dp).clip(RoundedCornerShape(SagaRadius.md))

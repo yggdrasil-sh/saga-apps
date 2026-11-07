@@ -12,4 +12,10 @@
     <string name="r3d_no_filters">ยังไม่มีตัวกรอง</string>
     <string name="r3d_no_sorts">ยังไม่มีการเรียงลำดับ</string>
     <string name="r3d_sort_dir">ทิศทาง</string>
+    <!-- R3-Nachbesserung: Zeitraum im Datumsdialog (Segmente), Anzahl in der Kalender-Tageszelle (Bedienungshilfe) -->
+    <string name="r3d_seg_start">เริ่ม</string>
+    <string name="r3d_seg_end">สิ้นสุด</string>
+    <plurals name="r3d_cal_entries">
+        <item quantity="other">%d รายการ</item>
+    </plurals>
 </resources>

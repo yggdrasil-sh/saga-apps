@@ -12,4 +12,11 @@
     <string name="r3d_no_filters">Noch keine Filter</string>
     <string name="r3d_no_sorts">Noch keine Sortierung</string>
     <string name="r3d_sort_dir">Richtung</string>
+    <!-- R3-Nachbesserung: Zeitraum im Datumsdialog (Segmente), Anzahl in der Kalender-Tageszelle (Bedienungshilfe) -->
+    <string name="r3d_seg_start">Start</string>
+    <string name="r3d_seg_end">Ende</string>
+    <plurals name="r3d_cal_entries">
+        <item quantity="one">%d Eintrag</item>
+        <item quantity="other">%d Einträge</item>
+    </plurals>
 </resources>

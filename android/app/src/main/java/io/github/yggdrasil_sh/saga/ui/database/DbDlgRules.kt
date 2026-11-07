@@ -86,7 +86,9 @@ private fun DbDlgRuleSheet(title: String, onDismiss: () -> Unit, footer: @Compos
                 Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp), content = content,
             )
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) { footer() }
+            // R3-Nachbesserung (32): gleiche Raender wie die Karten (16 dp) - rechts die Knopfkante, links das "+" des
+            // Textknopfs (der Textknopf hat selbst 12 dp Innenabstand)
+            Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) { footer() }
         }
     }
     if (compact) {
@@ -95,6 +97,14 @@ private fun DbDlgRuleSheet(title: String, onDismiss: () -> Unit, footer: @Compos
         }
     } else {
         Dialog(onDismissRequest = onDismiss) {
+            // R3-Nachbesserung (82): kein Autofokus - ohne Touch-Modus (Tablet mit Tastatur/Maus) setzte das Fenster den
+            // Fokus auf das erste Feld, das dann umrandet startete. Die Tastatur-Navigation bleibt moeglich.
+            val focus = androidx.compose.ui.platform.LocalFocusManager.current
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                androidx.compose.runtime.withFrameNanos { }
+                androidx.compose.runtime.withFrameNanos { }
+                focus.clearFocus()
+            }
             Surface(Modifier.widthIn(max = 560.dp).heightIn(max = 640.dp), shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh) { body() }
         }
     }

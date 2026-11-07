@@ -9,22 +9,26 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
-import androidx.compose.material3.DateRangePicker
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,7 +38,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -64,6 +71,17 @@ private fun LocalTime.min(): Int = hour * 60 + minute
 private val NINE: LocalTime = LocalTime.of(9, 0)
 
 /**
+ * R3-Nachbesserung (36c): Zeitraum in einer kurzen Zeile in der Sprache der Oberflaeche, ohne Doppelungen und mit
+ * Halbgeviertstrich ("2.–5. Nov. 2026", "Nov 2 – 5, 2026") - ICU-Intervallformat.
+ */
+internal fun rangeLabel(start: LocalDate, end: LocalDate, locale: java.util.Locale): String {
+    val zone = ZoneId.systemDefault()
+    fun at(d: LocalDate) = d.atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
+    val f = android.icu.text.DateIntervalFormat.getInstance(android.icu.text.DateFormat.YEAR_ABBR_MONTH_DAY, locale)
+    return f.format(android.icu.util.DateInterval(at(start), at(end)))
+}
+
+/**
  * AND-ED-26: Datum direkt im Kalender. Oben Schnellwahl "Heute", "Morgen", "Nächste Woche" - ein Tipp uebernimmt
  * sofort (Datum aendern = 2 Taps: Zelle, Chip). Unter dem Kalender die Schalter "Mit Uhrzeit" und "Enddatum" (dann
  * `DateRangePicker`). Ohne datetime1 (aeltere Server) nur der reine Tag, ohne Schalter.
@@ -85,11 +103,29 @@ fun DbDlgDateDialog(p: DbProp, value: JsonElement?, datetime: Boolean, onSet: (J
     var bad by remember { mutableStateOf(false) }
     var pickTime by remember { mutableStateOf<String?>(null) }
     val single = rememberDatePickerState(initialSelectedDateMillis = day0.ms())
-    val range = rememberDateRangePickerState(initialSelectedStartDateMillis = day0.ms(), initialSelectedEndDateMillis = (end0 ?: day0).ms())
+    // R3-Nachbesserung (36c): Zeitraum im selben Kalender - Segmente "Start" / "Ende" waehlen, welches Ende ein Tipp setzt
+    var rStart by remember { mutableStateOf(day0) }
+    var rEnd by remember { mutableStateOf(end0?.takeIf { !it.isBefore(day0) } ?: day0) }
+    var edge by remember { mutableStateOf(DbDlg.Edge.START) }
+    LaunchedEffect(single) {
+        snapshotFlow { single.selectedDateMillis }.collect { ms ->
+            if (withEnd && ms != null) {
+                val (a, b) = DbDlg.pickRange(rStart, rEnd, edge, ms.day())
+                rStart = a
+                rEnd = b
+            }
+        }
+    }
+    fun showEdge(e: DbDlg.Edge) {
+        edge = e
+        val d = DbDlg.shownDay(rStart, rEnd, e).ms()
+        single.selectedDateMillis = d
+        single.displayedMonthMillis = d
+    }
     val timeFmt = remember(locale) { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale) }
 
-    fun startDay(): LocalDate? = (if (withEnd) range.selectedStartDateMillis else single.selectedDateMillis)?.day()
-    fun endDay(): LocalDate? = if (withEnd) range.selectedEndDateMillis?.day() ?: startDay() else null
+    fun startDay(): LocalDate? = if (withEnd) rStart else single.selectedDateMillis?.day()
+    fun endDay(): LocalDate? = if (withEnd) rEnd else null
     fun commit(start: LocalDate, end: LocalDate?) {
         if (!datetime) {
             onSet(DbValues.date(start)); onDismiss(); return
@@ -103,14 +139,17 @@ fun DbDlgDateDialog(p: DbProp, value: JsonElement?, datetime: Boolean, onSet: (J
     fun toggleEnd(on: Boolean) {
         bad = false
         if (on) {
-            val s = single.selectedDateMillis ?: day0.ms()
-            range.setSelection(s, s)
+            val s = single.selectedDateMillis?.day() ?: day0
+            rStart = s
+            rEnd = s
+            withEnd = true
+            showEdge(DbDlg.Edge.END)            // der Beginn steht schon - der naechste Tipp setzt das Ende
         } else {
-            val s = range.selectedStartDateMillis ?: day0.ms()
+            withEnd = false
+            val s = rStart.ms()
             single.selectedDateMillis = s
             single.displayedMonthMillis = s
         }
-        withEnd = on
     }
 
     val maxH = (LocalConfiguration.current.screenHeightDp - 32).coerceAtLeast(320).dp
@@ -122,19 +161,40 @@ fun DbDlgDateDialog(p: DbProp, value: JsonElement?, datetime: Boolean, onSet: (J
         ) {
             Column {
                 Text(p.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp))
-                // Schnellwahl: uebernimmt sofort (ein vorhandenes Ende wandert mit, die Uhrzeit bleibt)
-                FlowRow(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Schnellwahl: uebernimmt sofort (ein vorhandenes Ende wandert mit, die Uhrzeit bleibt).
+                // R3-Nachbesserung (36): eine Zeile ohne Symbole (der Kalender steht direkt darunter); reicht die Breite
+                // nicht (grosse Schrift), laesst sie sich seitlich wischen - kein Text wird gekuerzt
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     listOf(DbDlg.Quick.TODAY to R.string.e1_today, DbDlg.Quick.TOMORROW to R.string.e1_tomorrow, DbDlg.Quick.NEXT_WEEK to R.string.e1_next_week)
                         .forEach { (q, res) ->
                             AssistChip(onClick = {
                                 val (s, e) = DbDlg.moveStart(startDay() ?: day0, endDay(), DbDlg.quickDay(q, LocalDate.now(zone)))
                                 commit(s, e)
-                            }, label = { Text(stringResource(res)) }, leadingIcon = { SagaIcon(SagaIcons.calendar, null) })
+                            }, label = { Text(stringResource(res), maxLines = 1, softWrap = false) })
                         }
                 }
+                if (withEnd) {
+                    // R3-Nachbesserung (36c): derselbe Kalender wie ohne Ende; Zeitraum kompakt "2.–5. Nov. 2026"
+                    val rangeText = remember(rStart, rEnd, locale) { rangeLabel(rStart, rEnd, locale) }
+                    Text(
+                        rangeText, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                        listOf(DbDlg.Edge.START to R.string.r3d_seg_start, DbDlg.Edge.END to R.string.r3d_seg_end).forEachIndexed { i, (e, res) ->
+                            SegmentedButton(
+                                selected = edge == e, onClick = { showEdge(e) },
+                                shape = SegmentedButtonDefaults.itemShape(i, 2), icon = {},
+                            ) { Text(stringResource(res), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis) }
+                        }
+                    }
+                }
                 Box(Modifier.weight(1f, fill = false)) {
-                    if (withEnd) DateRangePicker(range, title = null, showModeToggle = false, modifier = Modifier.heightIn(min = 320.dp))
-                    else Column(Modifier.verticalScroll(rememberScrollState())) {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
                         DatePicker(single, title = null, headline = null, showModeToggle = false)
                     }
                 }

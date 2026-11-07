@@ -12,4 +12,12 @@
     <string name="r3d_no_filters">Aún no hay filtros</string>
     <string name="r3d_no_sorts">Aún no hay orden</string>
     <string name="r3d_sort_dir">Dirección</string>
+    <!-- R3-Nachbesserung: Zeitraum im Datumsdialog (Segmente), Anzahl in der Kalender-Tageszelle (Bedienungshilfe) -->
+    <string name="r3d_seg_start">Inicio</string>
+    <string name="r3d_seg_end">Fin</string>
+    <plurals name="r3d_cal_entries">
+        <item quantity="one">%d entrada</item>
+        <item quantity="many">%d entradas</item>
+        <item quantity="other">%d entradas</item>
+    </plurals>
 </resources>
