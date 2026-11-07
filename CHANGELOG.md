@@ -9,6 +9,22 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Android: Design-Runde 3 „Editor“
+
+- **Werkzeugleiste neu aufgeteilt:** links scrollend „+ · Typ · Fett/Kursiv/Unterstrichen/Durchgestrichen · Link ·
+  @ · Farbe“ als Liniensymbole (aktiv hervorgehoben), rechts fest nur „⋮ Block“ (Nach oben, Nach unten, Verschieben
+  nach …, Typ ändern, Blockfarbe, Löschen) und „Fertig“. Ein Farb-Knopf mit den Abschnitten „Markierter Text“ und
+  „Ganzer Block“. Hoch/Runter/Löschen bleiben als Bedienhilfe-Aktionen erreichbar.
+- **Speicherstatus** als Wolke (kurz „Gespeichert“) statt Haken.
+- **„/“-Menü wie im Web:** Symbol, Name und Kurzbeschreibung, nach Gruppen, erster Treffer hervorgehoben (↵).
+  Es öffnet über der Zeile, wenn darunter kein Platz ist, und wird nie von der Werkzeugleiste verdeckt. „+“ zeigt
+  dieselbe Liste (Phone: Blatt mit Suche).
+- **Ruhigerer Seitenkopf:** „Symbol/Titelbild hinzufügen“ und „+ Tag“ nur bei Fokus auf den Kopf, sonst im
+  Seitenmenü. Datenbanken mit kompaktem Kopf (Symbol und Titel in einer Zeile, Meta einzeilig). Leere Seiten und
+  Datenbankzeilen zeigen „Notizen hinzufügen – oder / für Blöcke“.
+- **Listen:** eine gemeinsame Markerspalte (28 dp) für Punkt, Nummer und Kästchen; Checklisten so dicht wie
+  Aufzählungen.
+
 ### Geändert – Android: Design-Runde 2 „Saga-Look“ (Farben und Ecken wie im Web)
 
 - **Grundton Schiefergrau wie im Web:** Text, Nebentext, Flächen und Ränder kommen jetzt aus den Web-Tokens (hell:
