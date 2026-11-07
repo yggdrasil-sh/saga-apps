@@ -741,6 +741,62 @@ class PageEditor(
         }
     }
 
+    /**
+     * Pfad eines Blocks zum Zeitpunkt des Ereignisses frisch aufloesen (Fix R3 "Ruecktaste loescht Bild"): Steht an
+     * path noch der Block mit der ID id, bleibt es dabei, sonst wird die ID im selben Array gesucht. null = den Block
+     * gibt es nicht mehr (z. B. zweite Ruecktaste-Meldung, nachdem er schon entfernt wurde) - dann nichts tun.
+     * Ohne ID (alte Seiten): path, die Aufrufer pruefen dann Typ und Inhalt.
+     */
+    fun resolveBlockPath(path: JsonPath, id: String?): JsonPath? {
+        if (path.isEmpty() || path.last() !is Int) return null
+        if (id == null) return path.takeIf { block(it) != null }
+        if (BlockDoc.id(block(path)) == id) return path
+        val arr = path.dropLast(1)
+        val list = JsonTree.get(doc, arr) as? JsonArray ?: return null
+        val i = list.indexOfFirst { BlockDoc.id(it) == id }
+        return if (i < 0) null else arr + i
+    }
+
+    /**
+     * Ruecktaste am Anfang eines Textblocks (Absatz, Ueberschrift, Zitat): leer -> Block entfernen und im vorigen
+     * weiterschreiben, sonst mit dem vorigen zusammenfuehren. Der Pfad wird ueber die Block-ID frisch aufgeloest, und
+     * entfernt wird nur ein Textblock, der wirklich leer ist - nie ein Bild o. Ae., das nach einer doppelt gemeldeten
+     * Ruecktaste an den alten Index nachgerueckt ist. -> true, wenn sich etwas geaendert hat.
+     */
+    fun backspaceAtBlockStart(blockPath: JsonPath, blockId: String?, empty: Boolean): Boolean {
+        if (!editable) return false
+        val p = resolveBlockPath(blockPath, blockId) ?: return false
+        val b = block(p) ?: return false
+        if (BlockDoc.type(b) !in BACKSPACE_TEXT_TYPES) return false
+        val isEmpty = InlineHtml.plain(BlockDoc.str(BlockDoc.data(b), "text")).isEmpty()
+        if (empty) {
+            if (!isEmpty) return false
+            deleteBlock(p, focusPrevious = true)
+            return true
+        }
+        return mergeWithPrevious(p)
+    }
+
+    /**
+     * Ruecktaste am Anfang eines leeren Listenpunkts: Punkt entfernen - Liste ueber die Block-ID frisch aufloesen und
+     * nur einen Punkt mit leerem Text entfernen (eine doppelt gemeldete Ruecktaste darf keinen Nachbarpunkt loeschen).
+     */
+    fun backspaceAtItemStart(blockPath: JsonPath, blockId: String?, itemPath: JsonPath): Boolean {
+        if (!editable || itemPath.size <= blockPath.size || itemPath.take(blockPath.size) != blockPath) return false
+        val p = resolveBlockPath(blockPath, blockId) ?: return false
+        if (BlockDoc.type(block(p)) != "list") return false
+        val ip = p + itemPath.drop(blockPath.size)
+        val item = JsonTree.get(doc, ip) ?: return false
+        val content = when (item) {
+            is JsonObject -> BlockDoc.str(item, "content")
+            is JsonPrimitive -> item.takeIf { it.isString }?.content ?: return false
+            else -> return false
+        }
+        if (InlineHtml.plain(content).isNotEmpty()) return false
+        removeItem(p, ip, focusPrevious = true)
+        return true
+    }
+
     fun removeItem(blockPath: JsonPath, itemPath: JsonPath, focusPrevious: Boolean = false) {
         if (!editable) return
         val (arr, idx) = arrayAndIndex(itemPath)
@@ -1358,3 +1414,6 @@ data class MergeHint(val restored: Int, val lost: Int, val titleLost: Boolean, v
             else MergeHint(m.restored.size, m.lost.size, m.titleLost, m.conflicts.size)
     }
 }
+
+/** Fix R3: Bloecke, die eine Ruecktaste am Anfang entfernen bzw. zusammenfuehren darf (Textfeld "text") */
+internal val BACKSPACE_TEXT_TYPES = setOf("paragraph", "header", "quote")

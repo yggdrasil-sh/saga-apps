@@ -164,6 +164,12 @@ internal class FieldState(html: String, val raw: Boolean, val pre: String) {
     var current: String = html
     /** seit der letzten Uebernahme von aussen selbst gesendet (eigenes Echo, auch verspaetet, nie als Aenderung werten) */
     val sent = ArrayDeque<String>()
+    /**
+     * Fix R3 ("Ruecktaste loescht Bild"): Pfade, mit denen zuletzt eine Ruecktaste am Anfang etwas geaendert hat. Meldet
+     * die Tastatur dieselbe Ruecktaste ein zweites Mal, bevor das Feld neu komponiert ist (gleiche Pfad-Objekte), wird
+     * die Meldung ignoriert - der alte Index zeigt dann schon auf den nachgerueckten Block.
+     */
+    var backspaceDone: Pair<Any?, Any?>? = null
 
     fun isExternalChange(html: String): Boolean = html != external && html != current && html !in sent
 
@@ -416,7 +422,11 @@ fun RichField(
                 if (nv.text == old.text.substring(p)) {
                     // START geloescht = Ruecktaste am Feldanfang (Hardware- oder Soft-Keyboard)
                     st.value = TextFieldValue(old.text, TextRange(p))
+                    val done = st.backspaceDone
+                    if (done != null && done.first === pathNow && done.second === itemNow) return@BasicTextField
+                    val docBefore = editor.doc
                     backspace?.invoke(st.rich.text.isEmpty())
+                    if (editor.doc !== docBefore) st.backspaceDone = pathNow to itemNow
                     return@BasicTextField
                 }
                 // ungewoehnliche Ersetzung inkl. START (z. B. Einfuegen ueber alles): START wieder davor
@@ -429,6 +439,7 @@ fun RichField(
                 return@BasicTextField
             }
             val before = st.rich.text
+            st.backspaceDone = null
             applyChange(st, clamp(nv), p, raw, enter, ::publish)
             // 2.5 E2: "@" am Wortanfang getippt -> Personenauswahl (nur mit mention1)
             if (!raw && editor.mentionSupported) {

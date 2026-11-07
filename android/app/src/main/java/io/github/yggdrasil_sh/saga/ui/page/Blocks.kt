@@ -162,7 +162,10 @@ private fun BlockViewInner(block: JsonObject, path: JsonPath, env: BlockEnv) {
         ed.insertBlockAfter(path, BlockDoc.newBlock("paragraph", InlineHtml.toHtml(right)))
     }
     // Ruecktaste am Blockanfang: leer -> Block entfernen, im vorigen weiterschreiben; sonst mit dem vorigen zusammenfuehren
-    val removeIfEmpty: (Boolean) -> Unit = { empty -> if (empty) ed.deleteBlock(path, focusPrevious = true) else ed.mergeWithPrevious(path) }
+    // Fix R3: ueber die Block-ID (nicht den beim Komponieren gemerkten Index) - eine doppelt gemeldete Ruecktaste
+    // loeschte sonst den nachgerueckten Block darunter (z. B. ein Bild)
+    val bid = BlockDoc.id(block)
+    val removeIfEmpty: (Boolean) -> Unit = { empty -> ed.backspaceAtBlockStart(path, bid, empty) }
 
     when (val type = BlockDoc.type(block)) {
         "paragraph" -> {
@@ -422,7 +425,7 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
                                     ed.insertItemAfter(itemPath, InlineHtml.toHtml(right), style == "checklist", newKey)
                                 }
                             },
-                            onBackspaceAtStart = { empty -> if (empty) ed.removeItem(blockPath, itemPath, focusPrevious = true) },
+                            onBackspaceAtStart = { empty -> if (empty) ed.backspaceAtItemStart(blockPath, BlockDoc.id(block), itemPath) },
                             onLink = env.onLink,
                         )
                     }
