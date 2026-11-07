@@ -122,7 +122,9 @@ class DbViewState(
     }
 
     fun setAsTable(viewId: String, on: Boolean) {
-        repo.appContextPrefs()?.edit { putBoolean(DbCompact.asTableKey(dbId, embed?.prefKey, viewId), on) }
+        // nur "an" merken - "aus" ist der Standard, der Schluessel faellt weg (kein Wachstum der Einstellungen)
+        val k = DbCompact.asTableKey(dbId, embed?.prefKey, viewId)
+        repo.appContextPrefs()?.edit { if (on) putBoolean(k, true) else remove(k) }
         asTableRev++
     }
 

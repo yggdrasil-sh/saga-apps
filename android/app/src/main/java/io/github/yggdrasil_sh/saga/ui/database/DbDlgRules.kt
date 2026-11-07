@@ -142,6 +142,9 @@ internal fun FilterSheet(
         if (!editable) Text(stringResource(R.string.dbv_locked), style = MaterialTheme.typography.bodySmall)
         if (fs.isEmpty()) Text(stringResource(R.string.r3d_no_filters), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
         fs.forEachIndexed { i, f ->
+          // Zustand je Karte (Textfeld) neu, sobald eine Regel wegfaellt oder dazukommt - sonst zeigte nach "✕" die
+          // naechste Karte den Text der entfernten Regel und Tippen ueberschriebe ihren Wert
+          androidx.compose.runtime.key(i, fs.size) {
             val p = s.prop(f.pid) ?: DbProp.TITLE
             val pName = choices.firstOrNull { it.first == f.pid }?.second ?: f.pid
             val op = opLabel(f.op, p.effType)
@@ -156,6 +159,7 @@ internal fun FilterSheet(
                     onPick = { o -> fs[i] = f.copy(op = o) })
                 if (!f.noValue) FilterValueField(p, f, editable, groups, day) { fs[i] = f.copy(value = it) }
             }
+          }
         }
     }
     DbDlgDiscardAsk(discard, close = onDismiss)

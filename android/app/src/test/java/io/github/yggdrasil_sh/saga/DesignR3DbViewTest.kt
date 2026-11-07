@@ -41,7 +41,8 @@ class DesignR3DbViewTest {
         assertEquals("db_astable_db_view_9_b1_v1", DbCompact.asTableKey(5, "db_view_9_b1", "v1"))
         // nicht ueber den Server: DbViewState schreibt in die lokalen Einstellungen
         val st = read("ui/database/DbViewState.kt")
-        assertTrue(st.contains("appContextPrefs()?.edit { putBoolean(DbCompact.asTableKey("))
+        assertTrue(st.contains("val k = DbCompact.asTableKey(dbId, embed?.prefKey, viewId)"))
+        assertTrue(st.contains("appContextPrefs()?.edit { if (on) putBoolean(k, true) else remove(k) }"))
         // Vollbild und eingebettet nutzen dieselbe Regel
         assertTrue(read("ui/database/DatabaseView.kt").contains("DbCompact.compactList(v.type, wide, st.asTable(v.id))"))
         assertTrue(read("ui/database/EmbeddedDatabase.kt").contains("DbCompact.compactList(v.type, wide, st.asTable(v.id))"))
