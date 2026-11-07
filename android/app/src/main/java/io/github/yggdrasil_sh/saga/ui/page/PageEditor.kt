@@ -793,6 +793,8 @@ class PageEditor(
             else -> return false
         }
         if (InlineHtml.plain(content).isNotEmpty()) return false
+        // Pruefer R3 #3: ein leerer Punkt mit Unterpunkten wird nicht samt Unterpunkten entfernt (kein Datenverlust)
+        if (((item as? JsonObject)?.get("items") as? JsonArray).isNullOrEmpty().not()) return false
         removeItem(p, ip, focusPrevious = true)
         return true
     }
