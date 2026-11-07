@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,10 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
@@ -25,7 +23,6 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -118,7 +115,7 @@ fun PersonDialog(
                 if (cur.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(bottom = 6.dp)) {
                     cur.forEach { r ->
                         FilterChip(selected = true, onClick = { cur = cur - r }, label = { Text(name(r)) },
-                            trailingIcon = { Icon(Icons.Filled.Close, stringResource(R.string.e1_person_remove, name(r)), Modifier.size(16.dp)) })
+                            trailingIcon = { SagaIcon(SagaIcons.x, stringResource(R.string.e1_person_remove, name(r)), Modifier.size(16.dp)) })
                     }
                 }
                 OutlinedTextField(q, { q = it.take(80) }, singleLine = true, placeholder = { Text(stringResource(R.string.e1_person_search)) }, modifier = Modifier.fillMaxWidth())
@@ -136,7 +133,7 @@ fun PersonDialog(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(x.name.ifBlank { "–" } + if (x.me) " · " + stringResource(R.string.e1_person_me) else "", modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            if (on) Icon(Icons.Filled.Check, stringResource(R.string.dbv_checked), tint = MaterialTheme.colorScheme.primary)
+                            if (on) SagaIcon(SagaIcons.check, stringResource(R.string.dbv_checked), tint = MaterialTheme.colorScheme.primary)
                         }
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
@@ -184,12 +181,12 @@ fun FilesDialog(
                 cur.forEach { f ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text((if (f.image) "🖼 " else "📎 ") + f.name, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        IconButton(onClick = { cur = cur - f }) { Icon(Icons.Filled.Close, stringResource(R.string.e1_file_remove, f.name)) }
+                        IconButton(onClick = { cur = cur - f }) { SagaIcon(SagaIcons.x, stringResource(R.string.e1_file_remove, f.name)) }
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 6.dp)) {
                     OutlinedButton(onClick = { pick.launch("*/*") }, enabled = !busy && cur.size < p.max) {
-                        Icon(Icons.Filled.Add, null)
+                        SagaIcon(SagaIcons.plus, null)
                         Text(stringResource(R.string.e1_file_add))
                     }
                     if (busy) CircularProgressIndicator(Modifier.padding(start = 10.dp).size(20.dp), strokeWidth = 2.dp)

@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,18 +13,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -98,7 +94,7 @@ fun <T> Picker(
     Box(modifier) {
         OutlinedButton(onClick = { open = true }, enabled = enabled, modifier = Modifier.fillMaxWidth().semantics { contentDescription = cd }) {
             Text(shown, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            Icon(Icons.Filled.ArrowDropDown, null)
+            SagaIcon(SagaIcons.caretDown, null)
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             items.forEach { (k, t) -> DropdownMenuItem(text = { Text(t) }, onClick = { open = false; onPick(k) }) }
@@ -171,7 +167,7 @@ private fun FilterDialog(s: DbSchema, v: DbView, editable: Boolean, features: Se
                             Picker(stringResource(R.string.dbv_filter_prop), choices, f.pid, enabled = editable, role = stringResource(R.string.dbv_filter_prop), onPick = { pid ->
                                 fs[i] = DbFilter(pid, DbFilter.ops(s.prop(pid) ?: DbProp.TITLE, features).first(), "")
                             }, modifier = Modifier.weight(1f))
-                            if (editable) IconButton(onClick = { fs.removeAt(i) }) { Icon(Icons.Filled.Close, stringResource(R.string.dbv_remove)) }
+                            if (editable) IconButton(onClick = { fs.removeAt(i) }) { SagaIcon(SagaIcons.x, stringResource(R.string.dbv_remove)) }
                         }
                         // unbekannter Operator (neuere Version) bleibt waehlbar und unveraendert
                         val ops = DbFilter.ops(p, features).let { if (f.op in it) it else it + f.op }
@@ -182,7 +178,7 @@ private fun FilterDialog(s: DbSchema, v: DbView, editable: Boolean, features: Se
                 }
                 if (editable && fs.size < 50) {
                     TextButton(onClick = { fs.add(DbFilter("title", DbFilter.ops("text").first(), "")) }) {
-                        Icon(Icons.Filled.Add, null)
+                        SagaIcon(SagaIcons.plus, null)
                         Text(stringResource(R.string.dbv_add_filter))
                     }
                 }
@@ -258,12 +254,12 @@ private fun SortDialog(s: DbSchema, v: DbView, editable: Boolean, onApply: (List
                             Picker("", listOf(false to stringResource(R.string.dbv_asc), true to stringResource(R.string.dbv_desc)), x.desc, enabled = editable,
                                 onPick = { ss[i] = x.copy(desc = it) }, modifier = Modifier.fillMaxWidth())
                         }
-                        if (editable) IconButton(onClick = { ss.removeAt(i) }) { Icon(Icons.Filled.Close, stringResource(R.string.dbv_remove)) }
+                        if (editable) IconButton(onClick = { ss.removeAt(i) }) { SagaIcon(SagaIcons.x, stringResource(R.string.dbv_remove)) }
                     }
                 }
                 if (editable && ss.size < 3) {
                     TextButton(onClick = { ss.add(DbSort("title")) }) {
-                        Icon(Icons.Filled.Add, null)
+                        SagaIcon(SagaIcons.plus, null)
                         Text(stringResource(R.string.dbv_add_sort))
                     }
                 }
@@ -406,7 +402,7 @@ internal fun TemplateManager(st: DbViewState, onOpen: (Long) -> Unit) {
                             // A15: beschriftet ("Mehr zu <Vorlage>") statt des Zeichens
                             val moreCd = stringResource(R.string.tpl_more_cd, (names[t.id] ?: t.title).ifEmpty { untitled })
                             IconButton(onClick = { menu = true }, modifier = Modifier.semantics { contentDescription = moreCd }) {
-                                Icon(Icons.Filled.MoreVert, null)
+                                SagaIcon(SagaIcons.moreVert, null)
                             }
                             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                                 DropdownMenuItem(text = { Text(stringResource(R.string.tpl_edit)) }, onClick = { menu = false; saveNames(); st.managing = false; onOpen(t.id) })

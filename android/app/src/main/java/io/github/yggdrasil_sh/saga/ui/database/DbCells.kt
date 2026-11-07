@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,15 +19,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -432,7 +430,7 @@ private fun OptionDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -
                         ) {
                             OptChip(if (p.status) io.github.yggdrasil_sh.saga.db.DbProp.groupSymbol(o.group) + " " + o.name else o.name, o.color)
                             Spacer(Modifier.weight(1f))
-                            if (on) Icon(Icons.Filled.Check, stringResource(R.string.dbv_checked), tint = MaterialTheme.colorScheme.primary)
+                            if (on) SagaIcon(SagaIcons.check, stringResource(R.string.dbv_checked), tint = MaterialTheme.colorScheme.primary)
                         }
                     }
                     val name = q.trim()
@@ -442,7 +440,7 @@ private fun OptionDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -
                                 Modifier.fillMaxWidth().clickable { onNewOption(name); onDismiss() }.padding(vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                Icon(Icons.Filled.Add, null)
+                                SagaIcon(SagaIcons.plus, null)
                                 Text(stringResource(R.string.dbv_new_option, name))
                             }
                         }
@@ -493,7 +491,7 @@ private fun RelationDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?)
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(title.ifEmpty { stringResource(R.string.page_untitled) }, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            if (on) Icon(Icons.Filled.Check, stringResource(R.string.dbv_checked), tint = MaterialTheme.colorScheme.primary)
+                            if (on) SagaIcon(SagaIcons.check, stringResource(R.string.dbv_checked), tint = MaterialTheme.colorScheme.primary)
                         }
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }

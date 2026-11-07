@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,11 +20,9 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -42,7 +43,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -208,11 +208,11 @@ internal fun HeaderAddRow(ed: PageEditor, repo: SagaRepository, onIcon: () -> Un
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
         // A11Y-11: Zielflaeche mindestens 48 dp hoch
         if (ed.icon.isEmpty()) TextButton(onClick = onIcon, modifier = Modifier.minimumInteractiveComponentSize().heightIn(min = 48.dp)) {
-            Icon(painterResource(R.drawable.ic_emoji), null, Modifier.size(18.dp), tint = c)
+            SagaIcon(SagaIcons.smile, null, Modifier.size(18.dp), tint = c)
             Text(stringResource(R.string.page_icon_add), color = c, modifier = Modifier.padding(start = 6.dp))
         }
         if (ed.cover == null) TextButton(onClick = pick, enabled = !busy, modifier = Modifier.minimumInteractiveComponentSize().heightIn(min = 48.dp)) {
-            Icon(painterResource(R.drawable.ic_image), null, Modifier.size(18.dp), tint = c)
+            SagaIcon(SagaIcons.image, null, Modifier.size(18.dp), tint = c)
             Text(stringResource(R.string.page_cover_add), color = c, modifier = Modifier.padding(start = 6.dp))
         }
     }
@@ -237,7 +237,7 @@ internal fun IconPickerDialog(ed: PageEditor, repo: SagaRepository, onDismiss: (
             Column {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     TextButton(onClick = pick, enabled = !busy) {
-                        Icon(painterResource(R.drawable.ic_image), null, Modifier.size(18.dp)); Text(stringResource(R.string.page_icon_image), Modifier.padding(start = 6.dp))
+                        SagaIcon(SagaIcons.image, null, Modifier.size(18.dp)); Text(stringResource(R.string.page_icon_image), Modifier.padding(start = 6.dp))
                     }
                     TextButton(onClick = { set(RANDOM.random()) }, enabled = !busy) { Text(stringResource(R.string.page_icon_random)) }
                 }
@@ -339,7 +339,7 @@ internal fun TagsRow(ed: PageEditor, repo: SagaRepository) {
                         .padding(end = 4.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Icon(androidx.compose.material.icons.Icons.Outlined.Add, null, Modifier.size(18.dp), tint = muted)
+                    SagaIcon(SagaIcons.plus, null, Modifier.size(18.dp), tint = muted)
                     Text(stringResource(R.string.page_tag_add), style = small, color = muted)
                 }
             }

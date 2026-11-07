@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.material3.LinearProgressIndicator
@@ -23,7 +26,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -48,18 +50,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -67,7 +57,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
@@ -124,7 +113,6 @@ import io.github.yggdrasil_sh.saga.ui.nav.Dest
 import io.github.yggdrasil_sh.saga.ui.publish.PublishModel
 import io.github.yggdrasil_sh.saga.ui.publish.PublishSheet
 import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
@@ -390,14 +378,14 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
             }
             if (ed.fetched && caps.canFavorite) {
                 IconButton(onClick = { repo.launchAction { ed.setPinned(!ed.pinned) } }) {
-                    // wie iOS: kein Favorit = Umriss, Favorit = gefuellt in der Akzentfarbe
+                    // Linien-Stern wie im Web: Favorit = Gold (Text-Gold fuer Kontrast), sonst gedaempft
                     val favDesc = stringResource(if (ed.pinned) R.string.favorite_remove else R.string.favorite_add)
-                    if (ed.pinned) Icon(Icons.Filled.Star, favDesc, tint = MaterialTheme.colorScheme.primary)
-                    else Icon(painterResource(R.drawable.ic_star_border), favDesc, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (ed.pinned) SagaIcon(SagaIcons.star, favDesc, tint = LocalSagaAccent.current.goldText)
+                    else SagaIcon(SagaIcons.star, favDesc, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more)) }
+                IconButton(onClick = { menu = true }) { SagaIcon(SagaIcons.moreVert, stringResource(R.string.action_more)) }
                 PageStyleMenu(
                     styleMenu, ed.font, ed.small, onDismiss = { styleMenu = false },
                     onFont = { f -> styleMenu = false; repo.launchAction { ed.setFont(f) } },
@@ -917,7 +905,7 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
                     AssistChip(
                         onClick = { repo.launchAction { ed.setLocked(false) } }, enabled = ed.caps.canLock,
                         label = { Text(stringResource(R.string.page_locked_chip)) },
-                        leadingIcon = { Icon(Icons.Filled.Lock, null, Modifier.size(16.dp)) },
+                        leadingIcon = { SagaIcon(SagaIcons.lock, null, Modifier.size(16.dp)) },
                     )
                 }
                 if (ed.published || via != null) PublicChip(via?.title, onPublish)
@@ -971,7 +959,7 @@ private fun PublicChip(viaTitle: String?, onClick: (() -> Unit)?) {
         onClick = { onClick?.invoke() }, enabled = onClick != null,
         label = { Text(label, maxLines = 1) },
         leadingIcon = {
-            Icon(painterResource(R.drawable.ic_public), null, Modifier.size(AssistChipDefaults.IconSize), tint = MaterialTheme.colorScheme.primary)
+            SagaIcon(SagaIcons.globe, null, Modifier.size(AssistChipDefaults.IconSize), tint = MaterialTheme.colorScheme.primary)
         },
         modifier = Modifier.semantics { contentDescription = hint },
     )
@@ -1044,7 +1032,7 @@ private fun EditorToolbar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box {
-                    IconButton(onClick = { if (inserter != null) inserter.pickerAfter = blockPath else addMenu = true }) { Icon(Icons.Filled.Add, stringResource(R.string.block_insert)) }
+                    IconButton(onClick = { if (inserter != null) inserter.pickerAfter = blockPath else addMenu = true }) { SagaIcon(SagaIcons.plus, stringResource(R.string.block_insert)) }
                     DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
                         BLOCK_TYPES.forEach { choice ->
                             val (_, type, level) = choice
@@ -1059,11 +1047,11 @@ private fun EditorToolbar(
                 }
                 // Bild aus der Zwischenablage (nur sichtbar, wenn dort eins liegt) - das Feld selbst nimmt nur Text an
                 if (onPasteImage != null) {
-                    IconButton(onClick = onPasteImage) { Icon(painterResource(R.drawable.ic_paste_image), stringResource(R.string.paste_image)) }
+                    IconButton(onClick = onPasteImage) { SagaIcon(SagaIcons.clipboard, stringResource(R.string.paste_image)) }
                 }
                 if (active.itemPath() == null && ed.block(blockPath)?.let { BlockDoc.mainText(it) != null } == true) {
                     Box {
-                        IconButton(onClick = { typeMenu = true }) { Icon(Icons.Filled.Edit, stringResource(R.string.block_change_type)) }
+                        IconButton(onClick = { typeMenu = true }) { SagaIcon(SagaIcons.edit, stringResource(R.string.block_change_type)) }
                         DropdownMenu(expanded = typeMenu, onDismissRequest = { typeMenu = false }) {
                             BLOCK_TYPES.filter { it.type != "delimiter" }.forEach { choice ->
                                 val (_, type, level) = choice
@@ -1076,7 +1064,7 @@ private fun EditorToolbar(
                     }
                 } else if (active.itemPath() != null) {
                     Box {
-                        IconButton(onClick = { typeMenu = true }) { Icon(Icons.Filled.Edit, stringResource(R.string.list_change_type)) }
+                        IconButton(onClick = { typeMenu = true }) { SagaIcon(SagaIcons.edit, stringResource(R.string.list_change_type)) }
                         DropdownMenu(expanded = typeMenu, onDismissRequest = { typeMenu = false }) {
                             listOf(R.string.block_bulleted to "unordered", R.string.block_numbered to "ordered", R.string.block_checklist to "checklist", R.string.block_text to "paragraph").forEach { (label, t) ->
                                 DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = {
@@ -1138,7 +1126,7 @@ private fun EditorToolbar(
                     contentAlignment = Alignment.CenterEnd,
                 ) {
                     IconButton(onClick = { toolScope.launch { toolScroll.animateScrollBy(px) } }, modifier = Modifier.width(32.dp)) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.toolbar_more))
+                        SagaIcon(SagaIcons.chevronRight, stringResource(R.string.toolbar_more))
                     }
                 }
             }
@@ -1169,8 +1157,8 @@ private fun EditorToolbar(
             }
             androidx.compose.material3.VerticalDivider(Modifier.height(28.dp))
             Row(Modifier.padding(end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { ed.moveBlock(blockPath, -1) }) { Icon(Icons.Filled.KeyboardArrowUp, stringResource(R.string.block_move_up)) }
-                IconButton(onClick = { ed.moveBlock(blockPath, 1) }) { Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.block_move_down)) }
+                IconButton(onClick = { ed.moveBlock(blockPath, -1) }) { SagaIcon(SagaIcons.chevronUp, stringResource(R.string.block_move_up)) }
+                IconButton(onClick = { ed.moveBlock(blockPath, 1) }) { SagaIcon(SagaIcons.chevronDown, stringResource(R.string.block_move_down)) }
                 IconButton(onClick = {
                     val ip = active.itemPath()
                     if (ip != null) ed.removeItem(blockPath, ip) else {
@@ -1178,8 +1166,8 @@ private fun EditorToolbar(
                         val undo = ed.deleteBlockUndoable(blockPath)
                         if (undo != null) repo?.notify(UiText.Res(R.string.ed24_block_deleted), UiText.Res(R.string.action_undo)) { undo() }
                     }
-                }) { Icon(Icons.Filled.Delete, stringResource(R.string.action_delete)) }
-                IconButton(onClick = { focus.clearFocus(); ed.active = null }) { Icon(Icons.Filled.Check, stringResource(R.string.action_done)) }
+                }) { SagaIcon(SagaIcons.trash, stringResource(R.string.action_delete)) }
+                IconButton(onClick = { focus.clearFocus(); ed.active = null }) { SagaIcon(SagaIcons.check, stringResource(R.string.action_done)) }
             }
             }
         }
@@ -1278,10 +1266,10 @@ private fun SaveState(ed: PageEditor) {
     when {
         ed.saving -> CircularProgressIndicator(Modifier.size(18.dp).padding(end = 4.dp), strokeWidth = 2.dp)
         ed.conflict -> {}                                   // das Konflikt-Banner zeigt das (kein zweites Warnsymbol)
-        ed.error != null -> Icon(Icons.Filled.Warning, stringResource(R.string.save_state_unsaved), tint = MaterialTheme.colorScheme.error, modifier = Modifier.padding(end = 4.dp))
+        ed.error != null -> SagaIcon(SagaIcons.warning, stringResource(R.string.save_state_unsaved), tint = MaterialTheme.colorScheme.error, modifier = Modifier.padding(end = 4.dp))
         // als Symbol statt "Speichert…" neben dem Titel (der Titel bleibt lesbar)
-        ed.dirty -> Icon(painterResource(R.drawable.ic_cloud_upload), stringResource(R.string.save_state_pending), tint = color, modifier = Modifier.padding(end = 4.dp).size(20.dp))
-        ed.savedAt != null -> Icon(Icons.Filled.Done, stringResource(R.string.save_state_saved), tint = color, modifier = Modifier.padding(end = 4.dp).size(20.dp))
+        ed.dirty -> SagaIcon(SagaIcons.cloudUpload, stringResource(R.string.save_state_pending), tint = color, modifier = Modifier.padding(end = 4.dp).size(20.dp))
+        ed.savedAt != null -> SagaIcon(SagaIcons.check, stringResource(R.string.save_state_saved), tint = color, modifier = Modifier.padding(end = 4.dp).size(20.dp))
     }
 }
 
@@ -1296,7 +1284,7 @@ private fun SharedByLabel(info: PageShareInfo) {
     val text = stringResource(R.string.shared_by, info.owner?.name.orEmpty()) + " · " + stringResource(ShareLogic.roleYou(info.role))
     Row(Modifier.padding(top = 6.dp).semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.Top) {
         // Symbol an der ersten Zeile (das Etikett kann umbrechen)
-        Icon(painterResource(R.drawable.ic_group), null, Modifier.padding(top = 1.dp).size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        SagaIcon(SagaIcons.users, null, Modifier.padding(top = 1.dp).size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp),
@@ -1326,7 +1314,7 @@ private fun NoAccess(onRetry: () -> Unit, onShared: () -> Unit) {
         Modifier.fillMaxWidth().padding(top = 48.dp, start = 8.dp, end = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(Icons.Filled.Lock, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        SagaIcon(SagaIcons.lock, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             stringResource(R.string.no_access_title), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 12.dp),     // dunkel sonst schwarz
@@ -1351,7 +1339,7 @@ private fun ConflictBanner(by: String?, onChoose: () -> Unit) {
     Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp)) {
             Row(verticalAlignment = Alignment.Top) {
-                Icon(Icons.Filled.Warning, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                SagaIcon(SagaIcons.warning, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
                 Text(
                     by?.let { stringResource(R.string.conflict_by_banner, it) } ?: stringResource(R.string.conflict_banner),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer,
@@ -1377,7 +1365,7 @@ private fun CommentsButton(open: Int, unread: Int, onClick: () -> Unit) {
             .semantics(mergeDescendants = true) { contentDescription = desc },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(painterResource(R.drawable.ic_comment), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        SagaIcon(SagaIcons.comment, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         if (open > 0) Text("$open", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp))
         if (unread > 0) Box(Modifier.padding(start = 4.dp).size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
     }
@@ -1397,7 +1385,7 @@ private fun BlockBubble(count: Int, unread: Boolean, onClick: () -> Unit) {
             border = androidx.compose.foundation.BorderStroke(1.dp, if (unread) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
         ) {
             Row(Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(painterResource(R.drawable.ic_comment), null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                SagaIcon(SagaIcons.comment, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
                     if (count > 0) "$count" else "+", style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 2.dp),

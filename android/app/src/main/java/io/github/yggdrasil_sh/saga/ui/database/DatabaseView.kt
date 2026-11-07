@@ -1,12 +1,11 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
+import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.res.painterResource
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,19 +39,12 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 
 import androidx.compose.ui.semantics.selected
 import io.github.yggdrasil_sh.saga.ui.theme.sagaPress
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -316,7 +308,7 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaReposi
                 Box(Modifier.weight(1f)) { ViewPills(st.views, v.id) { st.selectView(it) } }
                 // Menue (Ansicht bearbeiten, neue Ansicht, Vorlagen) rechts neben den Pillen
                 if (st.canEditViews || st.canManageTemplates || (repo != null && "tasksrc1" in features)) IconButton(onClick = { viewMenu = true }) {
-                    Icon(Icons.Filled.MoreVert, stringResource(R.string.dbv_views_menu))
+                    SagaIcon(SagaIcons.moreVert, stringResource(R.string.dbv_views_menu))
                 }
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -325,21 +317,21 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaReposi
                     if (!pills) FilterChip(
                         selected = true, onClick = { viewMenu = true },
                         label = { Text(viewIcon(v.type) + " " + v.name.ifEmpty { typeLabel }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        trailingIcon = { Icon(Icons.Filled.ArrowDropDown, null, Modifier.size(18.dp)) },
+                        trailingIcon = { SagaIcon(SagaIcons.caretDown, null, Modifier.size(18.dp)) },
                         modifier = Modifier.widthIn(max = 200.dp).semantics { contentDescription = v.name.ifEmpty { typeLabel } + ", " + typeLabel },
                     )
                     DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
                         st.views.forEach { x ->
                             DropdownMenuItem(
                                 text = { Text(viewIcon(x.type) + " " + x.name.ifEmpty { viewLabel(x.type) }) },
-                                trailingIcon = { if (x.id == v.id) Icon(Icons.Filled.Check, null) },
+                                trailingIcon = { if (x.id == v.id) SagaIcon(SagaIcons.check, null) },
                                 onClick = { viewMenu = false; if (x.id != v.id) st.selectView(x.id) },
                             )
                         }
                         if (st.canEditViews) {
                             androidx.compose.material3.HorizontalDivider()
                             DropdownMenuItem(text = { Text(stringResource(R.string.dbv_view_settings)) }, onClick = { viewMenu = false; st.sheet = "view" })
-                            DropdownMenuItem(text = { Text(stringResource(R.string.dbv_new_view)) }, leadingIcon = { Icon(Icons.Filled.Add, null) },
+                            DropdownMenuItem(text = { Text(stringResource(R.string.dbv_new_view)) }, leadingIcon = { SagaIcon(SagaIcons.plus, null) },
                                 onClick = { viewMenu = false; st.sheet = "new_view" })
                         }
                         if (st.canManageTemplates) {                    // 2.5: auch ohne Vorlagen erreichbar
@@ -364,16 +356,16 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaReposi
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = { searchOpen = !searchOpen || q.isNotEmpty() }) { Icon(Icons.Filled.Search, stringResource(R.string.dbv_search)) }
+                IconButton(onClick = { searchOpen = !searchOpen || q.isNotEmpty() }) { SagaIcon(SagaIcons.search, stringResource(R.string.dbv_search)) }
                 IconButton(onClick = { st.sheet = "filter" }, enabled = st.canEditViews || nf > 0) {
                     androidx.compose.material3.BadgedBox(badge = { if (nf > 0) ActiveBadge(nf) }) {
-                        Icon(painterResource(R.drawable.ic_filter), if (nf > 0) stringResource(R.string.dbv_filter_count, nf) else stringResource(R.string.dbv_filter),
+                        SagaIcon(SagaIcons.filter, if (nf > 0) stringResource(R.string.dbv_filter_count, nf) else stringResource(R.string.dbv_filter),
                             tint = if (nf > 0) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current)
                     }
                 }
                 IconButton(onClick = { st.sheet = "sort" }, enabled = st.canEditViews || ns > 0) {
                     androidx.compose.material3.BadgedBox(badge = { if (ns > 0) ActiveBadge(ns) }) {
-                        Icon(painterResource(R.drawable.ic_sort), if (ns > 0) stringResource(R.string.dbv_sort_count, ns) else stringResource(R.string.dbv_sort),
+                        SagaIcon(SagaIcons.sort, if (ns > 0) stringResource(R.string.dbv_sort_count, ns) else stringResource(R.string.dbv_sort),
                             tint = if (ns > 0) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current)
                     }
                 }
@@ -402,7 +394,7 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaReposi
                         },
                     ) {
                         Row(Modifier.heightIn(min = 40.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.Add, null, Modifier.size(18.dp))
+                            SagaIcon(SagaIcons.plus, null, Modifier.size(18.dp))
                             // A17: Text darf kuerzen ("Neuer Ein…"), der Pfeil bleibt immer sichtbar - und oeffnet selbst das Menue
                             Text(stringResource(R.string.dbv_new_entry), modifier = Modifier.padding(start = 4.dp).weight(1f, fill = false), maxLines = 1,
                                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge)
@@ -413,7 +405,7 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaReposi
                                         .clickable(role = Role.Button, onClickLabel = moreLabel) { newMenu = true }
                                         .semantics { contentDescription = moreLabel },
                                     contentAlignment = Alignment.Center,
-                                ) { Icon(Icons.Filled.ArrowDropDown, null, Modifier.size(20.dp)) }
+                                ) { SagaIcon(SagaIcons.caretDown, null, Modifier.size(20.dp)) }
                             }
                         }
                     }
@@ -438,9 +430,9 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaReposi
                 OutlinedTextField(
                     value = q, onValueChange = { q = it.take(500); st.updateSearch(q) }, singleLine = true,
                     placeholder = { Text(stringResource(R.string.dbv_search)) },
-                    leadingIcon = { Icon(Icons.Filled.Search, null) },
+                    leadingIcon = { SagaIcon(SagaIcons.search, null) },
                     trailingIcon = {
-                        IconButton(onClick = { q = ""; st.updateSearch(""); searchOpen = false }) { Icon(Icons.Filled.Close, stringResource(R.string.action_close)) }
+                        IconButton(onClick = { q = ""; st.updateSearch(""); searchOpen = false }) { SagaIcon(SagaIcons.x, stringResource(R.string.action_close)) }
                     },
                     modifier = Modifier.fillMaxWidth().padding(top = 6.dp).focusRequester(fr),
                 )
@@ -541,7 +533,7 @@ internal fun TableHead(st: DbViewState, v: DbView, wide: Boolean) {
                         .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(bg.copy(alpha = 0f), bg)))
                         .clickable(onClickLabel = more) { scope.launch { st.hScroll.animateScrollBy(240f) } },
                     contentAlignment = Alignment.CenterEnd,
-                ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, more, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                ) { SagaIcon(SagaIcons.chevronRight, more, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -744,7 +736,7 @@ internal fun DbBoard(st: DbViewState, repo: SagaRepository, onOpen: (Long) -> Un
                         IconButton(onClick = {
                             val cv = if (readOnlyGroups) null else st.columnValue(gp, k)
                             scope.launch { st.create(if (cv != null) mapOf(gp.id to cv) else emptyMap())?.let(onOpen) }
-                        }) { Icon(Icons.Filled.Add, stringResource(R.string.dbv_new_entry)) }
+                        }) { SagaIcon(SagaIcons.plus, stringResource(R.string.dbv_new_entry)) }
                     }
                 }
                 val rows = col?.rows.orEmpty()
@@ -794,7 +786,7 @@ internal fun BoardCard(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbVie
                     Text(title, maxLines = 3, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                     if (r.blocked) BlockedMark()
                     if (!st.readOnly && targets.isNotEmpty()) IconButton(onClick = { menu = true }) {
-                        Icon(Icons.Filled.MoreVert, stringResource(R.string.dbv_card_actions, title))
+                        SagaIcon(SagaIcons.moreVert, stringResource(R.string.dbv_card_actions, title))
                     }
                 }
                 s.visibleProps(v).filter { p -> p.id != gp.id && p.type != "text" && (!DbQuery.isEmpty(DbQuery(s).value(p, r)) || r.fxErr[p.id] != null) }.take(3).forEach { p ->
@@ -847,12 +839,12 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
         val week = st.week
         Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { st.showWeek(week.minusWeeks(1)) }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(R.string.e1_prev_week)) }
+                IconButton(onClick = { st.showWeek(week.minusWeeks(1)) }) { SagaIcon(SagaIcons.chevronLeft, stringResource(R.string.e1_prev_week)) }
                 Text(week.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)) + " – " +
                     week.plusDays(6).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)),
                     style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).semantics { heading() })
                 TextButton(onClick = { st.showWeek(LocalDate.now()) }) { Text(stringResource(R.string.e1_today)) }
-                IconButton(onClick = { st.showWeek(week.plusWeeks(1)) }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.e1_next_week)) }
+                IconButton(onClick = { st.showWeek(week.plusWeeks(1)) }) { SagaIcon(SagaIcons.chevronRight, stringResource(R.string.e1_next_week)) }
             }
             val days = (0 until 7).map { week.plusDays(it.toLong()) }
             if (wide) Row(Modifier.fillMaxWidth()) {
@@ -869,7 +861,7 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
                                     .clickable(onClickLabel = stringResource(R.string.dbv_open_entry)) { onOpen(r.id) }.padding(3.dp))
                         }
                         if (st.canAdd && dp.type == "date") TextButton(onClick = { scope.launch { st.create(mapOf(dp.id to DbValues.date(day)))?.let(onOpen) } }) {
-                            Icon(Icons.Filled.Add, stringResource(R.string.dbv_new_on_day, day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))), Modifier.size(16.dp))
+                            SagaIcon(SagaIcons.plus, stringResource(R.string.dbv_new_on_day, day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))), Modifier.size(16.dp))
                         }
                     }
                 }
@@ -878,7 +870,7 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
                     Text(day.format(dayFmt), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f).semantics { heading() },
                         color = if (day == today) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                     if (st.canAdd && dp.type == "date") IconButton(onClick = { scope.launch { st.create(mapOf(dp.id to DbValues.date(day)))?.let(onOpen) } }) {
-                        Icon(Icons.Filled.Add, stringResource(R.string.dbv_new_on_day, day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))))
+                        SagaIcon(SagaIcons.plus, stringResource(R.string.dbv_new_on_day, day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))))
                     }
                 }
                 val items = byDay[day.toString()].orEmpty()
@@ -898,11 +890,11 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
     val month = st.month
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { st.showMonth(month.minusMonths(1)) }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(R.string.dbv_prev_month)) }
+            IconButton(onClick = { st.showMonth(month.minusMonths(1)) }) { SagaIcon(SagaIcons.chevronLeft, stringResource(R.string.dbv_prev_month)) }
             Text(month.month.getDisplayName(TextStyle.FULL_STANDALONE, locale) + " " + month.year, style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f).semantics { heading() })
             TextButton(onClick = { st.showMonth(LocalDate.now()) }) { Text(stringResource(R.string.e1_today)) }
-            IconButton(onClick = { st.showMonth(month.plusMonths(1)) }) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.dbv_next_month)) }
+            IconButton(onClick = { st.showMonth(month.plusMonths(1)) }) { SagaIcon(SagaIcons.chevronRight, stringResource(R.string.dbv_next_month)) }
         }
         // Wochentage ab Montag (wie im Web)
         Row(Modifier.fillMaxWidth()) {
@@ -961,7 +953,7 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
             }
             if (st.canAdd && dp.type == "date") {
                 TextButton(onClick = { scope.launch { st.create(mapOf(dp.id to DbValues.date(sel)))?.let(onOpen) } }) {
-                    Icon(Icons.Filled.Add, null)
+                    SagaIcon(SagaIcons.plus, null)
                     Text(stringResource(R.string.dbv_new_on_day, sel.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))))
                 }
             }
