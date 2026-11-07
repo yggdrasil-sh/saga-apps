@@ -865,7 +865,7 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
                     }
                 }
                 val items = byDay[day.toString()].orEmpty()
-                if (items.isEmpty()) Text("–", color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall)
+                if (items.isEmpty()) Text("–", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 items.forEach { r ->
                     Row(Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.dbv_open_entry)) { onOpen(r.id) }.padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -918,7 +918,7 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
                         ) {
                             Text(day.dayOfMonth.toString(), style = MaterialTheme.typography.labelSmall,
                                 fontWeight = if (day == today) FontWeight.Bold else FontWeight.Normal,
-                                color = if (day == today) MaterialTheme.colorScheme.onPrimary else if (inMonth) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline)
+                                color = if (day == today) MaterialTheme.colorScheme.onPrimary else if (inMonth) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         items.take(2).forEach { r ->
                             Text(label(r), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,

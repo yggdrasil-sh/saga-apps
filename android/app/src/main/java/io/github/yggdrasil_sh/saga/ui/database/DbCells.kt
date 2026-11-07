@@ -205,7 +205,7 @@ fun PersonChip(ref: String, fmt: DbFormat) {
             } else Text(name.take(1).uppercase(), style = MaterialTheme.typography.labelSmall, color = cs.onTertiaryContainer)
         }
         Text(name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            color = if (gone) cs.outline else cs.onSurface)
+            color = if (gone) cs.onSurfaceVariant else cs.onSurface)
     }
 }
 
@@ -521,9 +521,9 @@ fun PropRow(p: DbProp, v: JsonElement?, fmt: DbFormat, editable: Boolean, onEdit
             modifier = Modifier.width(120.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
         Column(Modifier.weight(1f)) {
             if (DbQuery.isEmpty(v) && p.effType != "checkbox" && err == null) {
-                Text(if (canEdit) stringResource(R.string.dbv_value_empty) else "", color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodyMedium)
+                Text(if (canEdit) stringResource(R.string.dbv_value_empty) else "", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
             } else DbValueView(p, v, fmt, maxLines = 4, err = err)
-            if (p.computed) Text(stringResource(R.string.e1_fx_web), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            if (p.computed) Text(stringResource(R.string.e1_fx_web), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         val link = if (p.type == "url" || p.type == "email" || p.type == "phone") DbValues.safeLink(p.type, v.prim().orEmpty()) else null
         if (link != null && onLink != null) {

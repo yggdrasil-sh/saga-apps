@@ -438,7 +438,7 @@ private fun WeatherBody(v: PageWidgets.Value?, sz: SizeSpec, accent: Color) {
     }
     if (w.stale) Text(stringResource(R.string.e1_weather_stale), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
     // Pflicht: Quellenangabe (CC BY 4.0)
-    Text(stringResource(R.string.e1_weather_source), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+    Text(stringResource(R.string.e1_weather_source), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
@@ -544,7 +544,7 @@ private fun UpcomingBody(v: PageWidgets.Value?, env: BlockEnv) {
                 Text(icon, style = MaterialTheme.typography.bodySmall)
                 if (time != null) Text(time, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(x.title.ifEmpty { "–" }, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                x.cal?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, maxLines = 1) }
+                x.cal?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
             }
         }
     }
