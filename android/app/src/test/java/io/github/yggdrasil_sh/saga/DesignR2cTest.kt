@@ -2,6 +2,9 @@ package io.github.yggdrasil_sh.saga
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
+import io.github.yggdrasil_sh.saga.ui.chat.ChatUi
+import io.github.yggdrasil_sh.saga.ui.theme.Dark
+import io.github.yggdrasil_sh.saga.ui.theme.Light
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaShapes
 import org.junit.Assert.assertEquals
@@ -63,6 +66,19 @@ class DesignR2cTest {
         // alle Balken mit Fortschrittswert (Tabelle/Board, Widgets, Upload) nutzen die sichtbare Spur
         listOf("ui/database/DbCells.kt" to 2, "ui/page/PageWidgetsUi.kt" to 2, "ui/chat/ChatVideo.kt" to 2).forEach { (f, n) ->
             assertEquals(f, n, Regex("trackColor = io\\.github\\.yggdrasil_sh\\.saga\\.ui\\.theme\\.SagaProgressTrack").findAll(read(f)).count())
+        }
+    }
+
+    @Test fun balkenSpurKontrastAufKarten() {
+        // Board-Karten: hell surfaceContainerLowest, dunkel surfaceContainerHigh (cardColor); Tabelle/Widgets auf
+        // surface bis surfaceContainer (dunkel bis High). Spur >= 3:1 gegen jede dieser Flaechen, hell und dunkel.
+        // (hell erreicht surfaceContainerHigh nur 2,9:1, dort liegen aber keine Balken)
+        val cards = { s: androidx.compose.material3.ColorScheme -> listOf(s.surface, s.background, s.surfaceContainerLowest, s.surfaceContainerLow, s.surfaceContainer) }
+        for ((scheme, name, bgs) in listOf(Triple(Light, "hell", cards(Light)), Triple(Dark, "dunkel", cards(Dark) + Dark.surfaceContainerHigh))) {
+            bgs.forEach { bg ->
+                val c = ChatUi.contrast(scheme.outline, bg)
+                assertTrue("Spur $name auf $bg: $c", c >= 3.0)
+            }
         }
     }
 

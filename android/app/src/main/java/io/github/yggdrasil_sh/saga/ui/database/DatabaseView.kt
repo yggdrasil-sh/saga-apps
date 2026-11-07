@@ -518,36 +518,33 @@ internal fun TableHead(st: DbViewState, v: DbView, wide: Boolean) {
     // 2.5 tableopts1: fixierte Spalten (freeze, 1 = Name) stehen beim waagrechten Scrollen
     val (frozen, moving) = DbViews.frozenSplit(s.visibleProps(v), v.freeze)
     Column {
-        Box {
-            // ED-15: mindestens so hoch wie der Pfeil, damit die Kopfzeile am Scroll-Ende nicht springt
-            Row(Modifier.heightIn(min = MORE_COLUMNS_SLOT).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(s.titleName ?: stringResource(R.string.dbv_name_col), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.width(colWidth(null, wide)).padding(horizontal = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                frozen.forEach { p ->
+        // ED-15 / R2c: mindestens so hoch wie der Pfeil, damit die Kopfzeile am Scroll-Ende nicht springt.
+        // Der Pfeil "Weitere Spalten" hat einen eigenen Platz rechts NEBEN dem Scrollbereich (MORE_COLUMNS_SLOT). Frueher
+        // lag er ueber dem Scrollbereich und der Platz war nur am Inhaltsende reserviert; solange es weitere Spalten gab
+        // (nur dann ist er sichtbar), verdeckte er deshalb den Kopf der Spalte am rechten Rand ("Start").
+        Row(Modifier.heightIn(min = MORE_COLUMNS_SLOT).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(s.titleName ?: stringResource(R.string.dbv_name_col), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.width(colWidth(null, wide)).padding(horizontal = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            frozen.forEach { p ->
+                Text(p.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.width(colWidth(p, wide)).padding(horizontal = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Row(Modifier.weight(1f, fill = false).horizontalScroll(st.hScroll)) {
+                moving.forEach { p ->
                     Text(p.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.width(colWidth(p, wide)).padding(horizontal = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Row(Modifier.horizontalScroll(st.hScroll)) {
-                    moving.forEach { p ->
-                        Text(p.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.width(colWidth(p, wide)).padding(horizontal = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    // ED-15: Platz fuer den Pfeil "Weitere Spalten" - der letzte Spaltenkopf liegt am Ende nicht darunter
-                    if (moving.isNotEmpty()) Spacer(Modifier.width(MORE_COLUMNS_SLOT))
-                }
             }
-            // Nr. 23: es gibt weitere Spalten rechts - Pfeil mit Verlauf (antippen = ein Stueck weiter)
-            if (st.hScroll.canScrollForward) {
-                val bg = MaterialTheme.colorScheme.background
-                val scope = rememberCoroutineScope()
-                val more = stringResource(R.string.dbv_more_columns)
-                Box(
-                    // ED-15: Zielflaeche 48 x 48 dp
-                    Modifier.align(Alignment.CenterEnd).size(MORE_COLUMNS_SLOT)
-                        .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(bg.copy(alpha = 0f), bg)))
-                        .clickable(onClickLabel = more) { scope.launch { st.hScroll.animateScrollBy(240f) } },
-                    contentAlignment = Alignment.CenterEnd,
-                ) { SagaIcon(SagaIcons.chevronRight, more, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (moving.isNotEmpty()) Box(Modifier.size(MORE_COLUMNS_SLOT), contentAlignment = Alignment.Center) {
+                // Nr. 23: es gibt weitere Spalten rechts - Pfeil (antippen = ein Stueck weiter), ED-15: Zielflaeche 48 x 48 dp
+                if (st.hScroll.canScrollForward) {
+                    val scope = rememberCoroutineScope()
+                    val more = stringResource(R.string.dbv_more_columns)
+                    Box(
+                        Modifier.matchParentSize().clickable(onClickLabel = more) { scope.launch { st.hScroll.animateScrollBy(240f) } },
+                        contentAlignment = Alignment.Center,
+                    ) { SagaIcon(SagaIcons.chevronRight, more, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -560,7 +557,7 @@ private fun ActiveBadge(n: Int) {
     androidx.compose.material3.Badge(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) { Text("$n") }
 }
 
-/** ED-15: Breite/Hoehe des Pfeils "Weitere Spalten" und der dafuer freigehaltene Platz am Ende der Spalten */
+/** ED-15/R2c: Breite/Hoehe des Pfeils "Weitere Spalten"; eigene Spalte rechts neben dem Scrollbereich (Kopf und Zeilen) */
 private val MORE_COLUMNS_SLOT = 48.dp
 
 @Composable
@@ -620,10 +617,11 @@ internal fun TableRow(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbView
             }
             frozen.forEach { cell(it) }
             // gleiche Inhaltsbreite wie die Kopfzeile (ED-15), sonst rechnen Kopf und Zeilen mit verschiedenem Scroll-Ende
-            Row(Modifier.horizontalScroll(st.hScroll), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.weight(1f, fill = false).horizontalScroll(st.hScroll), verticalAlignment = Alignment.CenterVertically) {
                 moving.forEach { cell(it) }
-                if (moving.isNotEmpty()) Spacer(Modifier.width(MORE_COLUMNS_SLOT))
             }
+            // R2c: gleiche Spalte wie der Pfeil im Kopf, damit Kopf und Zeilen denselben Scrollbereich haben
+            if (moving.isNotEmpty()) Spacer(Modifier.width(MORE_COLUMNS_SLOT))
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
     }

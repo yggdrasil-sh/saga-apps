@@ -17,6 +17,10 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Ecken wie im Web:** Steuerelemente 6 dp, Karten und Menüs 10 dp, Blätter und Dialoge 16 dp.
 - **Signalfarben** (ok, Warnung, Fehler, überfällig, Info, Anruf grün/rot) als gemeinsame Werte wie im Web;
   Fehlertexte nutzen die gut lesbare Rotstufe.
+- **Nachbesserung:** Alle Knöpfe (über `SagaButton`/`SagaTextButton`/… mit 6 dp statt Material-Pille), die gewählte
+  Zeile der Seitenleiste und die Suchfelder haben 6 dp. Anhang-Menü im Chat mit Symbol an jedem Eintrag.
+  Fortschrittsbalken mit sichtbarer Spur (auch dunkel). Der Pfeil „Weitere Spalten“ der DB-Tabelle hat eine eigene
+  Spalte und verdeckt keine Spaltenüberschrift mehr.
 
 ### Geändert – Android: Design-Runde 2 „Saga-Look“ (Symbole)
 
