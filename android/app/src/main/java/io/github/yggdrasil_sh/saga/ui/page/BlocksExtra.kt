@@ -53,6 +53,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -199,7 +200,7 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.slashListItems(
                 Text(
                     slashGroupLabel(g), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = if (i == 0) 6.dp else 12.dp, bottom = 4.dp)
-                        .semantics { androidx.compose.ui.semantics.heading() },
+                        .semantics { heading() },
                 )
             }
         }
