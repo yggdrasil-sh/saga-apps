@@ -232,6 +232,8 @@ final class ShellModel: NSObject, ObservableObject {
         AppConfig.server = target
         serverField = AppConfig.serverString
         ShellKeys.setDeviceToken(tok)
+        switchNotice = false                                                 // eigene Anmeldung: kein Umstellungs-Hinweis
+        UserDefaults.standard.set(true, forKey: "shellSwitchNoticeShown")
         if let k = ShellLogic.appKey(j?["app_key"]) { AppConfig.token = k; reloadWidgets(force: true) }
         if let n = j?["name"] as? String { setAccount(n) }
     }
@@ -371,6 +373,7 @@ final class ShellModel: NSObject, ObservableObject {
         ShellKeys.setDeviceToken(nil)
         AppConfig.token = ""
         setAccount("")
+        switchNotice = false                               // Anmeldung abgelehnt/abgemeldet: Hinweis "Anmeldung bleibt" waere falsch
         NSApp.dockTile.badgeLabel = nil
         webView.stopLoading()
         webView.loadHTMLString("", baseURL: nil)
