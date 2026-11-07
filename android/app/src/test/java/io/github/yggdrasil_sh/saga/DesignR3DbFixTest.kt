@@ -84,7 +84,8 @@ class DesignR3DbFixTest {
     @Test fun datumsdialogKompakt() {
         val d = read("ui/database/DbDlgDate.kt")
         assertTrue(d.contains("DateIntervalFormat"))                       // "2.–5. Nov. 2026" (Halbgeviertstrich aus ICU)
-        assertTrue(d.contains("horizontalScroll(rememberScrollState())"))   // Schnellwahl in einer Zeile
+        assertTrue(d.contains("horizontalScroll(quickScroll)"))              // Schnellwahl in einer Zeile
+        assertTrue(d.contains("quickScroll.value < quickScroll.maxValue"))  // Nachbesserung R3 (78): weicher Rand
         assertFalse(d.contains("leadingIcon = { SagaIcon(SagaIcons.calendar"))
     }
 
