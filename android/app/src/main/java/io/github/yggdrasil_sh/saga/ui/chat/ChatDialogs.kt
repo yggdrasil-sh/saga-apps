@@ -442,7 +442,7 @@ fun RetentionDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit)
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         RadioButton(selected = sel == o, onClick = null, enabled = allowed)
-                        Text(retentionLabel(o), modifier = Modifier.padding(start = 12.dp), color = if (allowed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline)
+                        Text(retentionLabel(o), modifier = Modifier.padding(start = 12.dp), color = if (allowed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 Text(stringResource(R.string.chat_retention_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))

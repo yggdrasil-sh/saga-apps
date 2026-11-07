@@ -284,7 +284,7 @@ private fun ArchivedHeader(count: Int, unread: Int, open: Boolean, onToggle: () 
         )
         if (unread > 0) {
             val d = androidx.compose.ui.res.pluralStringResource(R.plurals.notifications_unread_n, unread, unread)
-            Badge(Modifier.semantics { contentDescription = d }, containerColor = MaterialTheme.colorScheme.outline, contentColor = MaterialTheme.colorScheme.onPrimary) {
+            Badge(Modifier.semantics { contentDescription = d }, containerColor = MaterialTheme.colorScheme.onSurfaceVariant, contentColor = MaterialTheme.colorScheme.surface) {
                 Text(if (unread > 99) "99+" else "$unread")
             }
         }
@@ -455,7 +455,7 @@ private fun ChatRow(repo: SagaRepository, c: ChatSummary, name: String, selected
                     val dotOnly = ChatStd.unreadDot(c) && c.unread <= 1 && c.lastRead >= c.lastSeq
                     Badge(
                         Modifier.padding(start = 8.dp).semantics { contentDescription = d },
-                        containerColor = if (mutedNow) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
+                        containerColor = if (mutedNow) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
                         contentColor = if (mutedNow) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary,
                     ) { if (!dotOnly) Text(if (c.unread > 99) "99+" else "${c.unread}", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 2.dp)) }
                 }

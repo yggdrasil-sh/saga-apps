@@ -431,7 +431,7 @@ fun ContactRow(repo: SagaRepository, k: ChatContact, onRemoved: () -> Unit, onPi
     ) {
         val sub = Contacts.subline(k)?.resolve()
         val dim = !Contacts.pickable(k)
-        val col = if (dim) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
+        val col = if (dim) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
         PersonRowBase(
             name = k.name, shown = k.name, sub = sub, avatar = k.avatar, color = col, enabled = !dim,
             menu = { MoreRemove(k.name, remove) }, onClick = onPick,
