@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.comments
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.background
@@ -264,7 +265,7 @@ private fun ThreadCard(
 ) {
     val border = if (t.unread && !t.resolved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).border(1.dp, border, RoundedCornerShape(14.dp))
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(SagaRadius.l)).border(1.dp, border, RoundedCornerShape(SagaRadius.l))
             .background(MaterialTheme.colorScheme.surfaceContainerLow).padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
         if (quote != null) {

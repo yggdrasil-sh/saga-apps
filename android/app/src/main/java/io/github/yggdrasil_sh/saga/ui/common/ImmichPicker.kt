@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.common
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.background
@@ -156,7 +157,7 @@ fun ImmichPicker(repo: SagaRepository, onDismiss: () -> Unit, onPick: (ImmichAss
                         LazyVerticalGrid(GridCells.Adaptive(150.dp), Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
                             items(albums, key = { it.id }) { a ->
                                 Box(
-                                    Modifier.padding(4.dp).aspectRatio(4f / 3f).clip(RoundedCornerShape(8.dp))
+                                    Modifier.padding(4.dp).aspectRatio(4f / 3f).clip(RoundedCornerShape(SagaRadius.s))
                                         .background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable { album = a },
                                     contentAlignment = Alignment.BottomStart,
                                 ) {
@@ -177,7 +178,7 @@ fun ImmichPicker(repo: SagaRepository, onDismiss: () -> Unit, onPick: (ImmichAss
                         LazyVerticalGrid(GridCells.Adaptive(100.dp), Modifier.fillMaxSize().padding(horizontal = 4.dp)) {
                             items(items, key = { it.id }) { a ->
                                 Box(
-                                    Modifier.padding(2.dp).aspectRatio(1f).clip(RoundedCornerShape(6.dp))
+                                    Modifier.padding(2.dp).aspectRatio(1f).clip(RoundedCornerShape(SagaRadius.s))
                                         .background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable { onPick(a) },
                                     contentAlignment = Alignment.BottomEnd,
                                 ) {
@@ -185,7 +186,7 @@ fun ImmichPicker(repo: SagaRepository, onDismiss: () -> Unit, onPick: (ImmichAss
                                     if (a.isGif) {
                                         Text(
                                             "GIF", color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(4.dp).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(3.dp)).padding(horizontal = 3.dp),
+                                            modifier = Modifier.padding(4.dp).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(SagaRadius.xs)).padding(horizontal = 3.dp),
                                         )
                                     }
                                 }

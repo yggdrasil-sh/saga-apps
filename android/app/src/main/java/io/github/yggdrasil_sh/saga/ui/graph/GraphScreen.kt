@@ -163,13 +163,20 @@ data class GraphPalette(
     val accent: Color, val accentText: Color, val fg: Color, val bg: Color,
 )
 
+/** Knotenfarben des Graphen 1:1 aus dem Web (--gr-node/-db/-row/-tag), noch ohne eigenen Android-Token */
+private object GraphHues {
+    val nodeDark = Color(0xFF9AA6B8); val dbDark = Color(0xFFB39DDB); val rowDark = Color(0xFF7FB0E0); val tagDark = Color(0xFF6CC48A)
+    val nodeLight = Color(0xFF6A7383); val dbLight = Color(0xFF7B5CC0); val rowLight = Color(0xFF3D72AD); val tagLight = Color(0xFF2E8049)
+}
+
 @Composable
 fun graphPalette(): GraphPalette {
     val dark = MaterialTheme.colorScheme.background.let { (it.red + it.green + it.blue) / 3f < 0.5f }
     val acc = LocalSagaAccent.current
     val cs = MaterialTheme.colorScheme
-    return if (dark) GraphPalette(Color(0xFF9AA6B8), Color(0xFFB39DDB), Color(0xFF7FB0E0), Color(0xFF6CC48A), Color(0xFF8B97A8), 0.32f, acc.gold, acc.goldText, cs.onBackground, cs.background)
-    else GraphPalette(Color(0xFF6A7383), Color(0xFF7B5CC0), Color(0xFF3D72AD), Color(0xFF2E8049), Color(0xFF5D6878), 0.30f, acc.gold, acc.goldText, cs.onBackground, cs.background)
+    // Linien = Web --gr-line = onSurfaceVariant (hell #5D6878, dunkel #8B97A8)
+    return if (dark) GraphPalette(GraphHues.nodeDark, GraphHues.dbDark, GraphHues.rowDark, GraphHues.tagDark, cs.onSurfaceVariant, 0.32f, acc.gold, acc.goldText, cs.onBackground, cs.background)
+    else GraphPalette(GraphHues.nodeLight, GraphHues.dbLight, GraphHues.rowLight, GraphHues.tagLight, cs.onSurfaceVariant, 0.30f, acc.gold, acc.goldText, cs.onBackground, cs.background)
 }
 
 private enum class Mode { ALL, LOCAL }
@@ -418,7 +425,7 @@ fun GraphScreenContent(
                     }
                     // Zoom und Einpassen: rechts oben, je 48 dp
                     Surface(
-                        Modifier.align(Alignment.TopEnd).padding(8.dp), shape = MaterialTheme.shapes.large,
+                        Modifier.align(Alignment.TopEnd).padding(8.dp), shape = MaterialTheme.shapes.medium,
                         color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 2.dp,
                     ) {
                         Column {
@@ -558,7 +565,7 @@ private fun NodeCard(g: GraphModel, i: Int, p: GraphPalette, nf: java.text.Numbe
     val acc = LocalSagaAccent.current
     Surface(
         Modifier.navigationBarsPadding().padding(12.dp).widthIn(max = 560.dp).fillMaxWidth().testTag("graph-card"),
-        shape = MaterialTheme.shapes.large, tonalElevation = 3.dp, shadowElevation = 6.dp,
+        shape = MaterialTheme.shapes.medium, tonalElevation = 3.dp, shadowElevation = 6.dp,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {

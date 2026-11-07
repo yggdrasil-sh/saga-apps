@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.common
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.ui.platform.LocalLocale
@@ -96,7 +97,7 @@ fun PageIcon(icon: String?, repo: SagaRepository, isDatabase: Boolean = false, s
         if (ic.startsWith("/files/") || ic.startsWith("/api/fed/files/")) {
             // Grauer Platzhalter nur, solange das Bild laedt (wie iOS) - danach bleiben transparente Symbole transparent
             var loaded by remember(ic) { mutableStateOf(false) }
-            val shape = RoundedCornerShape(if (size >= 48.dp) 10.dp else 4.dp)
+            val shape = RoundedCornerShape(if (size >= 48.dp) SagaRadius.md else SagaRadius.xs)
             AsyncImage(
                 model = repo.absoluteUrl(if (ic.contains("?")) ic else "$ic?w=160"), contentDescription = null,
                 contentScale = ContentScale.Crop,

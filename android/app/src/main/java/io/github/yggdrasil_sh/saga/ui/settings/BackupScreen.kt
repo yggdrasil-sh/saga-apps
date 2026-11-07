@@ -421,7 +421,7 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                         ) {
                             RadioButton(selected = schedule == v, onClick = null, enabled = allowed)
                             Text(stringResource(label), modifier = Modifier.padding(start = 12.dp),
-                                color = if (allowed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline)
+                                color = if (allowed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }

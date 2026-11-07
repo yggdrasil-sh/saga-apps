@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.services
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.ui.res.stringResource
@@ -121,7 +122,7 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 }
                 itemsIndexed(items, key = { i, s -> "s-$cat-$i-${s.url}" }) { _, s ->
                     Row(
-                        Modifier.padding(4.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        Modifier.padding(4.dp).clip(RoundedCornerShape(SagaRadius.md)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
                             .combinedClickable(
                                 onClick = { if (s.url.isNotBlank()) openUrl(context, repo.absoluteUrl(s.url)) },
                                 onLongClick = if (s.own) ({ bookmark = s }) else null,
@@ -152,18 +153,21 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
  * 2.5 Lesezeichen: liefert der Server kein Favicon (z. B. Bot-Schutz), laedt das Geraet es der Reihe nach aus
  * icon_direct direkt von der Seite (FaviconLoader); Dienste und aeltere Server wie bisher.
  */
+/** Helle Plakette hinter Dienst-Symbolen im Dunkelmodus: bewusst immer hell (Web hell --bg2 / surfaceContainer), da die Symbole oft dunkel auf transparent sind */
+private val IconPlaque = Color(0xFFF6F3EC)
+
 @Composable
 private fun ServiceIcon(s: ServiceItem, repo: SagaRepository) {
     val letter: @Composable () -> Unit = {
         Box(
-            Modifier.size(32.dp).clip(RoundedCornerShape(7.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
+            Modifier.size(32.dp).clip(RoundedCornerShape(SagaRadius.s)).background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center,
         ) { Text(s.name.take(1).uppercase(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
     // Dienst-Symbole sind oft dunkel auf transparent: im Dunkelmodus auf heller Plakette, sonst unsichtbar
     val dark = MaterialTheme.colorScheme.background.luminance() < 0.3f
     val mod = Modifier.size(32.dp).then(
-        if (dark) Modifier.clip(RoundedCornerShape(7.dp)).background(Color(0xFFF1EDE4)).padding(3.dp) else Modifier
+        if (dark) Modifier.clip(RoundedCornerShape(SagaRadius.s)).background(IconPlaque).padding(3.dp) else Modifier
     )
     val path = s.iconPath()
     val direct = remember(s.iconDirect, s.url) { s.directIcons() }

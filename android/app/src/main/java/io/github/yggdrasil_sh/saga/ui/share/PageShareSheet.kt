@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.share
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.content.ClipData
@@ -146,7 +147,7 @@ fun PageShareSheet(
                     val roleName = stringResource(ShareLogic.roleName(model.newRole))
                     // Treffer
                     model.hits?.takeIf { model.canSearch }?.let { h ->
-                        Surface(shape = RoundedCornerShape(12.dp), tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
+                        Surface(shape = RoundedCornerShape(SagaRadius.md), tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
                             Column {
                                 h.users.forEach { u ->
                                     // 2.4: sub unterscheidet Gleichnamige ("Person auf diesem Server · anna-b")
@@ -235,7 +236,7 @@ fun PageShareSheet(
                             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                     }
                     // Link zur Seite (oeffnet sie fuer alle mit Zugriff)
-                    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
+                    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(SagaRadius.md), modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(link, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
                             OutlinedButton(onClick = { copy(context, link); onCopied() }) { Text(stringResource(R.string.share_copy_link)) }
@@ -269,7 +270,7 @@ private fun copy(context: Context, text: String) {
 
 @Composable
 private fun Warn(text: String) {
-    Surface(color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
+    Surface(color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(SagaRadius.md), modifier = Modifier.fillMaxWidth()) {
         Text(text, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(12.dp))
     }
 }

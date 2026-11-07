@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.publish
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import android.content.ActivityNotFoundException
@@ -315,7 +316,7 @@ private fun ColumnScope.MainStep(model: PublishModel, scope: CoroutineScope, onO
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ViaCard(title: String, url: String, onCopy: () -> Unit, onOpen: () -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(SagaRadius.md), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             val t = title.ifEmpty { stringResource(R.string.page_untitled) }
             Text(stringResource(R.string.publish_via_text, t), color = MaterialTheme.colorScheme.onSecondaryContainer)
@@ -337,7 +338,7 @@ private fun ViaCard(title: String, url: String, onCopy: () -> Unit, onOpen: () -
 @Composable
 private fun LinkCard(url: String, active: Boolean, profile: String?, onCopy: (String) -> Unit, onOpen: () -> Unit, onShare: () -> Unit) {
     // durchgehend getoente Flaeche; privat nur die Schrift gedaempft (Kontrast bleibt lesbar)
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(SagaRadius.md), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 Publish.breakable(url), style = MaterialTheme.typography.bodyMedium,

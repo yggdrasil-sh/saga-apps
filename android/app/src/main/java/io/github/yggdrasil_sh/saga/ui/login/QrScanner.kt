@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.login
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.ui.res.stringResource
@@ -137,7 +138,7 @@ fun QrScannerDialog(onDismiss: () -> Unit, onResult: (String) -> Boolean) {
             )
             Box(
                 Modifier.align(Alignment.Center).size(240.dp)
-                    .border(3.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(18.dp)),
+                    .border(3.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(SagaRadius.l)),
             )
             Column(
                 Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(24.dp),
@@ -145,7 +146,7 @@ fun QrScannerDialog(onDismiss: () -> Unit, onResult: (String) -> Boolean) {
             ) {
                 Text(
                     hint.resolve(), color = Color.White, textAlign = TextAlign.Center,
-                    modifier = Modifier.background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(10.dp)).padding(12.dp),
+                    modifier = Modifier.background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(SagaRadius.md)).padding(12.dp),
                 )
                 FilledTonalButton(onClick = paste, modifier = Modifier.padding(top = 12.dp)) {
                     Text(stringResource(R.string.qr_paste_link))

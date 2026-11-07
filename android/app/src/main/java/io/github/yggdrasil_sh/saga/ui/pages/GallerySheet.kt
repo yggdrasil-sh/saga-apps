@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.pages
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -173,7 +174,7 @@ private fun GalleryRow(t: GalleryItem, onClick: () -> Unit) {
             .padding(horizontal = 24.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.size(44.dp)) {
+        Surface(shape = RoundedCornerShape(SagaRadius.md), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.size(44.dp)) {
             Box(contentAlignment = Alignment.Center) {
                 Text(t.icon.ifEmpty { "📄" }, fontSize = 22.sp, maxLines = 1)
             }
