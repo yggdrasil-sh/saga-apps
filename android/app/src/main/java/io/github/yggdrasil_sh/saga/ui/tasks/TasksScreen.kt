@@ -89,7 +89,7 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     stickyHeader(key = "mh-$g") { TaskGroupHeader(g, list.size) }
                     items(list, key = { it.key }) { e ->
                         androidx.compose.foundation.layout.Box(Modifier.widthIn(max = 760.dp)) {
-                            SourceTaskRow(e, e.src?.let { bySrc[it] }, ml.people, repo) { x ->
+                            SourceTaskRow(e, e.src?.let { bySrc[it] }, ml.people, repo, grouped = true) { x ->
                                 if (x.isRow) nav.push(io.github.yggdrasil_sh.saga.ui.nav.Dest.Page(x.id))
                                 else editing = tasks.firstOrNull { it.id.toLong() == x.id } ?: TaskItem(x.id.toInt(), x.text, false, x.due, x.prio, x.repeat)
                             }
@@ -120,7 +120,7 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 groups.forEach { (g, list) ->
                     stickyHeader(key = "h-$g") { TaskGroupHeader(g, list.size) }
                     items(list, key = { "t-${it.id}" }) { t ->
-                        androidx.compose.foundation.layout.Box(Modifier.widthIn(max = 760.dp)) { TaskRow(t, repo) { editing = it } }
+                        androidx.compose.foundation.layout.Box(Modifier.widthIn(max = 760.dp)) { TaskRow(t, repo, grouped = true) { editing = it } }
                     }
                 }
                 if (done.isNotEmpty()) {

@@ -50,7 +50,7 @@ import kotlinx.coroutines.CancellationException
 
 /** Zeile der zusammengefuehrten Liste: Haken (ausgegraut bei edit false), Text, Quelle, Datum/Uhrzeit/Zeitraum, Prioritaet, Zugewiesene */
 @Composable
-fun SourceTaskRow(e: TaskEntry, source: TaskSource?, people: Map<String, TaskPerson>, repo: SagaRepository, onOpen: (TaskEntry) -> Unit) {
+fun SourceTaskRow(e: TaskEntry, source: TaskSource?, people: Map<String, TaskPerson>, repo: SagaRepository, grouped: Boolean = false, onOpen: (TaskEntry) -> Unit) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 48.dp)
             .clickable(onClickLabel = stringResource(if (e.isRow) R.string.e2_task_open_row else R.string.task_edit)) { onOpen(e) }
@@ -59,7 +59,7 @@ fun SourceTaskRow(e: TaskEntry, source: TaskSource?, people: Map<String, TaskPer
     ) {
         // NAV-12/A11Y-06: Rot nur fuer "ueberfaellig" (mit Wort), hohe Prioritaet als Flagge statt roten Kaestchenrands
         val overdue = TaskCounts.overdue(e, todayIso())
-        val high = e.prio == 1 && !e.done
+        val high = TaskRowLogic.showFlag(e.prio, e.done)
         Checkbox(
             checked = e.done, enabled = e.edit,
             onCheckedChange = { v -> repo.toggleEntry(e, v) },
@@ -78,13 +78,13 @@ fun SourceTaskRow(e: TaskEntry, source: TaskSource?, people: Map<String, TaskPer
                 source?.let { (it.icon.ifEmpty { "☑️" }) + " " + it.title.ifBlank { stringResource(R.string.page_untitled) } },
                 dueLabel(e),
                 e.repeat?.let { stringResource(R.string.task_repeats) },
-                if (e.prio == 1) stringResource(R.string.task_high_priority) else null,
+                if (TaskRowLogic.showPrioText(e.prio, e.done)) stringResource(R.string.task_high_priority) else null,
                 TaskSourcesLogic.assigneeNames(e, people).takeIf { it.isNotEmpty() }?.joinToString(", ")?.let { "👤 $it" },
                 if (!e.edit) stringResource(R.string.e2_task_readonly) else null,
             )
-            if (extra.isNotEmpty() || overdue) {
+            if (extra.isNotEmpty() || TaskRowLogic.overduePrefix(overdue, grouped)) {
                 Text(
-                    taskMetaText(extra, overdue), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    taskMetaText(extra, overdue, grouped), style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
                     color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

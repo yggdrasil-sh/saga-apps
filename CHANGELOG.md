@@ -20,6 +20,11 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Schublade öffnen schließt die Tastatur.
 - **Anmeldung:** oben ausgerichtet (springt nicht mehr mit der Tastatur), QR-Code abgesetzt, Fehler direkt am Feld
   mit klarer Ursache (kein Netz, Adresse nicht gefunden, Server antwortet nicht, kein Saga-Server), QR-Hilfe als Blatt.
+  Logo, Feld und Knöpfe bleiben beim Öffnen der Tastatur stehen; ist wenig Platz (Tablet quer), scrollen Feld und
+  „Anmelden“ über die Tastatur. Enter (auch Hardware-Tastatur) startet die Anmeldung.
+- Nachbesserung: In der Gruppe „Überfällig“ fehlt das doppelte „Überfällig ·“, neben der (jetzt goldenen) Flagge kein
+  Text „hohe Priorität“ mehr. Die Offline-Leiste liegt unter der Statusleiste in ruhiger Fläche, das Live-Lämpchen
+  pausiert, solange sie steht.
 - Benachrichtigungen: Ungelesene deutlicher und für TalkBack angesagt, „Alle gelesen“ nur bei Ungelesenen.
   Konto-Avatar in der Seitenleiste wird als „Konto: Name“ vorgelesen.
 

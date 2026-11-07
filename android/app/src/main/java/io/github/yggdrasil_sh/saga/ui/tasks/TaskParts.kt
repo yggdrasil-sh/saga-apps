@@ -82,24 +82,37 @@ fun PrioFlag() {
     Icon(
         androidx.compose.ui.res.painterResource(R.drawable.ic_flag), null,
         Modifier.padding(end = 4.dp).size(14.dp),
-        tint = MaterialTheme.colorScheme.tertiary,
+        // R1-Nachbesserung: Saga-Gold statt Blau; goldText (nicht gold), damit das Symbol >= 3:1 zur Flaeche hat
+        tint = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.goldText,
     )
 }
 
-/** Metazeile: ueberfaellig = Fehlerfarbe UND das Wort "Ueberfaellig · …" (nicht nur Rot) */
+/** Reine Regeln der Aufgabenzeile (ohne Compose, fuer Unit-Tests) */
+object TaskRowLogic {
+    /** "Ueberfaellig ·" vor der Metazeile nur ohne Gruppen - in der Gruppe "Ueberfaellig" steht es schon im Kopf */
+    fun overduePrefix(overdue: Boolean, grouped: Boolean): Boolean = overdue && !grouped
+
+    /** Flagge bei hoher Prioritaet, solange offen */
+    fun showFlag(prio: Int?, done: Boolean): Boolean = prio == 1 && !done
+
+    /** Text "hohe Prioritaet" nur, wenn keine Flagge da ist (TalkBack sagt es ueber stateDescription an) */
+    fun showPrioText(prio: Int?, done: Boolean): Boolean = prio == 1 && !showFlag(prio, done)
+}
+
+/** Metazeile: ueberfaellig = Fehlerfarbe UND (ohne Gruppen) das Wort "Ueberfaellig · …" (nicht nur Rot) */
 @Composable
-fun taskMetaText(parts: List<String>, overdue: Boolean): String {
+fun taskMetaText(parts: List<String>, overdue: Boolean, grouped: Boolean = false): String {
     val joined = parts.joinToString(" · ")
-    return if (!overdue) joined
+    return if (!TaskRowLogic.overduePrefix(overdue, grouped)) joined
     else if (joined.isEmpty()) stringResource(R.string.tasks_overdue)
     else stringResource(R.string.r1_task_overdue_meta, joined)
 }
 
 /** Eine Aufgabe: Haken (erledigt/wieder offen), Text, Faelligkeit; antippen = bearbeiten */
 @Composable
-fun TaskRow(t: TaskItem, repo: SagaRepository, onEdit: (TaskItem) -> Unit) {
+fun TaskRow(t: TaskItem, repo: SagaRepository, grouped: Boolean = false, onEdit: (TaskItem) -> Unit) {
     val overdue = io.github.yggdrasil_sh.saga.data.TaskCounts.overdue(t, todayIso())
-    val high = t.prio == 1 && !t.done
+    val high = TaskRowLogic.showFlag(t.prio, t.done)
     Row(
         Modifier.fillMaxWidth().heightIn(min = 48.dp)
             .clickable(onClickLabel = stringResource(R.string.task_edit)) { onEdit(t) }
@@ -125,11 +138,11 @@ fun TaskRow(t: TaskItem, repo: SagaRepository, onEdit: (TaskItem) -> Unit) {
             val extra = listOfNotNull(
                 t.due?.takeIf { it.isNotEmpty() && !t.done }?.let { dueText(it) },
                 t.rep?.let { stringResource(R.string.task_repeats) },
-                if (t.prio == 1) stringResource(R.string.task_high_priority) else null,
+                if (TaskRowLogic.showPrioText(t.prio, t.done)) stringResource(R.string.task_high_priority) else null,
             )
-            if (extra.isNotEmpty() || overdue) {
+            if (extra.isNotEmpty() || TaskRowLogic.overduePrefix(overdue, grouped)) {
                 Text(
-                    taskMetaText(extra, overdue), style = MaterialTheme.typography.bodySmall,
+                    taskMetaText(extra, overdue, grouped), style = MaterialTheme.typography.bodySmall,
                     color = if (overdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

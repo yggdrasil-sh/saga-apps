@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -90,17 +91,30 @@ fun OfflineBar(state: OfflineState, modifier: Modifier = Modifier) {
         val since = state.since
         val text = if (since == null) stringResource(R.string.r1_offline_bar_unknown)
         else stringResource(R.string.r1_offline_bar, formatStamp(since))
-        Surface(color = MaterialTheme.colorScheme.tertiaryContainer, contentColor = MaterialTheme.colorScheme.onTertiaryContainer) {
-            Row(
-                Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)
-                    .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(painterResource(R.drawable.ic_cloud_off), null, Modifier.size(20.dp))
-                Text(text, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 12.dp))
+        // R1-Nachbesserung: die Statusleiste bleibt in der Hintergrundfarbe (wie ueber der App-Leiste), die Leiste
+        // selbst liegt darunter - ruhige Token-Flaeche statt hellem Blau (Kontrast siehe ThemeContrastTest)
+        androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
+            Surface(color = OfflineBarColors.container(), contentColor = OfflineBarColors.content()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                        .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(painterResource(R.drawable.ic_cloud_off), null, Modifier.size(20.dp))
+                    Text(text, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 12.dp))
+                }
             }
         }
     }
+}
+
+/** Farben der Offline-Leiste: Flaeche surfaceContainerHigh, Text/Symbol onSurfaceVariant (>= 4.5:1 hell und dunkel) */
+object OfflineBarColors {
+    fun container(scheme: androidx.compose.material3.ColorScheme) = scheme.surfaceContainerHigh
+    fun content(scheme: androidx.compose.material3.ColorScheme) = scheme.onSurfaceVariant
+
+    @Composable fun container() = container(MaterialTheme.colorScheme)
+    @Composable fun content() = content(MaterialTheme.colorScheme)
 }
 
 /** 9:12 (heute) bzw. Datum + Uhrzeit (aelter) in der Sprache der Oberflaeche */

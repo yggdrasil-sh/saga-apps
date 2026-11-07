@@ -1,6 +1,14 @@
 package io.github.yggdrasil_sh.saga.ui.login
 
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.res.stringResource
 import io.github.yggdrasil_sh.saga.util.UiText
@@ -18,7 +26,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.heading
@@ -77,7 +84,16 @@ import kotlinx.coroutines.launch
  * Anmeldung wie in iOS: Server eintragen -> "Anmelden" oeffnet den Browser (Passkey, Passwort + TOTP, SSO),
  * danach kommt die App per saga://auth zurueck. Alternativ QR-Code aus dem Web (Apps & Geraete) scannen.
  */
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+/** Feste Masse der Anmeldung (kein Wechsel mit der Tastatur) und die Enter-Tasten */
+internal object LoginLayout {
+    val LOGO = 104.dp
+    val TOP_PADDING = 48.dp
+    /** Wartezeit nach der letzten Groessenaenderung, bevor Feld + Knopf ins Bild gescrollt werden */
+    const val SETTLE_MS = 80L
+    fun isEnter(k: Key): Boolean = k == Key.Enter || k == Key.NumPadEnter
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun LoginScreen(repo: SagaRepository) {
     val context = LocalContext.current
@@ -151,17 +167,30 @@ fun LoginScreen(repo: SagaRepository) {
         // Design 2: ein Hauch Gold von oben (wie das Licht im App-Symbol), sonst ruhige Flaeche
         val glow = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.gold.copy(alpha = 0.16f)
         Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to glow, 0.45f to androidx.compose.ui.graphics.Color.Transparent)))
-        // NAV-05: oben ausgerichtet statt zentriert - der Block springt nicht mehr mit der Tastatur (Fehltipps auf QR);
-        // bei offener Tastatur wird nur das Logo kleiner
+        // NAV-05: oben ausgerichtet statt zentriert - der Block springt nicht mit der Tastatur (Fehltipps auf QR).
+        // R1-Nachbesserung: das Logo bleibt gleich gross (das Schrumpfen schob Feld und Knoepfe um 48 dp nach oben).
+        // Passt der Block nicht ueber die Tastatur (Tablet quer), wird nur gescrollt: Feld + "Anmelden" ins Bild.
         Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding(), contentAlignment = Alignment.TopCenter) {
-            val ime = androidx.compose.foundation.layout.WindowInsets.isImeVisible
-            val logo by androidx.compose.animation.core.animateDpAsState(if (ime) 56.dp else 104.dp, label = "logo")
+            val fieldArea = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+            var fieldFocused by remember { mutableStateOf(false) }
+            var viewport by remember { mutableStateOf(0) }
+            // Sichtflaeche schrumpft (Tastatur auf) oder Feld bekommt den Fokus: nach dem Ende der Inset-Animation
+            // (LaunchedEffect startet bei jedem Frame neu = entprellt) Feld und Knopf zeigen - passt es schon, scrollt nichts
+            androidx.compose.runtime.LaunchedEffect(viewport, fieldFocused) {
+                if (fieldFocused && viewport > 0) {
+                    kotlinx.coroutines.delay(LoginLayout.SETTLE_MS)
+                    fieldArea.bringIntoView()
+                }
+            }
             Column(
-                Modifier.widthIn(max = 420.dp).fillMaxWidth().verticalScroll(rememberScrollState())
-                    .padding(start = 28.dp, end = 28.dp, bottom = 28.dp, top = 48.dp),
+                Modifier.widthIn(max = 420.dp).fillMaxWidth()
+                    .onSizeChanged { viewport = it.height }
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 28.dp, end = 28.dp, bottom = 28.dp, top = LoginLayout.TOP_PADDING),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
+                val logo = LoginLayout.LOGO
                 Image(
                     painterResource(R.drawable.ic_launcher_foreground), contentDescription = null,
                     modifier = Modifier.size(logo).shadow(12.dp, RoundedCornerShape(logo * 0.27f)).clip(RoundedCornerShape(logo * 0.27f)).background(SagaNight),
@@ -171,30 +200,44 @@ fun LoginScreen(repo: SagaRepository) {
                     stringResource(R.string.login_subtitle), textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                // NAV-06: Fehler direkt am Feld (isError, supportingText, Semantik error)
-                val fieldError = (localError ?: loginError)?.resolve()
-                OutlinedTextField(
-                    value = server,
-                    onValueChange = {
-                        server = it
-                        // Adresse geaendert: die alte Meldung passt nicht mehr
-                        if (localError != null || loginError != null) {
-                            localError = null
-                            repo.loginError.value = null
-                        }
-                    },
-                    label = { Text(stringResource(R.string.login_server_label)) },
-                    // Platzhalter klar als Beispiel erkennbar (sonst wirkt er wie ein schon eingetragener Wert)
-                    placeholder = { Text(stringResource(R.string.server_placeholder), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), fontStyle = FontStyle.Italic) },
-                    supportingText = { Text(fieldError ?: stringResource(R.string.login_server_hint)) },
-                    isError = fieldError != null,
-                    singleLine = true, enabled = !busy,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go, autoCorrectEnabled = false),
-                    keyboardActions = KeyboardActions(onGo = { login() }),
-                    modifier = Modifier.fillMaxWidth().semantics { if (fieldError != null) error(fieldError) },
-                )
-                Button(onClick = { login() }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
-                    Text(stringResource(if (busy) R.string.login_button_busy else R.string.login_button))
+                // Feld und "Anmelden" als ein Bereich: er wird bei offener Tastatur gemeinsam ins Bild gescrollt
+                Column(
+                    Modifier.fillMaxWidth().bringIntoViewRequester(fieldArea),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    // NAV-06: Fehler direkt am Feld (isError, supportingText, Semantik error)
+                    val fieldError = (localError ?: loginError)?.resolve()
+                    OutlinedTextField(
+                        value = server,
+                        onValueChange = {
+                            server = it
+                            // Adresse geaendert: die alte Meldung passt nicht mehr
+                            if (localError != null || loginError != null) {
+                                localError = null
+                                repo.loginError.value = null
+                            }
+                        },
+                        label = { Text(stringResource(R.string.login_server_label)) },
+                        // Platzhalter klar als Beispiel erkennbar (sonst wirkt er wie ein schon eingetragener Wert)
+                        placeholder = { Text(stringResource(R.string.server_placeholder), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), fontStyle = FontStyle.Italic) },
+                        supportingText = { Text(fieldError ?: stringResource(R.string.login_server_hint)) },
+                        isError = fieldError != null,
+                        singleLine = true, enabled = !busy,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go, autoCorrectEnabled = false),
+                        keyboardActions = KeyboardActions(onGo = { login() }),
+                        modifier = Modifier.fillMaxWidth()
+                            .onFocusChanged { fieldFocused = it.isFocused }
+                            // Hardware-Enter (Tablet-Tastatur, Emulator) startet die Anmeldung wie "Los" der Bildschirmtastatur
+                            .onPreviewKeyEvent { ev ->
+                                if (!LoginLayout.isEnter(ev.key)) return@onPreviewKeyEvent false
+                                if (ev.type == KeyEventType.KeyDown && !busy) login()
+                                true
+                            }
+                            .semantics { if (fieldError != null) error(fieldError) },
+                    )
+                    Button(onClick = { login() }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                        Text(stringResource(if (busy) R.string.login_button_busy else R.string.login_button))
+                    }
                 }
                 if (busy) CircularProgressIndicator(Modifier.size(28.dp))
                 // Browser ohne Ergebnis verlassen (abgebrochen, kein Code): neutraler Hinweis + erneut versuchen

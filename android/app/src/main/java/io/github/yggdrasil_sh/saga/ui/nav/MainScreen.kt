@@ -143,8 +143,12 @@ fun SagaRoot(repo: SagaRepository, appScope: CoroutineScope) {
         if (ready) {                                             // erst nach dem Laden der Einstellungen (im Hintergrund)
             var everLoggedIn by remember { mutableStateOf(!needsLogin) }
             LaunchedEffect(needsLogin) { if (!needsLogin) everLoggedIn = true }
-            if (everLoggedIn) key(server, account) { MainScreen(repo, appScope) }
-            if (everLoggedIn && !needsLogin) LiveLamp(repo, Modifier.align(Alignment.TopStart))   // 4.11.: gruen live, rot gespeicherter Stand
+            // NAV-02: Offline-Zustand hier, damit Leiste und Live-Laempchen denselben (entprellten) Stand sehen
+            val offline = key(server, account) { io.github.yggdrasil_sh.saga.ui.common.rememberOfflineState(repo) }
+            if (everLoggedIn) key(server, account) { MainScreen(repo, appScope, offline) }
+            // R1-Nachbesserung: solange die Offline-Leiste steht, sagt sie den Zustand - das Laempchen wuerde direkt
+            // auf ihrem Wolken-Symbol sitzen und entfaellt dann
+            if (everLoggedIn && !needsLogin && !offline.visible) LiveLamp(repo, Modifier.align(Alignment.TopStart))   // 4.11.: gruen live, rot gespeicherter Stand
             if (needsLogin) LoginScreen(repo)
             pendingPair?.let { PairConfirmDialog(repo, it, appScope) }
             io.github.yggdrasil_sh.saga.ui.login.PairRejectedDialog(repo)
@@ -180,7 +184,10 @@ private val mainItems = listOf(
 
 /** Adaptiv: Handy = Seitenleiste als Schublade; Tablet hochkant = Navigation Rail + Schublade; breit = feste Seitenleiste */
 @Composable
-fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
+fun MainScreen(
+    repo: SagaRepository, appScope: CoroutineScope,
+    offline: io.github.yggdrasil_sh.saga.ui.common.OfflineState = io.github.yggdrasil_sh.saga.ui.common.rememberOfflineState(repo),
+) {
     val nav = rememberSaveable(saver = AppNavigator.Saver) { AppNavigator() }   // ueberlebt Prozess-Tod
     // 2.5 clientlog1: grober Ort fuer Fehlerberichte/Diagnose (nur die Art der Ansicht, nie Titel oder ID)
     val curDest = nav.current
@@ -288,7 +295,7 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
 
         // Inhalt wandert beim Drehen/Wechsel Kompakt <-> Breit in einen anderen Zweig (feste Seitenleiste, Rail,
         // Schublade). movableContentOf nimmt dabei den Zustand mit (Chat-Entwurf, offene Blaetter, Editor) - BUG-021
-        val content = remember { movableContentOf { c: Chrome -> Content(repo, nav, c, appScope) } }
+        val content = remember { movableContentOf { c: Chrome -> Content(repo, nav, c, appScope, offline) } }
         if (wide) {
             PermanentNavigationDrawer(drawerContent = {
                 PermanentDrawerSheet(Modifier.width(300.dp)) { Sidebar(repo, nav, onNavigate = {}) }
@@ -348,7 +355,7 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
 }
 
 @Composable
-private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, appScope: CoroutineScope) {
+private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, appScope: CoroutineScope, offline: io.github.yggdrasil_sh.saga.ui.common.OfflineState) {
     val minApp by repo.minApp.collectAsState()
     // Laufender Anruf: Leiste "Anruf laeuft" ueber allen Bildschirmen; sie nimmt die Statusleiste ein, der Inhalt
     // darunter rechnet sie daher nicht noch einmal ein (consumeWindowInsets)
@@ -376,7 +383,6 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
             }
             // NAV-02: globale Offline-Leiste unter der Anruf-Leiste (entprellt); sie nimmt die Statusleiste ein, wenn
             // nichts darueber liegt - der Bildschirm darunter rechnet sie dann nicht noch einmal ein
-            val offline = io.github.yggdrasil_sh.saga.ui.common.rememberOfflineState(repo)
             io.github.yggdrasil_sh.saga.ui.common.OfflineBar(
                 offline, if (tooOld) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier,
             )
