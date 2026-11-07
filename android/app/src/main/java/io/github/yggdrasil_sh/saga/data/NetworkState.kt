@@ -33,9 +33,15 @@ object NetworkState {
             return@callbackFlow
         }
         val cb = object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) { trySend(online(ctx)) }
-            override fun onLost(network: Network) { trySend(online(ctx)) }
-            override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) { trySend(online(ctx)) }
+            // Standardnetz-Callback: die Werte aus dem Callback nehmen, nicht cm.activeNetwork neu abfragen (direkt nach
+            // onLost kann das alte Netz noch als aktiv gemeldet werden)
+            override fun onAvailable(network: Network) {
+                trySend(cm.getNetworkCapabilities(network)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ?: true)
+            }
+            override fun onLost(network: Network) { trySend(false) }
+            override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                trySend(caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET))
+            }
         }
         trySend(online(ctx))
         try {
