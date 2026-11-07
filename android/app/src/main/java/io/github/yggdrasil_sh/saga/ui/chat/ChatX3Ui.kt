@@ -311,7 +311,7 @@ internal fun X3PreviewContent() {
             }
             Spacer(Modifier.height(10.dp))
             Column(horizontalAlignment = Alignment.Start) {
-                Surface(color = ChatUi.bubble(sc, false), shape = RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)) {
+                Surface(color = ChatUi.bubble(sc, false), border = androidx.compose.foundation.BorderStroke(1.dp, ChatUi.bubbleBorder(sc, false)), shape = RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)) {
                     Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                         Text("Treffen wir uns um 9?", style = MaterialTheme.typography.bodyLarge)
                         Row(Modifier.align(Alignment.End)) {
@@ -326,14 +326,14 @@ internal fun X3PreviewContent() {
             }
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                Surface(color = ChatUi.bubble(sc, true), contentColor = sc.onPrimaryContainer, shape = RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp)) {
+                Surface(color = ChatUi.bubble(sc, true), contentColor = sc.onSurface, border = androidx.compose.foundation.BorderStroke(1.dp, ChatUi.bubbleBorder(sc, true)), shape = RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp)) {
                     Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                        VoiceBubbleView(PREVIEW_BARS, 12.4, 4.1, true, false, false, 1.5f, sc.onPrimaryContainer, {}, {}, {})
+                        VoiceBubbleView(PREVIEW_BARS, 12.4, 4.1, true, false, false, 1.5f, sc.onSurface, {}, {}, {})
                     }
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Surface(color = ChatUi.bubble(sc, false), shape = RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)) {
+            Surface(color = ChatUi.bubble(sc, false), border = androidx.compose.foundation.BorderStroke(1.dp, ChatUi.bubbleBorder(sc, false)), shape = RoundedCornerShape(18.dp, 18.dp, 18.dp, 4.dp)) {
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                     VoiceBubbleView(PREVIEW_BARS.reversedArray(), 63.0, 0.0, false, false, false, 1f, sc.onSurface, {}, {}, {})
                 }

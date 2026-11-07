@@ -25,6 +25,14 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Enden); `SagaIcons`/`SagaIcon` sind die eine Quelle in der App. Die Seitenleiste nutzt sie schon (Heute mit Sonne,
   Aufgaben, Termine, Chats …), der Rest folgt.
 
+### Geändert – Android: Chat-Blasen wie im Web (Design-Runde 2 „Saga-Look“)
+
+- **Blasen hell mit feinem Rand:** fremde in Kartenfarbe, die eigene leicht goldgetönt (16 % Gold, Rand 35 %), hell
+  und dunkel – das schwere Olivbraun im Dunkelmodus ist weg. Zeit, „bearbeitet“ und Haken erreichen mindestens 4,5:1.
+- **Links/rechts sofort erkennbar:** Blasen höchstens 80 % breit (max. 520 dp) mit freier Gasse von 48 dp zur
+  Gegenseite, auch für Sprachnachrichten, Dateien und im Gruppenchat. Reine Bilder mindestens 200 dp breit.
+- Antwort-Zitat mit Goldstrich wie im Web, Linkvorschau mit feinem Rand.
+
 ### Geändert – Android: Design-Runde 1 „Vertrauen & schnelle Gewinne“ (Navigation, Anmeldung)
 
 - **Aufgabenzahlen stimmen überein:** Kopf, Zahl und Liste auf „Heute“ zählen dieselbe Liste; das Badge in der

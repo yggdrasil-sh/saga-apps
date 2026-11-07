@@ -107,7 +107,13 @@ import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.yggdrasil_sh.saga.ui.theme.DarkAccent
+import io.github.yggdrasil_sh.saga.ui.theme.LightAccent
+import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
+import io.github.yggdrasil_sh.saga.ui.theme.SagaAccent
 import androidx.core.content.FileProvider
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.chat.GroupInfo
@@ -727,8 +733,10 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             s.messages.toList().filter { it.id !in hid && (q.isEmpty() || it.content?.text?.lowercase()?.contains(q) == true) }.asReversed()
         }
         shownRef.set(shown)
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-          androidx.compose.runtime.CompositionLocalProvider(LocalVideoHost provides videoHost) {
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+          // CH-01: Blasenbreite aus der Verlaufsbreite (hoechstens 900 dp), einmal fuer alle Zeilen
+          val bubbleMax = ChatUi.bubbleMax(minOf(maxWidth, 900.dp))
+          androidx.compose.runtime.CompositionLocalProvider(LocalVideoHost provides videoHost, LocalBubbleMax provides bubbleMax) {
             LazyColumn(Modifier.fillMaxSize().widthIn(max = 900.dp), state = list, reverseLayout = true) {
                 // laufende Frage an die KI: "{name} denkt nach …" bzw. mitlaufender Text (unten)
                 s.aiPending?.let { p ->
@@ -1501,11 +1509,45 @@ private fun messageText(text: String, notes: Map<Long, ChatNoteRef?>, onOpen: (L
     }
 }
 
+/** CH-01: groesste Blasenbreite (vom Verlauf gesetzt; ausserhalb wie bisher 520 dp) */
+internal val LocalBubbleMax = androidx.compose.runtime.staticCompositionLocalOf { 520.dp }
+
 /** Farben der Blasen und der Markierung "Echtheit nicht bestätigt" (Kontrast im Test geprueft) */
 object ChatUi {
-    fun bubble(c: ColorScheme, mine: Boolean): Color = if (mine) c.primaryContainer else c.surfaceContainerHigh
-    fun unverifiedText(c: ColorScheme, mine: Boolean): Color = if (mine) c.onPrimaryContainer else c.onSurfaceVariant
-    fun unverifiedIcon(c: ColorScheme, mine: Boolean): Color = if (mine) c.onPrimaryContainer else c.error
+    /** dunkles Schema? (an der Grundflaeche erkannt) */
+    fun isDark(c: ColorScheme): Boolean = c.surface.luminance() < 0.5f
+
+    /** Akzent der Blasen wie Web `--accent`: hell das kraeftige Gold (goldText), dunkel das Zier-Gold */
+    fun tint(c: ColorScheme, acc: SagaAccent = if (isDark(c)) DarkAccent else LightAccent): Color = if (isDark(c)) acc.gold else acc.goldText
+
+    /** Mischung in sRGB wie CSS `color-mix(in srgb, b t, a)` (nicht Oklab wie `lerp`), immer voll deckend */
+    fun mix(a: Color, b: Color, t: Float): Color = Color(
+        red = a.red + (b.red - a.red) * t, green = a.green + (b.green - a.green) * t, blue = a.blue + (b.blue - a.blue) * t, alpha = 1f,
+    )
+
+    /** CH-13/A11Y-18: wie `.ct-bubble` im Web - fremd Kartenfarbe, eigen 16 % Gold ueber der Karte */
+    fun bubble(c: ColorScheme, mine: Boolean, tint: Color = tint(c)): Color =
+        if (mine) mix(c.surfaceContainerLow, tint, 0.16f) else c.surfaceContainerLow
+
+    /** feiner Rand: fremd `outlineVariant`, eigen mit 35 % Gold */
+    fun bubbleBorder(c: ColorScheme, mine: Boolean, tint: Color = tint(c)): Color =
+        if (mine) mix(c.outlineVariant, tint, 0.35f) else c.outlineVariant
+
+    /** Zeit, "bearbeitet" und Haken: 70 % Textfarbe ueber der Blase (als feste Farbe, damit pruefbar >= 4,5:1) */
+    fun meta(bg: Color, fg: Color): Color = mix(bg, fg, 0.7f)
+
+    /** Hintergrund von Antwort-Zitat und Linkvorschau in der Blase: 6 % Textfarbe ueber der Blase (Web `.ct-quote`) */
+    fun inset(bg: Color, fg: Color): Color = mix(bg, fg, 0.06f)
+
+    /** CH-01: hoechstens 80 % der Verlaufsbreite und nie ueber 520 dp; freie Gasse zur Gegenseite */
+    fun bubbleMax(rowWidth: Dp): Dp = minOf(rowWidth * 0.8f, 520.dp)
+    val GAP: Dp = 48.dp
+    /** reine Bilder mindestens 200 dp breit (Hoehe bleibt, Zuschnitt mittig) */
+    const val MEDIA_MIN = 200
+    fun mediaBox(dims: Pair<Int, Int>): Pair<Int, Int> = maxOf(dims.first, MEDIA_MIN) to dims.second
+
+    fun unverifiedText(c: ColorScheme, mine: Boolean): Color = if (mine) c.onSurface else c.onSurfaceVariant
+    fun unverifiedIcon(c: ColorScheme, mine: Boolean): Color = if (mine) c.onSurface else c.error
 
     /** WCAG-Kontrastverhaeltnis */
     fun contrast(a: Color, b: Color): Double {
@@ -1566,12 +1608,16 @@ internal fun Bubble(
     val mineSide = m.mine && !isAi
     // 2.5 (chatmention1): Nachrichten, die mich erwaehnen, hervorheben
     val mentionsMe = !m.mine && s.std.mention && ChatStd.mentionsMe(s.summary, m.content?.text)
-    val bg = if (isAi) MaterialTheme.colorScheme.tertiaryContainer else if (mentionsMe) MaterialTheme.colorScheme.secondaryContainer else ChatUi.bubble(MaterialTheme.colorScheme, mineSide)
+    // CH-13/A11Y-18: hell mit feinem Rand wie im Web, die eigene leicht goldgetoent
+    val tint = ChatUi.tint(MaterialTheme.colorScheme, LocalSagaAccent.current)
+    val bg = if (isAi) MaterialTheme.colorScheme.tertiaryContainer else if (mentionsMe) MaterialTheme.colorScheme.secondaryContainer else ChatUi.bubble(MaterialTheme.colorScheme, mineSide, tint)
+    val border = if (isAi || mentionsMe) null else androidx.compose.foundation.BorderStroke(1.dp, ChatUi.bubbleBorder(MaterialTheme.colorScheme, mineSide, tint))
     val fg = when {
         isAi -> MaterialTheme.colorScheme.onTertiaryContainer
-        mineSide -> MaterialTheme.colorScheme.onPrimaryContainer
+        mentionsMe -> MaterialTheme.colorScheme.onSecondaryContainer
         else -> MaterialTheme.colorScheme.onSurface
     }
+    val meta = ChatUi.meta(bg, fg)
     val time = remember(m.ts) {
         Instant.ofEpochMilli(m.ts).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
     }
@@ -1629,13 +1675,17 @@ internal fun Bubble(
                 if (last) ChatAvatar(m.sender?.let { io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(it) }.orEmpty(), 28.dp, avatar = m.sender?.avatar)
             }
         }
-        Column(horizontalAlignment = if (mineSide) Alignment.End else Alignment.Start) {
+        // CH-01: freie Gasse von 48 dp zur Gegenseite
+        Column(
+            Modifier.padding(start = if (mineSide) ChatUi.GAP else 0.dp, end = if (mineSide) 0.dp else ChatUi.GAP),
+            horizontalAlignment = if (mineSide) Alignment.End else Alignment.Start,
+        ) {
         Box {
             Surface(
-                color = bg, contentColor = fg,
+                color = bg, contentColor = fg, border = border,
                 shape = ChatDesign.bubbleShape(mineSide, first, last),
                 // voll deckend - auch bei "Echtheit nicht bestätigt" (kein Abdunkeln des Inhalts)
-                modifier = Modifier.widthIn(max = 520.dp)
+                modifier = Modifier.widthIn(max = LocalBubbleMax.current)
                     // langer Druck: Auswahl beginnen (diese Nachricht) und das Nachrichtenmenue zeigen (A11Y-01: kein Tippen)
                     .pointerInput(selecting) {
                         detectTapGestures(onLongPress = {
@@ -1709,14 +1759,23 @@ internal fun Bubble(
                         val qThumb = ChatMedia.quoteThumb(q?.content)
                         val qc = q?.content
                         val qText = if (qc == null) stringResource(R.string.chat_reply_missing) else ChatMedia.attachmentLabel(qc, mediaLabels()) ?: qc.text
-                        Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), shape = RoundedCornerShape(8.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-                            Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        // wie Web `.ct-quote`: 6 % Textfarbe ueber der Blase, Goldstrich links, Name in Textfarbe, Text gedaempft
+                        Surface(color = ChatUi.inset(bg, fg), shape = RoundedCornerShape(8.dp), modifier = Modifier.padding(vertical = 4.dp)) {
+                            Row(
+                                Modifier.drawBehind {
+                                    val w = 3.dp.toPx()
+                                    val x = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) size.width - w else 0f
+                                    drawRect(tint, topLeft = androidx.compose.ui.geometry.Offset(x, 0f), size = androidx.compose.ui.geometry.Size(w, size.height))
+                                }
+                                    .padding(start = 11.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
                                 Column(Modifier.weight(1f, fill = false)) {
                                     Text(
                                         if (q?.ai == AiReplyCheck.OK) aiPersona?.name ?: q.content?.aiName.orEmpty() else q?.sender?.name.orEmpty(),
-                                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary,
+                                        style = MaterialTheme.typography.labelSmall, color = fg, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
                                     )
-                                    Text(qText, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    Text(qText, style = MaterialTheme.typography.bodySmall, color = ChatUi.meta(ChatUi.inset(bg, fg), fg), maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 }
                                 if (qThumb != null) Box(Modifier.padding(start = 8.dp)) { QuoteThumb(qThumb, s) }
                             }
@@ -1740,7 +1799,7 @@ internal fun Bubble(
                     // 2.3: Zustellstand in Chats ueber Servergrenzen
                     when (m.fstate) {
                         "pending" -> Text(
-                            "⏳ " + stringResource(R.string.fed_msg_pending), style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = 0.8f),
+                            "⏳ " + stringResource(R.string.fed_msg_pending), style = MaterialTheme.typography.labelSmall, color = meta,
                             modifier = Modifier.align(Alignment.End),
                         )
                         "failed" -> Text(
@@ -1765,12 +1824,12 @@ internal fun Bubble(
                             }
                             val desc = stringResource(R.string.x3_edited_at, whenText)
                             Text(
-                                stringResource(R.string.x3_edited) + " · ", style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = 0.7f),
+                                stringResource(R.string.x3_edited) + " · ", style = MaterialTheme.typography.labelSmall, color = meta,
                                 fontStyle = FontStyle.Italic, modifier = Modifier.semantics { contentDescription = desc },
                             )
                         }
-                        Text(time, style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = 0.7f))
-                        TickMark(tick, fg, group, readAt)
+                        Text(time, style = MaterialTheme.typography.labelSmall, color = meta)
+                        TickMark(tick, meta, group, readAt, readColor = if (mineSide) tint else MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -1887,9 +1946,10 @@ internal fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit,
         val loaded = img
         if (!failed) {
             // Groesse: aus w/h der Nachricht (bzw. des Vorschaubilds), sonst aus dem geladenen Bild, sonst Platzhalter
-            val dims = io.github.yggdrasil_sh.saga.chat.ChatImages.displaySize(f.w ?: f.th?.w, f.h ?: f.th?.h)
+            // CH-01: mindestens 200 dp breit (schmale Hochformate mittig zugeschnitten)
+            val dims = ChatUi.mediaBox(io.github.yggdrasil_sh.saga.chat.ChatImages.displaySize(f.w ?: f.th?.w, f.h ?: f.th?.h)
                 ?: loaded?.let { io.github.yggdrasil_sh.saga.chat.ChatImages.displaySize(it.width, it.height) }
-                ?: (200 to 150)
+                ?: (200 to 150))
             Box(
                 Modifier.padding(vertical = 2.dp).size(dims.first.dp, dims.second.dp).clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest)
@@ -1923,7 +1983,7 @@ private fun AiPendingBubble(persona: AiPersona?, name: String, text: String) {
         Surface(
             color = MaterialTheme.colorScheme.tertiaryContainer, contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
             shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 4.dp, bottomEnd = 18.dp),
-            modifier = Modifier.widthIn(max = 520.dp),
+            modifier = Modifier.padding(end = ChatUi.GAP).widthIn(max = LocalBubbleMax.current),
         ) {
             Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite }) {
                 Text(name, style = MaterialTheme.typography.labelMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)

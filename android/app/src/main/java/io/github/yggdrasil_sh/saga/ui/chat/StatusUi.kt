@@ -85,7 +85,7 @@ fun WithOnlineDot(online: Boolean, content: @Composable () -> Unit) {
 
 /** Haken an der eigenen Blase: ⏳ → ✓ → ✓✓ (gelesen: farbig; Gruppe teilweise: mit Zaehler) */
 @Composable
-fun TickMark(t: Tick, fg: Color, group: Boolean, readAt: Long?) {
+fun TickMark(t: Tick, fg: Color, group: Boolean, readAt: Long?, readColor: Color = MaterialTheme.colorScheme.primary) {
     if (t.kind == TickKind.NONE) return
     val read = t.kind == TickKind.READ
     val full = read && (!group || t.all)
@@ -97,7 +97,7 @@ fun TickMark(t: Tick, fg: Color, group: Boolean, readAt: Long?) {
     }
     Text(
         sym, style = MaterialTheme.typography.labelSmall,
-        color = if (full) MaterialTheme.colorScheme.primary else fg.copy(alpha = 0.7f),
+        color = if (full) readColor else fg,   // CH-13: fg ist schon die gedaempfte Zeitfarbe (ChatUi.meta)
         fontWeight = if (full) FontWeight.Bold else FontWeight.Normal,
         modifier = Modifier.padding(start = 4.dp).semantics { contentDescription = label },
     )

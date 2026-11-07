@@ -91,7 +91,11 @@ fun PreviewCard(p: ChatPreview, s: ChatSession) {
 
 @Composable
 private fun PreviewBox(site: String, title: String, desc: String, img: ImageBitmap?, modifier: Modifier, trailing: (@Composable () -> Unit)? = null) {
-    Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), shape = RoundedCornerShape(10.dp), modifier = modifier.widthIn(max = 420.dp)) {
+    // CH-13: feiner Rand wie `.ct-unf-card`, damit die Karte auch auf der hellen fremden Blase absetzt
+    Surface(
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), shape = RoundedCornerShape(10.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = modifier.widthIn(max = 420.dp),
+    ) {
         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             if (img != null) Image(img, null, Modifier.size(56.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop)
             Column(Modifier.weight(1f, fill = false).padding(start = if (img != null) 8.dp else 0.dp)) {
