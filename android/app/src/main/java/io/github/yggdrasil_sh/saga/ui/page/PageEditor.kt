@@ -195,6 +195,24 @@ class PageEditor(
     var publishedVia by mutableStateOf<PublishVia?>(null)
     var loading by mutableStateOf(true)
         private set
+    /**
+     * Nachbesserung R3 (Listen-Anzeige): Zaehler fuer "alle Feldzustaende verwerfen". Die Textfelder halten ihren
+     * Zustand je fieldKey (bei Listenpunkten ein Index-Pfad); nach "Neu laden" oder "Version wiederherstellen" darf
+     * davon nichts uebrig bleiben - RichField setzt seinen Zustand neu auf, sobald sich der Zaehler aendert.
+     */
+    var fieldEpoch by mutableIntStateOf(0)
+        private set
+
+    fun discardFieldStates() {
+        fieldEpoch++
+    }
+
+    /** Aktueller Text im Dokument unter path (null = kein Text dort / Pfad ungueltig) - fuer den Abgleich der Felder */
+    fun stringAt(path: JsonPath?): String? {
+        if (path == null) return null
+        val v = try { JsonTree.get(doc, path) } catch (_: Exception) { null }
+        return (v as? JsonPrimitive)?.takeIf { it.isString }?.content
+    }
     var fetched by mutableStateOf(false)
         private set
     var converted by mutableStateOf(false)
@@ -316,13 +334,15 @@ class PageEditor(
 
     // ---------------------------------------------------------------- Laden
 
-    suspend fun load() {
+    /** discardFields: ausdruecklich neu laden ("Neu laden", Version wiederhergestellt) -> alle Feldzustaende verwerfen */
+    suspend fun load(discardFields: Boolean = false) {
         loading = true
         try {
             val p = repo.withPageLock(id) { repo.loadPage(id) }
             if (dirty && fetched) return                     // eigene, noch nicht gespeicherte Eingaben schuetzen
             val parsed = withContext(cpu) { parse(p) }
             apply(p, parsed)
+            if (discardFields) discardFieldStates()
             offline = false
             checkDraft(p)
             repo.visited(id)

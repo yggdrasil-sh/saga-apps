@@ -176,6 +176,20 @@ internal class FieldState(html: String, val raw: Boolean, val pre: String) {
 
     fun isExternalChange(html: String): Boolean = html != external && html != current && html !in sent
 
+    /**
+     * Nachbesserung R3 (Listen-Anzeige, Fehler seit 2.x): Muss das Feld vom Dokument neu gesetzt werden?
+     * docHtml = aktueller Text im Dokument unter dem Pfad des Feldes (null = unbekannt -> alte Echo-Erkennung).
+     *
+     * Die Echo-Erkennung allein (external/sent) taugt nicht, wenn derselbe fieldKey nach Einfuegen/Entfernen auf einen
+     * ANDEREN Punkt zeigt (Listen: Index-Pfad): der neue Inhalt kann zufaellig einem frueheren eigenen oder
+     * uebernommenen Wert dieses Schluessels gleichen ("B" war external, dann "" gesendet) - dann blieb das Feld leer,
+     * obwohl dort jetzt "B" steht, und das ueberstand sogar Neu laden. Mit dem Dokument als Massstab: Passen
+     * Parameter und Dokument zusammen (= frischer Stand, kein verspaetetes Echo - eigene Eingaben stehen sofort im
+     * Dokument) und zeigt das Feld etwas anderes, wird es neu gesetzt.
+     */
+    fun needsReset(html: String, docHtml: String?): Boolean =
+        if (docHtml != null) html == docHtml && html != current else isExternalChange(html)
+
     fun accept(html: String) {
         external = html
         current = html
@@ -278,6 +292,11 @@ fun RichField(
      * ("BBB") und zeigt es weiter an, obwohl dort jetzt eine leere Zelle steht (N-01).
      */
     generation: Any? = null,
+    /**
+     * Pfad des Textes im Dokument (Listenpunkte). Damit gleicht das Feld seinen Inhalt gegen das Dokument ab
+     * (FieldState.needsReset) - der Feldzustand zeigt nie den Text eines anderen Punkts.
+     */
+    docPath: JsonPath? = null,
 ) {
     val c = MaterialTheme.colorScheme
     if (!editor.editable) {
@@ -292,13 +311,17 @@ fun RichField(
     // Etappe-1-Sperre "im Web bearbeiten" entfaellt
     val foreign = editor.caps.foreign
     val pre = if (onBackspaceAtStart != null) START else ""
-    val st = remember(fieldKey, pre, generation) { FieldState(html, raw, pre) }
+    // Nachbesserung R3: fieldEpoch ("Neu laden", Version wiederhergestellt) verwirft alle Feldzustaende
+    val st = remember(fieldKey, pre, generation, editor.fieldEpoch) { FieldState(html, raw, pre) }
     val p = pre.length
 
-    // Aenderung von aussen (Neu laden, Umwandeln, Zusammenfuehren) -> Feld neu aufsetzen. Eigene Eingaben kommen
-    // hier als Echo an - auch VERSPAETET: das Feld kann mit einem alten html-Parameter neu komponiert werden, bevor
-    // das Listenelement (LazyColumn) den neuen Stand weiterreicht. Ein Echo setzt nie zurueck.
-    if (st.isExternalChange(html)) {
+    // Aenderung von aussen (Neu laden, Umwandeln, Zusammenfuehren, nachgerueckter Punkt) -> Feld neu aufsetzen. Eigene
+    // Eingaben kommen hier als Echo an - auch VERSPAETET: das Feld kann mit einem alten html-Parameter neu komponiert
+    // werden, bevor das Listenelement (LazyColumn) den neuen Stand weiterreicht. Ein Echo setzt nie zurueck.
+    // Das Dokument wird ohne Beobachtung gelesen (sonst kompositionierte jede Eingabe alle Felder neu); geprueft wird
+    // bei jedem Komponieren, und ein geaenderter Inhalt kommt immer als geaenderter html-Parameter an.
+    val docHtml = if (docPath == null) null else androidx.compose.runtime.snapshots.Snapshot.withoutReadObservation { editor.stringAt(docPath) }
+    if (st.needsReset(html, docHtml)) {
         st.accept(html)
         // Pruefer R3: neuer Inhalt von aussen (z. B. nachgerueckter Block ohne ID im selben Feld) -> Sperre loesen,
         // sonst bliebe die naechste echte Ruecktaste wirkungslos, bis getippt wird
@@ -338,7 +361,8 @@ fun RichField(
     /** Auswahl ohne START (Positionen im Klartext) */
     fun sel(): TextRange = TextRange((st.value.selection.start - p).coerceAtLeast(0), (st.value.selection.end - p).coerceAtLeast(0))
 
-    val active = remember(fieldKey) {
+    // an st gebunden: nach neuem Feldzustand (generation, fieldEpoch) wirken B/I/U/S usw. auf den aktuellen Zustand
+    val active = remember(fieldKey, st) {
         ActiveField(
             key = fieldKey,
             blockPath = { pathNow },
@@ -421,6 +445,12 @@ fun RichField(
         val s = v.selection
         if (s.start >= p && s.end >= p) return v
         return v.copy(selection = TextRange(s.start.coerceAtLeast(p), s.end.coerceAtLeast(p)))
+    }
+
+    // Fokus bleibt beim Neuaufsetzen erhalten -> Werkzeugleiste auf das neue ActiveField umhaengen
+    androidx.compose.runtime.SideEffect {
+        val a = editor.active
+        if (a != null && a.key == fieldKey && a !== active) editor.active = active
     }
 
     val sink = LocalPageImageSink.current

@@ -415,6 +415,7 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
                             },
                             { ed.setString(contentPath, it) },
                             itemPath = itemPath,
+                            docPath = contentPath,
                             modifier = if (slashQ != null && ed.active?.key == fieldKey) slashActions(slashLabels) { slashPick(it) } else Modifier,
                             placeholder = stringResource(R.string.placeholder_list_item),
                             onEnter = { left, right ->

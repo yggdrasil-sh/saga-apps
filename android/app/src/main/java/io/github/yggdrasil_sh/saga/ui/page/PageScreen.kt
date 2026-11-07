@@ -475,7 +475,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                     }
                     DropdownMenuItem(text = { Text(stringResource(R.string.page_reload)) }, onClick = {
                         menu = false
-                        scope.launch { ed.save(); ed.load() }
+                        scope.launch { ed.save(); ed.load(discardFields = true) }
                     })
                     // Versionsverlauf (Bearbeiten ab Server 2.3) und Export - Seiten anderer Server je nach remote.caps
                     if (ed.fetched && PageToolsLogic.canVersions(ed.share.role, ed.isRemote, ed.remoteCaps, server23, ed.isDatabase)) {
@@ -578,7 +578,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
         PageLiveBanner(liveSt) {
             scope.launch {
                 ed.saveAndWait()
-                ed.load()
+                ed.load(discardFields = true)
                 liveSt.changedBy = null
             }
         }

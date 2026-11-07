@@ -209,7 +209,7 @@ fun VersionsDialog(ed: PageEditor, repo: SagaRepository, onDismiss: () -> Unit) 
                         try {
                             ed.saveAndWait()
                             repo.api.post("api/notes/${ed.id}/versions/${v.id}/restore")
-                            ed.load()
+                            ed.load(discardFields = true)
                             repo.notify(UiText.Res(R.string.versions_restored))
                             onDismiss()
                         } catch (e: CancellationException) {
