@@ -38,8 +38,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -68,8 +68,8 @@ fun NotificationsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome)
 
     Scaffold(topBar = {
         SagaTopBar(stringResource(R.string.notifications), nav, chrome) {
-            // "Alle gelesen" sichtbar als Textknopf (wie im Web), ohne Ungelesene gesperrt
-            TextButton(onClick = { repo.launchAction { live.markAllRead() } }, enabled = unread > 0) { Text(stringResource(R.string.notifications_mark_all)) }
+            // "Alle gelesen" sichtbar als Textknopf (wie im Web); NAV-22: ohne Ungelesene ausgeblendet statt grau (wirkte wie ein Fehler)
+            if (unread > 0) TextButton(onClick = { repo.launchAction { live.markAllRead() } }) { Text(stringResource(R.string.notifications_mark_all)) }
             IconButton(onClick = { io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, "notifs", replace = true) }) { Icon(Icons.Filled.Settings, stringResource(R.string.notifications_settings)) }
         }
     }) { pad ->
@@ -138,10 +138,14 @@ fun open(repo: SagaRepository, nav: AppNavigator, n: NotifItem) {
 @Composable
 private fun NotificationRow(n: NotifItem, modifier: Modifier, onClick: () -> Unit) {
     val tap = NotifLogic.tappable(n)
-    val unreadDesc = stringResource(R.string.unread_dot_desc)
+    // A11Y-07: "ungelesen" als Zustand der Zeile (TalkBack), der Punkt bleibt dekorativ
+    val unreadState = stringResource(R.string.r1_notif_unread)
     Row(
-        modifier.then(if (n.read) Modifier else Modifier.background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)))
-            .then(if (tap) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 16.dp, vertical = 12.dp),
+        // NAV-22: ungelesene Zeilen deutlich getoent (dazu fetter Text), nicht nur mit dem Punkt
+        modifier.then(if (n.read) Modifier else Modifier.background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)))
+            .then(if (tap) Modifier.clickable(onClick = onClick) else Modifier)
+            .semantics(mergeDescendants = true) { if (!n.read) stateDescription = unreadState }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Avatar(io.github.yggdrasil_sh.saga.util.PersonName.shown(n.actor?.name, n.actor?.username), icon = if (n.kind.startsWith("chat.")) R.drawable.ic_chat else if (NotifLogic.isSystem(n)) R.drawable.ic_cloud_upload else null, avatar = n.actor?.avatar)
@@ -163,11 +167,11 @@ private fun NotificationRow(n: NotifItem, modifier: Modifier, onClick: () -> Uni
                 )
             }
             n.created?.let {
-                Text(relativeTime(it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 4.dp))
+                Text(relativeTime(it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))   // A11Y-04: outline ist eine Randfarbe (zu wenig Kontrast fuer Text)
             }
         }
         if (!n.read) {
-            Box(Modifier.padding(top = 6.dp).size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary).semantics { contentDescription = unreadDesc })
+            Box(Modifier.padding(top = 6.dp).size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
         }
     }
 }

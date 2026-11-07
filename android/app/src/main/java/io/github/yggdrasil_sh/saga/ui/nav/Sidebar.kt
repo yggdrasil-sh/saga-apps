@@ -65,6 +65,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.heading
 import kotlinx.coroutines.CancellationException
 import androidx.compose.foundation.layout.heightIn
@@ -203,9 +206,19 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 ownAvatar = try { repo.avatarState().url } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { ownAvatar }
             }
             Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 8.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                // A11Y-08: TalkBack liest "Konto: <Name>, Schaltflaeche" statt nur der Initiale
+                val accountDesc = stringResource(R.string.r1_account_desc, account)
+                val openLabel = stringResource(R.string.nav_settings)
+                val openAccount = { nav.top(Dest.Settings); onNavigate() }
                 if (account.isNotEmpty()) Box(
                     Modifier.padding(end = 10.dp).clip(CircleShape)
-                        .clickable(onClickLabel = stringResource(R.string.nav_settings)) { nav.top(Dest.Settings); onNavigate() },
+                        .clickable(onClickLabel = openLabel, role = androidx.compose.ui.semantics.Role.Button) { openAccount() }
+                        // Initiale im Kreis nicht zusaetzlich vorlesen
+                        .clearAndSetSemantics {
+                            contentDescription = accountDesc
+                            role = androidx.compose.ui.semantics.Role.Button
+                            onClick(label = openLabel) { openAccount(); true }
+                        },
                 ) { io.github.yggdrasil_sh.saga.ui.notifications.Avatar(account, size = 36, avatar = ownAvatar) }
                 Text(
                     stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),

@@ -14,4 +14,6 @@
     <string name="r1_login_err_no_answer">The server is not responding</string>
     <string name="r1_login_or">or</string>
     <string name="r1_login_qr_where">Where do I find the QR code?</string>
+    <string name="r1_notif_unread">unread</string>
+    <string name="r1_account_desc">Account: %1$s</string>
 </resources>

@@ -14,4 +14,6 @@
     <string name="r1_login_err_no_answer">Сервер не отвечает</string>
     <string name="r1_login_or">или</string>
     <string name="r1_login_qr_where">Где найти QR-код?</string>
+    <string name="r1_notif_unread">не прочитано</string>
+    <string name="r1_account_desc">Аккаунт: %1$s</string>
 </resources>

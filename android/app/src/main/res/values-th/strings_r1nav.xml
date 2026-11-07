@@ -14,4 +14,6 @@
     <string name="r1_login_err_no_answer">เซิร์ฟเวอร์ไม่ตอบสนอง</string>
     <string name="r1_login_or">หรือ</string>
     <string name="r1_login_qr_where">หารหัส QR ได้ที่ไหน?</string>
+    <string name="r1_notif_unread">ยังไม่ได้อ่าน</string>
+    <string name="r1_account_desc">บัญชี: %1$s</string>
 </resources>
