@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.data
 
+import io.github.yggdrasil_sh.saga.push.NotifyReply
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.auth.PairLink
 import io.github.yggdrasil_sh.saga.auth.PairTarget
@@ -36,6 +37,8 @@ class AuthSession(
     /** lokale Daten des bisherigen Kontos leeren (Seiten, Aufgaben, Entwuerfe, Cookies ...) */
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val clearLocal: suspend (oldServer: String) -> Unit,
+    /** Pruefer R5: offene Antworten aus Mitteilungen des alten Kontos abbrechen (WorkManager-Auftraege) */
+    private val cancelReplies: () -> Unit = {},
 ) {
     /** Angemeldet = Geraete-Schluessel fuer den eingestellten Server vorhanden */
     val signedIn: Boolean get() = secure.deviceTokenFor(settings.server.value) != null
@@ -99,6 +102,11 @@ class AuthSession(
         withContext(io) {
             secure.clearCredentials()
             if (!keepChat && chatScope != null) secure.clearChat(chatScope)
+            // Pruefer R5: Antworten aus Mitteilungen (Klartext bis zum Senden) nicht unter dem naechsten Konto liegen lassen
+            if (!keepChat) {
+                secure.clearPrefix(NotifyReply.STORE_PREFIX)
+                try { cancelReplies() } catch (_: Exception) {}
+            }
         }
         if (had || oldServer.isNotEmpty()) clearLocal(oldServer.ifEmpty { settings.server.value })
         settings.setAccount("")

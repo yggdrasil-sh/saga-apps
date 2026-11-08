@@ -139,6 +139,29 @@ class PairFlowTest {
     }
 
     @Test
+    fun signOutDropsNotificationReplies() = runTest {
+        // Pruefer R5: offene Antworten aus Mitteilungen (Klartext) und ihre Auftraege gehen beim Abmelden mit
+        val (s, sec, api) = signedInAtA()
+        sec.put(io.github.yggdrasil_sh.saga.push.NotifyReply.STORE_PREFIX + "j1", "{}")
+        sec.put(io.github.yggdrasil_sh.saga.push.NotifyReply.STORE_PREFIX + "j2", "{}")
+        sec.put("chat_unfurl_on", "0")
+        var cancelled = 0
+        AuthSession(s, sec, api, "Testgeraet", false, io = Dispatchers.Unconfined, clearLocal = {}, cancelReplies = { cancelled++ })
+            .signOutLocal(forgetRemote = true)
+        assertNull(sec.get(io.github.yggdrasil_sh.saga.push.NotifyReply.STORE_PREFIX + "j1"))
+        assertNull(sec.get(io.github.yggdrasil_sh.saga.push.NotifyReply.STORE_PREFIX + "j2"))
+        assertEquals("0", sec.get("chat_unfurl_on"))
+        assertEquals(1, cancelled)
+        // gleiches Konto neu (keepChat): Antworten bleiben
+        sec.put(io.github.yggdrasil_sh.saga.push.NotifyReply.STORE_PREFIX + "j3", "{}")
+        AuthSession(s, sec, api, "Testgeraet", false, io = Dispatchers.Unconfined, clearLocal = {}, cancelReplies = { cancelled++ })
+            .signOutLocal(forgetRemote = false, keepChat = true)
+        assertEquals("{}", sec.get(io.github.yggdrasil_sh.saga.push.NotifyReply.STORE_PREFIX + "j3"))
+        assertEquals(1, cancelled)
+        assertEquals(0, sec.clearPrefix(""))
+    }
+
+    @Test
     fun signOutForgetsAccountKey() = runTest {
         val (s, sec, api) = signedInAtA()
         session(s, sec, api).signOutLocal(forgetRemote = true)

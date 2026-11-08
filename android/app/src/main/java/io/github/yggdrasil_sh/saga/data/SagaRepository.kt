@@ -198,7 +198,10 @@ class SagaRepository(
             decode<AccountInfo>(api.request("GET", "api/account", base = server)).username
     }
 
-    val auth = AuthSession(settings, secure, authApi, deviceName, BuildConfig.DEBUG, clearLocal = { clearLocalData() })
+    val auth = AuthSession(
+        settings, secure, authApi, deviceName, BuildConfig.DEBUG, clearLocal = { clearLocalData() },
+        cancelReplies = { appContext?.let { io.github.yggdrasil_sh.saga.push.NotifyReplyWorker.cancelAll(it) } },
+    )
 
     /** Live-Kanal und Benachrichtigungen (Server 1.4) */
     val live = io.github.yggdrasil_sh.saga.live.LiveCenter(this, scope)

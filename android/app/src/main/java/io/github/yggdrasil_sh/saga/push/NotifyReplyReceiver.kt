@@ -199,7 +199,12 @@ class NotifyReplyWorker(context: Context, params: WorkerParameters) : CoroutineW
     companion object {
         const val KEY_JOB = "job"
         private const val NOTE_ID = 0x5a6b
-        private const val TAG = "notify_reply"
+        const val TAG = "notify_reply"
+
+        /** Pruefer R5: beim Abmelden alle offenen Antwort-Auftraege abbrechen */
+        fun cancelAll(ctx: Context) {
+            WorkManager.getInstance(ctx).cancelAllWorkByTag(TAG)
+        }
 
         fun enqueue(ctx: Context, id: String) {
             val req = OneTimeWorkRequestBuilder<NotifyReplyWorker>()

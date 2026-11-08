@@ -126,6 +126,14 @@ class SecureStore(private val store: SecretStore) {
         return doomed.size
     }
 
+    /** alle Eintraege mit diesem Anfang loeschen (z. B. offene Antworten aus Mitteilungen "notify_reply:") -> Anzahl */
+    fun clearPrefix(prefix: String): Int {
+        if (prefix.isEmpty()) return 0
+        val doomed = store.names().filter { it.startsWith(prefix) }
+        doomed.forEach { store.put(it, null) }
+        return doomed.size
+    }
+
     var deviceToken: String?
         get() = get("device_token")?.takeIf { it.startsWith("hkd_") }
         set(v) = put("device_token", v)
