@@ -24,6 +24,7 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   mit Knopf zu „Chats & Geräte“ (Anfrage, Abfrage `failed`, Wiederherstellung, live `chat.link`); das bestätigende
   Gerät zeigt dieselbe Meldung als Dialog. An der Grenze steht der Hinweis schon beim Öffnen der Einrichtung, und
   „Chats & Geräte“ zeigt dem neuen Gerät die Liste zum Entfernen sowie „n von max Geräten“.
+
 ### Geändert – iOS/iPadOS: Grenze der Chat-Geräte, Sprache der Mitteilungen
 
 - **Chat-Geräte an der Grenze** (Saga-Server 2.5: 409 `device_limit`): Koppeln, Wiederherstellungsschlüssel und das
