@@ -93,8 +93,9 @@ fun GroupAvatar(repo: SagaRepository, c: ChatSummary, name: String, size: Dp) {
         Image(bmp, null, Modifier.size(size).clip(CircleShape), contentScale = ContentScale.Crop)
     } else {
         ChatAvatar(
-            name, size, symbol = if (c.kind == "page") "📄" else null,
-            icon = if (c.kind == "group" || c.kind == "free") SagaIcons.users else null, avatar = if (c.kind == "dm") c.peer?.avatar else null,
+            name, size,
+            // CH-21: Seiten-Chat mit Linien-Symbol statt Emoji
+            icon = if (c.kind == "group" || c.kind == "free") SagaIcons.users else if (c.kind == "page") SagaIcons.file else null, avatar = if (c.kind == "dm") c.peer?.avatar else null,
         )
     }
 }

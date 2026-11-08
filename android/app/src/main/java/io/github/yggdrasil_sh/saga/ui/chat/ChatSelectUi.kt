@@ -159,8 +159,8 @@ fun ForwardTargetDialog(repo: SagaRepository, from: Long, onDismiss: () -> Unit,
                             headlineContent = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             leadingContent = {
                                 ChatAvatar(
-                                    name, 36.dp, symbol = if (c.kind == "page") "📄" else null,
-                                    icon = if (c.kind == "group" || c.kind == "free") SagaIcons.users else null, avatar = if (c.kind == "dm") c.peer?.avatar else null,
+                                    name, 36.dp,
+                                    icon = if (c.kind == "group" || c.kind == "free") SagaIcons.users else if (c.kind == "page") SagaIcons.file else null, avatar = if (c.kind == "dm") c.peer?.avatar else null,
                                 )
                             },
                             colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -233,7 +233,7 @@ fun PageTargetDialog(repo: SagaRepository, onDismiss: () -> Unit, onPick: (ChatN
                     items(pages, key = { it.id }) { p ->
                         ListItem(
                             headlineContent = { Text(p.title.ifEmpty { stringResource(R.string.page_untitled) }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            leadingContent = { Text(p.icon.takeIf { it.isNotEmpty() && !it.startsWith("/") } ?: "📄") },
+                            leadingContent = { PageIconOrLine(p.icon) },   // CH-21: ohne eigenes Seitensymbol das Linien-Symbol statt Emoji
                             colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
                             modifier = Modifier.clickable { onPick(p) },
                         )

@@ -208,4 +208,21 @@ class DesignR5ChatTest {
         assertEquals(8, PendingLogic.sample(4000, 3000, 192))
         assertEquals(1, PendingLogic.sample(0, 0, 192))
     }
+
+    // ---------------------------------------------------------------- CH-21 keine Emoji in Chat-Oberflaechen
+
+    @Test
+    fun chatUiWithoutEmoji() {
+        val src = listOf(java.io.File("src/main/java"), java.io.File("app/src/main/java")).first { it.isDirectory }.resolve("io/github/yggdrasil_sh/saga/ui/chat")
+        val emoji = Regex("[\\x{1F300}-\\x{1FAFF}\\x{2600}-\\x{26FF}\\x{2700}-\\x{27BF}\\x{23F0}-\\x{23FF}]")
+        // Reaktionen bleiben Emoji (ChatX3Ui); Kommentare zaehlen nicht
+        val hits = src.listFiles()!!.filter { it.extension == "kt" && it.name != "ChatX3Ui.kt" }.flatMap { f ->
+            f.readLines().mapIndexedNotNull { i, l ->
+                val code = l.substringBefore("//").trim()
+                if (code.startsWith("*") || code.startsWith("/*")) null
+                else if (emoji.containsMatchIn(code.replace("✓", "").replace("✕", ""))) "${f.name}:${i + 1}" else null
+            }
+        }
+        assertEquals(emptyList<String>(), hits)
+    }
 }

@@ -95,6 +95,8 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.foundation.text.appendInlineContent
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextDecoration
@@ -822,7 +824,8 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 if (!s.loading && s.messages.isEmpty()) {
                     item {
                         // Design 2: Leerzustand mit Gruss statt grauer Zeile
-                        io.github.yggdrasil_sh.saga.ui.theme.SagaEmptyState(stringResource(R.string.d2_chat_empty_title), emoji = "👋", text = stringResource(R.string.chat_empty))
+                        // CH-21: Linien-Symbol statt Emoji
+                        io.github.yggdrasil_sh.saga.ui.common.SagaLineEmptyState(stringResource(R.string.d2_chat_empty_title), SagaIcons.message, text = stringResource(R.string.chat_empty))
                     }
                 }
                 // 2.1: "Der bisherige Verlauf wurde gelöscht." am Anfang des Verlaufs (umgekehrte Liste: zuletzt = oben)
@@ -1429,14 +1432,23 @@ internal suspend fun openFile(context: Context, s: ChatSession, f: ChatFile, sha
     }
 }
 
+/** CH-21: Seitensymbol im Nachrichtentext (Linien-Symbol, so gross wie die Schrift) */
+private const val PAGE_ICON = "saga-page"
+private val pageIconInline = mapOf(
+    PAGE_ICON to androidx.compose.foundation.text.InlineTextContent(
+        androidx.compose.ui.text.Placeholder(1.1.em, 1.1.em, androidx.compose.ui.text.PlaceholderVerticalAlign.TextCenter),
+    ) { SagaIcon(SagaIcons.file, null, Modifier.fillMaxSize()) },
+)
+
 /**
- * Text mit Seitenverweisen [[note:ID]] -> "📄 Titel" (antippbar, nur mit Zugriff), http(s)-Links, 2.5: Erwaehnungen
+ * Text mit Seitenverweisen [[note:ID]] -> Seitensymbol + Titel (antippbar, nur mit Zugriff), http(s)-Links, 2.5: Erwaehnungen
  * <@kennung> als hervorgehobenes "@Name" (eigener Name staerker) und Formatierung (chatfmt1, ChatFmt wie chat-fmt.js -
  * nur Stile, nie Markup aus dem Text).
  */
 @Composable
 private fun messageText(text: String, notes: Map<Long, ChatNoteRef?>, onOpen: (Long) -> Unit, s: ChatSession? = null): AnnotatedString {
     val noAccess = stringResource(R.string.chat_page_no_access)
+    val pageWord = stringResource(R.string.r5_pv_page)
     val unknown = stringResource(R.string.std_unknown)
     val scheme = MaterialTheme.colorScheme
     val linkColor = scheme.primary
@@ -1483,10 +1495,13 @@ private fun messageText(text: String, notes: Map<Long, ChatNoteRef?>, onOpen: (L
                 val ref = id?.let { notes[it] }
                 if (id != null && ref != null) {
                     withLink(LinkAnnotation.Clickable("note-$id", linkStyle) { onOpen(id) }) {
-                        append("📄 " + ref.title)
+                        // CH-21: Linien-Symbol (Inline) statt Emoji; Bildschirmleser hoert "Seite"
+                        appendInlineContent(PAGE_ICON, pageWord)
+                        append(" " + ref.title)
                     }
                 } else {
-                    append("📄 $noAccess")
+                    appendInlineContent(PAGE_ICON, pageWord)
+                    append(" $noAccess")
                 }
                 last = m.range.last + 1
             }
@@ -1799,7 +1814,7 @@ internal fun Bubble(
                     } else {
                         // 4.11.: langer Druck auf Bild/Video/Datei -> dasselbe Menue wie auf der Blase (Reaktionen)
                         c.files.forEach { f -> Attachment(f, s, onOpenFile, onLongPress = { if (!selecting) { onSelect?.invoke(); menu = true } }) }
-                        if (c.text.isNotEmpty()) Text(messageText(c.text, s.notes, onOpenNote, s), style = MaterialTheme.typography.bodyLarge.copy(lineBreak = LineBreak.Simple))  // schnelles Scrollen langer Verlaeufe (Pruefer R1)
+                        if (c.text.isNotEmpty()) Text(messageText(c.text, s.notes, onOpenNote, s), inlineContent = pageIconInline, style = MaterialTheme.typography.bodyLarge.copy(lineBreak = LineBreak.Simple))  // schnelles Scrollen langer Verlaeufe (Pruefer R1)
                         // 2.5 (unfurl1): Linkvorschau aus der Nachricht (nichts nachladen ausser dem verschluesselten Bild)
                         c.preview?.takeIf { ChatStd.showPreview(it) }?.let { pv -> PreviewCard(pv, s) }
                         c.notes.filter { id -> !c.text.contains("[[note:$id]]") }.forEach { id ->
@@ -2199,7 +2214,7 @@ internal fun mediaLabels(): ChatMedia.Labels = ChatMedia.Labels(
 /** Kurztext einer Nachricht (Pin-Leiste, Melden): Formatierung entfernt, Erwaehnungen als @Name */
 internal fun previewText(m: ChatMessage, s: ChatSession, unknown: String): String {
     val t = m.content?.text.orEmpty()
-    if (t.isEmpty()) return m.content?.files?.firstOrNull()?.let { "📎 " + it.n }.orEmpty()
+    if (t.isEmpty()) return m.content?.files?.firstOrNull()?.n.orEmpty()     // CH-21: ohne Emoji
     return ChatStd.plainMentions(io.github.yggdrasil_sh.saga.chat.ChatFmt.strip(t), s.summary, null, unknown)
-        .replace(Regex("\\[\\[note:\\d+\\]\\]"), "📄").replace(Regex("\\s+"), " ").trim()
+        .replace(Regex("\\[\\[note:\\d+\\]\\]"), "…").replace(Regex("\\s+"), " ").trim()
 }
