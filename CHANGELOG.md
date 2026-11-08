@@ -9,6 +9,18 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Android: Design-Runde 5 r5-notify „Antworten aus der Mitteilung“
+
+- **Antworten direkt aus der Chat-Mitteilung:** Chat-Mitteilungen (Person und Gruppe, auch über Servergrenzen) haben
+  neben „Als gelesen markieren“ die Aktion „Antworten“ mit Eingabefeld. Gesendet wird im Hintergrund ohne geöffnete App
+  über denselben Weg wie im Chat (Ende-zu-Ende verschlüsselt); die Mitteilung zeigt die eigene Antwort als Zeile „Du“,
+  und der Chat gilt als gelesen. Ab Android 12 lässt Android vor dem Senden entsperren.
+- **Bei Fehler geht nichts verloren:** Der Text liegt sofort als Entwurf im Eingabefeld des Chats, die Mitteilung zeigt
+  eine kurze Fehlerzeile. Netzfehler versucht die App später erneut (bis etwa zwei Stunden, übersteht einen Neustart
+  der App); wer den Text im Chat selbst sendet oder löscht, übernimmt – dann wird er nicht doppelt gesendet.
+- Ohne Chat-Schlüssel auf diesem Gerät (Chats hier nicht eingerichtet, Gerätegrenze) gibt es keine Antworten-Aktion;
+  der Sperrbildschirm bleibt neutral (öffentliche Fassung ohne Inhalt und ohne Aktionen).
+
 ### Geändert – Android: Push-Nutzlast 2 und Chat-Gerätegrenze (Server 2.5)
 
 - **Mitteilungstexte in der App-Sprache aus Feldern:** Mit Server-Nutzlast 2 (`v: 2`) baut die App den Satz aus Art,
