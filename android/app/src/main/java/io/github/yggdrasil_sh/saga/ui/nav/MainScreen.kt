@@ -35,6 +35,7 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.PermanentDrawerSheet
 import androidx.compose.material3.PermanentNavigationDrawer
 import androidx.compose.material3.Text
@@ -439,7 +440,7 @@ private fun SagaBottomBar(repo: SagaRepository, nav: AppNavigator, drawerOpen: B
             val badge = if (tab == NavModel.Tab.CHATS) chatUnread else 0
             val text = stringResource(label)
             val count = if (badge > 0) res.getQuantityString(R.plurals.r4nav_unread, badge, badge) else null
-            androidx.compose.material3.NavigationBarItem(
+            NavigationBarItem(
                 selected = selected == tab,
                 onClick = {
                     when (tab) {
