@@ -42,4 +42,5 @@
     <string name="r5_caption_hint">Добавить подпись</string>
     <string name="r5_notif_allow">Разрешить уведомления</string>
     <string name="r5f_notify_off">Выкл.</string>
+    <string name="r5f_att_video">Видео</string>
 </resources>

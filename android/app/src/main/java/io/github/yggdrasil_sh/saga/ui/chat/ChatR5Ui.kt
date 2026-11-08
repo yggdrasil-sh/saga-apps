@@ -25,6 +25,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.window.Dialog
@@ -252,15 +253,23 @@ fun AttachSheet(tiles: List<io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile>, 
         ) {
             tiles.forEach { t ->
                 val (icon, label) = attachTile(t)
+                // R5-Nachbesserung: Bildschirmleser hoert die volle Beschreibung ("Video aufnehmen"), sichtbar bleibt es kurz
+                val full = if (t == io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.VIDEO_CAMERA) stringResource(R.string.r5_att_video_camera) else label
                 Column(
                     Modifier.weight(1f).heightIn(min = 88.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(io.github.yggdrasil_sh.saga.ui.theme.SagaRadius.md))
-                        .clickable(role = Role.Button) { onDismiss(); onPick(t) }.padding(vertical = 10.dp),
+                        .clickable(role = Role.Button) { onDismiss(); onPick(t) }.padding(vertical = 10.dp)
+                        .semantics(mergeDescendants = true) { contentDescription = full },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     io.github.yggdrasil_sh.saga.ui.theme.SagaIconTile(size = 52.dp, container = MaterialTheme.colorScheme.secondaryContainer) {
                         SagaIcon(icon, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
                     }
-                    Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, maxLines = 2, modifier = Modifier.padding(top = 6.dp))
+                    // R5-Nachbesserung: keine Silbentrennung ("aufneh-men"), hoechstens 2 Zeilen
+                    Text(
+                        label, style = MaterialTheme.typography.labelMedium.copy(hyphens = androidx.compose.ui.text.style.Hyphens.None),
+                        textAlign = TextAlign.Center, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 6.dp).clearAndSetSemantics {},
+                    )
                 }
             }
             // letzte Reihe auffuellen, damit die Kacheln gleich breit bleiben
@@ -273,7 +282,7 @@ fun AttachSheet(tiles: List<io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile>, 
 private fun attachTile(t: io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile): Pair<Int, String> = when (t) {
     io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.GALLERY -> SagaIcons.gallery to stringResource(R.string.r5_att_gallery)
     io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.CAMERA -> SagaIcons.camera to stringResource(R.string.r5_att_camera)
-    io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.VIDEO_CAMERA -> SagaIcons.video to stringResource(R.string.r5_att_video_camera)
+    io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.VIDEO_CAMERA -> SagaIcons.video to stringResource(R.string.r5f_att_video)
     io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.FILE -> SagaIcons.file to stringResource(R.string.r5_att_file)
     io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.PAGE -> SagaIcons.link to stringResource(R.string.r5_att_page)
     io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.IMMICH -> SagaIcons.cloud to stringResource(R.string.r5_att_immich)

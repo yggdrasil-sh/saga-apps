@@ -42,4 +42,5 @@
     <string name="r5_caption_hint">Bildunterschrift hinzufügen</string>
     <string name="r5_notif_allow">Mitteilungen erlauben</string>
     <string name="r5f_notify_off">Aus</string>
+    <string name="r5f_att_video">Video</string>
 </resources>

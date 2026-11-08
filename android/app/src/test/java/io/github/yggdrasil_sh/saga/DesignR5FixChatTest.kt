@@ -38,4 +38,12 @@ class DesignR5FixChatTest {
         assertTrue(ui.contains("infoMuteLabel(c, nowSec, true)"))
         assertTrue(read("ui/chat/GroupInfoUi.kt").contains("FullScreenDialogBars()"))
     }
+
+    @Test
+    fun attachTilesNoHyphens() {
+        val ui = read("ui/chat/ChatR5Ui.kt")
+        val sheet = ui.substring(ui.indexOf("fun AttachSheet("), ui.indexOf("private fun attachTile("))
+        assertTrue(sheet.contains("Hyphens.None") && sheet.contains("maxLines = 2"))
+        assertTrue(ui.contains("VIDEO_CAMERA -> SagaIcons.video to stringResource(R.string.r5f_att_video)"))
+    }
 }

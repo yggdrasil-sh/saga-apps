@@ -42,4 +42,5 @@
     <string name="r5_caption_hint">Añadir un pie de foto</string>
     <string name="r5_notif_allow">Permitir notificaciones</string>
     <string name="r5f_notify_off">Desactivadas</string>
+    <string name="r5f_att_video">Vídeo</string>
 </resources>
