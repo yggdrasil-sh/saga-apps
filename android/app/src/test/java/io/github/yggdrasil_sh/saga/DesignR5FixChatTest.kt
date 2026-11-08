@@ -75,4 +75,11 @@ class DesignR5FixChatTest {
         val ui = read("ui/chat/ChatsScreen.kt")
         assertTrue(ui.contains("R.plurals.r5f_new_n") && ui.contains("} else if (newText != null) {"))
     }
+
+    @Test
+    fun accountMenuLanguageNoLetterWrap() {
+        val m = read("ui/nav/AccountMenu.kt")
+        assertTrue(m.contains("Text(stringResource(R.string.language), maxLines = 1, overflow = TextOverflow.Ellipsis)"))
+        assertEquals(2, Regex("modifier = Modifier.widthIn\\(max = MENU_VALUE_MAX\\)").findAll(m).count())
+    }
 }

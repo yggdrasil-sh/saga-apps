@@ -114,22 +114,30 @@ internal fun AccountAvatarMenu(repo: SagaRepository, nav: AppNavigator, onNaviga
             }
             HorizontalDivider()
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.language)) },
+                // R5-Nachbesserung: Titel einzeilig, Wert rechts begrenzt - sonst bekam der Titel bei langem Wert
+                // ("System default (English)") keine Breite mehr und brach buchstabenweise um (Tablet, Englisch)
+                text = { Text(stringResource(R.string.language), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 leadingIcon = { SagaIcon(SagaIcons.globe, null) },
                 trailingIcon = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(languageOptionLabel(lang), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            languageOptionLabel(lang), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = MENU_VALUE_MAX),
+                        )
                         SagaIcon(SagaIcons.chevronRight, null)
                     }
                 },
                 onClick = { open = false; langDialog = true },
             )
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.r4s_appearance)) },
+                text = { Text(stringResource(R.string.r4s_appearance), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 leadingIcon = { SagaIcon(appearanceIcon(appearance), null) },
                 trailingIcon = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(appearanceLabel(appearance), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            appearanceLabel(appearance), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = MENU_VALUE_MAX),
+                        )
                         SagaIcon(SagaIcons.chevronRight, null)
                     }
                 },
@@ -223,3 +231,6 @@ private fun <T> ChoiceDialog(title: String, icon: Int, options: List<T>, chosen:
         confirmButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }
+
+/** R5-Nachbesserung: Hoechstbreite des Werts rechts im Kontomenue (der Titel behaelt immer Platz) */
+internal val MENU_VALUE_MAX = 112.dp
