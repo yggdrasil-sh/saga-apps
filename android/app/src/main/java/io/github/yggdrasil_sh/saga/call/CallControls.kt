@@ -80,6 +80,17 @@ internal object CallControls {
         add(More.DETAILS)
     }
 
+    /**
+     * R5-Fix: Sicherheitszeile in Infozeile und Pille immer kurz - geprueft "Ende-zu-Ende-verschluesselt", sonst
+     * "Verschluesselt"; "Sicherheitsnummer nicht geprueft" steht nur im Blatt "Verbindungsdetails".
+     */
+    fun securityShort(verified: Boolean): Int =
+        if (verified) io.github.yggdrasil_sh.saga.R.string.call_e2e else io.github.yggdrasil_sh.saga.R.string.r5_call_encrypted_short
+
+    /** Langform im Blatt "Verbindungsdetails" */
+    fun securityLong(verified: Boolean): Int =
+        if (verified) io.github.yggdrasil_sh.saga.R.string.call_e2e else io.github.yggdrasil_sh.saga.R.string.r5_call_unverified
+
     /** CH-15: Hinweis "Schwache Verbindung" in der Infozeile nur bei mittlerer oder schwacher Qualitaet */
     fun weak(quality: String): Boolean = quality == "mid" || quality == "bad"
 

@@ -33,4 +33,5 @@
     <string name="r5_call_q_bad_v">слабое</string>
     <string name="r5_call_audio_ok_v">принимается</string>
     <string name="r5_call_audio_none_v">не поступает</string>
+    <string name="r5_call_encrypted_short">Зашифровано</string>
 </resources>

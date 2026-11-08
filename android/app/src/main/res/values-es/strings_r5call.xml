@@ -33,4 +33,5 @@
     <string name="r5_call_q_bad_v">débil</string>
     <string name="r5_call_audio_ok_v">se recibe</string>
     <string name="r5_call_audio_none_v">no se recibe</string>
+    <string name="r5_call_encrypted_short">Cifrado</string>
 </resources>

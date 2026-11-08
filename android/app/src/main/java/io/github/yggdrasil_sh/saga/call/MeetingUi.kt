@@ -859,11 +859,11 @@ internal fun MeetPill(title: String, info: String, e2e: String, modifier: Modifi
                 modifier = Modifier.weight(1f, fill = false).semantics { heading() },
             )
             if (info.isNotEmpty()) Text(" · $info", style = MaterialTheme.typography.labelMedium, maxLines = 1, color = Color.White.copy(alpha = 0.85f))
-            // CH-16: Schloss nur bei geprueftem Schluessel; sonst der Text fuer Bedienungshilfen
-            if (verified) Icon(
+            // Schloss immer (Text kurz fuer Bedienungshilfen); gruen nur bei geprueftem Schluessel
+            Icon(
                 painterResource(SagaIcons.lock), e2e, Modifier.padding(start = 6.dp).size(14.dp),
-                tint = SagaColors.current.callOk,
-            ) else Box(Modifier.semantics { contentDescription = e2e })
+                tint = if (verified) SagaColors.current.callOk else Color.White.copy(alpha = 0.85f),
+            )
         }
     }
 }

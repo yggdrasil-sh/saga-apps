@@ -803,7 +803,7 @@ internal fun MeetCall(
                     stringResource(R.string.r5_call_weak).takeIf { st.phase == CallPhase.CONNECTED && CallControls.weak(st.quality) },
                 ).joinToString(" · ")
                 MeetPill(
-                    HornLogic.shortName(title, 28), info, stringResource(if (st.verified) R.string.call_e2e else R.string.r5_call_unverified),
+                    HornLogic.shortName(title, 28), info, stringResource(CallControls.securityShort(st.verified)),
                     Modifier.align(Alignment.Center).padding(horizontal = 56.dp), verified = st.verified,
                     // Gruppe: Teilnehmerliste; sonst die Verbindungsdetails (CH-15)
                     onClick = if (group) openPeople else onDetails,
@@ -938,7 +938,7 @@ private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modi
         ),
     ) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            val e2e = stringResource(if (st.verified) R.string.call_e2e else R.string.r5_call_unverified)
+            val e2e = stringResource(CallControls.securityShort(st.verified))
             if (st.connectedAt > 0 || weak) Row(verticalAlignment = Alignment.CenterVertically) {
                 if (st.connectedAt > 0) Text(
                     CallLogic.duration((now - st.connectedAt) / 1000), color = fg,
@@ -954,9 +954,10 @@ private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modi
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (st.verified) Icon(
+                // Schloss immer; gruen nur bei geprueftem Schluessel
+                Icon(
                     painterResource(SagaIcons.lock), null, Modifier.padding(end = 4.dp).size(14.dp),
-                    tint = MaterialTheme.colorScheme.primary.takeUnless { onDark } ?: SagaColors.current.callOk,
+                    tint = if (st.verified) MaterialTheme.colorScheme.primary.takeUnless { onDark } ?: SagaColors.current.callOk else fg,
                 )
                 Text(e2e, color = fg, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
             }
@@ -973,7 +974,7 @@ internal fun CallDetailsSheet(st: CallUiState, hasTurn: Boolean?, onDismiss: () 
             Text(stringResource(R.string.r5_call_details), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 12.dp).semantics { heading() })
             val unknown = stringResource(R.string.r5_call_d_unknown)
             val horn = st.room?.horn != null
-            DetailRow(stringResource(R.string.r5_call_d_security), stringResource(if (st.verified) R.string.call_e2e else R.string.r5_call_unverified))
+            DetailRow(stringResource(R.string.r5_call_d_security), stringResource(CallControls.securityLong(st.verified)))
             Text(
                 stringResource(if (horn) R.string.call_e2e_info_horn else R.string.call_e2e_info), style = MaterialTheme.typography.bodySmall.merge(CallDesign.wordWrap),
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp),

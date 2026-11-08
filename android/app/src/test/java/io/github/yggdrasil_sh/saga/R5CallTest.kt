@@ -120,4 +120,13 @@ class R5CallTest {
         assertEquals(androidx.compose.ui.text.style.Hyphens.None, io.github.yggdrasil_sh.saga.call.CallDesign.wordWrap.hyphens)
         assertEquals(androidx.compose.ui.text.style.LineBreak.Simple, io.github.yggdrasil_sh.saga.call.CallDesign.wordWrap.lineBreak)
     }
+
+    /** R5-Fix: Infozeile immer kurz (klingelnd wie verbunden), Langform nur im Blatt */
+    @Test
+    fun sicherheitszeile() {
+        assertEquals(R.string.call_e2e, CallControls.securityShort(true))
+        assertEquals(R.string.r5_call_encrypted_short, CallControls.securityShort(false))
+        assertEquals(R.string.call_e2e, CallControls.securityLong(true))
+        assertEquals(R.string.r5_call_unverified, CallControls.securityLong(false))
+    }
 }
