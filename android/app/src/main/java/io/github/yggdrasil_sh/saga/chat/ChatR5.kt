@@ -229,6 +229,25 @@ object ChatInfoLogic {
         if (f.free) add(Row.LEAVE)
     }
 
+    /** R5-Nachbesserung: Breite der Chat-Info auf grossen Bildschirmen (Zeilen und Trennlinien gleich breit, zentriert) */
+    const val MAX_WIDTH_DP = 640
+
+    enum class Mute { ALL, MENTIONS, OFF, UNTIL, ALWAYS }
+
+    /** Zustand fuer den Untertitel von "Stummschalten" */
+    fun muteState(c: ChatSummary, nowSec: Double, mute2: Boolean): Mute {
+        if (!mute2) return if (c.muted) Mute.ALWAYS else Mute.ALL
+        return when (ChatStd.muteState(c, nowSec)) {
+            ChatStd.MuteState.Always -> Mute.ALWAYS
+            is ChatStd.MuteState.Until -> Mute.UNTIL
+            ChatStd.MuteState.Off -> when (c.notify) {
+                "mentions" -> Mute.MENTIONS
+                "none" -> Mute.OFF
+                else -> Mute.ALL
+            }
+        }
+    }
+
     /** rot unten (eigener Abschnitt) */
     fun danger(r: Row): Boolean = r == Row.BLOCK || r == Row.REPORT || r == Row.LEAVE
 }

@@ -99,7 +99,8 @@ fun GroupInfoDialog(
     var adding by remember { mutableStateOf(false) }
     var removing by remember { mutableStateOf<ChatPerson?>(null) }
     val res = LocalResources.current
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = onDismiss, properties = io.github.yggdrasil_sh.saga.ui.common.FullScreenDialog.properties) {
+        io.github.yggdrasil_sh.saga.ui.common.FullScreenDialogBars()     // R5-Nachbesserung: Leisten wie Vollbildseiten
         Scaffold(
             topBar = {
                 TopAppBar(

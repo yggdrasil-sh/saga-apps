@@ -1,6 +1,9 @@
 package io.github.yggdrasil_sh.saga
 
+import io.github.yggdrasil_sh.saga.chat.ChatInfoLogic
+import io.github.yggdrasil_sh.saga.chat.ChatSummary
 import io.github.yggdrasil_sh.saga.ui.common.FullScreenDialog
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -18,5 +21,21 @@ class DesignR5FixChatTest {
         assertFalse(FullScreenDialog.properties.decorFitsSystemWindows)
         assertFalse(FullScreenDialog.properties.usePlatformDefaultWidth)
         assertTrue(read("ui/chat/NewChatUi.kt").contains("FullScreenDialogBars()"))
+    }
+
+    @Test
+    fun chatInfoMuteSubtitleAndBars() {
+        val c = ChatSummary(1)
+        assertEquals(ChatInfoLogic.Mute.ALL, ChatInfoLogic.muteState(c, 100.0, true))
+        assertEquals(ChatInfoLogic.Mute.MENTIONS, ChatInfoLogic.muteState(c.copy(notify = "mentions"), 100.0, true))
+        assertEquals(ChatInfoLogic.Mute.OFF, ChatInfoLogic.muteState(c.copy(notify = "none"), 100.0, true))
+        assertEquals(ChatInfoLogic.Mute.UNTIL, ChatInfoLogic.muteState(c.copy(mutedUntil = 5000.0), 100.0, true))
+        assertEquals(ChatInfoLogic.Mute.ALL, ChatInfoLogic.muteState(c.copy(mutedUntil = 50.0), 100.0, true))   // abgelaufen
+        assertEquals(ChatInfoLogic.Mute.ALWAYS, ChatInfoLogic.muteState(c.copy(muted = true), 100.0, false))
+        assertEquals(640, ChatInfoLogic.MAX_WIDTH_DP)
+        val ui = read("ui/chat/ChatR5Ui.kt")
+        assertFalse(ui.contains("760.dp"))
+        assertTrue(ui.contains("infoMuteLabel(c, nowSec, true)"))
+        assertTrue(read("ui/chat/GroupInfoUi.kt").contains("FullScreenDialogBars()"))
     }
 }

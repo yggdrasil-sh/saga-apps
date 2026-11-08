@@ -134,7 +134,9 @@ fun ChatInfoDialog(
         ),
     )
     val nowSec = System.currentTimeMillis() / 1000.0
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = onDismiss, properties = io.github.yggdrasil_sh.saga.ui.common.FullScreenDialog.properties) {
+        // R5-Nachbesserung: Leisten wie andere Vollbildseiten (Hintergrund darunter, Symbole passend)
+        io.github.yggdrasil_sh.saga.ui.common.FullScreenDialogBars()
         Scaffold(
             topBar = {
                 TopAppBar(
@@ -162,16 +164,18 @@ fun ChatInfoDialog(
                     when (r) {
                         InfoRow.MEDIA -> InfoItem(SagaIcons.image, stringResource(R.string.std_media_title)) { sub = InfoRow.MEDIA }
                         InfoRow.MEMBERS -> InfoItem(SagaIcons.users, stringResource(R.string.chat_members), androidx.compose.ui.res.pluralStringResource(R.plurals.fed_people_n, c.memberCount, c.memberCount)) { sub = InfoRow.MEMBERS }
-                        InfoRow.MUTE -> if (std.mute2) Box {
-                            InfoItem(if (ChatStd.mutedNow(c, nowSec)) SagaIcons.bellOff else SagaIcons.bell, stringResource(R.string.r5_info_mute), muteLabel(c, nowSec)) { sub = InfoRow.MUTE }
+                        InfoRow.MUTE -> if (std.mute2) Box(Modifier.widthIn(max = ChatInfoLogic.MAX_WIDTH_DP.dp).fillMaxWidth()) {
+                            // R5-Nachbesserung: Untertitel = Zustand (nicht nochmal "Stummschalten")
+                            InfoItem(if (ChatStd.mutedNow(c, nowSec)) SagaIcons.bellOff else SagaIcons.bell, stringResource(R.string.r5_info_mute), infoMuteLabel(c, nowSec, true)) { sub = InfoRow.MUTE }
                             DropdownMenu(expanded = sub == InfoRow.MUTE, onDismissRequest = { sub = null }) {
                                 AlltagMenuItems(repo, c, onPatched = { s.applySummary(it) }, muteOnly = true, inline = true) { sub = null }
                             }
                         } else ListItem(
                             headlineContent = { Text(stringResource(R.string.r5_info_mute)) },
+                            supportingContent = { Text(infoMuteLabel(c, nowSec, false)) },
                             leadingContent = { SagaIcon(if (c.muted) SagaIcons.bellOff else SagaIcons.bell, null) },
                             trailingContent = { Switch(checked = c.muted, onCheckedChange = null) },
-                            modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp)
+                            modifier = Modifier.fillMaxWidth().widthIn(max = ChatInfoLogic.MAX_WIDTH_DP.dp)
                                 .selectable(selected = c.muted, role = Role.Switch) { repo.launchAction { s.setMuted(!c.muted) } },
                         )
                         InfoRow.RETENTION -> InfoItem(SagaIcons.timer, stringResource(R.string.chat_retention), retentionLabel(c.retentionS)) { sub = InfoRow.RETENTION }
@@ -189,7 +193,7 @@ fun ChatInfoDialog(
                         else -> {}
                     }
                 }
-                if (danger.isNotEmpty()) item(key = "div") { HorizontalDivider(Modifier.widthIn(max = 760.dp).padding(vertical = 8.dp)) }
+                if (danger.isNotEmpty()) item(key = "div") { HorizontalDivider(Modifier.widthIn(max = ChatInfoLogic.MAX_WIDTH_DP.dp).padding(vertical = 8.dp)) }
                 items(danger, key = { it.name }) { r ->
                     val red = MaterialTheme.colorScheme.error
                     when (r) {
@@ -229,7 +233,7 @@ internal fun InfoItem(icon: Int, title: String, value: String? = null, color: an
         headlineContent = { Text(title, color = col) },
         supportingContent = value?.let { { Text(it) } },
         leadingContent = { SagaIcon(icon, null, tint = color ?: MaterialTheme.colorScheme.onSurfaceVariant) },
-        modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp).heightIn(min = 56.dp).clickable(role = Role.Button, onClick = onClick),
+        modifier = Modifier.fillMaxWidth().widthIn(max = ChatInfoLogic.MAX_WIDTH_DP.dp).heightIn(min = 56.dp).clickable(role = Role.Button, onClick = onClick),
     )
 }
 
@@ -380,3 +384,14 @@ fun Modifier.longPressOverLinks(onLongPress: () -> Unit): Modifier = this.pointe
         }
     }
 }
+
+/** R5-Nachbesserung: Zustand unter "Stummschalten" - Alle Nachrichten / Nur Erwaehnungen / Stumm bis … / Aus */
+@Composable
+fun infoMuteLabel(c: io.github.yggdrasil_sh.saga.chat.ChatSummary, nowSec: Double, mute2: Boolean): String =
+    when (ChatInfoLogic.muteState(c, nowSec, mute2)) {
+        ChatInfoLogic.Mute.ALL -> stringResource(R.string.std_notify_all)
+        ChatInfoLogic.Mute.MENTIONS -> stringResource(R.string.std_notify_mentions_short)
+        ChatInfoLogic.Mute.OFF -> stringResource(R.string.r5f_notify_off)
+        ChatInfoLogic.Mute.ALWAYS -> stringResource(R.string.std_muted)
+        ChatInfoLogic.Mute.UNTIL -> muteLabel(c, nowSec)          // "Stumm bis …"
+    }
