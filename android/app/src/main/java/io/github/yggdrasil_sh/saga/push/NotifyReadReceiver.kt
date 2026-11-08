@@ -31,19 +31,7 @@ class NotifyReadReceiver : BroadcastReceiver() {
         val pending = goAsync()
         app.appScope.launch {
             try {
-                withTimeoutOrNull(9_000) {
-                    if (app.repo.needsLogin.value) return@withTimeoutOrNull
-                    val live = app.repo.live
-                    if (group != null) {
-                        try {
-                            live.markRead(emptyList(), listOf(group))
-                        } catch (e: kotlinx.coroutines.CancellationException) {
-                            throw e
-                        } catch (_: Exception) {
-                        }
-                    }
-                    if (url != null) live.markReadForUrl(url)
-                }
+                withTimeoutOrNull(9_000) { markRead(app, group, url) }
             } finally {
                 pending.finish()
             }
@@ -58,6 +46,24 @@ class NotifyReadReceiver : BroadcastReceiver() {
         /** Kurze Kennung von Server + Konto (Account.tag, kein Geheimnis) */
         const val EXTRA_ACCOUNT = "account"
         const val ACTION_DISMISSED = "io.github.yggdrasil_sh.saga.action.NOTIFY_DISMISSED"
+
+        /**
+         * Gespraechseinheit (group) bzw. passende Eintraege (url) auf dem Server als gelesen markieren - auch nach einer
+         * Antwort aus der Mitteilung (NotifyReplyWorker). Fehler still (die Glocke zieht spaeter nach).
+         */
+        suspend fun markRead(app: SagaApplication, group: String?, url: String?) {
+            if (app.repo.needsLogin.value) return
+            val live = app.repo.live
+            if (group != null) {
+                try {
+                    live.markRead(emptyList(), listOf(group))
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                }
+            }
+            if (url != null) live.markReadForUrl(url)
+        }
 
         /** Aktion gilt nur fuer das Konto, fuer das die Mitteilung gezeigt wurde; ohne Kennung (aeltere Mitteilung) nicht. Rein (Tests). */
         fun sameAccount(fromIntent: String?, current: String): Boolean = !fromIntent.isNullOrEmpty() && fromIntent == current

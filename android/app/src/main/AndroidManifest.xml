@@ -182,6 +182,11 @@
             android:name=".push.NotifyReadReceiver"
             android:exported="false" />
 
+        <!-- Design-Runde 5 (CH-04): "Antworten" aus der Chat-Mitteilung (RemoteInput, Senden ueber WorkManager) -->
+        <receiver
+            android:name=".push.NotifyReplyReceiver"
+            android:exported="false" />
+
         <!-- 2.5: Sprachnachrichten im Hintergrund weiter abspielen -->
         <service
             android:name=".chat.voice.VoicePlaybackService"

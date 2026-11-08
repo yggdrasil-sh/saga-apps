@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 5 (CH-04): Antworten aus der Chat-Mitteilung -->
+<resources>
+    <string name="r5n_reply">ตอบกลับ</string>
+    <string name="r5n_reply_hint">ข้อความ</string>
+    <string name="r5n_reply_sending">กำลังส่งคำตอบ …</string>
+    <string name="r5n_reply_retry">ยังไม่ได้ส่ง – จะลองอีกครั้ง ข้อความอยู่ในแชทด้วย</string>
+    <string name="r5n_reply_failed">ส่งไม่สำเร็จ – ข้อความรออยู่ในแชท</string>
+</resources>

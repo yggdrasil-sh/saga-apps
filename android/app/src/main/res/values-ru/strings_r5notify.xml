@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 5 (CH-04): Antworten aus der Chat-Mitteilung -->
+<resources>
+    <string name="r5n_reply">Ответить</string>
+    <string name="r5n_reply_hint">Сообщение</string>
+    <string name="r5n_reply_sending">Отправка ответа …</string>
+    <string name="r5n_reply_retry">Пока не отправлено – будет повторная попытка. Текст также есть в чате.</string>
+    <string name="r5n_reply_failed">Не отправлено – текст ждёт в чате.</string>
+</resources>

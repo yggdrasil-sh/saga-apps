@@ -59,7 +59,8 @@ object NotifyUpdate {
             }
         }
         val keep = lines.indices.filter { it !in drop }.map { it to counts[it] }
-        return if (keep.isEmpty()) Plan.Cancel else Plan.Lines(keep)
+        // Design-Runde 5: nur noch eigene Antworten (Zahl < 0) uebrig -> nichts Ungelesenes mehr, schliessen
+        return if (keep.none { lines[it.first].count >= 0 }) Plan.Cancel else Plan.Lines(keep)
     }
 
     /**

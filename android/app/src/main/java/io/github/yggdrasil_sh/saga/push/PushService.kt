@@ -643,8 +643,15 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
                     null
                 }
             } else null
-            Notifier.show(context, msg, look, p, if (names) pageTitle(msg, p) else null, accountTag())
+            Notifier.show(context, msg, look, p, if (names) pageTitle(msg, p) else null, accountTag(), replyChat(msg))
         }
+    }
+
+    /** Design-Runde 5 (CH-04): Chat, auf den die Mitteilung "Antworten" anbietet (Schluessel auf diesem Geraet), sonst null */
+    private fun replyChat(m: PushMessage): Long? = try {
+        NotifyReply.offer(m.kind, m.url, repo.chat.keys() != null, repo.chat.state.value)
+    } catch (_: Exception) {
+        null
     }
 
     /**
@@ -788,13 +795,15 @@ object Notifier {
      * Design-Runde 4 (CH-04): Chat-Mitteilungen als MessagingStyle (Person = Absender mit Initialen; Konversationstitel nur
      * bei Gruppen; Namen nur aus dem lokalen Stand und nur, wenn Namen erlaubt sind - look). Ohne Namen neutral ("Neue
      * Nachricht", ohne Person). Je Kanal eine System-Gruppe mit Sammel-Mitteilung; Aktion "Als gelesen markieren"
-     * (NotifyReadReceiver, ohne App-Start). Keine "Antworten"-Aktion (Entscheidung offen).
+     * (NotifyReadReceiver, ohne App-Start). Design-Runde 5: "Antworten" ([reply] = Chat, NotifyReply.offer) - nur in der
+     * privaten Fassung (Sperrbildschirm: oeffentliche Fassung ohne Inhalt und ohne Aktionen), ab Android 12 erst nach dem
+     * Entsperren.
      *
      * Nachbesserung: Saetze in der App-Sprache (NotifyText/localize; unbekannte Saetze wie vom Server), Titel bei
      * Kommentaren = Seitentitel bzw. Person ([title]), Unterhaltungs-Shortcut je Chat (ChatShortcuts), Wegwischen zaehlt
      * die Sammel-Mitteilung neu (deleteIntent), Konto-Kennung in den Aktionen ([account]).
      */
-    fun show(context: Context, m: PushMessage, look: ChatLook? = null, parsed: NotifyText.Parsed? = null, title: String? = null, account: String = "") {
+    fun show(context: Context, m: PushMessage, look: ChatLook? = null, parsed: NotifyText.Parsed? = null, title: String? = null, account: String = "", reply: Long? = null) {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return
@@ -886,6 +895,7 @@ object Notifier {
                     .setWhen(whenMs).setShowWhen(true).build(),
             )
         }
+        if (chat && reply != null && account.isNotEmpty()) b.addAction(replyAction(context, tag, m.url, key, account, reply))
         if (NotifyRoute.canMarkRead(m.kind, m.url)) {
             val read = Intent(context, NotifyReadReceiver::class.java).setAction(NotifyReadReceiver.ACTION)
                 .putExtra(NotifyReadReceiver.EXTRA_TAG, tag).putExtra(NotifyReadReceiver.EXTRA_URL, m.url)
@@ -904,6 +914,112 @@ object Notifier {
         b.setDeleteIntent(PendingIntent.getBroadcast(context, 0x5a6a, del, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
         try {
             NotificationManagerCompat.from(context).notify(tag, ID, b.build())
+        } catch (_: SecurityException) {
+        }
+        refreshSummaries(context)
+    }
+
+    /**
+     * Design-Runde 5 (CH-04): "Antworten" mit Eingabefeld (RemoteInput) - Senden im Hintergrund (NotifyReplyReceiver ->
+     * NotifyReplyWorker), Ladekreis bis replied(). Veraenderliche PendingIntent (RemoteInput), explizit an den eigenen,
+     * nicht exportierten Empfaenger. Ab Android 12 entsperren lassen: niemand antwortet vom gesperrten Geraet im Namen
+     * der Person (die Chat-Schluessel selbst waeren auch gesperrt nutzbar, siehe Bericht CH-04).
+     */
+    private fun replyAction(context: Context, tag: String, url: String, group: String?, account: String, chat: Long): NotificationCompat.Action {
+        val i = Intent(context, NotifyReplyReceiver::class.java).setAction(NotifyReply.ACTION)
+            .putExtra(NotifyReply.EXTRA_TAG, tag).putExtra(NotifyReply.EXTRA_URL, url)
+            .putExtra(NotifyReply.EXTRA_ACCOUNT, account).putExtra(NotifyReply.EXTRA_CHAT, chat)
+            .apply { if (group != null) putExtra(NotifyReply.EXTRA_GROUP, group) }
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0)
+        val pi = PendingIntent.getBroadcast(context, ("reply-" + tag).hashCode(), i, flags)
+        val input = androidx.core.app.RemoteInput.Builder(NotifyReply.KEY_TEXT).setLabel(context.getString(R.string.r5n_reply_hint)).build()
+        return NotificationCompat.Action.Builder(R.drawable.si_reply, context.getString(R.string.r5n_reply), pi)
+            .addRemoteInput(input)
+            .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY)
+            .setShowsUserInterface(false)
+            .setAllowGeneratedReplies(true)
+            .setAuthenticationRequired(true)
+            .build()
+    }
+
+    /** Ergebnis einer Antwort aus der Mitteilung: NONE = nur Ladekreis beenden */
+    enum class ReplyState { NONE, SENT, RETRY, FAILED }
+
+    /**
+     * Design-Runde 5 (CH-04): Mitteilung nach einer Antwort nach Android-Art aktualisieren (beendet den Ladekreis):
+     * gesendet -> eigene Zeile ("Du", MessagingStyle) anhaengen; Fehler -> kurze Fehlerzeile (ohne Inhalt). Neutrale
+     * Mitteilung (ohne Namen): gesendet -> schliessen (gelesen), Fehler -> Fehlerzeile. Ist keine Mitteilung mehr da,
+     * erscheint nur bei einem Fehler eine neue (Text liegt im Chat). Leise (setOnlyAlertOnce, setSilent).
+     */
+    fun replied(context: Context, tag: String, url: String, text: String?, state: ReplyState) {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) return
+        val line = when (state) {
+            ReplyState.SENT -> text
+            ReplyState.RETRY -> context.getString(R.string.r5n_reply_retry)
+            ReplyState.FAILED -> context.getString(R.string.r5n_reply_failed)
+            ReplyState.NONE -> null
+        }
+        val prev = active(context, tag)
+        if (prev == null) {
+            if (state == ReplyState.RETRY || state == ReplyState.FAILED) replyError(context, tag, url, line.orEmpty())
+            return
+        }
+        val style = try {
+            NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(prev)
+        } catch (_: Exception) {
+            null
+        }
+        val msgs = style?.messages.orEmpty()
+        val b = NotificationCompat.Builder(context, prev).setOnlyAlertOnce(true).setSilent(true)
+        if (style != null && msgs.isNotEmpty() && line != null) {
+            val ns = NotificationCompat.MessagingStyle(style.user)
+            ns.setConversationTitle(style.conversationTitle)
+            ns.setGroupConversation(style.isGroupConversation)
+            val counts = countsOf(prev, msgs.size)
+            val keepN = MAX_LINES - 1
+            msgs.takeLast(keepN).forEach { ns.addMessage(it) }
+            // eigene Zeile: Person null = "Du" (style.user); Zahl -1 = zaehlt weder als Nachricht noch als Erwaehnung
+            ns.addMessage(NotificationCompat.MessagingStyle.Message(line, System.currentTimeMillis(), null as androidx.core.app.Person?))
+            b.setStyle(ns).setContentText(line)
+            b.addExtras(
+                android.os.Bundle().apply {
+                    putIntArray(EXTRA_COUNTS, NotifyReply.countsAfterReply(counts, MAX_LINES).toIntArray())
+                    putString(EXTRA_SENDER, null)                     // naechste Nachricht derselben Person: neue Zeile
+                },
+            )
+        } else if (state == ReplyState.SENT) {
+            return cancel(context, tag)
+        } else if (line != null) {
+            b.setContentText(line)
+        }
+        try {
+            NotificationManagerCompat.from(context).notify(tag, ID, b.build())
+        } catch (_: SecurityException) {
+        }
+    }
+
+    /** Antwort nicht gesendet und keine Mitteilung mehr sichtbar: kurze Mitteilung ohne Inhalt, oeffnet den Chat */
+    private fun replyError(context: Context, tag: String, url: String, line: String) {
+        NotifyChannels.ensure(context)
+        val open = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
+            .putExtra(EXTRA_URL, url).putExtra(EXTRA_SIG, sign(context, url))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val pi = PendingIntent.getActivity(context, tag.hashCode(), open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val n = NotificationCompat.Builder(context, NotifyChannels.CHATS)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(NotifyDesign.ACCENT)
+            .setContentTitle(context.getString(R.string.app_name))
+            .setContentText(line)
+            .setCategory(NotificationCompat.CATEGORY_ERROR)
+            .setGroup(NotifyChannels.group(NotifyChannels.CHATS))
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(pi)
+            .build()
+        try {
+            NotificationManagerCompat.from(context).notify(tag, ID, n)
         } catch (_: SecurityException) {
         }
         refreshSummaries(context)

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 5 (CH-04): Antworten aus der Chat-Mitteilung -->
+<resources>
+    <string name="r5n_reply">Reply</string>
+    <string name="r5n_reply_hint">Message</string>
+    <string name="r5n_reply_sending">Sending reply …</string>
+    <string name="r5n_reply_retry">Not sent yet – will retry. The text is also in the chat.</string>
+    <string name="r5n_reply_failed">Not sent – the text is waiting in the chat.</string>
+</resources>
