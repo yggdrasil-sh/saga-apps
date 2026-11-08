@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 5 (Chats & Anrufe, Chat-Oberflaeche) -->
+<resources>
+    <string name="r5_new_group">Новая группа</string>
+    <string name="r5_new_group_sub">выбрать несколько человек</string>
+    <string name="r5_team_group">Группа из ваших команд</string>
+    <string name="r5_team_group_sub">Чат со всей командой</string>
+    <string name="r5_team_search">Введите название команды</string>
+    <string name="r5_team_hint">Введите название одной из ваших команд</string>
+    <string name="r5_name_search">Введите имя</string>
+    <string name="r5_min_chars">Введите не менее %1$d символов</string>
+    <string name="r5_no_hits">Никто не найден</string>
+    <string name="r5_no_hits_hint">Короткие имена (1–2 символа) ищутся только точно. Люди с других серверов: имя@сервер.</string>
+    <string name="r5_back">Назад</string>
+</resources>

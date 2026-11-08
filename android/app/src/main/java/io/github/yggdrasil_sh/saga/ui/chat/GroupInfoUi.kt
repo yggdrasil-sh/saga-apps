@@ -388,7 +388,10 @@ private fun AddMemberBox(repo: SagaRepository, s: ChatSession, c: ChatSummary, d
  * entfernen". Laedt bei chat.contacts (anderes Geraet) neu. Ohne contacts1 (aelterer Server) nichts.
  */
 @Composable
-fun ContactsBlock(repo: SagaRepository, keep: (List<ChatContact>) -> List<ChatContact> = { it }, onPick: (ChatContact) -> Unit) {
+fun ContactsBlock(
+    repo: SagaRepository, keep: (List<ChatContact>) -> List<ChatContact> = { it }, headerInset: androidx.compose.ui.unit.Dp = 0.dp,
+    onPick: (ChatContact) -> Unit,
+) {
     if (!repo.chat.contactsOn) return
     val tick by repo.chat.contactsTick.collectAsState()
     var list by remember { mutableStateOf<List<ChatContact>>(emptyList()) }
@@ -406,7 +409,7 @@ fun ContactsBlock(repo: SagaRepository, keep: (List<ChatContact>) -> List<ChatCo
     Column(Modifier.fillMaxWidth()) {
         Text(
             stringResource(R.string.ct_contacts), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+            modifier = Modifier.padding(start = headerInset, top = 8.dp, bottom = 2.dp),
         )
         shown.forEach { k ->
             ContactRow(repo, k, onRemoved = { list = Contacts.applyHidden(list, k.ref, true) }) { onPick(k) }

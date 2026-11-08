@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 5 (Chats & Anrufe, Chat-Oberflaeche) -->
+<resources>
+    <string name="r5_new_group">กลุ่มใหม่</string>
+    <string name="r5_new_group_sub">เลือกหลายคน</string>
+    <string name="r5_team_group">กลุ่มจากทีมของคุณ</string>
+    <string name="r5_team_group_sub">แชทกับทุกคนในทีม</string>
+    <string name="r5_team_search">พิมพ์ชื่อทีม</string>
+    <string name="r5_team_hint">พิมพ์ชื่อทีมหนึ่งของคุณ</string>
+    <string name="r5_name_search">พิมพ์ชื่อ</string>
+    <string name="r5_min_chars">พิมพ์อย่างน้อย %1$d ตัวอักษร</string>
+    <string name="r5_no_hits">ไม่พบใคร</string>
+    <string name="r5_no_hits_hint">ชื่อสั้น (1–2 ตัวอักษร) ต้องตรงทั้งหมด คนจากเซิร์ฟเวอร์อื่น: ชื่อ@เซิร์ฟเวอร์</string>
+    <string name="r5_back">กลับ</string>
+</resources>

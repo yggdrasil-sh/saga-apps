@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 5 (Chats & Anrufe, Chat-Oberflaeche) -->
+<resources>
+    <string name="r5_new_group">Nuevo grupo</string>
+    <string name="r5_new_group_sub">Elegir varias personas</string>
+    <string name="r5_team_group">Grupo de tus equipos</string>
+    <string name="r5_team_group_sub">Chat con todo un equipo</string>
+    <string name="r5_team_search">Escribe el nombre del equipo</string>
+    <string name="r5_team_hint">Escribe el nombre de uno de tus equipos</string>
+    <string name="r5_name_search">Escribe un nombre</string>
+    <string name="r5_min_chars">Escribe al menos %1$d caracteres</string>
+    <string name="r5_no_hits">No se encontró a nadie</string>
+    <string name="r5_no_hits_hint">Los nombres cortos (1–2 caracteres) solo coinciden exactamente. Personas de otros servidores: nombre@servidor.</string>
+    <string name="r5_back">Atrás</string>
+</resources>

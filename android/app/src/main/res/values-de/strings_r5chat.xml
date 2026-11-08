@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 5 (Chats & Anrufe, Chat-Oberflaeche) -->
+<resources>
+    <string name="r5_new_group">Neue Gruppe</string>
+    <string name="r5_new_group_sub">mehrere Personen auswählen</string>
+    <string name="r5_team_group">Gruppe aus deinen Teams</string>
+    <string name="r5_team_group_sub">Chat mit allen aus einem Team</string>
+    <string name="r5_team_search">Teamnamen eingeben</string>
+    <string name="r5_team_hint">Gib den Namen eines deiner Teams ein</string>
+    <string name="r5_name_search">Name eingeben</string>
+    <string name="r5_min_chars">Mindestens %1$d Zeichen eingeben</string>
+    <string name="r5_no_hits">Niemand gefunden</string>
+    <string name="r5_no_hits_hint">Kurze Namen (1–2 Zeichen) passen nur genau. Personen anderer Server: name@server.</string>
+    <string name="r5_back">Zurück</string>
+</resources>
