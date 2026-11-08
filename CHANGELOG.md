@@ -9,6 +9,22 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Android: Push-Nutzlast 2 und Chat-Gerätegrenze (Server 2.5)
+
+- **Mitteilungstexte in der App-Sprache aus Feldern:** Mit Server-Nutzlast 2 (`v: 2`) baut die App den Satz aus Art,
+  Name (`actor`, nur wenn „Namen zeigen“ an ist) und Anzahl (`n`); die Satzerkennung bleibt nur für ältere Server.
+  Ohne `actor` nie ein Name. Bei Chats ohne Namen zählt die Mitteilung mit der Zahl des Servers.
+- **Abo mit Sprache und Fähigkeit „update“:** Meldet der Server `payload: 2`, schickt die App beim Anlegen/Erneuern
+  `lang` (App-Sprache, bei „System“ leer) und `caps: ["update"]`; bestehende Abos werden einmal still nachgezogen,
+  ein Sprachwechsel in der App erneuert das Abo.
+- **Gelöschte Chat-Nachrichten:** Aktualisierungen (`update: true`) passen die schon gezeigte Chat-Mitteilung still an
+  (Zahl, Zeilen gekürzt) bzw. schließen sie (`removed`) – ohne Ton/Vibration; ist keine sichtbar, erscheint nichts.
+  Die Glocke ersetzt bzw. entfernt die Zeile live (`notification.changed`) und übernimmt die Zähler.
+- **Chat-Gerätegrenze beim Koppeln:** Statt endlos zu warten zeigt das neue Gerät „Du hast schon {max} Chat-Geräte …“
+  mit Knopf zu „Chats & Geräte“ (Anfrage, Abfrage `failed`, Wiederherstellung, live `chat.link`); das bestätigende
+  Gerät zeigt dieselbe Meldung als Dialog. An der Grenze steht der Hinweis schon beim Öffnen der Einrichtung, und
+  „Chats & Geräte“ zeigt dem neuen Gerät die Liste zum Entfernen sowie „n von max Geräten“.
+
 ### Geändert – Android: Design-Runde 4 r4-settings „Einstellungen“
 
 - **Einstellungen als Kategorien** statt einer langen Liste: oben Konto-Kopf, „Allgemein“ mit Sprache und

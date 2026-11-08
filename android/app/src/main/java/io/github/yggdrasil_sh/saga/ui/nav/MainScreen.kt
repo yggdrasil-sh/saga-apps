@@ -538,7 +538,7 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
                 }
             }
             // Kopplungsanfrage eines neuen Chat-Geraets (Live chat.link): hier bestaetigen (Code vergleichen)
-                ChatLinkApproval(repo)
+                ChatLinkApproval(repo) { nav.push(Dest.ChatDevices) }
         }
     }
 }

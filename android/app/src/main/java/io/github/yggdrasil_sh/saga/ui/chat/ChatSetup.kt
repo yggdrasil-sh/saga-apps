@@ -76,10 +76,14 @@ import io.github.yggdrasil_sh.saga.chat.LinkSession
 import io.github.yggdrasil_sh.saga.chat.PendingSetup
 import io.github.yggdrasil_sh.saga.chat.ReauthNeeded
 import io.github.yggdrasil_sh.saga.chat.ChatLogic
+import io.github.yggdrasil_sh.saga.chat.ChatDeviceLimit
+import io.github.yggdrasil_sh.saga.chat.DeviceLimit
+import io.github.yggdrasil_sh.saga.chat.DeviceLimitException
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import io.github.yggdrasil_sh.saga.util.UiText
 import io.github.yggdrasil_sh.saga.util.resolve
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 fun copyText(context: Context, text: String, sensitive: Boolean = false) {
@@ -111,9 +115,12 @@ fun shareText(context: Context, text: String) {
     context.startActivity(Intent.createChooser(i, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
 
-/** Einrichtung der Chats auf diesem Geraet (je nach Zustand) */
+/**
+ * Einrichtung der Chats auf diesem Geraet (je nach Zustand). [onDevices]: Weg zu "Chats & Geraete" fuer den Hinweis
+ * "Geraetegrenze erreicht" (2.5); null = schon dort.
+ */
 @Composable
-fun ChatSetupView(svc: ChatService, st: ChatSetup) {
+fun ChatSetupView(svc: ChatService, st: ChatSetup, onDevices: (() -> Unit)? = null) {
     val error by svc.error.collectAsState()
     val scope = rememberCoroutineScope()
     Column(
@@ -137,7 +144,7 @@ fun ChatSetupView(svc: ChatService, st: ChatSetup) {
                     SagaButton(onClick = { scope.launch { svc.refresh() } }, Modifier.padding(top = 12.dp)) { Text(stringResource(R.string.action_retry)) }
                 }
                 ChatSetup.NEW_ACCOUNT -> NewAccount(svc)
-                ChatSetup.NEW_DEVICE -> NewDevice(svc)
+                ChatSetup.NEW_DEVICE -> NewDevice(svc, onDevices)
                 ChatSetup.READY -> {}
             }
         }
@@ -226,6 +233,28 @@ private fun NewAccount(svc: ChatService) {
     }
 }
 
+/**
+ * 2.5: Grenze der Chat-Geraete erreicht - klare Meldung ("Du hast schon {max} Chat-Geraete …") mit Knopf zu
+ * "Chats & Geraete" (dort ein altes Geraet entfernen). Ohne [onDevices] nur die Meldung.
+ */
+@Composable
+fun DeviceLimitNotice(limit: DeviceLimit, onDevices: (() -> Unit)?, modifier: Modifier = Modifier) {
+    Card(modifier.padding(top = 16.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+        Column(Modifier.padding(16.dp).semantics { liveRegion = LiveRegionMode.Polite }) {
+            Row(verticalAlignment = Alignment.Top) {
+                SagaIcon(SagaIcons.warning, null, Modifier.padding(top = 2.dp).size(18.dp), tint = MaterialTheme.colorScheme.error)
+                Text(
+                    ChatDeviceLimit.text(limit).resolve(), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+            if (onDevices != null) {
+                SagaButton(onClick = onDevices, modifier = Modifier.padding(top = 12.dp).fillMaxWidth()) { Text(stringResource(R.string.chat_devices)) }
+            }
+        }
+    }
+}
+
 @Composable
 private fun ErrorText(t: UiText) {
     Text(
@@ -300,21 +329,25 @@ fun RecoveryKeyConfirm(key: String, busy: Boolean, err: UiText?, onCancel: () ->
 
 /** Weiteres Geraet: koppeln, Wiederherstellungsschluessel eingeben oder (mit Warnung) neu beginnen */
 @Composable
-private fun NewDevice(svc: ChatService) {
+private fun NewDevice(svc: ChatService, onDevices: (() -> Unit)?) {
+    val me by svc.me.collectAsState()
+    // 2.5: schon an der Grenze (limits.devices_count) - gleich beim Oeffnen sagen, statt erst nach dem Warten
+    val atLimit = ChatDeviceLimit.atLimit(me?.limits)
     // laufende Kopplung (nach Prozess-Tod) fortsetzen (BUG-068); Unteransicht ueberlebt Prozess-Tod
     var mode by rememberSaveable { mutableStateOf(if (svc.savedLink() != null) "link" else "choose") }
     // Zurueck in einer Unteransicht fuehrt zur Auswahl, nicht aus dem Bereich (BUG-106)
     BackHandler(enabled = mode != "choose") { mode = "choose" }
     Text(stringResource(R.string.chat_new_device_title), style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
     when (mode) {
-        "link" -> LinkWait(svc) { mode = "choose" }
-        "recover" -> RecoverForm(svc) { mode = "choose" }
+        "link" -> LinkWait(svc, onDevices) { mode = "choose" }
+        "recover" -> RecoverForm(svc, onDevices) { mode = "choose" }
         "restart" -> StartOver(svc) { mode = "choose" }
         else -> {
             Text(
                 stringResource(R.string.chat_new_device_text), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
             )
+            atLimit?.let { DeviceLimitNotice(it, onDevices) }
             SagaButton(onClick = { mode = "link" }, modifier = Modifier.padding(top = 20.dp).fillMaxWidth()) { Text(stringResource(R.string.chat_link_other)) }
             SagaOutlinedButton(onClick = { mode = "recover" }, modifier = Modifier.padding(top = 8.dp).fillMaxWidth()) { Text(stringResource(R.string.chat_enter_recovery)) }
             StartOverButton(Modifier.padding(top = 16.dp)) { mode = "restart" }
@@ -337,21 +370,29 @@ fun StartOverButton(modifier: Modifier = Modifier, start: Boolean = false, onCli
 }
 
 @Composable
-private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
+private fun LinkWait(svc: ChatService, onDevices: (() -> Unit)?, onBack: () -> Unit) {
     // nach Prozess-Tod dieselbe Anfrage (Schluessel des neuen Geraets gemerkt) weiter abfragen (BUG-068)
     val saved = remember { svc.savedLink() }
     var ls by remember { mutableStateOf(saved) }
     var err by remember { mutableStateOf<UiText?>(null) }
-    /** null = laeuft; "expired" = abgelaufen; "gone" = auf dem anderen Geraet abgelehnt (BUG-108) */
+    /**
+     * null = laeuft; "expired" = abgelaufen; "gone" = auf dem anderen Geraet abgelehnt (BUG-108); "limit" = Geraetegrenze
+     * (2.5, [limit]); "failed" = anders gescheitert bzw. unbekannter Zustand
+     */
     var ended by remember { mutableStateOf<String?>(null) }
+    var limit by remember { mutableStateOf<DeviceLimit?>(null) }
     val scope = rememberCoroutineScope()
     // Anfrage starten - beim ersten Mal und bei "Erneut versuchen"; ohne Netz Fehlertext statt Absturz (BUG-004)
     suspend fun start() {
         err = null
+        limit = null
         try {
             ls = svc.startLink()
         } catch (e: CancellationException) {
             throw e
+        } catch (e: DeviceLimitException) {
+            limit = e.limit                            // 2.5: schon beim Anlegen an der Grenze (409 device_limit)
+            ended = "limit"
         } catch (e: Exception) {
             err = svc.repo.friendly(e)
         }
@@ -364,22 +405,35 @@ private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
     DisposableEffect(Unit) {
         onDispose { if (!approved) current?.let { l -> svc.repo.launchAction { svc.cancelLink(l) } } }
     }
-    // alle 3 s fragen; ein chat.link-Ereignis (approved) beschleunigt das ueber svc.refresh()
+    // alle 3 s fragen; ein chat.link-Ereignis (bestaetigt/gescheitert/weg) fragt sofort (svc.linkPoke)
     LaunchedEffect(ls) {
         val s = ls ?: return@LaunchedEffect
         while (true) {
-            delay(3_000)
+            withTimeoutOrNull(3_000) { svc.linkPoke.first { it == s.id } }
             try {
                 when (val st = svc.pollLink(s)) {
-                    "approved" -> {
+                    ChatDeviceLimit.Poll.Approved -> {
                         approved = true
                         return@LaunchedEffect
                     }
-                    "expired", "gone" -> {
-                        ended = st
+                    ChatDeviceLimit.Poll.Pending -> err = null          // wieder erreichbar
+                    is ChatDeviceLimit.Poll.Limit -> {
+                        limit = st.limit
+                        ended = "limit"
                         return@LaunchedEffect
                     }
-                    else -> err = null                         // wieder erreichbar
+                    ChatDeviceLimit.Poll.Expired -> {
+                        ended = "expired"
+                        return@LaunchedEffect
+                    }
+                    ChatDeviceLimit.Poll.Gone -> {
+                        ended = "gone"
+                        return@LaunchedEffect
+                    }
+                    ChatDeviceLimit.Poll.Failed -> {
+                        ended = "failed"
+                        return@LaunchedEffect
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -398,9 +452,15 @@ private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
         LinkCodeView(s.code, 28.sp, Modifier.padding(top = 20.dp), minOneLine = 20.sp)
         CircularProgressIndicator(Modifier.padding(top = 16.dp).size(24.dp), strokeWidth = 2.dp)
     } else if (end != null || err != null) {
-        // abgelaufen / abgelehnt / Start ohne Netz gescheitert: erneut versuchen
-        if (end != null) Info(stringResource(if (end == "gone") R.string.chat_link_denied else R.string.chat_link_expired))
-        SagaButton(onClick = { ended = null; ls = null; scope.launch { start() } }, modifier = Modifier.padding(top = 12.dp)) {
+        // abgelaufen / abgelehnt / Geraetegrenze / Start ohne Netz gescheitert: erneut versuchen
+        val lim = limit
+        when {
+            end == "limit" && lim != null -> DeviceLimitNotice(lim, onDevices)
+            end == "gone" -> Info(stringResource(R.string.chat_link_denied))
+            end == "failed" -> Info(stringResource(R.string.chat_link_failed))
+            end != null -> Info(stringResource(R.string.chat_link_expired))
+        }
+        SagaButton(onClick = { ended = null; limit = null; ls = null; scope.launch { start() } }, modifier = Modifier.padding(top = 12.dp)) {
             Text(stringResource(R.string.action_retry))
         }
     } else {
@@ -413,11 +473,12 @@ private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
 }
 
 @Composable
-private fun RecoverForm(svc: ChatService, onBack: () -> Unit) {
+private fun RecoverForm(svc: ChatService, onDevices: (() -> Unit)?, onBack: () -> Unit) {
     SecureScreen()                                       // eingetippter Schluessel nicht in Screenshots/"Zuletzt" (BUG-074)
     var key by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf<UiText?>(null) }
+    var limit by remember { mutableStateOf<DeviceLimit?>(null) }
     val scope = rememberCoroutineScope()
     OutlinedTextField(
         value = key, onValueChange = { key = it }, label = { Text(stringResource(R.string.chat_recovery_key)) },
@@ -427,16 +488,20 @@ private fun RecoverForm(svc: ChatService, onBack: () -> Unit) {
         modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
     )
     err?.let { ErrorText(it) }
+    limit?.let { DeviceLimitNotice(it, onDevices) }
     Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         SagaTextButton(onClick = onBack, enabled = !busy) { Text(stringResource(R.string.action_cancel)) }
         SagaButton(onClick = {
             busy = true
             err = null
+            limit = null
             scope.launch {
                 try {
                     svc.recover(key)
                 } catch (e: CancellationException) {
                     throw e
+                } catch (e: DeviceLimitException) {
+                    limit = e.limit                    // 2.5: 409 device_limit -> Meldung mit Weg zu "Chats & Geraete"
                 } catch (e: Exception) {
                     err = svc.repo.friendly(e)
                 } finally {

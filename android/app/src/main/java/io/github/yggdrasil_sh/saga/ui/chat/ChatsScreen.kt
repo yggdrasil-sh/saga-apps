@@ -98,7 +98,7 @@ fun ChatsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, chatId:
 
     if (st != ChatSetup.READY) {
         Scaffold(topBar = { SagaTopBar(stringResource(R.string.chats), nav, chrome) }) { pad ->
-            Box(Modifier.padding(pad).fillMaxSize()) { ChatSetupView(svc, st) }
+            Box(Modifier.padding(pad).fillMaxSize()) { ChatSetupView(svc, st) { nav.push(io.github.yggdrasil_sh.saga.ui.nav.Dest.ChatDevices) } }
         }
         return
     }

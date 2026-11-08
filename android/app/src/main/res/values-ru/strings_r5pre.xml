@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (r5pre): Chat-Geraetegrenze beim Koppeln -->
+<resources>
+    <string name="r5_chat_device_limit_title">Слишком много устройств для чатов</string>
+    <plurals name="r5_chat_device_limit">
+        <item quantity="one">У тебя уже %1$d устройство для чатов. Удали старое устройство в разделе «Чаты и устройства».</item>
+        <item quantity="few">У тебя уже %1$d устройства для чатов. Удали старое устройство в разделе «Чаты и устройства».</item>
+        <item quantity="many">У тебя уже %1$d устройств для чатов. Удали старое устройство в разделе «Чаты и устройства».</item>
+        <item quantity="other">У тебя уже %1$d устройства для чатов. Удали старое устройство в разделе «Чаты и устройства».</item>
+    </plurals>
+    <plurals name="r5_chat_devices_of">
+        <item quantity="one">%1$d из %2$d устройств</item>
+        <item quantity="few">%1$d из %2$d устройств</item>
+        <item quantity="many">%1$d из %2$d устройств</item>
+        <item quantity="other">%1$d из %2$d устройств</item>
+    </plurals>
+</resources>

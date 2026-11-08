@@ -32,6 +32,8 @@ data class ChatLimits(
     @SerialName("file_max") val fileMax: Long = 10 * 1048576L,
     @SerialName("members_max") val membersMax: Int = 50,
     @SerialName("devices_max") val devicesMax: Int = 10,
+    /** 2.5: aktive Chat-Geraete (Grenze vor dem Koppeln pruefen); aeltere Server: fehlt */
+    @SerialName("devices_count") val devicesCount: Int? = null,
     @SerialName("files_per_msg") val filesPerMsg: Int = 4,
     /** 2.1-c: Datei-Kennungen je Nachricht (Original + Vorschaubild); aeltere Server: fehlt -> files_per_msg */
     @SerialName("file_ids_per_msg") val fileIdsPerMsg: Int? = null,
@@ -386,7 +388,16 @@ data class RecipientsResponse(val recipients: List<Recipient> = emptyList())
 data class LinkCreated(val id: String = "", val expires: Double? = null)
 
 @Serializable
-data class LinkState(val state: String = "gone", val sealed: String? = null, val expires: Double? = null)
+data class LinkState(
+    val state: String = "gone",
+    val sealed: String? = null,
+    val expires: Double? = null,
+    /** 2.5: state "failed" - Grund (code "device_limit"), Grenze, Anzahl, Meldung des Servers */
+    val code: String? = null,
+    val max: Int? = null,
+    val count: Int? = null,
+    val error: String? = null,
+)
 
 @Serializable
 data class LinkRequest(

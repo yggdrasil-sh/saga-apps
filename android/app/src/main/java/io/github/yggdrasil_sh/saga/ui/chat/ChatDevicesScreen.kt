@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.unit.dp
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.chat.ChatDeviceInfo
@@ -57,6 +58,7 @@ fun ChatDevicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     var restart by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { svc.refresh() }
+    val limit = io.github.yggdrasil_sh.saga.chat.ChatDeviceLimit.atLimit(me?.limits)
 
     Scaffold(topBar = { SagaTopBar(stringResource(R.string.chat_devices), nav, chrome) }) { pad ->
         Box(Modifier.padding(pad).fillMaxSize(), contentAlignment = Alignment.TopCenter) {
@@ -87,8 +89,13 @@ fun ChatDevicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     Modifier.widthIn(max = 560.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) { StartOver(svc) { restart = false } }
-                st != ChatSetup.READY -> ChatSetupView(svc, st)
+                // 2.5: neues Geraet an der Geraetegrenze - hier ein altes Geraet entfernen (geht ohne Chat-Schluessel);
+                // danach (unter der Grenze) wieder die Einrichtung
+                st != ChatSetup.READY && !(st == ChatSetup.NEW_DEVICE && limit != null) -> ChatSetupView(svc, st)
                 else -> LazyColumn(Modifier.widthIn(max = 760.dp).fillMaxSize()) {
+                    if (st != ChatSetup.READY) {
+                        item { Column(Modifier.padding(horizontal = 16.dp)) { limit?.let { DeviceLimitNotice(it, null) } } }
+                    }
                     item {
                         Text(
                             stringResource(R.string.chat_devices_text), style = MaterialTheme.typography.bodySmall,
@@ -96,6 +103,15 @@ fun ChatDevicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                         )
                     }
                     item { SectionHeader(stringResource(R.string.chat_devices_list)) }
+                    // 2.5: "n von max Geraeten" (nur mit limits.devices_count)
+                    me?.limits?.let { lm -> lm.devicesCount?.let { n -> lm to n } }?.let { (lm, n) ->
+                        item {
+                            Text(
+                                pluralStringResource(R.plurals.r5_chat_devices_of, n, n, lm.devicesMax), style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp),
+                            )
+                        }
+                    }
                     items(me?.devices.orEmpty().filter { !it.revoked }, key = { it.id }) { d ->
                         val current = d.id == svc.deviceId
                         ListItem(
@@ -111,8 +127,8 @@ fun ChatDevicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                             }),
                         )
                     }
-                    item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
-                    item {
+                    if (st == ChatSetup.READY) item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+                    if (st == ChatSetup.READY) item {
                         Column(Modifier.padding(16.dp)) {
                             SagaOutlinedButton(onClick = { newKey = svc.newRecoveryKey() }) { Text(stringResource(R.string.chat_new_recovery)) }
                             Text(

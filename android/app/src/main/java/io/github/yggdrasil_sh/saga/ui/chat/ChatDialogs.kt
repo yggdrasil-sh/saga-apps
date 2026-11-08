@@ -40,6 +40,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import io.github.yggdrasil_sh.saga.util.resolve
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import io.github.yggdrasil_sh.saga.ui.common.imeDialog
@@ -510,12 +513,29 @@ fun PagePickDialog(repo: SagaRepository, onDismiss: () -> Unit, onPick: (ChatNot
     )
 }
 
-/** Neues Geraet moechte Chats lesen: Code vergleichen, dann bestaetigen oder ablehnen (global, bei chat.link) */
+/**
+ * Neues Geraet moechte Chats lesen: Code vergleichen, dann bestaetigen oder ablehnen (global, bei chat.link). 2.5: scheitert
+ * die Bestaetigung an der Geraetegrenze (409 device_limit), dieselbe Meldung wie auf dem neuen Geraet mit Weg zu
+ * "Chats & Geraete" ([onDevices]) statt nur einer kurzen Einblendung.
+ */
 @Composable
-fun ChatLinkApproval(repo: SagaRepository) {
+fun ChatLinkApproval(repo: SagaRepository, onDevices: () -> Unit = {}) {
     val svc = repo.chat
     val links by svc.pendingLinks.collectAsState()
     val st by svc.state.collectAsState()
+    var limit by remember { mutableStateOf<io.github.yggdrasil_sh.saga.chat.DeviceLimit?>(null) }
+    val scope = rememberCoroutineScope()
+    limit?.let { lim ->
+        AlertDialog(
+            onDismissRequest = { limit = null },
+            icon = { SagaIcon(SagaIcons.warning, null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text(stringResource(R.string.r5_chat_device_limit_title)) },
+            text = { Text(io.github.yggdrasil_sh.saga.chat.ChatDeviceLimit.text(lim).resolve()) },
+            confirmButton = { SagaTextButton(onClick = { limit = null; onDevices() }) { Text(stringResource(R.string.chat_devices)) } },
+            dismissButton = { SagaTextButton(onClick = { limit = null }) { Text(stringResource(R.string.action_close)) } },
+        )
+        return
+    }
     val l = links.firstOrNull() ?: return
     if (st != ChatSetup.READY) return
     val code = remember(l.id) { svc.linkCode(l) }
@@ -528,7 +548,21 @@ fun ChatLinkApproval(repo: SagaRepository) {
                 LinkCodeView(code.orEmpty(), 22.sp, Modifier.padding(top = 16.dp), minOneLine = 16.sp)
             }
         },
-        confirmButton = { SagaTextButton(onClick = { repo.launchAction { svc.approve(l) } }, enabled = code != null) { Text(stringResource(R.string.chat_link_confirm)) } },
+        confirmButton = {
+            SagaTextButton(onClick = {
+                scope.launch {
+                    try {
+                        svc.approve(l)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: io.github.yggdrasil_sh.saga.chat.DeviceLimitException) {
+                        limit = e.limit
+                    } catch (e: Exception) {
+                        repo.notify(repo.friendly(e))
+                    }
+                }
+            }, enabled = code != null) { Text(stringResource(R.string.chat_link_confirm)) }
+        },
         dismissButton = { SagaTextButton(onClick = { repo.launchAction { svc.reject(l) } }) { Text(stringResource(R.string.chat_link_reject), color = MaterialTheme.colorScheme.error) } },
     )
 }

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (r5pre): Chat-Geraetegrenze beim Koppeln -->
+<resources>
+    <string name="r5_chat_device_limit_title">อุปกรณ์แชทมากเกินไป</string>
+    <plurals name="r5_chat_device_limit">
+        <item quantity="other">คุณมีอุปกรณ์แชทอยู่แล้ว %1$d เครื่อง ลบอุปกรณ์เก่าออกได้ที่ “แชทและอุปกรณ์”</item>
+    </plurals>
+    <plurals name="r5_chat_devices_of">
+        <item quantity="other">%1$d จาก %2$d อุปกรณ์</item>
+    </plurals>
+</resources>

@@ -657,7 +657,8 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
             put("sign_pub", b64(dev.signPk))
             put("sig", b64(crypto.deviceSig(m.uid, ident.identSk, dev)))
         }
-        repo.api.post("api/chat/devices", body)
+        // 2.5: an der Geraetegrenze 409 device_limit -> DeviceLimitException (Meldung mit Weg zu "Chats & Geraete")
+        ChatDeviceLimit.mapLimit { repo.api.post("api/chat/devices", body) }
         withContext(Dispatchers.IO) {
             store.saveKeys(LocalChatKeys(m.uid, ident, dev))
             cached = null
@@ -671,12 +672,14 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
     suspend fun startLink(): LinkSession {
         val m = me.value ?: throw UiTextException(UiText.Res(R.string.error_generic))
         val dev = withContext(Dispatchers.Default) { crypto.device() }
-        val r = decode<LinkCreated>(repo.api.post("api/chat/link", buildJsonObject {
-            put("id", dev.id)
-            put("name", repo.deviceName)
-            put("enc_pub", b64(dev.encPk))
-            put("sign_pub", b64(dev.signPk))
-        }))
+        val r = decode<LinkCreated>(ChatDeviceLimit.mapLimit {
+            repo.api.post("api/chat/link", buildJsonObject {
+                put("id", dev.id)
+                put("name", repo.deviceName)
+                put("enc_pub", b64(dev.encPk))
+                put("sign_pub", b64(dev.signPk))
+            })
+        })
         val code = withContext(Dispatchers.Default) { crypto.linkCode(m.uid, dev.id, dev.encPk, dev.signPk) }
         // gemerkt (verschluesselt): nach Prozess-Tod wird dieselbe Anfrage weiter abgefragt (BUG-068)
         return LinkSession(r.id, code, dev, r.expires).also { l -> withContext(Dispatchers.IO) { store.saveLink(l) } }
@@ -685,11 +688,16 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
     /** Laufende Kopplungsanfrage dieses Geraets (nach Prozess-Tod fortsetzen) */
     fun savedLink(): LinkSession? = store.link()
 
-    /** -> "pending" | "approved" (Schluessel uebernommen) | "expired" | "gone" (abgelehnt/zurueckgezogen) */
-    suspend fun pollLink(ls: LinkSession): String {
+    /**
+     * -> Pending | Approved (Schluessel uebernommen) | Expired | Gone (abgelehnt/zurueckgezogen) | Limit (2.5: Bestaetigung
+     * scheiterte an der Geraetegrenze) | Failed (anderer Grund / unbekannter Zustand) - ausser Pending endet das Warten.
+     */
+    suspend fun pollLink(ls: LinkSession): ChatDeviceLimit.Poll {
         val r = decode<LinkState>(repo.api.get("api/chat/link/${ls.id}"))
-        if (r.state == "expired" || r.state == "gone") withContext(Dispatchers.IO) { store.clearLink() }
-        if (r.state != "approved") return r.state
+        val p = ChatDeviceLimit.poll(r, me.value?.limits?.devicesMax ?: 10)
+        if (p != ChatDeviceLimit.Poll.Pending && p != ChatDeviceLimit.Poll.Approved) withContext(Dispatchers.IO) { store.clearLink() }
+        if (p is ChatDeviceLimit.Poll.Limit) scope.launch { refresh() }            // devices_count fuer Hinweis/Geraeteliste
+        if (p != ChatDeviceLimit.Poll.Approved) return p
         val m = me.value ?: throw UiTextException(UiText.Res(R.string.error_generic))
         val ident = withContext(Dispatchers.Default) {
             val pt = crypto.sealOpen(unb64(r.sealed) ?: throw UiTextException(UiText.Res(R.string.chat_link_failed)), ls.dev.encPk, ls.dev.encSk)
@@ -704,8 +712,11 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
         }
         refresh()
         loadChats()
-        return "approved"
+        return ChatDeviceLimit.Poll.Approved
     }
+
+    /** 2.5: Live chat.link zu einer Anfrage (bestaetigt, gescheitert, weg) - das neue Geraet fragt dann sofort ab */
+    val linkPoke = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 4)
 
     suspend fun cancelLink(ls: LinkSession) {
         withContext(Dispatchers.IO) { if (store.link()?.id == ls.id) store.clearLink() }
@@ -751,7 +762,14 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
                 put("sealed", b64(sealed))
             }
         }
-        repo.api.post("api/chat/link/${l.id}", body)
+        try {
+            ChatDeviceLimit.mapLimit { repo.api.post("api/chat/link/${l.id}", body) }
+        } catch (e: DeviceLimitException) {
+            // 2.5: Grenze erreicht - der Server hat die Anfrage beendet (das neue Geraet erfaehrt es); Meldung zeigt die Oberflaeche
+            pendingLinks.value = pendingLinks.value.filter { it.id != l.id }
+            scope.launch { refresh() }
+            throw e
+        }
         pendingLinks.value = pendingLinks.value.filter { it.id != l.id }
         refresh()
     }
@@ -884,8 +902,13 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
 
     private suspend fun onEvent(ev: LiveEvent) {
         when (ev.type) {
-            "chat.link" -> if (state.value == ChatSetup.READY && !ev.bool("approved") && !ev.bool("gone")) loadLinks()
-                else if (ev.bool("gone") || ev.bool("approved")) pendingLinks.value = pendingLinks.value.filter { it.id != ev.str("id") }
+            "chat.link" -> {
+                // 2.5: failed (Geraetegrenze) - Anfrage ist beendet, wie gone/approved
+                val done = ev.bool("gone") || ev.bool("approved") || ev.bool("failed")
+                if (state.value == ChatSetup.READY && !done) loadLinks()
+                else if (done) pendingLinks.value = pendingLinks.value.filter { it.id != ev.str("id") }
+                if (done) ev.str("id")?.let { linkPoke.tryEmit(it) }
+            }
             "chat.device" -> if (ev.bool("revoked") && ev.str("id") == deviceId) {
                 // dieses Geraet wurde entfernt: Schluessel loeschen, Einrichtung "neues Geraet"
                 withContext(Dispatchers.IO) { store.clearKeys() }

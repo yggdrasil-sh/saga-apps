@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (r5pre): Chat-Geraetegrenze beim Koppeln -->
+<resources>
+    <string name="r5_chat_device_limit_title">Too many chat devices</string>
+    <plurals name="r5_chat_device_limit">
+        <item quantity="one">You already have %1$d chat device. Remove an old device under Chats &amp; devices.</item>
+        <item quantity="other">You already have %1$d chat devices. Remove an old device under Chats &amp; devices.</item>
+    </plurals>
+    <plurals name="r5_chat_devices_of">
+        <item quantity="one">%1$d of %2$d devices</item>
+        <item quantity="other">%1$d of %2$d devices</item>
+    </plurals>
+</resources>
