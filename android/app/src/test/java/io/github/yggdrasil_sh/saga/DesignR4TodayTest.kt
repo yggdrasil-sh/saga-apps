@@ -56,7 +56,8 @@ class DesignR4TodayTest {
         // Kopf, Termine-Kopf, eine Leer-Zeile, Aufgaben-Kopf -> Feld an 4
         assertEquals(4, TodayLogic.quickAddIndex(hasContinue = false, events = 0))
         assertEquals(5, TodayLogic.quickAddIndex(hasContinue = true, events = 0))
-        assertEquals(7, TodayLogic.quickAddIndex(hasContinue = true, events = 2))
+        assertEquals(6, TodayLogic.quickAddIndex(hasContinue = true, events = 2))
+        assertEquals(5, TodayLogic.quickAddIndex(hasContinue = false, events = 2))
     }
 
     // ---------------------------------------------------------------- NAV-14 Suchtreffer
