@@ -43,4 +43,7 @@
     <string name="r5_notif_allow">อนุญาตการแจ้งเตือน</string>
     <string name="r5f_notify_off">ปิด</string>
     <string name="r5f_att_video">วิดีโอ</string>
+    <plurals name="r5f_new_n">
+        <item quantity="other">ข้อความใหม่ %1$d ข้อความ</item>
+    </plurals>
 </resources>

@@ -3,6 +3,7 @@ package io.github.yggdrasil_sh.saga
 import io.github.yggdrasil_sh.saga.chat.ChatInfoLogic
 import io.github.yggdrasil_sh.saga.chat.ChatSummary
 import io.github.yggdrasil_sh.saga.chat.HeadLine
+import io.github.yggdrasil_sh.saga.chat.ListPreviewLogic
 import io.github.yggdrasil_sh.saga.ui.common.FullScreenDialog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -64,5 +65,14 @@ class DesignR5FixChatTest {
         assertFalse(Regex("Avatar\\([^)]*size = \\d").containsMatchIn(ui))           // keine feste Zahl mehr
         assertTrue(ui.contains("ContactsBlock(repo, headerInset = 16.dp, avatarSize = NewChatLogic.AVATAR_DP)"))
         assertTrue(ui.contains("avatarSize = NewChatLogic.AVATAR_DP,"))                 // Personen anderer Server
+    }
+
+    @Test
+    fun unreadWithoutPreview() {
+        assertEquals(3, ListPreviewLogic.newCount(3, markOnly = false))
+        assertEquals(null, ListPreviewLogic.newCount(1, markOnly = true))       // nur als ungelesen markiert
+        assertEquals(null, ListPreviewLogic.newCount(0, markOnly = false))
+        val ui = read("ui/chat/ChatsScreen.kt")
+        assertTrue(ui.contains("R.plurals.r5f_new_n") && ui.contains("} else if (newText != null) {"))
     }
 }

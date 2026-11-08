@@ -43,4 +43,8 @@
     <string name="r5_notif_allow">Mitteilungen erlauben</string>
     <string name="r5f_notify_off">Aus</string>
     <string name="r5f_att_video">Video</string>
+    <plurals name="r5f_new_n">
+        <item quantity="one">Neue Nachricht</item>
+        <item quantity="other">%1$d neue Nachrichten</item>
+    </plurals>
 </resources>

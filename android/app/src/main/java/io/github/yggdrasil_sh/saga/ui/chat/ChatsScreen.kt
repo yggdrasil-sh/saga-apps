@@ -442,7 +442,11 @@ private fun ChatRow(repo: SagaRepository, c: ChatSummary, name: String, selected
             }
             // 2.3: Person eines anderen Servers - Anfrage/Direkt, Herkunft, schreibgeschuetzt
             // Gruppe/Seiten-Chat ueber Servergrenzen (E5): Art, Mitgliederzahl, Heim (wenn anderer Server)
-            val sub = if (c.remote) {
+            // R5-Nachbesserung: ungelesen ohne lokale Vorschau -> "Neue Nachricht" / "3 neue Nachrichten" (fett), nicht die Chat-Art
+            val markOnly = ChatStd.unreadDot(c) && c.unread <= 1 && c.lastRead >= c.lastSeq
+            val newN = if (pvText == null) ListPreviewLogic.newCount(c.unread, markOnly) else null
+            val newText = newN?.let { androidx.compose.ui.res.pluralStringResource(R.plurals.r5f_new_n, it, it) }
+            val sub = if (c.remote && (c.request || (pvText == null && newText == null))) {
                 (if (c.request) stringResource(R.string.fed_request_chip) else kindLabel) +
                     (if (c.kind == "dm") (c.peer?.host ?: c.home)?.let { " · $it" }.orEmpty()
                     else " · " + androidx.compose.ui.res.pluralStringResource(R.plurals.fed_people_n, c.memberCount, c.memberCount) +
@@ -450,13 +454,16 @@ private fun ChatRow(repo: SagaRepository, c: ChatSummary, name: String, selected
                     (if (c.readonly) " · " + stringResource(R.string.fed_readonly_chip) else "")
             } else if (pvText != null) {
                 pvText
+            } else if (newText != null) {
+                newText
             } else if (c.kind != "dm" && c.memberCount > 0) {
                 kindLabel + " · " + androidx.compose.ui.res.pluralStringResource(R.plurals.fed_people_n, c.memberCount, c.memberCount)
             } else kindLabel
             Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     sub, style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                    fontWeight = if (newText != null && sub == newText && strong) FontWeight.SemiBold else null,
+                    color = if (newText != null && sub == newText && strong) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                 )
                 if (unread) {
                     val d = androidx.compose.ui.res.pluralStringResource(R.plurals.notifications_unread_n, c.unread, c.unread)

@@ -43,4 +43,10 @@
     <string name="r5_notif_allow">Разрешить уведомления</string>
     <string name="r5f_notify_off">Выкл.</string>
     <string name="r5f_att_video">Видео</string>
+    <plurals name="r5f_new_n">
+        <item quantity="one">%1$d новое сообщение</item>
+        <item quantity="few">%1$d новых сообщения</item>
+        <item quantity="many">%1$d новых сообщений</item>
+        <item quantity="other">%1$d новых сообщения</item>
+    </plurals>
 </resources>

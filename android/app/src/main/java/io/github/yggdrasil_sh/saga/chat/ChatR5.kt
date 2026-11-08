@@ -161,6 +161,9 @@ object ListPreviewLogic {
         return if (who.isNullOrEmpty()) body else "$who: $body"
     }
 
+    /** R5-Nachbesserung: Ungelesene ohne Vorschau -> Anzahl fuer "Neue Nachricht"/"n neue Nachrichten"; nur markiert -> null */
+    fun newCount(unread: Int, markOnly: Boolean): Int? = if (unread > 0 && !markOnly) unread else null
+
     /** Pruefer R5: was gespeichert wird - bei "Nur Art" ohne Text */
     fun forMode(p: ListPreview?, mode: Mode): ListPreview? = if (mode == Mode.KIND) p?.copy(text = "") else p
 
