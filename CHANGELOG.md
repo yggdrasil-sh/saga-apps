@@ -9,6 +9,23 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Android: Design-Runde 5 „Chats & Anrufe“
+
+- **Chat-Liste zeigt die letzte Nachricht:** „Du: …“, „Name: …“, „Foto“, „Sprachnachricht 0:12“, „Verpasster Anruf“
+  aus dem lokal entschlüsselten Stand (verschlüsselt gespeichert, beim Abmelden gelöscht); unter Einstellungen > Chats
+  auf „Nur Art der Nachricht“ umstellbar.
+- **Neuer Chat als Vollbild-Suche** mit „Neue Gruppe“ und „Gruppe aus deinen Teams“; Treffer reagieren beim ersten Tipp.
+- **Chat-Info für Direkt-Chats** (Tipp auf den Kopf): Medien, Stummschalten, Automatisch löschen mit aktuellem Wert,
+  Sicherheitsnummer, Archivieren, Sperren/Melden. Das ⋮-Menü im Chat hat höchstens sechs Einträge.
+- **Anhänge:** Blatt mit Kacheln (Galerie mit Fotos und Videos, Kamera, Datei, Seite, Immich, Einfügen), gewählte Bilder
+  als Vorschaureihe über dem Eingabefeld.
+- **Bedienung:** Blase nach rechts wischen zum Antworten; Langdruck auf einen Link öffnet das Menü; Linien-Symbole statt
+  Emoji (Reaktionen bleiben); Mitteilungs-Frage erst im Chat mit Nachrichten.
+- **Anruf-Bildschirm:** einheitliche Umschalter (an = hell, aus = dunkel und durchgestrichen) mit Gerätenamen, vier
+  Hauptknöpfe plus „Mehr“ (Teilen, Layout, Teilnehmende, Kamera wechseln …), „Kamera wechseln“ auch auf dem eigenen
+  Bild, Audio-Ausgabe mit Auswahl (Tablets ohne Hörer ohne Lautsprecher-Knopf), Infozeile nur mit Dauer und Hinweis bei
+  schwacher Verbindung, Weg und Ton-Diagnose im Blatt „Verbindungsdetails“; eingehender Video-Anruf mit „Nur Ton“.
+
 ### Behoben – Android: Display am Ohr
 
 - **Reine Tonanrufe schalten das Display am Ohr aus:** Solange ein Anruf klingelt (ausgehend), verbindet oder läuft,
