@@ -28,4 +28,9 @@
     <string name="r5_call_mic_off_action">Desactivar micrófono</string>
     <string name="r5_call_dbltap_hint">Toca dos veces tu vídeo para cambiar su tamaño</string>
     <string name="r5_call_min_hint">La llamada continúa: vuelve a ella desde la barra de llamada o la notificación.</string>
+    <string name="r5_call_q_good_v">buena</string>
+    <string name="r5_call_q_mid_v">regular</string>
+    <string name="r5_call_q_bad_v">débil</string>
+    <string name="r5_call_audio_ok_v">se recibe</string>
+    <string name="r5_call_audio_none_v">no se recibe</string>
 </resources>

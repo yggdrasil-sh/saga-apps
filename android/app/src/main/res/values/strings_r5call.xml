@@ -28,4 +28,9 @@
     <string name="r5_call_mic_off_action">Turn microphone off</string>
     <string name="r5_call_dbltap_hint">Double-tap your video to change its size</string>
     <string name="r5_call_min_hint">The call continues – return via the call bar or the notification.</string>
+    <string name="r5_call_q_good_v">good</string>
+    <string name="r5_call_q_mid_v">fair</string>
+    <string name="r5_call_q_bad_v">weak</string>
+    <string name="r5_call_audio_ok_v">receiving</string>
+    <string name="r5_call_audio_none_v">nothing received</string>
 </resources>

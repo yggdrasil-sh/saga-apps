@@ -985,14 +985,15 @@ internal fun CallDetailsSheet(st: CallUiState, hasTurn: Boolean?, onDismiss: () 
                 else -> unknown
             })
             DetailRow(stringResource(R.string.r5_call_d_quality), when (st.quality) {
-                "good" -> stringResource(R.string.call_q_good)
-                "mid" -> stringResource(R.string.call_q_mid)
-                "bad" -> stringResource(R.string.call_q_bad)
+                // Werte ohne Wiederholung der Zeile ("Qualitaet: gut", nicht "Qualitaet: gute Verbindung")
+                "good" -> stringResource(R.string.r5_call_q_good_v)
+                "mid" -> stringResource(R.string.r5_call_q_mid_v)
+                "bad" -> stringResource(R.string.r5_call_q_bad_v)
                 else -> unknown
             })
             if (st.phase == CallPhase.CONNECTED) DetailRow(stringResource(R.string.r5_call_d_audio), when (st.audioIn) {
-                "ok" -> stringResource(R.string.call_audio_ok)
-                "none" -> stringResource(R.string.call_audio_none)
+                "ok" -> stringResource(R.string.r5_call_audio_ok_v)
+                "none" -> stringResource(R.string.r5_call_audio_none_v)
                 else -> unknown
             })
             if (CallControls.turnHint(hasTurn, st.path, st.quality)) Text(

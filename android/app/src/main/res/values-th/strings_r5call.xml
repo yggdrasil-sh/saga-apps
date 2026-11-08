@@ -28,4 +28,9 @@
     <string name="r5_call_mic_off_action">ปิดไมโครโฟน</string>
     <string name="r5_call_dbltap_hint">แตะสองครั้งที่ภาพของคุณเพื่อเปลี่ยนขนาด</string>
     <string name="r5_call_min_hint">สายยังดำเนินต่อ – กลับมาได้จากแถบการโทรหรือการแจ้งเตือน</string>
+    <string name="r5_call_q_good_v">ดี</string>
+    <string name="r5_call_q_mid_v">ปานกลาง</string>
+    <string name="r5_call_q_bad_v">อ่อน</string>
+    <string name="r5_call_audio_ok_v">กำลังรับ</string>
+    <string name="r5_call_audio_none_v">ไม่ได้รับ</string>
 </resources>
