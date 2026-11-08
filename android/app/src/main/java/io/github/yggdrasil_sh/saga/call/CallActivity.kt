@@ -1007,16 +1007,35 @@ internal fun CallDetailsSheet(st: CallUiState, hasTurn: Boolean?, onDismiss: () 
 
 @Composable
 private fun DetailRow(label: String, value: String) {
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 40.dp).semantics(mergeDescendants = true) {},
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // Werte duerfen zweizeilig umbrechen, aber nie mitten im Wort ("Sicherheitsnum-mer")
-        val style = MaterialTheme.typography.bodyMedium.merge(CallDesign.wordWrap)
-        Text(label, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-        Text(value, style = style, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.End,
-            modifier = Modifier.padding(start = 12.dp).weight(1.4f))
+    // Werte duerfen zweizeilig umbrechen, aber nie mitten im Wort ("Sicherheitsnum-mer")
+    val style = MaterialTheme.typography.bodyMedium.merge(CallDesign.wordWrap)
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
+        // R5-Nachbesserung: passt der Wert nicht in eine Zeile der rechten Spalte, steht er linksbuendig unter der
+        // Beschriftung (statt dreizeilig rechtsbuendig); kurze Werte bleiben rechts
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val valueW = remember(value, style) { measurer.measure(value, style, maxLines = 1, softWrap = false).size.width }
+        val slot = with(density) { CallDetailLayout.slot(maxWidth.toPx(), 12.dp.toPx()) }
+        if (CallDetailLayout.stacked(valueW.toFloat(), slot)) {
+            Column(Modifier.fillMaxWidth().heightIn(min = 40.dp).padding(vertical = 6.dp)) {
+                Text(label, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(value, style = style, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 2.dp))
+            }
+        } else Row(Modifier.fillMaxWidth().heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            Text(value, style = style, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.End,
+                modifier = Modifier.padding(start = 12.dp).weight(1.4f))
+        }
     }
+}
+
+/** R5-Nachbesserung: Aufbau einer Zeile der Verbindungsdetails (rein, testbar) */
+internal object CallDetailLayout {
+    /** Breite des Werts rechts (Gewichte 1 : 1,4; der Abstand gap liegt im Anteil des Werts) */
+    fun slot(total: Float, gap: Float): Float = (total * 1.4f / 2.4f - gap).coerceAtLeast(0f)
+
+    /** Wert untereinander statt rechts, wenn er dort nicht in eine Zeile passt */
+    fun stacked(valueWidth: Float, slot: Float): Boolean = valueWidth > slot
 }
 
 /** CH-18: ein Eintrag im "Mehr"-Blatt */

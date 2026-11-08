@@ -99,4 +99,13 @@ class DesignR5FixChatTest {
         val sheet = ui.substring(ui.indexOf("fun AttachSheet("), ui.indexOf("private fun attachTile("))
         assertTrue(sheet.contains("SheetBarIcons()"))
     }
+
+    @Test
+    fun callDetailLongValueStacks() {
+        val l = io.github.yggdrasil_sh.saga.call.CallDetailLayout
+        assertEquals(128f, l.slot(240f, 12f), 0.01f)
+        assertEquals(0f, l.slot(0f, 12f), 0f)
+        assertTrue(l.stacked(300f, l.slot(240f, 12f)))      // "Verschluesselt · Sicherheitsnummer nicht geprueft"
+        assertFalse(l.stacked(80f, l.slot(240f, 12f)))      // "Direkt" bleibt rechts
+    }
 }
