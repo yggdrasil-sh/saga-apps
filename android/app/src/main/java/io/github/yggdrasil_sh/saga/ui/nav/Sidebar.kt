@@ -12,6 +12,7 @@ import io.github.yggdrasil_sh.saga.util.resolve
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -71,15 +72,19 @@ import kotlinx.coroutines.launch
 
 private data class TreeRow(val page: PageMeta, val depth: Int, val hasChildren: Boolean)
 
-/** Seitenleiste wie in iOS: Bereiche, Favoriten, zuletzt besucht, Seitenbaum (aufklappbar), Einstellungen */
+/**
+ * Seitenleiste wie im Web (Design-Runde 4, NAV-07/15/24/27): oben Kontomenue und Suchfeld, Hauptpunkte nur, was nicht
+ * in der unteren Leiste liegt, dann Favoriten und Seitenbaum mit "Neue Seite", unten eine feste Fusszeile
+ * (Dienste & Links, Graph, Papierkorb, Einstellungen). "Zuletzt" steht nur noch auf Heute ("Weitermachen").
+ * bottomBar = die untere Leiste (Heute, Seiten, Suchen, Chats) ist sichtbar (Phone).
+ */
 @Composable
-fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
+fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit, bottomBar: Boolean = false) {
     val pages by repo.pages.collectAsState()
     val tasks by repo.tasks.collectAsState()
     // NAV-01: wie das Web-Badge "faellig heute + ueberfaellig" (mit Aufgabenquellen aus der zusammengefuehrten Liste)
     val mergedTasks by repo.taskList.collectAsState()
     val taskBadge = io.github.yggdrasil_sh.saga.data.TaskCounts.badge(mergedTasks, tasks, io.github.yggdrasil_sh.saga.ui.common.todayIso())
-    val recentIds by repo.settings.recent.collectAsState()
     val error by repo.error.collectAsState()
     val loading by repo.loading.collectAsState()
     var expanded by rememberSaveable { mutableStateOf(setOf<Long>()) }
@@ -93,17 +98,13 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
     val shared = remember(sharedLocal, fedShared) { sharedLocal + fedShared }
     val chatOn by repo.live.chatEnabled.collectAsState()
     val chatUnread by repo.live.chatUnread.collectAsState()
-    val notifOn by repo.live.supported.collectAsState()
-    val notifUnread by repo.live.unread.collectAsState()
     val shareOff by repo.shareOff.collectAsState()
     var sharedExpanded by rememberSaveable { mutableStateOf(setOf<Long>()) }
-    // 2.4: Papierkorb und Verschieben (Langdruck auf eine Seite)
-    var showTrash by remember { mutableStateOf(false) }
+    // 2.4: Verschieben (Zeilenmenue "⋮" bzw. Langdruck auf eine Seite); der Papierkorb ist ein eigenes Ziel (NAV-17)
     var movePage by remember { mutableStateOf<PageMeta?>(null) }
     val allMeta = remember(pages, sharedLocal) { pages + sharedLocal }
     val onMove: (PageMeta) -> Unit = { movePage = it }
     val favorites = pages.filter { it.pinned }
-    val recent = recentIds.mapNotNull { id -> pages.firstOrNull { it.id == id } ?: shared.firstOrNull { it.id == id } }.take(5)
     // "Mit mir geteilt": oberste geteilte Seiten (mit Eigentuemer), darunter aufklappbar ihre Unterseiten
     val sharedTree = remember(shared, sharedExpanded) { SharedTree.rows(shared, sharedExpanded) }
     val sharedUnread = shared.count { it.unread }
@@ -170,6 +171,9 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
     }
     val galTemplate: ((PageMeta) -> Unit)? = if (galOn) ({ p -> openGallery(p) }) else null
 
+    val mainDests = NavModel.sidebarMain(bottomBar, chatOn)
+    val serverVersion by repo.serverVersion.collectAsState()
+    val graphOn = io.github.yggdrasil_sh.saga.ui.graph.GraphSupport.available(serverVersion, galServer)
     // "Zu „Mit mir geteilt“" (Seite ohne Zugriff): zum Bereich scrollen (Reihenfolge wie die Eintraege unten)
     val listState = rememberLazyListState()
     val showShared by repo.showSharedRequest.collectAsState()
@@ -177,39 +181,15 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
     LaunchedEffect(showShared) {
         if (showShared == seenShared) return@LaunchedEffect
         seenShared = showShared
-        var i = 1 + 6                                                   // Kopf + Heute/Aufgaben/Termine/Dienste/Suchen/Graph
-        if (chatOn) i++                                                 // Chats
-        if (notifOn) i++                                                // Benachrichtigungen
-        if (favorites.isNotEmpty()) i += 1 + favorites.size
-        if (recent.isNotEmpty()) i += 1 + recent.size
-        i += 1 + (if (tree.isEmpty()) 1 else tree.size)                 // "Seiten" + Baum bzw. "Noch keine Seiten"
-        listState.animateScrollToItem(i)
+        listState.animateScrollToItem(NavModel.sharedIndex(mainDests.size, favorites.size, tree.size))
     }
 
-    LazyColumn(Modifier.statusBarsPadding(), state = listState) {
+    Column(Modifier.statusBarsPadding()) {
+    LazyColumn(Modifier.weight(1f), state = listState) {
         item {
-            // wie iOS: eigenes Profilbild oben links (tippen = Einstellungen)
-            val account by repo.account.collectAsState()
-            val signIns by repo.signInCount.collectAsState()
-            var ownAvatar by remember { mutableStateOf<String?>(null) }
-            androidx.compose.runtime.LaunchedEffect(account, signIns) {
-                ownAvatar = try { repo.avatarState().url } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { ownAvatar }
-            }
-            Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 8.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                // A11Y-08: TalkBack liest "Konto: <Name>, Schaltflaeche" statt nur der Initiale
-                val accountDesc = stringResource(R.string.r1_account_desc, account)
-                val openLabel = stringResource(R.string.nav_settings)
-                val openAccount = { nav.top(Dest.Settings); onNavigate() }
-                if (account.isNotEmpty()) Box(
-                    Modifier.padding(end = 10.dp).clip(CircleShape)
-                        .clickable(onClickLabel = openLabel, role = androidx.compose.ui.semantics.Role.Button) { openAccount() }
-                        // Initiale im Kreis nicht zusaetzlich vorlesen
-                        .clearAndSetSemantics {
-                            contentDescription = accountDesc
-                            role = androidx.compose.ui.semantics.Role.Button
-                            onClick(label = openLabel) { openAccount(); true }
-                        },
-                ) { io.github.yggdrasil_sh.saga.ui.notifications.Avatar(account, size = 36, avatar = ownAvatar) }
+            Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                // NAV-11: Avatar oeffnet das Kontomenue (Sprache, Darstellung, Einstellungen, Admin, Abmelden)
+                AccountAvatarMenu(repo, nav, onNavigate, Modifier.padding(end = 6.dp))
                 Text(
                     stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
                     modifier = Modifier.weight(1f),
@@ -234,46 +214,23 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 }
             }
         }
-        item { NavItem(stringResource(R.string.nav_today), null, nav.root == Dest.Today, painter = SagaIcons.today) { nav.top(Dest.Today); onNavigate() } }
-        item {
-            NavItem(stringResource(R.string.nav_tasks), null, nav.root == Dest.Tasks, badge = taskBadge.takeIf { it > 0 }, painter = SagaIcons.tasks) {
-                nav.top(Dest.Tasks); onNavigate()
+        // NAV-15: Suchfeld oben (oeffnet die Suche), ein Begriff "Suchen"
+        item(key = "search") { SearchField { nav.top(Dest.Search); onNavigate() } }
+        items(mainDests, key = { "main-" + Dest.encode(it) }) { d ->
+            val (label, icon) = destLabel(d)
+            val badge = when (d) {
+                Dest.Tasks -> taskBadge
+                Dest.Chats -> chatUnread
+                else -> 0
             }
-        }
-        item { NavItem(stringResource(R.string.nav_events), null, nav.root == Dest.Events, painter = SagaIcons.calendar) { nav.top(Dest.Events); onNavigate() } }
-        item { NavItem(stringResource(R.string.nav_services), null, nav.root == Dest.Services, painter = SagaIcons.server) { nav.top(Dest.Services); onNavigate() } }
-        item { NavItem(stringResource(R.string.nav_search_pages), null, nav.root == Dest.Search, painter = SagaIcons.search) { nav.top(Dest.Search); onNavigate() } }
-        item {
-            val sv by repo.serverVersion.collectAsState()
-            if (io.github.yggdrasil_sh.saga.ui.graph.GraphSupport.available(sv, repo.server.value)) {
-                NavItem(stringResource(R.string.graph_title), null, nav.root is Dest.Graph, painter = SagaIcons.graph) { nav.top(Dest.Graph()); onNavigate() }
-            }
-        }
-        if (chatOn) {
-            item {
-                NavItem(
-                    stringResource(R.string.chats), null, nav.root == Dest.Chats || nav.root is Dest.Chat, badge = chatUnread.takeIf { it > 0 },
-                    painter = SagaIcons.chats,
-                ) { nav.top(Dest.Chats); onNavigate() }
-            }
-        }
-        if (notifOn) {
-            item {
-                NavItem(stringResource(R.string.notifications), null, nav.root == Dest.Notifications, badge = notifUnread.takeIf { it > 0 }, painter = SagaIcons.bell) {
-                    nav.top(Dest.Notifications); onNavigate()
-                }
+            NavItem(stringResource(label), null, NavModel.same(nav.root, d), badge = badge.takeIf { it > 0 }, painter = icon) {
+                nav.top(d); onNavigate()
             }
         }
 
         if (favorites.isNotEmpty()) {
             item { SidebarSection(stringResource(R.string.sidebar_favorites)) }
             items(favorites, key = { "fav-${it.id}" }) { p ->
-                PageRowItem(p, 0, false, false, nav.root == Dest.Page(p.id), repo, { open(p.id) }, {}, { newPage(it) }, scope, allMeta = allMeta, onMove = onMove, onTemplate = galTemplate)
-            }
-        }
-        if (recent.isNotEmpty()) {
-            item { SidebarSection(stringResource(R.string.sidebar_recent)) }
-            items(recent, key = { "rec-${it.id}" }) { p ->
                 PageRowItem(p, 0, false, false, nav.root == Dest.Page(p.id), repo, { open(p.id) }, {}, { newPage(it) }, scope, allMeta = allMeta, onMove = onMove, onTemplate = galTemplate)
             }
         }
@@ -293,6 +250,17 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 { expanded = if (r.page.id in expanded) expanded - r.page.id else expanded + r.page.id },
                 { newPage(it) }, scope, allMeta = allMeta, onMove = onMove, onTemplate = galTemplate,
             )
+        }
+        // NAV-18: "Neue Seite" auch unter dem Baum (wie Web note-new); mit Vorlagen als kleines Menue
+        item(key = "new-page") {
+            var rowMenu by remember { mutableStateOf(false) }
+            Box {
+                NewPageRow(enabled = !creating) { if (galOn) rowMenu = true else newPage(null) }
+                DropdownMenu(expanded = rowMenu, onDismissRequest = { rowMenu = false }) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.gal_new_page)) }, onClick = { rowMenu = false; newPage(null) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.gal_from_template)) }, onClick = { rowMenu = false; openGallery(null) })
+                }
+            }
         }
         if (sharedTree.isNotEmpty() || shareOff || fedUnreachable.isNotEmpty()) {
             item(key = "shared-head") {
@@ -341,16 +309,15 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 )
             }
         }
-        item { HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)) }
-        // 2.4: Papierkorb in der App (ansehen, wiederherstellen, endgueltig loeschen)
-        item { NavItem(stringResource(R.string.tr_nav), null, false, painter = SagaIcons.trash) { showTrash = true } }
-        item { NavItem(stringResource(R.string.nav_settings), null, nav.root == Dest.Settings, painter = SagaIcons.settings) { nav.top(Dest.Settings); onNavigate() } }
         error?.let { e ->
             item { Text(e.resolve(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp)) }
         }
-        item { Spacer(Modifier.height(24.dp)) }
+        item { Spacer(Modifier.height(16.dp)) }
     }
-    if (showTrash) io.github.yggdrasil_sh.saga.ui.pages.TrashDialog(repo, onDismiss = { showTrash = false })
+    // NAV-07/24: feste Fusszeile wie Web (Symbolzeile), immer sichtbar unter dem Baum
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+    SidebarFooter(NavModel.sidebarFooter(graphOn), nav.root) { d -> nav.top(d); onNavigate() }
+    }
     movePage?.let { p -> io.github.yggdrasil_sh.saga.ui.pages.MovePageDialog(repo, p, onDismiss = { movePage = null }) }
     if (galleryOpen) {
         // Kopf-Menue: offene Seite als Elternseite anbieten (nur wenn dort Unterseiten erlaubt sind)
@@ -365,6 +332,82 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 open(id)
             },
         )
+    }
+}
+
+/** Beschriftung und Symbol eines Ziels in Seitenleiste und Fusszeile */
+internal fun destLabel(d: Dest): Pair<Int, Int> = when (d) {
+    Dest.Today -> R.string.nav_today to SagaIcons.today
+    Dest.Tasks -> R.string.nav_tasks to SagaIcons.tasks
+    Dest.Events -> R.string.nav_events to SagaIcons.calendar
+    Dest.Chats -> R.string.chats to SagaIcons.chats
+    Dest.Search -> R.string.r4nav_search to SagaIcons.search
+    Dest.Services -> R.string.r4nav_services_links to SagaIcons.server
+    is Dest.Graph -> R.string.graph_title to SagaIcons.graph
+    Dest.Trash -> R.string.tr_nav to SagaIcons.trash
+    else -> R.string.nav_settings to SagaIcons.settings
+}
+
+/** NAV-15: Suchfeld oben in der Leiste - sieht aus wie ein Feld, oeffnet die Suche (Schaltflaeche, 48 dp) */
+@Composable
+private fun SearchField(onClick: () -> Unit) {
+    val label = stringResource(R.string.r4nav_search)
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).heightIn(min = 48.dp)
+            .clip(MaterialTheme.shapes.small)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
+            .clearAndSetSemantics {
+                contentDescription = label
+                role = androidx.compose.ui.semantics.Role.Button
+                onClick { onClick(); true }
+            }
+            .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SagaIcon(SagaIcons.search, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 12.dp))
+    }
+}
+
+/** NAV-18: Zeile "+ Neue Seite" unter dem Baum (eingerueckt wie die Seiten) */
+@Composable
+private fun NewPageRow(enabled: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(MaterialTheme.shapes.small)
+            .clickable(enabled = enabled, role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
+            .padding(start = 16.dp, end = 12.dp).heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SagaIcon(SagaIcons.plus, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.sidebar_new_page), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 10.dp))
+    }
+}
+
+/** NAV-07/24: Fusszeile als Symbolzeile mit Beschriftung (je mindestens 48 dp), gewaehltes Ziel in Gold-Soft */
+@Composable
+private fun SidebarFooter(dests: List<Dest>, root: Dest, onPick: (Dest) -> Unit) {
+    val accent = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)) {
+        dests.forEach { d ->
+            val (label, icon) = destLabel(d)
+            val selected = NavModel.same(root, d)
+            Column(
+                Modifier.weight(1f).heightIn(min = 56.dp).clip(MaterialTheme.shapes.small)
+                    .background(if (selected) accent.goldSoft else androidx.compose.ui.graphics.Color.Transparent)
+                    .selectable(selected = selected, role = androidx.compose.ui.semantics.Role.Tab) { onPick(d) }
+                    .padding(horizontal = 2.dp, vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                val tint = if (selected) accent.onGoldSoft else MaterialTheme.colorScheme.onSurfaceVariant
+                SagaIcon(icon, null, Modifier.size(22.dp), tint = tint)
+                Text(
+                    stringResource(label), style = MaterialTheme.typography.labelSmall, color = tint, maxLines = 2,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+        }
     }
 }
 
@@ -424,15 +467,16 @@ private fun PageRowItem(
     val canSub = !p.isDatabase && p.can(io.github.yggdrasil_sh.saga.data.RemoteCaps.SUBPAGES) && (!(foreign || p.isRemote) || p.role == "edit")
     val canMove = onMove != null && io.github.yggdrasil_sh.saga.data.MoveLogic.canMove(p, allMeta)
     val canTemplate = onTemplate != null && canSub && io.github.yggdrasil_sh.saga.data.Gallery.canBeParent(p)
+    val hasActions = canFavorite || canSub || canMove || canTemplate
     Box {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(MaterialTheme.shapes.small)
                 .background(if (selected) io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.goldSoft else androidx.compose.ui.graphics.Color.Transparent)
                 .combinedClickable(
-                    onClick = onOpen, onLongClick = if (canFavorite || canSub || canMove || canTemplate) ({ menu = true }) else null,
+                    onClick = onOpen, onLongClick = if (hasActions) ({ menu = true }) else null,
                     onLongClickLabel = stringResource(R.string.page_actions),
                 )
-                .padding(start = (16 + depth * 16).dp, end = if (hasChildren || p.shared || p.unread) 0.dp else 12.dp).heightIn(min = 48.dp),
+                .padding(start = (16 + depth * 16).dp, end = if (hasChildren || p.shared || p.unread || hasActions) 0.dp else 12.dp).heightIn(min = 48.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Auf-/Zuklappen rechts: Seiten mit und ohne Unterseiten stehen buendig (kein leerer 48-dp-Platzhalter)
@@ -464,6 +508,15 @@ private fun PageRowItem(
                 }
             } else if (p.shared || p.unread) {
                 Spacer(Modifier.width(48.dp))      // Nr. 22: Geteilt-Symbol/Punkt stehen buendig mit denen neben dem Pfeil
+            }
+            // NAV-18: Zeilenmenue "⋮" (48 dp) ganz rechts, immer sichtbar (gedaempft); Langdruck bleibt als Abkuerzung
+            if (hasActions) {
+                IconButton(onClick = { menu = true }) {
+                    SagaIcon(
+                        SagaIcons.moreVert, stringResource(R.string.r4nav_row_actions, pageTitle(p)),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    )
+                }
             }
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {

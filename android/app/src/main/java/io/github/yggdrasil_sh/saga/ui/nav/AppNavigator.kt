@@ -31,6 +31,8 @@ sealed interface Dest {
     data object SettingsInfo : Dest
     /** 2.5: Graph der Seiten; focus = Seite fuer "Lokal" (Seitenmenue "Lokaler Graph"), null = alle Seiten */
     data class Graph(val focus: Long? = null) : Dest
+    /** Design-Runde 4 (NAV-17): Papierkorb als eigenes Ziel statt Vollbild-Dialog */
+    data object Trash : Dest
 
     companion object {
         /** Als Text (zum Sichern nach Prozess-Tod) */
@@ -53,6 +55,7 @@ sealed interface Dest {
             SettingsGeneral -> "settings-general"
             SettingsInfo -> "settings-info"
             is Graph -> if (d.focus != null) "graph:${d.focus}" else "graph"
+            Trash -> "trash"
         }
 
         fun decode(s: String): Dest? = when {
@@ -74,6 +77,7 @@ sealed interface Dest {
             s == "settings-general" -> SettingsGeneral
             s == "settings-info" -> SettingsInfo
             s == "graph" -> Graph()
+            s == "trash" -> Trash
             s.startsWith("graph:") -> s.removePrefix("graph:").toLongOrNull()?.let { Graph(it) }
             else -> null
         }

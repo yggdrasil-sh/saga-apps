@@ -55,7 +55,15 @@ import java.time.format.FormatStyle
 import java.util.Locale
 
 /** Rahmen-Infos fuer die Titelleiste: Menue-Knopf (Seitenleiste) auf kleinen Bildschirmen */
-data class Chrome(val showMenu: Boolean, val onMenu: () -> Unit)
+/**
+ * Rahmen fuer die Bildschirme: Hamburger (Schublade) und - Design-Runde 4 (NAV-08) - gemeinsame Kopf-Aktionen der
+ * Hauptziele (Glocke, Lupe). SagaTopBar haengt sie auf oberster Ebene hinter die eigenen Aktionen des Bildschirms.
+ */
+data class Chrome(
+    val showMenu: Boolean,
+    val onMenu: () -> Unit,
+    val headActions: (@Composable RowScope.() -> Unit)? = null,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,7 +84,10 @@ fun SagaTopBar(
                 chrome.showMenu -> IconButton(onClick = chrome.onMenu) { SagaIcon(SagaIcons.menu, stringResource(R.string.action_sidebar)) }
             }
         },
-        actions = actions,
+        actions = {
+            actions()
+            if (!nav.canGoBack) chrome.headActions?.invoke(this)
+        },
     )
 }
 

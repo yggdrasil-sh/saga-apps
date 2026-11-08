@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 4 (Navigation: untere Leiste, Glocke, Seitenleiste, Kontomenue) -->
+<resources>
+    <string name="r4nav_search">Поиск</string>
+    <string name="r4nav_services_links">Сервисы и ссылки</string>
+    <string name="r4nav_row_actions">Действия: %1$s</string>
+    <string name="r4nav_account_menu">Открыть меню аккаунта</string>
+    <string name="r4nav_appearance">Оформление</string>
+    <string name="r4nav_theme_system">Автоматически (система)</string>
+    <string name="r4nav_theme_light">Светлое</string>
+    <string name="r4nav_theme_dark">Тёмное</string>
+    <string name="r4nav_admin">Администрирование</string>
+    <string name="r4nav_admin_desc">Администрирование, откроется в браузере</string>
+    <plurals name="r4nav_unread">
+        <item quantity="one">%d непрочитанное</item>
+        <item quantity="few">%d непрочитанных</item>
+        <item quantity="many">%d непрочитанных</item>
+        <item quantity="other">%d непрочитанного</item>
+    </plurals>
+</resources>

@@ -19,11 +19,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -98,6 +102,8 @@ fun SagaRoot(repo: SagaRepository, appScope: CoroutineScope) {
     val pendingPair by repo.pendingPair.collectAsState()
     val pendingShare by repo.pendingShare.collectAsState()
     val snackbar = remember { SnackbarHostState() }
+    // Design-Runde 4: Hoehe der unteren Leiste (Phone), damit Meldungen darueber stehen statt sie zu verdecken
+    val bottomBarHeight = remember { mutableStateOf(0.dp) }
     val res = LocalResources.current
     val a11y = LocalAccessibilityManager.current
     LaunchedEffect(Unit) {
@@ -135,7 +141,7 @@ fun SagaRoot(repo: SagaRepository, appScope: CoroutineScope) {
             LaunchedEffect(needsLogin) { if (!needsLogin) everLoggedIn = true }
             // NAV-02: Offline-Zustand hier, damit Leiste und Live-Laempchen denselben (entprellten) Stand sehen
             val offline = key(server, account) { io.github.yggdrasil_sh.saga.ui.common.rememberOfflineState(repo) }
-            if (everLoggedIn) key(server, account) { MainScreen(repo, appScope, offline) }
+            if (everLoggedIn) key(server, account) { MainScreen(repo, appScope, offline, bottomBarHeight) }
             // R1-Nachbesserung: solange die Offline-Leiste steht, sagt sie den Zustand - das Laempchen wuerde direkt
             // auf ihrem Wolken-Symbol sitzen und entfaellt dann
             if (everLoggedIn && !needsLogin && !offline.visible) LiveLamp(repo, Modifier.align(Alignment.TopStart))   // 4.11.: gruen live, rot gespeicherter Stand
@@ -148,7 +154,12 @@ fun SagaRoot(repo: SagaRepository, appScope: CoroutineScope) {
                 else ShareDialog(repo, sc) { id -> repo.openPageRequest.value = id }
             }
         }
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().imePadding())
+        SnackbarHost(
+            snackbar,
+            Modifier.align(Alignment.BottomCenter)
+                .then(if (bottomBarHeight.value > 0.dp && !needsLogin) Modifier.padding(bottom = bottomBarHeight.value) else Modifier.navigationBarsPadding())
+                .imePadding(),
+        )
     }
 }
 
@@ -172,11 +183,16 @@ private val mainItems = listOf(
     MainItem(Dest.Search, R.string.nav_search, SagaIcons.search),
 )
 
-/** Adaptiv: Handy = Seitenleiste als Schublade; Tablet hochkant = Navigation Rail + Schublade; breit = feste Seitenleiste */
+/**
+ * Adaptiv: Handy = untere Leiste (Heute · Seiten · Suchen · Chats) + Seitenleiste als Schublade; Tablet hochkant =
+ * Navigation Rail + Schublade; breit = feste Seitenleiste
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun MainScreen(
     repo: SagaRepository, appScope: CoroutineScope,
     offline: io.github.yggdrasil_sh.saga.ui.common.OfflineState = io.github.yggdrasil_sh.saga.ui.common.rememberOfflineState(repo),
+    bottomBarHeight: androidx.compose.runtime.MutableState<androidx.compose.ui.unit.Dp> = remember { mutableStateOf(0.dp) },
 ) {
     val nav = rememberSaveable(saver = AppNavigator.Saver) { AppNavigator() }   // ueberlebt Prozess-Tod
     // 2.5 clientlog1: grober Ort fuer Fehlerberichte/Diagnose (nur die Art der Ansicht, nie Titel oder ID)
@@ -267,7 +283,24 @@ fun MainScreen(
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= 840.dp
         val medium = maxWidth >= 600.dp
-        val chrome = Chrome(showMenu = !wide && !medium, onMenu = { focusManager.clearFocus(); keyboard?.hide(); scope.launch { drawerState.open() } })
+        val compact = !wide && !medium
+        // Design-Runde 4 (NAV-09): untere Leiste nur bei kompakter Breite; aus im Editor, im Chat und bei Tastatur
+        val imeVisible = WindowInsets.isImeVisible
+        val bottomBar = NavModel.showBottomBar(compact, nav.current, imeVisible)
+        val openDrawer: () -> Unit = { focusManager.clearFocus(); keyboard?.hide(); scope.launch { drawerState.open() } }
+        // NAV-08: Glocke (Blatt von unten, r4-notify) und Lupe als Kopf-Aktionen der Hauptziele
+        var bellOpen by rememberSaveable { mutableStateOf(false) }
+        val notifOn by repo.live.supported.collectAsState()
+        val unreadGroups by io.github.yggdrasil_sh.saga.ui.notifications.NotificationCounts.unreadGroups.collectAsState()
+        val head = NavModel.head(nav.current, nav.canGoBack, compact, notifOn)
+        val headActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {
+            if (head.search) {
+                IconButton(onClick = { nav.top(Dest.Search) }) { SagaIcon(SagaIcons.search, stringResource(R.string.r4nav_search)) }
+            }
+            if (head.bell) BellButton(unreadGroups) { focusManager.clearFocus(); keyboard?.hide(); bellOpen = true }
+        }
+        val chrome = Chrome(showMenu = compact, onMenu = openDrawer, headActions = headActions)
+        LaunchedEffect(bottomBar) { if (!bottomBar) bottomBarHeight.value = 0.dp }
         val closeDrawer: () -> Unit = { if (!wide) scope.launch { drawerState.close() } }
 
         val showShared by repo.showSharedRequest.collectAsState()
@@ -295,7 +328,7 @@ fun MainScreen(
         } else {
             ModalNavigationDrawer(
                 drawerState = drawerState,
-                drawerContent = { ModalDrawerSheet(Modifier.width(320.dp)) { Sidebar(repo, nav, onNavigate = closeDrawer) } },
+                drawerContent = { ModalDrawerSheet(Modifier.width(320.dp)) { Sidebar(repo, nav, onNavigate = closeDrawer, bottomBar = compact) } },
             ) {
                 if (medium) {
                     Row(Modifier.fillMaxSize()) {
@@ -337,9 +370,92 @@ fun MainScreen(
                         Box(Modifier.weight(1f)) { content(chrome) }
                     }
                 } else {
-                    content(chrome)
+                    // Phone: Inhalt + untere Leiste (Heute · Seiten · Suchen · Chats); solange sie steht, nimmt sie die
+                    // Navigationsleiste des Systems ein - der Bildschirm darueber rechnet sie nicht noch einmal ein
+                    val density = androidx.compose.ui.platform.LocalDensity.current
+                    Column(Modifier.fillMaxSize()) {
+                        Box(
+                            Modifier.weight(1f)
+                                .then(if (bottomBar) Modifier.consumeWindowInsets(WindowInsets.navigationBars) else Modifier),
+                        ) { content(chrome) }
+                        if (bottomBar) {
+                            SagaBottomBar(
+                                repo, nav, drawerOpen = drawerState.targetValue == DrawerValue.Open,
+                                onPages = openDrawer,
+                                modifier = Modifier.onSizeChanged { bottomBarHeight.value = with(density) { it.height.toDp() } },
+                            )
+                        }
+                    }
                 }
             }
+        }
+        if (bellOpen) {
+            io.github.yggdrasil_sh.saga.ui.notifications.NotificationsSheet(
+                onDismiss = { bellOpen = false },
+                onOpen = { item ->
+                    bellOpen = false
+                    io.github.yggdrasil_sh.saga.ui.notifications.open(repo, nav, item)
+                },
+                onShowAll = { bellOpen = false; nav.push(Dest.Notifications) },
+            )
+        }
+    }
+}
+
+/** NAV-08: Glocke mit Zaehler (ungelesene Gruppen); TalkBack sagt den Zaehler als Text an */
+@Composable
+private fun BellButton(count: Int, onClick: () -> Unit) {
+    val res = LocalResources.current
+    val label = stringResource(R.string.notifications)
+    val desc = if (count > 0) label + ", " + res.getQuantityString(R.plurals.r4nav_unread, count, count) else label
+    IconButton(onClick = onClick, modifier = Modifier.semantics { contentDescription = desc }) {
+        val text = NavModel.badgeText(count)
+        Box(Modifier.clearAndSetSemantics {}) {
+            if (text == null) SagaIcon(SagaIcons.bell, null)
+            else androidx.compose.material3.BadgedBox(badge = { androidx.compose.material3.Badge { Text(text) } }) { SagaIcon(SagaIcons.bell, null) }
+        }
+    }
+}
+
+/**
+ * NAV-09 (Entscheidung 1): untere Leiste am Phone wie Web am Handy - Heute · Seiten · Suchen · Chats.
+ * "Seiten" oeffnet die Schublade mit dem Seitenbaum; Chats mit Zaehler ungelesener Gespraeche.
+ */
+@Composable
+private fun SagaBottomBar(repo: SagaRepository, nav: AppNavigator, drawerOpen: Boolean, onPages: () -> Unit, modifier: Modifier = Modifier) {
+    val chatOn by repo.live.chatEnabled.collectAsState()
+    val chatUnread by repo.live.chatUnread.collectAsState()
+    val res = LocalResources.current
+    val accent = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current
+    val selected = NavModel.selectedTab(nav.root, drawerOpen)
+    androidx.compose.material3.NavigationBar(modifier, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+        NavModel.tabs(chatOn).forEach { tab ->
+            val (label, icon) = when (tab) {
+                NavModel.Tab.TODAY -> R.string.nav_today to SagaIcons.today
+                NavModel.Tab.PAGES -> R.string.pages to SagaIcons.file
+                NavModel.Tab.SEARCH -> R.string.r4nav_search to SagaIcons.search
+                NavModel.Tab.CHATS -> R.string.chats to SagaIcons.chats
+            }
+            val badge = if (tab == NavModel.Tab.CHATS) chatUnread else 0
+            val text = stringResource(label)
+            val count = if (badge > 0) res.getQuantityString(R.plurals.r4nav_unread, badge, badge) else null
+            androidx.compose.material3.NavigationBarItem(
+                selected = selected == tab,
+                onClick = {
+                    when (tab) {
+                        NavModel.Tab.TODAY -> nav.top(Dest.Today)
+                        NavModel.Tab.PAGES -> onPages()
+                        NavModel.Tab.SEARCH -> nav.top(Dest.Search)
+                        NavModel.Tab.CHATS -> nav.top(Dest.Chats)
+                    }
+                },
+                // Zaehler als Text angesagt ("3 ungelesen"), nicht als nackte Zahl; Beschriftung liest die Leiste selbst
+                icon = { Box(Modifier.clearAndSetSemantics { if (count != null) contentDescription = count }) { BadgeIcon(badge) { SagaIcon(icon, null) } } },
+                label = { NavLabel(text) },
+                colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                    indicatorColor = accent.goldSoft, selectedIconColor = accent.onGoldSoft, selectedTextColor = accent.onGoldSoft,
+                ),
+            )
         }
     }
 }
@@ -411,6 +527,7 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
                     Dest.Backup -> io.github.yggdrasil_sh.saga.ui.settings.BackupScreen(repo, nav, chrome)
                     Dest.Nextcloud -> io.github.yggdrasil_sh.saga.ui.settings.NextcloudScreen(repo, nav, chrome)
                     is Dest.Graph -> io.github.yggdrasil_sh.saga.ui.graph.GraphScreen(repo, nav, chrome, d.focus)
+                    Dest.Trash -> io.github.yggdrasil_sh.saga.ui.pages.TrashScreen(repo, nav, chrome)
                 }
                 }
             }

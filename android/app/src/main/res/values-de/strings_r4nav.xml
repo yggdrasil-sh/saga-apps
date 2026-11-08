@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 4 (Navigation: untere Leiste, Glocke, Seitenleiste, Kontomenue) -->
+<resources>
+    <string name="r4nav_search">Suchen</string>
+    <string name="r4nav_services_links">Dienste &amp; Links</string>
+    <string name="r4nav_row_actions">Aktionen für %1$s</string>
+    <string name="r4nav_account_menu">Kontomenü öffnen</string>
+    <string name="r4nav_appearance">Darstellung</string>
+    <string name="r4nav_theme_system">Automatisch (System)</string>
+    <string name="r4nav_theme_light">Hell</string>
+    <string name="r4nav_theme_dark">Dunkel</string>
+    <string name="r4nav_admin">Admin-Bereich</string>
+    <string name="r4nav_admin_desc">Admin-Bereich, öffnet im Browser</string>
+    <plurals name="r4nav_unread">
+        <item quantity="one">%d ungelesen</item>
+        <item quantity="other">%d ungelesen</item>
+    </plurals>
+</resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 4 (Navigation: untere Leiste, Glocke, Seitenleiste, Kontomenue) -->
+<resources>
+    <string name="r4nav_search">ค้นหา</string>
+    <string name="r4nav_services_links">บริการและลิงก์</string>
+    <string name="r4nav_row_actions">การทำงานสำหรับ %1$s</string>
+    <string name="r4nav_account_menu">เปิดเมนูบัญชี</string>
+    <string name="r4nav_appearance">รูปลักษณ์</string>
+    <string name="r4nav_theme_system">อัตโนมัติ (ระบบ)</string>
+    <string name="r4nav_theme_light">สว่าง</string>
+    <string name="r4nav_theme_dark">มืด</string>
+    <string name="r4nav_admin">ส่วนผู้ดูแลระบบ</string>
+    <string name="r4nav_admin_desc">ส่วนผู้ดูแลระบบ เปิดในเบราว์เซอร์</string>
+    <plurals name="r4nav_unread">
+        <item quantity="other">ยังไม่อ่าน %d รายการ</item>
+    </plurals>
+</resources>

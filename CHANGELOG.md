@@ -30,6 +30,20 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Leere Zustände einheitlich** mit Symbol, Hinweis und Aktion: Termine („Neuer Termin“), Dienste & Links
   (Erklärung und „Link hinzufügen“), Papierkorb („Nichts im Papierkorb“).
 - **„Dienste & Links“** statt „Dienste“/„Lesezeichen“: Titel, Knopf „Link hinzufügen“, Dialog „Neuer Link“.
+### Geändert – Android: Design-Runde 4 r4-nav „Navigation“
+
+- **Untere Leiste am Phone** wie das Web am Handy: Heute · Seiten · Suchen · Chats (mit Zähler ungelesener
+  Gespräche). „Seiten“ öffnet die Seitenleiste mit dem Baum. Im Editor, in einer Unterhaltung und bei offener
+  Tastatur ist sie ausgeblendet; das Tablet behält die Rail.
+- **Glocke im Kopf** der Hauptziele mit Zähler; sie öffnet die Benachrichtigungen als Blatt von unten, „Alle
+  anzeigen“ führt zum bisherigen Bildschirm. Ohne untere Leiste (Tablet) steht dort auch die Lupe.
+- **Seitenleiste entschlackt:** oben das Suchfeld „Suchen“, als Hauptpunkte nur noch, was nicht unten liegt
+  (Phone: Aufgaben, Termine), dann Favoriten und Seitenbaum mit „+ Neue Seite“ darunter, unten eine feste
+  Fußzeile (Dienste & Links, Graph, Papierkorb, Einstellungen). „Zuletzt“ steht nur noch auf Heute.
+- **Seitenbaum:** jede Zeile hat ein „⋮“-Menü (Favorit, Unterseite, Aus Vorlage, Verschieben); der Langdruck bleibt.
+- **Papierkorb** ist ein eigener Bildschirm mit Zurück statt eines Vollbild-Dialogs.
+- **Kontomenü am Avatar** wie im Web: Name und Server, Sprache ›, Darstellung › (Android 12+), Einstellungen,
+  Admin-Bereich ↗ (nur für Admins), Abmelden mit Rückfrage.
 
 ### Geändert – Android: Design-Runde 3 „Editor“
 

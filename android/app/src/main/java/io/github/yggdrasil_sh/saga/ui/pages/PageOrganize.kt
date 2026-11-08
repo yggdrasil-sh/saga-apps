@@ -2,8 +2,6 @@ package io.github.yggdrasil_sh.saga.ui.pages
 
 import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
-import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
-import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,7 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,12 +19,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -42,8 +38,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.data.MoveLogic
 import io.github.yggdrasil_sh.saga.data.PageMeta
@@ -145,10 +139,13 @@ fun MovePageDialog(repo: SagaRepository, page: PageMeta, onDismiss: () -> Unit, 
     }
 }
 
-/** Papierkorb: ansehen, wiederherstellen, endgueltig loeschen (mit Rueckfrage), leeren */
+/**
+ * Papierkorb: ansehen, wiederherstellen, endgueltig loeschen (mit Rueckfrage), leeren. Design-Runde 4 (NAV-17):
+ * eigenes Ziel Dest.Trash mit SagaTopBar (Zurueck bzw. Seitenleiste) statt Vollbild-Dialog.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TrashDialog(repo: SagaRepository, onDismiss: () -> Unit) {
+fun TrashScreen(repo: SagaRepository, nav: io.github.yggdrasil_sh.saga.ui.nav.AppNavigator, chrome: io.github.yggdrasil_sh.saga.ui.common.Chrome) {
     var st by remember { mutableStateOf(TrashState()) }
     var askPurge by remember { mutableStateOf<TrashItem?>(null) }
     var askEmpty by remember { mutableStateOf(false) }
@@ -181,12 +178,11 @@ fun TrashDialog(repo: SagaRepository, onDismiss: () -> Unit) {
         }
     }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Box(Modifier.fillMaxSize()) {
         Surface(Modifier.fillMaxSize()) {
-            Column(Modifier.statusBarsPadding()) {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.tr_title)) },
-                    navigationIcon = { IconButton(onClick = onDismiss) { SagaIcon(SagaIcons.x, stringResource(R.string.action_close)) } },
+            Column {
+                io.github.yggdrasil_sh.saga.ui.common.SagaTopBar(
+                    stringResource(R.string.tr_title), nav, chrome,
                     actions = {
                         if (st.items?.isNotEmpty() == true) SagaTextButton(onClick = { askEmpty = true }) {
                             Text(stringResource(R.string.tr_empty), color = MaterialTheme.colorScheme.error)
