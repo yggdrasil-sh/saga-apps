@@ -70,6 +70,7 @@ func linkURL(_ href: String) -> URL? {
     // auch Seiten anderer Saga-Instanzen (Foederation: negative IDs, z. B. hkpage://-2049)
     if let id = FedLogic.noteID(href: href) { return URL(string: "hkpage://\(id)") }
     if href.hasPrefix("http://") || href.hasPrefix("https://") || href.hasPrefix("mailto:") { return URL(string: href) }
+    if AppConfig.hasServer, let u = LinkPolicy.fileLink(href, server: AppConfig.server) { return u }   // 2.5: /files/<id>
     return nil
 }
 
@@ -248,6 +249,9 @@ struct RemoteImage: View {
     var spinner = false                                   // waehrend des Ladens Fortschritt zeigen (Titelbild)
     @State private var img: PlatformImage?
     @State private var loadedKey: String?
+    /// 2.5: SVG (Trilium-Import) - Anzeige in SvgImageView; zu gross -> Platzhalter mit "Bild öffnen"
+    @State private var svg: Data?
+    @State private var svgBig = false
     private var key: String { Self.sized(path, w) }
     var body: some View {
         let key = key
@@ -256,7 +260,17 @@ struct RemoteImage: View {
         let cached = loadedKey == key ? nil : ImageStore.cache.object(forKey: key as NSString)
         let shown = cached ?? img
         Group {
-            if let shown {
+            if loadedKey == key, let svg {
+                if fill { SvgImageView(data: svg, cover: true) }
+                else { SvgImageView(data: svg).aspectRatio(CGFloat(SvgLogic.ratio(svg) ?? 4.0 / 3.0), contentMode: .fit) }
+            } else if loadedKey == key, svgBig {
+                ZStack {
+                    Rectangle().fill(.secondary.opacity(0.12))
+                    if let u = URL(string: AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + path) {
+                        Link(destination: u) { Label("Bild öffnen", systemImage: "photo") }.buttonStyle(.bordered)
+                    }
+                }.frame(minHeight: 120)
+            } else if let shown {
                 let ratio = shown.size.height > 0 ? shown.size.width / shown.size.height : 1
                 if fill {
                     CoverFill(image: shown, ratio: ratio, vAlign: vAlign)
@@ -287,10 +301,15 @@ struct RemoteImage: View {
             if Task.isCancelled { return }
             guard let d = await store.imageData(key) else { continue }
             let decoded = await Task.detached(priority: .userInitiated) { ImageStore.decode(d) }.value      // im Hintergrund entpacken
+            if decoded == nil, SvgLogic.isSvg(d) {                                  // 2.5: SVG - eigene, skriptlose Anzeige
+                if d.count <= SvgLogic.maxBytes { svg = d; svgBig = false } else { svg = nil; svgBig = true }
+                img = nil; loadedKey = key
+                return
+            }
             // kein Bild (z. B. Fehlerseite eines Proxys gespeichert): verwerfen und frisch holen - sonst bliebe es fuer immer leer
             guard let decoded else { store.forgetImage(key); continue }
             ImageStore.cache.setObject(decoded, forKey: key as NSString, cost: d.count * 4)
-            img = decoded; loadedKey = key
+            img = decoded; svg = nil; svgBig = false; loadedKey = key
             return
         }
     }

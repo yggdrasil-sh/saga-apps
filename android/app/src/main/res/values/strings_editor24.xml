@@ -109,4 +109,5 @@
         <item quantity="one">The page and its %1$d subpage will be deleted permanently. This cannot be undone.</item>
         <item quantity="other">The page and its %1$d subpages will be deleted permanently. This cannot be undone.</item>
     </plurals>
+    <string name="svg_open_image">Open image</string>
 </resources>

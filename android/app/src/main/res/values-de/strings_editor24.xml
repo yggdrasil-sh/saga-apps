@@ -109,4 +109,5 @@
         <item quantity="one">Die Seite und %1$d Unterseite werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.</item>
         <item quantity="other">Die Seite und %1$d Unterseiten werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.</item>
     </plurals>
+    <string name="svg_open_image">Bild öffnen</string>
 </resources>

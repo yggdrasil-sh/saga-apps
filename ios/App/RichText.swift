@@ -124,7 +124,7 @@ func richToHTML(_ a: AttributedString, ctx: Font.Context, baseBold: Bool) -> Str
             case "hkna": f.link = .href("/notes#" + (u.host ?? "")); text = ShareLogic.unmasked(text)   // Schloss ist nur Darstellung
             case "hkpage": f.link = .href("/notes#" + (u.host ?? ""))
             case "hkmention": f.link = InlineStyle.mentionRef(u).map { .mention($0) }
-            default: f.link = .href(u.absoluteString)
+            default: f.link = .href((AppConfig.hasServer ? LinkPolicy.fileHref(u, server: AppConfig.server) : nil) ?? u.absoluteString)   // 2.5: /files/<id> bleibt relativ
             }
         } else {
             if run.underlineStyle != nil { f.underline = true }       // (Links: Unterstrich ist nur Darstellung)

@@ -9,6 +9,17 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – iOS, Android: SVG-Bilder und Dateilinks in Seiten
+
+- **SVG in Bildblöcken** (Trilium-Import speichert bereinigte SVGs als Bild): bisher blieb der Kasten leer (iOS) bzw.
+  ohne Bild (Android), weil UIImage/Coil kein SVG können. Jetzt zeigt eine nicht-interaktive WebView das SVG – ohne
+  neue Bibliothek, ohne JavaScript, ohne Netz- und Dateizugriff, nur als `data:`-`<img>` mit CSP `default-src 'none'`
+  (SVG im `<img>` führt kein Skript aus und lädt nichts nach), Seitenverhältnis aus width/height bzw. viewBox. Über
+  3 MB: Platzhalter „Bild öffnen“. iOS gilt das auch für Titelbilder.
+- **Seitenlinks auf Dateien** (`/files/<24 hex>` im Text): iOS zeigte sie als einfachen Text; jetzt öffnen sie die Datei
+  wie ein Anhang über die Server-Adresse (Vorschau/Download), beim Speichern bleibt der Link relativ. Android öffnete
+  sie schon so.
+
 ### Behoben – iOS, Android: Knoten-Anruf kam nach Verbindungsverlust nicht wieder
 
 - **Wiederaufbau nach Knotenverlust** (Gruppenanruf über einen einzigen Gjallarhorn-Knoten, Abbruch nach längerer

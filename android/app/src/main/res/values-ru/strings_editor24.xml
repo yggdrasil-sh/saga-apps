@@ -115,4 +115,5 @@
         <item quantity="many">Страница и %1$d подстраниц будут удалены навсегда. Это нельзя отменить.</item>
         <item quantity="other">Страница и %1$d подстраницы будут удалены навсегда. Это нельзя отменить.</item>
     </plurals>
+    <string name="svg_open_image">Открыть изображение</string>
 </resources>

@@ -112,4 +112,5 @@
         <item quantity="many">La página y %1$d subpáginas se eliminarán definitivamente. No se puede deshacer.</item>
         <item quantity="other">La página y %1$d subpáginas se eliminarán definitivamente. No se puede deshacer.</item>
     </plurals>
+    <string name="svg_open_image">Abrir imagen</string>
 </resources>

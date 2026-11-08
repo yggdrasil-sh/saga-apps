@@ -3,6 +3,7 @@ package io.github.yggdrasil_sh.saga.ui.page
 import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.aspectRatio
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.ui.layout.boundsInWindow
@@ -526,17 +527,34 @@ fun ImageBlockEdit(block: JsonObject, path: JsonPath, key: String, env: BlockEnv
     Column(Modifier.fillMaxWidth()) {
         if (url.isNotEmpty()) MediaBox(d) {
             val sized = if ((url.startsWith("/files/") || url.startsWith("/api/fed/files/")) && !url.contains("?")) "$url?w=2000" else url
+            // 2.5: SVG (Trilium-Import) kann Coil nicht entpacken - dann einmal selbst laden und skriptlos anzeigen
+            var failed by remember(sized) { mutableStateOf(false) }
+            var svg by remember(sized) { mutableStateOf<SvgFetch?>(null) }
+            LaunchedEffect(sized, failed) { if (failed && svg == null) svg = fetchSvg(env.repo, sized) }
+            val desc = InlineHtml.plain(BlockDoc.str(d, "caption")).ifEmpty { stringResource(R.string.ed24_image) }
+            val imgMod = Modifier.fillMaxWidth(if (bg && !wide) 0.6f else 1f).heightIn(min = 60.dp, max = 900.dp).clip(RoundedCornerShape(SagaRadius.s))
+                .then(if (border) Modifier.border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(SagaRadius.s)) else Modifier)
             Box(
                 Modifier.fillMaxWidth().then(if (bg) Modifier.clip(RoundedCornerShape(SagaRadius.s)).background(MaterialTheme.colorScheme.surfaceContainer).padding(12.dp) else Modifier),
                 contentAlignment = Alignment.Center,
             ) {
-                AsyncImage(
-                    // N-07: ohne Bildunterschrift wenigstens "Bild" (TalkBack las sonst nichts)
-                    model = env.repo.absoluteUrl(sized), contentDescription = InlineHtml.plain(BlockDoc.str(d, "caption")).ifEmpty { stringResource(R.string.ed24_image) },
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxWidth(if (bg && !wide) 0.6f else 1f).heightIn(min = 60.dp, max = 900.dp).clip(RoundedCornerShape(SagaRadius.s))
-                        .then(if (border) Modifier.border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(SagaRadius.s)) else Modifier),
-                )
+                when (val sv = svg) {
+                    is SvgFetch.Svg -> SvgImage(
+                        sv.data,
+                        imgMod.aspectRatio(remember(sv) { io.github.yggdrasil_sh.saga.util.SvgLogic.ratio(sv.data) } ?: (4f / 3f))
+                            .semantics { contentDescription = desc; role = Role.Image },
+                    )
+                    SvgFetch.TooBig -> Box(imgMod.heightIn(min = 120.dp).background(MaterialTheme.colorScheme.surfaceContainer), contentAlignment = Alignment.Center) {
+                        SagaTextButton(onClick = { env.onLink(url) }) { Text(stringResource(R.string.svg_open_image)) }
+                    }
+                    else -> AsyncImage(
+                        // N-07: ohne Bildunterschrift wenigstens "Bild" (TalkBack las sonst nichts)
+                        model = env.repo.absoluteUrl(sized), contentDescription = desc,
+                        contentScale = ContentScale.Fit,
+                        onError = { failed = true },
+                        modifier = imgMod,
+                    )
+                }
             }
         }
         val cap = BlockDoc.str(d, "caption")

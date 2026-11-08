@@ -106,4 +106,5 @@
     <plurals name="tr_purge_text_sub">
         <item quantity="other">หน้านี้และหน้าย่อย %1$d หน้าจะถูกลบถาวร ไม่สามารถเลิกทำได้</item>
     </plurals>
+    <string name="svg_open_image">เปิดรูปภาพ</string>
 </resources>

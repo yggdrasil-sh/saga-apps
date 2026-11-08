@@ -17,6 +17,23 @@ enum LinkPolicy {
         }
     }
     static func external(_ s: String) -> Bool { URL(string: s).map(external) ?? false }
+
+    /// 2.5: Seitenlink auf eine Datei (/files/<24 hex>, Trilium-Import) -> Adresse am eigenen Server (Oeffnen wie ein
+    /// Anhang: Vorschau/Download im Browser). Nur genau diese Form; alles andere nil.
+    static func fileLink(_ href: String, server: URL) -> URL? {
+        guard href.range(of: #"^/files/[0-9a-fA-F]{24}$"#, options: .regularExpression) != nil else { return nil }
+        let base = server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let u = URL(string: base + href.lowercased()), external(u) else { return nil }
+        return u
+    }
+    /// Rueckweg beim Speichern: Adresse am eigenen Server mit /files/<24 hex> -> wieder "/files/<id>" (Inhalt bleibt gleich)
+    static func fileHref(_ url: URL, server: URL) -> String? {
+        let base = server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let s = url.absoluteString
+        guard s.hasPrefix(base + "/files/") else { return nil }
+        let rest = String(s.dropFirst(base.count))
+        return rest.range(of: #"^/files/[0-9a-f]{24}$"#, options: .regularExpression) != nil ? rest : nil
+    }
 }
 
 /// ICE-Server aus der Serverantwort pruefen (pt2 A4), Regel wie Android `IceFilter`: nur stun/stuns/turn/turns in
