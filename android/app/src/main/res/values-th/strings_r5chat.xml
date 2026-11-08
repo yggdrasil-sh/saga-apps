@@ -40,4 +40,5 @@
     <string name="r5_att_immich">Immich</string>
     <string name="r5_att_paste">วางรูปภาพ</string>
     <string name="r5_caption_hint">เพิ่มคำบรรยาย</string>
+    <string name="r5_notif_allow">อนุญาตการแจ้งเตือน</string>
 </resources>

@@ -35,6 +35,12 @@ object NotifPrompt {
     /** Erklaerung zeigen? Nur ab Android 13, ohne Berechtigung und nur einmal (spaeter: Einstellungen > Mitteilungen) */
     fun shouldAsk(sdk: Int, granted: Boolean, askedBefore: Boolean): Boolean = sdk >= 33 && !granted && !askedBefore
 
+    /**
+     * CH-24: erst fragen, wenn es um etwas geht - beim ersten Oeffnen eines Chats mit Nachrichten bzw. nach dem ersten
+     * Senden (dann hat der Chat eine Nachricht), nicht schon beim Oeffnen der Chat-Liste
+     */
+    fun moment(opened: Boolean, hasMessages: Boolean): Boolean = opened && hasMessages
+
     /** N-02: nie waehrend eines Anrufs (Klingeln, Verbinden, laufend) - die Abfrage verdeckt sonst den Anruf */
     fun showNow(wanted: Boolean, inCall: Boolean): Boolean = wanted && !inCall
 
@@ -48,9 +54,9 @@ object NotifPrompt {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY_ASKED, true) }
 }
 
-/** Einmalige Erklaerung "Mitteilungen erlauben?" mit anschliessender Systemabfrage */
+/** Einmalige Erklaerung "Mitteilungen erlauben?" mit anschliessender Systemabfrage; ready = passender Moment (CH-24) */
 @Composable
-fun NotificationPermissionPrompt() {
+fun NotificationPermissionPrompt(ready: Boolean = true) {
     val context = LocalContext.current
     var show by remember {
         mutableStateOf(NotifPrompt.shouldAsk(Build.VERSION.SDK_INT, NotifPrompt.granted(context), NotifPrompt.askedBefore(context)))
@@ -61,7 +67,7 @@ fun NotificationPermissionPrompt() {
         if (ok) app.repo.launchAction { app.repo.push.autoEnable() }
     }
     val call by app.repo.calls.ui.collectAsState()
-    if (!NotifPrompt.showNow(show, inCall = call != null)) return
+    if (!ready || !NotifPrompt.showNow(show, inCall = call != null)) return
     val close = { later: Boolean ->
         show = false
         NotifPrompt.markAsked(context)
@@ -72,7 +78,7 @@ fun NotificationPermissionPrompt() {
         icon = { SagaIcon(SagaIcons.bell, null) },
         title = { Text(stringResource(R.string.notif_prompt_title)) },
         text = { Text(stringResource(R.string.notif_prompt_text)) },
-        confirmButton = { SagaTextButton(onClick = { close(false) }) { Text(stringResource(R.string.notif_prompt_allow)) } },
+        confirmButton = { SagaTextButton(onClick = { close(false) }) { Text(stringResource(R.string.r5_notif_allow)) } },
         dismissButton = { SagaTextButton(onClick = { close(true) }) { Text(stringResource(R.string.notif_prompt_later)) } },
     )
 }

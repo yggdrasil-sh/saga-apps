@@ -19,6 +19,7 @@ import io.github.yggdrasil_sh.saga.chat.NewChatLogic.Mode
 import io.github.yggdrasil_sh.saga.chat.PeopleGroup
 import io.github.yggdrasil_sh.saga.chat.PendingFile
 import io.github.yggdrasil_sh.saga.chat.PendingLogic
+import io.github.yggdrasil_sh.saga.ui.common.NotifPrompt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -225,4 +226,17 @@ class DesignR5ChatTest {
         }
         assertEquals(emptyList<String>(), hits)
     }
+
+    // ---------------------------------------------------------------- CH-24 Mitteilungs-Frage, CH-26 Wischen, R1 Link
+
+    @Test
+    fun notifPromptMoment() {
+        assertFalse(NotifPrompt.moment(opened = false, hasMessages = true))
+        assertFalse(NotifPrompt.moment(opened = true, hasMessages = false))     // leerer Chat: erst nach dem ersten Senden
+        assertTrue(NotifPrompt.moment(opened = true, hasMessages = true))
+        val src = listOf(java.io.File("src/main/java"), java.io.File("app/src/main/java")).first { it.isDirectory }.resolve("io/github/yggdrasil_sh/saga/ui/chat")
+        assertFalse(src.resolve("ChatsScreen.kt").readText().contains("NotificationPermissionPrompt("))   // nicht mehr beim Oeffnen der Liste
+        assertTrue(src.resolve("Conversation.kt").readText().contains("NotificationPermissionPrompt("))
+    }
+
 }

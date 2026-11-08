@@ -288,6 +288,10 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     }
 
     LaunchedEffect(s) { s.open() }
+    // CH-24: einmal erklaeren und nach Mitteilungen fragen - erst in einem Chat mit Nachrichten (bzw. nach dem ersten Senden)
+    io.github.yggdrasil_sh.saga.ui.common.NotificationPermissionPrompt(
+        ready = io.github.yggdrasil_sh.saga.ui.common.NotifPrompt.moment(s.opened, s.messages.isNotEmpty()),
+    )
     // CH-07: letzte Nachricht (schon entschluesselt) als Vorschau fuer die Chat-Liste merken
     val pageWord = stringResource(R.string.r5_pv_page)
     LaunchedEffect(s) {
