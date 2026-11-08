@@ -29,6 +29,7 @@ struct SelectPreviewView: View {
         guard conv == nil else { return }
         if let d = try? JSONSerialization.data(withJSONObject: ["uid": "max", "identity": ["ident_pub": "x"]]), let m = ChatMe(data: d) { chat.me = m }
         let c = ConversationModel(chatID: 1, model: chat)
+        if SelectPreview.mode == "blank" { blankSetUp(c); return }
         let summary: [String: Any] = [
             "id": 1, "kind": "free", "name": "Sommerfest", "member_count": 3, "role": "admin",
             "members": [["username": "max", "name": "Max", "me": true], ["username": "bea", "name": "Bea"], ["username": "tom", "name": "Tom"]],
@@ -57,6 +58,35 @@ struct SelectPreviewView: View {
         for i in list.indices { list[i].seq = i + 1 }
         c.messages = list
         conv = c
+    }
+
+    /// 2.5 (leerchat): Direkt-Chat wie im Fehlerbild - leer geoeffnet, dann wie load() auf einmal ~73 Eintraege (67 Anrufe,
+    /// dazwischen Bilder mit w/h); -hkBlankReload n: n-mal im Abstand von 4 s erneut ersetzen (wie ein Live-Neuladen); -hkBlankCount n: Anzahl
+    private func blankSetUp(_ c: ConversationModel) {
+        c.info = ChatSummary(["id": 1, "kind": "dm", "name": "", "member_count": 2, "role": "member",
+                              "members": [["username": "max", "name": "Max", "me": true], ["username": "bea", "name": "Bea"]]])
+        conv = c
+        let now = Date().timeIntervalSince1970
+        var list: [ChatMessage] = []
+        let total = UserDefaults.standard.integer(forKey: "hkBlankCount") > 0 ? UserDefaults.standard.integer(forKey: "hkBlankCount") : 73
+        for i in 0..<total {
+            let ago = Double(total - i) * 1800
+            var m = ChatMessage(seq: i + 1, id: "b\(i)", sender: i % 3 == 0 ? "max" : "bea", senderName: i % 3 == 0 ? "Max" : "Bea",
+                                ts: (now - ago) * 1000, created: now - ago, expiresAt: nil, replyTo: nil, content: nil, verified: true, mine: i % 3 == 0)
+            if i % 12 == 5 || i % 12 == 11 {                                 // 6 Bild-/Textnachrichten, Rest Anruf-Eintraege
+                let img = ChatFileRef(id: "img\(i)", key: "k", name: "", mime: "image/jpeg", size: 120_000, w: i % 2 == 0 ? 3024 : 1080, h: i % 2 == 0 ? 4032 : 1920)
+                m.content = ChatContent(text: i % 24 == 5 ? "Schau mal" : "", files: [img, img, img].enumerated().map { var f = $1; f.id += "-\($0)"; return f })
+            } else {
+                m.call = CallLogic.Entry(json: Data(#"{"type":"call","call":"x","media":"audio","status":"missed","dur":0,"from":"bea","to":"max"}"#.utf8))
+            }
+            list.append(m)
+        }
+        let reloads = UserDefaults.standard.integer(forKey: "hkBlankReload")
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(600))
+            c.previewReplace(list)
+            for _ in 0..<reloads { try? await Task.sleep(for: .seconds(4)); c.previewReplace(list) }
+        }
     }
 }
 #endif

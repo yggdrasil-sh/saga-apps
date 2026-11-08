@@ -106,6 +106,13 @@ final class ConversationModel: ObservableObject {
 
     // MARK: Laden
 
+    #if DEBUG
+    /// nur fuer Bilder/Tests (ChatSelectPreview "blank"): Verlauf ersetzen wie load()
+    func previewReplace(_ list: [ChatMessage]) { messages = []; messages = list; loadGen += 1 }
+    #endif
+    /// 2.5 (leerchat): zaehlt erfolgreiche load() - messages wird dabei ersetzt, oft ohne neue letzte ID (kein onChange)
+    @Published private(set) var loadGen = 0
+
     func load() async {
         guard let store else { return }
         loading = true; defer { loading = false }
@@ -127,6 +134,7 @@ final class ConversationModel: ObservableObject {
             }
             let m = try await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&limit=50&calls=1\(tombQuery)")
             messages = []; ingest(m, prepend: false)
+            loadGen += 1                                                // Verlauf ersetzt: Ansicht verankert neu am Ende
             error = nil
             await markRead()
             if s?.isFed != true { await loadRecipients() }

@@ -51,6 +51,9 @@ struct ConversationView: View {
     @State private var unfImage: CGImage?
     @State private var draftLoaded = false
     @State private var camera = false                     // 2.5: Kamera direkt im Chat (iOS)
+    @State private var blank = ChatBlankWatch()           // 2.5 (leerchat): Waechter gegen leere Nachrichtenflaeche
+    @State private var listGen = 0                        // Neuaufbau der ScrollView (Heilung, Stufe 2)
+    @State private var boxH: CGFloat = 0                  // sichtbare Hoehe des Verlaufs (kurze Chats unten ausrichten)
     @FocusState private var focused: Bool
 
     init(chatID: Int, chat: ChatModel) {
@@ -190,6 +193,7 @@ struct ConversationView: View {
         .onDisappear {
             if chat.open === conv { chat.open = nil }; chat.presenceSoon()             // 2.4: Online-Abo dieses Chats endet
             if rec.active { rec.cancel() }                                            // 2.5: Aufnahme endet mit dem Chat
+            blank.task?.cancel(); blank.task = nil; blank.guard_.disarm()             // leerchat: Zeilen weg, kein Fehlbefund "chat_blank"
         }
         .onChange(of: conv.purged) { _, _ in text = ""; files = []; replyTo = nil; askDelete = nil; editing = nil; rec.cancel(); sel.end() }   // Chat geloescht: Entwurf weg
         .modifier(ChatSelectFlows(sel: sel, conv: conv, chat: chat, openPage: { id in nav.push(PageRoute(id: id)) }))   // 2.5: Auswahl-Aktionen
@@ -347,6 +351,7 @@ struct ConversationView: View {
                     if conv.more { Button("Ältere Nachrichten laden") { Task { await conv.loadOlder() } }.font(.footnote).padding(.vertical, 6) }
                     Label("Nachrichten in diesem Chat sind Ende-zu-Ende-verschlüsselt.", systemImage: "lock.fill")
                         .font(.caption).foregroundStyle(.secondary).padding(.vertical, 8).frame(maxWidth: .infinity)
+                        .onAppear { blank.mark("e2e", true) }.onDisappear { blank.mark("e2e", false) }
                     if conv.info?.kind != "dm" { Text("Wer neu dazukommt, sieht nur Nachrichten ab dem Beitritt.").font(.caption2).foregroundStyle(.tertiary) }
                     if let i = conv.info, ChatDeleteLogic.showCleared(clearedSeq: i.clearedSeq, moreOlder: conv.more) {   // 2.1: statt "nicht lesbar"
                         Label("Der bisherige Verlauf wurde gelöscht.", systemImage: "trash").font(.caption).foregroundStyle(.secondary).padding(.vertical, 4)
@@ -383,22 +388,40 @@ struct ConversationView: View {
                             .onAppear { conv.saw(m) }                                   // 2.4: Bestaetigung erst, wenn sichtbar
                         }
                         }
+                        .onAppear { blank.mark(m.id, true) }.onDisappear { blank.mark(m.id, false) }   // 2.5 (leerchat): aufgebaut?
                     }
                     if let p = conv.aiPending {                                    // KI antwortet gerade (Strom)
                         AIPendingBubble(persona: store.aiPersona, name: conv.aiName, text: p).id("aipending")
                     }
                     if let e = conv.error { Text("Nachrichten nicht geladen: \(e)").font(.footnote).foregroundStyle(.orange) }
                     Color.clear.frame(height: 4).id("end")
+                        .onAppear { blank.mark("end", true) }.onDisappear { blank.mark("end", false) }
                 }
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .frame(maxWidth: 820).frame(maxWidth: .infinity)
+                .frame(minHeight: boxH > 0 ? boxH : nil, alignment: .bottom)       // kurze Chats unten (statt Anker)
             }
-            .defaultScrollAnchor(.bottom)
+            .id(listGen)                                                        // Heilung Stufe 2: wie eine Groessenaenderung (Suche oeffnen)
+            // 2.5 (leerchat): sichtbarer Bereich ganz ausserhalb des Inhalts? (nur Wechsel, kein Zustand -> kein Neuzeichnen)
+            .onScrollGeometryChange(for: Bool.self) { g in
+                ChatBlankLogic.outside(offsetY: g.contentOffset.y, contentH: g.contentSize.height, containerH: g.containerSize.height)
+            } action: { _, v in blank.outside = v }
+            .onScrollGeometryChange(for: CGFloat.self) { g in g.containerSize.height.rounded() } action: { _, h in
+                boxH = max(0, h)
+            }
+            // 2.5 (leerchat): KEIN anfaenglicher Anker .defaultScrollAnchor(.bottom) mehr - im Simulator nachgestellt: waechst
+            // der Inhalt beim ersten Laden von "nur Kopf" auf ~73 Zeilen (Anrufe + hohe Bilder), stand der Offset danach
+            // ausserhalb des aufgebauten Bereichs der LazyVStack (leer, auch nach Wischen); ohne diesen Anker sofort richtig.
+            // Ans Ende kommt der Verlauf ueber scrollTo("end") beim ersten Fuellen bzw. nach load() (loadGen). Kurze Chats
+            // stehen ueber die Mindesthoehe der Liste unten (ein Anker nur fuer .alignment zeigte im Versuch Fehlbefunde).
+            .defaultScrollAnchor(BlankExp.flag("hkBlankOldAnchor") ? .bottom : nil)   // nur Tests: altes Verhalten (Waechter pruefen)
             // Anhang-/Antwort-Leiste, Tastatur, "tippt ...": Verlauf bleibt unten verankert statt unter der Leiste zu verschwinden
             .defaultScrollAnchor(.bottom, for: .sizeChanges)
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: conv.messages.last?.id) { _, _ in
-                withAnimation { proxy.scrollTo("end", anchor: .bottom) }
+            .onChange(of: conv.messages.last?.id) { old, _ in
+                // erste Fuellung: ohne Animation (ersetzt den frueheren anfaenglichen Anker; kein animierter Weg ueber ~50
+                // noch nicht aufgebaute Zeilen mit geschaetzten Hoehen)
+                if old == nil { proxy.scrollTo("end", anchor: .bottom) } else { withAnimation { proxy.scrollTo("end", anchor: .bottom) } }
                 if conv.aiPending != nil || conv.messages.last?.aiState == .ok {   // KI-Antwort ersetzt die laufende Blase: nach dem Umbau nachziehen
                     Task { try? await Task.sleep(for: .milliseconds(350)); proxy.scrollTo("end", anchor: .bottom) }
                 }
@@ -412,6 +435,10 @@ struct ConversationView: View {
                 Task { try? await Task.sleep(for: .milliseconds(80)); withAnimation { proxy.scrollTo("end", anchor: .bottom) } }
             }
             .onChange(of: perfScroll) { _, id in if let id { proxy.scrollTo(id, anchor: .center) } }
+            .modifier(ChatBlankHooks(loadGen: conv.loadGen, count: conv.messages.count, phase: scenePhase,
+                                     reanchor: { proxy.scrollTo("end", anchor: .bottom) },
+                                     settle: { if blank.built.isEmpty || blank.outside { proxy.scrollTo("end", anchor: .bottom) } },
+                                     active: { blank.active = $0 }, watch: { watchBlank($0, proxy) }))
             .onChange(of: jumpTo) { _, id in                                    // 2.5: Pins-Leiste
                 guard let id else { return }
                 if conv.messages.contains(where: { $0.id == id }) { withAnimation { proxy.scrollTo(id, anchor: .center) } }
@@ -422,6 +449,43 @@ struct ConversationView: View {
         }
     }
     private var shown: [ChatMessage] { conv.messages }
+
+    /// 2.5 (leerchat): ~1 s nach Laden/Rueckkehr/Aenderung pruefen; Nachrichten da, aber keine Zeile aufgebaut bzw.
+    /// sichtbarer Bereich ausserhalb des Inhalts -> ans Ende springen, sonst ScrollView neu aufbauen; Ergebnis melden
+    private func watchBlank(_ t: ChatBlankLogic.Trigger, _ proxy: ScrollViewProxy) {
+        let healing = blank.guard_.armed && blank.guard_.step > 0
+        blank.guard_.arm(t)
+        if healing { return }
+        blank.task?.cancel()
+        let w = blank, c = conv
+        blank.task = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(ChatBlankLogic.checkAfterMs))
+                if Task.isCancelled { return }
+                let ids = Set(c.messages.map(\.id)).union(["e2e", "end"])
+                let vis = w.built.intersection(ids).count
+                let act = w.guard_.check(count: c.messages.count, visible: vis, outside: w.outside, active: w.active)
+                #if DEBUG
+                if UserDefaults.standard.bool(forKey: "hkChatBlankLog") { print("chat_blank_check n=\(c.messages.count) built=\(vis) \(w.built.sorted().prefix(6)) outside=\(w.outside) box=\(boxH) -> \(act)") }
+                if UserDefaults.standard.bool(forKey: "hkChatBlankDry"), act == .scroll || act == .rebuild { continue }   // nur Tests: Fehlerbild stehen lassen
+                #endif
+                switch act {
+                case .none: w.task = nil; return
+                case .scroll: proxy.scrollTo("end", anchor: .bottom)
+                case .rebuild:                                                  // neu aufbauen, dann ans Ende
+                    w.built = []; w.outside = false; listGen += 1
+                    try? await Task.sleep(for: .milliseconds(60)); proxy.scrollTo("end", anchor: .bottom)
+                case .report(let healed, let step):
+                    ClientLog.shared.report("warn", ChatBlankLogic.message(count: c.messages.count, calls: c.messages.filter { $0.call != nil }.count,
+                                                                           healed: healed, step: step, trigger: w.guard_.trigger, why: w.guard_.why))
+                    #if DEBUG
+                    if UserDefaults.standard.bool(forKey: "hkChatBlankLog") { print("chat_blank healed=\(healed) step=\(step)") }
+                    #endif
+                    w.task = nil; return
+                }
+            }
+        }
+    }
 
     // MARK: Mehrfachauswahl (2.5)
 
@@ -1846,4 +1910,56 @@ struct ZoomableImage: View {
         .onChange(of: ChatGalleryLogic.canPage(scale: Double(scale))) { _, free in onZoom?(!free) }
     }
     private func reset() { scale = 1; base = 1; offset = .zero; lastOffset = .zero }
+}
+
+/// 2.5 (leerchat): load() ersetzt den Verlauf (oft dieselbe letzte ID -> kein onChange der letzten ID): neu am Ende
+/// verankern, nach dem Nachladen von Bildgroessen/Reaktionen/Haken (300 ms) bei Bedarf noch einmal; danach (wie nach
+/// Rueckkehr in die App bzw. geaenderter Nachrichtenmenge) pruefen, ob etwas zu sehen ist. Rueckkehr springt nicht
+/// (Leseposition bleibt), nur der Waechter prueft.
+private struct ChatBlankHooks: ViewModifier {
+    let loadGen: Int, count: Int
+    let phase: ScenePhase
+    let reanchor: () -> Void, settle: () -> Void
+    let active: (Bool) -> Void
+    let watch: (ChatBlankLogic.Trigger) -> Void
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: loadGen) { _, _ in
+                reanchor()
+                Task { try? await Task.sleep(for: .milliseconds(300)); settle() }
+                watch(.load)
+            }
+            .onChange(of: count) { _, _ in watch(.change) }
+            .task {                                                         // nur Bilder: vorbelegter Verlauf ohne load()
+                #if DEBUG
+                if let m = SelectPreview.mode, m != "blank" { try? await Task.sleep(for: .milliseconds(150)); reanchor() }
+                #endif
+            }
+            .onChange(of: phase) { _, p in
+                active(p == .active)
+                if p == .active { watch(.resume) }
+            }
+    }
+}
+
+/// 2.5 (leerchat): Zustand des Waechters - bewusst kein ObservableObject (Zeilen melden sich beim Blaettern staendig;
+/// das darf die Unterhaltung nicht neu zeichnen)
+@MainActor final class ChatBlankWatch {
+    var built: Set<String> = []                    // aufgebaute Zeilen (onAppear/onDisappear) inkl. "e2e"/"end"
+    var outside = false                            // sichtbarer Bereich ausserhalb des Inhalts
+    var active = true                              // App vorne
+    var guard_ = ChatBlankLogic.Guard()
+    var task: Task<Void, Never>?
+    func mark(_ id: String, _ on: Bool) { if on { built.insert(id) } else { built.remove(id) } }
+}
+
+/// nur fuer Tests (leerchat): Schalter per Startargument; im Release immer aus
+enum BlankExp {
+    static func flag(_ k: String) -> Bool {
+        #if DEBUG
+        return UserDefaults.standard.bool(forKey: k)
+        #else
+        return false
+        #endif
+    }
 }

@@ -9,6 +9,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – iOS: leerer Chat-Verlauf
+
+- **Nachrichtenfläche blieb leer** (lange Direkt-Chats mit vielen Anruf-Einträgen und Bildern, beim Öffnen bzw. nach der
+  Rückkehr in die App; erst „Suchen“ zeigte die Nachrichten): Der anfängliche Scroll-Anker am unteren Rand ließ den
+  Verlauf nach dem ersten Laden außerhalb der aufgebauten Zeilen stehen. Der Anker ist weg; der Verlauf springt beim
+  ersten Füllen und nach jedem Neuladen gezielt ans Ende, kurze Chats stehen weiter unten. Zusätzlich prüft ein Wächter
+  ~1 s nach Laden, Rückkehr oder Änderung, ob etwas zu sehen ist – sonst ans Ende springen, notfalls die Liste neu
+  aufbauen – und meldet das (Fehlerberichte `warn` „chat_blank“, nur Größenklasse und Ergebnis, keine Inhalte oder
+  Kennungen).
+
 ### Geändert – Android: Design-Runde 6 (Tablet) – Nachtrag
 
 - **Ansichts-Pillen einer Datenbank:** passen sie nicht in die Zeile (Tabelle neben dem Zeilen-Blatt, Phone), fallen
