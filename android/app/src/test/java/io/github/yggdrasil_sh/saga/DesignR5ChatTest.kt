@@ -256,4 +256,10 @@ class DesignR5ChatTest {
         assertEquals(1f, SwipeReply.progress(200f, thr), 0f)
     }
 
+    @Test
+    fun linkLongPressOpensMenu() {
+        val src = listOf(java.io.File("src/main/java"), java.io.File("app/src/main/java")).first { it.isDirectory }.resolve("io/github/yggdrasil_sh/saga/ui/chat")
+        val c = src.resolve("Conversation.kt").readText()
+        assertTrue(c.contains("Text(messageText(") && c.contains("Modifier.longPressOverLinks"))
+    }
 }

@@ -1849,7 +1849,15 @@ internal fun Bubble(
                     } else {
                         // 4.11.: langer Druck auf Bild/Video/Datei -> dasselbe Menue wie auf der Blase (Reaktionen)
                         c.files.forEach { f -> Attachment(f, s, onOpenFile, onLongPress = { if (!selecting) { onSelect?.invoke(); menu = true } }) }
-                        if (c.text.isNotEmpty()) Text(messageText(c.text, s.notes, onOpenNote, s), inlineContent = pageIconInline, style = MaterialTheme.typography.bodyLarge.copy(lineBreak = LineBreak.Simple))  // schnelles Scrollen langer Verlaeufe (Pruefer R1)
+                        if (c.text.isNotEmpty()) Text(messageText(c.text, s.notes, onOpenNote, s), inlineContent = pageIconInline,
+                            // R1-Rest: Langdruck auf einen Link -> Menue (kurzer Tipp oeffnet den Link)
+                            modifier = Modifier.longPressOverLinks {
+                                if (!selecting) {
+                                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                                    openMenu()
+                                }
+                            },
+                            style = MaterialTheme.typography.bodyLarge.copy(lineBreak = LineBreak.Simple))  // schnelles Scrollen langer Verlaeufe (Pruefer R1)
                         // 2.5 (unfurl1): Linkvorschau aus der Nachricht (nichts nachladen ausser dem verschluesselten Bild)
                         c.preview?.takeIf { ChatStd.showPreview(it) }?.let { pv -> PreviewCard(pv, s) }
                         c.notes.filter { id -> !c.text.contains("[[note:$id]]") }.forEach { id ->

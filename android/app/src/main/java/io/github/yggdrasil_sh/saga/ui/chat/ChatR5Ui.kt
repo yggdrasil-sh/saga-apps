@@ -16,6 +16,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.TopAppBar
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -343,4 +346,37 @@ private fun pendingThumb(data: ByteArray, target: Int): androidx.compose.ui.grap
     android.graphics.BitmapFactory.decodeByteArray(data, 0, data.size, opt)?.asImageBitmap()
 } catch (_: Throwable) {
     null
+}
+
+/**
+ * R1-Rest: Langdruck auf einen Link in einer Blase oeffnet das Nachrichtenmenue statt des Links (kurzer Tipp oeffnet den
+ * Link weiter). Der Link (LinkAnnotation) nimmt den Druck fuer sich - darum hier im Initial-Durchgang: nach der
+ * Langdruck-Zeit, wenn ein Link den Druck genommen hat (die Blase selbst bekommt ihn dann nicht), Menue oeffnen und das
+ * Loslassen verbrauchen, damit der Link nicht mehr ausloest. Ohne Link meldet sich die Blase selbst (kein Doppel).
+ */
+fun Modifier.longPressOverLinks(onLongPress: () -> Unit): Modifier = this.pointerInput(onLongPress) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+        val slop = viewConfiguration.touchSlop
+        val ended: Boolean? = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {   // AwaitPointerEventScope
+            var done = false
+            while (!done) {
+                val e = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                val ch = e.changes.firstOrNull { it.id == down.id }
+                done = ch == null || !ch.pressed || (ch.position - down.position).getDistance() > slop
+            }
+            true
+        }
+        if (ended == null) {
+            // Langdruck: hat ein Link den Druck genommen, meldet sich die Blase nicht selbst -> hier das Menue
+            if (down.isConsumed) onLongPress()
+            // bis zum Loslassen alles verbrauchen - der Link loest dann nicht mehr aus
+            var up = false
+            while (!up) {
+                val e = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                e.changes.forEach { it.consume() }
+                up = e.changes.none { it.pressed }
+            }
+        }
+    }
 }
