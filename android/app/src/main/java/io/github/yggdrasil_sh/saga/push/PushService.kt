@@ -158,6 +158,11 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
     val state = MutableStateFlow(PushState.OFF)
     val error = MutableStateFlow<UiText?>(null)
 
+    init {
+        // Design-Runde 4 (CH-04): Glocken-Zeilen anderswo gelesen -> passende System-Mitteilungen entfernen
+        repo.live.onRowsRead = { keys, all -> Notifier.cancelRead(context, keys, all) }
+    }
+
     private fun key() = "push_local:" + repo.settings.server.value + "|" + repo.settings.accountKey.value
 
     fun local(): PushLocal? = try {
@@ -492,8 +497,24 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
         // 4.11.: Nachricht aus dem Chat, der gerade offen ist (App vorne) - kein Banner/Ton, sie steht ja schon da
         val fg = androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
         if (io.github.yggdrasil_sh.saga.live.NotifLogic.hideWhileOpen(msg.kind, msg.url, if (fg) repo.chat.visibleChat else null)) return null
-        Notifier.show(context, msg)
+        Notifier.show(context, msg, look(msg))
+        // Design-Runde 4: Glocken-Zaehler auch ohne Live-Kanal (App im Hintergrund) nachziehen
+        if (msg.kind != "test") scope.launch { repo.live.loadNotificationCount() }
         return null
+    }
+
+    /**
+     * Design-Runde 4 (CH-04): Chat-Name/Gegenueber aus dem lokalen Stand - nur wenn "Namen zeigen" an ist (der Server
+     * laesst sie sonst bewusst weg) und der Chat geladen ist; nie Nachrichteninhalte.
+     */
+    private fun look(m: PushMessage): ChatLook? {
+        if (!m.kind.startsWith("chat.") || info.value?.settings?.names != true) return null
+        val id = NotifyRoute.chatId(m.url) ?: return null
+        val c = repo.chat.chats.value.firstOrNull { it.id == id } ?: return null
+        val title = try { repo.chat.displayName(c) } catch (_: Exception) { return null }
+        if (title.isBlank()) return null
+        val dm = c.kind == "dm"
+        return ChatLook(title, !dm, if (dm) title else null)
     }
 
     // ---------------------------------------------------------------- Einstellungen, Geraete, Test
@@ -572,41 +593,163 @@ object Notifier {
 
     fun verify(context: Context, url: String, sig: String?): Boolean = NotifySig.check(key(context), url, sig)
 
-    fun channel(context: Context) {
-        val nm = context.getSystemService(NotificationManager::class.java) ?: return
-        if (nm.getNotificationChannel(CHANNEL) == null) {
-            nm.createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.push_title), NotificationManager.IMPORTANCE_DEFAULT))
-        }
-    }
+    /** Bisheriger Einstieg (andere Aufrufer): legt alle Kanaele an (Design-Runde 4: getrennt, siehe NotifyChannels) */
+    fun channel(context: Context) = NotifyChannels.ensure(context)
 
-    fun show(context: Context, m: PushMessage) {
+    /** Gespraechseinheit (group_key) einer gezeigten Mitteilung - fuer "anderswo gelesen" */
+    const val EXTRA_GROUP = "saga_group"
+    private const val ID = 1
+    private const val ID_SUMMARY = 0
+    private const val MAX_LINES = 6
+
+    /**
+     * Design-Runde 4 (CH-04): Chat-Mitteilungen als MessagingStyle (Person mit Initialen; Name/Titel des Chats nur aus dem
+     * lokalen Stand und nur, wenn "Namen zeigen" an ist - look), mehrere Nachrichten eines Chats in einer Mitteilung
+     * (aus der aktiven Mitteilung uebernommen). Inhalt ist immer der Satz des Servers (E2E: kein Klartext). Je Kanal eine
+     * System-Gruppe mit Sammel-Mitteilung; Aktion "Als gelesen markieren" (NotifyReadReceiver, ohne App-Start).
+     * Keine "Antworten"-Aktion (Entscheidung offen).
+     */
+    fun show(context: Context, m: PushMessage, look: ChatLook? = null) {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return
-        channel(context)
+        NotifyChannels.ensure(context)
+        val channel = NotifyChannels.forKind(m.kind)
+        val group = NotifyChannels.group(channel)
         val tag = m.tag.ifEmpty { "saga" }
+        val key = NotifyRoute.groupKey(m.kind, tag, m.url)
         val open = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
             .putExtra(EXTRA_URL, m.url).putExtra(EXTRA_SIG, sign(context, m.url))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         val pi = PendingIntent.getActivity(context, tag.hashCode(), open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val n = NotificationCompat.Builder(context, CHANNEL)
+        val whenMs = if (m.ts > 0) m.ts * 1000 else System.currentTimeMillis()
+        val chat = channel == NotifyChannels.CHATS
+        val b = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(NotifyDesign.ACCENT)
-            .setContentTitle(m.title.ifEmpty { context.getString(R.string.app_name) })
-            .setContentText(m.body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(m.body))
             .setAutoCancel(true)
             .setContentIntent(pi)
-            .setGroup(if (m.kind.startsWith("chat")) "saga-chat" else "saga")
-            .setCategory(if (m.kind.startsWith("chat")) NotificationCompat.CATEGORY_MESSAGE else NotificationCompat.CATEGORY_SOCIAL)
-            .apply { if (m.ts > 0) setWhen(m.ts * 1000).setShowWhen(true) }
+            .setGroup(group)
+            .setCategory(
+                when (channel) {
+                    NotifyChannels.CHATS -> NotificationCompat.CATEGORY_MESSAGE
+                    NotifyChannels.CALLS -> NotificationCompat.CATEGORY_MISSED_CALL
+                    NotifyChannels.TASKS -> NotificationCompat.CATEGORY_REMINDER
+                    else -> NotificationCompat.CATEGORY_SOCIAL
+                },
+            )
+            .setWhen(whenMs).setShowWhen(true)
+            .addExtras(android.os.Bundle().apply { if (key != null) putString(EXTRA_GROUP, key) })
+        if (chat) {
+            b.setStyle(messaging(context, tag, m, look, whenMs))
+            b.setContentTitle(look?.title ?: m.title.ifEmpty { context.getString(R.string.app_name) }).setContentText(m.body)
+        } else {
+            b.setContentTitle(m.title.ifEmpty { context.getString(R.string.app_name) })
+                .setContentText(m.body)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(m.body))
+        }
+        if (NotifyRoute.canMarkRead(m.kind, m.url)) {
+            val read = Intent(context, NotifyReadReceiver::class.java).setAction(NotifyReadReceiver.ACTION)
+                .putExtra(NotifyReadReceiver.EXTRA_TAG, tag).putExtra(NotifyReadReceiver.EXTRA_URL, m.url)
+                .apply { if (key != null) putExtra(NotifyReadReceiver.EXTRA_GROUP, key) }
+            val rpi = PendingIntent.getBroadcast(context, ("read-" + tag).hashCode(), read, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            b.addAction(
+                NotificationCompat.Action.Builder(R.drawable.si_check, context.getString(R.string.r4n_mark_read), rpi)
+                    .setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ)
+                    .setShowsUserInterface(false)
+                    .build(),
+            )
+        }
+        try {
+            NotificationManagerCompat.from(context).notify(tag, ID, b.build())
+        } catch (_: SecurityException) {
+        }
+        summary(context, group, channel)
+    }
+
+    /** Bisherige Nachrichten dieser Unterhaltung (aktive Mitteilung) plus die neue; hoechstens MAX_LINES */
+    private fun messaging(context: Context, tag: String, m: PushMessage, look: ChatLook?, whenMs: Long): NotificationCompat.MessagingStyle {
+        val me = androidx.core.app.Person.Builder().setName(context.getString(R.string.r4n_you)).setKey("me").build()
+        val senderName = look?.sender ?: look?.title ?: context.getString(R.string.r4n_ch_chats)
+        val sender = androidx.core.app.Person.Builder().setName(senderName).setKey(tag)
+            .apply { if (look != null) setIcon(androidx.core.graphics.drawable.IconCompat.createWithBitmap(NotifyDesign.initials(senderName))) }
+            .build()
+        val prev = try {
+            context.getSystemService(NotificationManager::class.java)?.activeNotifications
+                ?.firstOrNull { it.tag == tag && it.id == ID }
+                ?.let { NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it.notification) }
+        } catch (_: Exception) {
+            null
+        }
+        val style = NotificationCompat.MessagingStyle(me)
+        if (look?.group == true) style.setConversationTitle(look.title)
+        style.setGroupConversation(false)       // Absender ist unbekannt (E2E) - der Satz des Servers nennt ihn ggf.
+        prev?.messages?.takeLast(MAX_LINES - 1)?.forEach { style.addMessage(it) }
+        style.addMessage(NotificationCompat.MessagingStyle.Message(m.body, whenMs, sender))
+        return style
+    }
+
+    /** Sammel-Mitteilung je System-Gruppe (Zahl der Mitteilungen); ohne Mitglieder weg */
+    private fun summary(context: Context, group: String, channel: String) {
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        val n = try {
+            nm.activeNotifications.count { it.id == ID && it.notification.group == group }
+        } catch (_: Exception) {
+            return
+        }
+        val stag = "summary-$group"
+        if (n == 0) {
+            nm.cancel(stag, ID_SUMMARY)
+            return
+        }
+        val open = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_MAIN)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val pi = PendingIntent.getActivity(context, stag.hashCode(), open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val text = context.resources.getQuantityString(R.plurals.r4n_summary, n, n)
+        val s = NotificationCompat.Builder(context, channel)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(NotifyDesign.ACCENT)
+            .setContentTitle(context.getString(R.string.app_name))
+            .setContentText(text)
+            .setStyle(NotificationCompat.InboxStyle().setSummaryText(text))
+            .setGroup(group)
+            .setGroupSummary(true)
+            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
+            .setAutoCancel(true)
+            .setContentIntent(pi)
             .build()
         try {
-            NotificationManagerCompat.from(context).notify(tag, 1, n)
+            NotificationManagerCompat.from(context).notify(stag, ID_SUMMARY, s)
         } catch (_: SecurityException) {
         }
     }
+
+    /** Eine Mitteilung entfernen (Aktion "Als gelesen markieren") und die Sammel-Mitteilungen nachziehen */
+    fun cancel(context: Context, tag: String) {
+        NotificationManagerCompat.from(context).cancel(tag, ID)
+        refreshSummaries(context)
+    }
+
+    /** Glocken-Zeilen anderswo gelesen (Web, anderes Geraet, Chat geoeffnet): passende System-Mitteilungen entfernen */
+    fun cancelRead(context: Context, keys: Set<String>, all: Boolean) {
+        if (keys.isEmpty() && !all) return
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        try {
+            nm.activeNotifications.filter { it.id == ID && it.notification.channelId in NotifyChannels.ALL }
+                .filter { all || it.notification.extras?.getString(EXTRA_GROUP) in keys }
+                .forEach { nm.cancel(it.tag, ID) }
+        } catch (_: Exception) {
+        }
+        refreshSummaries(context)
+    }
+
+    private fun refreshSummaries(context: Context) {
+        for (ch in NotifyChannels.ALL) summary(context, NotifyChannels.group(ch), ch)
+    }
 }
+
+/** Lokaler Stand zu einem Chat fuer die Mitteilung (nur mit "Namen zeigen"): Anzeigename, Gruppe, Gegenueber */
+data class ChatLook(val title: String, val group: Boolean, val sender: String?)
 
 /** Antworten des Verteilers (UnifiedPush-Connector) */
 class PushReceiver : BroadcastReceiver() {

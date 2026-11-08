@@ -177,6 +177,11 @@
             android:name=".call.CallActionReceiver"
             android:exported="false" />
 
+        <!-- Design-Runde 4 (CH-04): "Als gelesen markieren" an System-Mitteilungen (ohne App-Start) -->
+        <receiver
+            android:name=".push.NotifyReadReceiver"
+            android:exported="false" />
+
         <!-- 2.5: Sprachnachrichten im Hintergrund weiter abspielen -->
         <service
             android:name=".chat.voice.VoicePlaybackService"

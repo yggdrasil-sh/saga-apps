@@ -44,6 +44,17 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Papierkorb** ist ein eigener Bildschirm mit Zurück statt eines Vollbild-Dialogs.
 - **Kontomenü am Avatar** wie im Web: Name und Server, Sprache ›, Darstellung ›, Einstellungen,
   Admin-Bereich ↗ (nur für Admins), Abmelden mit Rückfrage.
+### Geändert – Android: Design-Runde 4 r4-notify „Mitteilungen“
+
+- **Glocke als Blatt von unten, gebündelt wie im Web:** eine Zeile je Gespräch, verpassten Anrufen eines Chats oder
+  Kommentaren einer Seite („4 neue Nachrichten (von Bruno, Clara)“), Abschnitte „Neu“ und „Früher“, Anzahl und Zeit.
+  Antippen öffnet das Ziel und markiert die ganze Zeile gelesen; „Alle gelesen“ erscheint nur, wenn es Ungelesenes
+  gibt; „Alle anzeigen“ führt zum (ebenfalls gebündelten) Bildschirm. Der Zähler zählt Zeilen statt einzelner
+  Mitteilungen. Mit älteren Servern (ohne Bündelung) bleibt die Liste einzeln.
+- **System-Mitteilungen getrennt einstellbar:** eigene Kanäle „Chats“, „Erwähnungen & Kommentare“ (bisheriger Kanal,
+  Einstellungen bleiben), „Aufgaben & Termine“ und „Verpasste Anrufe“; neue Kanäle übernehmen die bisherigen
+  Einstellungen. Chats als Unterhaltung (mehrere Nachrichten eines Chats in einer Mitteilung), je Bereich eine
+  Sammel-Mitteilung, Aktion „Als gelesen markieren“ ohne App-Start. Was anderswo gelesen wird, verschwindet auch hier.
 
 ### Geändert – Android: Design-Runde 3 „Editor“
 
