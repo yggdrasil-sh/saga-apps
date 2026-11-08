@@ -80,6 +80,33 @@ object NotifyReply {
         return if (code == 408 || code == 429 || code in 500..599) Fail.RETRY else Fail.GIVE_UP
     }
 
+    /**
+     * Nachbesserung (Doppelversand): Kann der gescheiterte Versuch beim Server trotzdem angekommen sein? Netzfehler nach
+     * dem Verbindungsaufbau (Abbruch, Zeitueberschreitung waehrend/nach dem POST), HTTP 408 und 5xx -> unklar.
+     * Klar nicht angekommen: Verbindung gar nicht erst aufgebaut (beforeRequest: kein Netz, Name/Ziel unerreichbar),
+     * 429 und alle anderen Antworten des Servers.
+     */
+    fun unclear(code: Int?, network: Boolean, beforeRequest: Boolean): Boolean = when {
+        network -> !beforeRequest
+        code == null -> false
+        else -> code == 408 || code in 500..599
+    }
+
+    /** Nachricht im Chat (fuer die Pruefung vor einer Wiederholung): eigene?, entschluesselter Text, Zeit des Absenders (ms) */
+    data class Seen(val mine: Boolean, val text: String?, val ts: Long)
+
+    /** Spielraum fuer die Zeit der eigenen Nachricht gegen den Beginn des ersten Versuchs (gleiche Uhr, nur Rundung) */
+    const val SINCE_SLACK_MS = 2_000L
+
+    /**
+     * Vor einer Wiederholung nach einem unklaren Fehler: steht seit dem ersten Versuch ([since], ms) schon eine eigene
+     * Nachricht mit genau diesem Text im Chat, ist die Antwort angekommen -> nicht noch einmal senden.
+     */
+    fun alreadySent(seen: List<Seen>, text: String, since: Long): Boolean {
+        val t = text.trim()
+        return seen.any { it.mine && it.text?.trim() == t && it.ts >= since - SINCE_SLACK_MS }
+    }
+
     /** Text in den Entwurf des Chats legen: leer -> der Text, sonst an den bisherigen Entwurf angehaengt */
     fun park(draft: String?, text: String): String {
         val d = draft?.takeIf { it.isNotBlank() } ?: return text.take(MAX_LEN)
@@ -110,6 +137,10 @@ object NotifyReply {
         val ts: Long = 0,
         /** Text liegt schon als Entwurf im Chat */
         val parked: Boolean = false,
+        /** Beginn des ersten Sendeversuchs (ms) */
+        val since: Long = 0,
+        /** ein frueherer Versuch ist unklar gescheitert (vielleicht doch angekommen) - vor jedem weiteren pruefen */
+        val unclear: Boolean = false,
     )
 
     private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }

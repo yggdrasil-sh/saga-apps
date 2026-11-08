@@ -106,4 +106,43 @@ class R5NotifyReplyTest {
         // naechste fremde Nachricht nach der Antwort: neue Zeile, eigene bleibt
         assertEquals(listOf(2, NotifyReply.OWN_LINE, 1), NotifyUpdate.nextCounts(listOf(2, NotifyReply.OWN_LINE), false, 1, 6))
     }
+
+    @Test
+    fun unclearFailuresAreCheckedBeforeRetrying() {
+        // vielleicht angekommen: Abbruch/Zeitueberschreitung nach Verbindungsaufbau, 408, 5xx
+        assertTrue(NotifyReply.unclear(null, true, false))
+        assertTrue(NotifyReply.unclear(408, false, false))
+        assertTrue(NotifyReply.unclear(502, false, false))
+        // klar nicht angekommen: keine Verbindung, 429, andere Antworten, lokale Fehler
+        assertFalse(NotifyReply.unclear(null, true, true))
+        assertFalse(NotifyReply.unclear(429, false, false))
+        assertFalse(NotifyReply.unclear(403, false, false))
+        assertFalse(NotifyReply.unclear(null, false, false))
+    }
+
+    @Test
+    fun detectsOwnMessageWithSameTextSinceFirstAttempt() {
+        val since = 1_000_000L
+        val mine = NotifyReply.Seen(true, "Bin gleich da", since + 300)
+        assertTrue(NotifyReply.alreadySent(listOf(mine), "Bin gleich da", since))
+        assertTrue(NotifyReply.alreadySent(listOf(mine.copy(text = " Bin gleich da\n")), "Bin gleich da", since))
+        // Uhr gerundet: knapp vor dem Beginn zaehlt noch
+        assertTrue(NotifyReply.alreadySent(listOf(mine.copy(ts = since - 1_000)), "Bin gleich da", since))
+        // fremde Nachricht, anderer Text, aeltere eigene Nachricht, nicht entschluesselbar, leer
+        assertFalse(NotifyReply.alreadySent(listOf(mine.copy(mine = false)), "Bin gleich da", since))
+        assertFalse(NotifyReply.alreadySent(listOf(mine.copy(text = "Bin gleich da!")), "Bin gleich da", since))
+        assertFalse(NotifyReply.alreadySent(listOf(mine.copy(ts = since - 60_000)), "Bin gleich da", since))
+        assertFalse(NotifyReply.alreadySent(listOf(mine.copy(text = null)), "Bin gleich da", since))
+        assertFalse(NotifyReply.alreadySent(emptyList(), "Bin gleich da", since))
+    }
+
+    @Test
+    fun jobKeepsFirstAttemptAndUnclearFlag() {
+        val j = NotifyReply.Job("id1", "a1", 7, "Hallo", "chat-7", "/chats#c7", since = 42, unclear = true)
+        assertEquals(j, NotifyReply.decode(NotifyReply.encode(j)))
+        // Auftrag aus dem Stand davor (ohne die Felder)
+        val old = NotifyReply.decode("""{"id":"x","account":"a","chat":1,"text":"t","tag":"g","url":"/chats#c1"}""")!!
+        assertEquals(0L, old.since)
+        assertFalse(old.unclear)
+    }
 }

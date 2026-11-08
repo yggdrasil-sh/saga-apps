@@ -118,20 +118,30 @@ class NotifyReplyWorker(context: Context, params: WorkerParameters) : CoroutineW
             }
             NotifyReply.Step.SEND -> Unit
         }
+        if (job.since == 0L) {
+            job = job.copy(since = System.currentTimeMillis())
+            repo.secure.put(key, NotifyReply.encode(job))
+        }
         try {
             send(repo, job)
         } catch (e: CancellationException) {
             throw e                                                     // vom System gestoppt: WorkManager startet neu
         } catch (e: Exception) {
-            val fail = NotifyReply.classify((e as? ApiException)?.code, e is IOException, runAttemptCount)
+            val code = (e as? ApiException)?.code
+            val fail = NotifyReply.classify(code, e is IOException, runAttemptCount)
+            val unclear = job.unclear || NotifyReply.unclear(code, e is IOException, beforeRequest(e))
             val first = !job.parked
             if (first) {
                 try {
                     store.saveDraft(job.chat, NotifyReply.park(store.draft(job.chat), job.text))
                     job = job.copy(parked = true)
-                    repo.secure.put(key, NotifyReply.encode(job))
                 } catch (_: Exception) {
                 }
+            }
+            job = job.copy(unclear = unclear)
+            try {
+                repo.secure.put(key, NotifyReply.encode(job))
+            } catch (_: Exception) {
             }
             if (fail == NotifyReply.Fail.RETRY) {
                 if (first) Notifier.replied(ctx, job.tag, job.url, null, Notifier.ReplyState.RETRY)
@@ -169,12 +179,22 @@ class NotifyReplyWorker(context: Context, params: WorkerParameters) : CoroutineW
             ChatSetup.LOADING, ChatSetup.ERROR -> throw IOException("chat/me")              // Netz: spaeter erneut
             else -> throw UiTextException(UiText.Res(R.string.chat_not_set_up))
         }
-        withContext(Dispatchers.Main) {
+        withContext<Unit>(Dispatchers.Main) {
             val s = ChatSession(job.chat, svc)
             s.loadSummary()
+            // Nachbesserung (Doppelversand): frueherer Versuch unklar gescheitert -> erst nachsehen, ob er angekommen ist
+            if (job.unclear) {
+                s.loadNewer()
+                val seen = s.messages.map { NotifyReply.Seen(it.mine, it.content?.text, it.ts) }
+                if (NotifyReply.alreadySent(seen, job.text, job.since)) return@withContext
+            }
             s.send(job.text)
         }
     }
+
+    /** Verbindung gar nicht erst aufgebaut - die Anfrage kann den Server nicht erreicht haben */
+    private fun beforeRequest(e: Throwable): Boolean =
+        e is java.net.UnknownHostException || e is java.net.ConnectException || e is java.net.NoRouteToHostException
 
     companion object {
         const val KEY_JOB = "job"
