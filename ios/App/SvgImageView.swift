@@ -21,9 +21,9 @@ struct SvgImageView {
             SvgLogic.allowNavigation(action.request.url) ? .allow : .cancel
         }
     }
-    func makeCoordinator() -> Guard { Guard() }
+    @MainActor func makeCoordinator() -> Guard { Guard() }
 
-    func make(_ g: Guard) -> Web {
+    @MainActor func make(_ g: Guard) -> Web {
         let cfg = WKWebViewConfiguration()
         cfg.websiteDataStore = .nonPersistent()
         cfg.defaultWebpagePreferences.allowsContentJavaScript = false

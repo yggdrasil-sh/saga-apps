@@ -34,7 +34,7 @@ suspend fun fetchSvg(repo: SagaRepository, path: String): SvgFetch = withContext
         val req = Request.Builder().url(repo.absoluteUrl(path)).build()
         repo.api.imageCallFactory.newCall(req).execute().use { r ->
             if (!r.isSuccessful) return@withContext SvgFetch.None
-            val src = r.body?.source() ?: return@withContext SvgFetch.None
+            val src = r.body.source()
             if (src.request(SvgLogic.MAX_BYTES + 1L)) {                       // zu gross zum Einbetten
                 val head = src.buffer.peek().readByteArray(4096L)
                 return@withContext if (SvgLogic.isSvg(head)) SvgFetch.TooBig else SvgFetch.None
