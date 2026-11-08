@@ -903,12 +903,9 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         // 2.4: laufende Video-Uploads (Fortschritt, Abbrechen) und gewaehlte Videos
         VideoUploadsBar(repo, chatId) { scope.launch { quietly { s.catchUp() } } }
         PendingVideoChips(videos)
+        // CH-12: Bilder als Vorschaureihe, Dateien und Seiten als Chip
         if (files.isNotEmpty() || noteIds.isNotEmpty()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                files.forEach { f ->
-                    InputChip(selected = false, onClick = { files.remove(f) }, label = { Text(f.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        trailingIcon = { SagaIcon(SagaIcons.x, stringResource(R.string.action_delete), Modifier.size(16.dp)) })
-                }
+            PendingAttachments(files, onRemove = { files.remove(it) }) {
                 noteIds.forEach { n ->
                     InputChip(selected = false, onClick = { noteIds.remove(n) }, label = { Text(n.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         leadingIcon = { SagaIcon(SagaIcons.file, null, Modifier.size(16.dp)) },
@@ -1002,7 +999,13 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 )
             } else androidx.compose.material3.TextField(
                 state = input,
-                placeholder = { Text(stringResource(if (s.editing != null) R.string.x3_edit_hint else R.string.chat_message_hint)) },
+                placeholder = {
+                    Text(stringResource(when {
+                        s.editing != null -> R.string.x3_edit_hint
+                        io.github.yggdrasil_sh.saga.chat.PendingLogic.caption(files, videos.size) -> R.string.r5_caption_hint
+                        else -> R.string.chat_message_hint
+                    }))
+                },
                 lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6), shape = RoundedCornerShape(SagaRadius.xl),
                 // Design 2: gefuelltes Eingabefeld als Pille, ohne Unterstrich und Rahmen
                 colors = androidx.compose.material3.TextFieldDefaults.colors(

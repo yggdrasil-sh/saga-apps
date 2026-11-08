@@ -17,6 +17,8 @@ import io.github.yggdrasil_sh.saga.chat.NewChatLogic
 import io.github.yggdrasil_sh.saga.chat.NewChatLogic.Empty
 import io.github.yggdrasil_sh.saga.chat.NewChatLogic.Mode
 import io.github.yggdrasil_sh.saga.chat.PeopleGroup
+import io.github.yggdrasil_sh.saga.chat.PendingFile
+import io.github.yggdrasil_sh.saga.chat.PendingLogic
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -192,4 +194,18 @@ class DesignR5ChatTest {
         assertEquals(listOf(AttachLogic.Tile.GALLERY, AttachLogic.Tile.FILE, AttachLogic.Tile.PAGE, AttachLogic.Tile.PASTE), AttachLogic.tiles(false, false, true))
     }
 
+    @Test
+    fun pendingRow() {
+        val img = PendingFile("a.jpg", "image/jpeg", ByteArray(1))
+        val svg = PendingFile("b.svg", "image/svg+xml", ByteArray(1))
+        val pdf = PendingFile("c.pdf", "application/pdf", ByteArray(1))
+        assertEquals(listOf(img), PendingLogic.images(listOf(img, svg, pdf)))
+        assertEquals(listOf(svg, pdf), PendingLogic.others(listOf(img, svg, pdf)))
+        assertTrue(PendingLogic.caption(listOf(img), 0))
+        assertTrue(PendingLogic.caption(emptyList(), 1))
+        assertFalse(PendingLogic.caption(listOf(pdf), 0))
+        assertEquals(1, PendingLogic.sample(100, 100, 192))
+        assertEquals(8, PendingLogic.sample(4000, 3000, 192))
+        assertEquals(1, PendingLogic.sample(0, 0, 192))
+    }
 }

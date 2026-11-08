@@ -240,3 +240,20 @@ object AttachLogic {
     }
 }
 
+/** CH-12: gewaehlte Anhaenge ueber dem Eingabefeld - Bilder als Vorschaureihe, Dateien als Chip */
+object PendingLogic {
+    fun thumb(mime: String): Boolean = mime.startsWith("image/") && mime != "image/svg+xml"
+
+    fun images(files: List<PendingFile>): List<PendingFile> = files.filter { thumb(it.mime) }
+    fun others(files: List<PendingFile>): List<PendingFile> = files.filter { !thumb(it.mime) }
+
+    /** Platzhalter "Bildunterschrift hinzufügen", sobald ein Bild oder Video gewaehlt ist (sonst der uebliche) */
+    fun caption(files: List<PendingFile>, videos: Int): Boolean = videos > 0 || files.any { thumb(it.mime) }
+
+    /** inSampleSize fuer eine Vorschau von etwa target px (Zweierpotenz, mindestens 1) */
+    fun sample(w: Int, h: Int, target: Int): Int {
+        var n = 1
+        while (w / (n * 2) >= target && h / (n * 2) >= target) n *= 2
+        return n
+    }
+}

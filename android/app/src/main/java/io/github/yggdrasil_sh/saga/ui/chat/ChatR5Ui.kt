@@ -273,3 +273,74 @@ private fun attachTile(t: io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile): Pa
     io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.PASTE -> SagaIcons.clipboard to stringResource(R.string.r5_att_paste)
 }
 
+/**
+ * CH-12: Bilder als 64-dp-Vorschaureihe ueber dem Eingabefeld (✕ mit 48-dp-Trefferflaeche), Dateien und Seiten als Chip
+ */
+@Composable
+fun PendingAttachments(
+    files: List<io.github.yggdrasil_sh.saga.chat.PendingFile>,
+    onRemove: (io.github.yggdrasil_sh.saga.chat.PendingFile) -> Unit,
+    extraChips: @Composable () -> Unit = {},
+) {
+    val imgs = io.github.yggdrasil_sh.saga.chat.PendingLogic.images(files)
+    val other = io.github.yggdrasil_sh.saga.chat.PendingLogic.others(files)
+    val rm = stringResource(R.string.action_delete)
+    if (imgs.isNotEmpty()) androidx.compose.foundation.layout.Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp),
+    ) {
+        imgs.forEach { f ->
+            Box(Modifier.size(76.dp)) {
+                val bmp by androidx.compose.runtime.produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, f) {
+                    value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { pendingThumb(f.data, 192) }
+                }
+                val shape = androidx.compose.foundation.shape.RoundedCornerShape(io.github.yggdrasil_sh.saga.ui.theme.SagaRadius.md)
+                Box(
+                    Modifier.align(Alignment.BottomStart).size(64.dp).clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .semantics { contentDescription = f.name },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val b = bmp
+                    if (b != null) androidx.compose.foundation.Image(b, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+                    else SagaIcon(SagaIcons.image, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                // ✕ in der Ecke oben rechts: sichtbar 22 dp, Trefferflaeche 48 dp (die Reihe schneidet nichts ab)
+                Box(
+                    Modifier.align(Alignment.TopEnd).size(48.dp)
+                        .clickable(role = Role.Button, onClickLabel = rm) { onRemove(f) }
+                        .semantics { contentDescription = "$rm: ${f.name}" },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier.size(22.dp).clip(androidx.compose.foundation.shape.CircleShape).background(MaterialTheme.colorScheme.inverseSurface),
+                        contentAlignment = Alignment.Center,
+                    ) { SagaIcon(SagaIcons.x, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.inverseOnSurface) }
+                }
+            }
+        }
+    }
+    androidx.compose.foundation.layout.Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp),
+    ) {
+        other.forEach { f ->
+            androidx.compose.material3.InputChip(
+                selected = false, onClick = { onRemove(f) },
+                label = { Text(f.name, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                leadingIcon = { SagaIcon(SagaIcons.paperclip, null, Modifier.size(16.dp)) },
+                trailingIcon = { SagaIcon(SagaIcons.x, "$rm: ${f.name}", Modifier.size(16.dp)) },
+            )
+        }
+        extraChips()
+    }
+}
+
+/** Vorschau aus den Bytes (verkleinert dekodiert; null = kein lesbares Bild) */
+private fun pendingThumb(data: ByteArray, target: Int): androidx.compose.ui.graphics.ImageBitmap? = try {
+    val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    android.graphics.BitmapFactory.decodeByteArray(data, 0, data.size, o)
+    val opt = android.graphics.BitmapFactory.Options().apply { inSampleSize = io.github.yggdrasil_sh.saga.chat.PendingLogic.sample(o.outWidth, o.outHeight, target) }
+    android.graphics.BitmapFactory.decodeByteArray(data, 0, data.size, opt)?.asImageBitmap()
+} catch (_: Throwable) {
+    null
+}
