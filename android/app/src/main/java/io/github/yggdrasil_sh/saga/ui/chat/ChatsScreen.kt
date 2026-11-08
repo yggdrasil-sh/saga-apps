@@ -107,7 +107,13 @@ fun ChatsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, chatId:
     }
     // Drehen wechselt zwischen ein- und zweispaltig: Unterhaltung samt Entwurf mitnehmen statt neu aufbauen (BUG-021)
     val conversation = remember { movableContentOf { id: Long, two: Boolean -> Conversation(repo, nav, id, twoPane = two) } }
-    // CH-24: nach Mitteilungen fragt die Unterhaltung (erstes Oeffnen eines Chats mit Nachrichten bzw. nach dem ersten Senden)
+    // CH-24: nach Mitteilungen fragt die Unterhaltung (erstes Oeffnen eines Chats mit Nachrichten bzw. nach dem ersten Senden);
+    // Pruefer R5: ausserdem hier, sobald die Liste geladen und nicht leer ist (nie ueber dem leeren Zustand)
+    val pChats by svc.chats.collectAsState()
+    val pLoaded by svc.chatsLoaded.collectAsState()
+    io.github.yggdrasil_sh.saga.ui.common.NotificationPermissionPrompt(
+        ready = io.github.yggdrasil_sh.saga.ui.common.NotifPrompt.listMoment(pLoaded, pChats.size),
+    )
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val twoPane = maxWidth >= 720.dp
         val open: (Long) -> Unit = { id -> if (chatId == null) nav.push(Dest.Chat(id)) else { nav.pop(); nav.push(Dest.Chat(id)) } }

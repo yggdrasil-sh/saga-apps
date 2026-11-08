@@ -504,9 +504,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         val p = s.summary?.peer ?: return
         repo.calls.start(chatId, io.github.yggdrasil_sh.saga.call.CallPeer(p.username, p.name, p.avatar, p.handle.takeIf { s.isFed }, p.host), video)
     }
-    val callPerms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
+    val callPerms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
         val v = callVideo ?: return@rememberLauncherForActivityResult
         callVideo = null
+        // erlaubt -> Mitteilungen auf diesem Geraet einschalten (wie nach der Erklaerung)
+        if (res[android.Manifest.permission.POST_NOTIFICATIONS] == true) repo.launchAction { repo.push.autoEnable() }
         if (io.github.yggdrasil_sh.saga.call.CallPermissions.missing(context, false).contains(android.Manifest.permission.RECORD_AUDIO)) {
             repo.notify(UiText.Res(R.string.call_mic_denied))
         } else {
@@ -520,7 +522,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             io.github.yggdrasil_sh.saga.call.CallActivity.open(context)
             return@start
         }
-        val need = io.github.yggdrasil_sh.saga.call.CallPermissions.missing(context, video)
+        // Pruefer R5: Mitteilungen beim ersten eigenen Anruf mit erfragen (nur einmal, wie die Erklaerung; haelt nicht auf)
+        val notifPrompt = io.github.yggdrasil_sh.saga.ui.common.NotifPrompt
+        val askNotif = notifPrompt.forCall(android.os.Build.VERSION.SDK_INT, notifPrompt.granted(context), notifPrompt.askedBefore(context))
+        val need = io.github.yggdrasil_sh.saga.call.CallPermissions.missing(context, video, notifications = askNotif)
+        if (android.Manifest.permission.POST_NOTIFICATIONS in need) notifPrompt.markAsked(context)
         if (need.isEmpty()) callNow(video) else {
             callVideo = video
             callPerms.launch(need.toTypedArray())

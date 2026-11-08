@@ -236,7 +236,8 @@ class DesignR5ChatTest {
         assertFalse(NotifPrompt.moment(opened = true, hasMessages = false))     // leerer Chat: erst nach dem ersten Senden
         assertTrue(NotifPrompt.moment(opened = true, hasMessages = true))
         val src = listOf(java.io.File("src/main/java"), java.io.File("app/src/main/java")).first { it.isDirectory }.resolve("io/github/yggdrasil_sh/saga/ui/chat")
-        assertFalse(src.resolve("ChatsScreen.kt").readText().contains("NotificationPermissionPrompt("))   // nicht mehr beim Oeffnen der Liste
+        // Pruefer R5: in der Liste nur, wenn sie nicht leer ist (nicht schon beim Oeffnen ueber dem leeren Zustand)
+        assertTrue(src.resolve("ChatsScreen.kt").readText().contains("ready = io.github.yggdrasil_sh.saga.ui.common.NotifPrompt.listMoment("))
         assertTrue(src.resolve("Conversation.kt").readText().contains("NotificationPermissionPrompt("))
     }
 

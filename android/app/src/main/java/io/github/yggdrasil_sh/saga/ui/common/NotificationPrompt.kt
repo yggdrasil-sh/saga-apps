@@ -41,6 +41,15 @@ object NotifPrompt {
      */
     fun moment(opened: Boolean, hasMessages: Boolean): Boolean = opened && hasMessages
 
+    /** Pruefer R5: auch in der Chat-Liste, sobald sie geladen und nicht leer ist (nicht ueber dem leeren Zustand) */
+    fun listMoment(loaded: Boolean, chats: Int): Boolean = loaded && chats > 0
+
+    /**
+     * Pruefer R5: beim ersten eigenen Anruf die Mitteilungs-Berechtigung mit der Mikrofon-Abfrage erfragen (vor dem
+     * Waehlen, das Ergebnis haelt den Anruf nicht auf) - nur, solange noch nie gefragt wurde (wie die Erklaerung)
+     */
+    fun forCall(sdk: Int, granted: Boolean, askedBefore: Boolean): Boolean = shouldAsk(sdk, granted, askedBefore)
+
     /** N-02: nie waehrend eines Anrufs (Klingeln, Verbinden, laufend) - die Abfrage verdeckt sonst den Anruf */
     fun showNow(wanted: Boolean, inCall: Boolean): Boolean = wanted && !inCall
 
@@ -50,8 +59,16 @@ object NotifPrompt {
     fun askedBefore(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ASKED, false)
 
-    fun markAsked(context: Context) =
+    fun markAsked(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY_ASKED, true) }
+        askedNow.value = true
+    }
+
+    /** Pruefer R5: in diesem Prozess schon gefragt (Liste, Chat oder Anruf) - offene Abfragen anderer Stellen verschwinden */
+    val askedNow = androidx.compose.runtime.mutableStateOf(false)
+
+    /** welche Stelle die Erklaerung gerade zeigt (Liste und Chat sind zweispaltig gleichzeitig sichtbar) */
+    val owner = androidx.compose.runtime.mutableStateOf<Any?>(null)
 }
 
 /** Einmalige Erklaerung "Mitteilungen erlauben?" mit anschliessender Systemabfrage; ready = passender Moment (CH-24) */
@@ -67,9 +84,15 @@ fun NotificationPermissionPrompt(ready: Boolean = true) {
         if (ok) app.repo.launchAction { app.repo.push.autoEnable() }
     }
     val call by app.repo.calls.ui.collectAsState()
-    if (!ready || !NotifPrompt.showNow(show, inCall = call != null)) return
+    val me = remember { Any() }
+    androidx.compose.runtime.DisposableEffect(me) { onDispose { if (NotifPrompt.owner.value === me) NotifPrompt.owner.value = null } }
+    if (!ready || NotifPrompt.askedNow.value || !NotifPrompt.showNow(show, inCall = call != null)) return
+    // nur eine Stelle zeigt die Erklaerung
+    if (NotifPrompt.owner.value == null) androidx.compose.runtime.SideEffect { if (NotifPrompt.owner.value == null) NotifPrompt.owner.value = me }
+    if (NotifPrompt.owner.value !== me) return
     val close = { later: Boolean ->
         show = false
+        NotifPrompt.owner.value = null
         NotifPrompt.markAsked(context)
         if (!later && Build.VERSION.SDK_INT >= 33) ask.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
