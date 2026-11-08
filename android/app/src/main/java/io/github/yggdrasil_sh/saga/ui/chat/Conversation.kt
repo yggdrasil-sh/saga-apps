@@ -49,6 +49,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.offset
+import io.github.yggdrasil_sh.saga.chat.SwipeReply
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -1691,8 +1695,35 @@ internal fun Bubble(
             .then(if (selecting && onSelect != null) Modifier.semantics(mergeDescendants = true) { this.selected = isSel; stateDescription = selDesc } else Modifier),
     ) {
     if (selecting && onSelect != null) SelectMark(isSel, Modifier.align(Alignment.CenterStart).padding(start = 12.dp))
+    // CH-26: Blase nach rechts wischen = Antworten (Schwelle 64 dp, Haptik beim Erreichen, Symbol taucht auf); Langdruck
+    // bleibt das Menue, TalkBack hat "Antworten" weiter als Aktion
+    val swipeOn = SwipeReply.enabled(selecting, c0 != null && !m.tomb)
+    val density = LocalDensity.current
+    val thrPx = with(density) { SwipeReply.THRESHOLD_DP.dp.toPx() }
+    val maxPx = with(density) { SwipeReply.MAX_DP.dp.toPx() }
+    var swipeX by remember(m.id) { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    val swipeState = androidx.compose.foundation.gestures.rememberDraggableState { d ->
+        val before = swipeX
+        swipeX = SwipeReply.drag(before, d, maxPx)
+        if (SwipeReply.crossed(before, swipeX, thrPx)) haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+    }
+    if (swipeX > 0f) SagaIcon(
+        SagaIcons.reply, null,
+        Modifier.align(Alignment.CenterStart).padding(start = 16.dp).size(24.dp)
+            .graphicsLayer { alpha = SwipeReply.progress(swipeX, thrPx); scaleX = 0.6f + 0.4f * alpha; scaleY = scaleX },
+        tint = MaterialTheme.colorScheme.primary,
+    )
     Row(
-        Modifier.fillMaxWidth().padding(start = if (selecting) 46.dp else 12.dp, end = 12.dp, top = if (first) 6.dp else 1.dp, bottom = if (last || reactions) 2.dp else 1.dp),
+        Modifier.fillMaxWidth()
+            .offset { androidx.compose.ui.unit.IntOffset(swipeX.toInt(), 0) }
+            .draggable(
+                swipeState, androidx.compose.foundation.gestures.Orientation.Horizontal, enabled = swipeOn,
+                onDragStopped = {
+                    if (SwipeReply.fires(swipeX, thrPx)) onReply()
+                    androidx.compose.animation.core.animate(swipeX, 0f) { v, _ -> swipeX = v }
+                },
+            )
+            .padding(start = if (selecting) 46.dp else 12.dp, end = 12.dp, top = if (first) 6.dp else 1.dp, bottom = if (last || reactions) 2.dp else 1.dp),
         horizontalArrangement = if (mineSide) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Bottom,
     ) {

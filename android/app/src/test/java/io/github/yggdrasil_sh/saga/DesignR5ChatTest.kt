@@ -19,6 +19,7 @@ import io.github.yggdrasil_sh.saga.chat.NewChatLogic.Mode
 import io.github.yggdrasil_sh.saga.chat.PeopleGroup
 import io.github.yggdrasil_sh.saga.chat.PendingFile
 import io.github.yggdrasil_sh.saga.chat.PendingLogic
+import io.github.yggdrasil_sh.saga.chat.SwipeReply
 import io.github.yggdrasil_sh.saga.ui.common.NotifPrompt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -237,6 +238,22 @@ class DesignR5ChatTest {
         val src = listOf(java.io.File("src/main/java"), java.io.File("app/src/main/java")).first { it.isDirectory }.resolve("io/github/yggdrasil_sh/saga/ui/chat")
         assertFalse(src.resolve("ChatsScreen.kt").readText().contains("NotificationPermissionPrompt("))   // nicht mehr beim Oeffnen der Liste
         assertTrue(src.resolve("Conversation.kt").readText().contains("NotificationPermissionPrompt("))
+    }
+
+    @Test
+    fun swipeToReply() {
+        val thr = 64f
+        assertFalse(SwipeReply.enabled(selecting = true, canReply = true))
+        assertFalse(SwipeReply.enabled(selecting = false, canReply = false))
+        assertTrue(SwipeReply.enabled(false, true))
+        assertEquals(0f, SwipeReply.drag(10f, -30f, 96f), 0f)        // nur nach rechts
+        assertEquals(96f, SwipeReply.drag(90f, 30f, 96f), 0f)
+        assertTrue(SwipeReply.crossed(60f, 64f, thr))
+        assertFalse(SwipeReply.crossed(64f, 70f, thr))              // Haptik nur einmal
+        assertFalse(SwipeReply.fires(63.9f, thr))
+        assertTrue(SwipeReply.fires(64f, thr))
+        assertEquals(0.5f, SwipeReply.progress(32f, thr), 0.001f)
+        assertEquals(1f, SwipeReply.progress(200f, thr), 0f)
     }
 
 }

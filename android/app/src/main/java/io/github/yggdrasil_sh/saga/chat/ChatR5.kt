@@ -257,3 +257,24 @@ object PendingLogic {
         return n
     }
 }
+
+/** CH-26: Blase nach rechts wischen = Antworten */
+object SwipeReply {
+    const val THRESHOLD_DP = 64f
+    const val MAX_DP = 96f
+
+    /** nicht im Auswahlmodus und nur fuer Nachrichten, auf die man antworten kann */
+    fun enabled(selecting: Boolean, canReply: Boolean): Boolean = !selecting && canReply
+
+    /** neue Verschiebung: nur nach rechts, hoechstens max */
+    fun drag(cur: Float, delta: Float, max: Float): Float = (cur + delta).coerceIn(0f, max)
+
+    /** Schwelle gerade erreicht (einmal Haptik) */
+    fun crossed(before: Float, after: Float, threshold: Float): Boolean = before < threshold && after >= threshold
+
+    /** beim Loslassen antworten? */
+    fun fires(x: Float, threshold: Float): Boolean = x >= threshold
+
+    /** Sichtbarkeit des Antwort-Symbols 0..1 */
+    fun progress(x: Float, threshold: Float): Float = if (threshold <= 0f) 0f else (x / threshold).coerceIn(0f, 1f)
+}
