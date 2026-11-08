@@ -5,6 +5,9 @@ package io.github.yggdrasil_sh.saga.chat
  * mit Unit-Tests (DesignR5ChatTest).
  */
 object NewChatLogic {
+    /** R5-Nachbesserung: eine Avatar-Groesse fuer feste Eintraege, Kontakte und Treffer */
+    const val AVATAR_DP = 40
+
     /** Person (Direkt-Chat), mehrere Personen (neue Gruppe) bzw. Gruppe aus einem eigenen Team */
     enum class Mode { PERSON, GROUP, TEAM }
 

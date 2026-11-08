@@ -180,11 +180,11 @@ fun SysRow(m: ChatMessage, sys: ChatSys, myHandle: String?) {
 
 /** Treffer einer Person auf einem anderen, verbundenen Saga-Server ("Name · host", Profilbild, Hinweis auf Anfrage) */
 @Composable
-fun FedPersonItem(p: FedPerson, sub: String, trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
+fun FedPersonItem(p: FedPerson, sub: String, trailing: (@Composable () -> Unit)? = null, avatarSize: Int = 32, onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text(p.shown) },
         supportingContent = { Text(sub) },
-        leadingContent = { Avatar(p.name, size = 32, avatar = p.avatar) },
+        leadingContent = { Avatar(p.name, size = avatarSize, avatar = p.avatar) },
         trailingContent = trailing,
         modifier = Modifier.clickable(onClick = onClick),
     )

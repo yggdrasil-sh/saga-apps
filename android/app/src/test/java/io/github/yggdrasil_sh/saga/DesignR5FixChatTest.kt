@@ -57,4 +57,12 @@ class DesignR5FixChatTest {
         assertEquals(e2e, HeadLine.shown(null, "", e2e))                    // ohne Stand/Zahl wie bisher
         assertEquals("auf b.example · $e2e", HeadLine.shown(null, "auf b.example", e2e))
     }
+
+    @Test
+    fun newChatSameAvatarSize() {
+        val ui = read("ui/chat/NewChatUi.kt")
+        assertFalse(Regex("Avatar\\([^)]*size = \\d").containsMatchIn(ui))           // keine feste Zahl mehr
+        assertTrue(ui.contains("ContactsBlock(repo, headerInset = 16.dp, avatarSize = NewChatLogic.AVATAR_DP)"))
+        assertTrue(ui.contains("avatarSize = NewChatLogic.AVATAR_DP,"))                 // Personen anderer Server
+    }
 }

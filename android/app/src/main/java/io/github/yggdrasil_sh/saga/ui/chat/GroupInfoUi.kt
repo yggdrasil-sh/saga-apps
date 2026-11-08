@@ -397,6 +397,7 @@ private fun AddMemberBox(repo: SagaRepository, s: ChatSession, c: ChatSummary, d
 @Composable
 fun ContactsBlock(
     repo: SagaRepository, keep: (List<ChatContact>) -> List<ChatContact> = { it }, headerInset: androidx.compose.ui.unit.Dp = 0.dp,
+    avatarSize: Int = 32,
     onPick: (ChatContact) -> Unit,
 ) {
     if (!repo.chat.contactsOn) return
@@ -419,7 +420,7 @@ fun ContactsBlock(
             modifier = Modifier.padding(start = headerInset, top = 8.dp, bottom = 2.dp),
         )
         shown.forEach { k ->
-            ContactRow(repo, k, onRemoved = { list = Contacts.applyHidden(list, k.ref, true) }) { onPick(k) }
+            ContactRow(repo, k, onRemoved = { list = Contacts.applyHidden(list, k.ref, true) }, avatarSize = avatarSize) { onPick(k) }
         }
     }
 }
@@ -427,7 +428,7 @@ fun ContactsBlock(
 /** Ein Kontakt: Wischen nach links = "Aus Kontakten entfernen" (gone: nicht waehlbar, ausgegraut) */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ContactRow(repo: SagaRepository, k: ChatContact, onRemoved: () -> Unit, onPick: () -> Unit) {
+fun ContactRow(repo: SagaRepository, k: ChatContact, onRemoved: () -> Unit, avatarSize: Int = 32, onPick: () -> Unit) {
     val scope = rememberCoroutineScope()
     val state = rememberSwipeToDismissBoxState()
     val remove: () -> Unit = {
@@ -453,7 +454,7 @@ fun ContactRow(repo: SagaRepository, k: ChatContact, onRemoved: () -> Unit, onPi
         PersonRowBase(
             name = k.name, shown = k.name, sub = sub, avatar = k.avatar, color = col, enabled = !dim,
             menu = { MoreRemove(k.name, remove) }, onClick = onPick,
-            description = if (dim) stringResource(R.string.ct_unreachable) else null,
+            description = if (dim) stringResource(R.string.ct_unreachable) else null, avatarSize = avatarSize,
         )
     }
 }
@@ -475,12 +476,12 @@ fun PersonHit(repo: SagaRepository, name: String, shown: String, sub: String?, a
 @Composable
 private fun PersonRowBase(
     name: String, shown: String, sub: String?, avatar: String?, color: androidx.compose.ui.graphics.Color, enabled: Boolean,
-    menu: (@Composable () -> Unit)?, onClick: () -> Unit, description: String? = null,
+    menu: (@Composable () -> Unit)?, onClick: () -> Unit, description: String? = null, avatarSize: Int = 32,
 ) {
     ListItem(
         headlineContent = { Text(shown, color = color, maxLines = 1) },
         supportingContent = (description ?: sub)?.let { t -> { Text(listOfNotNull(sub, description.takeIf { sub != null }).joinToString(" · ").ifEmpty { t }, maxLines = 1) } },
-        leadingContent = { Avatar(name, size = 32, avatar = avatar) },
+        leadingContent = { Avatar(name, size = avatarSize, avatar = avatar) },
         trailingContent = menu,
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = Modifier.clickable(enabled = enabled, onClick = onClick),

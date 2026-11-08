@@ -213,7 +213,7 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                             ListItem(
                                 headlineContent = { Text(g) },
                                 supportingContent = { Text(stringResource(R.string.chat_kind_group)) },
-                                leadingContent = { Avatar(g, size = 40, icon = SagaIcons.users) },
+                                leadingContent = { Avatar(g, size = NewChatLogic.AVATAR_DP, icon = SagaIcons.users) },
                                 modifier = Modifier.clickable { repo.launchAction { onOpen(svc.createGroup(g).id) } },
                             )
                         }
@@ -222,7 +222,7 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                     // 2.5 (contacts1): ohne Eingabe "Kontakte" (zuletzt zuerst); gone ausgegraut, Wischen = aus Kontakten entfernen
                     if (q.isBlank()) item(key = "contacts") {
                         Column {
-                            ContactsBlock(repo, headerInset = 16.dp) { k ->
+                            ContactsBlock(repo, headerInset = 16.dp, avatarSize = NewChatLogic.AVATAR_DP) { k ->
                                 when (val p = Contacts.pick(k)) {
                                     is Contacts.Pick.Local ->
                                         if (multi) { if (picked.none { it.username == p.user }) picked = picked + Contacts.asPerson(k) }
@@ -246,7 +246,7 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                                 ChatLogic.personSub(u.sub, same) { mark.format(it) },
                                 if (u.ready) null else stringResource(R.string.chat_not_ready, ChatLogic.shownMarked(u) { mark.format(it) }),
                             )?.let { t -> { Text(t) } },
-                            leadingContent = { Avatar(u.name, size = 40, avatar = u.avatar) },
+                            leadingContent = { Avatar(u.name, size = NewChatLogic.AVATAR_DP, avatar = u.avatar) },
                             trailingContent = if (multi) ({ Checkbox(checked = on, onCheckedChange = null) })
                                 else if (u.contact) ({ ContactMore(repo, ChatLogic.shown(u), u.username) { users = users.filter { it.username != u.username } } }) else null,
                             modifier = Modifier.clickable {
@@ -260,7 +260,7 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                             ListItem(
                                 headlineContent = { Text(g.name) },
                                 supportingContent = { Text(stringResource(R.string.chat_kind_group)) },
-                                leadingContent = { Avatar(g.name, size = 40, icon = SagaIcons.users) },
+                                leadingContent = { Avatar(g.name, size = NewChatLogic.AVATAR_DP, icon = SagaIcons.users) },
                                 modifier = Modifier.clickable { repo.launchAction { onOpen(svc.createGroup(g.name).id) } },
                             )
                         }
@@ -273,6 +273,7 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                                 else stringResource(if (multi) R.string.fed_person_sub_group else R.string.fed_person_sub, u.host),
                             trailing = if (multi) ({ Checkbox(checked = on, onCheckedChange = null) })
                                 else if (u.contact) ({ ContactMore(repo, u.shown, u.handle) { remote = remote.filter { it.handle != u.handle } } }) else null,
+                            avatarSize = NewChatLogic.AVATAR_DP,
                         ) {
                             if (multi) pickedRemote = if (on) pickedRemote.filter { it.handle != u.handle } else pickedRemote + u
                             else repo.launchAction { onOpen(svc.fed.createDm(u.handle).id) }
@@ -290,7 +291,7 @@ private fun FixedEntry(icon: Int, title: String, sub: String, onClick: () -> Uni
     ListItem(
         headlineContent = { Text(title, fontWeight = FontWeight.SemiBold) },
         supportingContent = { Text(sub) },
-        leadingContent = { Avatar(title, size = 40, icon = icon) },
+        leadingContent = { Avatar(title, size = NewChatLogic.AVATAR_DP, icon = icon) },
         modifier = Modifier.clickable(onClick = onClick),
     )
 }
