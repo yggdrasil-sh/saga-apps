@@ -9,6 +9,21 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – iOS, Android: Knoten-Anruf kam nach Verbindungsverlust nicht wieder
+
+- **Wiederaufbau nach Knotenverlust** (Gruppenanruf über einen einzigen Gjallarhorn-Knoten, Abbruch nach längerer
+  Laufzeit): Der verlorene Knoten wurde gemieden, der Server bot dann keinen Kandidaten mehr an („kein Knoten“), die
+  Beobachtung löste alle 0,5 s einen neuen Wechsel aus und brach den geplanten Versuch jedes Mal ab – Backoff und
+  2-Minuten-Grenze griffen nie. Jetzt wird der einzige Knoten nicht gemieden (andere nur, wenn noch einer übrig bleibt),
+  die Beobachtung bleibt stumm, solange ein Versuch läuft oder geplant ist, und der Plan wird nicht mehr abgebrochen.
+- **Backoff** 1/2/4/8/15 s mit ±20 % Zufall; zurückgestellt erst, wenn die neue Verbindung wieder Daten liefert
+  (Verlust in den ersten 10 s zählt als Fehlversuch). Nach 120 s ohne Erfolg endet der Anruf mit klarer Meldung.
+- **429 vom Server** (`retry_after` im Body bzw. `Retry-After`) wird abgewartet (höchstens 60 s) und nicht mehr als
+  „kein Knoten“ gewertet; ältere Server ohne Angabe: normaler Backoff.
+- Im Anruf steht „Verbindung wird wiederhergestellt …“ (de/en/es/ru/th). **Kein Rückfall auf direkt (p2p):** der
+  Wiederaufbau läuft immer über einen Knoten. Regeln als reine Einheit (iOS `HornRecover.swift`, Android
+  `HornRecover.kt`) mit Tests.
+
 ### Behoben – iOS: leerer Chat-Verlauf
 
 - **Nachrichtenfläche blieb leer** (lange Direkt-Chats mit vielen Anruf-Einträgen und Bildern, beim Öffnen bzw. nach der
