@@ -570,8 +570,15 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     // Nr. 54 / CH-09 / A11Y-30: mit Online-Stand steht nur "online" bzw. "zuletzt online ..." plus Schloss; der Text
                     // "Ende-zu-Ende-verschluesselt" steckt in der Beschreibung fuer Bedienungshilfen (fedHeadLine ohne E2E ist dann leer,
                     // ausser bei Server-Herkunft/Anfrage/schreibgeschuetzt)
-                    val full = (presenceLine?.let { "$it · " } ?: "") + fedHeadLine(s)
-                    val shown = presenceLine?.let { pl -> fedHeadLine(s, withE2e = false).let { r -> if (r.isEmpty()) pl else "$pl · $r" } } ?: fedHeadLine(s)
+                    // R5-Nachbesserung: Gruppen kurz "5 Mitglieder" + Schloss (E2E nur in der Beschreibung), wie CH-09 bei Direkt-Chats
+                    val headSum2 = s.summary
+                    val lead = presenceLine ?: headSum2?.takeIf { it.kind != "dm" && it.memberCount > 0 }?.let {
+                        androidx.compose.ui.res.pluralStringResource(R.plurals.gi_members_n, it.memberCount, it.memberCount)
+                    }
+                    val extras = fedHeadLine(s, withE2e = false)
+                    val e2eText = stringResource(R.string.chat_e2e)
+                    val full = io.github.yggdrasil_sh.saga.chat.HeadLine.full(lead, extras, e2eText)
+                    val shown = io.github.yggdrasil_sh.saga.chat.HeadLine.shown(lead, extras, e2eText)
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = full }) {
                         SagaIcon(SagaIcons.lock, null, Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         // eine Zeile: bei 200 % Schrift sonst hoeher als die Kopfzeile (ragt in die Statusleiste, BUG-070)

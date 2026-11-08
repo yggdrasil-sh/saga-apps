@@ -304,3 +304,14 @@ object SwipeReply {
     /** Sichtbarkeit des Antwort-Symbols 0..1 */
     fun progress(x: Float, threshold: Float): Float = if (threshold <= 0f) 0f else (x / threshold).coerceIn(0f, 1f)
 }
+
+/** R5-Nachbesserung: Untertitel im Chat-Kopf - mit Online-Stand bzw. Mitgliederzahl ohne E2E-Text (steht in der Beschreibung) */
+object HeadLine {
+    private fun join(vararg p: String?) = p.filter { !it.isNullOrEmpty() }.joinToString(" · ")
+
+    /** sichtbar: lead (online / "5 Mitglieder") + Besonderheiten; ohne lead wie bisher mit "Ende-zu-Ende-verschluesselt" */
+    fun shown(lead: String?, extras: String, e2e: String): String = if (lead.isNullOrEmpty()) join(extras, e2e) else join(lead, extras)
+
+    /** Beschreibung fuer Bedienungshilfen: alles */
+    fun full(lead: String?, extras: String, e2e: String): String = join(lead, extras, e2e)
+}

@@ -2,6 +2,7 @@ package io.github.yggdrasil_sh.saga
 
 import io.github.yggdrasil_sh.saga.chat.ChatInfoLogic
 import io.github.yggdrasil_sh.saga.chat.ChatSummary
+import io.github.yggdrasil_sh.saga.chat.HeadLine
 import io.github.yggdrasil_sh.saga.ui.common.FullScreenDialog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -45,5 +46,15 @@ class DesignR5FixChatTest {
         val sheet = ui.substring(ui.indexOf("fun AttachSheet("), ui.indexOf("private fun attachTile("))
         assertTrue(sheet.contains("Hyphens.None") && sheet.contains("maxLines = 2"))
         assertTrue(ui.contains("VIDEO_CAMERA -> SagaIcons.video to stringResource(R.string.r5f_att_video)"))
+    }
+
+    @Test
+    fun groupHeadLineShort() {
+        val e2e = "Ende-zu-Ende-verschlüsselt"
+        assertEquals("5 Mitglieder", HeadLine.shown("5 Mitglieder", "", e2e))
+        assertEquals("5 Mitglieder · $e2e", HeadLine.full("5 Mitglieder", "", e2e))
+        assertEquals("online · auf b.example", HeadLine.shown("online", "auf b.example", e2e))
+        assertEquals(e2e, HeadLine.shown(null, "", e2e))                    // ohne Stand/Zahl wie bisher
+        assertEquals("auf b.example · $e2e", HeadLine.shown(null, "auf b.example", e2e))
     }
 }
