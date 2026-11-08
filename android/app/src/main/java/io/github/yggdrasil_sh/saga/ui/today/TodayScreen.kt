@@ -68,6 +68,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.traversalIndex
 import io.github.yggdrasil_sh.saga.data.PageMeta
 import io.github.yggdrasil_sh.saga.ui.common.PageIcon
 import io.github.yggdrasil_sh.saga.ui.common.pageTitle
@@ -100,7 +101,8 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val sharedPages by repo.sharedPages.collectAsState()
     val recentIds by repo.settings.recent.collectAsState()
     val cont = remember(recentIds, pages, sharedPages) { TodayLogic.continuePages(recentIds, pages, sharedPages) }
-    LaunchedEffect(quickAdd) { if (quickAdd) listState.scrollToItem(TodayLogic.quickAddIndex(cont.isNotEmpty(), events.size)) }
+    var twoCols by remember { mutableStateOf(false) }
+    LaunchedEffect(quickAdd) { if (quickAdd) listState.scrollToItem(TodayLogic.quickAddIndex(cont.isNotEmpty(), events.size, twoCols)) }
     val account by repo.account.collectAsState()
     val first = TodayLogic.firstName(account)
     // NAV-13 Schnellaktionen: vorhandene Ablaeufe (Neue Seite wie Seitenleiste, Vorlagengalerie, Aufgaben-Eingabe, Termin-Dialog)
@@ -149,8 +151,39 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         }
     }) { pad ->
         PullToRefreshBox(isRefreshing = loading, onRefresh = { refresh() }, modifier = Modifier.padding(pad).fillMaxSize()) {
+          androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
             val accent = LocalSagaAccent.current
-            val maxW = SagaSpace.readingWidth
+            // R6 (A11Y-23): ab 840 dp verfuegbarer Breite zwei Spalten; Kopf und "Weitermachen" stehen ueber beiden
+            val two = TodayLogic.twoColumns(maxWidth.value)
+            androidx.compose.runtime.SideEffect { twoCols = two }
+            val maxW = todayContentWidth(maxWidth)
+            val ml = merged
+            // Aufgaben-Abschnitt (Kopf, Schnelleingabe, Zeilen bzw. leer) - einspaltig als Listeneintraege, zweispaltig rechts
+            val taskHead: @Composable (Modifier) -> Unit = { m ->
+                SagaSectionTitle(stringResource(R.string.nav_tasks), m, count = shownCount)
+            }
+            val taskAdd: @Composable (Modifier) -> Unit = { m ->
+                QuickAddTask(repo, m, defaultDue = today, focus = quickAdd, onFocused = { repo.focusQuickAdd.value = false },
+                    targets = merged?.let { io.github.yggdrasil_sh.saga.data.TaskSourcesLogic.targets(it.sources) }.orEmpty())
+            }
+            val tasksEmpty = ml == null && todayTasks.isEmpty() || ml != null && todayItems.isNullOrEmpty()
+            val taskEmptyView: @Composable (Modifier) -> Unit = { m ->
+                Box(m.fillMaxWidth().padding(top = SagaSpace.s).sagaSegment(0, 1)) {
+                    SagaLineEmptyState(
+                        stringResource(if (events.isEmpty()) R.string.today_nothing_planned else R.string.today_no_tasks),
+                        SagaIcons.tasks, text = stringResource(R.string.today_tasks_empty_hint), compact = true,
+                    )
+                }
+            }
+            val sourceRow: @Composable (Int, io.github.yggdrasil_sh.saga.data.TaskEntry, Modifier) -> Unit = { i, e, m ->
+                val src = ml?.sources?.firstOrNull { it.db == e.src }
+                Box(m.fillMaxWidth().padding(top = if (i == 0) SagaSpace.s else 0.dp).sagaSegment(i, todayItems?.size ?: 1)) {
+                    io.github.yggdrasil_sh.saga.ui.tasks.SourceTaskRow(e, src, ml?.people.orEmpty(), repo) { x ->
+                        if (x.isRow) nav.push(io.github.yggdrasil_sh.saga.ui.nav.Dest.Page(x.id))
+                        else editing = tasks.firstOrNull { it.id.toLong() == x.id }
+                    }
+                }
+            }
             LazyColumn(
                 Modifier.fillMaxSize(), state = listState, horizontalAlignment = Alignment.CenterHorizontally,
                 contentPadding = PaddingValues(bottom = SagaSpace.xxl),
@@ -186,6 +219,33 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                         }
                     }
                 }
+                if (two) {
+                    // Gemeinsame Seite: beide Spalten scrollen mit dem Kopf (die Listen von "Heute" sind kurz, nicht-lazy ok)
+                    item(key = "columns") {
+                        Row(Modifier.widthIn(max = maxW).fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                            // TalkBack: erst die ganze linke Spalte (Termine), dann die rechte (Aufgaben)
+                            Column(Modifier.weight(1f).widthIn(max = TodayLogic.COLUMN_BOX_DP.dp).semantics { isTraversalGroup = true; traversalIndex = 0f }) {
+                                SagaSectionTitle(stringResource(R.string.nav_events), Modifier.padding(top = SagaSpace.s), count = events.size)
+                                if (events.isEmpty()) Box(Modifier.fillMaxWidth().sagaSegment(0, 1)) { NoEventsRow { newEvent = true } }
+                                events.forEachIndexed { i, e ->
+                                    Box(Modifier.fillMaxWidth().sagaSegment(i, events.size).padding(vertical = SagaSpace.xs)) { EventRow(e) }
+                                }
+                            }
+                            Column(Modifier.weight(1f).widthIn(max = TodayLogic.COLUMN_BOX_DP.dp).semantics { isTraversalGroup = true; traversalIndex = 1f }) {
+                                taskHead(Modifier.padding(top = SagaSpace.s))
+                                taskAdd(Modifier)
+                                if (ml != null && todayItems != null) todayItems.forEachIndexed { i, e -> sourceRow(i, e, Modifier) }
+                                if (tasksEmpty) taskEmptyView(Modifier)
+                                if (ml == null) todayTasks.forEachIndexed { i, t ->
+                                    Box(Modifier.fillMaxWidth().padding(top = if (i == 0) SagaSpace.s else 0.dp).sagaSegment(i, todayTasks.size)) {
+                                        TaskRow(t, repo) { editing = it }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    return@LazyColumn
+                }
                 item(key = "ev-head") { SagaSectionTitle(stringResource(R.string.nav_events), Modifier.widthIn(max = maxW).padding(top = SagaSpace.s), count = events.size) }
                 if (events.isEmpty()) {
                     // NAV-13: leere Termine als eine Zeile mit "+ Termin" statt eines 200-dp-Blocks
@@ -198,32 +258,13 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 itemsIndexed(events, key = { i, _ -> "ev-$i" }) { i, e ->
                     Box(Modifier.widthIn(max = maxW).fillMaxWidth().sagaSegment(i, events.size).padding(vertical = SagaSpace.xs).sagaAppear(1 + i)) { EventRow(e) }
                 }
-                item(key = "t-head") { SagaSectionTitle(stringResource(R.string.nav_tasks), Modifier.widthIn(max = maxW).padding(top = SagaSpace.m), count = shownCount) }
-                item(key = "t-add") {
-                    QuickAddTask(repo, Modifier.widthIn(max = maxW), defaultDue = today, focus = quickAdd, onFocused = { repo.focusQuickAdd.value = false },
-                        targets = merged?.let { io.github.yggdrasil_sh.saga.data.TaskSourcesLogic.targets(it.sources) }.orEmpty())
-                }
-                val ml = merged
+                item(key = "t-head") { taskHead(Modifier.widthIn(max = maxW).padding(top = SagaSpace.m)) }
+                item(key = "t-add") { taskAdd(Modifier.widthIn(max = maxW)) }
                 if (ml != null && todayItems != null) {
-                    val bySrc = ml.sources.associateBy { it.db }
-                    itemsIndexed(todayItems, key = { _, e -> "e-${e.key}" }) { i, e ->
-                        Box(Modifier.widthIn(max = maxW).fillMaxWidth().padding(top = if (i == 0) SagaSpace.s else 0.dp).sagaSegment(i, todayItems.size)) {
-                            io.github.yggdrasil_sh.saga.ui.tasks.SourceTaskRow(e, e.src?.let { bySrc[it] }, ml.people, repo) { x ->
-                                if (x.isRow) nav.push(io.github.yggdrasil_sh.saga.ui.nav.Dest.Page(x.id))
-                                else editing = tasks.firstOrNull { it.id.toLong() == x.id }
-                            }
-                        }
-                    }
+                    itemsIndexed(todayItems, key = { _, e -> "e-${e.key}" }) { i, e -> sourceRow(i, e, Modifier.widthIn(max = maxW)) }
                 }
-                if (ml == null && todayTasks.isEmpty() || ml != null && todayItems.isNullOrEmpty()) {
-                    item(key = "t-empty") {
-                        Box(Modifier.widthIn(max = maxW).fillMaxWidth().padding(top = SagaSpace.s).sagaSegment(0, 1)) {
-                            SagaLineEmptyState(
-                                stringResource(if (events.isEmpty()) R.string.today_nothing_planned else R.string.today_no_tasks),
-                                SagaIcons.tasks, text = stringResource(R.string.today_tasks_empty_hint), compact = true,
-                            )
-                        }
-                    }
+                if (tasksEmpty) {
+                    item(key = "t-empty") { taskEmptyView(Modifier.widthIn(max = maxW)) }
                 }
                 if (ml == null) itemsIndexed(todayTasks, key = { _, t -> "t-${t.id}" }) { i, t ->
                     Box(
@@ -232,6 +273,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     ) { TaskRow(t, repo) { editing = it } }
                 }
             }
+          }
         }
     }
     editing?.let { t -> TaskEditDialog(t, repo) { editing = null } }
@@ -245,6 +287,14 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         EventDialog(repo, null, java.time.LocalDate.now(), onDismiss = { newEvent = false }, onChanged = { scope.launch { repo.loadTodayEvents() } })
     }
 }
+
+/**
+ * R6 (A11Y-23): Gesamtbreite des Inhaltsblocks der Heute-Seite bei [available] verfuegbarer Breite (mittig, inkl.
+ * seitlicher Raender von je [SagaSpace.gutter]) - zweispaltig 1024 dp, sonst [SagaSpace.readingWidth]. Eine Stelle
+ * fuer alles, was am Inhalt fluchten soll (Regel in [TodayLogic.contentWidthDp]).
+ */
+fun todayContentWidth(available: androidx.compose.ui.unit.Dp): androidx.compose.ui.unit.Dp =
+    TodayLogic.contentWidthDp(available.value).dp
 
 /** NAV-13: Schnellaktionen wie im Web (hz-acts): Neue Seite, Aus Vorlage, Aufgabe, Termin - umrandete Saga-Knoepfe, 48 dp */
 @OptIn(ExperimentalLayoutApi::class)

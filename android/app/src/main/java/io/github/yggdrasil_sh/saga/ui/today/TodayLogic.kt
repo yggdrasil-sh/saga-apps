@@ -39,5 +39,31 @@ object TodayLogic {
      * Index des Eintrags "Neue Aufgabe" in der Liste der Heute-Seite (Widget "Neue Aufgabe" springt dorthin):
      * Kopf (mit Schnellaktionen), ggf. "Weitermachen", Kopf Termine, Termine (leer = eine Zeile), Kopf Aufgaben.
      */
-    fun quickAddIndex(hasContinue: Boolean, events: Int): Int = 1 + (if (hasContinue) 1 else 0) + 1 + maxOf(1, events) + 1
+    fun quickAddIndex(hasContinue: Boolean, events: Int, twoColumns: Boolean = false): Int =
+        if (twoColumns) 1 + (if (hasContinue) 1 else 0)            // R6: Spalten stehen in einem Eintrag, die Eingabe oben rechts
+        else 1 + (if (hasContinue) 1 else 0) + 1 + maxOf(1, events) + 1
+
+    // ---------------------------------------------------------------- Design-Runde 6 (A11Y-23): Tablet zweispaltig
+
+    /** Ab dieser verfuegbaren Inhaltsbreite (dp) zwei Spalten: links Termine, rechts Aufgaben + Schnelleingabe */
+    const val TWO_COLUMN_MIN_DP = 840f
+    /** Hoechstbreite der sichtbaren Inhalte einer Spalte (Karten, Zeilen) */
+    const val COLUMN_MAX_DP = 480f
+    /** Seitlicher Rand je Spalte (= SagaSpace.gutter); zwischen den Spalten liegen damit 2 x 16 = 32 dp (SagaSpace.xxl) */
+    const val COLUMN_GUTTER_DP = 16f
+    /** Lesebreite der Einspalten-Darstellung (= SagaSpace.readingWidth) */
+    const val ONE_COLUMN_MAX_DP = 760f
+
+    fun twoColumns(availableDp: Float): Boolean = availableDp >= TWO_COLUMN_MIN_DP
+
+    /** Hoechstbreite einer Spalte samt ihrer Raender (480 + 2 x 16 = 512 dp) */
+    const val COLUMN_BOX_DP = COLUMN_MAX_DP + 2 * COLUMN_GUTTER_DP
+
+    /**
+     * Gesamtbreite des Inhaltsblocks der Heute-Seite (mittig, inkl. seitlicher Raender) - eine Stelle fuer alles, was
+     * daran fluchten soll (Kopf, Weitermachen, Titel der App-Leiste): zweispaltig 2 x 512 = 1024 dp, sonst 760 dp,
+     * jeweils hoechstens die verfuegbare Breite. Linke Inhaltskante = (verfuegbar - Ergebnis) / 2 + [COLUMN_GUTTER_DP].
+     */
+    fun contentWidthDp(availableDp: Float): Float =
+        minOf(availableDp, if (twoColumns(availableDp)) 2 * COLUMN_BOX_DP else ONE_COLUMN_MAX_DP)
 }
