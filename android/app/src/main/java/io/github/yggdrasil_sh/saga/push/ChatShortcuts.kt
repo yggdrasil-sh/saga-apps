@@ -39,7 +39,7 @@ object ChatShortcuts {
                 .setLongLived(true)
                 .setPerson(person)
                 .setLocusId(LocusIdCompat(id))
-                .setCategories(setOf(ShortcutInfoCompat.SHORTCUT_CATEGORY_CONVERSATION))
+                .setCategories(setOf("android.shortcut.conversation"))      // ShortcutInfo.SHORTCUT_CATEGORY_CONVERSATION (API 30)
                 .setIntent(open)
                 .apply { if (icon != null) setIcon(icon) }
                 .build()
