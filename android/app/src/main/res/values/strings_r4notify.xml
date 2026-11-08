@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 4 (r4-notify): Glocke gebuendelt, System-Kanaele (CH-04) -->
+<resources>
+    <string name="r4n_section_new">New</string>
+    <string name="r4n_section_earlier">Earlier</string>
+    <string name="r4n_show_all">Show all</string>
+    <string name="r4n_empty_hint">This is where you see when someone shares something with you, comments on your pages or writes to you.</string>
+    <string name="r4n_mark_read">Mark as read</string>
+    <string name="r4n_you">You</string>
+    <string name="r4n_ch_chats">Chats</string>
+    <string name="r4n_ch_chats_desc">New chat messages and mentions in chats</string>
+    <string name="r4n_ch_mentions">Mentions &amp; comments</string>
+    <string name="r4n_ch_mentions_desc">Comments, mentions, shares and notes about your pages</string>
+    <string name="r4n_ch_tasks">Tasks &amp; events</string>
+    <string name="r4n_ch_tasks_desc">Due tasks and when someone assigns you in a database</string>
+    <string name="r4n_ch_calls">Missed calls</string>
+    <string name="r4n_ch_calls_desc">Missed calls (ringing has its own channel)</string>
+    <plurals name="r4n_g_messages">
+        <item quantity="one">%1$d new message</item>
+        <item quantity="other">%1$d new messages</item>
+    </plurals>
+    <plurals name="r4n_g_messages_from">
+        <item quantity="one">%1$d new message (from %2$s)</item>
+        <item quantity="other">%1$d new messages (from %2$s)</item>
+    </plurals>
+    <plurals name="r4n_g_calls">
+        <item quantity="one">%1$d missed call</item>
+        <item quantity="other">%1$d missed calls</item>
+    </plurals>
+    <plurals name="r4n_g_video_calls">
+        <item quantity="one">%1$d missed video call</item>
+        <item quantity="other">%1$d missed video calls</item>
+    </plurals>
+    <plurals name="r4n_g_comments">
+        <item quantity="one">%1$d new comment</item>
+        <item quantity="other">%1$d new comments</item>
+    </plurals>
+    <plurals name="r4n_g_comments_mention">
+        <item quantity="one">%1$d new comment (with mention)</item>
+        <item quantity="other">%1$d new comments (with mention)</item>
+    </plurals>
+    <plurals name="r4n_summary">
+        <item quantity="one">%1$d new notification</item>
+        <item quantity="other">%1$d new notifications</item>
+    </plurals>
+</resources>

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 4 (r4-notify): Glocke gebuendelt, System-Kanaele (CH-04) -->
+<resources>
+    <string name="r4n_section_new">Новые</string>
+    <string name="r4n_section_earlier">Ранее</string>
+    <string name="r4n_show_all">Показать все</string>
+    <string name="r4n_empty_hint">Здесь видно, когда кто-то делится с вами, комментирует ваши страницы или пишет вам.</string>
+    <string name="r4n_mark_read">Отметить как прочитанное</string>
+    <string name="r4n_you">Вы</string>
+    <string name="r4n_ch_chats">Чаты</string>
+    <string name="r4n_ch_chats_desc">Новые сообщения и упоминания в чатах</string>
+    <string name="r4n_ch_mentions">Упоминания и комментарии</string>
+    <string name="r4n_ch_mentions_desc">Комментарии, упоминания, доступ к страницам и уведомления о ваших страницах</string>
+    <string name="r4n_ch_tasks">Задачи и события</string>
+    <string name="r4n_ch_tasks_desc">Задачи к сроку и назначения в базах данных</string>
+    <string name="r4n_ch_calls">Пропущенные звонки</string>
+    <string name="r4n_ch_calls_desc">Пропущенные звонки (для входящего звонка есть отдельный канал)</string>
+    <plurals name="r4n_g_messages">
+        <item quantity="one">%1$d новое сообщение</item>
+        <item quantity="few">%1$d новых сообщения</item>
+        <item quantity="many">%1$d новых сообщений</item>
+        <item quantity="other">%1$d нового сообщения</item>
+    </plurals>
+    <plurals name="r4n_g_messages_from">
+        <item quantity="one">%1$d новое сообщение (от %2$s)</item>
+        <item quantity="few">%1$d новых сообщения (от %2$s)</item>
+        <item quantity="many">%1$d новых сообщений (от %2$s)</item>
+        <item quantity="other">%1$d нового сообщения (от %2$s)</item>
+    </plurals>
+    <plurals name="r4n_g_calls">
+        <item quantity="one">%1$d пропущенный звонок</item>
+        <item quantity="few">%1$d пропущенных звонка</item>
+        <item quantity="many">%1$d пропущенных звонков</item>
+        <item quantity="other">%1$d пропущенного звонка</item>
+    </plurals>
+    <plurals name="r4n_g_video_calls">
+        <item quantity="one">%1$d пропущенный видеозвонок</item>
+        <item quantity="few">%1$d пропущенных видеозвонка</item>
+        <item quantity="many">%1$d пропущенных видеозвонков</item>
+        <item quantity="other">%1$d пропущенного видеозвонка</item>
+    </plurals>
+    <plurals name="r4n_g_comments">
+        <item quantity="one">%1$d новый комментарий</item>
+        <item quantity="few">%1$d новых комментария</item>
+        <item quantity="many">%1$d новых комментариев</item>
+        <item quantity="other">%1$d нового комментария</item>
+    </plurals>
+    <plurals name="r4n_g_comments_mention">
+        <item quantity="one">%1$d новый комментарий (с упоминанием)</item>
+        <item quantity="few">%1$d новых комментария (с упоминанием)</item>
+        <item quantity="many">%1$d новых комментариев (с упоминанием)</item>
+        <item quantity="other">%1$d нового комментария (с упоминанием)</item>
+    </plurals>
+    <plurals name="r4n_summary">
+        <item quantity="one">%1$d новое уведомление</item>
+        <item quantity="few">%1$d новых уведомления</item>
+        <item quantity="many">%1$d новых уведомлений</item>
+        <item quantity="other">%1$d нового уведомления</item>
+    </plurals>
+</resources>

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 4 (r4-notify): Glocke gebuendelt, System-Kanaele (CH-04) -->
+<resources>
+    <string name="r4n_section_new">Neu</string>
+    <string name="r4n_section_earlier">Früher</string>
+    <string name="r4n_show_all">Alle anzeigen</string>
+    <string name="r4n_empty_hint">Hier siehst du, wenn jemand etwas mit dir teilt, auf deinen Seiten kommentiert oder dir schreibt.</string>
+    <string name="r4n_mark_read">Als gelesen markieren</string>
+    <string name="r4n_you">Du</string>
+    <string name="r4n_ch_chats">Chats</string>
+    <string name="r4n_ch_chats_desc">Neue Chat-Nachrichten und Erwähnungen in Chats</string>
+    <string name="r4n_ch_mentions">Erwähnungen &amp; Kommentare</string>
+    <string name="r4n_ch_mentions_desc">Kommentare, Erwähnungen, Freigaben und Hinweise zu deinen Seiten</string>
+    <string name="r4n_ch_tasks">Aufgaben &amp; Termine</string>
+    <string name="r4n_ch_tasks_desc">Fällige Aufgaben und wenn dich jemand in einer Datenbank einträgt</string>
+    <string name="r4n_ch_calls">Verpasste Anrufe</string>
+    <string name="r4n_ch_calls_desc">Verpasste Anrufe (das Klingeln hat einen eigenen Kanal)</string>
+    <plurals name="r4n_g_messages">
+        <item quantity="one">%1$d neue Nachricht</item>
+        <item quantity="other">%1$d neue Nachrichten</item>
+    </plurals>
+    <plurals name="r4n_g_messages_from">
+        <item quantity="one">%1$d neue Nachricht (von %2$s)</item>
+        <item quantity="other">%1$d neue Nachrichten (von %2$s)</item>
+    </plurals>
+    <plurals name="r4n_g_calls">
+        <item quantity="one">%1$d verpasster Anruf</item>
+        <item quantity="other">%1$d verpasste Anrufe</item>
+    </plurals>
+    <plurals name="r4n_g_video_calls">
+        <item quantity="one">%1$d verpasster Videoanruf</item>
+        <item quantity="other">%1$d verpasste Videoanrufe</item>
+    </plurals>
+    <plurals name="r4n_g_comments">
+        <item quantity="one">%1$d neuer Kommentar</item>
+        <item quantity="other">%1$d neue Kommentare</item>
+    </plurals>
+    <plurals name="r4n_g_comments_mention">
+        <item quantity="one">%1$d neuer Kommentar (mit Erwähnung)</item>
+        <item quantity="other">%1$d neue Kommentare (mit Erwähnung)</item>
+    </plurals>
+    <plurals name="r4n_summary">
+        <item quantity="one">%1$d neue Mitteilung</item>
+        <item quantity="other">%1$d neue Mitteilungen</item>
+    </plurals>
+</resources>

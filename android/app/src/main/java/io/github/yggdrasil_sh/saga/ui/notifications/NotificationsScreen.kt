@@ -38,6 +38,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.foundation.layout.defaultMinSize
+import io.github.yggdrasil_sh.saga.ui.theme.SagaPill
+import io.github.yggdrasil_sh.saga.ui.theme.SagaSectionTitle
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,22 +58,26 @@ import io.github.yggdrasil_sh.saga.ui.nav.AppNavigator
 import io.github.yggdrasil_sh.saga.ui.nav.Dest
 import kotlinx.coroutines.launch
 
-/** Benachrichtigungen (Glocke): neueste zuerst, ungelesene hervorgehoben, "Alle gelesen", "Ältere laden" */
+/**
+ * Benachrichtigungen ("Alle anzeigen" aus dem Glocken-Blatt): Design-Runde 4 (NAV-03/22) gebuendelt wie im Web - eine
+ * Zeile je Gespraechseinheit, Abschnitte "Neu" (ungelesen) und "Früher"; "Alle gelesen" nur, wenn es Ungelesenes gibt.
+ */
 @Composable
 fun NotificationsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val live = repo.live
     val items by live.items.collectAsState()
-    val unread by live.unread.collectAsState()
+    val unreadRows by NotificationCounts.unreadGroups.collectAsState()
     val more by live.more.collectAsState()
     val loading by live.loading.collectAsState()
     val scope = rememberCoroutineScope()
     var refreshing by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { live.loadNotifications() }
+    val (fresh, earlier) = remember(items) { NotifGroups.sections(items) }
 
     Scaffold(topBar = {
         SagaTopBar(stringResource(R.string.notifications), nav, chrome) {
-            // "Alle gelesen" sichtbar als Textknopf (wie im Web); NAV-22: ohne Ungelesene ausgeblendet statt grau (wirkte wie ein Fehler)
-            if (unread > 0) SagaTextButton(onClick = { repo.launchAction { live.markAllRead() } }) { Text(stringResource(R.string.notifications_mark_all)) }
+            // NAV-22: ohne Ungelesene ausgeblendet statt grau (wirkte wie ein Fehler)
+            if (fresh.isNotEmpty() || unreadRows > 0) SagaTextButton(onClick = { repo.launchAction { live.markAllRead() } }) { Text(stringResource(R.string.notifications_mark_all)) }
             IconButton(onClick = { io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, "notifs", replace = true) }) { SagaIcon(SagaIcons.settings, stringResource(R.string.notifications_settings)) }
         }
     }) { pad ->
@@ -79,29 +88,13 @@ fun NotificationsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome)
         ) {
             LazyColumn(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
                 val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
-                if (unread > 0) {
-                    item {
-                        Text(
-                            androidx.compose.ui.res.pluralStringResource(R.plurals.notifications_unread_n, unread, unread), style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary, modifier = w.padding(horizontal = 16.dp, vertical = 8.dp),
-                        )
-                    }
-                }
                 if (items.isEmpty() && !loading) {
-                    item {
-                        Text(
-                            stringResource(R.string.notifications_empty), color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = w.padding(24.dp),
-                        )
-                    }
+                    item { NotifEmpty(w) }
                 }
                 if (items.isEmpty() && loading) item { CircularProgressIndicator(Modifier.padding(32.dp)) }
-                items(items, key = { it.id }) { n ->
-                    NotificationRow(n, w) {
-                        if (!n.read) repo.launchAction { live.markRead(listOf(n.id)) }
-                        open(repo, nav, n)
-                    }
-                    HorizontalDivider(w.padding(start = 64.dp))
+                notifSections(fresh, earlier, w) { n ->
+                    repo.launchAction { live.markRead(n) }
+                    open(repo, nav, n)
                 }
                 if (more) {
                     item {
@@ -111,6 +104,38 @@ fun NotificationsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome)
                     }
                 }
             }
+        }
+    }
+}
+
+/** Leerer Zustand (Glocke und Bildschirm) */
+@Composable
+internal fun NotifEmpty(modifier: Modifier, compact: Boolean = false) {
+    io.github.yggdrasil_sh.saga.ui.common.SagaLineEmptyState(
+        stringResource(R.string.notifications_empty), SagaIcons.bell, modifier,
+        text = stringResource(R.string.r4n_empty_hint), compact = compact,
+    )
+}
+
+/** Abschnitte "Neu" / "Früher" (Anzahl als Pille; Ueberschriften fuer TalkBack) */
+internal fun androidx.compose.foundation.lazy.LazyListScope.notifSections(
+    fresh: List<NotifItem>,
+    earlier: List<NotifItem>,
+    w: Modifier,
+    onTap: (NotifItem) -> Unit,
+) {
+    if (fresh.isNotEmpty()) {
+        item(key = "h-new") { SagaSectionTitle(stringResource(R.string.r4n_section_new), w.padding(top = 4.dp), count = fresh.size) }
+        items(fresh, key = { "u" + NotifGroups.head(it) }) { n ->
+            NotifGroupRow(n, w) { onTap(n) }
+            HorizontalDivider(w.padding(start = 64.dp))
+        }
+    }
+    if (earlier.isNotEmpty()) {
+        item(key = "h-old") { SagaSectionTitle(stringResource(R.string.r4n_section_earlier), w.padding(top = 8.dp)) }
+        items(earlier, key = { "r" + NotifGroups.head(it) }) { n ->
+            NotifGroupRow(n, w) { if (NotifLogic.tappable(n)) onTap(n) }
+            HorizontalDivider(w.padding(start = 64.dp))
         }
     }
 }
@@ -134,23 +159,50 @@ fun open(repo: SagaRepository, nav: AppNavigator, n: NotifItem) {
     }
 }
 
+/** Satz einer Zeile: gebuendelt mit Zahl (Plural je Sprache), sonst der fertige Satz des Servers */
 @Composable
-private fun NotificationRow(n: NotifItem, modifier: Modifier, onClick: () -> Unit) {
+internal fun notifSentence(n: NotifItem): String {
+    val names = NotifGroups.namesShort(NotifGroups.who(n))
+    return when (NotifGroups.sentence(n)) {
+        NotifGroups.Sentence.MESSAGES -> pluralStringResource(R.plurals.r4n_g_messages, n.count, n.count)
+        NotifGroups.Sentence.MESSAGES_FROM -> pluralStringResource(R.plurals.r4n_g_messages_from, n.count, n.count, names)
+        NotifGroups.Sentence.CALLS -> pluralStringResource(R.plurals.r4n_g_calls, n.count, n.count)
+        NotifGroups.Sentence.VIDEO_CALLS -> pluralStringResource(R.plurals.r4n_g_video_calls, n.count, n.count)
+        NotifGroups.Sentence.COMMENTS -> pluralStringResource(R.plurals.r4n_g_comments, n.count, n.count)
+        NotifGroups.Sentence.COMMENTS_MENTION -> pluralStringResource(R.plurals.r4n_g_comments_mention, n.count, n.count)
+        null -> n.text
+    }
+}
+
+/**
+ * Eine (gebuendelte) Zeile: Avatar/Symbol, Satz (fett wenn ungelesen), Ort (Chat/Seite), Personen, Zeit; rechts Anzahl
+ * und Ungelesen-Punkt. Ungelesen: getoenter Hintergrund + fett + Punkt + Zustand fuer TalkBack (NAV-22, A11Y-07).
+ */
+@Composable
+internal fun NotifGroupRow(n: NotifItem, modifier: Modifier, onClick: () -> Unit) {
     val tap = NotifLogic.tappable(n)
-    // A11Y-07: "ungelesen" als Zustand der Zeile (TalkBack), der Punkt bleibt dekorativ
     val unreadState = stringResource(R.string.r1_notif_unread)
+    val sentence = notifSentence(n)
+    val names = NotifGroups.who(n)
     Row(
-        // NAV-22: ungelesene Zeilen deutlich getoent (dazu fetter Text), nicht nur mit dem Punkt
         modifier.then(if (n.read) Modifier else Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.7f)))
             .then(if (tap) Modifier.clickable(onClick = onClick) else Modifier)
             .semantics(mergeDescendants = true) { if (!n.read) stateDescription = unreadState }
+            .defaultMinSize(minHeight = 48.dp)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Avatar(io.github.yggdrasil_sh.saga.util.PersonName.shown(n.actor?.name, n.actor?.username), icon = if (n.kind.startsWith("chat.")) SagaIcons.chats else if (NotifLogic.isSystem(n)) SagaIcons.cloudUpload else null, avatar = n.actor?.avatar)
+        val icon = when {
+            NotifLogic.isSystem(n) -> SagaIcons.cloudUpload
+            n.kind == "call.missed" -> SagaIcons.phoneMissed
+            n.kind.startsWith("chat.") && (NotifGroups.isGroup(n) && names.size > 1 || n.chat?.kind.let { it != null && it != "dm" }) -> SagaIcons.chats
+            n.actor == null && n.kind.startsWith("chat.") -> SagaIcons.chats
+            else -> null
+        }
+        Avatar(io.github.yggdrasil_sh.saga.util.PersonName.shown(n.actor?.name, n.actor?.username), icon = icon, avatar = n.actor?.avatar)
         Column(Modifier.weight(1f)) {
             Text(
-                n.text, style = MaterialTheme.typography.bodyMedium,
+                sentence, style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (n.read) FontWeight.Normal else FontWeight.SemiBold,
                 color = if (tap) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -166,23 +218,31 @@ private fun NotificationRow(n: NotifItem, modifier: Modifier, onClick: () -> Uni
                 if (line != null) SagaIcon(line, null, Modifier.padding(end = 4.dp).size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 else Text("$pageIcon ", style = MaterialTheme.typography.bodySmall)
                 Text(
-                    n.title.orEmpty(),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    n.title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
-            n.excerpt?.takeIf { it.isNotBlank() }?.let {
+            // Personen einer Gruppe (sofern nicht schon im Satz "(von A, B)")
+            if (NotifGroups.isGroup(n) && names.size > 1 && NotifGroups.sentence(n) != NotifGroups.Sentence.MESSAGES_FROM) {
+                Text(
+                    NotifGroups.namesShort(names), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+            n.excerpt?.takeIf { it.isNotBlank() && !NotifGroups.isGroup(n) }?.let {
                 Text(
                     "„$it“", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp),
                 )
             }
             n.created?.let {
-                Text(relativeTime(it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))   // A11Y-04: outline ist eine Randfarbe (zu wenig Kontrast fuer Text)
+                Text(relativeTime(it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))   // A11Y-04
             }
         }
-        if (!n.read) {
-            Box(Modifier.padding(top = 6.dp).size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Anzahl steht schon im Satz (TalkBack liest sie dort) - die Pille ist nur fuers Auge
+            if (n.count > 1) SagaPill(n.count.toString(), Modifier.clearAndSetSemantics { })
+            if (!n.read) Box(Modifier.padding(top = 2.dp).size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
         }
     }
 }

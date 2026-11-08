@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 4 (r4-notify): Glocke gebuendelt, System-Kanaele (CH-04) -->
+<resources>
+    <string name="r4n_section_new">Nuevas</string>
+    <string name="r4n_section_earlier">Anteriores</string>
+    <string name="r4n_show_all">Ver todas</string>
+    <string name="r4n_empty_hint">Aquí verás cuando alguien comparta algo contigo, comente en tus páginas o te escriba.</string>
+    <string name="r4n_mark_read">Marcar como leída</string>
+    <string name="r4n_you">Tú</string>
+    <string name="r4n_ch_chats">Chats</string>
+    <string name="r4n_ch_chats_desc">Mensajes nuevos y menciones en chats</string>
+    <string name="r4n_ch_mentions">Menciones y comentarios</string>
+    <string name="r4n_ch_mentions_desc">Comentarios, menciones, páginas compartidas y avisos sobre tus páginas</string>
+    <string name="r4n_ch_tasks">Tareas y eventos</string>
+    <string name="r4n_ch_tasks_desc">Tareas pendientes y cuando alguien te asigna en una base de datos</string>
+    <string name="r4n_ch_calls">Llamadas perdidas</string>
+    <string name="r4n_ch_calls_desc">Llamadas perdidas (el timbre tiene su propio canal)</string>
+    <plurals name="r4n_g_messages">
+        <item quantity="one">%1$d mensaje nuevo</item>
+        <item quantity="many">%1$d mensajes nuevos</item>
+        <item quantity="other">%1$d mensajes nuevos</item>
+    </plurals>
+    <plurals name="r4n_g_messages_from">
+        <item quantity="one">%1$d mensaje nuevo (de %2$s)</item>
+        <item quantity="many">%1$d mensajes nuevos (de %2$s)</item>
+        <item quantity="other">%1$d mensajes nuevos (de %2$s)</item>
+    </plurals>
+    <plurals name="r4n_g_calls">
+        <item quantity="one">%1$d llamada perdida</item>
+        <item quantity="many">%1$d llamadas perdidas</item>
+        <item quantity="other">%1$d llamadas perdidas</item>
+    </plurals>
+    <plurals name="r4n_g_video_calls">
+        <item quantity="one">%1$d videollamada perdida</item>
+        <item quantity="many">%1$d videollamadas perdidas</item>
+        <item quantity="other">%1$d videollamadas perdidas</item>
+    </plurals>
+    <plurals name="r4n_g_comments">
+        <item quantity="one">%1$d comentario nuevo</item>
+        <item quantity="many">%1$d comentarios nuevos</item>
+        <item quantity="other">%1$d comentarios nuevos</item>
+    </plurals>
+    <plurals name="r4n_g_comments_mention">
+        <item quantity="one">%1$d comentario nuevo (con mención)</item>
+        <item quantity="many">%1$d comentarios nuevos (con mención)</item>
+        <item quantity="other">%1$d comentarios nuevos (con mención)</item>
+    </plurals>
+    <plurals name="r4n_summary">
+        <item quantity="one">%1$d notificación nueva</item>
+        <item quantity="many">%1$d notificaciones nuevas</item>
+        <item quantity="other">%1$d notificaciones nuevas</item>
+    </plurals>
+</resources>

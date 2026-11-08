@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 4 (r4-notify): Glocke gebuendelt, System-Kanaele (CH-04) -->
+<resources>
+    <string name="r4n_section_new">ใหม่</string>
+    <string name="r4n_section_earlier">ก่อนหน้า</string>
+    <string name="r4n_show_all">ดูทั้งหมด</string>
+    <string name="r4n_empty_hint">ที่นี่จะแสดงเมื่อมีคนแชร์สิ่งใดกับคุณ แสดงความคิดเห็นในหน้าของคุณ หรือส่งข้อความถึงคุณ</string>
+    <string name="r4n_mark_read">ทำเครื่องหมายว่าอ่านแล้ว</string>
+    <string name="r4n_you">คุณ</string>
+    <string name="r4n_ch_chats">แชท</string>
+    <string name="r4n_ch_chats_desc">ข้อความแชทใหม่และการกล่าวถึงในแชท</string>
+    <string name="r4n_ch_mentions">การกล่าวถึงและความคิดเห็น</string>
+    <string name="r4n_ch_mentions_desc">ความคิดเห็น การกล่าวถึง การแชร์ และประกาศเกี่ยวกับหน้าของคุณ</string>
+    <string name="r4n_ch_tasks">งานและกิจกรรม</string>
+    <string name="r4n_ch_tasks_desc">งานที่ถึงกำหนดและเมื่อมีคนระบุคุณในฐานข้อมูล</string>
+    <string name="r4n_ch_calls">สายที่ไม่ได้รับ</string>
+    <string name="r4n_ch_calls_desc">สายที่ไม่ได้รับ (เสียงเรียกเข้ามีช่องของตัวเอง)</string>
+    <plurals name="r4n_g_messages">
+        <item quantity="other">ข้อความใหม่ %1$d ข้อความ</item>
+    </plurals>
+    <plurals name="r4n_g_messages_from">
+        <item quantity="other">ข้อความใหม่ %1$d ข้อความ (จาก %2$s)</item>
+    </plurals>
+    <plurals name="r4n_g_calls">
+        <item quantity="other">สายที่ไม่ได้รับ %1$d สาย</item>
+    </plurals>
+    <plurals name="r4n_g_video_calls">
+        <item quantity="other">วิดีโอคอลที่ไม่ได้รับ %1$d สาย</item>
+    </plurals>
+    <plurals name="r4n_g_comments">
+        <item quantity="other">ความคิดเห็นใหม่ %1$d รายการ</item>
+    </plurals>
+    <plurals name="r4n_g_comments_mention">
+        <item quantity="other">ความคิดเห็นใหม่ %1$d รายการ (มีการกล่าวถึง)</item>
+    </plurals>
+    <plurals name="r4n_summary">
+        <item quantity="other">การแจ้งเตือนใหม่ %1$d รายการ</item>
+    </plurals>
+</resources>

@@ -54,10 +54,23 @@ data class NotifItem(
     val chat: NotifChat? = null,
     /** 2.3: Systemmeldung (Backups) - Text und Titel kommen fertig vom Server */
     val system: Boolean = false,
+    // Design-Runde 4 (NAV-03): gebuendelte Zeile (?group=1) - alle ids/counts der Einheit (neueste zuerst), Zeit der
+    // aeltesten (first), Namen (actors, nur bei mehreren), Erwaehnung dabei, Gespraechseinheit (chat:/call:/page:)
+    val ids: List<Long> = emptyList(),
+    val counts: List<Int> = emptyList(),
+    val first: Double? = null,
+    val actors: List<String> = emptyList(),
+    val mention: Boolean = false,
+    @SerialName("group_key") val groupKey: String? = null,
+    val media: String? = null,
 )
 
 @Serializable
-data class NotifList(val items: List<NotifItem> = emptyList(), val unread: Int = 0, val more: Boolean = false, val next: Long? = null)
+data class NotifList(
+    val items: List<NotifItem> = emptyList(), val unread: Int = 0, val more: Boolean = false, val next: Long? = null,
+    /** Design-Runde 4: nur Server mit ?group=1 - ungelesene Zeilen (Gespraechseinheiten); null = alter Server */
+    @SerialName("unread_groups") val unreadGroups: Int? = null,
+)
 
 @Serializable
 data class NotifKind(val kind: String, val on: Boolean = true)
@@ -132,6 +145,10 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
     val supported = MutableStateFlow(false)
     val items = MutableStateFlow<List<NotifItem>>(emptyList())
     val unread = MutableStateFlow(0)
+    /** Design-Runde 4 (NAV-03): ungelesene Zeilen der gebuendelten Glocke (alter Server: = unread) */
+    val unreadGroups = MutableStateFlow(0)
+    /** Server buendelt (?group=1 bekannt) */
+    @Volatile private var grouped = false
     val more = MutableStateFlow(false)
     val loading = MutableStateFlow(false)
     private var next: Long? = null
@@ -147,6 +164,9 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
      */
     @Volatile var treeSeen = false
         private set
+
+    /** Design-Runde 4 (CH-04): Zeilen anderswo gelesen -> System-Mitteilungen dieser Einheiten entfernen (PushService) */
+    @Volatile var onRowsRead: ((keys: Set<String>, all: Boolean) -> Unit)? = null
 
     private val _events = MutableSharedFlow<LiveEvent>(extraBufferCapacity = 64)
     val events: SharedFlow<LiveEvent> = _events
@@ -195,6 +215,8 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
         client.forget()
         items.value = emptyList()
         unread.value = 0
+        setGroups(0)
+        grouped = false
         more.value = false
         next = null
         supported.value = false
@@ -209,10 +231,10 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
         if (repo.needsLogin.value) return
         loading.value = true
         try {
-            val r = json.decodeFromString<NotifList>(repo.api.get("api/notifications?limit=30"))
+            val r = json.decodeFromString<NotifList>(repo.api.get("api/notifications?limit=30&group=1"))
             supported.value = true
-            items.value = r.items
-            unread.value = r.unread
+            items.value = io.github.yggdrasil_sh.saga.ui.notifications.NotifGroups.regroup(r.items)
+            counts(r.unread, r.unreadGroups)
             more.value = r.more
             next = r.next
         } catch (e: CancellationException) {
@@ -232,10 +254,11 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
     suspend fun loadNotificationCount() {
         if (repo.needsLogin.value) return
         try {
-            val o = json.parseToJsonElement(repo.api.get("api/notifications?limit=0")) as? JsonObject ?: return
+            val o = json.parseToJsonElement(repo.api.get("api/notifications?limit=0&group=1")) as? JsonObject ?: return
             val n = (o["unread"] as? JsonPrimitive)?.intOrNull ?: return
+            val g = (o["unread_groups"] as? JsonPrimitive)?.intOrNull
             supported.value = true
-            if (n != unread.value) loadNotifications()
+            if (n != unread.value || (g != null && g != unreadGroups.value)) loadNotifications()
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
@@ -246,24 +269,57 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
 
     suspend fun loadMore() {
         val before = next ?: return
-        val r = json.decodeFromString<NotifList>(repo.api.get("api/notifications?limit=30&before=$before"))
-        items.value = items.value + r.items.filter { n -> items.value.none { it.id == n.id } }
-        unread.value = r.unread
+        val r = json.decodeFromString<NotifList>(repo.api.get("api/notifications?limit=30&group=1&before=$before"))
+        // aeltere Mitglieder schon gezeigter Gruppen kommen mit der naechsten Seite: in die vorhandene Zeile (wie Web regroup)
+        items.value = io.github.yggdrasil_sh.saga.ui.notifications.NotifGroups.regroup(items.value + r.items)
+        counts(r.unread, r.unreadGroups)
         more.value = r.more
         next = r.next
     }
 
-    suspend fun markRead(ids: List<Long>) {
-        if (ids.isEmpty()) return
-        items.value = NotifLogic.markRead(items.value, ids.toSet(), false)
-        val r = repo.api.post("api/notifications/read", buildJsonObject { putJsonArray("ids") { ids.forEach { add(JsonPrimitive(it)) } } })
-        (json.parseToJsonElement(r) as? JsonObject)?.get("unread")?.let { (it as? JsonPrimitive)?.intOrNull }?.let { unread.value = it }
+    suspend fun markRead(ids: List<Long>, groups: List<String> = emptyList()) {
+        if (ids.isEmpty() && groups.isEmpty()) return
+        val m = io.github.yggdrasil_sh.saga.ui.notifications.NotifGroups.markRead(items.value, ids.toSet(), groups.toSet(), false)
+        items.value = m.list
+        // Design-Runde 4: {groups} markiert die ganze Gespraechseinheit (auch aeltere, nicht geladene); alte Server ignorieren es
+        val r = repo.api.post("api/notifications/read", buildJsonObject {
+            putJsonArray("ids") { ids.forEach { add(JsonPrimitive(it)) } }
+            if (groups.isNotEmpty()) putJsonArray("groups") { groups.take(100).forEach { add(JsonPrimitive(it)) } }
+        })
+        readCounts(r)
+        if (m.partial) loadNotifications()                            // nur ein Teil einer Zeile gelesen: frisch buendeln
+    }
+
+    /** Eine (gebuendelte) Zeile gelesen: alle ids und - falls bekannt - die ganze Einheit */
+    suspend fun markRead(row: NotifItem) {
+        if (row.read) return
+        markRead(io.github.yggdrasil_sh.saga.ui.notifications.NotifGroups.idsOf(row), listOfNotNull(row.groupKey))
     }
 
     suspend fun markAllRead() {
-        items.value = NotifLogic.markRead(items.value, null, true)
+        items.value = io.github.yggdrasil_sh.saga.ui.notifications.NotifGroups.markRead(items.value, emptySet(), emptySet(), true).list
         val r = repo.api.post("api/notifications/read", buildJsonObject { put("all", true) })
-        unread.value = (json.parseToJsonElement(r) as? JsonObject)?.get("unread")?.let { (it as? JsonPrimitive)?.intOrNull } ?: 0
+        if (!readCounts(r)) counts(0, 0)
+    }
+
+    /** Antwort von POST /api/notifications/read -> Zaehler; false = ohne Zahlen */
+    private fun readCounts(r: String): Boolean {
+        val o = try { json.parseToJsonElement(r) as? JsonObject } catch (_: Exception) { null } ?: return false
+        val n = (o["unread"] as? JsonPrimitive)?.intOrNull ?: return false
+        counts(n, (o["unread_groups"] as? JsonPrimitive)?.intOrNull)
+        return true
+    }
+
+    /** Zaehler setzen; ohne unread_groups (alter Server) zaehlt die Glocke einzelne Mitteilungen */
+    private fun counts(n: Int, groups: Int?) {
+        unread.value = n
+        if (groups != null) grouped = true
+        setGroups(groups ?: if (grouped) unreadGroups.value.coerceAtMost(n) else n)
+    }
+
+    private fun setGroups(n: Int) {
+        unreadGroups.value = n
+        io.github.yggdrasil_sh.saga.ui.notifications.NotificationCounts.publish(n)
     }
 
     suspend fun settings(): NotifSettings = json.decodeFromString(repo.api.get("api/notifications/settings"))
@@ -307,19 +363,25 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
         when (type) {
             "notification" -> {
                 val it = data["item"] as? JsonObject
-                ev.int("unread")?.let { unread.value = it }
+                ev.int("unread")?.let { n -> counts(n, ev.int("unread_groups")) }
+                val g = io.github.yggdrasil_sh.saga.ui.notifications.NotifGroups
                 if (it != null) {
                     try {
                         val item = json.decodeFromJsonElement(NotifItem.serializer(), it)
-                        items.value = NotifLogic.insert(items.value, item, ev.long("replaces"))
+                        // Design-Runde 4: in die Zeile seiner Gespraechseinheit (neuer Kopf), ersetzte vorher heraus
+                        items.value = g.insert(items.value, item, ev.long("replaces"))
                         supported.value = true
                     } catch (_: Exception) {
                     }
                 } else {
                     val r = data["read"]
                     val all = (r as? JsonPrimitive)?.contentOrNull == "all"
-                    val ids = (r as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.longOrNull }?.toSet()
-                    items.value = NotifLogic.markRead(items.value, ids, all)
+                    val ids = (r as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.longOrNull }?.toSet().orEmpty()
+                    val m = g.markRead(items.value, ids, emptySet(), all)
+                    items.value = m.list
+                    if (m.partial) scope.launch { loadNotifications() }
+                    // anderswo gelesen (Web, Chat geoeffnet): System-Mitteilungen dieser Einheiten wegnehmen
+                    onRowsRead?.invoke(m.readKeys, all)
                 }
             }
             "reset" -> scope.launch {
