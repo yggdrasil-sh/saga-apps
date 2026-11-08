@@ -325,6 +325,12 @@ object CallReturn {
     /** Laeuft der Anruf in diesem Chat? */
     fun inChat(st: CallUiState?, chatId: Long): Boolean = active(st) && chatId != 0L && st!!.chatId == chatId
 
+    /**
+     * R5-Fix: Band "Zum Anruf zurueckkehren" im Chat nur, wenn die gruene Anrufleiste oben nicht zu sehen ist (sonst stand
+     * der Weg zurueck doppelt da: Leiste der Haupt-Activity und Band im Chat).
+     */
+    fun returnRow(st: CallUiState?, chatId: Long, barShown: Boolean): Boolean = !barShown && inChat(st, chatId)
+
     /** Anruf-Knopf im Chat: im eigenen Chat zurueckkehren, sonst "telefonierst schon" bzw. neu anrufen */
     fun dial(st: CallUiState?, chatId: Long): Dial = when {
         inChat(st, chatId) -> Dial.RETURN

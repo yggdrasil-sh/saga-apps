@@ -77,10 +77,13 @@ fun OngoingCallBar(st: CallUiState?, modifier: Modifier = Modifier) {
     }
 }
 
-/** Hinweis im Chat, in dem der Anruf laeuft: "Zum Anruf zurueckkehren" */
+/** Zeigt der Bildschirm darueber schon die gruene Anrufleiste (OngoingCallBar)? Setzt MainScreen. */
+val LocalCallBarShown = androidx.compose.runtime.compositionLocalOf { false }
+
+/** Hinweis im Chat, in dem der Anruf laeuft: "Zum Anruf zurueckkehren" - nur ohne gruene Anrufleiste darueber */
 @Composable
 fun ReturnToCallRow(st: CallUiState?, chatId: Long, modifier: Modifier = Modifier) {
-    if (!CallReturn.inChat(st, chatId)) return
+    if (!CallReturn.returnRow(st, chatId, LocalCallBarShown.current)) return
     val context = LocalContext.current
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer,

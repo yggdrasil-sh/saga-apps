@@ -477,6 +477,8 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
     Column(Modifier.fillMaxSize()) {
         io.github.yggdrasil_sh.saga.call.OngoingCallBar(call)
         if (!ongoing) io.github.yggdrasil_sh.saga.call.RunningCallBar(repo.calls, call, statusBar = true)
+        // R5-Fix: die gruene Leiste ist sichtbar - das Band "Zum Anruf zurueckkehren" im Chat entfaellt dann
+        androidx.compose.runtime.CompositionLocalProvider(io.github.yggdrasil_sh.saga.call.LocalCallBarShown provides ongoing) {
         Column(
             Modifier.fillMaxWidth().weight(1f)
                 .then(if (callBar) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier),
@@ -539,6 +541,7 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
             }
             // Kopplungsanfrage eines neuen Chat-Geraets (Live chat.link): hier bestaetigen (Code vergleichen)
                 ChatLinkApproval(repo) { nav.push(Dest.ChatDevices) }
+        }
         }
     }
 }

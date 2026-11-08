@@ -59,6 +59,14 @@ class CallReturnTest {
         assertFalse(CallReturn.inChat(st(CallPhase.CONNECTED, chat = 0), 0))
     }
 
+    /** R5-Fix: gruene Leiste sichtbar -> kein zweites Band "Zum Anruf zurueckkehren" im Chat */
+    @Test
+    fun keinDoppeltesBand() {
+        assertFalse(CallReturn.returnRow(st(CallPhase.CONNECTED, chat = 7), 7, barShown = true))
+        assertTrue(CallReturn.returnRow(st(CallPhase.CONNECTED, chat = 7), 7, barShown = false))
+        assertFalse(CallReturn.returnRow(st(CallPhase.CONNECTED, chat = 7), 8, barShown = false))
+    }
+
     @Test
     fun anrufKnopfImChat() {
         assertEquals(CallReturn.Dial.START, CallReturn.dial(null, 7))
