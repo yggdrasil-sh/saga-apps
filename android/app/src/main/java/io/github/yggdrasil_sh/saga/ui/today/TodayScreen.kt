@@ -155,6 +155,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             val accent = LocalSagaAccent.current
             // R6 (A11Y-23): ab 840 dp verfuegbarer Breite zwei Spalten; Kopf und "Weitermachen" stehen ueber beiden
             val two = TodayLogic.twoColumns(maxWidth.value)
+            val contCardW = TodayLogic.continueCardWidthDp(maxWidth.value).dp
             androidx.compose.runtime.SideEffect { twoCols = two }
             val maxW = todayContentWidth(maxWidth)
             val ml = merged
@@ -215,7 +216,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     item(key = "continue") {
                         Column(Modifier.widthIn(max = maxW).fillMaxWidth().sagaAppear(1)) {
                             SagaSectionTitle(stringResource(R.string.r4t_continue), Modifier.padding(top = SagaSpace.xs))
-                            ContinueRow(cont, repo, TodayLogic.continueCardWidthDp(maxWidth.value).dp) { nav.push(Dest.Page(it)) }
+                            ContinueRow(cont, repo, contCardW) { nav.push(Dest.Page(it)) }
                         }
                     }
                 }

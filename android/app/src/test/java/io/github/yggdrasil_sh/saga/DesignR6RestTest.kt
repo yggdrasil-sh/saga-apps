@@ -17,10 +17,15 @@ class DesignR6RestTest {
     private val src = File("src/main/java/io/github/yggdrasil_sh/saga/ui")
 
     @Test fun ansichtsPillenLassenSymboleWegWennSieUeberlaufen() {
-        assertTrue(DbCompact.pillsDropIcons(already = false, maxScroll = 40, viewport = 400))
-        assertFalse(DbCompact.pillsDropIcons(already = false, maxScroll = 0, viewport = 400))
-        assertFalse(DbCompact.pillsDropIcons(already = true, maxScroll = 40, viewport = 400)) // bleibt, kein Flackern
-        assertFalse(DbCompact.pillsDropIcons(already = false, maxScroll = 40, viewport = 0))   // noch nicht gemessen
+        // erster Ueberlauf: Breite mit Symbolen merken (400 + 40); danach bleibt sie stehen
+        assertEquals(440, DbCompact.pillsNeedWidth(0, maxScroll = 40, viewport = 400))
+        assertEquals(0, DbCompact.pillsNeedWidth(0, maxScroll = 0, viewport = 400))
+        assertEquals(0, DbCompact.pillsNeedWidth(0, maxScroll = 40, viewport = 0))     // noch nicht gemessen
+        assertEquals(440, DbCompact.pillsNeedWidth(440, maxScroll = 0, viewport = 410)) // ohne Symbole passt es - bleibt
+        assertTrue(DbCompact.pillsHideIcons(440, 400))
+        assertTrue(DbCompact.pillsHideIcons(440, 300))   // Blatt faehrt ein: kein Flackern
+        assertFalse(DbCompact.pillsHideIcons(440, 440))  // wieder breit genug: Symbole zurueck
+        assertFalse(DbCompact.pillsHideIcons(0, 400))
         val code = File(src, "database/DatabaseView.kt").readText()
         assertTrue(code.contains("if (!noIcons) SagaIcon(viewIcon(x.type)"))
     }
@@ -42,7 +47,7 @@ class DesignR6RestTest {
         // Tablet quer: 800 dp hoch abzueglich Leisten ~ 728 dp - bei 100 % gross, bei 130 % Schrift dichter
         assertFalse(LoginLayout.cardCompact(728f, 1f))
         assertTrue(LoginLayout.cardCompact(728f, 1.3f))
-        assertTrue(LoginLayout.cardCompact(600f, 1f))      // Tastatur offen
+        assertTrue(LoginLayout.cardCompact(600f, 1f))      // niedriges Fenster (geteilter Bildschirm)
         assertFalse(LoginLayout.cardCompact(1100f, 1.3f))  // Tablet hoch
         assertEquals(72f, LoginLayout.logo(card = true, viewportHDp = 728f, fontScale = 1.3f).value, 0.01f)
         assertEquals(104f, LoginLayout.logo(card = true, viewportHDp = 728f).value, 0.01f)

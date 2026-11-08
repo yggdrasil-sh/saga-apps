@@ -515,11 +515,11 @@ internal fun ViewPills(views: List<DbView>, current: String, onSelect: (String) 
     val active = bounds[current]
     var first by remember { mutableStateOf(true) }
     // R6-Rest: passen die Pillen nicht in die Zeile (Tabelle neben dem Seitenblatt, Phone), erst die Symbole weglassen;
-    // reicht auch das nicht, bleibt das Wischen mit Verlauf. Je Breite und Ansichtszahl einmal entschieden (kein Flackern).
-    var noIcons by remember(views.size, viewport) { mutableStateOf(false) }
-    LaunchedEffect(sc.maxValue, viewport, views.size) {
-        if (DbCompact.pillsDropIcons(noIcons, sc.maxValue, viewport)) noIcons = true
-    }
+    // reicht auch das nicht, bleibt das Wischen mit Verlauf. Gemerkt wird die Breite, die die Pillen mit Symbolen
+    // brauchen - so flackert nichts, waehrend sich die Breite animiert (Blatt faehrt ein/aus)
+    var needW by remember(views) { androidx.compose.runtime.mutableIntStateOf(0) }
+    LaunchedEffect(sc.maxValue, viewport) { needW = DbCompact.pillsNeedWidth(needW, sc.maxValue, viewport) }
+    val noIcons = DbCompact.pillsHideIcons(needW, viewport)
     LaunchedEffect(current, active, viewport) {
         val b = active ?: return@LaunchedEffect
         if (viewport <= 0) return@LaunchedEffect

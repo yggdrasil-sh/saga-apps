@@ -100,7 +100,7 @@ internal object LoginLayout {
     fun card(widthDp: Float, heightDp: Float = Float.MAX_VALUE): Boolean = widthDp >= CARD_FROM_DP && heightDp >= CARD_MIN_H_DP
     /**
      * R6-Rest: Karte auf niedriger Sichtflaeche dichter (kleineres Logo, engere Abstaende), damit sie mit grosser Schrift
-     * (Tablet quer, 130 %) nicht bis zur Gestenleiste reicht. Massstab: Hoehe geteilt durch die Schriftgroesse.
+     * (Tablet quer, 130 %) nicht bis zur Gestenleiste reicht. Massstab: Fensterhoehe (ohne Tastatur) geteilt durch die Schriftgroesse.
      */
     const val CARD_COMPACT_BELOW_DP = 640f
     val LOGO_COMPACT = 72.dp
@@ -194,7 +194,9 @@ fun LoginScreen(repo: SagaRepository) {
             val card = LoginLayout.card(maxWidth.value, androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.toFloat())
             val viewportH = maxHeight
             val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
-            val gap = LoginLayout.gap(card, viewportH.value, fontScale)
+            // Dichte nach der Fensterhoehe (ohne Tastatur), damit Logo und Abstaende beim Tippen nicht springen
+            val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.toFloat()
+            val gap = LoginLayout.gap(card, screenH, fontScale)
             val fieldArea = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
             var fieldFocused by remember { mutableStateOf(false) }
             var viewport by remember { mutableStateOf(0) }
@@ -207,7 +209,7 @@ fun LoginScreen(repo: SagaRepository) {
                 }
             }
             val form: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
-                val logo = LoginLayout.logo(card, viewportH.value, fontScale)
+                val logo = LoginLayout.logo(card, screenH, fontScale)
                 Image(
                     painterResource(R.drawable.ic_launcher_foreground), contentDescription = null,
                     modifier = Modifier.size(logo).shadow(12.dp, RoundedCornerShape(logo * 0.27f)).clip(RoundedCornerShape(logo * 0.27f)).background(SagaNight),
@@ -323,7 +325,7 @@ fun LoginScreen(repo: SagaRepository) {
                     verticalArrangement = Arrangement.Center,
                 ) {
                     io.github.yggdrasil_sh.saga.ui.theme.SagaCard(
-                        Modifier.widthIn(max = LoginLayout.CARD_MAX).fillMaxWidth(), padding = LoginLayout.cardPadding(viewportH.value, fontScale),
+                        Modifier.widthIn(max = LoginLayout.CARD_MAX).fillMaxWidth(), padding = LoginLayout.cardPadding(screenH, fontScale),
                     ) {
                         Column(
                             Modifier.fillMaxWidth(),
