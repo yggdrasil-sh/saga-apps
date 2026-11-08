@@ -12,4 +12,20 @@
     <string name="r5_no_hits">Niemand gefunden</string>
     <string name="r5_no_hits_hint">Kurze Namen (1–2 Zeichen) passen nur genau. Personen anderer Server: name@server.</string>
     <string name="r5_back">Zurück</string>
+    <string name="r5_pv_message">Nachricht</string>
+    <string name="r5_pv_photo">Foto</string>
+    <string name="r5_pv_video">Video</string>
+    <string name="r5_pv_voice">Sprachnachricht</string>
+    <string name="r5_pv_voice_dur">Sprachnachricht %1$s</string>
+    <string name="r5_pv_file">Datei</string>
+    <string name="r5_pv_call">Anruf</string>
+    <string name="r5_pv_video_call">Videoanruf</string>
+    <string name="r5_pv_missed">Verpasster Anruf</string>
+    <string name="r5_pv_missed_video">Verpasster Videoanruf</string>
+    <string name="r5_pv_page">Seite</string>
+    <string name="r5_pv_setting">Vorschau in der Chat-Liste</string>
+    <string name="r5_pv_mode_text">Nachrichtentext</string>
+    <string name="r5_pv_mode_kind">Nur Art der Nachricht</string>
+    <string name="r5_pv_mode_text_hint">Zeigt den Anfang der letzten Nachricht – nur aus dem, was dieses Gerät schon entschlüsselt hat</string>
+    <string name="r5_pv_mode_kind_hint">Nur „Nachricht“, „Foto“, „Sprachnachricht“ … – kein Text sichtbar</string>
 </resources>

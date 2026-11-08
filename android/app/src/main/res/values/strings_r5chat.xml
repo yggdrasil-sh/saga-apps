@@ -12,4 +12,20 @@
     <string name="r5_no_hits">No one found</string>
     <string name="r5_no_hits_hint">Short names (1–2 characters) only match exactly. People on other servers: name@server.</string>
     <string name="r5_back">Back</string>
+    <string name="r5_pv_message">Message</string>
+    <string name="r5_pv_photo">Photo</string>
+    <string name="r5_pv_video">Video</string>
+    <string name="r5_pv_voice">Voice message</string>
+    <string name="r5_pv_voice_dur">Voice message %1$s</string>
+    <string name="r5_pv_file">File</string>
+    <string name="r5_pv_call">Call</string>
+    <string name="r5_pv_video_call">Video call</string>
+    <string name="r5_pv_missed">Missed call</string>
+    <string name="r5_pv_missed_video">Missed video call</string>
+    <string name="r5_pv_page">Page</string>
+    <string name="r5_pv_setting">Preview in the chat list</string>
+    <string name="r5_pv_mode_text">Message text</string>
+    <string name="r5_pv_mode_kind">Type of message only</string>
+    <string name="r5_pv_mode_text_hint">Shows the beginning of the last message, only from what this device has already decrypted</string>
+    <string name="r5_pv_mode_kind_hint">Only \"Message\", \"Photo\", \"Voice message\" … – no text visible</string>
 </resources>

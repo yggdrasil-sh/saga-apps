@@ -286,6 +286,22 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     }
 
     LaunchedEffect(s) { s.open() }
+    // CH-07: letzte Nachricht (schon entschluesselt) als Vorschau fuer die Chat-Liste merken
+    val pageWord = stringResource(R.string.r5_pv_page)
+    LaunchedEffect(s) {
+        snapshotFlow {
+            if (!s.opened) null
+            else Triple(s.messages.lastOrNull { io.github.yggdrasil_sh.saga.chat.ListPreviewLogic.shows(it) }, s.lastSeq, s.summary?.kind)
+        }.collectLatest { st ->
+            if (st == null) return@collectLatest
+            delay(300)
+            val p = io.github.yggdrasil_sh.saga.chat.ListPreviewLogic.of(
+                s.messages.toList(), s.me, st.second, st.third != null && st.third != "dm", { senderName(it) },
+                { id -> s.notes[id]?.title }, pageWord,
+            )
+            quietly { svc.rememberListPreview(chatId, p) }
+        }
+    }
     // eine Ausnahme hier wuerde den Prozess beenden (BUG-003): jedes Ereignis einzeln abfangen
     LaunchedEffect(s) { repo.live.events.collect { ev -> quietly { s.onEvent(ev) } } }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle

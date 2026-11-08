@@ -12,4 +12,20 @@
     <string name="r5_no_hits">No se encontró a nadie</string>
     <string name="r5_no_hits_hint">Los nombres cortos (1–2 caracteres) solo coinciden exactamente. Personas de otros servidores: nombre@servidor.</string>
     <string name="r5_back">Atrás</string>
+    <string name="r5_pv_message">Mensaje</string>
+    <string name="r5_pv_photo">Foto</string>
+    <string name="r5_pv_video">Vídeo</string>
+    <string name="r5_pv_voice">Mensaje de voz</string>
+    <string name="r5_pv_voice_dur">Mensaje de voz %1$s</string>
+    <string name="r5_pv_file">Archivo</string>
+    <string name="r5_pv_call">Llamada</string>
+    <string name="r5_pv_video_call">Videollamada</string>
+    <string name="r5_pv_missed">Llamada perdida</string>
+    <string name="r5_pv_missed_video">Videollamada perdida</string>
+    <string name="r5_pv_page">Página</string>
+    <string name="r5_pv_setting">Vista previa en la lista de chats</string>
+    <string name="r5_pv_mode_text">Texto del mensaje</string>
+    <string name="r5_pv_mode_kind">Solo el tipo de mensaje</string>
+    <string name="r5_pv_mode_text_hint">Muestra el inicio del último mensaje, solo de lo que este dispositivo ya descifró</string>
+    <string name="r5_pv_mode_kind_hint">Solo «Mensaje», «Foto», «Mensaje de voz»… sin texto visible</string>
 </resources>

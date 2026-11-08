@@ -457,8 +457,10 @@ fun SettingsChatsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome)
             if (chatState == ChatSetup.OFF || chatState == ChatSetup.UNSUPPORTED) {
                 item(key = "off") { Explainer(stringResource(R.string.r4s_chats_off), w.padding(top = 12.dp)) }
             }
-            if (chatDev || std) item(key = "chats-head") { GroupHeading(stringResource(R.string.r4s_chats_devices_group), w) }
-            val rows = (if (chatDev) 1 else 0) + (if (std && stdF.block) 1 else 0) + (if (std && stdF.unfurl) 1 else 0)
+            if (chatDev || std || pvRow) item(key = "chats-head") { GroupHeading(stringResource(R.string.r4s_chats_devices_group), w) }
+            // CH-07: "Vorschau in der Chat-Liste" (nur dieses Geraet), sobald Chats eingerichtet sind
+            val pvRow = chatState == ChatSetup.READY
+            val rows = (if (chatDev) 1 else 0) + (if (pvRow) 1 else 0) + (if (std && stdF.block) 1 else 0) + (if (std && stdF.unfurl) 1 else 0)
             var idx = 0
             if (chatDev) {
                 val i = idx++
@@ -467,6 +469,10 @@ fun SettingsChatsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome)
                         SagaIcons.devices, stringResource(R.string.chat_devices), w.sagaSegment(i, rows), summary = stringResource(R.string.chat_devices_hint),
                     ) { nav.push(Dest.ChatDevices) }
                 }
+            }
+            if (pvRow) {
+                val i = idx++
+                item(key = "list-preview") { io.github.yggdrasil_sh.saga.ui.chat.ListPreviewSettingRow(repo, w.sagaSegment(i, rows)) }
             }
             // 2.5 Chat-Standard: gesperrte Personen (block2), Linkvorschau (unfurl1, nur dieses Geraet)
             if (std && stdF.block) {

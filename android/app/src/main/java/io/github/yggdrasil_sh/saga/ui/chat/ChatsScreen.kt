@@ -69,6 +69,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.chat.ListPreviewLogic
 import io.github.yggdrasil_sh.saga.chat.ChatDeleteLogic
 import io.github.yggdrasil_sh.saga.chat.ChatSetup
 import io.github.yggdrasil_sh.saga.chat.ChatSummary
@@ -91,6 +92,8 @@ fun ChatsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, chatId:
     val svc = repo.chat
     val st by svc.state.collectAsState()
     LaunchedEffect(Unit) {
+        // CH-07: gemerkte Vorschauen einmal lesen (eine Entschluesselung fuer alle Zeilen, nicht beim Scrollen)
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { svc.loadListPreviews(force = true) }
         svc.refresh()
         svc.loadChats()
     }
@@ -384,6 +387,12 @@ private fun ChatRow(repo: SagaRepository, c: ChatSummary, name: String, selected
     }
     val unread = c.unread > 0
     val strong = unread && !mutedNow
+    // CH-07: letzte Nachricht aus dem lokalen Stand ("Du: …", "Name: …", "Foto" …); ohne Stand die Art des Chats
+    val previews by repo.chat.listPreviews.collectAsState()
+    val pvMode by repo.chat.listPreviewMode.collectAsState()
+    val pv = previews[c.id]?.takeIf { ListPreviewLogic.valid(it, c, nowSec) }
+    val pvLabels = listPreviewLabels()
+    val pvText = remember(pv, pvMode, pvLabels) { pv?.let { ListPreviewLogic.render(it, pvMode, pvLabels) } }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(SagaRadius.md))
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)
@@ -434,6 +443,8 @@ private fun ChatRow(repo: SagaRepository, c: ChatSummary, name: String, selected
                     else " · " + androidx.compose.ui.res.pluralStringResource(R.plurals.fed_people_n, c.memberCount, c.memberCount) +
                         (c.home?.takeIf { !c.homeSelf }?.let { " · $it" }.orEmpty())) +
                     (if (c.readonly) " · " + stringResource(R.string.fed_readonly_chip) else "")
+            } else if (pvText != null) {
+                pvText
             } else if (c.kind != "dm" && c.memberCount > 0) {
                 kindLabel + " · " + androidx.compose.ui.res.pluralStringResource(R.plurals.fed_people_n, c.memberCount, c.memberCount)
             } else kindLabel
@@ -454,6 +465,26 @@ private fun ChatRow(repo: SagaRepository, c: ChatSummary, name: String, selected
                 }
             }
         }
+    }
+}
+
+/** CH-07: uebersetzte Texte der Listen-Vorschau */
+@Composable
+fun listPreviewLabels(): ListPreviewLogic.Labels {
+    val you = stringResource(R.string.r1_bubble_you)
+    val msg = stringResource(R.string.r5_pv_message)
+    val photo = stringResource(R.string.r5_pv_photo)
+    val video = stringResource(R.string.r5_pv_video)
+    val voice = stringResource(R.string.r5_pv_voice)
+    val voiceDur = stringResource(R.string.r5_pv_voice_dur, "%1\$s")
+    val file = stringResource(R.string.r5_pv_file)
+    val call = stringResource(R.string.r5_pv_call)
+    val vcall = stringResource(R.string.r5_pv_video_call)
+    val missed = stringResource(R.string.r5_pv_missed)
+    val vmissed = stringResource(R.string.r5_pv_missed_video)
+    val page = stringResource(R.string.r5_pv_page)
+    return remember(you, msg, photo, video, voice, voiceDur, file, call, vcall, missed, vmissed, page) {
+        ListPreviewLogic.Labels(you, msg, photo, video, voice, voiceDur, file, call, vcall, missed, vmissed, page)
     }
 }
 

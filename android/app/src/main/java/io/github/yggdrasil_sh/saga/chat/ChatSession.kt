@@ -194,7 +194,9 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
     /** Kennung fuer die Verschluesselung: v1 chat_id, v2 chat_ref */
     private val cryptoId: String get() = summary?.cryptoId ?: chatId.toString()
 
-    private var lastSeq = 0L
+    /** bekannter Stand des Chats (Server last_seq) - CH-07: Vorschau gilt bis hier */
+    var lastSeq by mutableStateOf(0L)
+        private set
     private var lastTyping = 0L
     /** 2.3: eigene Nachrichten, die das Heim schon bei POST bestaetigt hat (FedDelivery) */
     private val confirmed: MutableSet<String> = java.util.Collections.synchronizedSet(HashSet())

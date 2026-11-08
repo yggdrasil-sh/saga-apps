@@ -12,4 +12,20 @@
     <string name="r5_no_hits">ไม่พบใคร</string>
     <string name="r5_no_hits_hint">ชื่อสั้น (1–2 ตัวอักษร) ต้องตรงทั้งหมด คนจากเซิร์ฟเวอร์อื่น: ชื่อ@เซิร์ฟเวอร์</string>
     <string name="r5_back">กลับ</string>
+    <string name="r5_pv_message">ข้อความ</string>
+    <string name="r5_pv_photo">รูปภาพ</string>
+    <string name="r5_pv_video">วิดีโอ</string>
+    <string name="r5_pv_voice">ข้อความเสียง</string>
+    <string name="r5_pv_voice_dur">ข้อความเสียง %1$s</string>
+    <string name="r5_pv_file">ไฟล์</string>
+    <string name="r5_pv_call">การโทร</string>
+    <string name="r5_pv_video_call">วิดีโอคอล</string>
+    <string name="r5_pv_missed">สายที่ไม่ได้รับ</string>
+    <string name="r5_pv_missed_video">วิดีโอคอลที่ไม่ได้รับ</string>
+    <string name="r5_pv_page">หน้า</string>
+    <string name="r5_pv_setting">ตัวอย่างในรายการแชท</string>
+    <string name="r5_pv_mode_text">ข้อความ</string>
+    <string name="r5_pv_mode_kind">เฉพาะประเภทข้อความ</string>
+    <string name="r5_pv_mode_text_hint">แสดงต้นข้อความล่าสุด จากสิ่งที่อุปกรณ์นี้ถอดรหัสแล้วเท่านั้น</string>
+    <string name="r5_pv_mode_kind_hint">แสดงเพียง \"ข้อความ\" \"รูปภาพ\" \"ข้อความเสียง\" … ไม่แสดงเนื้อความ</string>
 </resources>

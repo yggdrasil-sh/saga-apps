@@ -129,6 +129,20 @@ class ChatStore(private val secure: SecureStore, private val scope: () -> String
     fun draft(chat: Long): String? = secure.get(k("draft_$chat"))
     fun saveDraft(chat: Long, text: String?) = secure.put(k("draft_$chat"), text)
 
+    // ---------------------------------------------------------------- CH-07: Vorschau der letzten Nachricht je Chat
+    // Nur verschluesselt wie Entwuerfe; ein Eintrag fuer alle Chats (ein Lesen beim Start, keine Entschluesselung je Zeile)
+
+    fun listPreviews(): Map<Long, ListPreview> = try {
+        secure.get(k("pv"))?.let { json.decodeFromString<Map<Long, ListPreview>>(it) } ?: emptyMap()
+    } catch (_: Exception) {
+        emptyMap()
+    }
+
+    fun saveListPreviews(m: Map<Long, ListPreview>) = secure.put(k("pv"), if (m.isEmpty()) null else json.encodeToString(m))
+
+    /** Bereich (Server + Konto), fuer den die Ablage gerade gilt */
+    fun scopeNow(): String = scope()
+
     // ---------------------------------------------------------------- 25.10.: nur auf diesem Geraet ausgeblendet
     // (aelterer Server ohne POST /api/chats/{cid}/hide) - Kennungen kommasepariert, die neuesten 2000
 

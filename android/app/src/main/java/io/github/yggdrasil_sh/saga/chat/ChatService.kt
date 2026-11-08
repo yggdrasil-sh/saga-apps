@@ -559,6 +559,39 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
         return r.takeIf { ChatStd.usable(it) }
     }
 
+    // ---------------------------------------------------------------- CH-07: Vorschau in der Chat-Liste
+
+    /** Einstellung "Vorschau in der Chat-Liste" (nur dieses Geraet): Nachrichtentext (Standard) oder nur die Art */
+    val listPreviewMode = MutableStateFlow(
+        ListPreviewLogic.Mode.of(try { repo.secure.get("chat_list_preview") } catch (_: Exception) { null }),
+    )
+
+    fun setListPreviewMode(m: ListPreviewLogic.Mode) {
+        listPreviewMode.value = m
+        try { repo.secure.put("chat_list_preview", if (m == ListPreviewLogic.Mode.TEXT) null else m.key) } catch (_: Exception) {}
+    }
+
+    /** Vorschau je Chat aus dem lokalen Stand (Konto-Bereich, fuer den sie geladen ist) */
+    val listPreviews = MutableStateFlow<Map<Long, ListPreview>>(emptyMap())
+    @Volatile private var previewScope: String? = null
+
+    /** Je Konto aus der Ablage lesen; force beim Oeffnen der Liste (nach Abmelden leer) - abseits des Haupt-Threads */
+    fun loadListPreviews(force: Boolean = false) {
+        val sc = try { store.scopeNow() } catch (_: Exception) { return }
+        if (!force && previewScope == sc) return
+        previewScope = sc
+        listPreviews.value = try { store.listPreviews() } catch (_: Exception) { emptyMap() }
+    }
+
+    /** Vorschau eines Chats merken (null = vergessen); speichert nur bei Aenderung */
+    suspend fun rememberListPreview(chat: Long, p: ListPreview?) = withContext(Dispatchers.IO) {
+        loadListPreviews()
+        if (listPreviews.value[chat] == p) return@withContext
+        val next = ListPreviewLogic.put(listPreviews.value, chat, p)
+        listPreviews.value = next
+        try { store.saveListPreviews(next) } catch (_: Exception) {}
+    }
+
     /** Nutzereinstellung "Linkvorschau" (nur dieses Geraet, Standard an) */
     var unfurlOn: Boolean
         get() = try { repo.secure.get("chat_unfurl_on") != "0" } catch (_: Exception) { true }

@@ -12,4 +12,20 @@
     <string name="r5_no_hits">Никто не найден</string>
     <string name="r5_no_hits_hint">Короткие имена (1–2 символа) ищутся только точно. Люди с других серверов: имя@сервер.</string>
     <string name="r5_back">Назад</string>
+    <string name="r5_pv_message">Сообщение</string>
+    <string name="r5_pv_photo">Фото</string>
+    <string name="r5_pv_video">Видео</string>
+    <string name="r5_pv_voice">Голосовое сообщение</string>
+    <string name="r5_pv_voice_dur">Голосовое сообщение %1$s</string>
+    <string name="r5_pv_file">Файл</string>
+    <string name="r5_pv_call">Звонок</string>
+    <string name="r5_pv_video_call">Видеозвонок</string>
+    <string name="r5_pv_missed">Пропущенный звонок</string>
+    <string name="r5_pv_missed_video">Пропущенный видеозвонок</string>
+    <string name="r5_pv_page">Страница</string>
+    <string name="r5_pv_setting">Предпросмотр в списке чатов</string>
+    <string name="r5_pv_mode_text">Текст сообщения</string>
+    <string name="r5_pv_mode_kind">Только тип сообщения</string>
+    <string name="r5_pv_mode_text_hint">Показывает начало последнего сообщения — только из того, что это устройство уже расшифровало</string>
+    <string name="r5_pv_mode_kind_hint">Только «Сообщение», «Фото», «Голосовое сообщение»… — без текста</string>
 </resources>
