@@ -25,15 +25,64 @@ object NavModel {
     fun showBottomBar(compact: Boolean, current: Dest, imeVisible: Boolean): Boolean =
         compact && !imeVisible && current !is Dest.Page && current !is Dest.Chat
 
-    /** Markierter Tab: Schublade offen = Seiten; sonst nach der obersten Ebene; andere Ziele = keiner */
-    fun selectedTab(root: Dest, drawerOpen: Boolean): Tab? = when {
+    /**
+     * Markierter Tab: Schublade offen = Seiten; sonst nach der obersten Ebene; andere Ziele = keiner.
+     * Design-Runde 6 (NAV-19): [current] = oberstes Ziel des Stapels - die Rail bleibt im Editor sichtbar, eine offene
+     * Seite markiert dort "Seiten" (am Phone ist die Leiste im Editor ohnehin ausgeblendet).
+     */
+    fun selectedTab(root: Dest, drawerOpen: Boolean, current: Dest = root): Tab? = when {
         drawerOpen -> Tab.PAGES
+        current is Dest.Page -> Tab.PAGES
         root == Dest.Today -> Tab.TODAY
         root == Dest.Search -> Tab.SEARCH
         root == Dest.Chats || root is Dest.Chat -> Tab.CHATS
         root is Dest.Page -> Tab.PAGES
         else -> null
     }
+
+    /**
+     * Design-Runde 6 (Tablet): Navigationsform. BAR = untere Leiste (Phone, < 600 dp), RAIL = Navigation Rail mit den
+     * Zielen der Leiste und dem Seitenbaum als Schublade (600-840 dp hochkant; quer >= 840 dp im Bereich Chats, CH-14),
+     * SIDEBAR = feste Seitenleiste (>= 840 dp ausserhalb der Chats).
+     */
+    enum class Layout { BAR, RAIL, SIDEBAR }
+
+    const val MEDIUM_DP = 600f
+    const val WIDE_DP = 840f
+    /** Breite der Rail bzw. der festen Seitenleiste */
+    const val RAIL_DP = 80f
+    const val SIDEBAR_DP = 300f
+
+    /** Bereich Chats (Liste oder Unterhaltung als Wurzel) */
+    fun chatArea(root: Dest): Boolean = root == Dest.Chats || root is Dest.Chat
+
+    fun layout(widthDp: Float, root: Dest): Layout = when {
+        widthDp >= WIDE_DP -> if (chatArea(root)) Layout.RAIL else Layout.SIDEBAR
+        widthDp >= MEDIUM_DP -> Layout.RAIL
+        else -> Layout.BAR
+    }
+
+    /** Ziele der Leiste/Rail sichtbar (Heute · Seiten · Suchen · Chats): die Seitenleiste zeigt dann nur den Rest */
+    fun tabsShown(layout: Layout): Boolean = layout != Layout.SIDEBAR
+
+    /** Rail: dieselben Ziele wie die Phone-Leiste, unten Einstellungen */
+    fun railTabs(chatOn: Boolean): List<Tab> = tabs(chatOn)
+
+    /** "Einstellungen" unten in der Rail markiert (nicht, solange die Schublade "Seiten" offen ist) */
+    fun railSettingsSelected(root: Dest, drawerOpen: Boolean): Boolean = !drawerOpen && same(root, Dest.Settings)
+
+    /**
+     * Seite aus der Schublade ueber dem Leistenziel oeffnen ([AppNavigator.openOver], Zurueck fuehrt dorthin)? Phone und
+     * Rail hochkant ja; quer (Rail nur in den Chats) ersetzt sie den Stapel, damit die feste Seitenleiste zurueckkommt.
+     */
+    fun drawerOpensOver(layout: Layout, widthDp: Float): Boolean = layout == Layout.BAR || (layout == Layout.RAIL && widthDp < WIDE_DP)
+
+    /** CH-14: Breite der Chat-Liste neben der Unterhaltung (320-360 dp, rund 30 % des Bereichs) */
+    fun chatListWidth(paneDp: Float): Float = (paneDp * 0.3f).coerceIn(320f, 360f)
+
+    /** CH-14: offene Tastatur in der Unterhaltung (zweispaltig) -> nur die Unterhaltung, Liste ausgeblendet */
+    fun chatListHidden(twoPane: Boolean, chatOpen: Boolean, imeVisible: Boolean, conversationFocused: Boolean): Boolean =
+        twoPane && chatOpen && imeVisible && conversationFocused
 
     /** Kopf-Aktionen der Hauptziele: Glocke (Benachrichtigungen) und Lupe (Suchen) */
     data class Head(val bell: Boolean, val search: Boolean)
@@ -46,8 +95,8 @@ object NavModel {
 
     /**
      * Glocke auf den Hauptzielen der obersten Ebene (nicht im Editor, nicht auf dem Benachrichtigungs-Bildschirm,
-     * nicht in Unterseiten mit "Zurueck"). Die Lupe nur ohne untere Leiste (dort gibt es schon "Suchen") und nicht auf
-     * der Suche selbst.
+     * nicht in Unterseiten mit "Zurueck"). Die Lupe nur ohne untere Leiste bzw. Rail (dort gibt es schon "Suchen") und
+     * nicht auf der Suche selbst. bottomBar = Ziele der Leiste sichtbar ([tabsShown]: Leiste oder Rail).
      */
     fun head(current: Dest, canGoBack: Boolean, bottomBar: Boolean, notifOn: Boolean): Head {
         if (canGoBack || !isMain(current)) return Head(bell = false, search = false)

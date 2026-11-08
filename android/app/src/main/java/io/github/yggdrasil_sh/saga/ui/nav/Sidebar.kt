@@ -76,10 +76,11 @@ private data class TreeRow(val page: PageMeta, val depth: Int, val hasChildren: 
  * Seitenleiste wie im Web (Design-Runde 4, NAV-07/15/24/27): oben Kontomenue und Suchfeld, Hauptpunkte nur, was nicht
  * in der unteren Leiste liegt, dann Favoriten und Seitenbaum mit "Neue Seite", unten eine feste Fusszeile
  * (Dienste & Links, Graph, Papierkorb, Einstellungen). "Zuletzt" steht nur noch auf Heute ("Weitermachen").
- * bottomBar = die untere Leiste (Heute, Seiten, Suchen, Chats) ist sichtbar (Phone).
+ * bottomBar = die Ziele der unteren Leiste (Heute, Seiten, Suchen, Chats) sind sichtbar (Phone-Leiste oder Rail).
+ * openOver = Seiten ueber dem Leistenziel oeffnen (Zurueck fuehrt dorthin); Design-Runde 6: quer in den Chats nicht.
  */
 @Composable
-fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit, bottomBar: Boolean = false) {
+fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit, bottomBar: Boolean = false, openOver: Boolean = bottomBar) {
     val pages by repo.pages.collectAsState()
     val tasks by repo.tasks.collectAsState()
     // NAV-01: wie das Web-Badge "faellig heute + ueberfaellig" (mit Aufgabenquellen aus der zusammengefuehrten Liste)
@@ -130,7 +131,7 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit, bot
 
     fun open(id: Long) {
         // R4-Nachbesserung 22: mit unterer Leiste ueber dem Leistenziel oeffnen (Zurueck -> dorthin), sonst wie bisher
-        if (bottomBar) nav.openOver(Dest.Page(id)) else nav.top(Dest.Page(id))
+        if (openOver) nav.openOver(Dest.Page(id)) else nav.top(Dest.Page(id))
         onNavigate()
     }
 

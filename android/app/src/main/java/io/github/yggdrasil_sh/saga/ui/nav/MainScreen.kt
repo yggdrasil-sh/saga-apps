@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.navigationBars
@@ -37,7 +40,6 @@ import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.PermanentDrawerSheet
-import androidx.compose.material3.PermanentNavigationDrawer
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -174,20 +176,10 @@ object SnackPolicy {
         currentActive && currentHasAction && !nextHasAction
 }
 
-private data class MainItem(val dest: Dest, @StringRes val label: Int, @androidx.annotation.DrawableRes val icon: Int)
-
-private val mainItems = listOf(
-    MainItem(Dest.Today, R.string.nav_today, SagaIcons.today),
-    MainItem(Dest.Tasks, R.string.nav_tasks, SagaIcons.tasks),
-    MainItem(Dest.Events, R.string.nav_events, SagaIcons.calendar),
-    // Design-Runde 4: Begriffe wie Seitenleiste und Web ("Dienste & Links", "Suchen"); die Rail selbst bleibt (Runde 6)
-    MainItem(Dest.Services, R.string.r4nav_services_links, SagaIcons.server),
-    MainItem(Dest.Search, R.string.r4nav_search, SagaIcons.search),
-)
-
 /**
  * Adaptiv: Handy = untere Leiste (Heute · Seiten · Suchen · Chats) + Seitenleiste als Schublade; Tablet hochkant =
- * Navigation Rail + Schublade; breit = feste Seitenleiste
+ * Navigation Rail mit denselben Zielen + Schublade; breit = feste Seitenleiste, in den Chats zur Rail eingeklappt
+ * (Design-Runde 6, NAV-19/CH-14)
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -283,18 +275,22 @@ fun MainScreen(
     }
 
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
-        val wide = maxWidth >= 840.dp
-        val medium = maxWidth >= 600.dp
-        val compact = !wide && !medium
+        val widthDp = maxWidth.value
+        val wide = widthDp >= NavModel.WIDE_DP
+        // Design-Runde 6: Leiste (Phone), Rail (hochkant; quer in den Chats) oder feste Seitenleiste (quer)
+        val layout = NavModel.layout(widthDp, nav.root)
+        val compact = layout == NavModel.Layout.BAR
+        val tabsShown = NavModel.tabsShown(layout)
         // Design-Runde 4 (NAV-09): untere Leiste nur bei kompakter Breite; aus im Editor, im Chat und bei Tastatur
         val imeVisible = WindowInsets.isImeVisible
         val bottomBar = NavModel.showBottomBar(compact, nav.current, imeVisible)
         val openDrawer: () -> Unit = { focusManager.clearFocus(); keyboard?.hide(); scope.launch { drawerState.open() } }
-        // NAV-08: Glocke (Blatt von unten, r4-notify) und Lupe als Kopf-Aktionen der Hauptziele
+        // NAV-08: Glocke (Blatt von unten, r4-notify) und Lupe als Kopf-Aktionen der Hauptziele; NAV-19: mit Rail wie am
+        // Phone nur die Glocke (Suchen steht in der Rail, die Rail hat keine eigene Glocke mehr)
         var bellOpen by rememberSaveable { mutableStateOf(false) }
         val notifOn by repo.live.supported.collectAsState()
         val unreadGroups by io.github.yggdrasil_sh.saga.ui.notifications.NotificationCounts.unreadGroups.collectAsState()
-        val head = NavModel.head(nav.current, nav.canGoBack, compact, notifOn)
+        val head = NavModel.head(nav.current, nav.canGoBack, tabsShown, notifOn)
         val headActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {
             if (head.search) {
                 IconButton(onClick = { nav.top(Dest.Search) }) { SagaIcon(SagaIcons.search, stringResource(R.string.r4nav_search)) }
@@ -303,17 +299,20 @@ fun MainScreen(
         }
         val chrome = Chrome(showMenu = compact, onMenu = openDrawer, headActions = headActions)
         LaunchedEffect(bottomBar) { if (!bottomBar) bottomBarHeight.value = 0.dp }
-        val closeDrawer: () -> Unit = { if (!wide) scope.launch { drawerState.close() } }
+        val modal = layout != NavModel.Layout.SIDEBAR
+        val closeDrawer: () -> Unit = { if (modal) scope.launch { drawerState.close() } }
+        // Wechsel auf die feste Seitenleiste (Drehen, Chats verlassen): eine offene Schublade schliesst sofort
+        LaunchedEffect(modal) { if (!modal && drawerState.currentValue == DrawerValue.Open) drawerState.snapTo(DrawerValue.Closed) }
 
         val showShared by repo.showSharedRequest.collectAsState()
         var seenShared by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(repo.showSharedRequest.value) }
         LaunchedEffect(showShared) {
             if (showShared != seenShared) {
                 seenShared = showShared
-                if (!wide) drawerState.open()
+                if (modal) drawerState.open()
             }
         }
-        BackHandler(enabled = drawerState.isOpen && !wide) { scope.launch { drawerState.close() } }
+        BackHandler(enabled = drawerState.isOpen && modal) { scope.launch { drawerState.close() } }
         BackHandler(enabled = nav.canGoBack && !drawerState.isOpen) { nav.pop() }
         // oberste Ebene ausser "Heute": Zurueck fuehrt zum Startziel, erst dort beendet es die App (BUG-106)
         BackHandler(enabled = !nav.canGoBack && nav.root != Dest.Today && !drawerState.isOpen) { nav.top(Dest.Today) }
@@ -321,75 +320,39 @@ fun MainScreen(
         // Inhalt wandert beim Drehen/Wechsel Kompakt <-> Breit in einen anderen Zweig (feste Seitenleiste, Rail,
         // Schublade). movableContentOf nimmt dabei den Zustand mit (Chat-Entwurf, offene Blaetter, Editor) - BUG-021
         val content = remember { movableContentOf { c: Chrome -> Content(repo, nav, c, appScope, offline) } }
-        if (wide) {
-            PermanentNavigationDrawer(drawerContent = {
-                PermanentDrawerSheet(Modifier.width(300.dp)) { Sidebar(repo, nav, onNavigate = {}) }
-            }) {
-                content(chrome)
-            }
-        } else {
-            ModalNavigationDrawer(
-                drawerState = drawerState,
-                drawerContent = { ModalDrawerSheet(Modifier.width(320.dp)) { Sidebar(repo, nav, onNavigate = closeDrawer, bottomBar = compact) } },
-            ) {
-                if (medium) {
-                    Row(Modifier.fillMaxSize()) {
-                        NavigationRail(Modifier.statusBarsPadding(), header = {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) { SagaIcon(SagaIcons.menu, stringResource(R.string.pages)) }
-                        }) {
-                            mainItems.forEach { it ->
-                                NavigationRailItem(
-                                    selected = nav.root == it.dest, onClick = { nav.top(it.dest) },
-                                    icon = { SagaIcon(it.icon, null) }, label = { NavLabel(stringResource(it.label)) },
-                                )
-                            }
-                            // Saga 2.0: Chats (Ende-zu-Ende) und Benachrichtigungen mit Zaehler
-                            val chatOn by repo.live.chatEnabled.collectAsState()
-                            val chatUnread = rememberUnreadChats(repo)
-                            val notifOn by repo.live.supported.collectAsState()
-                            val notifUnread by repo.live.unread.collectAsState()
-                            if (chatOn) {
-                                NavigationRailItem(
-                                    selected = nav.root == Dest.Chats || nav.root is Dest.Chat, onClick = { nav.top(Dest.Chats) },
-                                    icon = {
-                                        val d = unreadChatsText(chatUnread)
-                                        Box(Modifier.clearAndSetSemantics { if (d != null) contentDescription = d }) { BadgeIcon(chatUnread) { SagaIcon(SagaIcons.chats, null) } }
-                                    },
-                                    label = { Text(stringResource(R.string.chats)) },
-                                )
-                            }
-                            if (notifOn) {
-                                NavigationRailItem(
-                                    selected = nav.root == Dest.Notifications, onClick = { nav.top(Dest.Notifications) },
-                                    icon = { BadgeIcon(notifUnread) { SagaIcon(SagaIcons.bell, null) } },
-                                    label = { NavLabel(stringResource(R.string.notifications)) },
-                                )
-                            }
-                            Spacer(Modifier.weight(1f))
-                            NavigationRailItem(
-                                selected = nav.root == Dest.Settings, onClick = { nav.top(Dest.Settings) },
-                                icon = { SagaIcon(SagaIcons.settings, null) }, label = { Text(stringResource(R.string.nav_settings)) },
-                                modifier = Modifier.padding(bottom = 12.dp),
-                            )
-                        }
-                        Box(Modifier.weight(1f)) { content(chrome) }
-                    }
-                } else {
-                    // Phone: Inhalt + untere Leiste (Heute · Seiten · Suchen · Chats); solange sie steht, nimmt sie die
-                    // Navigationsleiste des Systems ein - der Bildschirm darueber rechnet sie nicht noch einmal ein
-                    val density = androidx.compose.ui.platform.LocalDensity.current
-                    Column(Modifier.fillMaxSize()) {
-                        Box(
-                            Modifier.weight(1f)
-                                .then(if (bottomBar) Modifier.consumeWindowInsets(WindowInsets.navigationBars) else Modifier),
-                        ) { content(chrome) }
-                        if (bottomBar) {
-                            SagaBottomBar(
-                                repo, nav, drawerOpen = drawerState.targetValue == DrawerValue.Open,
-                                onPages = openDrawer,
-                                modifier = Modifier.onSizeChanged { bottomBarHeight.value = with(density) { it.height.toDp() } },
-                            )
-                        }
+        val drawerOpen = drawerState.targetValue == DrawerValue.Open
+        val rail: @Composable () -> Unit = { SagaRail(repo, nav, drawerOpen, onPages = openDrawer) }
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = modal,
+            drawerContent = {
+                // mit fester Seitenleiste keine zweite (verborgene) Seitenleiste in der Schublade
+                if (modal) ModalDrawerSheet(Modifier.width(320.dp)) {
+                    Sidebar(repo, nav, onNavigate = closeDrawer, bottomBar = tabsShown, openOver = NavModel.drawerOpensOver(layout, widthDp))
+                }
+            },
+        ) {
+            if (!compact) {
+                Row(Modifier.fillMaxSize()) {
+                    if (wide) WideSide(railMode = layout == NavModel.Layout.RAIL, rail = rail) { Sidebar(repo, nav, onNavigate = {}) }
+                    else rail()
+                    Box(Modifier.weight(1f)) { content(chrome) }
+                }
+            } else {
+                // Phone: Inhalt + untere Leiste (Heute · Seiten · Suchen · Chats); solange sie steht, nimmt sie die
+                // Navigationsleiste des Systems ein - der Bildschirm darueber rechnet sie nicht noch einmal ein
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                Column(Modifier.fillMaxSize()) {
+                    Box(
+                        Modifier.weight(1f)
+                            .then(if (bottomBar) Modifier.consumeWindowInsets(WindowInsets.navigationBars) else Modifier),
+                    ) { content(chrome) }
+                    if (bottomBar) {
+                        SagaBottomBar(
+                            repo, nav, drawerOpen = drawerOpen,
+                            onPages = openDrawer,
+                            modifier = Modifier.onSizeChanged { bottomBarHeight.value = with(density) { it.height.toDp() } },
+                        )
                     }
                 }
             }
@@ -434,12 +397,7 @@ private fun SagaBottomBar(repo: SagaRepository, nav: AppNavigator, drawerOpen: B
     val selected = NavModel.selectedTab(nav.root, drawerOpen)
     androidx.compose.material3.NavigationBar(modifier, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
         NavModel.tabs(chatOn).forEach { tab ->
-            val (label, icon) = when (tab) {
-                NavModel.Tab.TODAY -> R.string.nav_today to SagaIcons.today
-                NavModel.Tab.PAGES -> R.string.pages to SagaIcons.file
-                NavModel.Tab.SEARCH -> R.string.r4nav_search to SagaIcons.search
-                NavModel.Tab.CHATS -> R.string.chats to SagaIcons.chats
-            }
+            val (label, icon) = tabLook(tab)
             val badge = if (tab == NavModel.Tab.CHATS) chatUnread else 0
             val text = stringResource(label)
             val count = if (tab == NavModel.Tab.CHATS) unreadChatsText(badge) else null
@@ -460,6 +418,87 @@ private fun SagaBottomBar(repo: SagaRepository, nav: AppNavigator, drawerOpen: B
                     indicatorColor = accent.goldSoft, selectedIconColor = accent.onGoldSoft, selectedTextColor = accent.onGoldSoft,
                 ),
             )
+        }
+    }
+}
+
+/** Ziel eines Leisten-/Rail-Eintrags: Beschriftung und Symbol (gleich in Phone-Leiste und Rail) */
+private fun tabLook(tab: NavModel.Tab): Pair<Int, Int> = when (tab) {
+    NavModel.Tab.TODAY -> R.string.nav_today to SagaIcons.today
+    NavModel.Tab.PAGES -> R.string.pages to SagaIcons.file
+    NavModel.Tab.SEARCH -> R.string.r4nav_search to SagaIcons.search
+    NavModel.Tab.CHATS -> R.string.chats to SagaIcons.chats
+}
+
+/**
+ * Design-Runde 6 (NAV-19): Navigation Rail mit den Zielen der Phone-Leiste - Heute · Seiten · Suchen · Chats (mit Zaehler),
+ * unten Einstellungen. "Seiten" oeffnet den Seitenbaum als Schublade; Aufgaben, Termine, Dienste stehen dort,
+ * Benachrichtigungen ueber die Glocke im Kopf.
+ */
+@Composable
+private fun SagaRail(repo: SagaRepository, nav: AppNavigator, drawerOpen: Boolean, onPages: () -> Unit) {
+    val chatOn by repo.live.chatEnabled.collectAsState()
+    val chatUnread = rememberUnreadChats(repo)
+    val accent = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current
+    val selected = NavModel.selectedTab(nav.root, drawerOpen, nav.current)
+    val colors = androidx.compose.material3.NavigationRailItemDefaults.colors(
+        indicatorColor = accent.goldSoft, selectedIconColor = accent.onGoldSoft, selectedTextColor = accent.onGoldSoft,
+    )
+    NavigationRail(Modifier.statusBarsPadding(), containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+        Spacer(Modifier.size(8.dp))
+        NavModel.railTabs(chatOn).forEach { tab ->
+            val (label, icon) = tabLook(tab)
+            val badge = if (tab == NavModel.Tab.CHATS) chatUnread else 0
+            val count = if (tab == NavModel.Tab.CHATS) unreadChatsText(badge) else null
+            NavigationRailItem(
+                selected = selected == tab,
+                onClick = {
+                    when (tab) {
+                        NavModel.Tab.TODAY -> nav.top(Dest.Today)
+                        NavModel.Tab.PAGES -> onPages()
+                        NavModel.Tab.SEARCH -> nav.top(Dest.Search)
+                        NavModel.Tab.CHATS -> nav.top(Dest.Chats)
+                    }
+                },
+                icon = { Box(Modifier.clearAndSetSemantics { if (count != null) contentDescription = count }) { BadgeIcon(badge) { SagaIcon(icon, null) } } },
+                label = { NavLabel(stringResource(label)) },
+                colors = colors,
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        NavigationRailItem(
+            selected = NavModel.railSettingsSelected(nav.root, drawerOpen), onClick = { nav.top(Dest.Settings) },
+            icon = { SagaIcon(SagaIcons.settings, null) }, label = { NavLabel(stringResource(R.string.nav_settings)) },
+            colors = colors, modifier = Modifier.padding(bottom = 12.dp),
+        )
+    }
+}
+
+/**
+ * CH-14: Seite links im Querformat - feste Seitenleiste (300 dp), in den Chats zur Rail (80 dp) eingeklappt. Breite
+ * gleitet dezent, Inhalte blenden ueber; "Animationen entfernen" = sofort. Der Zustand der Seitenleiste (aufgeklappte
+ * Zweige, Scrollstand) bleibt ueber den Wechsel erhalten.
+ */
+@Composable
+private fun WideSide(railMode: Boolean, rail: @Composable () -> Unit, sidebar: @Composable () -> Unit) {
+    val reduced = io.github.yggdrasil_sh.saga.ui.theme.LocalReducedMotion.current
+    val motion = io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current
+    val target = (if (railMode) NavModel.RAIL_DP else NavModel.SIDEBAR_DP).dp
+    val width by androidx.compose.animation.core.animateDpAsState(
+        target, if (reduced) androidx.compose.animation.core.snap() else motion.defaultSpatial(), label = "side-width",
+    )
+    val holder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+    Box(Modifier.width(width).fillMaxHeight().clipToBounds()) {
+        androidx.compose.animation.Crossfade(
+            railMode, animationSpec = if (reduced) androidx.compose.animation.core.snap() else motion.fastEffects(), label = "side",
+        ) { r ->
+            if (r) rail()
+            else holder.SaveableStateProvider("sidebar") {
+                // feste Breite, beim Einklappen abgeschnitten statt gestaucht
+                Box(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).width(NavModel.SIDEBAR_DP.dp).fillMaxHeight()) {
+                    PermanentDrawerSheet(Modifier.width(NavModel.SIDEBAR_DP.dp)) { sidebar() }
+                }
+            }
         }
     }
 }
