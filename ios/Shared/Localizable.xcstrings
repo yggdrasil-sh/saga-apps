@@ -75869,6 +75869,98 @@
           }
         }
       }
+    },
+    "Du hast schon %lld Chat-Geräte. Entferne ein altes Gerät unter „Chats & Geräte“." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du hast schon %lld Chat-Geräte. Entferne ein altes Gerät unter „Chats & Geräte“."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You already have %lld chat devices. Remove an old device under “Chats & devices”."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya tienes %lld dispositivos de chat. Elimina un dispositivo antiguo en «Chats y dispositivos»."
+          }
+        },
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "У тебя уже %lld устройство для чатов. Удали старое устройство в разделе «Чаты и устройства»."
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "У тебя уже %lld устройства для чатов. Удали старое устройство в разделе «Чаты и устройства»."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "У тебя уже %lld устройств для чатов. Удали старое устройство в разделе «Чаты и устройства»."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "У тебя уже %lld устройства для чатов. Удали старое устройство в разделе «Чаты и устройства»."
+                }
+              }
+            }
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณมีอุปกรณ์แชทครบ %lld เครื่องแล้ว ลบอุปกรณ์เก่าออกที่ “แชทและอุปกรณ์”"
+          }
+        }
+      }
+    },
+    "%lld von %lld Chat-Geräten" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld von %2$lld Chat-Geräten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld of %2$lld chat devices"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld de %2$lld dispositivos de chat"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld из %2$lld устройств для чатов"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อุปกรณ์แชท %1$lld จาก %2$lld เครื่อง"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

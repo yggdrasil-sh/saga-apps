@@ -139,6 +139,10 @@ struct ChatMe: Equatable {
     var uploadsMax = 2
     var quota: Int64?
     var used: Int64?
+    /// 2.5: Grenze der Chat-Geraete und aktive Geraete (limits.devices_max/devices_count; aeltere Server: devices_count fehlt)
+    var devicesMax: Int?
+    var devicesCount: Int?
+    var deviceLimitReached: ChatDeviceLimit.Info? { ChatDeviceLimit.reached(count: devicesCount, max: devicesMax) }
     init() {}
     init?(data: Data) {
         guard let j = ShareJSON.obj(data) else { return nil }
@@ -160,6 +164,7 @@ struct ChatMe: Equatable {
             file2 = ShareJSON.bool(l["file2"]); videoMax = ShareJSON.int(l["video_max"]); uploadPart = ShareJSON.int(l["upload_part"])
             uploadsMax = max(1, ShareJSON.int(l["uploads_max"]) ?? uploadsMax)
             quota = ShareJSON.num(l["quota"]).map { Int64($0) }; used = ShareJSON.num(l["used"]).map { Int64($0) }
+            devicesMax = ShareJSON.int(l["devices_max"]); devicesCount = ShareJSON.int(l["devices_count"])
         }
         status = ReceiptLogic.caps(j)
         x3 = ChatX3.caps(j)
@@ -336,6 +341,10 @@ final class ChatModel: ObservableObject {
     /// Kopplung dieses (neuen) Geraets laeuft: Code + Ablauf
     @Published var linking: (id: String, code: String, expires: Date)?
     @Published var linkError: String?
+    /// 2.5: Kopplung bzw. Wiederherstellung an der Geraetegrenze gescheitert (neues Geraet: Hinweis in der Einrichtung)
+    @Published var deviceLimit: ChatDeviceLimit.Info?
+    /// 2.5: Bestaetigung eines neuen Geraets an der Grenze gescheitert (vorhandenes Geraet: Hinweis mit Sprung)
+    @Published var approveLimit: ChatDeviceLimit.Info?
     /// geoeffneter Chat (fuer Live-Ereignisse; 4.11.: Mitteilungen dieses Chats im Vordergrund nicht anzeigen)
     weak var open: ConversationModel?
     /// 4.11.: Chat, der geoeffnet werden soll (Mitteilung angetippt) - die Chat-Liste uebernimmt ihn, sobald sie bereit
@@ -401,7 +410,7 @@ final class ChatModel: ObservableObject {
     func signedOut() {
         keys = nil; me = ChatMe(); chats = []; unread = 0; requests = 0; myHandle = nil; state = .loading; approval = nil; linking = nil; titleMemo = [:]
         hiddenChats = []; hiddenCount = 0; blocks = []; infoMemo = [:]; ChatModel.dropDrafts(keep: nil)   // 2.5
-        linkPoll?.cancel(); pendingDevice = nil; handledLinks = []
+        linkPoll?.cancel(); pendingDevice = nil; handledLinks = []; deviceLimit = nil; approveLimit = nil
         presenceLoop?.cancel(); presenceLoop = nil; presence = [:]; presenceSub = ReceiptLogic.PresenceSub()
         ChatMedia.clearAll()                                            // Bild-Caches (Speicher + Ciphertext auf der Platte)
     }
@@ -430,7 +439,7 @@ final class ChatModel: ObservableObject {
             keys = k
             guard let k else { state = .newDevice; return }
             if did.isEmpty { _ = try? await store.apiResponse("api/chat/me?device=\(k.deviceID)") }   // "zuletzt gesehen"
-            state = .ready
+            state = .ready; deviceLimit = nil
             startPresence()                                             // 2.4: Online-Abo (nur Sichtbares, nur vorne)
             Task { await fedCerts() }                                   // 2.3: Zertifikate v2 (still, nur Server mit Foederation)
             await loadList()
@@ -510,7 +519,13 @@ final class ChatModel: ObservableObject {
         let enc = ChatCrypto.boxKeypair(), sign = ChatCrypto.signKeypair(), did = ChatCrypto.hexID()
         let cert = ChatCrypto.sign(ChatCrypto.deviceMsg(uid: uid, deviceID: did, encPK: enc.pk, signPK: sign.pk), sk: b.identSK)
         let body: [String: Any] = ["id": did, "name": DeviceKey.deviceName, "enc_pub": ChatCrypto.b64(enc.pk), "sign_pub": ChatCrypto.b64(sign.pk), "sig": ChatCrypto.b64(cert)]
-        _ = try await store.api("api/chat/devices", method: "POST", body: body)
+        deviceLimit = nil
+        let (rd, rc) = try await store.apiResponse("api/chat/devices", method: "POST", body: body)
+        guard (200..<300).contains(rc) else {
+            let j = ShareJSON.obj(rd)
+            if let lim = ChatDeviceLimit.parse(code: rc, json: j) { deviceLimit = lim; throw APIError.other(Self.limitText(lim)) }
+            throw APIError.http(rc, ShareJSON.str(j?["error"]) ?? "")
+        }
         let k = ChatKeys(uid: uid, deviceID: did, encPK: ChatCrypto.b64(enc.pk), encSK: ChatCrypto.b64(enc.sk), signPK: ChatCrypto.b64(sign.pk),
                          signSK: ChatCrypto.b64(sign.sk), identSK: ChatCrypto.b64(b.identSK), backupSK: ChatCrypto.b64(b.backupSK))
         guard ChatKeyStore.save(k) else { throw APIError.other(String(localized: "Schlüssel konnten nicht im Schlüsselbund gespeichert werden.")) }
@@ -523,11 +538,16 @@ final class ChatModel: ObservableObject {
     /// "Mit anderem Geraet bestaetigen": Anfrage stellen, Code zeigen, alle 3 s abfragen
     func startLink() async {
         guard let store else { return }
-        linkError = nil
+        linkError = nil; deviceLimit = nil
         let enc = ChatCrypto.boxKeypair(), sign = ChatCrypto.signKeypair(), did = ChatCrypto.hexID()
         pendingDevice = (did, enc, sign)
         do {
-            let d = try await store.api("api/chat/link", method: "POST", body: ["id": did, "name": DeviceKey.deviceName, "enc_pub": ChatCrypto.b64(enc.pk), "sign_pub": ChatCrypto.b64(sign.pk)])
+            let (d, rc) = try await store.apiResponse("api/chat/link", method: "POST", body: ["id": did, "name": DeviceKey.deviceName, "enc_pub": ChatCrypto.b64(enc.pk), "sign_pub": ChatCrypto.b64(sign.pk)])
+            guard (200..<300).contains(rc) else {
+                let ej = ShareJSON.obj(d)
+                if let lim = ChatDeviceLimit.parse(code: rc, json: ej) { deviceLimit = lim; throw APIError.other(Self.limitText(lim)) }   // 2.5
+                throw APIError.http(rc, ShareJSON.str(ej?["error"]) ?? "")
+            }
             guard let j = ShareJSON.obj(d), let lid = j["id"] as? String else { throw APIError.other(String(localized: "Keine Antwort vom Server")) }
             let code = ChatCrypto.linkCode(uid: me.uid, deviceID: did, encPK: enc.pk, signPK: sign.pk)
             linking = (lid, code, Date(timeIntervalSince1970: ShareJSON.num(j["expires"]) ?? Date().timeIntervalSince1970 + 600))
@@ -550,8 +570,8 @@ final class ChatModel: ObservableObject {
     @discardableResult func pollLink() async -> Bool {
         guard let store, let l = linking, let p = pendingDevice else { return true }
         guard let d = try? await store.api("api/chat/link/\(l.id)"), let j = ShareJSON.obj(d) else { return false }
-        switch j["state"] as? String {
-        case "approved":
+        switch ChatDeviceLimit.poll(j) {
+        case .approved:
             linkPoll?.cancel(); linking = nil
             guard let sealed = ChatCrypto.unb64(j["sealed"] as? String), let pt = ChatCrypto.sealOpen(sealed, pk: p.enc.pk, sk: p.enc.sk),
                   let s = String(data: pt, encoding: .utf8), let b = ChatCrypto.parsePlain(s), ChatCrypto.b64(b.identPK) == me.identPub else {
@@ -564,8 +584,16 @@ final class ChatModel: ObservableObject {
             keys = k; toast = String(localized: "Dieses Gerät ist jetzt für Chats eingerichtet.")
             await load()
             return true
-        case "pending": return false
-        default:
+        case .pending: return false
+        case .limit(let lim):                                           // 2.5: Bestaetigung an der Geraetegrenze gescheitert
+            linkPoll?.cancel(); linking = nil; pendingDevice = nil
+            deviceLimit = lim; linkError = Self.limitText(lim)
+            return true
+        case .failed(let e):
+            linkPoll?.cancel(); linking = nil; pendingDevice = nil
+            linkError = e ?? String(localized: "Die Anfrage ist abgelaufen oder wurde abgelehnt.")
+            return true
+        case .ended:
             linkPoll?.cancel(); linking = nil; pendingDevice = nil
             linkError = String(localized: "Die Anfrage ist abgelaufen oder wurde abgelehnt.")
             return true
@@ -595,10 +623,19 @@ final class ChatModel: ObservableObject {
         let sig = ChatCrypto.sign(ChatCrypto.deviceMsg(uid: me.uid, deviceID: r.deviceID, encPK: enc, signPK: sign), sk: k.identSKData)
         guard let sealed = ChatCrypto.seal(Data(k.bundlePlain.utf8), pk: enc) else { return }
         do {
-            _ = try await store.api("api/chat/link/\(r.id)", method: "POST", body: ["sig": ChatCrypto.b64(sig), "sealed": ChatCrypto.b64(sealed)])
+            let (d, rc) = try await store.apiResponse("api/chat/link/\(r.id)", method: "POST", body: ["sig": ChatCrypto.b64(sig), "sealed": ChatCrypto.b64(sealed)])
+            guard (200..<300).contains(rc) else {
+                let j = ShareJSON.obj(d)
+                if let lim = ChatDeviceLimit.parse(code: rc, json: j) { approveLimit = lim; await load(); return }   // 2.5: Hinweis mit Sprung
+                throw APIError.http(rc, ShareJSON.str(j?["error"]) ?? "")
+            }
             toast = String(localized: "Gerät bestätigt.")
             await load()
         } catch { toast = error.localizedDescription }
+    }
+    /// 2.5: Text zur Geraetegrenze in der App-Sprache (Server-Satz kommt in der Sprache der Anfrage - eigener Satz ist einheitlich)
+    static func limitText(_ l: ChatDeviceLimit.Info) -> String {
+        String(localized: "Du hast schon \(l.max) Chat-Geräte. Entferne ein altes Gerät unter „Chats & Geräte“.")
     }
     func decline(_ r: ChatLinkRequest) async {
         handledLinks.insert(r.id); approval = nil
@@ -721,7 +758,7 @@ final class ChatModel: ObservableObject {
         case "chat.link":
             let id = d["id"] as? String
             if let l = linking, l.id == id { Task { await pollLink() }; return }
-            if ShareJSON.bool(d["gone"]) || ShareJSON.bool(d["approved"]) { if approval?.id == id { approval = nil } }
+            if ShareJSON.bool(d["gone"]) || ShareJSON.bool(d["approved"]) || ShareJSON.bool(d["failed"]) { if approval?.id == id { approval = nil } }   // 2.5: failed
             else if keys != nil { Task { await checkLinks() } }
         case "chat.device":
             if let id = d["id"] as? String, id == keys?.deviceID, ShareJSON.bool(d["revoked"]) {

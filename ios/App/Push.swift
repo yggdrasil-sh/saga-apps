@@ -65,6 +65,16 @@ final class PushModel: ObservableObject {
         }
     }
 
+    /// 2.5 (push2): zuletzt beim Server angemeldete Sprache dieses Abos (je Server)
+    private var langKey: String { "hk.push.lang." + (AppConfig.serverOrigin ?? "-") }
+    /// App wieder vorne: hat sich die App-Sprache geaendert (iOS startet die App dabei meist ohnehin neu; Mac nach
+    /// Neustart), Abo mit der neuen Sprache erneuern. Nur Server mit payload >= 2.
+    func languageCheck() {
+        guard wanted, let t = token, let s = state,
+              PushLogic.langChanged(sent: UserDefaults.standard.string(forKey: langKey), now: AppConfig.appLanguage, payload: s.payload) else { return }
+        Task { await subscribe(t); await subscribeVoIP() }
+    }
+
     /// Schalter "Mitteilungen auf diesem Geraet"
     func setEnabled(_ on: Bool) async {
         busy = true; defer { busy = false }
@@ -122,10 +132,13 @@ final class PushModel: ObservableObject {
 
     private func subscribe(_ t: String) async {
         guard let store, AppConfig.hasServer, !store.needsLogin else { return }
-        let body = PushLogic.subscription(token: t, env: Self.env, name: DeviceKey.deviceName)
+        if state == nil { await load() }                                // 2.5: payload des Servers kennen (lang nur ab 2)
+        let lang = PushLogic.pushLang(AppConfig.appLanguage, payload: state?.payload ?? 0)
+        let body = PushLogic.subscription(token: t, env: Self.env, name: DeviceKey.deviceName, lang: lang, payload: state?.payload ?? 0)
         do {
             let (d, code) = try await store.apiResponse("api/push/subscriptions", method: "POST", body: body)
             if !(200..<300).contains(code) { message = ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "\(code)" }
+            else if let lang { UserDefaults.standard.set(lang, forKey: langKey) }
             await load()
             // aeltere Abos derselben App-Anmeldung (frueheres Token) entfernen - sonst steht das Geraet doppelt in der Liste
             if (200..<300).contains(code), let keep = ShareJSON.obj(d).flatMap({ ShareJSON.int($0["id"]) }), let s = state {
@@ -143,7 +156,9 @@ final class PushModel: ObservableObject {
     private func subscribeVoIP() async {
         #if os(iOS)
         guard CallEnv.callKit, let t = CallSystem.shared.voipToken, let store, AppConfig.hasServer, !store.needsLogin else { return }
-        let body = PushLogic.subscription(token: t, env: Self.env, name: DeviceKey.deviceName, type: "apns-voip")
+        if state == nil { await load() }
+        let body = PushLogic.subscription(token: t, env: Self.env, name: DeviceKey.deviceName, type: "apns-voip",
+                                          lang: AppConfig.appLanguage, payload: state?.payload ?? 0)   // 2.5: Sprache (verpasste Anrufe)
         guard let (d, code) = try? await store.apiResponse("api/push/subscriptions", method: "POST", body: body), (200..<300).contains(code) else { return }
         await load()
         if let keep = ShareJSON.obj(d).flatMap({ ShareJSON.int($0["id"]) }), let s = state {

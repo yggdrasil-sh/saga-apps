@@ -746,6 +746,7 @@ struct ChatNewDeviceView: View {
             case 3: ChatSetupView(chat: chat, reset: true)
             default:
                 Text("Deine Chats sind Ende-zu-Ende-verschlüsselt. Damit dieses Gerät sie lesen kann, braucht es deine Schlüssel – wähle einen Weg:")
+                if let lim = chat.me.deviceLimitReached { ChatDeviceLimitBox(info: lim) }   // 2.5: schon vorher sagen, dass es nicht klappt
                 choice("Mit anderem Gerät bestätigen", "Auf einem Gerät, auf dem deine Chats schon laufen, einen Code bestätigen.", "iphone.and.arrow.forward") {
                     mode = 1; Task { await chat.startLink() }
                 }
@@ -780,6 +781,12 @@ struct ChatNewDeviceView: View {
             LinkCodeView(code: l.code)
             HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Die Anfrage gilt 10 Minuten.").font(.footnote).foregroundStyle(.secondary) }
             Button("Abbrechen") { chat.cancelLink(); mode = 0 }.buttonStyle(.bordered)
+        } else if let lim = chat.deviceLimit {                          // 2.5: Geraetegrenze - Warten ist beendet
+            ChatDeviceLimitBox(info: lim)
+            HStack {
+                Button("Erneut versuchen") { Task { await chat.startLink() } }.buttonStyle(.bordered)
+                Button("Zurück") { chat.linkError = nil; chat.deviceLimit = nil; mode = 0 }.buttonStyle(.bordered)
+            }
         } else if let e = chat.linkError {
             Label(e, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
             HStack {
@@ -798,13 +805,32 @@ struct ChatNewDeviceView: View {
             .textInputAutocapitalization(.characters)
             #endif
         if !rk.isEmpty && ChatCrypto.normRecovery(rk) == nil { Text("Ein Wiederherstellungsschlüssel hat 32 Zeichen (A–Z, 2–7).").font(.footnote).foregroundStyle(.secondary) }
+        if let lim = chat.deviceLimit ?? chat.me.deviceLimitReached { ChatDeviceLimitBox(info: lim) }   // 2.5
         HStack {
-            Button("Zurück") { mode = 0; err = nil }.buttonStyle(.bordered)
+            Button("Zurück") { mode = 0; err = nil; chat.deviceLimit = nil }.buttonStyle(.bordered)
             Button(busy ? String(localized: "Prüfe …") : String(localized: "Entsperren")) {
                 Task { busy = true; err = nil; do { try await chat.restore(recoveryKey: rk) } catch { err = error.localizedDescription }; busy = false }
             }.prominentGold().disabled(busy || ChatCrypto.normRecovery(rk) == nil)
         }
-        if let err { Label(err, systemImage: "exclamationmark.circle.fill").font(.footnote).foregroundStyle(.red) }
+        if let err, chat.deviceLimit == nil { Label(err, systemImage: "exclamationmark.circle.fill").font(.footnote).foregroundStyle(.red) }
+    }
+}
+
+/// 2.5: Grenze der Chat-Geraete erreicht - klare Meldung und Sprung zu "Chats & Geraete" (dort ein altes Geraet entfernen)
+struct ChatDeviceLimitBox: View {
+    let info: ChatDeviceLimit.Info
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(ChatModel.limitText(info), systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Geräte verwalten") { ChatDeviceLimitBox.openDevices() }.buttonStyle(.bordered)
+        }
+        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+    }
+    @MainActor static func openDevices() {
+        CloudNav.pendingSection = "chats"
+        NotificationCenter.default.post(name: .hkOpenSettings, object: "chats")
     }
 }
 
@@ -868,6 +894,9 @@ struct ChatDevicesSection: View {
         if chat.state == .ready || chat.state == .newDevice || chat.state == .setup {
             Section {
                 if chat.state == .setup { Text("Chats sind noch nicht eingerichtet.").foregroundStyle(.secondary) }
+                if chat.state != .setup, let c = chat.me.devicesCount, let m = chat.me.devicesMax, m > 0 {   // 2.5 (aeltere Server: keine Zahl)
+                    Text("\(c) von \(m) Chat-Geräten").font(.footnote).foregroundStyle(c >= m ? Color.orange : Color.secondary)
+                }
                 ForEach(chat.me.devices.filter { !$0.revoked }) { d in
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
@@ -1021,7 +1050,16 @@ struct ChatApprovalPresenter: ViewModifier {
         content
             .sheet(item: $chat.approval) { r in LinkApproveSheet(chat: chat, req: r) }
             .overlay(alignment: .bottom) {
-                if let t = chat.toast {
+                if let lim = chat.approveLimit {                       // 2.5: Bestaetigung an der Geraetegrenze gescheitert (bleibt, bis geschlossen)
+                    HStack(alignment: .top, spacing: 10) {
+                        ChatDeviceLimitBox(info: lim)
+                        Button { chat.approveLimit = nil } label: { Image(systemName: "xmark") }
+                            .buttonStyle(.borderless).accessibilityLabel(Text("Schließen"))
+                    }
+                    .padding(12).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .frame(maxWidth: 460).padding(.horizontal, 16).padding(.bottom, 24)
+                    .onReceive(NotificationCenter.default.publisher(for: .hkOpenSettings)) { _ in chat.approveLimit = nil }
+                } else if let t = chat.toast {
                     Text(verbatim: t).font(.subheadline).padding(.horizontal, 16).padding(.vertical, 10)
                         .background(.regularMaterial, in: Capsule()).padding(.bottom, 24)
                         .task { try? await Task.sleep(for: .seconds(4)); chat.toast = nil }

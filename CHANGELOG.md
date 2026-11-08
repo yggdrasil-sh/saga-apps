@@ -24,6 +24,16 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   mit Knopf zu „Chats & Geräte“ (Anfrage, Abfrage `failed`, Wiederherstellung, live `chat.link`); das bestätigende
   Gerät zeigt dieselbe Meldung als Dialog. An der Grenze steht der Hinweis schon beim Öffnen der Einrichtung, und
   „Chats & Geräte“ zeigt dem neuen Gerät die Liste zum Entfernen sowie „n von max Geräten“.
+### Geändert – iOS/iPadOS: Grenze der Chat-Geräte, Sprache der Mitteilungen
+
+- **Chat-Geräte an der Grenze** (Saga-Server 2.5: 409 `device_limit`): Koppeln, Wiederherstellungsschlüssel und das
+  bestätigende Gerät zeigen jetzt „Du hast schon {max} Chat-Geräte. Entferne ein altes Gerät unter „Chats & Geräte“.“
+  mit Knopf „Geräte verwalten“. Das neue Gerät hört bei `failed` sofort auf zu warten (vorher: „abgelaufen oder
+  abgelehnt“ ohne Grund); unbekannte Zustände beenden das Warten wie bisher. Meldet der Server
+  `limits.devices_count`, warnt schon die Einrichtung, und „Chats & Geräte“ zeigt „n von max Chat-Geräten“.
+- **Mitteilungen in der App-Sprache:** Server mit `payload` ≥ 2 bekommen beim APNs-Abo `lang` (App-Sprache bzw.
+  bevorzugte unterstützte Systemsprache); ändert sich die Sprache, wird das Abo erneuert. Stille Aktualisierungen
+  (`caps: ["update"]`) meldet die App noch nicht an. Ältere Server: alles wie bisher.
 
 ### Geändert – Android: Design-Runde 4 r4-settings „Einstellungen“
 

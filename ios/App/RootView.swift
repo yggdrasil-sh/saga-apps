@@ -217,7 +217,7 @@ struct RootView: View {
         }
         .onChange(of: phase) { _, p in
             if p == .active || p == .background { ClientLog.shared.life(p == .active ? "visible" : "hidden") }   // 2.5 clientlog1
-            if p == .active { Task { await store.refresh(); store.live.start(); await store.calls.checkActive() } }       // im Web angelegte Seiten; Live nur im Vordergrund
+            if p == .active { Task { await store.refresh(); store.live.start(); await store.calls.checkActive() }; store.push.languageCheck() }   // 2.5: Push-Sprache       // im Web angelegte Seiten; Live nur im Vordergrund
             if p == .background { WidgetCenter.shared.reloadAllTimelines(); store.live.stop() }   // Widgets zeigen sofort den neuen Stand
         }
         .onChange(of: store.needsLogin) { _, v in

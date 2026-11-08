@@ -338,3 +338,37 @@ enum ChatFedHint {
         }
     }
 }
+
+/// 2.5: Grenze der Chat-Geraete (DEVICES_MAX) beim Koppeln. Server: 409 {error, code:"device_limit", max, count} bei
+/// POST /api/chat/link, POST /api/chat/devices, POST /api/chat/link/{id}; neues Geraet bekommt bei GET /api/chat/link/{id}
+/// einmal {state:"failed", code, max, count, error}. GET /api/chat/me: limits.devices_max, limits.devices_count.
+/// Aeltere Server: nichts davon - dann bleibt alles wie bisher.
+enum ChatDeviceLimit {
+    struct Info: Equatable { var max: Int; var count: Int; var error: String? }
+
+    /// Antwort (409 bzw. Link-Zustand "failed") -> Grenze erreicht?
+    static func parse(_ j: [String: Any]?) -> Info? {
+        guard let j, ShareJSON.str(j["code"]) == "device_limit" else { return nil }
+        let mx = ShareJSON.int(j["max"]) ?? 0
+        return Info(max: mx, count: ShareJSON.int(j["count"]) ?? mx, error: ShareJSON.str(j["error"]))
+    }
+    /// HTTP-Antwort: nur 409 mit code device_limit
+    static func parse(code: Int, json: [String: Any]?) -> Info? { code == 409 ? parse(json) : nil }
+
+    /// Ergebnis einer Abfrage GET /api/chat/link/{id} (neues Geraet)
+    enum Poll: Equatable { case approved, pending, limit(Info), failed(String?), ended }
+    static func poll(_ j: [String: Any]) -> Poll {
+        switch ShareJSON.str(j["state"]) {
+        case "approved": return .approved
+        case "pending": return .pending
+        case "failed": return parse(j).map(Poll.limit) ?? .failed(ShareJSON.str(j["error"]))
+        default: return .ended                                          // expired, gone, declined, unbekannt: nicht weiter warten
+        }
+    }
+
+    /// Schon beim Oeffnen der Einrichtung warnen: nur, wenn der Server die Zahl meldet (aeltere Server: kein Hinweis)
+    static func reached(count: Int?, max: Int?) -> Info? {
+        guard let c = count, let m = max, m > 0, c >= m else { return nil }
+        return Info(max: m, count: c, error: nil)
+    }
+}

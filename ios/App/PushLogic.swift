@@ -28,11 +28,14 @@ struct PushState: Equatable {
     var quietTZ = ""
     var devices: [PushDevice] = []
     var limit = 20
+    /// 2.5 (push2): Fassung der Nutzlast (server.payload; aeltere Server: 0) - ab 2 nimmt das Abo `lang` an
+    var payload = 0
     init() {}
     init?(data: Data) {
         guard let j = ShareJSON.obj(data) else { return nil }
         let s = j["server"] as? [String: Any] ?? [:]
         enabled = ShareJSON.bool(s["enabled"]); apns = ShareJSON.bool(s["apns"])
+        payload = ShareJSON.int(s["payload"]) ?? 0
         let st = j["settings"] as? [String: Any] ?? [:]
         for (k, v) in st["cats"] as? [String: Any] ?? [:] { cats[k] = ShareJSON.bool(v) }
         categories = (j["categories"] as? [Any] ?? []).compactMap { $0 as? String }
@@ -58,8 +61,23 @@ enum PushLogic {
     static func hex(_ token: Data) -> String { token.map { String(format: "%02x", $0) }.joined() }
     /// Debug-Builds: sandbox, sonst production
     static func env(debug: Bool) -> String { debug ? "sandbox" : "production" }
-    static func subscription(token: String, env: String, name: String, type: String = "apns") -> [String: Any] {
-        ["type": type, "token": token, "env": env, "name": String(name.prefix(80))]
+    /// lang (2.5, push2): Sprache der Mitteilungen dieses Geraets - nur an Server mit payload >= 2 (aeltere Server: Feld
+    /// unbekannt). Bewusst KEIN caps:["update"]: stille Aktualisierungen (content-available) kann die App noch nicht.
+    static func subscription(token: String, env: String, name: String, type: String = "apns", lang: String? = nil, payload: Int = 0) -> [String: Any] {
+        var b: [String: Any] = ["type": type, "token": token, "env": env, "name": String(name.prefix(80))]
+        if let l = pushLang(lang, payload: payload) { b["lang"] = l }
+        return b
+    }
+    /// Sprache fuers Abo: nur unterstuetzte Codes (de/en/es/ru/th), nur mit payload >= 2
+    static let langs = ["de", "en", "es", "ru", "th"]
+    static func pushLang(_ lang: String?, payload: Int) -> String? {
+        guard payload >= 2, let l = lang.map({ String($0.prefix(2)).lowercased() }), langs.contains(l) else { return nil }
+        return l
+    }
+    /// Abo erneuern, weil sich die App-Sprache seit dem letzten Abo geaendert hat?
+    static func langChanged(sent: String?, now: String, payload: Int) -> Bool {
+        guard let l = pushLang(now, payload: payload) else { return false }
+        return sent != l
     }
     /// Schalter: bedienbar oder warum nicht
     enum Availability: Equatable { case ok, serverOff, appleMissing, unsupported }
