@@ -28,4 +28,8 @@
     <string name="r5_pv_mode_kind">Только тип сообщения</string>
     <string name="r5_pv_mode_text_hint">Показывает начало последнего сообщения — только из того, что это устройство уже расшифровало</string>
     <string name="r5_pv_mode_kind_hint">Только «Сообщение», «Фото», «Голосовое сообщение»… — без текста</string>
+    <string name="r5_info_title">О чате</string>
+    <string name="r5_info_menu">О чате…</string>
+    <string name="r5_info_mute">Без звука</string>
+    <string name="r5_info_safety">Проверить код безопасности</string>
 </resources>

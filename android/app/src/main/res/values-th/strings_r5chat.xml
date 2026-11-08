@@ -28,4 +28,8 @@
     <string name="r5_pv_mode_kind">เฉพาะประเภทข้อความ</string>
     <string name="r5_pv_mode_text_hint">แสดงต้นข้อความล่าสุด จากสิ่งที่อุปกรณ์นี้ถอดรหัสแล้วเท่านั้น</string>
     <string name="r5_pv_mode_kind_hint">แสดงเพียง \"ข้อความ\" \"รูปภาพ\" \"ข้อความเสียง\" … ไม่แสดงเนื้อความ</string>
+    <string name="r5_info_title">ข้อมูลแชท</string>
+    <string name="r5_info_menu">ข้อมูลแชท…</string>
+    <string name="r5_info_mute">ปิดเสียง</string>
+    <string name="r5_info_safety">ตรวจสอบหมายเลขความปลอดภัย</string>
 </resources>

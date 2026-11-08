@@ -3,6 +3,9 @@ package io.github.yggdrasil_sh.saga
 import io.github.yggdrasil_sh.saga.call.CallEntry
 import io.github.yggdrasil_sh.saga.chat.ChatContent
 import io.github.yggdrasil_sh.saga.chat.ChatFile
+import io.github.yggdrasil_sh.saga.chat.ChatInfoLogic
+import io.github.yggdrasil_sh.saga.chat.ChatMenuLogic
+import io.github.yggdrasil_sh.saga.chat.ChatMenuLogic.Item
 import io.github.yggdrasil_sh.saga.chat.ChatMessage
 import io.github.yggdrasil_sh.saga.chat.ChatPerson
 import io.github.yggdrasil_sh.saga.chat.ChatSummary
@@ -134,5 +137,46 @@ class DesignR5ChatTest {
         assertFalse(10L in m)
         assertEquals(ListPreviewLogic.Mode.KIND, ListPreviewLogic.Mode.of("kind"))
         assertEquals(ListPreviewLogic.Mode.TEXT, ListPreviewLogic.Mode.of(null))
+    }
+
+    // ---------------------------------------------------------------- CH-10 Menue und Chat-Info
+
+    @Test
+    fun chatMenuAtMostSix() {
+        val dm = ChatMenuLogic.items(ChatMenuLogic.Flags(canArchive = true))
+        assertEquals(listOf(Item.INFO, Item.SELECT, Item.MUTE, Item.ARCHIVE, Item.DELETE), dm)
+        assertTrue(ChatMenuLogic.dividerBefore(dm, 4))
+        assertFalse(ChatMenuLogic.dividerBefore(dm, 3))
+        // freie Gruppe mit KI und Archiv: 7 -> Archivieren weicht (steht in der Gruppeninfo)
+        val full = ChatMenuLogic.items(ChatMenuLogic.Flags(free = true, ai = true, canArchive = true))
+        assertEquals(listOf(Item.INFO, Item.SELECT, Item.MUTE, Item.AI, Item.LEAVE, Item.DELETE), full)
+        assertTrue(full.size <= ChatMenuLogic.MAX)
+        assertTrue(ChatMenuLogic.dividerBefore(full, 4))
+        assertFalse(ChatMenuLogic.dividerBefore(full, 5))      // nur ein Trenner vor dem destruktiven Block
+        // aelterer Server ohne Archiv: kein destruktiver Eintrag, kein Trenner
+        val old = ChatMenuLogic.items(ChatMenuLogic.Flags())
+        assertEquals(listOf(Item.INFO, Item.SELECT, Item.MUTE), old)
+        for (free in listOf(true, false)) for (ai in listOf(true, false)) for (a in listOf(true, false)) {
+            val l = ChatMenuLogic.items(ChatMenuLogic.Flags(free, ai, a))
+            assertTrue(l.size <= ChatMenuLogic.MAX)
+            assertEquals(Item.INFO, l.first())
+            assertEquals(l.sortedBy { it.destructive }, l)       // destruktive immer unten
+        }
+    }
+
+    @Test
+    fun chatInfoRows() {
+        val f = ChatInfoLogic.Flags(dm = true, media = true, canArchive = true, free = false, canRename = true, block = true, report = true, hasOthers = true)
+        val r = ChatInfoLogic.rows(f)
+        assertEquals(
+            listOf(ChatInfoLogic.Row.MEDIA, ChatInfoLogic.Row.MUTE, ChatInfoLogic.Row.RETENTION, ChatInfoLogic.Row.SAFETY, ChatInfoLogic.Row.ARCHIVE,
+                ChatInfoLogic.Row.BLOCK, ChatInfoLogic.Row.REPORT), r,
+        )
+        assertEquals(listOf(ChatInfoLogic.Row.BLOCK, ChatInfoLogic.Row.REPORT), r.filter { ChatInfoLogic.danger(it) })
+        // aelterer Server, freie Gruppe: Mitglieder, Umbenennen, Verlassen; ohne Medien/Sperren
+        val g = ChatInfoLogic.rows(f.copy(dm = false, media = false, free = true, block = true, report = false))
+        assertTrue(ChatInfoLogic.Row.MEMBERS in g && ChatInfoLogic.Row.RENAME in g && ChatInfoLogic.Row.LEAVE in g)
+        assertFalse(ChatInfoLogic.Row.MEDIA in g || ChatInfoLogic.Row.BLOCK in g)
+        assertFalse(ChatInfoLogic.Row.SAFETY in ChatInfoLogic.rows(f.copy(hasOthers = false)))
     }
 }

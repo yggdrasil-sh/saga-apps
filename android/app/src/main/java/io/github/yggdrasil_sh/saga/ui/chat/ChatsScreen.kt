@@ -524,7 +524,7 @@ fun muteLabel(c: ChatSummary, nowSec: Double): String = when (val st = ChatStd.m
  * Stummschalten als Untermenue (Dauer + Mitteilungen); ohne mute2 der alte Schalter.
  */
 @Composable
-fun AlltagMenuItems(repo: SagaRepository, c: ChatSummary, onPatched: (ChatSummary) -> Unit = {}, close: () -> Unit) {
+fun AlltagMenuItems(repo: SagaRepository, c: ChatSummary, onPatched: (ChatSummary) -> Unit = {}, muteOnly: Boolean = false, inline: Boolean = false, close: () -> Unit) {
     val svc = repo.chat
     val std = svc.std
     val nowSec = System.currentTimeMillis() / 1000.0
@@ -533,13 +533,7 @@ fun AlltagMenuItems(repo: SagaRepository, c: ChatSummary, onPatched: (ChatSummar
         close()
         repo.launchAction { onPatched(svc.patchChat(c.id, b)) }
     }
-    if (std.mute2) {
-        DropdownMenuItem(
-            text = { Text(muteLabel(c, nowSec) + " …") },
-            leadingIcon = { SagaIcon(if (ChatStd.mutedNow(c, nowSec)) SagaIcons.bellOff else SagaIcons.bell, null) },
-            onClick = { sub = true },
-        )
-        DropdownMenu(expanded = sub, onDismissRequest = { sub = false }) {
+    val muteOptions = @Composable {
             val now = System.currentTimeMillis() / 1000
             if (ChatStd.mutedNow(c, nowSec)) DropdownMenuItem(text = { Text(stringResource(R.string.std_mute_off)) }, onClick = {
                 sub = false; go(kotlinx.serialization.json.buildJsonObject { put("muted_until", 0) })
@@ -569,8 +563,20 @@ fun AlltagMenuItems(repo: SagaRepository, c: ChatSummary, onPatched: (ChatSummar
                     )
                 }
             }
-        }
     }
+    if (std.mute2 && inline) {
+        // CH-10 (Chat-Info): Dauer und Mitteilungen direkt, ohne Untermenue
+        muteOptions()
+    } else if (std.mute2) {
+        DropdownMenuItem(
+            text = { Text(muteLabel(c, nowSec) + " …") },
+            leadingIcon = { SagaIcon(if (ChatStd.mutedNow(c, nowSec)) SagaIcons.bellOff else SagaIcons.bell, null) },
+            onClick = { sub = true },
+        )
+        DropdownMenu(expanded = sub, onDismissRequest = { sub = false }) { muteOptions() }
+    }
+    // CH-10: Chat-Info/Unterhaltung - nur Stummschalten (Anheften usw. stehen am Eintrag der Chat-Liste)
+    if (muteOnly) return
     if (std.chatPin) DropdownMenuItem(text = { Text(stringResource(if (c.pinned) R.string.std_chat_unpin else R.string.std_chat_pin)) }, leadingIcon = { SagaIcon(SagaIcons.pin, null) }, onClick = {
         go(kotlinx.serialization.json.buildJsonObject { put("pinned", !c.pinned) })
     })

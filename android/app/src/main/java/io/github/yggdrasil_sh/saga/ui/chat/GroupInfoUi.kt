@@ -94,6 +94,7 @@ fun GroupInfoDialog(
     val canAdd = ChatStd.canAdd(c, std, r)
     var blockOf by remember { mutableStateOf<ChatPerson?>(null) }
     var media by remember { mutableStateOf(false) }
+    var retention by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
     var removing by remember { mutableStateOf<ChatPerson?>(null) }
@@ -143,6 +144,10 @@ fun GroupInfoDialog(
                         SagaIcon(SagaIcons.image, null, Modifier.padding(end = 6.dp).size(18.dp))
                         Text(stringResource(R.string.std_media_title))
                     }
+                }
+                // CH-10: Automatisch loeschen mit aktuellem Wert (vorher nur im ⋮-Menue der Unterhaltung)
+                item(key = "retention") {
+                    InfoItem(SagaIcons.timer, stringResource(R.string.chat_retention), retentionLabel(c.retentionS)) { retention = true }
                 }
                 if (c.remote) hint("h-home", if (c.homeSelf) res.getString(R.string.fed_members_home_self) else res.getString(R.string.fed_members_home_other, c.home ?: "?"))
                 if (c.readonly) item(key = "h-lock") {
@@ -195,6 +200,7 @@ fun GroupInfoDialog(
     }
     if (renaming) RenameDialog(repo, s) { renaming = false }
     if (media) MediaDialog(repo, s) { media = false }
+    if (retention) RetentionDialog(repo, s) { retention = false }
     blockOf?.let { m ->
         val t = ChatStd.blockTarget(m)
         if (t == null) blockOf = null

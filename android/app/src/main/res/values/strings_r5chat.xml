@@ -28,4 +28,8 @@
     <string name="r5_pv_mode_kind">Type of message only</string>
     <string name="r5_pv_mode_text_hint">Shows the beginning of the last message, only from what this device has already decrypted</string>
     <string name="r5_pv_mode_kind_hint">Only \"Message\", \"Photo\", \"Voice message\" … – no text visible</string>
+    <string name="r5_info_title">Chat info</string>
+    <string name="r5_info_menu">Chat info …</string>
+    <string name="r5_info_mute">Mute</string>
+    <string name="r5_info_safety">Verify safety number</string>
 </resources>

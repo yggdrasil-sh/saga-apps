@@ -166,3 +166,62 @@ object ListPreviewLogic {
         return if (m.size <= KEEP_MAX) m else m.entries.toList().takeLast(KEEP_MAX).associate { it.key to it.value }
     }
 }
+
+/**
+ * CH-10: ⋮-Menue der Unterhaltung - hoechstens [MAX] Eintraege, Linien-Symbole, Trenner vor destruktiven. Seltenes
+ * (Sicherheitsnummer, Automatisch loeschen, Medien, Sperren/Melden, Umbenennen) steht in der Chat-Info bzw. Gruppeninfo.
+ */
+object ChatMenuLogic {
+    const val MAX = 6
+
+    enum class Item(val destructive: Boolean = false) { INFO, SELECT, MUTE, AI, ARCHIVE, LEAVE(true), DELETE(true) }
+
+    data class Flags(
+        /** freie Gruppe (Verlassen) */
+        val free: Boolean = false,
+        /** KI an-/ausschalten erlaubt */
+        val ai: Boolean = false,
+        /** Archiv/Loeschen kann der Server */
+        val canArchive: Boolean = false,
+    )
+
+    fun items(f: Flags): List<Item> {
+        val top = mutableListOf(Item.INFO, Item.SELECT, Item.MUTE)
+        if (f.ai) top += Item.AI
+        if (f.canArchive) top += Item.ARCHIVE
+        val bad = listOfNotNull(Item.LEAVE.takeIf { f.free }, Item.DELETE.takeIf { f.canArchive })
+        // zu viele: Archivieren weicht (steht in Chat-Info/Gruppeninfo), dann die KI (ebenso)
+        for (drop in listOf(Item.ARCHIVE, Item.AI)) if (top.size + bad.size > MAX) top.remove(drop)
+        return top + bad
+    }
+
+    /** Trenner vor dem ersten destruktiven Eintrag (nur, wenn davor etwas steht) */
+    fun dividerBefore(items: List<Item>, i: Int): Boolean = i > 0 && items[i].destructive && !items[i - 1].destructive
+}
+
+/** CH-10: Chat-Info (Direkt-Chats und Chats ohne Gruppeninfo) - welche Zeilen gezeigt werden */
+object ChatInfoLogic {
+    enum class Row { MEDIA, MEMBERS, MUTE, RETENTION, SAFETY, RENAME, ARCHIVE, BLOCK, REPORT, LEAVE }
+
+    data class Flags(
+        val dm: Boolean, val media: Boolean, val canArchive: Boolean, val free: Boolean, val canRename: Boolean,
+        /** Sperren moeglich (block2, Person dieses Servers) bzw. Melden (report1, es gibt Nachrichten des Gegenuebers) */
+        val block: Boolean, val report: Boolean, val hasOthers: Boolean,
+    )
+
+    fun rows(f: Flags): List<Row> = buildList {
+        if (f.media) add(Row.MEDIA)
+        if (!f.dm) add(Row.MEMBERS)
+        add(Row.MUTE)
+        add(Row.RETENTION)
+        if (f.hasOthers) add(Row.SAFETY)
+        if (f.free && f.canRename) add(Row.RENAME)
+        if (f.canArchive) add(Row.ARCHIVE)
+        if (f.dm && f.block) add(Row.BLOCK)
+        if (f.report) add(Row.REPORT)
+        if (f.free) add(Row.LEAVE)
+    }
+
+    /** rot unten (eigener Abschnitt) */
+    fun danger(r: Row): Boolean = r == Row.BLOCK || r == Row.REPORT || r == Row.LEAVE
+}

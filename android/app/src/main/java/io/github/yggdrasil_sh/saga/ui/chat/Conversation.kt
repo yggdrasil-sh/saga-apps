@@ -540,9 +540,9 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             title = {
                 // 2.5 (chatadm1): Tipp auf den Chat-Kopf -> Gruppeninfo (Direkt-Chats: Mitglieder wie bisher)
                 val infoLabel = stringResource(R.string.gi_open)
-                // aeltere Server (ohne chatadm1): Kopf wie bisher nicht klickbar
-                Row(if (!svc.groupInfoOn) Modifier else Modifier.clickable(onClickLabel = infoLabel) {
-                    dialog = if (GroupInfo.usesGroupInfo(s.summary, svc.groupInfoOn)) "groupinfo" else "members"
+                // CH-10: Direkt-Chats (und aeltere Server) -> Chat-Info, Gruppen mit chatadm1 -> Gruppeninfo
+                Row(Modifier.clickable(onClickLabel = infoLabel) {
+                    dialog = if (GroupInfo.usesGroupInfo(s.summary, svc.groupInfoOn)) "groupinfo" else "chatinfo"
                 }, verticalAlignment = Alignment.CenterVertically) {
                 // 2.5 (groupinfo2): Gruppenbild im Kopf
                 val headSum = s.summary
@@ -590,51 +590,35 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 Box {
                     IconButton(onClick = { menu = true }) { SagaIcon(SagaIcons.moreVert, stringResource(R.string.action_more)) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        // CH-10: hoechstens 6 Eintraege mit Linien-Symbolen, Trenner vor destruktiven; Seltenes in der Chat-Info
                         val sum = s.summary
-                        val sum0 = sum
-                        DropdownMenuItem(text = { Text(stringResource(R.string.cs_select)) }, onClick = { menu = false; selecting = true })
-                        DropdownMenuItem(text = { Text(stringResource(R.string.chat_safety_number)) }, onClick = { menu = false; dialog = "safety" })
-                        // 2.5 (block2/report1): Direkt-Chat - Person sperren/entsperren, Melden
-                        if (sum0 != null && sum0.kind == "dm") {
-                            val p = sum0.members.firstOrNull { !it.me } ?: sum0.peer
-                            val tg = ChatStd.blockTarget(p)
-                            if (std.block && tg != null && !sum0.remote) {
-                                if (p?.blocked == true || sum0.blocked) DropdownMenuItem(text = { Text(stringResource(R.string.std_unblock)) }, onClick = {
-                                    menu = false
-                                    repo.launchAction { s.unblock(tg); repo.notify(UiText.Res(R.string.std_unblocked_done)) }
-                                }) else DropdownMenuItem(text = { Text(stringResource(R.string.std_block_name, p?.let { ChatLogic.shown(it) }.orEmpty()), color = MaterialTheme.colorScheme.error) }, onClick = {
-                                    menu = false
-                                    blockAsk = (p?.let { ChatLogic.shown(it) }.orEmpty()) to tg
-                                })
-                            }
-                            if (std.report) {
-                                val last = s.messages.filter { !it.mine && it.content != null && !it.tomb && it.sys == null && it.call == null }.takeLast(5)
-                                if (last.isNotEmpty()) DropdownMenuItem(text = { Text(stringResource(R.string.std_report_menu)) }, onClick = { menu = false; reportMsgs = last })
-                            }
-                        }
-                        // 2.5 (chatadm1): Gruppen -> "Gruppeninfo …" (ersetzt "Mitglieder"); Direkt-Chats wie bisher
-                        if (GroupInfo.usesGroupInfo(sum, svc.groupInfoOn)) {
-                            DropdownMenuItem(text = { Text(stringResource(R.string.gi_menu)) }, onClick = { menu = false; dialog = "groupinfo" })
-                        } else {
-                            DropdownMenuItem(text = { Text(stringResource(R.string.chat_members)) }, onClick = { menu = false; dialog = "members" })
-                        }
-                        if (sum != null) {
-                            // 2.5 Chat-Alltag: Stummschalten mit Dauer/Mitteilungen, Anheften, ungelesen, ausblenden
-                            if (std.mute2 || std.chatPin || std.markUnread || std.hide) {
-                                AlltagMenuItems(repo, sum, onPatched = { c ->
-                                    s.applySummary(c)
-                                    if (c.unreadMark || c.hidden) nav.top(Dest.Chats)
-                                }) { menu = false }
-                            }
-                            if (!std.mute2) DropdownMenuItem(text = { Text(stringResource(if (sum.muted) R.string.chat_unmute else R.string.chat_mute)) }, onClick = {
-                                menu = false
-                                repo.launchAction { s.setMuted(!sum.muted) }
-                            })
-                            if (std.media) DropdownMenuItem(text = { Text(stringResource(R.string.std_media_title)) }, onClick = { menu = false; showMedia = true })
-                            DropdownMenuItem(text = { Text(stringResource(R.string.chat_retention)) }, onClick = { menu = false; dialog = "retention" })
-                            // KI im Chat (2.1): nur fuer Berechtigte; Erlauben mit Rueckfrage (was an die KI geht)
-                            if (aiServer && s.aiMayToggle == true) {
-                                DropdownMenuItem(
+                        val aiOk = aiServer && s.aiMayToggle == true && sum != null
+                        val items = io.github.yggdrasil_sh.saga.chat.ChatMenuLogic.items(
+                            io.github.yggdrasil_sh.saga.chat.ChatMenuLogic.Flags(free = sum?.kind == "free", ai = aiOk, canArchive = sum != null && s.canArchive),
+                        )
+                        val red = MaterialTheme.colorScheme.error
+                        items.forEachIndexed { i, item ->
+                            if (io.github.yggdrasil_sh.saga.chat.ChatMenuLogic.dividerBefore(items, i)) HorizontalDivider()
+                            when (item) {
+                                io.github.yggdrasil_sh.saga.chat.ChatMenuLogic.Item.INFO -> DropdownMenuItem(
+                                    text = { Text(stringResource(if (GroupInfo.usesGroupInfo(sum, svc.groupInfoOn)) R.string.gi_menu else R.string.r5_info_menu)) },
+                                    leadingIcon = { SagaIcon(SagaIcons.info, null) },
+                                    onClick = { menu = false; dialog = if (GroupInfo.usesGroupInfo(sum, svc.groupInfoOn)) "groupinfo" else "chatinfo" },
+                                )
+                                io.github.yggdrasil_sh.saga.chat.ChatMenuLogic.Item.SELECT -> DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.cs_select)) }, leadingIcon = { SagaIcon(SagaIcons.checkbox, null) },
+                                    onClick = { menu = false; selecting = true },
+                                )
+                                io.github.yggdrasil_sh.saga.chat.ChatMenuLogic.Item.MUTE -> if (sum != null) {
+                                    if (std.mute2) AlltagMenuItems(repo, sum, onPatched = { c -> s.applySummary(c) }, muteOnly = true) { menu = false }
+                                    else DropdownMenuItem(
+                                        text = { Text(stringResource(if (sum.muted) R.string.chat_unmute else R.string.chat_mute)) },
+                                        leadingIcon = { SagaIcon(if (sum.muted) SagaIcons.bell else SagaIcons.bellOff, null) },
+                                        onClick = { menu = false; repo.launchAction { s.setMuted(!sum.muted) } },
+                                    )
+                                }
+                                // KI im Chat (2.1): nur fuer Berechtigte; Erlauben mit Rueckfrage (was an die KI geht)
+                                io.github.yggdrasil_sh.saga.chat.ChatMenuLogic.Item.AI -> if (sum != null) DropdownMenuItem(
                                     text = { Text(stringResource(if (sum.ai) R.string.chat_ai_disallow else R.string.chat_ai_allow, aiName)) },
                                     leadingIcon = { AiAvatar(aiPersona, 22) },
                                     onClick = {
@@ -645,31 +629,32 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                                         } else dialog = "ai_allow"
                                     },
                                 )
-                            }
-                            if (sum.kind == "free") {
-                                if (sum.canRename != false) DropdownMenuItem(text = { Text(stringResource(R.string.chat_rename)) }, onClick = { menu = false; dialog = "rename" })
-                                DropdownMenuItem(text = { Text(stringResource(R.string.chat_leave), color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; dialog = "leave" })
-                            }
-                            // 2.1: Archiv und Loeschen (nur wenn der Server es kann)
-                            if (s.canArchive) {
-                                val arch = sum.archived == true
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(if (arch) R.string.chatdel_unarchive else R.string.chatdel_archive)) },
-                                    leadingIcon = { Icon(painterResource(if (arch) SagaIcons.archiveOut else SagaIcons.archive), null) },
-                                    onClick = {
-                                        menu = false
-                                        repo.launchAction {
-                                            s.setArchived(!arch)
-                                            repo.notify(
-                                                UiText.Res(if (arch) R.string.chatdel_unarchived_done else R.string.chatdel_archived_done),
-                                                UiText.Res(R.string.chatdel_undo),
-                                            ) { repo.launchAction { s.setArchived(arch) } }
-                                        }
-                                    },
+                                // 2.1: Archiv und Loeschen (nur wenn der Server es kann)
+                                io.github.yggdrasil_sh.saga.chat.ChatMenuLogic.Item.ARCHIVE -> if (sum != null) {
+                                    val arch = sum.archived == true
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(if (arch) R.string.chatdel_unarchive else R.string.chatdel_archive)) },
+                                        leadingIcon = { Icon(painterResource(if (arch) SagaIcons.archiveOut else SagaIcons.archive), null) },
+                                        onClick = {
+                                            menu = false
+                                            repo.launchAction {
+                                                s.setArchived(!arch)
+                                                repo.notify(
+                                                    UiText.Res(if (arch) R.string.chatdel_unarchived_done else R.string.chatdel_archived_done),
+                                                    UiText.Res(R.string.chatdel_undo),
+                                                ) { repo.launchAction { s.setArchived(arch) } }
+                                            }
+                                        },
+                                    )
+                                }
+                                io.github.yggdrasil_sh.saga.chat.ChatMenuLogic.Item.LEAVE -> DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.chat_leave), color = red) },
+                                    leadingIcon = { SagaIcon(SagaIcons.logout, null, tint = red) },
+                                    onClick = { menu = false; dialog = "leave" },
                                 )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.chatdel_delete), color = MaterialTheme.colorScheme.error) },
-                                    leadingIcon = { SagaIcon(SagaIcons.trash, null, tint = MaterialTheme.colorScheme.error) },
+                                io.github.yggdrasil_sh.saga.chat.ChatMenuLogic.Item.DELETE -> DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.chatdel_delete), color = red) },
+                                    leadingIcon = { SagaIcon(SagaIcons.trash, null, tint = red) },
                                     onClick = { menu = false; dialog = "delete" },
                                 )
                             }
@@ -1248,6 +1233,12 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     when (dialog) {
         "safety" -> SafetyDialog(s, safetyFor) { dialog = null; safetyFor = null }
         "members" -> MembersDialog(repo, s) { dialog = null }
+        "chatinfo" -> ChatInfoDialog(
+            repo, s, onDismiss = { dialog = null },
+            onBlock = { n, t -> dialog = null; blockAsk = n to t },
+            onReport = { ms -> dialog = null; reportMsgs = ms },
+            onLeave = { dialog = "leave" },
+        )
         "groupinfo" -> GroupInfoDialog(
             repo, s, onDismiss = { dialog = null },
             onSafety = { who -> safetyFor = who; dialog = "safety" },

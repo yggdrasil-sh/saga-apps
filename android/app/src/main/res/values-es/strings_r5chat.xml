@@ -28,4 +28,8 @@
     <string name="r5_pv_mode_kind">Solo el tipo de mensaje</string>
     <string name="r5_pv_mode_text_hint">Muestra el inicio del último mensaje, solo de lo que este dispositivo ya descifró</string>
     <string name="r5_pv_mode_kind_hint">Solo «Mensaje», «Foto», «Mensaje de voz»… sin texto visible</string>
+    <string name="r5_info_title">Info del chat</string>
+    <string name="r5_info_menu">Info del chat…</string>
+    <string name="r5_info_mute">Silenciar</string>
+    <string name="r5_info_safety">Verificar número de seguridad</string>
 </resources>

@@ -28,4 +28,8 @@
     <string name="r5_pv_mode_kind">Nur Art der Nachricht</string>
     <string name="r5_pv_mode_text_hint">Zeigt den Anfang der letzten Nachricht – nur aus dem, was dieses Gerät schon entschlüsselt hat</string>
     <string name="r5_pv_mode_kind_hint">Nur „Nachricht“, „Foto“, „Sprachnachricht“ … – kein Text sichtbar</string>
+    <string name="r5_info_title">Chat-Info</string>
+    <string name="r5_info_menu">Chat-Info …</string>
+    <string name="r5_info_mute">Stummschalten</string>
+    <string name="r5_info_safety">Sicherheitsnummer prüfen</string>
 </resources>
