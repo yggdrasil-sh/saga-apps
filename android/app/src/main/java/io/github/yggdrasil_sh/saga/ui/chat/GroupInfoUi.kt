@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -113,7 +115,8 @@ fun GroupInfoDialog(
         ) { pad ->
             // R5-Nachbesserung: auf Tablets wie die Chat-Info hoechstens 640 dp, mittig
             LazyColumn(
-                Modifier.fillMaxSize().padding(pad).wrapContentWidth(Alignment.CenterHorizontally)
+                // randlos (decorFitsSystemWindows = false): Tastatur selbst freihalten, sonst verdeckt sie "Mitglied hinzufuegen"
+                Modifier.fillMaxSize().padding(pad).consumeWindowInsets(pad).imePadding().wrapContentWidth(Alignment.CenterHorizontally)
                     .widthIn(max = io.github.yggdrasil_sh.saga.chat.ChatInfoLogic.MAX_WIDTH_DP.dp).fillMaxWidth(),
             ) {
                 item(key = "head") {
