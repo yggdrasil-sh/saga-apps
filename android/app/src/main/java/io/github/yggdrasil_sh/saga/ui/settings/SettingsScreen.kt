@@ -766,13 +766,12 @@ object SettingsNav {
         }
     }
 
-    /** Ziel eines Bereichs; Benachrichtigungen und Chats teilen sich Dest.SettingsGeneral (Unterseite gemerkt) */
+    /** Ziel eines Bereichs (Benachrichtigungen und Chats mit eigenen Zielen) */
     fun dest(a: SettingsArea): Dest = when (a) {
         SettingsArea.KONTO -> Dest.SettingsAccount
-        SettingsArea.BENACHRICHTIGUNGEN, SettingsArea.CHATS -> {
-            SettingsMemory.page = a
-            Dest.SettingsGeneral
-        }
+        // eigene Ziele (ueberstehen Prozess-Neustart); Dest.SettingsGeneral bleibt fuer alte gespeicherte Staende
+        SettingsArea.BENACHRICHTIGUNGEN -> { SettingsMemory.page = a; Dest.SettingsNotifications }
+        SettingsArea.CHATS -> { SettingsMemory.page = a; Dest.SettingsChats }
         SettingsArea.INFO -> Dest.SettingsInfo
     }
 }
