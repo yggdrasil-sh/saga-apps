@@ -2,9 +2,7 @@
 <!-- 2.5 Gjallarhorn (P12): Gruppenanrufe ueber Knoten -->
 <resources>
     <string name="horn_node_try_next">Knoten %1$s ist nicht erreichbar – versuche %2$s …</string>
-    <string name="horn_lost_switch">Verbindung zum Knoten %1$s unterbrochen – wechsle …</string>
     <string name="horn_draining_switch">Knoten %1$s wird gewartet – wechsle ohne Unterbrechung …</string>
-    <string name="horn_lost">Verbindung zum Knoten verloren.</string>
     <string name="horn_retry">Kein Knoten erreichbar – neuer Versuch in %1$d s …</string>
     <string name="horn_reconnecting">Verbindung wird wiederhergestellt …</string>
     <string name="horn_recover_failed">Die Verbindung zum Anruf-Knoten ließ sich nicht wiederherstellen.</string>

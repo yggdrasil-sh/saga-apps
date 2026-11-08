@@ -2,9 +2,7 @@
 <!-- 2.5 Gjallarhorn (P12): Gruppenanrufe ueber Knoten -->
 <resources>
     <string name="horn_node_try_next">Node %1$s is not reachable – trying %2$s …</string>
-    <string name="horn_lost_switch">Connection to node %1$s interrupted – switching …</string>
     <string name="horn_draining_switch">Node %1$s is being maintained – switching without interruption …</string>
-    <string name="horn_lost">Connection to the node lost.</string>
     <string name="horn_retry">No node reachable – trying again in %1$d s …</string>
     <string name="horn_reconnecting">Reconnecting …</string>
     <string name="horn_recover_failed">The connection to the call node could not be restored.</string>

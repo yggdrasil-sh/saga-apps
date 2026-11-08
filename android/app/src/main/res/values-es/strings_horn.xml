@@ -2,9 +2,7 @@
 <!-- 2.5 Gjallarhorn (P12): Gruppenanrufe ueber Knoten -->
 <resources>
     <string name="horn_node_try_next">El nodo %1$s no está accesible – probando %2$s …</string>
-    <string name="horn_lost_switch">Conexión con el nodo %1$s interrumpida – cambiando …</string>
     <string name="horn_draining_switch">El nodo %1$s está en mantenimiento – cambiando sin interrupción …</string>
-    <string name="horn_lost">Se perdió la conexión con el nodo.</string>
     <string name="horn_retry">Ningún nodo accesible – nuevo intento en %1$d s …</string>
     <string name="horn_reconnecting">Restableciendo la conexión …</string>
     <string name="horn_recover_failed">No se pudo restablecer la conexión con el nodo de llamada.</string>

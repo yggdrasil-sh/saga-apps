@@ -2,9 +2,7 @@
 <!-- 2.5 Gjallarhorn (P12): Gruppenanrufe ueber Knoten -->
 <resources>
     <string name="horn_node_try_next">เข้าถึงโหนด %1$s ไม่ได้ – กำลังลอง %2$s …</string>
-    <string name="horn_lost_switch">การเชื่อมต่อกับโหนด %1$s ขาดหาย – กำลังสลับ …</string>
     <string name="horn_draining_switch">โหนด %1$s กำลังบำรุงรักษา – กำลังสลับโดยไม่ขาดตอน …</string>
-    <string name="horn_lost">ขาดการเชื่อมต่อกับโหนด</string>
     <string name="horn_retry">เข้าถึงโหนดไม่ได้ – ลองใหม่ใน %1$d วินาที …</string>
     <string name="horn_reconnecting">กำลังเชื่อมต่อใหม่ …</string>
     <string name="horn_recover_failed">ไม่สามารถกู้คืนการเชื่อมต่อกับโหนดการโทรได้</string>

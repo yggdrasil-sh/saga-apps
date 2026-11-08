@@ -2,9 +2,7 @@
 <!-- 2.5 Gjallarhorn (P12): Gruppenanrufe ueber Knoten -->
 <resources>
     <string name="horn_node_try_next">Узел %1$s недоступен – пробую %2$s …</string>
-    <string name="horn_lost_switch">Связь с узлом %1$s прервана – переключаюсь …</string>
     <string name="horn_draining_switch">Узел %1$s на обслуживании – переключаюсь без прерывания …</string>
-    <string name="horn_lost">Связь с узлом потеряна.</string>
     <string name="horn_retry">Нет доступных узлов – новая попытка через %1$d с …</string>
     <string name="horn_reconnecting">Восстановление соединения …</string>
     <string name="horn_recover_failed">Не удалось восстановить соединение с узлом звонка.</string>
