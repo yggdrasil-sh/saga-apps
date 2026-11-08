@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 6 (r6-nav, Tablet): leerer Chat-Detailbereich -->
+<resources>
+    <string name="r6_chat_pick_title">Kein Chat ausgewählt</string>
+    <string name="r6_chat_pick_text">Wähle links einen Chat oder beginne einen neuen.</string>
+</resources>

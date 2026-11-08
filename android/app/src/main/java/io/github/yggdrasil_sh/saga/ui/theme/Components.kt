@@ -141,6 +141,7 @@ fun SagaIconTile(
 
 /**
  * Leerer Zustand: grosses Symbol in einer Goldkachel, Titel, kurzer Text und (optional) die naechste Aktion.
+ * Design-Runde 6: statt Emoji auch ein Linien-Symbol ([icon], SagaIcons); der Titel ist eine Ueberschrift.
  */
 @Composable
 fun SagaEmptyState(
@@ -149,6 +150,7 @@ fun SagaEmptyState(
     emoji: String? = null,
     text: String? = null,
     compact: Boolean = false,
+    @androidx.annotation.DrawableRes icon: Int? = null,
     action: (@Composable () -> Unit)? = null,
 ) {
     Column(
@@ -161,8 +163,17 @@ fun SagaEmptyState(
                 Text(emoji, style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium)
             }
             Spacer(Modifier.height(SagaSpace.xs))
+        } else if (icon != null) {
+            val accent = LocalSagaAccent.current
+            SagaIconTile(size = if (compact) 48.dp else 64.dp, container = accent.goldSoft) {
+                SagaIcon(icon, null, Modifier.size(if (compact) 24.dp else 30.dp), tint = accent.onGoldSoft)
+            }
+            Spacer(Modifier.height(SagaSpace.xs))
         }
-        Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center)
+        Text(
+            title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center,
+            modifier = if (icon != null) Modifier.semantics { heading() } else Modifier,
+        )
         if (text != null) {
             Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         }

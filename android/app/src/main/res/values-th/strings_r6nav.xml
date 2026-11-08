@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 6 (r6-nav, Tablet): leerer Chat-Detailbereich -->
+<resources>
+    <string name="r6_chat_pick_title">ยังไม่ได้เลือกแชท</string>
+    <string name="r6_chat_pick_text">เลือกแชททางซ้าย หรือเริ่มแชทใหม่</string>
+</resources>

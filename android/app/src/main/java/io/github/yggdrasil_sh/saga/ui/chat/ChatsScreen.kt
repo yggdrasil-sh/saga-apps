@@ -57,6 +57,11 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -114,36 +119,77 @@ fun ChatsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, chatId:
     io.github.yggdrasil_sh.saga.ui.common.NotificationPermissionPrompt(
         ready = io.github.yggdrasil_sh.saga.ui.common.NotifPrompt.listMoment(pLoaded, pChats.size),
     )
+    // A11Y-25: "Neuer Chat" auch aus dem leeren Detailbereich - derselbe Ablauf wie der Knopf der Liste
+    val newChat = remember { mutableStateOf(false) }
+    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+    val imeVisible = androidx.compose.foundation.layout.WindowInsets.isImeVisible
+    var convFocused by remember { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val twoPane = maxWidth >= 720.dp
         val open: (Long) -> Unit = { id -> if (chatId == null) nav.push(Dest.Chat(id)) else { nav.pop(); nav.push(Dest.Chat(id)) } }
         if (twoPane) {
+            // CH-14: Liste 320-360 dp, die Unterhaltung bekommt den Rest; tippt man im Chat (Tastatur offen), steht nur
+            // die Unterhaltung. Die Liste bleibt dabei aufgebaut (Scrollstand, Suche), sie wird nur auf 0 dp gefaltet.
+            val listW = io.github.yggdrasil_sh.saga.ui.nav.NavModel.chatListWidth(maxWidth.value).dp
+            val hidden = io.github.yggdrasil_sh.saga.ui.nav.NavModel.chatListHidden(twoPane, chatId != null, imeVisible, convFocused)
+            val reduced = io.github.yggdrasil_sh.saga.ui.theme.LocalReducedMotion.current
+            val shownW by androidx.compose.animation.core.animateDpAsState(
+                if (hidden) 0.dp else listW,
+                if (reduced) androidx.compose.animation.core.snap() else io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.defaultSpatial(),
+                label = "chat-list",
+            )
             Row(Modifier.fillMaxSize()) {
-                Box(Modifier.width(340.dp).fillMaxHeight()) { ChatList(repo, nav, chrome, chatId, open, showBack = chatId == null) }
-                VerticalDivider()
-                Box(Modifier.weight(1f).fillMaxHeight()) {
+                Box(
+                    Modifier.width(shownW).fillMaxHeight().clipToBounds()
+                        .then(if (hidden) Modifier.clearAndSetSemantics {} else Modifier),
+                ) {
+                    Box(Modifier.wrapContentWidth(Alignment.Start, unbounded = true).width(listW).fillMaxHeight()) {
+                        ChatList(repo, nav, chrome, chatId, open, showBack = chatId == null, newChatState = newChat)
+                    }
+                }
+                if (shownW > 0.dp) VerticalDivider()
+                Box(Modifier.weight(1f).fillMaxHeight().onFocusChanged { convFocused = it.hasFocus }) {
                     if (chatId != null) conversation(chatId, true)
-                    else Text(
-                        stringResource(R.string.chat_pick), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
-                        modifier = Modifier.align(Alignment.Center).padding(24.dp),
-                    )
+                    else ChatPickEmpty(Modifier.align(Alignment.Center)) { newChat.value = true }
                 }
             }
         } else if (chatId != null) {
             conversation(chatId, false)
         } else {
-            ChatList(repo, nav, chrome, null, open, showBack = true)
+            ChatList(repo, nav, chrome, null, open, showBack = true, newChatState = newChat)
         }
     }
 }
 
+/** A11Y-25: leerer Detailbereich (zweispaltig, noch kein Chat gewaehlt) mit dem naechsten Schritt "Neuer Chat" */
 @Composable
-private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, selected: Long?, onOpen: (Long) -> Unit, showBack: Boolean) {
+private fun ChatPickEmpty(modifier: Modifier = Modifier, onNewChat: () -> Unit) {
+    Box(modifier.fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState()), contentAlignment = Alignment.Center) {
+        io.github.yggdrasil_sh.saga.ui.theme.SagaEmptyState(
+            title = stringResource(R.string.r6_chat_pick_title),
+            icon = SagaIcons.chats,
+            text = stringResource(R.string.r6_chat_pick_text),
+            action = {
+                androidx.compose.material3.FilledTonalButton(onClick = onNewChat) {
+                    SagaIcon(SagaIcons.plus, null, Modifier.size(18.dp))
+                    androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.chat_new))
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun ChatList(
+    repo: SagaRepository, nav: AppNavigator, chrome: Chrome, selected: Long?, onOpen: (Long) -> Unit, showBack: Boolean,
+    newChatState: androidx.compose.runtime.MutableState<Boolean> = remember { mutableStateOf(false) },
+) {
     val svc = repo.chat
     val chats by svc.chats.collectAsState()
     val titles by svc.freeTitles.collectAsState()
     val loaded by svc.chatsLoaded.collectAsState()
-    var newChat by remember { mutableStateOf(false) }
+    var newChat by newChatState
     var blocks by remember { mutableStateOf(false) }
     val fedV2 by svc.fed.supported.collectAsState()
     var showArchived by rememberSaveable { mutableStateOf(false) }
