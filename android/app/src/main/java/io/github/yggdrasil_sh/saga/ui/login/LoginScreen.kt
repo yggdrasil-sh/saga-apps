@@ -98,6 +98,18 @@ internal object LoginLayout {
     /** Hoehe mindestens so viel, dass es kein Phone quer ist (Pruefung R6: "Phone unveraendert") */
     const val CARD_MIN_H_DP = 480f
     fun card(widthDp: Float, heightDp: Float = Float.MAX_VALUE): Boolean = widthDp >= CARD_FROM_DP && heightDp >= CARD_MIN_H_DP
+    /**
+     * R6-Rest: Karte auf niedriger Sichtflaeche dichter (kleineres Logo, engere Abstaende), damit sie mit grosser Schrift
+     * (Tablet quer, 130 %) nicht bis zur Gestenleiste reicht. Massstab: Hoehe geteilt durch die Schriftgroesse.
+     */
+    const val CARD_COMPACT_BELOW_DP = 640f
+    val LOGO_COMPACT = 72.dp
+    fun cardCompact(viewportHDp: Float, fontScale: Float = 1f): Boolean = viewportHDp / maxOf(fontScale, 1f) < CARD_COMPACT_BELOW_DP
+    fun logo(card: Boolean, viewportHDp: Float, fontScale: Float = 1f): androidx.compose.ui.unit.Dp =
+        if (card && cardCompact(viewportHDp, fontScale)) LOGO_COMPACT else LOGO
+    fun cardPadding(viewportHDp: Float, fontScale: Float = 1f): androidx.compose.ui.unit.Dp = if (cardCompact(viewportHDp, fontScale)) 20.dp else 28.dp
+    fun gap(card: Boolean, viewportHDp: Float, fontScale: Float = 1f): androidx.compose.ui.unit.Dp =
+        if (card && cardCompact(viewportHDp, fontScale)) 10.dp else 14.dp
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -181,6 +193,8 @@ fun LoginScreen(repo: SagaRepository) {
         androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding().imePadding(), contentAlignment = Alignment.TopCenter) {
             val card = LoginLayout.card(maxWidth.value, androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.toFloat())
             val viewportH = maxHeight
+            val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
+            val gap = LoginLayout.gap(card, viewportH.value, fontScale)
             val fieldArea = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
             var fieldFocused by remember { mutableStateOf(false) }
             var viewport by remember { mutableStateOf(0) }
@@ -193,7 +207,7 @@ fun LoginScreen(repo: SagaRepository) {
                 }
             }
             val form: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
-                val logo = LoginLayout.LOGO
+                val logo = LoginLayout.logo(card, viewportH.value, fontScale)
                 Image(
                     painterResource(R.drawable.ic_launcher_foreground), contentDescription = null,
                     modifier = Modifier.size(logo).shadow(12.dp, RoundedCornerShape(logo * 0.27f)).clip(RoundedCornerShape(logo * 0.27f)).background(SagaNight),
@@ -206,7 +220,7 @@ fun LoginScreen(repo: SagaRepository) {
                 // Feld und "Anmelden" als ein Bereich: er wird bei offener Tastatur gemeinsam ins Bild gescrollt
                 Column(
                     Modifier.fillMaxWidth().bringIntoViewRequester(fieldArea),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(gap),
                 ) {
                     // NAV-06: Fehler direkt am Feld (isError, supportingText, Semantik error)
                     val fieldError = (localError ?: loginError)?.resolve()
@@ -309,12 +323,12 @@ fun LoginScreen(repo: SagaRepository) {
                     verticalArrangement = Arrangement.Center,
                 ) {
                     io.github.yggdrasil_sh.saga.ui.theme.SagaCard(
-                        Modifier.widthIn(max = LoginLayout.CARD_MAX).fillMaxWidth(), padding = 28.dp,
+                        Modifier.widthIn(max = LoginLayout.CARD_MAX).fillMaxWidth(), padding = LoginLayout.cardPadding(viewportH.value, fontScale),
                     ) {
                         Column(
                             Modifier.fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(gap),
                             content = form,
                         )
                     }

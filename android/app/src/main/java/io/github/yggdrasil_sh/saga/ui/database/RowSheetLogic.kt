@@ -36,9 +36,14 @@ object RowSheetLogic {
     fun onNarrow(sheetRow: Long?, enabled: Boolean): Narrow = if (sheetRow != null && !enabled) Narrow.OPEN_AS_PAGE else Narrow.NOTHING
 
     /** Wer bekommt "Zurueck"? Erst das Blatt, dann der Navigationsstapel */
-    enum class Back { CLOSE_SHEET, NAVIGATION }
+    enum class Back { CLOSE_DRAWER, CLOSE_SHEET, NAVIGATION }
 
-    fun back(sheetOpen: Boolean): Back = if (sheetOpen) Back.CLOSE_SHEET else Back.NAVIGATION
+    /** R6-Rest: eine offene Schublade liegt ueber dem Blatt und schliesst zuerst */
+    fun back(sheetOpen: Boolean, drawerOpen: Boolean = false): Back = when {
+        drawerOpen -> Back.CLOSE_DRAWER
+        sheetOpen -> Back.CLOSE_SHEET
+        else -> Back.NAVIGATION
+    }
 
     /**
      * Reihenfolge der Zeilen, wie die Ansicht sie zeigt: Board spaltenweise in Spalten-Reihenfolge, Kalender die

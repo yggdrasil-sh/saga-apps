@@ -9,6 +9,18 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Android: Design-Runde 6 (Tablet) – Nachtrag
+
+- **Ansichts-Pillen einer Datenbank:** passen sie nicht in die Zeile (Tabelle neben dem Zeilen-Blatt, Phone), fallen
+  zuerst die Symbole weg – „Alle“ ist dann nicht mehr abgeschnitten; reicht das nicht, bleibt das Wischen mit Verlauf.
+- **Seitenbaum:** geht der Baum unter der festen Fußzeile weiter, blendet ein Verlauf die letzte Zeile aus statt sie halb
+  verdeckt stehen zu lassen.
+- **Heute:** „Weitermachen“-Karten ab 600 dp Breite 184 statt 140 dp breit – lange Wörter werden nicht mehr getrennt.
+- **Anmeldung als Karte:** mit großer Schrift auf niedriger Fläche (Tablet quer, 130 %) dichter (Logo 72 dp, engere
+  Abstände), damit sie nicht bis zur Gestenleiste reicht.
+- **Zeilen-Blatt:** Zurück schließt bei offener Schublade zuerst die Schublade; ein Link im Blatt auf die umgebende
+  Datenbank-Seite schließt das Blatt (vorher passierte nichts).
+
 ### Geändert – Apps: Titelbild-Galerie
 
 - **Kein Zufalls-Titelbild für Kopien:** Konflikt-Kopien (Android, Linux) und „Chat → Seite“ (Android, iOS) schicken beim

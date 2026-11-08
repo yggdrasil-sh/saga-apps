@@ -390,6 +390,13 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
         sheetRow = null
         sheetChanged?.invoke()
     }
+    // R6-Rest: Link im Blatt auf diese (umgebende) Seite schliesst das Blatt, statt nichts zu tun
+    val sheetOpen = sheetOn && sheetRow != null
+    androidx.compose.runtime.DisposableEffect(nav, sheetOpen, id) {
+        val hook: ((Dest) -> Boolean)? = if (!sheetOpen) null else { d -> if (d == Dest.Page(id)) { closeSheet(); true } else false }
+        if (hook != null) nav.onSameTarget = hook
+        onDispose { if (hook != null && nav.onSameTarget === hook) nav.onSameTarget = null }
+    }
     val opener = if (!sheetOn) null else io.github.yggdrasil_sh.saga.ui.database.RowSheetOpener { rid, order, changed ->
         if (sheetRow != null && sheetRow != rid) sheetChanged?.invoke()
         sheetOrder = order

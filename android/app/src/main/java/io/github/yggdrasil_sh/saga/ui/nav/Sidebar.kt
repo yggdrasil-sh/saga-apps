@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Badge
@@ -189,7 +191,29 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit, bot
     }
 
     Column(Modifier.statusBarsPadding()) {
-    LazyColumn(Modifier.weight(1f), state = listState) {
+    // R6-Rest: geht der Baum unter der festen Fusszeile weiter, blendet ein Verlauf die letzte Zeile aus, statt sie
+    // halb abgeschnitten stehen zu lassen (zeigt: weiter scrollen)
+    val fadePx = with(androidx.compose.ui.platform.LocalDensity.current) { 28.dp.toPx() }
+    LazyColumn(
+        Modifier.weight(1f)
+            .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                if (listState.canScrollForward) {
+                    val h = minOf(fadePx, size.height / 4)
+                    drawRect(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            listOf(androidx.compose.ui.graphics.Color.Transparent, androidx.compose.ui.graphics.Color.Black),
+                            startY = size.height - h, endY = size.height,
+                        ),
+                        topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - h),
+                        size = androidx.compose.ui.geometry.Size(size.width, h),
+                        blendMode = androidx.compose.ui.graphics.BlendMode.DstOut,
+                    )
+                }
+            },
+        state = listState,
+    ) {
         item {
             Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 // NAV-11: Avatar oeffnet das Kontomenue (Sprache, Darstellung, Einstellungen, Admin, Abmelden)

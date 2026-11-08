@@ -199,6 +199,9 @@ object DbCompact {
      * ED-16: Scroll-Position, damit die aktive Pille ([left]..[right] im Inhalt) ganz sichtbar ist - mit [margin] Abstand
      * zum ausgeblendeten Rand. Steht sie schon ganz im Bild, bleibt [scroll].
      */
+    /** R6-Rest: Ansichts-Pillen laufen ueber (Scrollweite > 0) -> Symbole weglassen; einmal weggelassen bleibt es so */
+    fun pillsDropIcons(already: Boolean, maxScroll: Int, viewport: Int): Boolean = !already && viewport > 0 && maxScroll > 0
+
     fun pillScroll(left: Int, right: Int, viewport: Int, scroll: Int, maxScroll: Int, margin: Int): Int {
         if (viewport <= 0) return scroll
         val target = when {

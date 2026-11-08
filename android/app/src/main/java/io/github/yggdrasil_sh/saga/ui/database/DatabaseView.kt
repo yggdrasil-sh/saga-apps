@@ -514,6 +514,12 @@ internal fun ViewPills(views: List<DbView>, current: String, onSelect: (String) 
     val fade = with(density) { 24.dp.toPx() }
     val active = bounds[current]
     var first by remember { mutableStateOf(true) }
+    // R6-Rest: passen die Pillen nicht in die Zeile (Tabelle neben dem Seitenblatt, Phone), erst die Symbole weglassen;
+    // reicht auch das nicht, bleibt das Wischen mit Verlauf. Je Breite und Ansichtszahl einmal entschieden (kein Flackern).
+    var noIcons by remember(views.size, viewport) { mutableStateOf(false) }
+    LaunchedEffect(sc.maxValue, viewport, views.size) {
+        if (DbCompact.pillsDropIcons(noIcons, sc.maxValue, viewport)) noIcons = true
+    }
     LaunchedEffect(current, active, viewport) {
         val b = active ?: return@LaunchedEffect
         if (viewport <= 0) return@LaunchedEffect
@@ -556,7 +562,7 @@ internal fun ViewPills(views: List<DbView>, current: String, onSelect: (String) 
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 val fg = if (sel) accent.onGoldSoft else MaterialTheme.colorScheme.onSurfaceVariant
-                SagaIcon(viewIcon(x.type), null, Modifier.padding(end = 6.dp).size(16.dp), tint = fg)
+                if (!noIcons) SagaIcon(viewIcon(x.type), null, Modifier.padding(end = 6.dp).size(16.dp), tint = fg)
                 Text(x.name.ifEmpty { viewLabel(x.type) }, style = MaterialTheme.typography.labelLarge, maxLines = 1, color = fg)
             }
         }

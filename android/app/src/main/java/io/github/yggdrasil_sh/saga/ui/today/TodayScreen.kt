@@ -215,7 +215,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     item(key = "continue") {
                         Column(Modifier.widthIn(max = maxW).fillMaxWidth().sagaAppear(1)) {
                             SagaSectionTitle(stringResource(R.string.r4t_continue), Modifier.padding(top = SagaSpace.xs))
-                            ContinueRow(cont, repo) { nav.push(Dest.Page(it)) }
+                            ContinueRow(cont, repo, TodayLogic.continueCardWidthDp(maxWidth.value).dp) { nav.push(Dest.Page(it)) }
                         }
                     }
                 }
@@ -343,9 +343,9 @@ private fun NoEventsRow(onAdd: () -> Unit) {
     }
 }
 
-/** NAV-13: "Weitermachen" - Karten 140 x 88 dp (Symbol und Titel) der zuletzt geoeffneten Seiten, waagerecht scrollbar */
+/** NAV-13: "Weitermachen" - Karten 140 x 88 dp (Tablet 184 dp breit) mit Symbol und Titel der zuletzt geoeffneten Seiten, waagerecht scrollbar */
 @Composable
-private fun ContinueRow(list: List<PageMeta>, repo: SagaRepository, onOpen: (Long) -> Unit) {
+private fun ContinueRow(list: List<PageMeta>, repo: SagaRepository, cardWidth: androidx.compose.ui.unit.Dp, onOpen: (Long) -> Unit) {
     LazyRow(
         Modifier.fillMaxWidth().padding(top = SagaSpace.xs),
         contentPadding = PaddingValues(horizontal = SagaSpace.gutter),
@@ -355,7 +355,7 @@ private fun ContinueRow(list: List<PageMeta>, repo: SagaRepository, onOpen: (Lon
             val title = pageTitle(p)
             val openLabel = stringResource(R.string.r4t_open_page)
             Column(
-                Modifier.size(width = 140.dp, height = 88.dp).clip(RoundedCornerShape(SagaRadius.md))
+                Modifier.size(width = cardWidth, height = 88.dp).clip(RoundedCornerShape(SagaRadius.md))
                     .background(MaterialTheme.colorScheme.surfaceContainerLow)
                     .clickable(onClickLabel = openLabel, role = Role.Button) { onOpen(p.id) }
                     .padding(SagaSpace.m),

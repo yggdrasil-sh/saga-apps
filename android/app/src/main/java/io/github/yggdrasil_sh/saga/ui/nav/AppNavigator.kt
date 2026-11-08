@@ -108,8 +108,14 @@ class AppNavigator(initial: List<Dest> = listOf(Dest.Today)) {
         stack.add(d)
     }
 
+    /**
+     * R6-Rest: Ziel ist schon oben (z. B. Link im Zeilen-Blatt auf die umgebende Datenbank-Seite). Ohne Haken passiert
+     * nichts; die Seite mit offenem Blatt meldet hier, dass sie das Blatt schliesst (= "dorthin gehen").
+     */
+    var onSameTarget: ((Dest) -> Boolean)? = null
+
     fun push(d: Dest) {
-        if (stack.last() != d) stack.add(d)
+        if (stack.last() != d) stack.add(d) else onSameTarget?.invoke(d)
     }
 
     /**

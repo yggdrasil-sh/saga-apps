@@ -339,7 +339,7 @@ fun MainScreen(
                 Row(Modifier.fillMaxSize()) {
                     if (wide) WideSide(railMode = layout == NavModel.Layout.RAIL, rail = rail) { Sidebar(repo, nav, onNavigate = {}) }
                     else rail()
-                    Box(Modifier.weight(1f)) { content(chrome) }
+                    Box(Modifier.weight(1f)) { androidx.compose.runtime.CompositionLocalProvider(LocalNavDrawerOpen provides (drawerState.isOpen && modal)) { content(chrome) } }
                 }
             } else {
                 // Phone: Inhalt + untere Leiste (Heute · Seiten · Suchen · Chats); solange sie steht, nimmt sie die
@@ -349,7 +349,7 @@ fun MainScreen(
                     Box(
                         Modifier.weight(1f)
                             .then(if (bottomBar) Modifier.consumeWindowInsets(WindowInsets.navigationBars) else Modifier),
-                    ) { content(chrome) }
+                    ) { androidx.compose.runtime.CompositionLocalProvider(LocalNavDrawerOpen provides (drawerState.isOpen && modal)) { content(chrome) } }
                     if (bottomBar) {
                         SagaBottomBar(
                             repo, nav, drawerOpen = drawerOpen,
@@ -372,6 +372,9 @@ fun MainScreen(
         }
     }
 }
+
+/** R6-Rest: modale Schublade offen - Blaetter im Inhalt (Zeilen-Blatt) lassen Zurueck dann der Schublade */
+val LocalNavDrawerOpen = androidx.compose.runtime.compositionLocalOf { false }
 
 /** NAV-08: Glocke mit Zaehler (ungelesene Gruppen); TalkBack sagt den Zaehler als Text an */
 @Composable

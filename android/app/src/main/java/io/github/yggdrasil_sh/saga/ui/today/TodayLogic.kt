@@ -56,6 +56,10 @@ object TodayLogic {
 
     fun twoColumns(availableDp: Float): Boolean = availableDp >= TWO_COLUMN_MIN_DP
 
+    /** R6-Rest: "Weitermachen"-Karten ab 600 dp Breite breiter, damit lange Woerter ("Lieferantenwechsel") nicht getrennt werden */
+    const val CONTINUE_WIDE_FROM_DP = 600f
+    fun continueCardWidthDp(availableDp: Float): Float = if (availableDp >= CONTINUE_WIDE_FROM_DP) 184f else 140f
+
     /** Hoechstbreite einer Spalte samt ihrer Raender (480 + 2 x 16 = 512 dp) */
     const val COLUMN_BOX_DP = COLUMN_MAX_DP + 2 * COLUMN_GUTTER_DP
 
