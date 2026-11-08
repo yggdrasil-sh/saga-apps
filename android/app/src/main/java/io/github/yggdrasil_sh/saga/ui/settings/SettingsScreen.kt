@@ -131,10 +131,12 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         repo.chat.refresh()
     }
     val ncShown = nc?.takeIf { it.enabled || it.connected }
+    val features by repo.serverFeatures.collectAsState()        // 2.5: BookOrbit nur mit bookorbit1
     val cats = SettingsLogic.categories(
         chats = chatState != ChatSetup.UNSUPPORTED && chatState != ChatSetup.OFF,
         backup = backup?.allowed == true,
         nextcloud = ncShown != null,
+        bookorbit = io.github.yggdrasil_sh.saga.blocks.BookOrbit.FEATURE in features,
     )
     Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_settings), nav, chrome, contentMaxWidth = io.github.yggdrasil_sh.saga.ui.common.TopBarAlign.CONTENT) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -162,7 +164,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
 
             val groups = listOf(
                 R.string.r4s_group_alerts to cats.filter { it == SettingsLogic.Category.NOTIFICATIONS || it == SettingsLogic.Category.CHATS },
-                R.string.r4s_group_data to cats.filter { it == SettingsLogic.Category.BACKUP || it == SettingsLogic.Category.NEXTCLOUD },
+                R.string.r4s_group_data to cats.filter { it == SettingsLogic.Category.BACKUP || it == SettingsLogic.Category.NEXTCLOUD || it == SettingsLogic.Category.BOOKORBIT },
                 R.string.r4s_group_account to cats.filter { it == SettingsLogic.Category.ACCOUNT || it == SettingsLogic.Category.INFO },
             ).filter { it.second.isNotEmpty() }
             groups.forEach { (title, list) ->
@@ -192,6 +194,9 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                                 SagaIcons.cloud, "Nextcloud", m,
                                 summary = ncShown?.let { n -> if (n.connected) stringResource(R.string.nc_connected_as, n.user.orEmpty()) else stringResource(R.string.nc_not_connected) },
                             ) { nav.push(Dest.Nextcloud) }
+                            SettingsLogic.Category.BOOKORBIT -> SettingsCategoryRow(
+                                SagaIcons.list, "BookOrbit", m, summary = stringResource(R.string.bo_settings_summary),
+                            ) { nav.push(Dest.BookOrbit) }
                             SettingsLogic.Category.ACCOUNT -> SettingsCategoryRow(
                                 SagaIcons.user, stringResource(R.string.settings_account), m, summary = stringResource(R.string.r4s_cat_account_hint),
                             ) { openPage(nav, SettingsArea.KONTO) }
@@ -767,6 +772,7 @@ object SettingsNav {
         when (SettingsArea.sub(section)) {
             SettingsArea.Sub.BACKUP -> nav.push(Dest.Backup)
             SettingsArea.Sub.NEXTCLOUD -> nav.push(Dest.Nextcloud)
+            SettingsArea.Sub.BOOKORBIT -> nav.push(Dest.BookOrbit)
             null -> {}
         }
     }

@@ -25,6 +25,8 @@ sealed interface Dest {
     /** 2.3: Einstellungen -> Mein Backup bzw. Nextcloud */
     data object Backup : Dest
     data object Nextcloud : Dest
+    /** 2.5 bookorbit1: Einstellungen -> BookOrbit (Leseliste verbinden/trennen) */
+    data object BookOrbit : Dest
     /** 2.5: Einstellungen -> Konto / Einstellungen / Info */
     data object SettingsAccount : Dest
     data object SettingsGeneral : Dest
@@ -54,6 +56,7 @@ sealed interface Dest {
             ChatDevices -> "chat-devices"
             Backup -> "backup"
             Nextcloud -> "nextcloud"
+            BookOrbit -> "bookorbit"
             SettingsAccount -> "settings-account"
             SettingsGeneral -> "settings-general"
             SettingsInfo -> "settings-info"
@@ -78,6 +81,7 @@ sealed interface Dest {
             s == "chat-devices" -> ChatDevices
             s == "backup" -> Backup
             s == "nextcloud" -> Nextcloud
+            s == "bookorbit" -> BookOrbit
             s == "settings-account" -> SettingsAccount
             s == "settings-general" -> SettingsGeneral
             s == "settings-info" -> SettingsInfo

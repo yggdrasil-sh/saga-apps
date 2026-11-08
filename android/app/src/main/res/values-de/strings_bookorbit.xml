@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5 BookOrbit (bookorbit1): Widget "Lesen", Heute, Einstellungen -->
+<resources>
+    <string name="bo_kind_reading">Lesen</string>
+    <string name="bo_more">und %1$d weitere</string>
+    <string name="bo_no_book">Gerade kein Buch</string>
+    <string name="bo_no_goal">Kein Leseziel verfügbar</string>
+    <string name="bo_no_streak">Keine Lesesträhne verfügbar</string>
+    <string name="bo_stale">Stand von vorhin</string>
+    <string name="bo_hint_expired">BookOrbit-Anmeldung abgelaufen – bitte neu anmelden.</string>
+    <string name="bo_hint_unavailable">BookOrbit gerade nicht erreichbar.</string>
+    <string name="bo_hint_none">Noch nicht mit BookOrbit verbunden.</string>
+    <string name="bo_open_settings">Einstellungen öffnen</string>
+    <string name="bo_untitled">Unbenannt</string>
+    <string name="bo_progress_a11y">Fortschritt %1$d Prozent</string>
+    <string name="bo_goal_of">Leseziel %1$s: %2$d von %3$d Büchern</string>
+    <string name="bo_goal_none">Gelesen im Jahr %1$s – kein Leseziel in BookOrbit gesetzt</string>
+    <string name="bo_last7">Letzte 7 Tage: an %1$d gelesen</string>
+    <string name="bo_settings_summary">Leseliste, Leseziel und Lesesträhne</string>
+    <string name="bo_unsupported">BookOrbit ist auf diesem Server nicht verfügbar.</string>
+    <string name="bo_connected">Verbunden</string>
+    <string name="bo_connected_hint">Deine Leseliste gibt es unter „Heute“ und als Widget „Lesen“ auf Seiten.</string>
+    <string name="bo_intro">Adresse deines BookOrbit (z. B. https://bookorbit.example.org) und dein BookOrbit-Konto. Saga meldet sich einmal an und speichert nur ein Sitzungs-Token (verschlüsselt), nie das Passwort. Saga liest nur: was du gerade liest, dein Leseziel und deine Lesesträhne.</string>
+    <string name="bo_address">BookOrbit-Adresse</string>
+    <string name="bo_username">Benutzername</string>
+    <string name="bo_password">Passwort</string>
+    <string name="bo_sign_in">Anmelden</string>
+    <string name="bo_disconnect_title">BookOrbit trennen?</string>
+    <string name="bo_disconnect_text">Saga meldet sich bei BookOrbit ab und zeigt deine Leseliste nicht mehr an.</string>
+    <plurals name="bo_days">
+        <item quantity="one">%d Tag</item>
+        <item quantity="other">%d Tage</item>
+    </plurals>
+    <plurals name="bo_streak_longest">
+        <item quantity="one">In Folge gelesen · längste Strähne: %d Tag</item>
+        <item quantity="other">In Folge gelesen · längste Strähne: %d Tage</item>
+    </plurals>
+    <plurals name="bo_today_streak">
+        <item quantity="one">%d Tag in Folge gelesen</item>
+        <item quantity="other">%d Tage in Folge gelesen</item>
+    </plurals>
+</resources>

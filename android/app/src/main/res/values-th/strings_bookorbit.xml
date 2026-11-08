@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5 BookOrbit (bookorbit1): Widget "Lesen", Heute, Einstellungen -->
+<resources>
+    <string name="bo_kind_reading">การอ่าน</string>
+    <string name="bo_more">และอีก %1$d</string>
+    <string name="bo_no_book">ตอนนี้ไม่มีหนังสือ</string>
+    <string name="bo_no_goal">ไม่มีเป้าหมายการอ่าน</string>
+    <string name="bo_no_streak">ไม่มีสถิติการอ่านต่อเนื่อง</string>
+    <string name="bo_stale">ข้อมูลก่อนหน้า</string>
+    <string name="bo_hint_expired">การเข้าสู่ระบบ BookOrbit หมดอายุ – โปรดเข้าสู่ระบบใหม่</string>
+    <string name="bo_hint_unavailable">ไม่สามารถเข้าถึง BookOrbit ได้ในขณะนี้</string>
+    <string name="bo_hint_none">ยังไม่ได้เชื่อมต่อกับ BookOrbit</string>
+    <string name="bo_open_settings">เปิดการตั้งค่า</string>
+    <string name="bo_untitled">ไม่มีชื่อ</string>
+    <string name="bo_progress_a11y">ความคืบหน้า %1$d เปอร์เซ็นต์</string>
+    <string name="bo_goal_of">เป้าหมายการอ่าน %1$s: %2$d จาก %3$d เล่ม</string>
+    <string name="bo_goal_none">อ่านในปี %1$s – ยังไม่ได้ตั้งเป้าหมายการอ่านใน BookOrbit</string>
+    <string name="bo_last7">7 วันล่าสุด: อ่าน %1$d วัน</string>
+    <string name="bo_settings_summary">รายการอ่าน เป้าหมาย และการอ่านต่อเนื่อง</string>
+    <string name="bo_unsupported">BookOrbit ไม่พร้อมใช้งานบนเซิร์ฟเวอร์นี้</string>
+    <string name="bo_connected">เชื่อมต่อแล้ว</string>
+    <string name="bo_connected_hint">รายการอ่านของคุณจะแสดงใน “วันนี้” และเป็นวิดเจ็ต “การอ่าน” ในหน้าต่าง ๆ</string>
+    <string name="bo_intro">ที่อยู่ของ BookOrbit ของคุณ (เช่น https://bookorbit.example.org) และบัญชี BookOrbit ของคุณ Saga จะเข้าสู่ระบบครั้งเดียวและเก็บเฉพาะโทเค็นเซสชัน (เข้ารหัส) ไม่เคยเก็บรหัสผ่าน Saga อ่านเฉพาะหนังสือที่คุณกำลังอ่าน เป้าหมายการอ่าน และการอ่านต่อเนื่องของคุณ</string>
+    <string name="bo_address">ที่อยู่ BookOrbit</string>
+    <string name="bo_username">ชื่อผู้ใช้</string>
+    <string name="bo_password">รหัสผ่าน</string>
+    <string name="bo_sign_in">เข้าสู่ระบบ</string>
+    <string name="bo_disconnect_title">ตัดการเชื่อมต่อ BookOrbit หรือไม่</string>
+    <string name="bo_disconnect_text">Saga จะออกจากระบบ BookOrbit และจะไม่แสดงรายการอ่านของคุณอีก</string>
+    <plurals name="bo_days">
+        <item quantity="other">%d วัน</item>
+    </plurals>
+    <plurals name="bo_streak_longest">
+        <item quantity="other">อ่านต่อเนื่อง · สถิติยาวที่สุด: %d วัน</item>
+    </plurals>
+    <plurals name="bo_today_streak">
+        <item quantity="other">อ่านต่อเนื่อง %d วัน</item>
+    </plurals>
+</resources>

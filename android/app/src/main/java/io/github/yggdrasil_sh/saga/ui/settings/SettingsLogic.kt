@@ -7,17 +7,19 @@ package io.github.yggdrasil_sh.saga.ui.settings
  */
 object SettingsLogic {
     /** Kategorien der Hauptliste "Einstellungen" (Reihenfolge = Anzeige) */
-    enum class Category { NOTIFICATIONS, CHATS, BACKUP, NEXTCLOUD, ACCOUNT, INFO }
+    enum class Category { NOTIFICATIONS, CHATS, BACKUP, NEXTCLOUD, BOOKORBIT, ACCOUNT, INFO }
 
     /**
      * Sichtbare Kategorien: Benachrichtigungen, Konto und Info immer; Chats nur, wenn der Server Chats kann
-     * (eingerichtet oder einrichtbar); Sicherung ("Mein Backup") und Nextcloud nur, wenn der Server sie anbietet.
+     * (eingerichtet oder einrichtbar); Sicherung ("Mein Backup"), Nextcloud und BookOrbit (2.5, bookorbit1) nur, wenn
+     * der Server sie anbietet.
      */
-    fun categories(chats: Boolean, backup: Boolean, nextcloud: Boolean): List<Category> = buildList {
+    fun categories(chats: Boolean, backup: Boolean, nextcloud: Boolean, bookorbit: Boolean = false): List<Category> = buildList {
         add(Category.NOTIFICATIONS)
         if (chats) add(Category.CHATS)
         if (backup) add(Category.BACKUP)
         if (nextcloud) add(Category.NEXTCLOUD)
+        if (bookorbit) add(Category.BOOKORBIT)
         add(Category.ACCOUNT)
         add(Category.INFO)
     }

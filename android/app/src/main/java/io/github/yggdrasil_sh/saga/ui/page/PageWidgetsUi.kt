@@ -154,6 +154,7 @@ private fun kindName(kind: String): String = when (kind) {
     "habit" -> stringResource(R.string.e1_kind_habit)
     "upcoming" -> stringResource(R.string.e1_kind_upcoming)
     "chart" -> stringResource(R.string.e1_kind_chart)
+    "reading" -> stringResource(R.string.bo_kind_reading)
     else -> stringResource(R.string.pw_kind_widget)
 }
 
@@ -214,6 +215,10 @@ fun PageWidgetBlock(block: JsonObject, env: BlockEnv) {
                 "weather" -> WeatherBody(v, sz, accent)
                 "habit" -> HabitBody(s, v, env, accent)
                 "upcoming" -> UpcomingBody(v, env)
+                // 2.5 bookorbit1: Daten der betrachtenden Person; ohne Verbindung Hinweis mit Weg zu den Einstellungen
+                "reading" -> io.github.yggdrasil_sh.saga.blocks.BookOrbit.reading(v?.data)?.let { r ->
+                    ReadingContent(r, env.repo, accent, onSettings = { env.repo.openSettingsRequest.value = "bookorbit" }, compact = s.size == "s", big = sz.value)
+                } ?: ProblemLine(stringResource(R.string.pw_failed))
                 "chart" -> v?.data?.let { io.github.yggdrasil_sh.saga.ui.database.ChartBlock(io.github.yggdrasil_sh.saga.db.DbChart.parseResult(it), if (s.size == "l") 280.dp else if (s.size == "s") 150.dp else 210.dp, showTable = false) }
                     ?: ProblemLine(stringResource(R.string.pw_failed))
             }

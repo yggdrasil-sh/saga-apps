@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.data.TaskItem
+import io.github.yggdrasil_sh.saga.data.bookorbitReading
 import io.github.yggdrasil_sh.saga.ui.common.Chrome
 import io.github.yggdrasil_sh.saga.ui.common.SagaTopBar
 import io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent
@@ -92,6 +93,46 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         repo.loadTasks()
         repo.loadTodayEvents()
     }
+    // 2.5 bookorbit1: Karte "Lesen" nur mit Verbindung (abgelaufen/nicht erreichbar: kurzer Hinweis); offline: letzter Stand
+    val features by repo.serverFeatures.collectAsState()
+    val boOn = io.github.yggdrasil_sh.saga.blocks.BookOrbit.FEATURE in features
+    var reading by remember { mutableStateOf<io.github.yggdrasil_sh.saga.blocks.BookOrbit.Reading?>(null) }
+    var readingTick by remember { mutableStateOf(0) }
+    LaunchedEffect(boOn, readingTick) {
+        if (!boOn) { reading = null; return@LaunchedEffect }
+        reading = try {
+            repo.bookorbitReading() ?: reading
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            reading
+        }
+    }
+    val readingCard: @Composable (Modifier) -> Unit = { m ->
+        val r = reading
+        if (boOn && io.github.yggdrasil_sh.saga.blocks.BookOrbit.todayVisible(r) && r != null) {
+            Column(m.fillMaxWidth()) {
+                SagaSectionTitle(stringResource(R.string.bo_kind_reading), Modifier.padding(top = SagaSpace.m))
+                Box(Modifier.fillMaxWidth().sagaSegment(0, 1).padding(horizontal = SagaSpace.gutter, vertical = SagaSpace.s)) {
+                    Column {
+                        io.github.yggdrasil_sh.saga.ui.page.ReadingContent(
+                            r.copy(show = io.github.yggdrasil_sh.saga.blocks.BookOrbit.Show.CURRENT), repo, MaterialTheme.colorScheme.primary,
+                            onSettings = { io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, "bookorbit", replace = false) },
+                            compact = true, limit = io.github.yggdrasil_sh.saga.blocks.BookOrbit.TODAY_LIMIT,
+                        )
+                        val s = r.streak
+                        if (r.state == io.github.yggdrasil_sh.saga.blocks.BookOrbit.State.OK && s != null && s.current > 0) {
+                            Text(
+                                androidx.compose.ui.res.pluralStringResource(R.plurals.bo_today_streak, s.current, s.current),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = SagaSpace.xs),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
     val today = todayIso()
     // Widget "Neue Aufgabe": zur Eingabe springen und fokussieren
     val quickAdd by repo.focusQuickAdd.collectAsState()
@@ -144,6 +185,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             ) { refresh() }
         }
         scope.launch { repo.refresh() }
+        readingTick++
     }
     Scaffold(topBar = {
         SagaTopBar(stringResource(R.string.nav_today), nav, chrome, contentWidthFor = ::todayContentWidth) {
@@ -231,6 +273,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                                 events.forEachIndexed { i, e ->
                                     Box(Modifier.fillMaxWidth().sagaSegment(i, events.size).padding(vertical = SagaSpace.xs)) { EventRow(e) }
                                 }
+                                readingCard(Modifier)
                             }
                             Column(Modifier.weight(1f).widthIn(max = TodayLogic.COLUMN_BOX_DP.dp).semantics { isTraversalGroup = true; traversalIndex = 1f }) {
                                 taskHead(Modifier.padding(top = SagaSpace.s))
@@ -273,6 +316,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                             .sagaSegment(i, todayTasks.size).animateItem().sagaAppear(2 + i),
                     ) { TaskRow(t, repo) { editing = it } }
                 }
+                item(key = "reading") { readingCard(Modifier.widthIn(max = maxW)) }
             }
           }
         }

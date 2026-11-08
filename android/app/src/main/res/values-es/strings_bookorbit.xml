@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5 BookOrbit (bookorbit1): Widget "Lesen", Heute, Einstellungen -->
+<resources>
+    <string name="bo_kind_reading">Lectura</string>
+    <string name="bo_more">y %1$d más</string>
+    <string name="bo_no_book">Ningún libro ahora mismo</string>
+    <string name="bo_no_goal">No hay objetivo de lectura</string>
+    <string name="bo_no_streak">No hay racha de lectura</string>
+    <string name="bo_stale">Datos anteriores</string>
+    <string name="bo_hint_expired">El inicio de sesión de BookOrbit ha caducado: vuelve a iniciar sesión.</string>
+    <string name="bo_hint_unavailable">BookOrbit no está accesible ahora mismo.</string>
+    <string name="bo_hint_none">Aún no conectado con BookOrbit.</string>
+    <string name="bo_open_settings">Abrir ajustes</string>
+    <string name="bo_untitled">Sin título</string>
+    <string name="bo_progress_a11y">progreso %1$d por ciento</string>
+    <string name="bo_goal_of">Objetivo de lectura %1$s: %2$d de %3$d libros</string>
+    <string name="bo_goal_none">Leídos en %1$s – sin objetivo de lectura en BookOrbit</string>
+    <string name="bo_last7">Últimos 7 días: leído en %1$d</string>
+    <string name="bo_settings_summary">Lista de lectura, objetivo y racha</string>
+    <string name="bo_unsupported">BookOrbit no está disponible en este servidor.</string>
+    <string name="bo_connected">Conectado</string>
+    <string name="bo_connected_hint">Tu lista de lectura aparece en «Hoy» y como widget «Lectura» en las páginas.</string>
+    <string name="bo_intro">Dirección de tu BookOrbit (p. ej. https://bookorbit.example.org) y tu cuenta de BookOrbit. Saga inicia sesión una vez y solo guarda un token de sesión (cifrado), nunca la contraseña. Saga solo lee lo que estás leyendo, tu objetivo de lectura y tu racha de lectura.</string>
+    <string name="bo_address">Dirección de BookOrbit</string>
+    <string name="bo_username">Nombre de usuario</string>
+    <string name="bo_password">Contraseña</string>
+    <string name="bo_sign_in">Iniciar sesión</string>
+    <string name="bo_disconnect_title">¿Desconectar BookOrbit?</string>
+    <string name="bo_disconnect_text">Saga cierra la sesión en BookOrbit y deja de mostrar tu lista de lectura.</string>
+    <plurals name="bo_days">
+        <item quantity="one">%d día</item>
+        <item quantity="other">%d días</item>
+    </plurals>
+    <plurals name="bo_streak_longest">
+        <item quantity="one">Seguidos · racha más larga: %d día</item>
+        <item quantity="other">Seguidos · racha más larga: %d días</item>
+    </plurals>
+    <plurals name="bo_today_streak">
+        <item quantity="one">%d día seguido leyendo</item>
+        <item quantity="other">%d días seguidos leyendo</item>
+    </plurals>
+</resources>

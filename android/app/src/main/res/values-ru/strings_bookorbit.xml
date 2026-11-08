@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5 BookOrbit (bookorbit1): Widget "Lesen", Heute, Einstellungen -->
+<resources>
+    <string name="bo_kind_reading">Чтение</string>
+    <string name="bo_more">и ещё %1$d</string>
+    <string name="bo_no_book">Сейчас нет книги</string>
+    <string name="bo_no_goal">Цель чтения недоступна</string>
+    <string name="bo_no_streak">Серия чтения недоступна</string>
+    <string name="bo_stale">Прежние данные</string>
+    <string name="bo_hint_expired">Вход в BookOrbit истёк – войдите снова.</string>
+    <string name="bo_hint_unavailable">BookOrbit сейчас недоступен.</string>
+    <string name="bo_hint_none">BookOrbit ещё не подключён.</string>
+    <string name="bo_open_settings">Открыть настройки</string>
+    <string name="bo_untitled">Без названия</string>
+    <string name="bo_progress_a11y">прогресс %1$d %%</string>
+    <string name="bo_goal_of">Цель чтения %1$s: %2$d из %3$d книг</string>
+    <string name="bo_goal_none">Прочитано за %1$s – цель чтения в BookOrbit не задана</string>
+    <string name="bo_last7">Последние 7 дней: чтение в %1$d</string>
+    <string name="bo_settings_summary">Список чтения, цель и серия</string>
+    <string name="bo_unsupported">BookOrbit недоступен на этом сервере.</string>
+    <string name="bo_connected">Подключено</string>
+    <string name="bo_connected_hint">Ваш список чтения отображается в разделе «Сегодня» и как виджет «Чтение» на страницах.</string>
+    <string name="bo_intro">Адрес вашего BookOrbit (например, https://bookorbit.example.org) и ваша учётная запись BookOrbit. Saga входит один раз и хранит только токен сеанса (в зашифрованном виде), но никогда не пароль. Saga читает только то, что вы сейчас читаете, вашу цель чтения и серию чтения.</string>
+    <string name="bo_address">Адрес BookOrbit</string>
+    <string name="bo_username">Имя пользователя</string>
+    <string name="bo_password">Пароль</string>
+    <string name="bo_sign_in">Войти</string>
+    <string name="bo_disconnect_title">Отключить BookOrbit?</string>
+    <string name="bo_disconnect_text">Saga выйдет из BookOrbit и больше не будет показывать ваш список чтения.</string>
+    <plurals name="bo_days">
+        <item quantity="one">%d день</item>
+        <item quantity="few">%d дня</item>
+        <item quantity="many">%d дней</item>
+        <item quantity="other">%d дня</item>
+    </plurals>
+    <plurals name="bo_streak_longest">
+        <item quantity="one">Подряд · самая длинная серия: %d день</item>
+        <item quantity="few">Подряд · самая длинная серия: %d дня</item>
+        <item quantity="many">Подряд · самая длинная серия: %d дней</item>
+        <item quantity="other">Подряд · самая длинная серия: %d дня</item>
+    </plurals>
+    <plurals name="bo_today_streak">
+        <item quantity="one">%d день чтения подряд</item>
+        <item quantity="few">%d дня чтения подряд</item>
+        <item quantity="many">%d дней чтения подряд</item>
+        <item quantity="other">%d дня чтения подряд</item>
+    </plurals>
+</resources>

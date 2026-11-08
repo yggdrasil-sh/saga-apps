@@ -29,11 +29,14 @@ import kotlin.random.Random
  */
 object PageWidgets {
     val KINDS = setOf("clock", "countdown", "progress", "metric", "quote")
-    /** 2.5 Paket 4: rechnet der Server, nur mit passender Faehigkeit (weather1, habit1, upcoming1, chart1) */
-    val KINDS2 = setOf("weather", "habit", "upcoming", "chart")
+    /** 2.5 Paket 4: rechnet der Server, nur mit passender Faehigkeit (weather1, habit1, upcoming1, chart1; reading: bookorbit1) */
+    val KINDS2 = setOf("weather", "habit", "upcoming", "chart", "reading")
+
+    /** Faehigkeit des Servers fuer eine Etappe-2-Art ("reading" gehoert zu BookOrbit) */
+    fun featureFor(kind: String): String = if (kind == "reading") BookOrbit.FEATURE else "${kind}1"
 
     /** Art anzeigbar? Etappe-2-Arten nur, wenn der Server sie meldet */
-    fun supported(kind: String, features: Set<String>): Boolean = kind in KINDS || (kind in KINDS2 && "${kind}1" in features)
+    fun supported(kind: String, features: Set<String>): Boolean = kind in KINDS || (kind in KINDS2 && featureFor(kind) in features)
 
     data class Spec(
         val id: String?, val kind: String, val size: String, val style: String, val accent: String?, val title: String,
@@ -43,7 +46,7 @@ object PageWidgets {
         /** Holt die App den Wert vom Server (Etappe 1: progress/db, metric, jedes quote - auch feste Zitate waehlt der
          *  Server nach `pick`, damit die Auswahl wie im Web ist)? */
         val serverValue: Boolean get() = when (kind) {
-            "metric", "quote", "weather", "habit", "upcoming", "chart" -> true
+            "metric", "quote", "weather", "habit", "upcoming", "chart", "reading" -> true
             "progress" -> str(cfg, "src") == "db"
             else -> false
         }

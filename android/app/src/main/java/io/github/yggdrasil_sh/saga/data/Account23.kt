@@ -433,3 +433,23 @@ suspend fun SagaRepository.ncPageStatus(noteId: Long): NcPageStatus = json.decod
 suspend fun SagaRepository.pageWidgetValues(noteId: Long): String =
     api.get("api/notes/$noteId/widgets" + (io.github.yggdrasil_sh.saga.blocks.PageWidgets.tzParam(java.time.ZoneId.systemDefault().id)
         ?.let { "?tz=" + java.net.URLEncoder.encode(it, "UTF-8") } ?: ""))
+
+// ---------------------------------------------------------------- 2.5 BookOrbit (bookorbit1, nur lesen)
+
+/** Status der Verbindung; null = Server kennt BookOrbit nicht (404) */
+suspend fun SagaRepository.bookorbitStatus(): io.github.yggdrasil_sh.saga.blocks.BookOrbit.Status? = try {
+    io.github.yggdrasil_sh.saga.blocks.BookOrbit.status(api.get("api/bookorbit/status"))
+} catch (e: ApiException) {
+    if (e.code == 404 || e.code == 405) null else throw e
+}
+
+/** Leseliste (Heute-Karte); Server merkt sie sich je Konto einige Minuten */
+suspend fun SagaRepository.bookorbitReading(): io.github.yggdrasil_sh.saga.blocks.BookOrbit.Reading? =
+    io.github.yggdrasil_sh.saga.blocks.BookOrbit.parseReading(api.get("api/bookorbit/reading"))
+
+/** Einmal mit Benutzer und Passwort anmelden - der Server behaelt nur das Token */
+suspend fun SagaRepository.bookorbitConnect(url: String, username: String, password: String) {
+    api.post("api/bookorbit/connect", io.github.yggdrasil_sh.saga.blocks.BookOrbit.connectBody(url, username, password))
+}
+
+suspend fun SagaRepository.bookorbitDisconnect() { api.post("api/bookorbit/disconnect") }

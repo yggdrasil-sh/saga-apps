@@ -10,7 +10,7 @@ enum class SettingsArea {
     KONTO, BENACHRICHTIGUNGEN, CHATS, INFO;
 
     /** Unterseite, die zusaetzlich geoeffnet wird (Sicherung, Nextcloud - beide direkt aus der Hauptliste) */
-    enum class Sub { BACKUP, NEXTCLOUD }
+    enum class Sub { BACKUP, NEXTCLOUD, BOOKORBIT }
 
     companion object {
         private val kontoRows = setOf("konto", "name", "avatar", "security", "public", "federation", "apps", "logout")
@@ -43,6 +43,7 @@ enum class SettingsArea {
         fun sub(section: String?): Sub? = when (section?.trim()?.lowercase()) {
             "backup" -> Sub.BACKUP
             "nextcloud" -> Sub.NEXTCLOUD
+            "bookorbit" -> Sub.BOOKORBIT
             else -> null
         }
     }
