@@ -1190,7 +1190,8 @@ class SagaRepository(
         decode(api.request("PUT", "api/account/public-name", buildJsonObject { put("name", name) }))
 
     override suspend fun createPageWith(title: String, body: String): Long {
-        val id = decode<NewId>(api.post("api/notes", buildJsonObject { put("title", title) })).id
+        // Konflikt-Kopie und Chat -> Seite sind keine "neue Seite" der Person: ohne Zufalls-Titelbild (Galerie, APP-API)
+        val id = decode<NewId>(api.post("api/notes", buildJsonObject { put("title", title); put("cover", JsonNull) })).id
         savePage(id, title, body, null)
         pageAdded(id, null)
         return id

@@ -9,6 +9,11 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Apps: Titelbild-Galerie
+
+- **Kein Zufalls-Titelbild für Kopien:** Konflikt-Kopien (Android, Linux) und „Chat → Seite“ (Android, iOS) schicken beim
+  Anlegen `cover: null` – zufällige Galerie-Bilder bekommen nur Seiten, die man selbst neu anlegt.
+
 ### Geändert – Android: Design-Runde 6 (Tablet) – Navigation
 
 - **Rail hochkant (600–840 dp) wie die Phone-Leiste:** Heute · Seiten · Suchen · Chats (mit Zähler), unten

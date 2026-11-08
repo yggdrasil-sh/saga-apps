@@ -1033,7 +1033,7 @@ class PageDoc:
         srv, acct = self.server, self._acct()
 
         def work():
-            b = {"title": title}
+            b = {"title": title, "cover": None}             # Konflikt-Kopie: ohne Zufalls-Titelbild der Galerie
             if parent is not None:
                 b["parent_id"] = parent
             r = client.json("POST", "api/notes", b, server=srv, account=acct)

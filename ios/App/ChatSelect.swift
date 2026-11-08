@@ -194,7 +194,7 @@ enum ChatToPage {
         let blocks = ChatSelectLogic.pageBlocks(items, time: time, labels: ConversationModel.selectLabels, newID: { String(UUID().uuidString.prefix(10)) })
         var id = target
         if id == nil {
-            let (d, code) = try await store.apiResponse("api/notes", method: "POST", body: ["title": title])
+            let (d, code) = try await store.apiResponse("api/notes", method: "POST", body: ["title": title, "cover": NSNull()])   // Chat -> Seite: ohne Zufalls-Titelbild
             guard (200..<300).contains(code), let nid = ShareJSON.obj(d).flatMap({ ShareJSON.int($0["id"]) }) else { throw Failure.http(code) }
             id = nid
             await store.insertCreated(.created(id: nid, parent: nil, updated: Date().timeIntervalSince1970))
