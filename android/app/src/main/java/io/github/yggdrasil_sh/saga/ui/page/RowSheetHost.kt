@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandHorizontally
@@ -60,7 +61,8 @@ internal fun RowSheetBar(title: String, titleVisible: Boolean, sheet: RowSheetCh
         if (titleVisible) 1f else 0f, io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.defaultEffects(), label = "sheet-title",
     )
     Surface(color = MaterialTheme.colorScheme.surface) {
-        androidx.compose.foundation.layout.Column {
+        // R6-Bilder 87: das Blatt reicht bis oben - Kopf unter der Statusleiste beginnen
+        androidx.compose.foundation.layout.Column(Modifier.statusBarsPadding()) {
             Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = SagaSpace.xs), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = sheet.onClose) { SagaIcon(SagaIcons.x, stringResource(R.string.r6_sheet_close)) }
                 IconButton(onClick = { sheet.onPrev?.invoke() }, enabled = sheet.onPrev != null) {

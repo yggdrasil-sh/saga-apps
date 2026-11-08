@@ -302,7 +302,8 @@ fun MainScreen(
         val modal = layout != NavModel.Layout.SIDEBAR
         val closeDrawer: () -> Unit = { if (modal) scope.launch { drawerState.close() } }
         // Wechsel auf die feste Seitenleiste (Drehen, Chats verlassen): eine offene Schublade schliesst sofort
-        LaunchedEffect(modal) { if (!modal && drawerState.currentValue == DrawerValue.Open) drawerState.snapTo(DrawerValue.Closed) }
+        // R6-Bilder: auch beim Wechsel in die Rail (Chats quer, Drehen) geschlossen beginnen
+        LaunchedEffect(modal) { if (drawerState.currentValue == DrawerValue.Open) drawerState.snapTo(DrawerValue.Closed) }
 
         val showShared by repo.showSharedRequest.collectAsState()
         var seenShared by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(repo.showSharedRequest.value) }
@@ -327,8 +328,10 @@ fun MainScreen(
             gesturesEnabled = modal,
             drawerContent = {
                 // mit fester Seitenleiste keine zweite (verborgene) Seitenleiste in der Schublade
-                if (modal) ModalDrawerSheet(Modifier.width(320.dp)) {
-                    Sidebar(repo, nav, onNavigate = closeDrawer, bottomBar = tabsShown, openOver = NavModel.drawerOpensOver(layout, widthDp))
+                // leer, aber mit fester Breite: ohne Inhalt (0 dp) fallen die Anker fuer offen/zu zusammen und die
+                // Schublade gilt nach dem Wechsel in die Rail als offen (R6-Bilder 43x/92x)
+                ModalDrawerSheet(Modifier.width(320.dp)) {
+                    if (modal) Sidebar(repo, nav, onNavigate = closeDrawer, bottomBar = tabsShown, openOver = NavModel.drawerOpensOver(layout, widthDp))
                 }
             },
         ) {
