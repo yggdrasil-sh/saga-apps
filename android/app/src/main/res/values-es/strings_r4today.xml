@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 4 (Heute, Suchen, Termine, Dienste & Links, Papierkorb) -->
+<resources>
+    <string name="r4t_greeting_morning">Buenos días, %1$s</string>
+    <string name="r4t_greeting_day">Buenas tardes, %1$s</string>
+    <string name="r4t_greeting_evening">Buenas noches, %1$s</string>
+    <string name="r4t_greeting_night">Buenas noches, %1$s</string>
+    <string name="r4t_action_task">Tarea</string>
+    <string name="r4t_action_event">Evento</string>
+    <string name="r4t_continue">Continuar</string>
+    <string name="r4t_open_page">abrir página</string>
+    <string name="r4t_search_title">Buscar</string>
+    <string name="r4t_search_placeholder">Buscar</string>
+    <string name="r4t_recent">Abiertas recientemente</string>
+    <string name="r4t_search_templates">Plantillas</string>
+    <string name="r4t_kind_page">Página</string>
+    <string name="r4t_kind_database">Base de datos</string>
+    <string name="r4t_kind_row">Entrada</string>
+    <string name="r4t_kind_template">Plantilla</string>
+    <string name="r4t_events_empty_title">Aún no hay eventos</string>
+    <string name="r4t_events_empty_hint">Crea uno o conecta un calendario.</string>
+    <string name="r4t_services_title">Servicios y enlaces</string>
+    <string name="r4t_services_search">Buscar servicios y enlaces</string>
+    <string name="r4t_services_empty_title">Aún no hay servicios ni enlaces</string>
+    <string name="r4t_services_empty_hint">Los servicios son enlaces a tus herramientas, como Nextcloud o Immich. Los administradores los crean para todos; los tuyos los añades como enlace.</string>
+    <string name="r4t_services_no_match">No se encontró nada</string>
+    <string name="r4t_link_add">Añadir enlace</string>
+    <string name="r4t_link_new">Nuevo enlace</string>
+    <string name="r4t_link_edit">Editar enlace</string>
+    <string name="r4t_link_added">Enlace añadido</string>
+    <string name="r4t_link_saved">Enlace guardado</string>
+    <string name="r4t_link_deleted">Enlace eliminado</string>
+    <string name="r4t_link_own_hint">Mantén pulsados tus enlaces para editarlos.</string>
+    <string name="r4t_trash_empty_title">La papelera está vacía</string>
+</resources>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 4 (Heute, Suchen, Termine, Dienste & Links, Papierkorb) -->
+<resources>
+    <string name="r4t_greeting_morning">Good morning, %1$s</string>
+    <string name="r4t_greeting_day">Good afternoon, %1$s</string>
+    <string name="r4t_greeting_evening">Good evening, %1$s</string>
+    <string name="r4t_greeting_night">Good night, %1$s</string>
+    <string name="r4t_action_task">Task</string>
+    <string name="r4t_action_event">Event</string>
+    <string name="r4t_continue">Continue</string>
+    <string name="r4t_open_page">open page</string>
+    <string name="r4t_search_title">Search</string>
+    <string name="r4t_search_placeholder">Search</string>
+    <string name="r4t_recent">Recently opened</string>
+    <string name="r4t_search_templates">Templates</string>
+    <string name="r4t_kind_page">Page</string>
+    <string name="r4t_kind_database">Database</string>
+    <string name="r4t_kind_row">Entry</string>
+    <string name="r4t_kind_template">Template</string>
+    <string name="r4t_events_empty_title">No events yet</string>
+    <string name="r4t_events_empty_hint">Create one or connect a calendar.</string>
+    <string name="r4t_services_title">Services &amp; links</string>
+    <string name="r4t_services_search">Search services and links</string>
+    <string name="r4t_services_empty_title">No services or links yet</string>
+    <string name="r4t_services_empty_hint">Services are links to your tools, such as Nextcloud or Immich. Admins add them for everyone; you add your own as links.</string>
+    <string name="r4t_services_no_match">Nothing found</string>
+    <string name="r4t_link_add">Add link</string>
+    <string name="r4t_link_new">New link</string>
+    <string name="r4t_link_edit">Edit link</string>
+    <string name="r4t_link_added">Link added</string>
+    <string name="r4t_link_saved">Link saved</string>
+    <string name="r4t_link_deleted">Link deleted</string>
+    <string name="r4t_link_own_hint">Long-press your own links to edit them.</string>
+    <string name="r4t_trash_empty_title">Nothing in the trash</string>
+</resources>

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 4 (Heute, Suchen, Termine, Dienste & Links, Papierkorb) -->
+<resources>
+    <string name="r4t_greeting_morning">Доброе утро, %1$s</string>
+    <string name="r4t_greeting_day">Добрый день, %1$s</string>
+    <string name="r4t_greeting_evening">Добрый вечер, %1$s</string>
+    <string name="r4t_greeting_night">Доброй ночи, %1$s</string>
+    <string name="r4t_action_task">Задача</string>
+    <string name="r4t_action_event">Событие</string>
+    <string name="r4t_continue">Продолжить</string>
+    <string name="r4t_open_page">открыть страницу</string>
+    <string name="r4t_search_title">Поиск</string>
+    <string name="r4t_search_placeholder">Поиск</string>
+    <string name="r4t_recent">Недавно открытые</string>
+    <string name="r4t_search_templates">Шаблоны</string>
+    <string name="r4t_kind_page">Страница</string>
+    <string name="r4t_kind_database">База данных</string>
+    <string name="r4t_kind_row">Запись</string>
+    <string name="r4t_kind_template">Шаблон</string>
+    <string name="r4t_events_empty_title">Событий пока нет</string>
+    <string name="r4t_events_empty_hint">Создайте событие или подключите календарь.</string>
+    <string name="r4t_services_title">Сервисы и ссылки</string>
+    <string name="r4t_services_search">Искать сервисы и ссылки</string>
+    <string name="r4t_services_empty_title">Сервисов и ссылок пока нет</string>
+    <string name="r4t_services_empty_hint">Сервисы — это ссылки на ваши инструменты, например Nextcloud или Immich. Администраторы добавляют их для всех, свои вы добавляете как ссылки.</string>
+    <string name="r4t_services_no_match">Ничего не найдено</string>
+    <string name="r4t_link_add">Добавить ссылку</string>
+    <string name="r4t_link_new">Новая ссылка</string>
+    <string name="r4t_link_edit">Изменить ссылку</string>
+    <string name="r4t_link_added">Ссылка добавлена</string>
+    <string name="r4t_link_saved">Ссылка сохранена</string>
+    <string name="r4t_link_deleted">Ссылка удалена</string>
+    <string name="r4t_link_own_hint">Удерживайте свою ссылку, чтобы изменить её.</string>
+    <string name="r4t_trash_empty_title">В корзине ничего нет</string>
+</resources>

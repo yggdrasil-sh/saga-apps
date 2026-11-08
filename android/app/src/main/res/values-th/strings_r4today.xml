@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 4 (Heute, Suchen, Termine, Dienste & Links, Papierkorb) -->
+<resources>
+    <string name="r4t_greeting_morning">สวัสดีตอนเช้า %1$s</string>
+    <string name="r4t_greeting_day">สวัสดีตอนบ่าย %1$s</string>
+    <string name="r4t_greeting_evening">สวัสดีตอนเย็น %1$s</string>
+    <string name="r4t_greeting_night">ราตรีสวัสดิ์ %1$s</string>
+    <string name="r4t_action_task">งาน</string>
+    <string name="r4t_action_event">นัดหมาย</string>
+    <string name="r4t_continue">ทำต่อ</string>
+    <string name="r4t_open_page">เปิดหน้า</string>
+    <string name="r4t_search_title">ค้นหา</string>
+    <string name="r4t_search_placeholder">ค้นหา</string>
+    <string name="r4t_recent">เปิดล่าสุด</string>
+    <string name="r4t_search_templates">เทมเพลต</string>
+    <string name="r4t_kind_page">หน้า</string>
+    <string name="r4t_kind_database">ฐานข้อมูล</string>
+    <string name="r4t_kind_row">รายการ</string>
+    <string name="r4t_kind_template">เทมเพลต</string>
+    <string name="r4t_events_empty_title">ยังไม่มีนัดหมาย</string>
+    <string name="r4t_events_empty_hint">สร้างนัดหมายหรือเชื่อมต่อปฏิทิน</string>
+    <string name="r4t_services_title">บริการและลิงก์</string>
+    <string name="r4t_services_search">ค้นหาบริการและลิงก์</string>
+    <string name="r4t_services_empty_title">ยังไม่มีบริการหรือลิงก์</string>
+    <string name="r4t_services_empty_hint">บริการคือลิงก์ไปยังเครื่องมือของคุณ เช่น Nextcloud หรือ Immich ผู้ดูแลระบบเพิ่มให้ทุกคน ส่วนของคุณเองให้เพิ่มเป็นลิงก์</string>
+    <string name="r4t_services_no_match">ไม่พบผลลัพธ์</string>
+    <string name="r4t_link_add">เพิ่มลิงก์</string>
+    <string name="r4t_link_new">ลิงก์ใหม่</string>
+    <string name="r4t_link_edit">แก้ไขลิงก์</string>
+    <string name="r4t_link_added">เพิ่มลิงก์แล้ว</string>
+    <string name="r4t_link_saved">บันทึกลิงก์แล้ว</string>
+    <string name="r4t_link_deleted">ลบลิงก์แล้ว</string>
+    <string name="r4t_link_own_hint">กดค้างที่ลิงก์ของคุณเพื่อแก้ไข</string>
+    <string name="r4t_trash_empty_title">ไม่มีอะไรในถังขยะ</string>
+</resources>

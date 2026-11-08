@@ -66,7 +66,7 @@ fun BookmarkDialog(repo: SagaRepository, item: ServiceItem?, defaultCategory: St
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text(stringResource(if (item == null) R.string.bm_new else R.string.bm_edit)) },
+        title = { Text(stringResource(if (item == null) R.string.r4t_link_new else R.string.r4t_link_edit)) },
         text = {
             Column {
                 OutlinedTextField(url, { url = it }, singleLine = true, label = { Text(stringResource(R.string.link_address_label)) },
@@ -83,8 +83,8 @@ fun BookmarkDialog(repo: SagaRepository, item: ServiceItem?, defaultCategory: St
         confirmButton = {
             SagaTextButton(enabled = urlOk && !busy, onClick = {
                 val body = BookmarkLogic.payload(name, url, category, icon)
-                if (id == null) run({ repo.addBookmark(body) }, UiText.Res(R.string.bm_added))
-                else run({ repo.updateBookmark(id, body) }, UiText.Res(R.string.bm_saved))
+                if (id == null) run({ repo.addBookmark(body) }, UiText.Res(R.string.r4t_link_added))
+                else run({ repo.updateBookmark(id, body) }, UiText.Res(R.string.r4t_link_saved))
             }) { Text(stringResource(if (item == null) R.string.bm_add else R.string.ev_save)) }
         },
         dismissButton = {
@@ -99,7 +99,7 @@ fun BookmarkDialog(repo: SagaRepository, item: ServiceItem?, defaultCategory: St
             onDismissRequest = { askDelete = false },
             title = { Text(stringResource(R.string.bm_delete_title, item.name)) },
             confirmButton = {
-                SagaTextButton(onClick = { askDelete = false; run({ repo.deleteBookmark(id) }, UiText.Res(R.string.bm_deleted)) }) {
+                SagaTextButton(onClick = { askDelete = false; run({ repo.deleteBookmark(id) }, UiText.Res(R.string.r4t_link_deleted)) }) {
                     Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
                 }
             },

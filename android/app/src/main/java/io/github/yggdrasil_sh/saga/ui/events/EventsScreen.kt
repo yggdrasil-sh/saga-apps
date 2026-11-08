@@ -4,7 +4,6 @@ import androidx.compose.ui.res.stringResource
 import io.github.yggdrasil_sh.saga.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -92,7 +91,18 @@ fun EventsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             val byDay = (events ?: emptyList()).groupBy { eventDay(it.start) }.entries.sortedWith(compareBy(nullsLast()) { it.key })
             LazyColumn(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (failed) item { Text(stringResource(R.string.events_load_failed), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
-                if (events?.isEmpty() == true) item { Text(stringResource(R.string.events_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
+                // NAV-16: leerer Zustand einheitlich (Symbol, Hinweis, Aktion) statt einer losen Textzeile
+                if (events?.isEmpty() == true) item(key = "empty") {
+                    io.github.yggdrasil_sh.saga.ui.common.SagaLineEmptyState(
+                        stringResource(R.string.r4t_events_empty_title), io.github.yggdrasil_sh.saga.ui.theme.SagaIcons.calendar,
+                        text = stringResource(R.string.r4t_events_empty_hint),
+                        action = {
+                            io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton(onClick = { edit = null to java.time.LocalDate.now() }) {
+                                Text(stringResource(R.string.ev_add))
+                            }
+                        },
+                    )
+                }
                 byDay.forEach { (day, list) ->
                     item(key = "d-$day") { SectionHeader(day?.let { dayHeader(it) } ?: stringResource(R.string.no_date), Modifier.widthIn(max = 760.dp)) }
                     itemsIndexed(list, key = { i, _ -> "e-$day-$i" }) { _, e ->

@@ -202,7 +202,8 @@ fun TrashDialog(repo: SagaRepository, onDismiss: () -> Unit) {
                         Text(err.resolve(), color = MaterialTheme.colorScheme.error)
                         SagaTextButton(onClick = { st = TrashState(); scope.launch { load() } }) { Text(stringResource(R.string.action_retry)) }
                     }
-                    st.empty -> Text(stringResource(R.string.tr_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp))
+                    // NAV-16: leerer Zustand einheitlich mit Symbol (der Hinweis zu den 30 Tagen steht schon darueber)
+                    st.empty -> io.github.yggdrasil_sh.saga.ui.common.SagaLineEmptyState(stringResource(R.string.r4t_trash_empty_title), SagaIcons.trash)
                     else -> LazyColumn(Modifier.fillMaxWidth().widthIn(max = 820.dp)) {
                         items(st.items.orEmpty(), key = { it.id }) { t ->
                             val busy = t.id in st.busy

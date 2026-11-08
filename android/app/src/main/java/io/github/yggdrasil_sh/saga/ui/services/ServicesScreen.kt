@@ -59,6 +59,8 @@ import androidx.compose.ui.platform.LocalResources
 import io.github.yggdrasil_sh.saga.ui.common.Chrome
 import io.github.yggdrasil_sh.saga.ui.common.SagaTopBar
 import io.github.yggdrasil_sh.saga.ui.common.openUrl
+import io.github.yggdrasil_sh.saga.ui.common.SagaLineEmptyState
+import io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton
 import io.github.yggdrasil_sh.saga.ui.nav.AppNavigator
 import java.text.Normalizer
 
@@ -91,9 +93,10 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val cats = shown.groupBy({ it.second }, { it.first }).toSortedMap(String.CASE_INSENSITIVE_ORDER)
 
     Scaffold(
-        topBar = { SagaTopBar(stringResource(R.string.nav_services), nav, chrome) },
+        // NAV-24: ein Begriff "Dienste & Links", FAB "Link hinzufuegen"
+        topBar = { SagaTopBar(stringResource(R.string.r4t_services_title), nav, chrome) },
         floatingActionButton = {
-            io.github.yggdrasil_sh.saga.ui.common.LabeledFab(stringResource(R.string.bm_add_fab), { newBookmark = true })
+            io.github.yggdrasil_sh.saga.ui.common.LabeledFab(stringResource(R.string.r4t_link_add), { newBookmark = true }, icon = SagaIcons.link)
         },
     ) { pad ->
         LazyVerticalGrid(
@@ -103,17 +106,27 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 OutlinedTextField(
-                    value = q, onValueChange = { q = it }, singleLine = true, placeholder = { Text(stringResource(R.string.services_search)) },
+                    value = q, onValueChange = { q = it }, singleLine = true, placeholder = { Text(stringResource(R.string.r4t_services_search)) },
                     leadingIcon = { SagaIcon(SagaIcons.search, null) }, modifier = Modifier.fillMaxWidth().padding(4.dp),
                 )
             }
             error?.let { e -> item(span = { GridItemSpan(maxLineSpan) }) { Text(e.resolve(), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(8.dp)) } }
-            if (list != null && shown.isEmpty()) {
-                item(span = { GridItemSpan(maxLineSpan) }) { Text(stringResource(R.string.services_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp)) }
+            // NAV-16: leere Zustaende einheitlich - gar nichts eingerichtet (Erklaerung + "Link hinzufuegen") bzw. Suche ohne Treffer
+            if (list?.isEmpty() == true) {
+                item(span = { GridItemSpan(maxLineSpan) }, key = "empty") {
+                    SagaLineEmptyState(
+                        stringResource(R.string.r4t_services_empty_title), SagaIcons.link, text = stringResource(R.string.r4t_services_empty_hint),
+                        action = { SagaFilledTonalButton(onClick = { newBookmark = true }) { Text(stringResource(R.string.r4t_link_add)) } },
+                    )
+                }
+            } else if (list != null && shown.isEmpty()) {
+                item(span = { GridItemSpan(maxLineSpan) }, key = "none") {
+                    SagaLineEmptyState(stringResource(R.string.r4t_services_no_match), SagaIcons.search, compact = true)
+                }
             }
             if (list?.any { it.own } == true) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    Text(stringResource(R.string.bm_own_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 6.dp))
+                    Text(stringResource(R.string.r4t_link_own_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 6.dp))
                 }
             }
             cats.forEach { (cat, items) ->
@@ -126,7 +139,7 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                             .combinedClickable(
                                 onClick = { if (s.url.isNotBlank()) openUrl(context, repo.absoluteUrl(s.url)) },
                                 onLongClick = if (s.own) ({ bookmark = s }) else null,
-                                onLongClickLabel = if (s.own) stringResource(R.string.bm_edit) else null,
+                                onLongClickLabel = if (s.own) stringResource(R.string.r4t_link_edit) else null,
                             ).padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {

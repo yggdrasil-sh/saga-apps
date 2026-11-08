@@ -51,6 +51,32 @@ import io.github.yggdrasil_sh.saga.ui.tasks.QuickAddTask
 import io.github.yggdrasil_sh.saga.ui.tasks.TaskEditDialog
 import io.github.yggdrasil_sh.saga.ui.tasks.TaskRow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.isTraversalGroup
+import io.github.yggdrasil_sh.saga.data.PageMeta
+import io.github.yggdrasil_sh.saga.ui.common.PageIcon
+import io.github.yggdrasil_sh.saga.ui.common.pageTitle
+import io.github.yggdrasil_sh.saga.ui.events.EventDialog
+import io.github.yggdrasil_sh.saga.ui.nav.Dest
+import io.github.yggdrasil_sh.saga.ui.pages.GallerySheet
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
+import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 
 /** Heute wie in iOS: heutige Termine + offene Aufgaben (heute, ueberfaellig, ohne Datum) */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,7 +95,36 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     // Widget "Neue Aufgabe": zur Eingabe springen und fokussieren
     val quickAdd by repo.focusQuickAdd.collectAsState()
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    LaunchedEffect(quickAdd) { if (quickAdd) listState.scrollToItem(3 + maxOf(1, events.size)) }
+    // NAV-13 "Weitermachen": zuletzt geoeffnete Seiten aus der lokalen Liste (settings.recent, auch Quelle von "Zuletzt" in der Suche)
+    val pages by repo.pages.collectAsState()
+    val sharedPages by repo.sharedPages.collectAsState()
+    val recentIds by repo.settings.recent.collectAsState()
+    val cont = remember(recentIds, pages, sharedPages) { TodayLogic.continuePages(recentIds, pages, sharedPages) }
+    LaunchedEffect(quickAdd) { if (quickAdd) listState.scrollToItem(TodayLogic.quickAddIndex(cont.isNotEmpty(), events.size)) }
+    val account by repo.account.collectAsState()
+    val first = TodayLogic.firstName(account)
+    // NAV-13 Schnellaktionen: vorhandene Ablaeufe (Neue Seite wie Seitenleiste, Vorlagengalerie, Aufgaben-Eingabe, Termin-Dialog)
+    var creating by remember { mutableStateOf(false) }
+    var galleryOpen by remember { mutableStateOf(false) }
+    var newEvent by remember { mutableStateOf(false) }
+    val galServer by repo.server.collectAsState()
+    val galUnsupported by repo.gallery.unsupported.collectAsState()
+    val galleryOn = galServer.isNotEmpty() && galServer !in galUnsupported
+    fun newPage() {
+        if (creating) return
+        creating = true
+        scope.launch {
+            try {
+                nav.push(Dest.Page(repo.newPage(null)))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                repo.notify(repo.friendly(e))
+            } finally {
+                creating = false
+            }
+        }
+    }
     // NAV-01: eine Quelle - Kopf, Abschnittszahl und Liste zaehlen dieselbe Liste (TaskCounts)
     val todayTasks = io.github.yggdrasil_sh.saga.data.TaskCounts.todayTasks(tasks, today)
     // 2.5 E2: mit Aufgabenquellen die Server-Liste (heute, ueberfaellig, ohne Datum) inkl. Datenbank-Zeilen
@@ -105,23 +160,38 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     Column(Modifier.widthIn(max = maxW).fillMaxWidth().padding(horizontal = SagaSpace.gutter).padding(top = SagaSpace.xs, bottom = SagaSpace.s).sagaAppear(0)) {
                         Text(longDate(), style = MaterialTheme.typography.labelLarge, color = accent.goldText)
                         Text(
-                            stringResource(greetingRes()), style = MaterialTheme.typography.headlineMedium,
+                            greeting(first), style = MaterialTheme.typography.headlineMedium,
                             color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = SagaSpace.xxs).semantics { heading() },
                         )
                         val res = LocalResources.current
                         val open = shownCount
-                        val summary = listOf(
-                            if (events.isEmpty()) stringResource(R.string.today_no_events) else res.getQuantityString(R.plurals.today_events_count, events.size, events.size),
+                        // NAV-13: "Keine Termine heute" steht schon als Zeile im Abschnitt Termine, hier nicht doppelt
+                        val summary = listOfNotNull(
+                            if (events.isEmpty()) null else res.getQuantityString(R.plurals.today_events_count, events.size, events.size),
                             res.getQuantityString(R.plurals.today_tasks_open, open, open),
                         ).joinToString(" · ")
                         Text(summary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = SagaSpace.xxs))
+                        QuickActions(
+                            creating = creating, galleryOn = galleryOn,
+                            onNewPage = { newPage() }, onTemplate = { galleryOpen = true },
+                            onTask = { repo.focusQuickAdd.value = true }, onEvent = { newEvent = true },
+                        )
+                    }
+                }
+                if (cont.isNotEmpty()) {
+                    item(key = "continue") {
+                        Column(Modifier.widthIn(max = maxW).fillMaxWidth().sagaAppear(1)) {
+                            SagaSectionTitle(stringResource(R.string.r4t_continue), Modifier.padding(top = SagaSpace.xs))
+                            ContinueRow(cont, repo) { nav.push(Dest.Page(it)) }
+                        }
                     }
                 }
                 item(key = "ev-head") { SagaSectionTitle(stringResource(R.string.nav_events), Modifier.widthIn(max = maxW).padding(top = SagaSpace.s), count = events.size) }
                 if (events.isEmpty()) {
+                    // NAV-13: leere Termine als eine Zeile mit "+ Termin" statt eines 200-dp-Blocks
                     item(key = "ev-empty") {
                         Box(Modifier.widthIn(max = maxW).fillMaxWidth().sagaSegment(0, 1).sagaAppear(1)) {
-                            SagaLineEmptyState(stringResource(R.string.today_no_events), SagaIcons.calendar, text = stringResource(R.string.today_events_empty_hint), compact = true)
+                            NoEventsRow { newEvent = true }
                         }
                     }
                 }
@@ -165,6 +235,99 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         }
     }
     editing?.let { t -> TaskEditDialog(t, repo) { editing = null } }
+    if (galleryOpen) {
+        GallerySheet(repo, parent = null, current = null, onDismiss = { galleryOpen = false }, onCreated = { id ->
+            galleryOpen = false
+            nav.push(Dest.Page(id))
+        })
+    }
+    if (newEvent) {
+        EventDialog(repo, null, java.time.LocalDate.now(), onDismiss = { newEvent = false }, onChanged = { scope.launch { repo.loadTodayEvents() } })
+    }
+}
+
+/** NAV-13: Schnellaktionen wie im Web (hz-acts): Neue Seite, Aus Vorlage, Aufgabe, Termin - umrandete Saga-Knoepfe, 48 dp */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun QuickActions(creating: Boolean, galleryOn: Boolean, onNewPage: () -> Unit, onTemplate: () -> Unit, onTask: () -> Unit, onEvent: () -> Unit) {
+    FlowRow(
+        Modifier.fillMaxWidth().padding(top = SagaSpace.m).semantics { isTraversalGroup = true },
+        horizontalArrangement = Arrangement.spacedBy(SagaSpace.s),
+        verticalArrangement = Arrangement.spacedBy(SagaSpace.xs),
+    ) {
+        QuickAction(stringResource(R.string.gal_new_page), SagaIcons.filePlus, enabled = !creating, onClick = onNewPage)
+        if (galleryOn) QuickAction(stringResource(R.string.gal_from_template), SagaIcons.template, onClick = onTemplate)
+        QuickAction(stringResource(R.string.r4t_action_task), SagaIcons.checkbox, onClick = onTask)
+        QuickAction(stringResource(R.string.r4t_action_event), SagaIcons.calendar, onClick = onEvent)
+    }
+}
+
+@Composable
+private fun QuickAction(label: String, icon: Int, enabled: Boolean = true, onClick: () -> Unit) {
+    SagaOutlinedButton(
+        onClick = onClick, enabled = enabled, modifier = Modifier.heightIn(min = SagaSpace.touch),
+        contentPadding = PaddingValues(horizontal = SagaSpace.m, vertical = SagaSpace.xs),
+    ) {
+        SagaIcon(icon, null, Modifier.size(18.dp))
+        Text(label, modifier = Modifier.padding(start = SagaSpace.s), maxLines = 1)
+    }
+}
+
+/** NAV-13: "Keine Termine heute" als eine Zeile, rechts "+ Termin" (oeffnet den Termin-Dialog) */
+@Composable
+private fun NoEventsRow(onAdd: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = SagaSpace.m, end = SagaSpace.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SagaIcon(SagaIcons.calendar, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            stringResource(R.string.today_no_events), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = SagaSpace.m).weight(1f),
+        )
+        val desc = stringResource(R.string.ev_add)
+        SagaTextButton(onClick = onAdd, modifier = Modifier.heightIn(min = SagaSpace.touch).semantics { contentDescription = desc }) {
+            SagaIcon(SagaIcons.plus, null, Modifier.size(18.dp))
+            Text(stringResource(R.string.r4t_action_event), modifier = Modifier.padding(start = SagaSpace.xs))
+        }
+    }
+}
+
+/** NAV-13: "Weitermachen" - Karten 140 x 88 dp (Symbol und Titel) der zuletzt geoeffneten Seiten, waagerecht scrollbar */
+@Composable
+private fun ContinueRow(list: List<PageMeta>, repo: SagaRepository, onOpen: (Long) -> Unit) {
+    LazyRow(
+        Modifier.fillMaxWidth().padding(top = SagaSpace.xs),
+        contentPadding = PaddingValues(horizontal = SagaSpace.gutter),
+        horizontalArrangement = Arrangement.spacedBy(SagaSpace.s),
+    ) {
+        items(list, key = { "c-${it.id}" }) { p ->
+            val title = pageTitle(p)
+            val openLabel = stringResource(R.string.r4t_open_page)
+            Column(
+                Modifier.size(width = 140.dp, height = 88.dp).clip(RoundedCornerShape(SagaRadius.md))
+                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                    .clickable(onClickLabel = openLabel, role = Role.Button) { onOpen(p.id) }
+                    .padding(SagaSpace.m),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                PageIcon(p.icon, repo, p.isDatabase)
+                Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+/** NAV-13: Gruss nach Tageszeit, mit Vorname wie im Web ("Guten Tag, Anna"); ohne Namen wie bisher */
+@Composable
+private fun greeting(first: String?): String =
+    if (first == null) stringResource(greetingRes()) else stringResource(greetingNameRes(), first)
+
+private fun greetingNameRes(): Int = when (java.time.LocalTime.now().hour) {
+    in 5..10 -> R.string.r4t_greeting_morning
+    in 11..17 -> R.string.r4t_greeting_day
+    in 18..22 -> R.string.r4t_greeting_evening
+    else -> R.string.r4t_greeting_night
 }
 
 /** Gruss nach Tageszeit */

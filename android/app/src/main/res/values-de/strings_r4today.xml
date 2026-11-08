@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 4 (Heute, Suchen, Termine, Dienste & Links, Papierkorb) -->
+<resources>
+    <string name="r4t_greeting_morning">Guten Morgen, %1$s</string>
+    <string name="r4t_greeting_day">Guten Tag, %1$s</string>
+    <string name="r4t_greeting_evening">Guten Abend, %1$s</string>
+    <string name="r4t_greeting_night">Gute Nacht, %1$s</string>
+    <string name="r4t_action_task">Aufgabe</string>
+    <string name="r4t_action_event">Termin</string>
+    <string name="r4t_continue">Weitermachen</string>
+    <string name="r4t_open_page">Seite öffnen</string>
+    <string name="r4t_search_title">Suchen</string>
+    <string name="r4t_search_placeholder">Suchen</string>
+    <string name="r4t_recent">Zuletzt geöffnet</string>
+    <string name="r4t_search_templates">Vorlagen</string>
+    <string name="r4t_kind_page">Seite</string>
+    <string name="r4t_kind_database">Datenbank</string>
+    <string name="r4t_kind_row">Eintrag</string>
+    <string name="r4t_kind_template">Vorlage</string>
+    <string name="r4t_events_empty_title">Noch keine Termine</string>
+    <string name="r4t_events_empty_hint">Lege einen an oder verbinde einen Kalender.</string>
+    <string name="r4t_services_title">Dienste &amp; Links</string>
+    <string name="r4t_services_search">Dienste und Links durchsuchen</string>
+    <string name="r4t_services_empty_title">Noch keine Dienste und Links</string>
+    <string name="r4t_services_empty_hint">Dienste sind Links zu deinen Werkzeugen, z. B. Nextcloud oder Immich. Admins legen sie für alle an, eigene fügst du als Link hinzu.</string>
+    <string name="r4t_services_no_match">Nichts gefunden</string>
+    <string name="r4t_link_add">Link hinzufügen</string>
+    <string name="r4t_link_new">Neuer Link</string>
+    <string name="r4t_link_edit">Link bearbeiten</string>
+    <string name="r4t_link_added">Link hinzugefügt</string>
+    <string name="r4t_link_saved">Link gespeichert</string>
+    <string name="r4t_link_deleted">Link gelöscht</string>
+    <string name="r4t_link_own_hint">Eigene Links lange drücken zum Bearbeiten.</string>
+    <string name="r4t_trash_empty_title">Nichts im Papierkorb</string>
+</resources>

@@ -18,6 +18,18 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Android-Einstellungen der Mitteilungen) und „Was Saga dir meldet“ (Konto-Einstellung, gruppiert nach Seiten &
   Kommentare, Erwähnungen, Chats & Anrufe, Aufgaben, Weitere).
 - **Abmelden** steht als Textknopf in Fehlerfarbe am Ende von „Konto“ (mit Rückfrage), nicht mehr als große Fläche.
+### Geändert – Android: Design-Runde 4 „r4-today“ (Heute, Suchen, leere Zustände)
+
+- **Heute wie im Web:** Gruß mit Vorname („Guten Tag, Anna“), Schnellaktionen Neue Seite · Aus Vorlage … · Aufgabe ·
+  Termin (vorhandene Abläufe), „Weitermachen“ mit den zuletzt geöffneten Seiten als Karten. Ohne Termine steht
+  nur noch eine Zeile „Keine Termine heute“ mit „+ Termin“.
+- **Suchen mit Kontext:** jeder Treffer zeigt Typ (Seite, Datenbank, Eintrag, Vorlage) mit Symbol und den Pfad
+  („Aufgaben & Projekte › Projekte“); Vorlagen stehen in einem eigenen Abschnitt. Ausschnitte ohne führendes „…“,
+  ohne angeschnittenes Wort und ohne Emoji-Reste aus Datenbank-Zellen. Ein Begriff „Suchen“ (Titel und Feld);
+  Fokus und Tastatur sind beim Öffnen sofort da.
+- **Leere Zustände einheitlich** mit Symbol, Hinweis und Aktion: Termine („Neuer Termin“), Dienste & Links
+  (Erklärung und „Link hinzufügen“), Papierkorb („Nichts im Papierkorb“).
+- **„Dienste & Links“** statt „Dienste“/„Lesezeichen“: Titel, Knopf „Link hinzufügen“, Dialog „Neuer Link“.
 
 ### Geändert – Android: Design-Runde 3 „Editor“
 
