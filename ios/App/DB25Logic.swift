@@ -458,8 +458,9 @@ struct ChartData: Equatable {
 // MARK: - Widgets Etappe 2 (weather1, habit1, upcoming1, chart1)
 
 enum Widget2Logic {
-    static let kinds: Set<String> = ["weather", "habit", "upcoming", "chart"]
-    static func featureFor(_ kind: String) -> String? { kinds.contains(kind) ? kind + "1" : nil }
+    static let kinds: Set<String> = ["weather", "habit", "upcoming", "chart", "reading"]
+    /// Faehigkeit je Art: weather1 … chart1; "reading" (Lesen, 2.5) gehoert zu bookorbit1
+    static func featureFor(_ kind: String) -> String? { kind == "reading" ? "bookorbit1" : kinds.contains(kind) ? kind + "1" : nil }
 
     /// WMO-Code -> SF Symbol (groesster Eintrag <= code)
     static func weatherSymbol(_ code: Int) -> String {

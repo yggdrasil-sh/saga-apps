@@ -314,6 +314,7 @@ struct GeneralSettings: View {
                 NextcloudSettingsSection()                    // Nextcloud-Dateien in Seiten (2.3)
                 ImmichSettingsSection().id("immich")          // wie im Web: 👤 → Einstellungen
                 CalendarSettingsSection().id("kalender")
+                BookOrbitSettingsSection().id("bookorbit")    // 2.5 bookorbit1: Leseliste (nur lesen)
             }
             #if os(macOS)
             .formStyle(.grouped)

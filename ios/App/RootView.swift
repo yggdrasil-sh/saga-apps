@@ -854,7 +854,10 @@ struct PageScreen: View {
 struct TodayScreen: View {
     @ObservedObject var store: Store
     var body: some View {
-        List { TodaySection(store: store, header: false) }
+        List {
+            TodaySection(store: store, header: false)
+            ReadingTodaySection(store: store)              // 2.5 bookorbit1: nur mit Verbindung
+        }
             .navigationTitle("Heute")
     }
 }

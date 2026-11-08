@@ -148,6 +148,7 @@ private struct WidgetContent: View {
         case "weather": WeatherWidget(value: value)
         case "habit": HabitWidget(value: value, blockID: blockID)
         case "upcoming": UpcomingWidget(value: value)
+        case "reading": ReadingWidget(value: value)              // 2.5 bookorbit1 (BookOrbitViews.swift)
         case "chart": if let d = value?.dict { ChartBody(data: ChartData.parse(d), height: size == .s ? 140 : size == .m ? 200 : 280) } else { Text(verbatim: "–").foregroundStyle(.secondary) }
         default: quote
         }

@@ -7,7 +7,7 @@ enum SettingsArea: String, CaseIterable, Hashable {
 
     private static let kontoRows: Set<String> = ["konto", "server", "token", "avatar", "security", "backup", "apps"]
     private static let settingsRows: Set<String> = ["einstellungen", "sprache", "darstellung", "notifs", "push", "chats", "privacy",
-                                                "nextcloud", "immich", "kalender"]
+                                                "nextcloud", "immich", "kalender", "bookorbit"]
     private static let infoRows: Set<String> = ["info", "about", "update"]
 
     /// Bereich zu einem Sprungziel; nil: nur die Startliste (z. B. "YES" aus -hkSettings)
