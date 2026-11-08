@@ -75961,6 +75961,74 @@
           }
         }
       }
+    },
+    "Verbindung wird wiederhergestellt …" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verbindung wird wiederhergestellt …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconnecting …"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restableciendo la conexión …"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Восстановление соединения …"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังเชื่อมต่อใหม่ …"
+          }
+        }
+      }
+    },
+    "Die Verbindung zum Knoten ließ sich nicht wiederherstellen. Bitte erneut beitreten." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Verbindung zum Knoten ließ sich nicht wiederherstellen. Bitte erneut beitreten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The connection to the node could not be restored. Please join again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo restablecer la conexión con el nodo. Vuelve a unirte."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось восстановить связь с узлом. Присоединитесь снова."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่สามารถกู้คืนการเชื่อมต่อกับโหนดได้ โปรดเข้าร่วมอีกครั้ง"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
