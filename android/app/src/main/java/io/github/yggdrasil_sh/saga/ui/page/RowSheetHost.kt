@@ -90,8 +90,8 @@ internal fun RowSheetBar(title: String, titleVisible: Boolean, sheet: RowSheetCh
 internal fun RowSheetPane(
     row: Long?,
     width: Dp,
-    content: @Composable (Long) -> Unit,
     onBack: () -> Unit,
+    content: @Composable (Long) -> Unit,
 ) {
     // beim Schliessen noch die zuletzt gezeigte Zeile ausblenden (statt leerem Blatt)
     var last by remember { mutableStateOf(row) }
