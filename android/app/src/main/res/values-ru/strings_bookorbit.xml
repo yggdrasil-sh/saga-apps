@@ -15,7 +15,7 @@
     <string name="bo_progress_a11y">прогресс %1$d %%</string>
     <string name="bo_goal_of">Цель чтения %1$s: %2$d из %3$d книг</string>
     <string name="bo_goal_none">Прочитано за %1$s – цель чтения в BookOrbit не задана</string>
-    <string name="bo_last7">Последние 7 дней: чтение в %1$d</string>
+    <string name="bo_last7">Последние 7 дней: дней с чтением – %1$d</string>
     <string name="bo_settings_summary">Список чтения, цель и серия</string>
     <string name="bo_unsupported">BookOrbit недоступен на этом сервере.</string>
     <string name="bo_connected">Подключено</string>
