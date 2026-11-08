@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.DropdownMenu
@@ -146,7 +147,12 @@ fun ChatInfoDialog(
                 )
             },
         ) { pad ->
-            LazyColumn(Modifier.fillMaxSize().padding(pad), horizontalAlignment = Alignment.CenterHorizontally) {
+            // R5-Nachbesserung: die ganze Spalte auf 640 dp begrenzen und mittig (nicht je Zeile)
+            LazyColumn(
+                Modifier.fillMaxSize().padding(pad).wrapContentWidth(Alignment.CenterHorizontally)
+                    .widthIn(max = io.github.yggdrasil_sh.saga.chat.ChatInfoLogic.MAX_WIDTH_DP.dp).fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 item(key = "head") {
                     Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         GroupAvatar(repo, c, s.name, 88.dp)
@@ -165,7 +171,7 @@ fun ChatInfoDialog(
                     when (r) {
                         InfoRow.MEDIA -> InfoItem(SagaIcons.image, stringResource(R.string.std_media_title)) { sub = InfoRow.MEDIA }
                         InfoRow.MEMBERS -> InfoItem(SagaIcons.users, stringResource(R.string.chat_members), androidx.compose.ui.res.pluralStringResource(R.plurals.fed_people_n, c.memberCount, c.memberCount)) { sub = InfoRow.MEMBERS }
-                        InfoRow.MUTE -> if (std.mute2) Box(Modifier.widthIn(max = ChatInfoLogic.MAX_WIDTH_DP.dp).fillMaxWidth()) {
+                        InfoRow.MUTE -> if (std.mute2) Box(Modifier.fillMaxWidth()) {
                             // R5-Nachbesserung: Untertitel = Zustand (nicht nochmal "Stummschalten")
                             InfoItem(if (ChatStd.mutedNow(c, nowSec)) SagaIcons.bellOff else SagaIcons.bell, stringResource(R.string.r5_info_mute), infoMuteLabel(c, nowSec, true)) { sub = InfoRow.MUTE }
                             DropdownMenu(expanded = sub == InfoRow.MUTE, onDismissRequest = { sub = null }) {
@@ -176,7 +182,7 @@ fun ChatInfoDialog(
                             supportingContent = { Text(infoMuteLabel(c, nowSec, false)) },
                             leadingContent = { SagaIcon(if (c.muted) SagaIcons.bellOff else SagaIcons.bell, null) },
                             trailingContent = { Switch(checked = c.muted, onCheckedChange = null) },
-                            modifier = Modifier.fillMaxWidth().widthIn(max = ChatInfoLogic.MAX_WIDTH_DP.dp)
+                            modifier = Modifier.fillMaxWidth()
                                 .selectable(selected = c.muted, role = Role.Switch) { repo.launchAction { s.setMuted(!c.muted) } },
                         )
                         InfoRow.RETENTION -> InfoItem(SagaIcons.timer, stringResource(R.string.chat_retention), retentionLabel(c.retentionS)) { sub = InfoRow.RETENTION }
@@ -194,7 +200,7 @@ fun ChatInfoDialog(
                         else -> {}
                     }
                 }
-                if (danger.isNotEmpty()) item(key = "div") { HorizontalDivider(Modifier.widthIn(max = ChatInfoLogic.MAX_WIDTH_DP.dp).padding(vertical = 8.dp)) }
+                if (danger.isNotEmpty()) item(key = "div") { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
                 items(danger, key = { it.name }) { r ->
                     val red = MaterialTheme.colorScheme.error
                     when (r) {
@@ -234,7 +240,7 @@ internal fun InfoItem(icon: Int, title: String, value: String? = null, color: an
         headlineContent = { Text(title, color = col) },
         supportingContent = value?.let { { Text(it) } },
         leadingContent = { SagaIcon(icon, null, tint = color ?: MaterialTheme.colorScheme.onSurfaceVariant) },
-        modifier = Modifier.fillMaxWidth().widthIn(max = ChatInfoLogic.MAX_WIDTH_DP.dp).heightIn(min = 56.dp).clickable(role = Role.Button, onClick = onClick),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Button, onClick = onClick),
     )
 }
 

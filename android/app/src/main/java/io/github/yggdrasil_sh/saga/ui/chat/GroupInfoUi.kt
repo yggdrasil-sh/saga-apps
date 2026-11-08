@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -109,7 +111,11 @@ fun GroupInfoDialog(
                 )
             },
         ) { pad ->
-            LazyColumn(Modifier.fillMaxSize().padding(pad)) {
+            // R5-Nachbesserung: auf Tablets wie die Chat-Info hoechstens 640 dp, mittig
+            LazyColumn(
+                Modifier.fillMaxSize().padding(pad).wrapContentWidth(Alignment.CenterHorizontally)
+                    .widthIn(max = io.github.yggdrasil_sh.saga.chat.ChatInfoLogic.MAX_WIDTH_DP.dp).fillMaxWidth(),
+            ) {
                 item(key = "head") {
                     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         GroupHeadAvatar(repo, s, c)

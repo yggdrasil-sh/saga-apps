@@ -82,4 +82,14 @@ class DesignR5FixChatTest {
         assertTrue(m.contains("Text(stringResource(R.string.language), maxLines = 1, overflow = TextOverflow.Ellipsis)"))
         assertEquals(2, Regex("modifier = Modifier.widthIn\\(max = MENU_VALUE_MAX\\)").findAll(m).count())
     }
+
+    @Test
+    fun infoColumnLimitedAsWhole() {
+        // Pruefer: fillMaxWidth().widthIn(max) je Zeile begrenzt nichts - die ganze Spalte begrenzen
+        for (f in listOf("ui/chat/ChatR5Ui.kt", "ui/chat/GroupInfoUi.kt")) {
+            val t = read(f)
+            assertTrue(f, t.contains(".wrapContentWidth(Alignment.CenterHorizontally)\n                    .widthIn(max = io.github.yggdrasil_sh.saga.chat.ChatInfoLogic.MAX_WIDTH_DP.dp).fillMaxWidth()"))
+            assertFalse(f, t.contains("fillMaxWidth().widthIn(max = ChatInfoLogic.MAX_WIDTH_DP.dp)"))
+        }
+    }
 }
