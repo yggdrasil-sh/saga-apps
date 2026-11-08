@@ -124,3 +124,37 @@ internal object CallControls {
         return null
     }
 }
+
+/** Feldtest: Display am Ohr aus (Naeherungssensor) - reine Entscheidung, siehe CallActivity.updateProximity */
+internal object CallProximity {
+    /** Sicherung gegen ein Wakelock-Leck: spaetestens nach 4 h gibt das System die Sperre frei */
+    const val TIMEOUT_MS = 4L * 60 * 60 * 1000
+
+    /**
+     * Naeherungs-Sperre halten? Nur im laufenden Anruf (ausgehend klingelnd, verbindend, verbunden - nie beim noch nicht
+     * angenommenen Klingeln), ohne eigenes Video, ohne Bildschirmfreigabe, ohne Videoraster, mit Ausgabe = Hoerer und
+     * nur, solange die Anruf-Ansicht im Vordergrund und nicht im Bild-im-Bild ist.
+     */
+    fun shouldUseProximity(
+        phase: CallPhase, cam: Boolean, sharing: Boolean, videoGrid: Boolean, earpiece: Boolean, foreground: Boolean, pip: Boolean,
+    ): Boolean = phase in ACTIVE && !cam && !sharing && !videoGrid && earpiece && foreground && !pip
+
+    private val ACTIVE = setOf(CallPhase.RINGING, CallPhase.CONNECTING, CallPhase.CONNECTED)
+
+    /**
+     * Laeuft der Ton ueber den Hoerer? Mit Geraeteliste (Android 12+) entscheidet die aktive Ausgabe; ohne Liste
+     * (aelter): kein Lautsprecher und Geraet mit Hoerer.
+     */
+    fun onEarpiece(r: AudioRoutes, speaker: Boolean): Boolean {
+        if (r.routes.isEmpty()) return !speaker && r.earpiece
+        val act = r.routes.firstOrNull { it.id == r.active } ?: return false
+        return act.kind == AudioKind.EARPIECE
+    }
+
+    /** Meeting-Videoraster: Kachel-/Knotenansicht, in der jemand Kamera oder Bildschirm zeigt */
+    fun videoGrid(st: CallUiState): Boolean {
+        val room = st.room ?: return false
+        if (!room.mesh && room.horn == null) return false
+        return st.meet.any { it.cam || it.screen } || room.tiles.any { it.video || it.screen } || room.horn?.tiles?.any { it.video } == true
+    }
+}

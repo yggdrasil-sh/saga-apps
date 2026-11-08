@@ -9,7 +9,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
-### Geändert – Android: Design-Runde 5 r5-notify „Antworten aus der Mitteilung“
+### Behoben – Android: Display am Ohr
+
+- **Reine Tonanrufe schalten das Display am Ohr aus:** Solange ein Anruf klingelt (ausgehend), verbindet oder läuft,
+  der Ton über den Hörer kommt und weder Kamera, Bildschirmfreigabe noch Videoraster aktiv sind, hält die Anruf-Ansicht
+  eine Näherungssperre (nicht beim eigenen Klingeln, nicht im Bild-im-Bild oder im Hintergrund; Freigabe beim Ende,
+  Sicherung nach 4 h).
+
+### Geändert – Android: Antworten aus der Mitteilung (Design-Runde 5)
 
 - **Antworten direkt aus der Chat-Mitteilung:** Chat-Mitteilungen (Person und Gruppe, auch über Servergrenzen) haben
   neben „Als gelesen markieren“ die Aktion „Antworten“ mit Eingabefeld. Gesendet wird im Hintergrund ohne geöffnete App

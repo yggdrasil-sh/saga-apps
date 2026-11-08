@@ -125,6 +125,10 @@ class CallActivity : ComponentActivity() {
 
     private var answerRequest by mutableStateOf(0)
 
+    /** Feldtest: Display am Ohr aus (nur reine Tonanrufe ueber den Hoerer, siehe CallProximity) */
+    private var proximity: android.os.PowerManager.WakeLock? = null
+    private var foreground = false
+
     /** 2.4: Bild-im-Bild aktiv (Oberflaeche nur noch Fernbild) */
     private var inPip by mutableStateOf(false)
     /** Seitenverhaeltnis des Fernbilds (aus dem vorhandenen Renderer, keine zweite Instanz) */
@@ -192,6 +196,55 @@ class CallActivity : ComponentActivity() {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         inPip = isInPictureInPictureMode
         calls.setView(pip = isInPictureInPictureMode, visible = true)
+        updateProximity()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        foreground = true
+        updateProximity()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        foreground = false
+        updateProximity()
+    }
+
+    override fun onDestroy() {
+        foreground = false
+        releaseProximity()
+        super.onDestroy()
+    }
+
+    /** Naeherungs-Sperre nach dem aktuellen Zustand halten bzw. freigeben (sofort bei jeder Aenderung) */
+    private fun updateProximity() {
+        val st = calls.ui.value
+        val want = st != null && !isFinishing && CallProximity.shouldUseProximity(
+            st.phase, cam = st.cam, sharing = st.sharing, videoGrid = CallProximity.videoGrid(st),
+            earpiece = CallProximity.onEarpiece(calls.audioRoutes.value, st.speaker),
+            foreground = foreground, pip = inPip || isInPictureInPictureMode,
+        )
+        if (!want) { releaseProximity(); return }
+        if (proximity?.isHeld == true) return
+        val pm = getSystemService(android.os.PowerManager::class.java) ?: return
+        if (!pm.isWakeLockLevelSupported(android.os.PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK)) return
+        try {
+            val wl = proximity ?: pm.newWakeLock(android.os.PowerManager.PROXIMITY_SCREEN_OFF_WAKE_LOCK, "saga:call-proximity").also {
+                it.setReferenceCounted(false)
+                proximity = it
+            }
+            wl.acquire(CallProximity.TIMEOUT_MS)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun releaseProximity() {
+        val wl = proximity ?: return
+        try {
+            if (wl.isHeld) wl.release(android.os.PowerManager.RELEASE_FLAG_WAIT_FOR_NO_PROXIMITY)
+        } catch (_: Exception) {
+        }
     }
 
     override fun onStart() {
@@ -202,6 +255,8 @@ class CallActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        foreground = false
+        updateProximity()
         // Nicht sichtbar (minimiert, PiP weggewischt, Bildschirm aus): Gegenueber darf sein Video verkleinern
         calls.setView(pip = false, visible = false)
     }
@@ -227,6 +282,12 @@ class CallActivity : ComponentActivity() {
                 // PiP-Parameter aktuell halten: Seitenverhaeltnis des Fernbilds, Stumm-Knopf, Auto-Enter nur mit Video
                 val eligible = CallPip.eligible(st)
                 LaunchedEffect(eligible, st?.mic, remoteAspect) { updatePip(calls.ui.value) }
+                // Feldtest: Naeherungs-Sperre bei jedem Wechsel von Phase, Kamera, Teilen, Raster, Ausgabe, PiP neu bewerten
+                val routes by calls.audioRoutes.collectAsState()
+                val prox = st?.let { s ->
+                    listOf(s.phase, s.cam, s.sharing, s.speaker, CallProximity.videoGrid(s), CallProximity.onEarpiece(routes, s.speaker))
+                }
+                LaunchedEffect(prox, inPip) { updateProximity() }
                 // Zurueck (Taste/Geste) minimiert nur: Anruf, Medien und Vordergrund-Dienst laufen weiter; zurueck geht
                 // es ueber die Leiste "Anruf laeuft", den Hinweis im Chat oder die Mitteilung (gleiche Activity, keine
                 // zweite PeerConnection). Ein beendeter Anruf wird geschlossen.
