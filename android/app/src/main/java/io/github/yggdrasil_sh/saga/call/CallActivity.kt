@@ -46,6 +46,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledIconButton
@@ -132,11 +135,13 @@ class CallActivity : ComponentActivity() {
     private fun pipParams(st: CallUiState?): PictureInPictureParams {
         val (w, h) = CallPip.ratio(remoteAspect)
         val mic = st?.mic != false
-        val muteLabel = getString(if (mic) R.string.call_mute else R.string.call_unmute)
+        // CH-18: Titel = Geraet (wie die Umschalter), Beschreibung = was der Tipp tut
+        val micTitle = getString(R.string.r5_call_mic)
+        val muteLabel = getString(if (mic) R.string.r5_call_mic_off_action else R.string.call_unmute)
         val hangLabel = getString(R.string.call_hangup)
         val actions = listOf(
             RemoteAction(
-                Icon.createWithResource(this, if (mic) SagaIcons.mic else SagaIcons.micOff), muteLabel, muteLabel,
+                Icon.createWithResource(this, if (mic) SagaIcons.mic else SagaIcons.micOff), micTitle, muteLabel,
                 CallNotify.broadcast(this, CallNotify.ACTION_MUTE, 6),
             ),
             RemoteAction(Icon.createWithResource(this, SagaIcons.phoneOff), hangLabel, hangLabel, CallNotify.broadcast(this, CallNotify.ACTION_HANGUP, 7)),
@@ -241,6 +246,12 @@ class CallActivity : ComponentActivity() {
      * der Startbildschirm. Die Activity bleibt erhalten (ohne Video; mit Video siehe minimizeOrPip).
      */
     private fun minimize() {
+        // CH-28: beim ersten Minimieren einmal sagen, dass der Anruf weiterlaeuft und wie man zurueckkommt
+        val prefs = getSharedPreferences("call_ui", MODE_PRIVATE)
+        if (calls.ui.value?.let { CallReturn.backMinimizes(it) } == true && !prefs.getBoolean(CallHints.KEY_MINIMIZE, false)) {
+            prefs.edit { putBoolean(CallHints.KEY_MINIMIZE, true) }
+            android.widget.Toast.makeText(applicationContext, R.string.r5_call_min_hint, android.widget.Toast.LENGTH_LONG).show()
+        }
         if (!moveTaskToBack(true)) finish()
     }
 
@@ -400,6 +411,23 @@ private fun CallScreen(
         }
     }
     val room = st.room
+    // CH-15/CH-18: Blaetter "Verbindungsdetails" und "Mehr"
+    var detailsOpen by remember { mutableStateOf(false) }
+    var moreOpen by remember { mutableStateOf(false) }
+    if (st.phase == CallPhase.ENDED || st.phase == CallPhase.INCOMING) { detailsOpen = false; moreOpen = false }
+    if (detailsOpen) CallDetailsSheet(st, calls.hasTurn) { detailsOpen = false }
+    if (moreOpen) {
+        val entries = CallControls.moreItems(st.phase == CallPhase.CONNECTED, st.cam, people = room?.horn != null).mapNotNull { m ->
+            when (m) {
+                CallControls.More.SHARE -> CallMoreEntry(SagaIcons.screenShare, stringResource(if (st.sharing) R.string.call_screen_stop else R.string.call_screen_share), st.sharing) { onShare() }
+                CallControls.More.SWITCH_CAM -> CallMoreEntry(SagaIcons.cameraSwitch, stringResource(R.string.call_switch_camera)) { calls.switchCamera() }
+                CallControls.More.PEOPLE -> CallMoreEntry(SagaIcons.users, stringResource(R.string.r5_call_people)) { hornPanel = "people" }
+                CallControls.More.DETAILS -> CallMoreEntry(SagaIcons.info, stringResource(R.string.r5_call_details)) { detailsOpen = true }
+                else -> null
+            }
+        }
+        CallMoreSheet(entries, onDismiss = { moreOpen = false })
+    }
     // 2.4 E5: Kachelansicht (Gruppe bzw. mehrere sichtbare Verbindungen); im Bild-im-Bild der aktive Sprecher gross
     val meshOn = room?.mesh == true && st.phase != CallPhase.INCOMING && st.phase != CallPhase.ENDED && !pip
     val showVideo = st.remoteVideo && st.phase == CallPhase.CONNECTED && !meshOn
@@ -440,7 +468,8 @@ private fun CallScreen(
             }
         } else if (meetOn) {
             androidx.compose.runtime.CompositionLocalProvider(LocalFlatCall provides flat) {
-                MeetCall(calls, st, flat, onMinimize, onCam, onShare, onMic, withMic, onPanel = { hornPanel = it }, onPlayback = onPlayback)
+                MeetCall(calls, st, flat, onMinimize, onCam, onShare, onMic, withMic, onPanel = { hornPanel = it }, onPlayback = onPlayback,
+                    onDetails = { detailsOpen = true })
             }
         } else {
         androidx.compose.runtime.CompositionLocalProvider(LocalFlatCall provides flat) {
@@ -455,7 +484,7 @@ private fun CallScreen(
                         style = MaterialTheme.typography.titleMedium, maxLines = 1, modifier = Modifier.semantics { heading() },
                     )
                 }
-                InfoLine(st, onDark = showVideo)
+                InfoLine(st, onDark = showVideo, onDetails = { detailsOpen = true })
                 ShareBar(calls, st)
                 RoomLine(st, onDark = showVideo)
                 // 2.5 Gjallarhorn: Weg mit Qualitaetspunkt, Runensiegel, Teilnehmende, Ansicht
@@ -477,7 +506,12 @@ private fun CallScreen(
                         calls.tileSink(t.dev)?.let { VideoView(calls, remote = true, visible = true, modifier = m, sink = it, overlay = !duo) }
                     },
                     big = { m -> VideoView(calls, remote = true, visible = true, modifier = m, sink = calls.remoteSink, overlay = false) },
-                    selfVideo = { m -> VideoView(calls, remote = false, visible = true, modifier = m) },
+                    selfVideo = { m ->
+                        Box(m) {
+                            VideoView(calls, remote = false, visible = true, modifier = Modifier.fillMaxSize())
+                            SelfSwitch(calls, Modifier.align(Alignment.TopEnd))
+                        }
+                    },
                     onPin = { calls.hornPin(it) },
                 )
             } else if (meshOn) TileGrid(calls, st, Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp))
@@ -537,7 +571,7 @@ private fun CallScreen(
             // A06: Hoehe der Knopfzone messen - das eigene Bild bleibt darueber
             Column(Modifier.onSizeChanged { ctrlHeight = it.height }, horizontalAlignment = Alignment.CenterHorizontally) {
                 RoomActions(calls, st, withMic)
-                Controls(calls, st, ::answer, onCam, onShare, onMic, onPlayback = onPlayback)
+                Controls(calls, st, ::answer, onCam, onMic, onMore = { moreOpen = true }, onPlayback = onPlayback)
             }
         }
         }
@@ -564,13 +598,18 @@ private fun CallScreen(
             // Knopfzone + Rand der Spalte (16) + Abstand (8); noch nicht gemessen: bisheriger Wert
             val bottom = if (ctrlHeight > 0) with(LocalDensity.current) { ctrlHeight.toDp() } + 24.dp else 190.dp
             SelfPip(108.dp, 156.dp, top = maxOf(top, 56.dp), bottom = bottom, side = 16.dp, modifier = Modifier.safeDrawingPadding()) { m ->
-                VideoView(calls, remote = false, visible = true, modifier = m)
+                Box(m) {
+                    VideoView(calls, remote = false, visible = true, modifier = Modifier.fillMaxSize())
+                    // CH-18: "Kamera wechseln" auf der eigenen Vorschau
+                    SelfSwitch(calls, Modifier.align(Alignment.TopEnd))
+                }
             }
         }
         if (st.phase != CallPhase.INCOMING && st.phase != CallPhase.ENDED) {
             // Minimieren (wie Zurueck): zurueck in die App, der Anruf laeuft weiter
             Box(Modifier.fillMaxSize().safeDrawingPadding().padding(4.dp), contentAlignment = Alignment.TopStart) {
-                IconButton(onClick = onMinimize) {
+                // CH-28: Trefferflaeche mind. 48 dp
+                IconButton(onClick = onMinimize, modifier = Modifier.size(48.dp)) {
                     Icon(
                         painterResource(SagaIcons.chevronDown), stringResource(R.string.call_minimize),
                         tint = if (showVideo) Color.White else MaterialTheme.colorScheme.onSurface,
@@ -591,6 +630,8 @@ private fun CallScreen(
 internal fun MeetCall(
     calls: CallManager, st: CallUiState, flat: Boolean, onMinimize: () -> Unit, onCam: () -> Unit, onShare: () -> Unit, onMic: () -> Unit,
     withMic: (() -> Unit) -> Unit, onPanel: (String) -> Unit, onPlayback: () -> Unit,
+    /** CH-15: Blatt "Verbindungsdetails" oeffnen */
+    onDetails: () -> Unit = {},
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val conf = androidx.compose.ui.platform.LocalConfiguration.current
@@ -609,6 +650,43 @@ internal fun MeetCall(
     LaunchedEffect(lastAct) { delay(Meeting.IDLE_MS + 50); tick++ }
     var menuOpen by remember { mutableStateOf(false) }
     var meshPeople by remember { mutableStateOf(false) }
+    // CH-18: Blatt "Mehr" (Teilen, Kamera wechseln, Layout, Teilnehmende, eigenes Bild, Vollbild, Details)
+    var moreOpen by remember { mutableStateOf(false) }
+    val group = room != null && (room.kind == CallRoom.KIND_GROUP || st.meet.size > 2)
+    val openPeople: () -> Unit = { if (room?.horn != null) onPanel("people") else { meshPeople = true; menuOpen = true } }
+    // CH-27: einmaliger Hinweis beim ersten Video-Anruf mit eigenem Bild
+    val uiPrefs = remember { context.getSharedPreferences("call_ui", Context.MODE_PRIVATE) }
+    var dblHint by remember { mutableStateOf(false) }
+    val selfShown = st.cam && st.phase == CallPhase.CONNECTED && ms.showSelf
+    LaunchedEffect(selfShown) {
+        if (selfShown && !uiPrefs.getBoolean(CallHints.KEY_DOUBLE_TAP, false)) {
+            uiPrefs.edit { putBoolean(CallHints.KEY_DOUBLE_TAP, true) }
+            dblHint = true
+            delay(CallHints.CHIP_MS)
+            dblHint = false
+        }
+    }
+    if (moreOpen) {
+        val items = CallControls.moreItems(
+            connected = st.phase == CallPhase.CONNECTED, cam = st.cam, layout = Meeting.layoutButton(model),
+            people = group || room?.horn != null, selfSize = selfShown, fullscreen = model.screens.isNotEmpty(),
+        )
+        val entries = items.mapNotNull { m ->
+            when (m) {
+                CallControls.More.SHARE -> CallMoreEntry(SagaIcons.screenShare, stringResource(if (st.sharing) R.string.call_screen_stop else R.string.call_screen_share), st.sharing) { onShare() }
+                CallControls.More.SWITCH_CAM -> CallMoreEntry(SagaIcons.cameraSwitch, stringResource(R.string.call_switch_camera)) { calls.switchCamera() }
+                CallControls.More.PEOPLE -> CallMoreEntry(SagaIcons.users, stringResource(R.string.r5_call_people)) { openPeople() }
+                CallControls.More.SELF_SIZE -> CallMoreEntry(SagaIcons.zoomIn, stringResource(R.string.meet_self_size)) { ms.selfSize = (ms.selfSize + 1) % 3 }
+                CallControls.More.FULLSCREEN -> CallMoreEntry(SagaIcons.maximize, stringResource(if (ms.fullscreen) R.string.meet_fullscreen_exit else R.string.meet_fullscreen), ms.fullscreen) {
+                    ms.fullscreen = !ms.fullscreen
+                }
+                CallControls.More.DETAILS -> CallMoreEntry(SagaIcons.info, stringResource(R.string.r5_call_details)) { onDetails() }
+                CallControls.More.LAYOUT -> null
+            }
+        }
+        CallMoreSheet(entries, onDismiss = { moreOpen = false; lastAct = System.currentTimeMillis() },
+            extra = if (CallControls.More.LAYOUT in items) ({ MeetLayoutOptions(ms, model.screens.isNotEmpty()) }) else null)
+    }
     if (meshPeople) {
         val you = stringResource(R.string.room_you)
         val ui = HornUi(people = st.meet.sortedBy { if (it.me) 0 else 1 }.map { d ->
@@ -626,7 +704,7 @@ internal fun MeetCall(
     val stageVideo = model.all.any { it.video && !it.me }
     val notice = st.message != null || (room?.mutedBy != null && !st.mic) || st.reconnecting
     @Suppress("UNUSED_EXPRESSION") tick
-    val hidden = Meeting.hideControls(System.currentTimeMillis() - lastAct, st.phase == CallPhase.CONNECTED, stageVideo, sr, menuOpen, notice)
+    val hidden = Meeting.hideControls(System.currentTimeMillis() - lastAct, st.phase == CallPhase.CONNECTED, stageVideo, sr, menuOpen || moreOpen, notice || dblHint)
     // Vollbild verlassen per Zurueck
     BackHandler(enabled = ms.fullscreen) { ms.fullscreen = false }
     // Galerie: beginnt jemand zu teilen, einmal "Anna teilt den Bildschirm – Anzeigen"
@@ -641,11 +719,16 @@ internal fun MeetCall(
         onShown = { calls.meetShown(it) },
         onPeople = { if (room?.horn != null) onPanel("people") else { meshPeople = true; menuOpen = true } },
         tileVideo = { t, fit, m -> calls.meetSink(t)?.let { sink -> MeetVideo(calls, sink, mirror = t.me, fit = fit, modifier = m) } },
-        selfVideo = { m, onA -> MeetVideo(calls, calls.localSink, mirror = true, fit = false, modifier = m, onAspect = onA) },
+        selfVideo = { m, onA ->
+            Box(m) {
+                MeetVideo(calls, calls.localSink, mirror = true, fit = false, modifier = Modifier.fillMaxSize(), onAspect = onA)
+                SelfSwitch(calls, Modifier.align(Alignment.TopEnd))           // CH-18
+            }
+        },
         header = {
             if (flat) Box(Modifier.fillMaxWidth().safeDrawingPadding().padding(horizontal = 4.dp, vertical = 4.dp)) {
                 // §8 Handy quer: eine Zeile als Pille (wie iOS) - Titel · Dauer · Personen
-                IconButton(onClick = onMinimize, modifier = Modifier.align(Alignment.CenterStart)) {
+                IconButton(onClick = onMinimize, modifier = Modifier.align(Alignment.CenterStart).size(48.dp)) {
                     Icon(painterResource(SagaIcons.chevronDown), stringResource(R.string.call_minimize), tint = Color.White)
                 }
                 var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -655,15 +738,16 @@ internal fun MeetCall(
                 val info = listOfNotNull(
                     st.connectedAt.takeIf { it > 0 }?.let { CallLogic.duration((now - it) / 1000) },
                     meetPersons(model.persons).takeIf { model.persons > 2 },
+                    stringResource(R.string.r5_call_weak).takeIf { st.phase == CallPhase.CONNECTED && CallControls.weak(st.quality) },
                 ).joinToString(" · ")
-                val group = room != null && (room.kind == CallRoom.KIND_GROUP || st.meet.size > 2)
                 MeetPill(
-                    HornLogic.shortName(title, 28), info, stringResource(if (st.verified) R.string.call_e2e else R.string.call_encrypted),
-                    Modifier.align(Alignment.Center).padding(horizontal = 56.dp),
-                    onClick = if (group) ({ if (room?.horn != null) onPanel("people") else { meshPeople = true; menuOpen = true } }) else null,
+                    HornLogic.shortName(title, 28), info, stringResource(if (st.verified) R.string.call_e2e else R.string.r5_call_unverified),
+                    Modifier.align(Alignment.Center).padding(horizontal = 56.dp), verified = st.verified,
+                    // Gruppe: Teilnehmerliste; sonst die Verbindungsdetails (CH-15)
+                    onClick = if (group) openPeople else onDetails,
                 )
             } else Box(Modifier.fillMaxWidth().safeDrawingPadding().padding(horizontal = 4.dp, vertical = 4.dp)) {
-                IconButton(onClick = onMinimize, modifier = Modifier.align(Alignment.TopStart)) {
+                IconButton(onClick = onMinimize, modifier = Modifier.align(Alignment.TopStart).size(48.dp)) {
                     Icon(painterResource(SagaIcons.chevronDown), stringResource(R.string.call_minimize), tint = Color.White)
                 }
                 CallHeader(flat, Modifier.fillMaxWidth().padding(horizontal = 48.dp)) {
@@ -671,7 +755,7 @@ internal fun MeetCall(
                     else st.peer.shown
                     Text(HornLogic.shortName(title, 28), color = Color.White, style = MaterialTheme.typography.titleMedium, maxLines = 1,
                         modifier = Modifier.semantics { heading() })
-                    InfoLine(st, onDark = true)
+                    InfoLine(st, onDark = true, onDetails = onDetails)
                     RoomLine(st, onDark = true, persons = model.persons)
                     if (room?.companion == true) {
                         val main = st.meet.firstOrNull { it.me && !it.companion && it.device != st.meetMe }?.devName
@@ -712,6 +796,16 @@ internal fun MeetCall(
         notices = {
             val dark = SagaColors.current.callBg
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // CH-27: einmalig "Doppeltippen auf dein Bild aendert die Groesse" (auch im Mehr-Blatt)
+                if (dblHint) Surface(color = dark.copy(alpha = 0.8f), contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.pill), modifier = Modifier.padding(bottom = 6.dp)) {
+                    Row(Modifier.padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.r5_call_dbltap_hint), style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.weight(1f, fill = false).semantics { liveRegion = LiveRegionMode.Polite })
+                        IconButton(onClick = { dblHint = false }) {
+                            Icon(painterResource(SagaIcons.x), stringResource(R.string.action_close), Modifier.size(18.dp), tint = Color.White)
+                        }
+                    }
+                }
                 ms.galleryHint?.let { id ->
                     model.screens.firstOrNull { it.id == id }?.let { t ->
                         Surface(color = dark.copy(alpha = 0.8f), contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.pill)) {
@@ -742,25 +836,27 @@ internal fun MeetCall(
             }
         },
         controls = {
-            val tc = MaterialTheme.colorScheme.surfaceContainerHighest
-            val tf = MaterialTheme.colorScheme.onSurface
-            val lb: (@Composable (androidx.compose.ui.unit.Dp) -> Unit)? = if (Meeting.layoutButton(model)) ({ col ->
-                MeetLayoutButton(ms, model.screens.isNotEmpty(), col, tc, tf) { open -> menuOpen = open; lastAct = System.currentTimeMillis() }
-            }) else null
+            val more = { moreOpen = true; lastAct = System.currentTimeMillis() }
             if (flat) androidx.compose.foundation.layout.Row(Modifier.fillMaxHeight().safeDrawingPadding().padding(4.dp),
                 verticalAlignment = Alignment.Bottom) {
                 RoomActions(calls, st, withMic)            // z. B. "Hierher uebernehmen" fuer Begleitgeraete auch im Querformat
-                Controls(calls, st, {}, onCam, onShare, onMic, layoutBtn = lb, vertical = true, onPlayback = onPlayback)
+                Controls(calls, st, {}, onCam, onMic, onMore = more, vertical = true, onPlayback = onPlayback)
             } else Column(Modifier.fillMaxWidth().safeDrawingPadding().padding(horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 RoomActions(calls, st, withMic)
-                Controls(calls, st, {}, onCam, onShare, onMic, layoutBtn = lb, onPlayback = onPlayback)
+                Controls(calls, st, {}, onCam, onMic, onMore = more, onPlayback = onPlayback)
             }
         },
     )
 }
 
+/**
+ * CH-15/CH-16: Infozeile im Anruf - im verbundenen Anruf nur die Dauer (tabellarische Ziffern), bei mittlerer bzw.
+ * schwacher Qualitaet Signal-Symbol + "Schwache Verbindung"; darunter die Sicherheitszeile (geprueft: Schloss +
+ * "Ende-zu-Ende-verschluesselt", sonst "Verschluesselt · Sicherheitsnummer nicht geprueft"). Weg, Ton-Diagnose und
+ * TURN-Hinweis stehen im Blatt "Verbindungsdetails" (Tipp auf die Zeile, fuer alle gleich).
+ */
 @Composable
-private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modifier) {
+private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modifier, onDetails: (() -> Unit)? = null) {
     if (st.phase != CallPhase.CONNECTED && st.phase != CallPhase.CONNECTING && st.phase != CallPhase.RINGING) return
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(st.connectedAt) {
@@ -770,35 +866,165 @@ private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modi
         }
     }
     val fg = if (onDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
-    val parts = buildList {
-        if (st.connectedAt > 0) add(CallLogic.duration((now - st.connectedAt) / 1000))
-        if (st.path == "relay") add(stringResource(R.string.call_relay)) else if (st.path == "direct") add(stringResource(R.string.call_direct))
-        when (st.quality) {
-            "good" -> add(stringResource(R.string.call_q_good))
-            "mid" -> add(stringResource(R.string.call_q_mid))
-            "bad" -> add(stringResource(R.string.call_q_bad))
-        }
-        // Ton-Diagnose (getStats): kommen Audio-Pakete des Gegenuebers an?
-        if (st.phase == CallPhase.CONNECTED) when (st.audioIn) {
-            "ok" -> add(stringResource(R.string.call_audio_ok))
-            "none" -> add(stringResource(R.string.call_audio_none))
-        }
-    }
-    Surface(color = if (onDark) SagaColors.current.callBg.copy(alpha = 0.6f) else Color.Transparent, shape = RoundedCornerShape(SagaRadius.md), modifier = modifier) {
+    val weak = st.phase == CallPhase.CONNECTED && CallControls.weak(st.quality)
+    val detailsLabel = stringResource(R.string.r5_call_details)
+    val shape = RoundedCornerShape(SagaRadius.md)
+    Surface(
+        color = if (onDark) SagaColors.current.callBg.copy(alpha = 0.6f) else Color.Transparent, shape = shape,
+        modifier = modifier.then(
+            if (onDetails != null) Modifier.clip(shape).clickable(onClickLabel = detailsLabel, role = Role.Button) { onDetails() } else Modifier,
+        ),
+    ) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            val e2e = stringResource(if (st.verified) R.string.call_e2e else R.string.call_encrypted)
-            // A13: Sicherheitszeile je Weg - am Knoten gilt Frame-E2E (saga-horn), verglichen wird das Runensiegel
-            val info = stringResource(if (st.room?.horn != null) R.string.call_e2e_info_horn else R.string.call_e2e_info)
-            // ANRUF-UI: Dauer direkt unter dem Titel, dann die Sicherheitszeile
-            if (parts.isNotEmpty()) Text(parts.joinToString(" · "), color = fg, style = MaterialTheme.typography.labelMedium)
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) {
-                if (st.verified) contentDescription = "$e2e. $info"
-            }) {
-                Icon(painterResource(SagaIcons.lock), null, Modifier.size(14.dp), tint = if (st.verified) MaterialTheme.colorScheme.primary.takeUnless { onDark } ?: SagaColors.current.callOk else fg)
-                Text(e2e, color = fg, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 4.dp))
+            val e2e = stringResource(if (st.verified) R.string.call_e2e else R.string.r5_call_unverified)
+            if (st.connectedAt > 0 || weak) Row(verticalAlignment = Alignment.CenterVertically) {
+                if (st.connectedAt > 0) Text(
+                    CallLogic.duration((now - st.connectedAt) / 1000), color = fg,
+                    style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
+                )
+                if (weak) {
+                    val warn = SagaColors.current.callWarn
+                    Icon(painterResource(SagaIcons.chart), null, Modifier.padding(start = if (st.connectedAt > 0) 8.dp else 0.dp).size(14.dp), tint = warn)
+                    Text(
+                        stringResource(R.string.r5_call_weak), color = warn, style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(start = 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (st.verified) Icon(
+                    painterResource(SagaIcons.lock), null, Modifier.padding(end = 4.dp).size(14.dp),
+                    tint = MaterialTheme.colorScheme.primary.takeUnless { onDark } ?: SagaColors.current.callOk,
+                )
+                Text(e2e, color = fg, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
             }
         }
     }
+}
+
+/** CH-15: Blatt "Verbindungsdetails" - Verschluesselung, Weg, Qualitaet, Ton und ggf. der TURN-Hinweis (fuer alle gleich) */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+internal fun CallDetailsSheet(st: CallUiState, hasTurn: Boolean?, onDismiss: () -> Unit) {
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
+            Text(stringResource(R.string.r5_call_details), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 12.dp).semantics { heading() })
+            val unknown = stringResource(R.string.r5_call_d_unknown)
+            val horn = st.room?.horn != null
+            DetailRow(stringResource(R.string.r5_call_d_security), stringResource(if (st.verified) R.string.call_e2e else R.string.r5_call_unverified))
+            Text(
+                stringResource(if (horn) R.string.call_e2e_info_horn else R.string.call_e2e_info), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp),
+            )
+            DetailRow(stringResource(R.string.r5_call_d_path), when {
+                horn -> stringResource(R.string.r5_call_path_node)
+                st.path == "relay" -> stringResource(R.string.call_relay)
+                st.path == "direct" -> stringResource(R.string.call_direct)
+                else -> unknown
+            })
+            DetailRow(stringResource(R.string.r5_call_d_quality), when (st.quality) {
+                "good" -> stringResource(R.string.call_q_good)
+                "mid" -> stringResource(R.string.call_q_mid)
+                "bad" -> stringResource(R.string.call_q_bad)
+                else -> unknown
+            })
+            if (st.phase == CallPhase.CONNECTED) DetailRow(stringResource(R.string.r5_call_d_audio), when (st.audioIn) {
+                "ok" -> stringResource(R.string.call_audio_ok)
+                "none" -> stringResource(R.string.call_audio_none)
+                else -> unknown
+            })
+            if (CallControls.turnHint(hasTurn, st.path, st.quality)) Text(
+                stringResource(R.string.r5_call_turn_hint), style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 40.dp).semantics(mergeDescendants = true) {},
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.End,
+            modifier = Modifier.padding(start = 12.dp).weight(1.4f))
+    }
+}
+
+/** CH-18: ein Eintrag im "Mehr"-Blatt */
+internal data class CallMoreEntry(val icon: Int, val label: String, val selected: Boolean? = null, val onClick: () -> Unit)
+
+/** CH-18: Blatt "Mehr" (Bildschirm teilen, Kamera wechseln, Teilnehmende, ...); extra = z. B. die Layout-Auswahl */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+internal fun CallMoreSheet(entries: List<CallMoreEntry>, onDismiss: () -> Unit, extra: (@Composable () -> Unit)? = null) {
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 16.dp).verticalScroll(rememberScrollState())) {
+            Text(
+                stringResource(R.string.r5_call_more_title), style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp).semantics { heading() },
+            )
+            entries.forEach { e ->
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                        .clickable(role = Role.Button) { onDismiss(); e.onClick() }
+                        .then(if (e.selected != null) Modifier.semantics { selected = e.selected } else Modifier)
+                        .padding(horizontal = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(painterResource(e.icon), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(e.label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 16.dp))
+                }
+            }
+            if (extra != null) {
+                androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                extra()
+            }
+        }
+    }
+}
+
+/** CH-19: Auswahl der Audio-Ausgabe (Telefon, Lautsprecher, Bluetooth-Name, Kopfhoerer) mit Haekchen bei der aktiven */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun AudioSheet(calls: CallManager, routes: AudioRoutes, onDismiss: () -> Unit) {
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 16.dp).semantics { androidx.compose.ui.semantics.selectableGroup() }) {
+            Text(
+                stringResource(R.string.r5_call_audio_title), style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp).semantics { heading() },
+            )
+            CallControls.pickerRoutes(routes).forEach { r ->
+                val active = CallControls.isActive(routes, r)
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                        .selectable(selected = active, role = Role.RadioButton) { calls.selectAudio(r); onDismiss() }
+                        .padding(horizontal = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(painterResource(audioIcon(r.kind)), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(audioName(r), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 16.dp).weight(1f))
+                    if (active) Icon(painterResource(SagaIcons.check), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+    }
+}
+
+private fun audioIcon(k: AudioKind): Int = when (k) {
+    AudioKind.EARPIECE -> SagaIcons.smartphone
+    AudioKind.SPEAKER -> SagaIcons.volume
+    AudioKind.BLUETOOTH, AudioKind.WIRED -> SagaIcons.devices
+}
+
+@Composable
+private fun audioName(r: AudioRoute): String = when (r.kind) {
+    AudioKind.EARPIECE -> stringResource(R.string.r5_call_out_phone)
+    AudioKind.SPEAKER -> stringResource(R.string.call_speaker)
+    AudioKind.BLUETOOTH -> r.name.ifEmpty { stringResource(R.string.r5_call_out_bt) }
+    AudioKind.WIRED -> stringResource(R.string.r5_call_out_wired)
 }
 
 /**
@@ -852,9 +1078,9 @@ private fun EndedFailed(calls: CallManager, st: CallUiState) {
 
 @Composable
 private fun Controls(
-    calls: CallManager, st: CallUiState, answer: (Boolean) -> Unit, onCam: () -> Unit, onShare: () -> Unit, onMic: () -> Unit,
-    /** Meeting-Ansicht: Layout-Knopf rechts vom Lautsprecher, vor Auflegen */
-    layoutBtn: (@Composable (androidx.compose.ui.unit.Dp) -> Unit)? = null,
+    calls: CallManager, st: CallUiState, answer: (Boolean) -> Unit, onCam: () -> Unit, onMic: () -> Unit,
+    /** CH-18: "Mehr" (Bildschirm teilen, Layout, Teilnehmende, Verbindungsdetails ...) */
+    onMore: () -> Unit,
     /** MEETING-SPEC §8 Handy quer: Knoepfe rechts senkrecht (56 dp Spalte, ohne Beschriftung) */
     vertical: Boolean = false,
     /** Begleitgeraet: Ton an/aus (mit Echo-Schutz) */
@@ -862,16 +1088,27 @@ private fun Controls(
 ) {
     val flat = LocalFlatCall.current
     when (st.phase) {
-        // Design 2: Annehmen/Ablehnen mit breiteren Spalten - "Mit Audio annehmen" passt in zwei Zeilen statt "…"
-        CallPhase.INCOMING -> androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(bottom = if (flat) 4.dp else 28.dp)) {
-            val col = minOf(120.dp, maxWidth / 3)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
-                RoundButton(SagaIcons.phoneOff, stringResource(R.string.call_decline), CallLabels.HANGUP_BG, Color.White, big = true, col = col) { calls.decline() }
-                if (st.video) {
-                    RoundButton(SagaIcons.phone, stringResource(R.string.call_answer_audio), CALL_GREEN, Color.White, big = true, col = col) { answer(false) }
-                    RoundButton(SagaIcons.video, stringResource(R.string.call_answer_video), CALL_GREEN, Color.White, big = true, col = col) { answer(true) }
-                } else {
-                    RoundButton(SagaIcons.phone, stringResource(R.string.call_answer), CALL_GREEN, Color.White, big = true, col = col) { answer(false) }
+        // CH-23: Knopfreihe hoechstens 400 dp breit und mittig; Video: "Nur Ton" als umrandeter Knopf unter "Mit Video annehmen"
+        CallPhase.INCOMING -> Box(Modifier.fillMaxWidth().padding(bottom = if (flat) 4.dp else 28.dp), contentAlignment = Alignment.TopCenter) {
+            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.widthIn(max = 400.dp).fillMaxWidth()) {
+                val col = minOf(140.dp, maxWidth / 2)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
+                    RoundButton(SagaIcons.phoneOff, stringResource(R.string.call_decline), CallLabels.HANGUP_BG, Color.White, big = true, col = col) { calls.decline() }
+                    if (st.video) Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        RoundButton(SagaIcons.video, stringResource(R.string.call_answer_video), CALL_GREEN, Color.White, big = true, col = col) { answer(true) }
+                        val cd = stringResource(R.string.call_answer_audio)
+                        io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton(
+                            onClick = { answer(false) },
+                            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CallDesign.actionOutline),
+                            modifier = Modifier.padding(top = 8.dp).heightIn(min = 48.dp).semantics { contentDescription = cd },
+                        ) {
+                            Icon(painterResource(SagaIcons.phone), null, Modifier.size(18.dp))
+                            Text(stringResource(R.string.r5_call_audio_only), modifier = Modifier.padding(start = 8.dp))
+                        }
+                    } else {
+                        RoundButton(SagaIcons.phone, stringResource(R.string.call_answer), CALL_GREEN, Color.White, big = true, col = col) { answer(false) }
+                    }
                 }
             }
         }
@@ -879,49 +1116,53 @@ private fun Controls(
             SagaTextButton(onClick = { calls.dismiss() }, modifier = Modifier.padding(bottom = 24.dp)) { Text(stringResource(R.string.action_close)) }
         }
         else -> {
-            val tc = MaterialTheme.colorScheme.surfaceContainerHighest
-            val tf = MaterialTheme.colorScheme.onSurface
-            // aus: helle Flaeche mit dunklem Symbol (wie bisher inverseSurface), Form wechselt zum abgerundeten Quadrat
-            val offBg = MaterialTheme.colorScheme.inverseSurface
-            val offFg = MaterialTheme.colorScheme.inverseOnSurface
-            // 2.4 E3: "Bildschirm teilen" nur im verbundenen Anruf; 2.4 E4: Begleitgeraet - eigener Knopf "Ton an/aus"
-            val share = st.phase == CallPhase.CONNECTED
+            val routes by calls.audioRoutes.collectAsState()
+            var audioSheet by remember { mutableStateOf(false) }
+            if (audioSheet) AudioSheet(calls, routes) { audioSheet = false }
             val room = st.room
-            val compact = share && st.cam || room?.companion == true
-            val buttons = buildList<@Composable (androidx.compose.ui.unit.Dp) -> Unit> {
-                add { col -> RoundButton(
-                    if (st.mic) SagaIcons.mic else SagaIcons.micOff, stringResource(if (st.mic) R.string.call_mute else R.string.call_unmute),
-                    if (st.mic) tc else offBg, if (st.mic) tf else offFg, compact = compact, col = col, off = !st.mic,
-                ) { onMic() } }
-                add { col -> RoundButton(
-                    if (st.cam) SagaIcons.video else SagaIcons.videoOff, stringResource(if (st.cam) R.string.call_cam_off else R.string.call_cam_on),
-                    if (st.cam) tc else offBg, if (st.cam) tf else offFg, compact = compact, col = col, off = !st.cam,
-                ) { onCam() } }
-                if (st.cam) add { col -> RoundButton(SagaIcons.cameraSwitch, stringResource(R.string.call_switch_camera), tc, tf, compact = compact, col = col) { calls.switchCamera() } }
-                if (share) add { col -> RoundButton(
-                    SagaIcons.screenShare, stringResource(if (st.sharing) R.string.call_screen_stop else R.string.call_screen_share),
-                    if (st.sharing) SHARE_RED else tc, if (st.sharing) Color.White else tf, selected = st.sharing, compact = compact, col = col,
-                ) { onShare() } }
-                if (room != null && (room.companion || !room.playback)) add { col -> RoundButton(
-                    if (room.playback) SagaIcons.volume else SagaIcons.volumeOff,
-                    stringResource(if (room.playback) R.string.room_sound_off else R.string.room_sound_on),
-                    if (room.playback) tc else offBg, if (room.playback) tf else offFg,
-                    selected = room.playback, compact = compact, col = col, off = !room.playback,
-                ) { onPlayback() } }
-                else add { col -> RoundButton(
-                    SagaIcons.volume, stringResource(R.string.call_speaker),
-                    if (st.speaker) MaterialTheme.colorScheme.primary else tc, if (st.speaker) MaterialTheme.colorScheme.onPrimary else tf,
-                    selected = st.speaker, compact = compact, col = col,
-                ) { calls.toggleSpeaker() } }
-                if (layoutBtn != null) add { col -> layoutBtn(col) }
-                add { col -> RoundButton(SagaIcons.phoneOff, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = compact || layoutBtn != null, col = col) { calls.hangup() } }
+            // 2.4 E4: Begleitgeraet (bzw. Ton aus) - "Ton an/aus" statt der Audio-Ausgabe
+            val playback = room != null && (room.companion || !room.playback)
+            val audio = CallControls.audioButton(routes)
+            val keys = CallControls.bar(audio, playback)
+            val active = routes.routes.firstOrNull { it.id == routes.active }
+            val labels = keys.map { k ->
+                when (k) {
+                    CallControls.Btn.MIC -> stringResource(R.string.r5_call_mic)
+                    CallControls.Btn.CAM -> stringResource(R.string.r5_call_cam)
+                    CallControls.Btn.AUDIO -> stringResource(if (audio == CallControls.AudioBtn.PICKER) R.string.r5_call_audio else R.string.call_speaker)
+                    CallControls.Btn.PLAYBACK -> stringResource(R.string.r5_call_d_audio)
+                    CallControls.Btn.MORE -> stringResource(R.string.r5_call_more)
+                    CallControls.Btn.HANGUP -> stringResource(R.string.call_hangup)
+                }
+            }
+            val on = stringResource(R.string.r5_call_on)
+            val off = stringResource(R.string.r5_call_off)
+            val activeName = active?.let { audioName(it) }
+            val audioCd = activeName?.let { stringResource(R.string.r5_call_audio_cd, it) }
+            val tc = CallDesign.toggleColors.onContainer
+            val tf = CallDesign.toggleColors.onContent
+            val button: @Composable (CallControls.Btn, String, androidx.compose.ui.unit.Dp, CallControls.Plan?) -> Unit = { k, label, col, plan ->
+                when (k) {
+                    CallControls.Btn.MIC -> CallToggle(st.mic, SagaIcons.mic, SagaIcons.micOff, label, on, off, col, plan) { onMic() }
+                    CallControls.Btn.CAM -> CallToggle(st.cam, SagaIcons.video, SagaIcons.videoOff, label, on, off, col, plan) { onCam() }
+                    CallControls.Btn.PLAYBACK -> CallToggle(room?.playback == true, SagaIcons.volume, SagaIcons.volumeOff, label, on, off, col, plan) { onPlayback() }
+                    CallControls.Btn.AUDIO -> if (audio == CallControls.AudioBtn.PICKER) RoundButton(
+                        audioIcon(active?.kind ?: if (st.speaker) AudioKind.SPEAKER else AudioKind.EARPIECE), label, tc, tf, col = col,
+                        cd = audioCd ?: label, labelSp = plan?.sp, labelHyphen = plan?.hyphenate == true,
+                    ) { audioSheet = true }
+                    else CallToggle(st.speaker, SagaIcons.volume, SagaIcons.volumeOff, label, on, off, col, plan) { calls.toggleSpeaker() }
+                    CallControls.Btn.MORE -> RoundButton(SagaIcons.moreHoriz, label, tc, tf, col = col, labelSp = plan?.sp, labelHyphen = plan?.hyphenate == true) { onMore() }
+                    CallControls.Btn.HANGUP -> RoundButton(
+                        SagaIcons.phoneOff, label, CallLabels.HANGUP_BG, Color.White, col = col, labelSp = plan?.sp, labelHyphen = plan?.hyphenate == true,
+                    ) { calls.hangup() }
+                }
             }
             if (vertical) {
                 Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(SagaRadius.pill)) {
                     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.width(64.dp).fillMaxHeight().padding(vertical = 6.dp)) {
-                        val col = minOf(56.dp, maxHeight / buttons.size)
+                        val col = minOf(56.dp, maxHeight / keys.size)
                         Column(Modifier.fillMaxHeight().width(64.dp), verticalArrangement = Arrangement.SpaceEvenly, horizontalAlignment = Alignment.CenterHorizontally) {
-                            buttons.forEach { b -> Box(Modifier.height(col), contentAlignment = Alignment.Center) { b(col) } }
+                            keys.forEachIndexed { i, k -> Box(Modifier.height(col), contentAlignment = Alignment.Center) { button(k, labels[i], col, null) } }
                         }
                     }
                 }
@@ -933,21 +1174,50 @@ private fun Controls(
                 modifier = Modifier.fillMaxWidth().padding(bottom = if (flat) 2.dp else 16.dp),
             ) {
                 androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = if (flat) 4.dp else 10.dp)) {
-                    // 2.5: Spaltenbreite aus der tatsaechlichen Breite; Design 2: bei grosser Schrift zwei Reihen statt
-                    // zerschnittener Woerter ("Came-ra off") - flach (ohne Beschriftung) immer eine Reihe
-                    val rows = CallLayout.controlRows(buttons.size, LocalDensity.current.fontScale, flat, maxWidth.value)
-                    val perRow = (buttons.size + rows - 1) / rows
-                    val col = minOf(if (rows > 1) 96.dp else 72.dp, maxWidth / perRow)
+                    // CH-17: eine Schrift je Reihe (die kleinste, die fuer alle Beschriftungen passt, mind. 11 sp); passt es
+                    // nicht, wandert der Rest in die zweite Reihe. Flach (ohne Beschriftung) immer eine Reihe.
+                    val base = MaterialTheme.typography.labelSmall
+                    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+                    val density = LocalDensity.current
+                    val maxW = maxWidth
+                    val plan = remember(labels, maxW, density, flat) {
+                        if (flat) CallControls.Plan(keys.size, base.fontSize.value)
+                        else CallControls.plan(keys.size) { k ->
+                            val avail = with(density) { (CallLayout.column(maxW, k) - 10.dp).roundToPx() }
+                            CallControls.rowFont(base.fontSize.value) { sp ->
+                                labels.all { l ->
+                                    CallLabels.words(l).all { w -> measurer.measure(w, base.copy(fontSize = sp.sp), maxLines = 1, softWrap = false).size.width <= avail }
+                                }
+                            }
+                        }
+                    }
+                    val col = CallLayout.column(maxW, plan.perRow)
                     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        buttons.chunked(perRow).forEach { line ->
+                        keys.indices.chunked(plan.perRow).forEach { line ->
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
-                                line.forEach { it(col) }
+                                line.forEach { i -> button(keys[i], labels[i], col, plan) }
                             }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/** CH-03: Umschalter mit Beschriftung darunter (Spalte wie RoundButton) */
+@Composable
+private fun CallToggle(
+    checked: Boolean, iconOn: Int, iconOff: Int, label: String, on: String, off: String, col: androidx.compose.ui.unit.Dp,
+    plan: CallControls.Plan?, onToggle: () -> Unit,
+) {
+    val size = maxOf(44.dp, minOf(60.dp, col - 6.dp))
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(col)) {
+        io.github.yggdrasil_sh.saga.ui.theme.SagaCallToggle(
+            checked, { onToggle() }, iconOn, iconOff, label, on, off, size = size, iconSize = if (size < 56.dp) 24.dp else 28.dp,
+            colors = CallDesign.toggleColors,
+        )
+        CallBtnLabel(label, col, plan?.sp, plan?.hyphenate == true)
     }
 }
 
@@ -1084,6 +1354,13 @@ private fun Tile(calls: CallManager, t: CallTile, self: Boolean, modifier: Modif
     }
 }
 
+/** CH-27/CH-28: einmalige Hinweise im Anruf (Schluessel in den Einstellungen "call_ui") */
+internal object CallHints {
+    const val KEY_DOUBLE_TAP = "r5_hint_double_tap"
+    const val KEY_MINIMIZE = "r5_hint_minimize"
+    const val CHIP_MS = 8000L
+}
+
 /** "Nicht mehr anzeigen" fuer den Hinweis vor dem ersten Teilen (je Geraet) */
 object ScreenHint {
     private const val PREFS = "saga_call"
@@ -1129,6 +1406,9 @@ internal fun RoundButton(
     off: Boolean = false,
     /** Screenreader-Text, wenn er von der sichtbaren Beschriftung abweicht ("Layout, Auto" zu "Layout") */
     cd: String? = null,
+    /** CH-17: gemeinsame Schriftgroesse der Reihe (null = selbst einpassen) */
+    labelSp: Float? = null,
+    labelHyphen: Boolean = false,
     onClick: () -> Unit,
 ) {
     // col: Spaltenbreite der Reihe (2.5) - Kreis passt hinein (mind. 44 dp, Zielgroesse fuer Finger)
@@ -1146,29 +1426,47 @@ internal fun RoundButton(
         ) {
             Icon(painterResource(icon), null, Modifier.size(if (big) 34.dp else if (compact || size < 56.dp) 24.dp else 28.dp))
         }
-        // Anruf-UI-Regeln: Beschriftung wie iOS (bis zwei Zeilen); fuer den Screenreader nur einmal am Knopf.
-        // A18: nie mitten im Wort trennen - passt das laengste Wort nicht in die Spalte, wird die Schrift kleiner
-        val base = MaterialTheme.typography.labelSmall.copy(
-            hyphens = androidx.compose.ui.text.style.Hyphens.None, lineBreak = androidx.compose.ui.text.style.LineBreak.Heading,
-        )
+        CallBtnLabel(label, col ?: maxOf(size, 64.dp), labelSp, labelHyphen)
+    }
+}
+
+/**
+ * Beschriftung unter einem Anruf-Knopf (bis zwei Zeilen, fuer den Screenreader nur am Knopf). A18: nie mitten im Wort
+ * trennen - ohne vorgegebene Schrift (sp) wird sie so klein, dass das laengste Wort passt; CH-17 gibt sie je Reihe vor.
+ */
+@Composable
+private fun CallBtnLabel(label: String, colW: androidx.compose.ui.unit.Dp, sp: Float?, hyphen: Boolean) {
+    // V1: flach ohne Textzeile (die Beschriftung bleibt am Knopf fuer Bedienungshilfen)
+    if (LocalFlatCall.current) return
+    val base = MaterialTheme.typography.labelSmall.copy(
+        hyphens = androidx.compose.ui.text.style.Hyphens.None, lineBreak = androidx.compose.ui.text.style.LineBreak.Heading,
+    )
+    val fit = if (sp != null) CallLabels.Fit(sp, hyphen) else {
         val measurer = androidx.compose.ui.text.rememberTextMeasurer()
-        val colW = col ?: maxOf(size, 64.dp)
         val avail = with(androidx.compose.ui.platform.LocalDensity.current) { (colW - 10.dp).roundToPx() }   // Rand 2 x 3 dp + Rundung
-        val fit = remember(label, avail, base) {
-            CallLabels.fit(base.fontSize.value, 9f) { sp ->
-                CallLabels.words(label).all { w -> measurer.measure(w, base.copy(fontSize = sp.sp), maxLines = 1, softWrap = false).size.width <= avail }
+        remember(label, avail, base) {
+            CallLabels.fit(base.fontSize.value, 9f) { s ->
+                CallLabels.words(label).all { w -> measurer.measure(w, base.copy(fontSize = s.sp), maxLines = 1, softWrap = false).size.width <= avail }
             }
         }
-        val fontSp = fit.sp
-        // V1: flach ohne Textzeile (die Beschriftung bleibt am Knopf fuer Bedienungshilfen)
-        if (!LocalFlatCall.current) Text(
-            label, style = base.copy(
-                fontSize = fontSp.sp, lineHeight = (fontSp + 3f).sp,
-                // passt ein Wort auch klein nicht (z. B. "Stummschalten"): nach Silben trennen ("Stumm-schalten")
-                hyphens = if (fit.hyphenate) androidx.compose.ui.text.style.Hyphens.Auto else androidx.compose.ui.text.style.Hyphens.None,
-            ), color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center,
-            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp, start = 3.dp, end = 3.dp).clearAndSetSemantics {},
-        )
+    }
+    Text(
+        label, style = base.copy(
+            fontSize = fit.sp.sp, lineHeight = (fit.sp + 3f).sp,
+            // passt ein Wort auch klein nicht (z. B. "Stummschalten"): nach Silben trennen ("Stumm-schalten")
+            hyphens = if (fit.hyphenate) androidx.compose.ui.text.style.Hyphens.Auto else androidx.compose.ui.text.style.Hyphens.None,
+        ), color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center,
+        maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp, start = 3.dp, end = 3.dp).clearAndSetSemantics {},
+    )
+}
+
+/** CH-18: "Kamera wechseln" als kleiner runder Knopf auf der eigenen Vorschau (40 dp Kreis, 48 dp Trefferflaeche) */
+@Composable
+internal fun SelfSwitch(calls: CallManager, modifier: Modifier = Modifier) {
+    IconButton(onClick = { calls.switchCamera() }, modifier = modifier.size(48.dp)) {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
+            Icon(painterResource(SagaIcons.cameraSwitch), stringResource(R.string.call_switch_camera), tint = Color.White, modifier = Modifier.size(20.dp))
+        }
     }
 }
 
@@ -1284,6 +1582,9 @@ internal object CallLayout {
      */
     fun controlRows(n: Int, fontScale: Float, flat: Boolean, widthDp: Float): Int =
         if (flat || n < 5) 1 else if (fontScale >= 1.3f || widthDp / n < 60f) 2 else 1
+
+    /** CH-17: Spaltenbreite bei perRow Knoepfen je Reihe (hoechstens 96 dp) */
+    fun column(width: androidx.compose.ui.unit.Dp, perRow: Int): androidx.compose.ui.unit.Dp = minOf(96.dp, width / perRow.coerceAtLeast(1))
 }
 
 /** V1: Kopf des Anrufs - hoch untereinander, flach nebeneinander (umbrechend) */

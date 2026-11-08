@@ -3582,6 +3582,62 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val st = _ui.value ?: return
         // Tatsaechliche Ausgabe anzeigen: ohne Hoerer (Tablet) bleibt der Ton auf dem Lautsprecher
         _ui.value = st.copy(speaker = setSpeaker(!st.speaker))
+        refreshRoutes()
+    }
+
+    /** CH-19: Ausgaben im Anruf (Hoerer, Lautsprecher, Bluetooth ...) fuer den Knopf "Audio" bzw. "Lautsprecher" */
+    val audioRoutes = MutableStateFlow(AudioRoutes())
+
+    /** CH-15: Server hat einen TURN-Server (null = unbekannt) - fuer den Hinweis im Blatt "Verbindungsdetails" */
+    val hasTurn: Boolean? get() = config?.hasTurn
+
+    /** CH-19: bestimmte Ausgabe waehlen (Android 12+: setCommunicationDevice; sonst nur Hoerer/Lautsprecher) */
+    fun selectAudio(route: AudioRoute) {
+        val st = _ui.value ?: return
+        val a = am
+        if (Build.VERSION.SDK_INT >= 31 && a != null) {
+            try {
+                val d = a.availableCommunicationDevices.firstOrNull { it.id == route.id }
+                    ?: a.availableCommunicationDevices.firstOrNull { kindOf(it.type) == route.kind }
+                if (d != null && a.setCommunicationDevice(d)) {
+                    log("audio route ${d.type} (picked)")
+                    _ui.value = _ui.value?.copy(speaker = d.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER)
+                } else audioError("setCommunicationDevice(${d?.type}) failed")
+            } catch (e: Exception) {
+                audioError("selectAudio: ${e.message}")
+            }
+        } else {
+            _ui.value = st.copy(speaker = setSpeaker(route.kind == AudioKind.SPEAKER))
+        }
+        refreshRoutes()
+    }
+
+    private fun kindOf(type: Int): AudioKind? = when (type) {
+        AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> AudioKind.EARPIECE
+        AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> AudioKind.SPEAKER
+        AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> AudioKind.BLUETOOTH
+        else -> if (Build.VERSION.SDK_INT >= 31 && type == AudioDeviceInfo.TYPE_BLE_HEADSET) AudioKind.BLUETOOTH
+        else if (type in headsetTypes) AudioKind.WIRED else null
+    }
+
+    /** CH-19: Liste der Ausgaben neu lesen (nach jedem Umschalten bzw. neuem/entferntem Geraet) */
+    private fun refreshRoutes() {
+        val a = am ?: return
+        audioRoutes.value = try {
+            if (Build.VERSION.SDK_INT >= 31) {
+                val routes = a.availableCommunicationDevices.mapNotNull { d ->
+                    val k = kindOf(d.type) ?: return@mapNotNull null
+                    AudioRoute(d.id, k, if (k == AudioKind.BLUETOOTH) d.productName?.toString().orEmpty() else "")
+                }
+                AudioRoutes(routes, a.communicationDevice?.id, earpiece = routes.any { it.kind == AudioKind.EARPIECE })
+            } else {
+                val earpiece = a.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE } ||
+                    app.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_TELEPHONY)
+                AudioRoutes(earpiece = earpiece)
+            }
+        } catch (_: Exception) {
+            AudioRoutes()
+        }
     }
 
     /**
@@ -4369,6 +4425,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             val st = _ui.value ?: return@launch
             val sp = setSpeaker(headset() == null && (st.cam || st.video))
             _ui.value = _ui.value?.copy(speaker = sp)
+            refreshRoutes()
         }
     }
 
@@ -4401,6 +4458,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         audioActive = true
         val sp = setSpeaker(speaker && headset() == null)
         _ui.value = _ui.value?.copy(speaker = sp)
+        refreshRoutes()
     }
 
     private fun audioOff() {

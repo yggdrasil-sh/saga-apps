@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 5 (r5-call): Anruf-Oberflaeche - Umschalter, Mehr-Blatt, Audio-Ausgabe, Verbindungsdetails -->
+<resources>
+    <string name="r5_call_mic">ไมโครโฟน</string>
+    <string name="r5_call_cam">กล้อง</string>
+    <string name="r5_call_audio">เสียง</string>
+    <string name="r5_call_more">เพิ่มเติม</string>
+    <string name="r5_call_on">เปิด</string>
+    <string name="r5_call_off">ปิด</string>
+    <string name="r5_call_audio_cd">เสียง: %1$s</string>
+    <string name="r5_call_audio_title">ช่องทางเสียงออก</string>
+    <string name="r5_call_out_phone">โทรศัพท์</string>
+    <string name="r5_call_out_bt">บลูทูธ</string>
+    <string name="r5_call_out_wired">หูฟัง</string>
+    <string name="r5_call_more_title">การทำงานเพิ่มเติม</string>
+    <string name="r5_call_people">ผู้เข้าร่วม</string>
+    <string name="r5_call_details">รายละเอียดการเชื่อมต่อ</string>
+    <string name="r5_call_weak">การเชื่อมต่ออ่อน</string>
+    <string name="r5_call_unverified">เข้ารหัสแล้ว · ยังไม่ได้ตรวจสอบหมายเลขความปลอดภัย</string>
+    <string name="r5_call_d_security">การเข้ารหัส</string>
+    <string name="r5_call_d_path">เส้นทางการเชื่อมต่อ</string>
+    <string name="r5_call_d_quality">คุณภาพ</string>
+    <string name="r5_call_d_audio">เสียง</string>
+    <string name="r5_call_d_unknown">ไม่ทราบ</string>
+    <string name="r5_call_path_node">ผ่านโหนด</string>
+    <string name="r5_call_turn_hint">การเชื่อมต่อเป็นแบบตรงและสัญญาณอ่อน เซิร์ฟเวอร์ TURN อาจช่วยได้ ซึ่งผู้ดูแลเซิร์ฟเวอร์ Saga เป็นผู้ตั้งค่า</string>
+    <string name="r5_call_audio_only">เสียงอย่างเดียว</string>
+    <string name="r5_call_mic_off_action">ปิดไมโครโฟน</string>
+    <string name="r5_call_dbltap_hint">แตะสองครั้งที่ภาพของคุณเพื่อเปลี่ยนขนาด</string>
+    <string name="r5_call_min_hint">สายยังดำเนินต่อ – กลับมาได้จากแถบการโทรหรือการแจ้งเตือน</string>
+</resources>

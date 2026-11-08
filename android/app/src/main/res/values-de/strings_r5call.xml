@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 5 (r5-call): Anruf-Oberflaeche - Umschalter, Mehr-Blatt, Audio-Ausgabe, Verbindungsdetails -->
+<resources>
+    <string name="r5_call_mic">Mikrofon</string>
+    <string name="r5_call_cam">Kamera</string>
+    <string name="r5_call_audio">Audio</string>
+    <string name="r5_call_more">Mehr</string>
+    <string name="r5_call_on">an</string>
+    <string name="r5_call_off">aus</string>
+    <string name="r5_call_audio_cd">Audio: %1$s</string>
+    <string name="r5_call_audio_title">Audio-Ausgabe</string>
+    <string name="r5_call_out_phone">Telefon</string>
+    <string name="r5_call_out_bt">Bluetooth</string>
+    <string name="r5_call_out_wired">Kopfhörer</string>
+    <string name="r5_call_more_title">Weitere Aktionen</string>
+    <string name="r5_call_people">Teilnehmende</string>
+    <string name="r5_call_details">Verbindungsdetails</string>
+    <string name="r5_call_weak">Schwache Verbindung</string>
+    <string name="r5_call_unverified">Verschlüsselt · Sicherheitsnummer nicht geprüft</string>
+    <string name="r5_call_d_security">Verschlüsselung</string>
+    <string name="r5_call_d_path">Verbindungsweg</string>
+    <string name="r5_call_d_quality">Qualität</string>
+    <string name="r5_call_d_audio">Ton</string>
+    <string name="r5_call_d_unknown">unbekannt</string>
+    <string name="r5_call_path_node">über den Knoten</string>
+    <string name="r5_call_turn_hint">Die Verbindung läuft direkt und ist schwach. Ein TURN-Server kann helfen – den richtet der Admin des Saga-Servers ein.</string>
+    <string name="r5_call_audio_only">Nur Ton</string>
+    <string name="r5_call_mic_off_action">Mikrofon ausschalten</string>
+    <string name="r5_call_dbltap_hint">Doppeltippen auf dein Bild ändert die Größe</string>
+    <string name="r5_call_min_hint">Der Anruf läuft weiter – zurück über die Anrufleiste oder die Mitteilung.</string>
+</resources>

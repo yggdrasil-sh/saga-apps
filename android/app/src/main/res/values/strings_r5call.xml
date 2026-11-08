@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 5 (r5-call): Anruf-Oberflaeche - Umschalter, Mehr-Blatt, Audio-Ausgabe, Verbindungsdetails -->
+<resources>
+    <string name="r5_call_mic">Microphone</string>
+    <string name="r5_call_cam">Camera</string>
+    <string name="r5_call_audio">Audio</string>
+    <string name="r5_call_more">More</string>
+    <string name="r5_call_on">on</string>
+    <string name="r5_call_off">off</string>
+    <string name="r5_call_audio_cd">Audio: %1$s</string>
+    <string name="r5_call_audio_title">Audio output</string>
+    <string name="r5_call_out_phone">Phone</string>
+    <string name="r5_call_out_bt">Bluetooth</string>
+    <string name="r5_call_out_wired">Headphones</string>
+    <string name="r5_call_more_title">More actions</string>
+    <string name="r5_call_people">Participants</string>
+    <string name="r5_call_details">Connection details</string>
+    <string name="r5_call_weak">Weak connection</string>
+    <string name="r5_call_unverified">Encrypted · safety number not verified</string>
+    <string name="r5_call_d_security">Encryption</string>
+    <string name="r5_call_d_path">Connection path</string>
+    <string name="r5_call_d_quality">Quality</string>
+    <string name="r5_call_d_audio">Sound</string>
+    <string name="r5_call_d_unknown">unknown</string>
+    <string name="r5_call_path_node">via the node</string>
+    <string name="r5_call_turn_hint">The connection is direct and weak. A TURN server can help – the admin of the Saga server sets it up.</string>
+    <string name="r5_call_audio_only">Audio only</string>
+    <string name="r5_call_mic_off_action">Turn microphone off</string>
+    <string name="r5_call_dbltap_hint">Double-tap your video to change its size</string>
+    <string name="r5_call_min_hint">The call continues – return via the call bar or the notification.</string>
+</resources>

@@ -52,6 +52,9 @@ internal object CallDesign {
     /** Platzhalter-Verlauf fuer Video in der Geraetetest-Vorschau (kein Web-Token, nur Attrappe): Blau, Violett, Gruen, Braun */
     val previewVideoTones: List<Color> = listOf(Color(0xFF3A6EA5), Color(0xFF7A4E9E), Color(0xFF2F8F6B), Color(0xFFB0643C))
 
+    /** CH-03: Umschalter Mikrofon/Kamera/Lautsprecher - an hell (callFg), aus neutral dunkel (callBtn, Rand callLine) */
+    val toggleColors: io.github.yggdrasil_sh.saga.ui.theme.SagaCallToggleColors = io.github.yggdrasil_sh.saga.ui.theme.SagaCallToggleColors.Default
+
     /** Abstand der Ringe um den Profilkreis beim Klingeln/Verbinden (Anteil des Radius) */
     const val HALO_SPREAD = 0.55f
 }

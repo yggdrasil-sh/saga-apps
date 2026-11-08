@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 5 (r5-call): Anruf-Oberflaeche - Umschalter, Mehr-Blatt, Audio-Ausgabe, Verbindungsdetails -->
+<resources>
+    <string name="r5_call_mic">Микрофон</string>
+    <string name="r5_call_cam">Камера</string>
+    <string name="r5_call_audio">Звук</string>
+    <string name="r5_call_more">Ещё</string>
+    <string name="r5_call_on">вкл.</string>
+    <string name="r5_call_off">выкл.</string>
+    <string name="r5_call_audio_cd">Звук: %1$s</string>
+    <string name="r5_call_audio_title">Вывод звука</string>
+    <string name="r5_call_out_phone">Телефон</string>
+    <string name="r5_call_out_bt">Bluetooth</string>
+    <string name="r5_call_out_wired">Наушники</string>
+    <string name="r5_call_more_title">Другие действия</string>
+    <string name="r5_call_people">Участники</string>
+    <string name="r5_call_details">Сведения о соединении</string>
+    <string name="r5_call_weak">Слабое соединение</string>
+    <string name="r5_call_unverified">Зашифровано · код безопасности не проверен</string>
+    <string name="r5_call_d_security">Шифрование</string>
+    <string name="r5_call_d_path">Путь соединения</string>
+    <string name="r5_call_d_quality">Качество</string>
+    <string name="r5_call_d_audio">Звук</string>
+    <string name="r5_call_d_unknown">неизвестно</string>
+    <string name="r5_call_path_node">через узел</string>
+    <string name="r5_call_turn_hint">Соединение прямое и слабое. Может помочь TURN-сервер – его настраивает администратор сервера Saga.</string>
+    <string name="r5_call_audio_only">Только звук</string>
+    <string name="r5_call_mic_off_action">Выключить микрофон</string>
+    <string name="r5_call_dbltap_hint">Дважды коснись своего видео, чтобы изменить размер</string>
+    <string name="r5_call_min_hint">Звонок продолжается – вернуться можно через панель звонка или уведомление.</string>
+</resources>

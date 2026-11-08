@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 5 (r5-call): Anruf-Oberflaeche - Umschalter, Mehr-Blatt, Audio-Ausgabe, Verbindungsdetails -->
+<resources>
+    <string name="r5_call_mic">Micrófono</string>
+    <string name="r5_call_cam">Cámara</string>
+    <string name="r5_call_audio">Audio</string>
+    <string name="r5_call_more">Más</string>
+    <string name="r5_call_on">activado</string>
+    <string name="r5_call_off">desactivado</string>
+    <string name="r5_call_audio_cd">Audio: %1$s</string>
+    <string name="r5_call_audio_title">Salida de audio</string>
+    <string name="r5_call_out_phone">Teléfono</string>
+    <string name="r5_call_out_bt">Bluetooth</string>
+    <string name="r5_call_out_wired">Auriculares</string>
+    <string name="r5_call_more_title">Más acciones</string>
+    <string name="r5_call_people">Participantes</string>
+    <string name="r5_call_details">Detalles de la conexión</string>
+    <string name="r5_call_weak">Conexión débil</string>
+    <string name="r5_call_unverified">Cifrado · número de seguridad no verificado</string>
+    <string name="r5_call_d_security">Cifrado</string>
+    <string name="r5_call_d_path">Ruta de conexión</string>
+    <string name="r5_call_d_quality">Calidad</string>
+    <string name="r5_call_d_audio">Sonido</string>
+    <string name="r5_call_d_unknown">desconocido</string>
+    <string name="r5_call_path_node">a través del nodo</string>
+    <string name="r5_call_turn_hint">La conexión es directa y débil. Un servidor TURN puede ayudar; lo configura el administrador del servidor Saga.</string>
+    <string name="r5_call_audio_only">Solo audio</string>
+    <string name="r5_call_mic_off_action">Desactivar micrófono</string>
+    <string name="r5_call_dbltap_hint">Toca dos veces tu vídeo para cambiar su tamaño</string>
+    <string name="r5_call_min_hint">La llamada continúa: vuelve a ella desde la barra de llamada o la notificación.</string>
+</resources>

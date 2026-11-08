@@ -21,6 +21,9 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -723,44 +726,46 @@ internal fun MeetCompanions(names: List<String>, onDark: Boolean) {
 internal fun meetPersons(n: Int): String = pluralStringResource(R.plurals.meet_persons, n, n)
 
 /**
- * Layout-Knopf (vier Quadrate) mit Menue: Auto/Galerie/Sprecher/Praesentation (nur wenn jemand teilt), Kacheln ohne
- * Video zeigen, eigenes Bild zeigen. Screenreader: "Layout, Auto".
+ * CH-18: Layout-Auswahl im "Mehr"-Blatt (vorher Menue am Layout-Knopf): Auto/Galerie/Sprecher/Praesentation (nur wenn
+ * jemand teilt), Kacheln ohne Video zeigen, eigenes Bild zeigen.
  */
 @Composable
-internal fun MeetLayoutButton(ms: MeetState, share: Boolean, col: Dp, bg: Color, fg: Color, onMenu: (Boolean) -> Unit) {
-    var open by remember { mutableStateOf(false) }
+internal fun MeetLayoutOptions(ms: MeetState, share: Boolean) {
     val names = mapOf(
         Meeting.Pref.AUTO to stringResource(R.string.meet_layout_auto), Meeting.Pref.GALLERY to stringResource(R.string.meet_layout_gallery),
         Meeting.Pref.SPEAKER to stringResource(R.string.meet_layout_speaker), Meeting.Pref.PRESENTATION to stringResource(R.string.meet_layout_presentation),
     )
     val cur = ms.effPref
-    Box {
-        RoundButton(
-            SagaIcons.gallery, stringResource(R.string.meet_layout), bg, fg, compact = true, col = col, selected = open,
-            cd = stringResource(R.string.meet_layout_cd, names[cur].orEmpty()),
-        ) {
-            open = true; onMenu(true)
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false; onMenu(false) }) {
-            for (p in Meeting.Pref.entries) {
-                val enabled = p != Meeting.Pref.PRESENTATION || share
-                DropdownMenuItem(
-                    text = { Text(names[p].orEmpty()) }, enabled = enabled,
-                    leadingIcon = { androidx.compose.material3.RadioButton(selected = cur == p, onClick = null, enabled = enabled) },
-                    onClick = { ms.pref = p; ms.callPref = null; open = false; onMenu(false) },
-                )
+    Column(Modifier.fillMaxWidth().semantics { androidx.compose.ui.semantics.selectableGroup() }) {
+        Text(
+            stringResource(R.string.meet_layout), style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
+        )
+        for (p in Meeting.Pref.entries) {
+            val enabled = p != Meeting.Pref.PRESENTATION || share
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .selectable(selected = cur == p, enabled = enabled, role = androidx.compose.ui.semantics.Role.RadioButton) { ms.pref = p; ms.callPref = null }
+                    .padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                androidx.compose.material3.RadioButton(selected = cur == p, onClick = null, enabled = enabled)
+                Text(names[p].orEmpty(), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 16.dp),
+                    color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            androidx.compose.material3.HorizontalDivider()
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.meet_show_novideo)) },
-                leadingIcon = { androidx.compose.material3.Checkbox(checked = ms.showNoVideo, onCheckedChange = null) },
-                onClick = { ms.showNoVideo = !ms.showNoVideo },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.meet_show_self)) },
-                leadingIcon = { androidx.compose.material3.Checkbox(checked = ms.showSelf, onCheckedChange = null) },
-                onClick = { ms.showSelf = !ms.showSelf },
-            )
+        }
+    }
+    for ((label, value, set) in listOf(
+        Triple(stringResource(R.string.meet_show_novideo), ms.showNoVideo) { v: Boolean -> ms.showNoVideo = v },
+        Triple(stringResource(R.string.meet_show_self), ms.showSelf) { v: Boolean -> ms.showSelf = v },
+    )) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(value = value, role = androidx.compose.ui.semantics.Role.Checkbox) { set(it) }
+                .padding(horizontal = 24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            androidx.compose.material3.Checkbox(checked = value, onCheckedChange = null)
+            Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 16.dp))
         }
     }
 }
@@ -842,7 +847,7 @@ internal fun MeetingLayer(
  * Gruppen die Teilnehmerliste.
  */
 @Composable
-internal fun MeetPill(title: String, info: String, e2e: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+internal fun MeetPill(title: String, info: String, e2e: String, modifier: Modifier = Modifier, verified: Boolean = true, onClick: (() -> Unit)? = null) {
     Surface(
         color = MEET_BAR, contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.pill),
         modifier = modifier.then(if (onClick != null) Modifier.clip(RoundedCornerShape(SagaRadius.pill)).clickable(role = androidx.compose.ui.semantics.Role.Button) { onClick() } else Modifier),
@@ -853,10 +858,11 @@ internal fun MeetPill(title: String, info: String, e2e: String, modifier: Modifi
                 modifier = Modifier.weight(1f, fill = false).semantics { heading() },
             )
             if (info.isNotEmpty()) Text(" · $info", style = MaterialTheme.typography.labelMedium, maxLines = 1, color = Color.White.copy(alpha = 0.85f))
-            Icon(
+            // CH-16: Schloss nur bei geprueftem Schluessel; sonst der Text fuer Bedienungshilfen
+            if (verified) Icon(
                 painterResource(SagaIcons.lock), e2e, Modifier.padding(start = 6.dp).size(14.dp),
                 tint = SagaColors.current.callOk,
-            )
+            ) else Box(Modifier.semantics { contentDescription = e2e })
         }
     }
 }
