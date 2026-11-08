@@ -113,4 +113,11 @@ class R5CallTest {
         // an und aus klar unterscheidbar (Flaechen untereinander >= 3:1)
         assertTrue(ChatUi.contrast(c.onContainer, c.offContainer) >= 3.0)
     }
+
+    /** R5-Fix: Werte im Blatt "Verbindungsdetails" nie mitten im Wort trennen */
+    @Test
+    fun keineSilbentrennung() {
+        assertEquals(androidx.compose.ui.text.style.Hyphens.None, io.github.yggdrasil_sh.saga.call.CallDesign.wordWrap.hyphens)
+        assertEquals(androidx.compose.ui.text.style.LineBreak.Simple, io.github.yggdrasil_sh.saga.call.CallDesign.wordWrap.lineBreak)
+    }
 }

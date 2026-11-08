@@ -975,7 +975,7 @@ internal fun CallDetailsSheet(st: CallUiState, hasTurn: Boolean?, onDismiss: () 
             val horn = st.room?.horn != null
             DetailRow(stringResource(R.string.r5_call_d_security), stringResource(if (st.verified) R.string.call_e2e else R.string.r5_call_unverified))
             Text(
-                stringResource(if (horn) R.string.call_e2e_info_horn else R.string.call_e2e_info), style = MaterialTheme.typography.bodySmall,
+                stringResource(if (horn) R.string.call_e2e_info_horn else R.string.call_e2e_info), style = MaterialTheme.typography.bodySmall.merge(CallDesign.wordWrap),
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp),
             )
             DetailRow(stringResource(R.string.r5_call_d_path), when {
@@ -1010,8 +1010,10 @@ private fun DetailRow(label: String, value: String) {
         Modifier.fillMaxWidth().heightIn(min = 40.dp).semantics(mergeDescendants = true) {},
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-        Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.End,
+        // Werte duerfen zweizeilig umbrechen, aber nie mitten im Wort ("Sicherheitsnum-mer")
+        val style = MaterialTheme.typography.bodyMedium.merge(CallDesign.wordWrap)
+        Text(label, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        Text(value, style = style, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.End,
             modifier = Modifier.padding(start = 12.dp).weight(1.4f))
     }
 }
