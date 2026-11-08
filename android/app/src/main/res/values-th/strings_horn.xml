@@ -6,6 +6,8 @@
     <string name="horn_draining_switch">โหนด %1$s กำลังบำรุงรักษา – กำลังสลับโดยไม่ขาดตอน …</string>
     <string name="horn_lost">ขาดการเชื่อมต่อกับโหนด</string>
     <string name="horn_retry">เข้าถึงโหนดไม่ได้ – ลองใหม่ใน %1$d วินาที …</string>
+    <string name="horn_reconnecting">กำลังเชื่อมต่อใหม่ …</string>
+    <string name="horn_recover_failed">ไม่สามารถกู้คืนการเชื่อมต่อกับโหนดได้ โปรดเข้าร่วมอีกครั้ง</string>
     <string name="horn_block_node">ขณะนี้ไม่มีโหนดสำหรับการโทรกลุ่มขนาดใหญ่ – โปรดลองอีกครั้งในไม่ช้า</string>
     <string name="horn_block_removed">คุณถูกนำออกจากการโทรนี้ เข้าร่วมได้อีกเมื่อได้รับเชิญ</string>
     <string name="horn_path_udp">UDP (เส้นทางเร็วที่สุด)</string>

@@ -173,8 +173,10 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     private var sw: HornLogic.Switcher? = null
     private var switching = false
     private var retryJob: Job? = null
-    private var retry0 = 0L
-    private var retryN = 0
+    /** Horn-Fix: Wiederaufbau nach Knotenverlust (immer ueber Knoten, nie direkt); Regeln in HornRecover.kt */
+    private val rec = HornRecover()
+    /** Knoten, die der Server in dieser Sitzung angeboten hat (avoid-Regel: einzigen Knoten nicht meiden) */
+    private val known = HashSet<String>()
     /** TT 67: Knoten, die in dieser Runde am Zertifikat scheiterten; anderer Fehler in dieser Runde; Runden nur Zertifikat */
     private val certBad = LinkedHashSet<String>()
     private var otherFail = false
@@ -305,6 +307,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                 retry("join")
             } catch (e: CallEnded) {
                 host.ended()
+            } catch (e: HornBusy) {
+                retry("join", e.after)
             } catch (e: Exception) {
                 log("start: ${e.message}")
                 retry("join")
@@ -344,6 +348,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     }
 
     private class NoNode : Exception("kein knoten")
+    /** Server antwortet 429 (voll/zu viele Anfragen): after = retry_after in s (null = aelterer Server, normaler Backoff) */
+    class HornBusy(val after: Int?) : Exception("429")
     private class CallEnded : Exception("beendet")
     private class HttpErr(val code: Int, msg: String) : IOException(msg)
 
@@ -483,17 +489,21 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         val a = bad.filter { it.value > now }.keys.toMutableList()
         leaving?.let { (n, until) -> if (until > now && n !in a) a.add(n) }
         for (n in extra) if (n !in a) a.add(n)
-        return a
+        return HornRecover.avoid(a, known + blk.candidates.map { it.node })   // einzigen Knoten nie meiden
     }
 
+    /** Kandidaten vom Server; merkt sich die angebotenen Knoten */
+    private suspend fun cands(node: String?, avoid: List<String>): List<HornLogic.Cand> =
+        host.cands(node, avoid).also { l -> known.addAll(l.map { it.node }) }
+
     private suspend fun fresh(c: HornLogic.Cand): HornLogic.Cand =
-        host.cands(c.node, avoid()).firstOrNull { it.node == c.node } ?: throw NoNode()
+        cands(c.node, avoid()).firstOrNull { it.node == c.node } ?: throw NoNode()
 
     // ---------------------------------------------------------------- Kandidaten -> Verbindung
 
     /** Kandidaten messen, ordnen, der Reihe nach versuchen. why: join | lost | draining | better | retry */
     private suspend fun begin(cands0: List<HornLogic.Cand>, why: String): Conn {
-        val cands = cands0.filter { !isBad(it.node) || cands0.size == 1 }
+        val cands = cands0.filter { !isBad(it.node) || cands0.size == 1 }.ifEmpty { cands0 }   // alle gescheitert: trotzdem
         if (cands.isEmpty()) throw NoNode()
         val one = cands.size == 1
         val list = if (one && !cands[0].udp) {
@@ -517,6 +527,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             throw e
         } catch (e: CallEnded) {
             throw e
+        } catch (e: HornBusy) {
+            throw e                                                 // Server 429: warten statt naechster Knoten
         } catch (e: Exception) {
             log("knoten ${c.node}: ${e.message}")
             if (e is HttpErr && e.code == 404) throw CallEnded()
@@ -1084,10 +1096,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         host.diagWay(conn.path, conn.node)
         val s = sw
         if (s == null) sw = HornLogic.Switcher(conn.node, conn.path, now) else s.moved(now, conn.node, conn.path, why)
-        retryJob?.cancel()
-        retryJob = null
-        retry0 = 0
-        retryN = 0
+        rec.adopted(now)                                            // Wiederaufbau: erst nach 10 s Daten zurueckgestellt
         certRounds = 0
         newRound()
         if (since == 0L) since = now
@@ -1131,24 +1140,24 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
 
     /** Wechseln. why: lost | draining | better (to) | udp-loss / udp (path, selber Knoten) */
     fun switch(why: String, to: String? = null, path: String? = null) {
-        if (closed || switching) return
+        if (closed || rec.muted) return                             // Wiederaufbau laeuft: stumm
+        if (why == "lost") { recover(why, cur?.node); return }      // Horn-Fix: Wiederaufbau ueber Knoten
+        if (switching) return
         val c = cur
         val hard = why == "lost" || why == "draining"
         switching = true
         host.diagEvent("switch", why + (path?.let { " -> $it" } ?: ""))
         log("switch $why ${path ?: ""}")
         val now = System.currentTimeMillis()
-        if (why == "lost" && c != null) bad[c.node] = now + HornLogic.BAD_MS
         if (hard && c != null) leaving = c.node to now + HornLogic.BAD_MS
-        if (why == "lost") setNote(UiText.Res(R.string.horn_lost_switch, c?.node ?: "?"))
-        else if (why == "draining") setNote(UiText.Res(R.string.horn_draining_switch, c?.node ?: "?"))
+        if (why == "draining") setNote(UiText.Res(R.string.horn_draining_switch, c?.node ?: "?"))
         scope.launch {
             try {
                 if (path != null && c != null) {
                     val conn = connect(fresh(c.cand), path)
                     adopt(conn, why)
                 } else {
-                    var list = host.cands(null, avoid())
+                    var list = cands(null, avoid())
                     if (to != null) list = list.filter { it.node == to }
                     else if (hard && c != null) {
                         val other = list.filter { it.node != c.node }
@@ -1163,6 +1172,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                 host.ended()
             } catch (e: HttpErr) {
                 if (e.code == 404) host.ended() else if (hard) retry(why)
+            } catch (e: HornBusy) {
+                if (hard) retry(why, e.after)
             } catch (e: Exception) {
                 log("switch $why: ${e.message}")
                 if (hard) retry(why)
@@ -1172,43 +1183,73 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         }
     }
 
-    /** Kein Knoten erreichbar: Meldung, erneut (2 … 15 s), nach 2 min aufgeben */
-    private fun retry(why: String) {
+    /** Wechsel/Beitritt gescheitert: Wiederaufbau mit Backoff (zaehlt als Fehlversuch) */
+    private fun retry(why: String, after: Int? = null) {
+        if (closed || rec.muted) return
+        step(why, rec.failed(System.currentTimeMillis(), after, rnd.nextDouble()), failure = true)
+    }
+
+    /**
+     * Horn-Fix: Verbindung zum Knoten verloren -> neu ueber einen Knoten verbinden (nie direkt/p2p). Der einzige Knoten
+     * wird dabei nicht gemieden; die Beobachtung bleibt stumm, solange ein Versuch laeuft oder geplant ist.
+     */
+    private fun recover(why: String, node: String?) {
         if (closed) return
         val now = System.currentTimeMillis()
-        if (retry0 == 0L) retry0 = now
-        if (now - retry0 > HornLogic.RETRY_MAX) {
-            host.lost(UiText.Res(R.string.horn_lost))
+        val st = rec.lost(now, rnd.nextDouble()) ?: return          // laeuft schon
+        log("wiederaufbau ${node ?: "-"} $why")
+        host.diagEvent("switch", "lost (wiederaufbau)")
+        if (node != null) bad[node] = now + HornLogic.BAD_MS        // nur bei mehreren Knoten gemieden
+        step(why, st, failure = st is HornRecover.Step.Wait && st.ms > 0)
+    }
+
+    private fun step(why: String, st: HornRecover.Step, failure: Boolean) {
+        if (closed) return
+        if (st !is HornRecover.Step.Wait) {
+            log("wiederaufbau aufgegeben")
+            host.lost(UiText.Res(R.string.horn_recover_failed))
             return
         }
         // TT 67: alle Knoten lehnt TLS wegen des Zertifikats ab -> Grund nennen; nach CERT_ROUNDS Runden aufgeben statt
         // endlos zu wiederholen (selbst signierte Knoten werden bewusst NICHT akzeptiert)
         val cert = certBad.toList()
-        if (cert.isNotEmpty() && !otherFail) certRounds++ else certRounds = 0
-        if (HornLogic.giveUpCert(cert, otherFail, certRounds)) {
-            host.lost(UiText.Res(R.string.horn_cert_untrusted, cert.joinToString(", ")))
-            return
+        if (failure) {
+            if (cert.isNotEmpty() && !otherFail) certRounds++ else certRounds = 0
+            if (HornLogic.giveUpCert(cert, otherFail, certRounds)) {
+                host.lost(UiText.Res(R.string.horn_cert_untrusted, cert.joinToString(", ")))
+                return
+            }
         }
-        retryN++
-        val s = minOf(15, 2 * retryN)
-        setNote(if (cert.isNotEmpty() && !otherFail) UiText.Res(R.string.horn_cert_retry, cert.joinToString(", "), s) else UiText.Res(R.string.horn_retry, s))
-        retryJob?.cancel()
+        val s = maxOf(1, Math.round(st.ms / 1000.0).toInt())
+        setNote(when {
+            failure && cert.isNotEmpty() && !otherFail -> UiText.Res(R.string.horn_cert_retry, cert.joinToString(", "), s)
+            since > 0 -> UiText.Res(R.string.horn_reconnecting)
+            else -> UiText.Res(R.string.horn_retry, s)
+        })
+        retryJob?.cancel()                                          // nur der eigene, ueberholte Plan
         retryJob = scope.launch {
-            delay(s * 1000L)
+            if (st.ms > 0) delay(st.ms)
             if (closed) return@launch
-            bad.clear()
+            var after: Int? = null
             try {
                 newRound()
-                begin(host.cands(null, emptyList()), if (cur != null) "lost" else if (why == "join") "join" else "retry")
+                begin(cands(null, avoid()), if (since > 0) "lost" else if (why == "join") "join" else "retry")
+                return@launch
             } catch (e: CancellationException) {
                 throw e
             } catch (e: CallEnded) {
                 host.ended()
+                return@launch
             } catch (e: HttpErr) {
-                if (e.code == 404) host.ended() else retry(why)
-            } catch (_: Exception) {
-                retry(why)
+                if (e.code == 404) { host.ended(); return@launch }
+            } catch (e: HornBusy) {
+                after = e.after
+            } catch (e: Exception) {
+                log("wiederaufbau: ${e.message}")
             }
+            if (closed) return@launch
+            log("wiederaufbau fehlgeschlagen${after?.let { " 429 $it s" } ?: ""}")
+            step(why, rec.failed(System.currentTimeMillis(), after, rnd.nextDouble()), failure = true)
         }
     }
 
@@ -1263,7 +1304,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         if (closed) return
         val now = System.currentTimeMillis()
         val c = cur
-        if (c != null && !switching) {
+        if (c != null && rec.tick(now, c.rx > 0)) log("wiederaufbau ok ${c.node}")
+        if (c != null && !switching && !rec.muted) {
             var worst = "connected"
             for (L in c.legs.values) {
                 if (L.pend) continue                                // L3: Ton-Bein wird gerade ersetzt
@@ -1325,11 +1367,11 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             scope.launch { try { meas[c.node] = probe(c.cand) } catch (_: Exception) {} }
         }
         // Andere Kandidaten: alle 30 s neu messen, Hysterese entscheidet
-        if (c != null && !switching && now - (if (candAt > 0) candAt else c.created) >= HornLogic.CANDS_EVERY) {
+        if (c != null && !switching && !rec.muted && now - (if (candAt > 0) candAt else c.created) >= HornLogic.CANDS_EVERY) {
             candAt = now
             scope.launch {
                 try {
-                    val list = host.cands(null, emptyList())
+                    val list = cands(null, emptyList())
                     val others = list.filter { it.node != c.node }
                     if (others.isEmpty() || closed) return@launch
                     val m = measure(list)

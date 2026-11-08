@@ -4054,12 +4054,19 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         override fun myState(): Triple<Boolean, Boolean, Boolean> = Triple(r.micOn && !r.rs.companion, r.videoTrack != null, r.screen != null)
 
         override suspend fun cands(node: String?, avoid: List<String>): List<HornLogic.Cand> {
-            val t = api.post("api/calls/${r.id}/horn", buildJsonObject {
-                put("device", myDevId())
-                put("dev_class", hornClass())
-                if (node != null) put("node", node)
-                put("avoid", JsonArray(avoid.map { JsonPrimitive(it) }))
-            })
+            val t = try {
+                api.post("api/calls/${r.id}/horn", buildJsonObject {
+                    put("device", myDevId())
+                    put("dev_class", hornClass())
+                    if (node != null) put("node", node)
+                    put("avoid", JsonArray(avoid.map { JsonPrimitive(it) }))
+                })
+            } catch (e: ApiException) {
+                // Horn-Fix: 429 (voll/zu viele Anfragen) ist kein "kein Knoten" - retry_after abwarten
+                if (e.code != 429) throw e
+                val b = try { Json.parseToJsonElement(e.body) as? JsonObject } catch (_: Exception) { null }
+                throw HornSession.HornBusy(HornRecover.retryAfter(e.code, b))
+            }
             val o = Json.parseToJsonElement(t) as? JsonObject
             return HornLogic.parseBlock(o?.get("horn"), BuildConfig.DEBUG)?.candidates.orEmpty()
         }
