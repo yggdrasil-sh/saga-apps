@@ -168,7 +168,14 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
             Notifier.cancel(context, "chat-$cid")
         }
         // "Namen zeigen" merken: im Hintergrund (Prozess vom Mitteilungsdienst gestartet) ist info noch nicht geladen
-        scope.launch { info.collect { i -> if (i != null) uiPrefs.edit().putBoolean(namesKey(), i.settings.names).apply() } }
+        // Pruefung: "Namen zeigen" aus -> Unterhaltungs-Shortcuts (tragen Chat-Namen) ebenfalls weg (ChatShortcuts-Vertrag)
+        scope.launch {
+            info.collect { i ->
+                if (i == null) return@collect
+                uiPrefs.edit().putBoolean(namesKey(), i.settings.names).apply()
+                if (!i.settings.names) ChatShortcuts.removeAll(context)
+            }
+        }
     }
 
     /** Kurze Kennung von Server + Konto (Mitteilungs-Extras, Shortcuts) - kein Geheimnis */

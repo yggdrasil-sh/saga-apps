@@ -75,7 +75,7 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Chat-Mitteilungen zeigen die schreibende Person (1:1: das Gegenüber, Gruppen: Gruppenname als Titel) – auch wenn die
   App im Hintergrund noch nichts geladen hat; mit „Namen zeigen“ aus neutral „Neue Nachricht“. Mehrere Nachrichten
   einer Person als eine Zeile mit Zahl. Chats erscheinen unter „Unterhaltungen“ (Shortcut je Chat, beim Entfernen des
-  Chats und beim Abmelden wieder weg). Kanäle in Gruppen „Mitteilungen“, „Anrufe“, „Hintergrund“ statt „Other“.
+  Chats, beim Abmelden und mit „Namen zeigen“ aus wieder weg). Kanäle in Gruppen „Mitteilungen“, „Anrufe“, „Hintergrund“ statt „Other“.
   Glocken-Blatt öffnet ganz, „Alle anzeigen“ steht fest unten über der Gestenleiste. Wegwischen zählt die
   Sammel-Mitteilung neu; „Als gelesen markieren“ wirkt nur noch für das Konto, für das die Mitteilung kam.
 
