@@ -18,6 +18,8 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Android-Einstellungen der Mitteilungen) und „Was Saga dir meldet“ (Konto-Einstellung, gruppiert nach Seiten &
   Kommentare, Erwähnungen, Chats & Anrufe, Aufgaben, Weitere).
 - **Abmelden** steht als Textknopf in Fehlerfarbe am Ende von „Konto“ (mit Rückfrage), nicht mehr als große Fläche.
+- Nachbesserung: Abschnittsüberschriften (z. B. „Systemmitteilungen auf diesem Gerät“, „Benachrichtigungen &
+  Chats“) brechen um statt mitten im Wort mit „…“ abgeschnitten zu werden; keine Silbentrennung.
 
 ### Geändert – Android: Design-Runde 4 „r4-today“ (Heute, Suchen, leere Zustände)
 
@@ -46,6 +48,16 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Papierkorb** ist ein eigener Bildschirm mit Zurück statt eines Vollbild-Dialogs.
 - **Kontomenü am Avatar** wie im Web: Name und Server, Sprache ›, Darstellung ›, Einstellungen,
   Admin-Bereich ↗ (nur für Admins), Abmelden mit Rückfrage.
+- Nachbesserung:
+  - Das „⋮“-Menü im Seitenbaum öffnet am Knopf (nicht mehr am linken Rand), Einträge mit Symbolen.
+  - Der Chats-Zähler zählt ungelesene **Gespräche**, nicht Nachrichten; TalkBack sagt „1 ungelesenes Gespräch“.
+  - Fußzeile der Seitenleiste in zwei Reihen mit Symbol und Beschriftung nebeneinander – keine Silbentrennung
+    („Einstellun-gen“) mehr, auch bei großer Schrift und auf dem Tablet.
+  - Papierkorb öffnet mit Zurück-Pfeil; Zurück führt zum vorherigen Ziel. Eine aus „Seiten“ geöffnete Seite führt
+    mit Zurück wieder zum Leistenziel (z. B. Chats) statt nach Heute.
+  - Aufgaben-Zähler in der Seitenleiste golden wie auf Heute; rot nur „N überfällig“ mit Wort.
+  - „Darstellung ›“ im Kontomenü ist ein Untermenü mit drei Optionen (statt Dialog), die Wahl gilt sofort.
+  - Suchen: Datenbanken ohne Ausschnitt aus Spaltenbeschriftungen.
 
 ### Geändert – Android: Design-Runde 4 r4-notify „Mitteilungen“
 

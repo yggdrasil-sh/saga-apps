@@ -66,7 +66,6 @@ import io.github.yggdrasil_sh.saga.ui.common.dateTimeText
 import io.github.yggdrasil_sh.saga.ui.common.epochDay
 import io.github.yggdrasil_sh.saga.ui.nav.AppNavigator
 import io.github.yggdrasil_sh.saga.ui.nav.Dest
-import io.github.yggdrasil_sh.saga.ui.theme.SagaSectionTitle
 import io.github.yggdrasil_sh.saga.ui.theme.sagaSegment
 import io.github.yggdrasil_sh.saga.util.ShotMode
 import io.github.yggdrasil_sh.saga.util.UiText
@@ -282,7 +281,7 @@ fun SettingsAccountScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
             item(key = "federation") { FederationDirectoryBlock(repo, w, reloadKey = signIns) }
             // "Mein Backup" steht seit Design-Runde 4 als "Sicherung ›" in der Hauptliste
 
-            item(key = "apps") { SagaSectionTitle(stringResource(R.string.settings_apps_devices), w.padding(top = 12.dp)) }
+            item(key = "apps") { io.github.yggdrasil_sh.saga.ui.common.SagaWrapSectionTitle(stringResource(R.string.settings_apps_devices), w.padding(top = 12.dp)) }
             item(key = "apps-hint") {
                 Text(
                     stringResource(R.string.settings_apps_explainer),
@@ -533,10 +532,10 @@ private fun notifGroupLabel(g: SettingsLogic.NotifGroup): Int = when (g) {
     SettingsLogic.NotifGroup.OTHER -> R.string.r4s_ngroup_other
 }
 
-/** Abschnittskopf (Goldbalken, TalkBack-Ueberschrift) */
+/** Abschnittskopf (Goldbalken, TalkBack-Ueberschrift); bricht um statt "Systemmitteilungen au…" (R4-Nachbesserung 61) */
 @Composable
 private fun GroupHeading(text: String, modifier: Modifier) {
-    SagaSectionTitle(text, modifier.padding(top = 14.dp, bottom = 2.dp))
+    io.github.yggdrasil_sh.saga.ui.common.SagaWrapSectionTitle(text, modifier.padding(top = 14.dp, bottom = 2.dp))
 }
 
 // ------------------------------------------------------------------------------------------------ Info
@@ -555,7 +554,7 @@ fun SettingsInfoScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) 
     Scaffold(topBar = { SagaTopBar(stringResource(R.string.settings_info), nav, chrome) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), state = listState, horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
-            item(key = "versions") { SagaSectionTitle(stringResource(R.string.settings_versions), w.padding(top = 8.dp)) }
+            item(key = "versions") { io.github.yggdrasil_sh.saga.ui.common.SagaWrapSectionTitle(stringResource(R.string.settings_versions), w.padding(top = 8.dp)) }
             item(key = "app") {
                 val shown = if (ShotMode.on && label == BuildConfig.VERSION_NAME) ShotMode.version("") else "Saga $label (${BuildConfig.VERSION_CODE})"
                 ListItem(headlineContent = { Text(stringResource(R.string.settings_app)) }, trailingContent = { Text(shown) }, colors = SEG, modifier = w.sagaSegment(0, 3))
@@ -586,7 +585,7 @@ fun SettingsInfoScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) 
             }
             item(key = "update") { UpdateHintSection(w) }
             item(key = "diag") { DiagSection(w) }
-            item(key = "licenses") { SagaSectionTitle(stringResource(R.string.settings_licenses), w.padding(top = 12.dp)) }
+            item(key = "licenses") { io.github.yggdrasil_sh.saga.ui.common.SagaWrapSectionTitle(stringResource(R.string.settings_licenses), w.padding(top = 12.dp)) }
             item(key = "license-text") {
                 Text(
                     stringResource(R.string.settings_license_text), style = MaterialTheme.typography.bodySmall,
@@ -612,7 +611,7 @@ private fun DiagSection(modifier: Modifier) {
     var result by remember { mutableStateOf<io.github.yggdrasil_sh.saga.diag.ClientLogger.DiagResult?>(null) }
     val enabled = on == true
     Column(modifier) {
-        SagaSectionTitle(stringResource(R.string.diag_title), Modifier.padding(top = 12.dp))
+        io.github.yggdrasil_sh.saga.ui.common.SagaWrapSectionTitle(stringResource(R.string.diag_title), Modifier.padding(top = 12.dp))
         Column(
             Modifier.sagaSegment(0, 1).padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -701,7 +700,7 @@ private fun UpdateHintSection(modifier: Modifier) {
     val failed by UpdateHintModel.failed.collectAsState()
     val available = UpdateHintModel.available(enabled, release)
     Column(modifier) {
-        SagaSectionTitle(stringResource(R.string.update_title), Modifier.padding(top = 12.dp))
+        io.github.yggdrasil_sh.saga.ui.common.SagaWrapSectionTitle(stringResource(R.string.update_title), Modifier.padding(top = 12.dp))
         io.github.yggdrasil_sh.saga.ui.push.SwitchRow(
             stringResource(R.string.update_toggle), enabled, Modifier.sagaSegment(0, if (enabled) 2 else 1),
         ) { UpdateHintModel.setEnabled(it) }

@@ -176,7 +176,8 @@ private fun ResultTile(p: PageMeta, byId: Map<Long, PageMeta>, repo: SagaReposit
     val kind = SearchHits.kind(p, byId)
     val untitled = stringResource(R.string.page_untitled)
     val path = remember(p.id, p.parentId, byId) { SearchHits.path(p, byId, untitled) }
-    val snippet = remember(p.snippet, q) { SearchHits.cleanSnippet(p.snippet, q) }
+    // R4-Nachbesserung 20: Datenbanken ohne Ausschnitt (der Server liefert dort nur Spaltenbeschriftungen)
+    val snippet = remember(p.snippet, q, kind) { if (SearchHits.showSnippet(kind)) SearchHits.cleanSnippet(p.snippet, q) else null }
     Row(
         modifier.fillMaxWidth().sagaSegment(index, count).clickable(onClick = onOpen).heightIn(min = 56.dp)
             .padding(horizontal = SagaSpace.m, vertical = SagaSpace.s + 2.dp),
@@ -253,6 +254,12 @@ object SearchHits {
         p.parentId?.let { byId[it] }?.isDatabase == true -> HitKind.ROW
         else -> HitKind.PAGE
     }
+
+    /**
+     * Ausschnitt zeigen? Nicht bei Datenbanken: dort ist er eine Kette von Spaltenbeschriftungen ("faellig Erledigt
+     * Neue Aufgabe …") ohne Aussage; Typ und Pfad stehen schon in der Overline.
+     */
+    fun showSnippet(kind: HitKind): Boolean = kind != HitKind.DATABASE
 
     /** Treffer ohne Vorlagen / Vorlagen (Reihenfolge des Servers bleibt) */
     fun split(results: List<PageMeta>): Pair<List<PageMeta>, List<PageMeta>> = results.partition { !it.template }
