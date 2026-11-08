@@ -180,8 +180,9 @@ private val mainItems = listOf(
     MainItem(Dest.Today, R.string.nav_today, SagaIcons.today),
     MainItem(Dest.Tasks, R.string.nav_tasks, SagaIcons.tasks),
     MainItem(Dest.Events, R.string.nav_events, SagaIcons.calendar),
-    MainItem(Dest.Services, R.string.nav_services, SagaIcons.server),
-    MainItem(Dest.Search, R.string.nav_search, SagaIcons.search),
+    // Design-Runde 4: Begriffe wie Seitenleiste und Web ("Dienste & Links", "Suchen"); die Rail selbst bleibt (Runde 6)
+    MainItem(Dest.Services, R.string.r4nav_services_links, SagaIcons.server),
+    MainItem(Dest.Search, R.string.r4nav_search, SagaIcons.search),
 )
 
 /**
@@ -339,7 +340,7 @@ fun MainScreen(
                             mainItems.forEach { it ->
                                 NavigationRailItem(
                                     selected = nav.root == it.dest, onClick = { nav.top(it.dest) },
-                                    icon = { SagaIcon(it.icon, null) }, label = { Text(stringResource(it.label)) },
+                                    icon = { SagaIcon(it.icon, null) }, label = { NavLabel(stringResource(it.label)) },
                                 )
                             }
                             // Saga 2.0: Chats (Ende-zu-Ende) und Benachrichtigungen mit Zaehler

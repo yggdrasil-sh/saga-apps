@@ -2,6 +2,8 @@ package io.github.yggdrasil_sh.saga.ui.pages
 
 import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
