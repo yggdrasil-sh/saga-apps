@@ -387,6 +387,27 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
                     onRowsRead?.invoke(m.readKeys, all)
                 }
             }
+            // 2.5: Eintrag geaendert (Chat-Nachricht fuer alle geloescht): Zeile ersetzen/herausnehmen, Zaehler vom Server
+            "notification.changed" -> {
+                val id = ev.long("id")
+                val g = io.github.yggdrasil_sh.saga.ui.notifications.NotifGroups
+                if (id != null) {
+                    val item = (data["item"] as? JsonObject)?.let {
+                        try {
+                            json.decodeFromJsonElement(NotifItem.serializer(), it)
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+                    val removed = ev.bool("removed") || data["item"] !is JsonObject
+                    val had = items.value.any { row -> id in g.idsOf(row) }
+                    // Eintrag nicht lesbar (andere Fassung): lieber neu laden als eine falsche Zeile zeigen
+                    if (!removed && item == null) scope.launch { loadNotifications() } else items.value = g.changed(items.value, id, item, removed)
+                    val gk = ev.str("group_key")
+                    if (removed && had && gk != null && !g.hasUnread(items.value, gk)) onRowsRead?.invoke(setOf(gk), false)
+                }
+                ev.int("unread")?.let { n -> counts(n, ev.int("unread_groups")) }
+            }
             "reset" -> scope.launch {
                 repo.dropTreeCursor()                                     // Verpasstes nicht nachholbar: Baum ganz laden
                 repo.refresh()

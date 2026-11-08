@@ -91,6 +91,16 @@ object NotifGroups {
     fun insert(list: List<NotifItem>, item: NotifItem, replaces: Long?): List<NotifItem> =
         regroup(listOf(item) + dropIds(list, setOfNotNull(item.id, replaces)))
 
+    /**
+     * 2.5 Live notification.changed (geloeschte Chat-Nachricht): Eintrag [id] ersetzen (item, gleiche id, kleinere Zahl)
+     * bzw. herausnehmen (removed/item null) - in seiner Zeile; leere Zeilen fallen weg.
+     */
+    fun changed(list: List<NotifItem>, id: Long, item: NotifItem?, removed: Boolean): List<NotifItem> =
+        if (removed || item == null) dropIds(list, setOf(id)) else insert(list, item.copy(id = id), null)
+
+    /** Bleibt nach [changed] noch Ungelesenes dieser Einheit? (sonst System-Mitteilung weg) */
+    fun hasUnread(list: List<NotifItem>, groupKey: String): Boolean = list.any { !it.read && it.groupKey == groupKey }
+
     /** Ergebnis von [markRead]: neue Liste, ob eine Zeile nur teilweise gelesen ist (neu laden), gelesene Einheiten */
     data class Marked(val list: List<NotifItem>, val partial: Boolean, val readKeys: Set<String>)
 

@@ -59,8 +59,11 @@ fun rememberAppLanguage(): Pair<String, (String) -> Unit> {
     val config = LocalConfiguration.current
     var chosen by remember(config) { mutableStateOf(AppLanguage.current(context)) }
     return chosen to { tag: String ->
+        val changed = AppLanguage.normalize(tag) != AppLanguage.current(context)
         chosen = tag
         context.activity()?.let { AppLanguage.set(it, tag) }
+        // 2.5 Push-Nutzlast 2: Mitteilungen dieses Geraets kommen in der App-Sprache - Abo mit neuer Sprache erneuern
+        if (changed) (context.applicationContext as? io.github.yggdrasil_sh.saga.SagaApplication)?.repo?.push?.onLanguageChanged()
     }
 }
 

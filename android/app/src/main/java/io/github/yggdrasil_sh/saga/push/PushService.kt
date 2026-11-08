@@ -45,6 +45,9 @@ data class PushServerInfo(
     /** 2.5: eigene Verbindung ohne Verteiler (GET /api/push/stream) */
     val stream: Boolean = false,
     @SerialName("stream_path") val streamPath: String? = null,
+    /** 2.5 Push-Nutzlast 2: Fassung der Nutzlast (aeltere Server: fehlt = 0) und Abo-Faehigkeiten ("update") */
+    val payload: Int = 0,
+    @SerialName("sub_caps") val subCaps: List<String> = emptyList(),
 )
 
 @Serializable
@@ -98,7 +101,20 @@ data class PushMessage(
     val call: String? = null,
     val chat: Long? = null,
     val media: String? = null,
-)
+    /** 2.5 Push-Nutzlast 2: Fassung (aeltere Server: 0), Sprache des Satzes, Name (nur wenn der Satz ihn ohnehin nennt), Anzahl */
+    val v: Int = 0,
+    val lang: String? = null,
+    val actor: kotlinx.serialization.json.JsonElement? = null,
+    val n: Int? = null,
+    @SerialName("group_key") val groupKey: String? = null,
+    /** 2.5: stille Aktualisierung einer schon gezeigten Mitteilung (gleicher tag); removed = schliessen */
+    val update: Boolean = false,
+    val removed: Boolean = false,
+) {
+    /** Name aus actor (Text); ohne actor nie ein Name */
+    val actorName: String?
+        get() = (actor as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it.isString }?.content?.trim()?.ifEmpty { null }
+}
 
 /** Anmeldung dieses Geraets beim Verteiler (je Server + Konto) */
 @Serializable
@@ -114,6 +130,9 @@ data class PushLocal(
     val path: String? = null,
     /** 2.5: Umstieg auf einen Verteiler - dieses alte "stream"-Abo nach erfolgreicher Anmeldung entfernen */
     val replaces: Long? = null,
+    /** 2.5 Push-Nutzlast 2: zuletzt beim Server gemeldete App-Sprache ("" = System; null = nie gemeldet), caps "update" gemeldet */
+    val lang: String? = null,
+    val caps: Boolean = false,
 )
 
 enum class PushState { OFF, REGISTERING, ON, ERROR }
@@ -144,6 +163,25 @@ object PushLogic {
         local.distributor !in installed && installed.isEmpty() && allowed && serverStream == true -> Step.TO_STREAM   // Verteiler deinstalliert
         else -> Step.STOP_STREAM
     }
+}
+
+/**
+ * 2.5 Push-Nutzlast 2: Abo mit Sprache (lang) und Faehigkeiten (caps ["update"]) - nur, wenn der Server payload >= 2
+ * meldet; aeltere Server bekommen das Abo wie bisher. Rein (Tests).
+ */
+object PushSubLogic {
+    const val CAP_UPDATE = "update"
+
+    fun v2(server: PushServerInfo?): Boolean = server != null && server.payload >= 2
+
+    /** Faehigkeiten, die dieses Geraet meldet (nur "update", und nur, wenn der Server sie kennt bzw. keine Liste nennt) */
+    fun caps(server: PushServerInfo?): List<String> =
+        if (!v2(server)) emptyList() else listOf(CAP_UPDATE).filter { server!!.subCaps.isEmpty() || it in server.subCaps }
+
+    /** Abo erneuern? Server kann Nutzlast 2, Abo besteht, und Sprache oder Faehigkeiten sind noch nicht gemeldet */
+    fun needsRenew(local: PushLocal?, server: PushServerInfo?, lang: String): Boolean =
+        v2(server) && local != null && local.subId != null && local.endpoint != null &&
+            (local.lang != lang || local.caps != caps(server).contains(CAP_UPDATE))
 }
 
 /**
@@ -275,10 +313,11 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
                     put("auth", k.authB64)
                 }
                 put("name", repo.deviceName)
+                subFields(this)
             }))
             val l = PushLocal(PushLogic.STREAM, UUID.randomUUID().toString(), "stream", r.id, WebPushCrypto.b64u(k.privatePkcs8), k.p256dh, k.authB64,
                 path = r.streamPath ?: info.value?.server?.streamPath ?: "/api/push/stream")
-            withContext(Dispatchers.IO) { saveLocal(l) }
+            withContext(Dispatchers.IO) { saveLocal(sentFields(l)) }
             state.value = PushState.ON
             PushStreamService.start(context)
             info.value = json.decodeFromString(PushInfo.serializer(), repo.api.get("api/push"))
@@ -356,6 +395,7 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
                 }
             } else if (l?.endpoint != null && i.server.enabled && i.devices.none { it.id == l.subId }) subscribe(l.endpoint)
             ensure()
+            if (i.server.enabled) renewSub()
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
@@ -437,6 +477,63 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
         load()
     }
 
+    // ---------------------------------------------------------------- 2.5 Nutzlast 2: Sprache und Faehigkeiten im Abo
+
+    /** App-Sprache fuer das Abo: gewaehlte Sprache, "" = System (der Server nimmt dann die Sprache des Kontos) */
+    private fun appLang(): String = io.github.yggdrasil_sh.saga.util.AppLanguage.current(context)
+
+    /** Felder lang/caps ins Abo - nur, wenn der Server Nutzlast 2 kann (sonst Abo wie bisher) */
+    private fun subFields(b: kotlinx.serialization.json.JsonObjectBuilder) {
+        val s = info.value?.server
+        if (!PushSubLogic.v2(s)) return
+        b.put("lang", appLang())
+        b.put("caps", kotlinx.serialization.json.JsonArray(PushSubLogic.caps(s).map { kotlinx.serialization.json.JsonPrimitive(it) }))
+    }
+
+    /** Gemeldete Felder merken (fuer [renewSub]) */
+    private fun sentFields(l: PushLocal): PushLocal {
+        val s = info.value?.server
+        return if (PushSubLogic.v2(s)) l.copy(lang = appLang(), caps = PushSubLogic.CAP_UPDATE in PushSubLogic.caps(s)) else l
+    }
+
+    /**
+     * Bestehendes Abo erneuern, wenn Sprache/Faehigkeiten noch nicht gemeldet sind (App aktualisiert, Server neu) oder
+     * die App-Sprache gewechselt hat - still (ein Fehler aendert den Zustand nicht; naechster Versuch beim naechsten Laden).
+     */
+    private suspend fun renewSub() {
+        val l = withContext(Dispatchers.IO) { local() } ?: return
+        if (!PushSubLogic.needsRenew(l, info.value?.server, appLang())) return
+        val stream = l.distributor == PushLogic.STREAM
+        try {
+            repo.api.post("api/push/subscriptions", buildJsonObject {
+                put("type", if (stream) "stream" else "unifiedpush")
+                if (!stream) put("endpoint", l.endpoint)
+                putJsonObject("keys") {
+                    put("p256dh", l.pub)
+                    put("auth", l.auth)
+                }
+                put("name", repo.deviceName)
+                subFields(this)
+            })
+            withContext(Dispatchers.IO) { local()?.takeIf { it.token == l.token }?.let { saveLocal(sentFields(it)) } }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+    }
+
+    /** App-Sprache gewechselt (Sprachwahl in der App): Abo mit der neuen Sprache erneuern */
+    fun onLanguageChanged() {
+        scope.launch {
+            try {
+                if (info.value == null) load() else renewSub()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     /** Neue Adresse vom Verteiler -> beim Server anmelden */
     suspend fun onNewEndpoint(token: String, endpoint: String) {
         val l = withContext(Dispatchers.IO) { local() } ?: return
@@ -456,8 +553,9 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
                     put("auth", l.auth)
                 }
                 put("name", repo.deviceName)
+                subFields(this)
             }))
-            withContext(Dispatchers.IO) { saveLocal(l.copy(endpoint = endpoint, subId = r.id, replaces = null)) }
+            withContext(Dispatchers.IO) { saveLocal(sentFields(l.copy(endpoint = endpoint, subId = r.id, replaces = null))) }
             state.value = PushState.ON
             error.value = null
             // 2.5: Umstieg von der eigenen Verbindung - altes Abo weg, Dienst aus
@@ -514,6 +612,14 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
         val l = local() ?: return null
         if (l.token != token) return null
         val msg = PushParse.parse(bytes, keysOf(l)) ?: return null
+        // 2.5 Nutzlast 2: stille Aktualisierung (Nachricht geloescht) - gezeigte Mitteilung anpassen/schliessen, nie klingeln
+        if (msg.update) {
+            if (msg.v >= 2) {
+                Notifier.update(context, msg)
+                scope.launch { repo.live.loadNotificationCount() }
+            }
+            return null
+        }
         // Anruf: nicht als normale Mitteilung - Zustand holen und als Vollbild-Anruf klingeln (nur solange er klingelt)
         // 2.4 E5: "call.group" (Gruppenanruf) ebenso - Zustand holen, klingeln nur, solange die eigene Einladung klingelt
         if ((msg.kind == "call" || msg.kind == "call.group") && msg.call != null) return repo.calls.onRing(msg.call)
@@ -525,7 +631,8 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
         // Nachbesserung: Satz in der App-Sprache (NotifyText), Chat-Name/Seitentitel aus dem lokalen Stand - im Hintergrund
         // ggf. erst nachladen (hoechstens ~4 s; der Empfaenger wartet auf diese Arbeit)
         return scope.launch {
-            val p = NotifyText.parse(msg.kind, msg.body)
+            // 2.5: Nutzlast 2 -> Satz aus kind/actor/n; aeltere Server -> Satzerkennung (Rueckfall)
+            val p = NotifyText.of(msg.v, msg.kind, msg.body, msg.actorName, msg.n)
             val names = namesOn(p)
             val look = if (names) {
                 try {
@@ -617,7 +724,7 @@ object PushParse {
             return null
         }
         return try {
-            json.decodeFromString(PushMessage.serializer(), String(plain, Charsets.UTF_8)).takeIf { it.body.isNotEmpty() || it.title.isNotEmpty() }
+            json.decodeFromString(PushMessage.serializer(), String(plain, Charsets.UTF_8)).takeIf { it.body.isNotEmpty() || it.title.isNotEmpty() || it.update }
         } catch (_: Exception) {
             null
         }
@@ -673,6 +780,9 @@ object Notifier {
     /** Zahl der zusammengefassten Nachrichten derselben Person (Extras der aktiven Mitteilung) */
     private const val EXTRA_N = "saga_n"
     private const val EXTRA_SENDER = "saga_sender"
+    /** 2.5: Zahl je Zeile der MessagingStyle-Mitteilung (0 = Erwaehnung) bzw. neutrale Mitteilung zeigt eine Erwaehnung */
+    private const val EXTRA_COUNTS = "saga_counts"
+    private const val EXTRA_MENTION = "saga_mention"
 
     /**
      * Design-Runde 4 (CH-04): Chat-Mitteilungen als MessagingStyle (Person = Absender mit Initialen; Konversationstitel nur
@@ -732,10 +842,14 @@ object Notifier {
                 n > 1 -> context.resources.getQuantityString(R.plurals.r4n_g_messages, n, n)
                 else -> context.getString(R.string.r4n_msg_new)
             }
-            b.setStyle(messaging(context, prev, sameSender, look, sender, line, whenMs))
+            val (style, prevSize) = messaging(context, prev, sameSender, look, sender, line, whenMs)
+            b.setStyle(style)
             b.setContentTitle(if (look.group) look.title else senderName).setContentText(line)
             extras.putString(EXTRA_SENDER, if (mention) null else senderName)
             extras.putInt(EXTRA_N, n)
+            // 2.5: Zahl je Zeile merken - eine spaetere Aktualisierung (Nachricht geloescht) kuerzt passend (NotifyUpdate)
+            val prevCounts = if (prev != null && prevSize > 0) countsOf(prev, prevSize) else emptyList()
+            extras.putIntArray(EXTRA_COUNTS, NotifyUpdate.nextCounts(prevCounts, sameSender && prevSize > 0, if (mention) 0 else n, MAX_LINES).toIntArray())
             if (look.chat > 0 && account.isNotEmpty()) {
                 ChatShortcuts.push(context, account, look.chat, m.url, look.title, sender, if (look.group) null else icon)?.let { sid ->
                     b.setShortcutId(sid).setLocusId(androidx.core.content.LocusIdCompat(sid))
@@ -744,13 +858,19 @@ object Notifier {
             sensitive = true
         } else if (chat) {
             // ohne Namen: neutral - keine Person, kein "Chats" als Absender; mehrere Nachrichten zaehlen
-            val n = if (m.kind == "chat.message") (prev?.extras?.getInt(EXTRA_N, 0) ?: 0) + 1 else 1
+            // 2.5 Nutzlast 2: n = ungelesene Nachrichten des Chats (Server); aeltere Server: hier mitzaehlen
+            val n = when {
+                m.kind != "chat.message" -> 1
+                m.v >= 2 && m.n != null -> maxOf(1, m.n)
+                else -> (prev?.extras?.getInt(EXTRA_N, 0) ?: 0) + 1
+            }
             val line = when {
                 m.kind == "chat.mention" -> text
                 n > 1 -> context.resources.getQuantityString(R.plurals.r4n_g_messages, n, n)
                 else -> context.getString(R.string.r4n_msg_new)
             }
             extras.putInt(EXTRA_N, n)
+            extras.putBoolean(EXTRA_MENTION, m.kind == "chat.mention")
             b.setContentTitle(line)
         } else {
             b.setContentTitle(title ?: m.title.ifEmpty { appName })
@@ -787,6 +907,81 @@ object Notifier {
         } catch (_: SecurityException) {
         }
         refreshSummaries(context)
+    }
+
+    /**
+     * 2.5 Nutzlast 2: stille Aktualisierung (Nachricht fuer alle geloescht) - die gezeigte Mitteilung mit gleichem tag
+     * kuerzen (Zeilen/Zahl, NotifyUpdate) bzw. bei removed/n 0 schliessen; ohne Ton/Vibration (setOnlyAlertOnce, setSilent).
+     * Keine Mitteilung sichtbar: nichts anzeigen. Sammel-Mitteilung wird neu gezaehlt.
+     */
+    fun update(context: Context, m: PushMessage) {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) return
+        if (m.kind != "chat.message" && m.kind != "chat.mention") return
+        val tag = m.tag.ifEmpty { return }
+        val prev = active(context, tag) ?: return
+        val n = if (m.removed) 0 else (m.n ?: return)
+        val style = try {
+            NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(prev)
+        } catch (_: Exception) {
+            null
+        }
+        val msgs = style?.messages.orEmpty()
+        val b: NotificationCompat.Builder
+        val extras = android.os.Bundle()
+        if (style != null && msgs.isNotEmpty()) {
+            val counts = countsOf(prev, msgs.size)
+            val lines = msgs.mapIndexed { i, x -> NotifyUpdate.Line(counts[i], x.person?.name?.toString()) }
+            val keep = when (val plan = NotifyUpdate.lines(lines, m.kind, n, m.actorName)) {
+                NotifyUpdate.Plan.Keep, is NotifyUpdate.Plan.Count -> return
+                NotifyUpdate.Plan.Cancel -> return cancel(context, tag)
+                is NotifyUpdate.Plan.Lines -> plan.keep
+            }
+            val ns = NotificationCompat.MessagingStyle(style.user)
+            ns.setConversationTitle(style.conversationTitle)
+            ns.setGroupConversation(style.isGroupConversation)
+            for ((i, c) in keep) {
+                val x = msgs[i]
+                val t = if (c == counts[i]) x.text else lineText(context, c)
+                ns.addMessage(NotificationCompat.MessagingStyle.Message(t, x.timestamp, x.person))
+            }
+            val (li, lc) = keep.last()
+            b = NotificationCompat.Builder(context, prev).setStyle(ns).setContentText(if (lc == counts[li]) msgs[li].text else lineText(context, lc))
+            extras.putIntArray(EXTRA_COUNTS, keep.map { it.second }.toIntArray())
+            extras.putInt(EXTRA_N, maxOf(1, lc))
+            extras.putString(EXTRA_SENDER, if (lc > 0) msgs[li].person?.name?.toString() else null)
+        } else {
+            val mention = prev.extras?.getBoolean(EXTRA_MENTION, false) ?: false
+            val count = prev.extras?.getInt(EXTRA_N, 1) ?: 1
+            val c = when (val plan = NotifyUpdate.neutral(mention, count, m.kind, n)) {
+                NotifyUpdate.Plan.Cancel -> return cancel(context, tag)
+                is NotifyUpdate.Plan.Count -> plan.n
+                else -> return
+            }
+            b = NotificationCompat.Builder(context, prev).setContentTitle(lineText(context, c))
+            extras.putInt(EXTRA_N, c)
+        }
+        b.addExtras(extras).setOnlyAlertOnce(true).setSilent(true)
+        try {
+            NotificationManagerCompat.from(context).notify(tag, ID, b.build())
+        } catch (_: SecurityException) {
+        }
+        refreshSummaries(context)
+    }
+
+    /** Zeile einer Chat-Mitteilung: 0 = Erwaehnung, 1 = "Neue Nachricht", mehr = "n neue Nachrichten" */
+    private fun lineText(context: Context, c: Int): String = when {
+        c <= 0 -> context.getString(R.string.r4n_msg_mention)
+        c == 1 -> context.getString(R.string.r4n_msg_new)
+        else -> context.resources.getQuantityString(R.plurals.r4n_g_messages, c, c)
+    }
+
+    /** Zahl je Zeile der gezeigten MessagingStyle-Mitteilung (aeltere Mitteilungen ohne gespeicherte Zahlen: geschaetzt) */
+    private fun countsOf(prev: android.app.Notification, size: Int): List<Int> {
+        val ex = prev.extras
+        ex?.getIntArray(EXTRA_COUNTS)?.takeIf { it.size == size }?.let { return it.toList() }
+        return NotifyUpdate.defaultCounts(size, ex?.getInt(EXTRA_N, 1) ?: 1, ex?.containsKey(EXTRA_SENDER) == true && ex.getString(EXTRA_SENDER) == null)
     }
 
     /** Aktive Mitteilung dieser Unterhaltung (fuer Zusammenfassen), sonst null */
@@ -836,7 +1031,7 @@ object Notifier {
     private fun messaging(
         context: Context, prevN: android.app.Notification?, replaceLast: Boolean, look: ChatLook,
         sender: androidx.core.app.Person, line: String, whenMs: Long,
-    ): NotificationCompat.MessagingStyle {
+    ): Pair<NotificationCompat.MessagingStyle, Int> {
         val me = androidx.core.app.Person.Builder().setName(context.getString(R.string.r4n_you)).setKey("me").build()
         val prev = try {
             prevN?.let { NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it) }
@@ -846,10 +1041,11 @@ object Notifier {
         val style = NotificationCompat.MessagingStyle(me)
         if (look.group) style.setConversationTitle(look.title)
         style.setGroupConversation(look.group)
-        val old = prev?.messages.orEmpty().let { if (replaceLast) it.dropLast(1) else it }
+        val all = prev?.messages.orEmpty()
+        val old = all.let { if (replaceLast) it.dropLast(1) else it }
         old.takeLast(MAX_LINES - 1).forEach { style.addMessage(it) }
         style.addMessage(NotificationCompat.MessagingStyle.Message(line, whenMs, sender))
-        return style
+        return style to all.size
     }
 
     /** Sammel-Mitteilung je System-Gruppe (Zahl der Mitteilungen); ohne Mitglieder weg */

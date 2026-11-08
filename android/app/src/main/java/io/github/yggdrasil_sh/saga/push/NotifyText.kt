@@ -131,4 +131,56 @@ object NotifyText {
 
     /** Hat der Server einen Namen genannt? Dann ist "Namen zeigen" fuer diesen Weg an (saga/push.py with_names). */
     fun named(p: Parsed?): Boolean = p?.name != null
+
+    /**
+     * 2.5 Push-Nutzlast 2 (v >= 2, docs/APP-API.md "Push-Nutzlast 2"): Satz aus den Feldern statt aus dem fertigen Satz.
+     * actor steht nur in der Nutzlast, wenn der Server den Namen ohnehin zeigt ("Namen zeigen" an, verschluesselter Weg) -
+     * ohne actor also nie ein Name. n = Anzahl (Chat: ungelesene des Chats, Kommentare/Eintragungen: Buendel, verpasste
+     * Anrufe: ungelesene des Chats). null = Art/Satz unbekannt (z. B. Freigabe mit Rolle) -> Satz des Servers bleibt.
+     * Rein (Tests).
+     */
+    fun fromV2(kind: String, actor: String?, n: Int?): Parsed? {
+        val a = actor?.trim()?.ifEmpty { null }
+        val c = n?.takeIf { it > 1 }
+        return when (kind) {
+            "chat.message" -> if (a != null) Parsed(Sentence.CHAT_FROM, a) else Parsed(Sentence.CHAT, n = n)
+            "chat.mention" -> if (a != null) Parsed(Sentence.CHAT_MENTION_FROM, a) else Parsed(Sentence.CHAT_MENTION)
+            "call.missed" -> when {
+                a != null && c != null -> Parsed(Sentence.MISSED_N_FROM, a, c)
+                a != null -> Parsed(Sentence.MISSED_FROM, a)
+                c != null -> Parsed(Sentence.MISSED_N, null, c)
+                else -> Parsed(Sentence.MISSED)
+            }
+            // Buendel: der Server nennt bei mehreren Kommentaren/Antworten keinen Namen (Satz der Glocke)
+            "comment.new" -> when {
+                c != null -> Parsed(Sentence.COMMENTS_N, null, c)
+                a != null -> Parsed(Sentence.COMMENT_FROM, a)
+                else -> Parsed(Sentence.COMMENT)
+            }
+            "comment.reply" -> when {
+                c != null -> Parsed(Sentence.REPLIES_N, null, c)
+                a != null -> Parsed(Sentence.REPLY_FROM, a)
+                else -> Parsed(Sentence.REPLY)
+            }
+            "comment.mention" -> if (a != null) Parsed(Sentence.COMMENT_MENTION_FROM, a) else Parsed(Sentence.MENTION)
+            "page.mention" -> if (a != null) Parsed(Sentence.PAGE_MENTION_FROM, a) else Parsed(Sentence.MENTION)
+            "db.assigned" -> when {
+                a != null && c != null -> Parsed(Sentence.DB_N_FROM, a, c)
+                a != null -> Parsed(Sentence.DB_FROM, a)
+                else -> Parsed(Sentence.DB)
+            }
+            "task.due" -> Parsed(Sentence.TASKS)
+            // mit Namen nennt der Server die Rolle mit - die steht nicht in der Nutzlast: Satz des Servers bleibt
+            "share.added" -> if (a != null) null else Parsed(Sentence.SHARE)
+            "share.role" -> if (a != null) null else Parsed(Sentence.ROLE)
+            "test" -> Parsed(Sentence.TEST)
+            else -> null
+        }
+    }
+
+    /**
+     * Satz fuer diese Mitteilung: Nutzlast 2 aus den Feldern, aeltere Server per Satzerkennung ([parse], Rueckfall).
+     */
+    fun of(v: Int, kind: String, body: String, actor: String?, n: Int?): Parsed? =
+        if (v >= 2) fromV2(kind, actor, n) else parse(kind, body)
 }
