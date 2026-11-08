@@ -102,7 +102,7 @@ internal fun RowSheetPane(
         enter = expandHorizontally(expandFrom = Alignment.Start) + fadeIn(),
         exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut(),
     ) {
-        BackHandler(enabled = row != null, onBack = onBack)
+        BackHandler(enabled = io.github.yggdrasil_sh.saga.ui.database.RowSheetLogic.back(row != null) == io.github.yggdrasil_sh.saga.ui.database.RowSheetLogic.Back.CLOSE_SHEET, onBack = onBack)
         Row(Modifier.fillMaxHeight().semantics { isTraversalGroup = true; paneTitle = title }) {
             VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Box(Modifier.width(width).fillMaxHeight()) {

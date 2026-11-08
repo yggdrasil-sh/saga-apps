@@ -24,6 +24,21 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Titel fluchten mit dem Inhalt:** Bei zentrierter Inhaltsspalte (Aufgaben, Termine, Benachrichtigungen,
   Einstellungen) stehen Titel und Aktionen der App-Leiste über der Spalte statt am Rand.
 
+### Geändert – Android: Design-Runde 6 (Tablet) – Heute und Datenbank-Zeilen
+
+- **Heute zweispaltig:** Ab 840 dp verfügbarer Breite stehen links die Termine und rechts die Aufgaben mit
+  Schnelleingabe (je höchstens 480 dp, Block mittig); Begrüßung, Schnellaktionen und „Weitermachen“ bleiben darüber.
+  Beide Spalten scrollen gemeinsam mit dem Kopf; TalkBack liest erst die Termine, dann die Aufgaben. Schmaler bleibt
+  es einspaltig wie bisher.
+- **Datenbank-Zeile als Seitenblatt:** Ab 840 dp öffnet ein Tipp auf eine Zeile (Tabelle, Liste, Board, Galerie,
+  Kalender – in der Datenbank-Seite und in eingebetteten Datenbanken) die Zeile rechts als Blatt (480–560 dp); die
+  Ansicht bleibt links sichtbar und bedienbar, die offene Zeile ist markiert. Im Kopf des Blatts: Schließen,
+  „Vorige/Nächste Zeile“ in der aktuellen Sortierung und Filterung und „In voller Größe öffnen“. Zurück schließt erst
+  das Blatt. Inhalt und Bearbeiten wie auf der Zeilenseite; Änderungen erscheinen gleich in der Ansicht. Wird das
+  Fenster schmaler (Drehen), öffnet die Zeile als ganze Seite. Telefon und 600–840 dp unverändert.
+- **Eigenschaften der Zeilenseite:** Zeilen mindestens 48 dp hoch, Tipp-Rückmeldung über die volle Breite, leere Werte
+  als „Hinzufügen …“.
+
 ### Geändert – Android: Design-Runde 5 „Chats & Anrufe“
 
 - **Chat-Liste zeigt die letzte Nachricht:** „Du: …“, „Name: …“, „Foto“, „Sprachnachricht 0:12“, „Verpasster Anruf“

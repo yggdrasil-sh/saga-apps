@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android-Design-Runde 6 (Tablet): Datenbank-Zeile als Seitenblatt -->
+<resources>
+    <string name="r6_sheet_close">Close</string>
+    <string name="r6_sheet_prev">Previous row</string>
+    <string name="r6_sheet_next">Next row</string>
+    <string name="r6_sheet_open_full">Open full size</string>
+    <string name="r6_sheet_pane">Row</string>
+</resources>
