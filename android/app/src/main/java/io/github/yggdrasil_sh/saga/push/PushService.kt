@@ -952,8 +952,8 @@ object Notifier {
             extras.putInt(EXTRA_N, maxOf(1, lc))
             extras.putString(EXTRA_SENDER, if (lc > 0) msgs[li].person?.name?.toString() else null)
         } else {
-            val mention = prev.extras?.getBoolean(EXTRA_MENTION, false) ?: false
-            val count = prev.extras?.getInt(EXTRA_N, 1) ?: 1
+            val mention = prev.extras.getBoolean(EXTRA_MENTION, false)
+            val count = prev.extras.getInt(EXTRA_N, 1)
             val c = when (val plan = NotifyUpdate.neutral(mention, count, m.kind, n)) {
                 NotifyUpdate.Plan.Cancel -> return cancel(context, tag)
                 is NotifyUpdate.Plan.Count -> plan.n
