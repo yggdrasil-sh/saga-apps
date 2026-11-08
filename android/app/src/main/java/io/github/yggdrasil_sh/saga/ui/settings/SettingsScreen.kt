@@ -24,7 +24,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemColors
 import androidx.compose.material3.ListItemDefaults
@@ -45,7 +44,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -57,6 +58,8 @@ import io.github.yggdrasil_sh.saga.data.AppsResponse
 import io.github.yggdrasil_sh.saga.data.DeviceInfo
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.data.avatarState
+import io.github.yggdrasil_sh.saga.data.backupStatus
+import io.github.yggdrasil_sh.saga.data.ncSettings
 import io.github.yggdrasil_sh.saga.ui.common.Chrome
 import io.github.yggdrasil_sh.saga.ui.common.SagaTopBar
 import io.github.yggdrasil_sh.saga.ui.common.dateTimeText
@@ -75,13 +78,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Einstellungen in drei Bereichen (2.5, wie iOS): Startliste mit Kopfzeile (Profilbild + Name -> Konto), Zeilen
- * "Einstellungen" und "Info" (Punkt bei bekanntem Update) und "Abmelden" ganz unten. Unterseiten:
- *  - Konto (SettingsAccountScreen): Anmeldung, Anzeigename, Profilbild, Anmeldung & Sicherheit, oeffentlicher Name,
- *    Adressbuecher verbundener Server, Mein Backup, Apps & Geraete
- *  - Einstellungen (SettingsGeneralScreen): Allgemein (Sprache) · Benachrichtigungen (Glocke, Mitteilungen/eigene
- *    Verbindung, Anruf-Hinweise) · Chat (Chats & Geraete, Datenschutz) · Dienste (Nextcloud)
- *  - Info (SettingsInfoScreen): Versionen, Kanal, Update-Hinweis, Lizenzen
+ * Einstellungen (Design-Runde 4, NAV-11/NAV-20): Hauptliste "Einstellungen" mit Kopf (Profilbild + Name -> Konto),
+ * Allgemein (Sprache, Darstellung) und Kategorien mit ›:
+ *  - Benachrichtigungen (SettingsNotificationsScreen): auf diesem Geraet (Systemmitteilungen, Android-Kanaele) und
+ *    was Saga meldet (Server-Einstellungen, gruppiert), Anruf-Hinweise, Aufgaben-Zusammenfassung
+ *  - Chats (SettingsChatsScreen): Chats & Geraete, gesperrte Personen, Linkvorschau, Datenschutz
+ *  - Sicherung (BackupScreen) und Nextcloud - nur Server, die es koennen
+ *  - Konto (SettingsAccountScreen): Anmeldung, Name, Profilbild, Sicherheit, oeffentlicher Name, Foederation,
+ *    Apps & Geraete, ganz unten Abmelden (Textknopf in Fehlerfarbe, mit Rueckfrage)
+ *  - Info (SettingsInfoScreen): Versionen, Kanal, Update-Hinweis, Diagnose, Lizenzen
  * Spruenge (?settings=backup, Glocke, Chat-Hinweise): SettingsNav.open / SettingsArea.
  */
 @Composable
@@ -91,9 +96,11 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val signIns by repo.signInCount.collectAsState()
     val enabled by UpdateHintModel.enabled.collectAsState()
     val release by UpdateHintModel.release.collectAsState()
+    val chatState by repo.chat.state.collectAsState()
     val update = UpdateHintModel.available(enabled, release)
     var ownAvatar by remember { mutableStateOf(SettingsMemory.avatar) }
-    var confirmLogout by remember { mutableStateOf(false) }
+    var backup by remember { mutableStateOf(SettingsMemory.backup.takeIf { SettingsMemory.servicesKey == signIns }) }
+    var nc by remember { mutableStateOf(SettingsMemory.nc.takeIf { SettingsMemory.servicesKey == signIns }) }
     LaunchedEffect(account, signIns) {
         ownAvatar = try {
             repo.avatarState().url.also { SettingsMemory.avatar = it }
@@ -103,9 +110,37 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             ownAvatar
         }
     }
+    // Sicherung und Nextcloud nur, wenn der Server sie anbietet (2.3); Chats: Zustand fuer die Kategorie
+    LaunchedEffect(signIns) {
+        backup = try {
+            repo.backupStatus()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            backup
+        }
+        nc = try {
+            repo.ncSettings()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            nc
+        }
+        SettingsMemory.backup = backup
+        SettingsMemory.nc = nc
+        SettingsMemory.servicesKey = signIns
+        repo.chat.refresh()
+    }
+    val ncShown = nc?.takeIf { it.enabled || it.connected }
+    val cats = SettingsLogic.categories(
+        chats = chatState != ChatSetup.UNSUPPORTED && chatState != ChatSetup.OFF,
+        backup = backup?.allowed == true,
+        nextcloud = ncShown != null,
+    )
     Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_settings), nav, chrome) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
+            // Kopf: wer ist angemeldet, wo (Antippen -> Konto)
             item(key = "head") {
                 val host = ShotMode.host(PairLink.displayHost(server)).ifEmpty { "–" }
                 ListItem(
@@ -117,66 +152,79 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     trailingContent = { SagaIcon(SagaIcons.chevronRight, null) },
                     colors = SEG,
                     modifier = w.padding(top = 8.dp).sagaSegment(0, 1, color = MaterialTheme.colorScheme.surfaceContainer)
-                        .clickable(onClickLabel = stringResource(R.string.settings_account)) { nav.push(Dest.SettingsAccount) }
+                        .clickable(role = Role.Button, onClickLabel = stringResource(R.string.settings_account)) { openPage(nav, SettingsArea.KONTO) }
                         .padding(vertical = 6.dp),
                 )
             }
-            item(key = "areas") {
-                Column(w.padding(top = 16.dp)) {
-                    ListItem(
-                        headlineContent = { Text(stringResource(R.string.nav_settings)) },
-                        leadingContent = { SagaIcon(SagaIcons.settings, null) },
-                        trailingContent = { SagaIcon(SagaIcons.chevronRight, null) },
-                        colors = SEG, modifier = Modifier.sagaSegment(0, 2).clickable { nav.push(Dest.SettingsGeneral) },
-                    )
-                    val dotLabel = stringResource(R.string.settings_update_dot)
-                    ListItem(
-                        headlineContent = { Text(stringResource(R.string.settings_info)) },
-                        leadingContent = { SagaIcon(SagaIcons.info, null) },
-                        trailingContent = {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                if (update != null) {
-                                    Box(Modifier.size(10.dp).background(MaterialTheme.colorScheme.error, CircleShape).semantics { contentDescription = dotLabel })
-                                }
-                                SagaIcon(SagaIcons.chevronRight, null)
+            // Allgemein: Sprache und Darstellung direkt hier (das Kontomenue am Avatar ist nur ein Schnellweg)
+            item(key = "g-general") { GroupHeading(stringResource(R.string.settings_group_general), w) }
+            item(key = "sprache") { LanguageRow(w.sagaSegment(0, 2)) }
+            item(key = "darstellung") { AppearanceRow(w.sagaSegment(1, 2)) }
+
+            val groups = listOf(
+                R.string.r4s_group_alerts to cats.filter { it == SettingsLogic.Category.NOTIFICATIONS || it == SettingsLogic.Category.CHATS },
+                R.string.r4s_group_data to cats.filter { it == SettingsLogic.Category.BACKUP || it == SettingsLogic.Category.NEXTCLOUD },
+                R.string.r4s_group_account to cats.filter { it == SettingsLogic.Category.ACCOUNT || it == SettingsLogic.Category.INFO },
+            ).filter { it.second.isNotEmpty() }
+            groups.forEach { (title, list) ->
+                item(key = "g-$title") { GroupHeading(stringResource(title), w) }
+                list.forEachIndexed { i, c ->
+                    item(key = "cat-" + c.name.lowercase()) {
+                        val m = w.sagaSegment(i, list.size)
+                        when (c) {
+                            SettingsLogic.Category.NOTIFICATIONS -> SettingsCategoryRow(
+                                SagaIcons.bell, stringResource(R.string.notifications), m, summary = stringResource(R.string.r4s_cat_notifications_hint),
+                            ) { openPage(nav, SettingsArea.BENACHRICHTIGUNGEN) }
+                            SettingsLogic.Category.CHATS -> SettingsCategoryRow(
+                                SagaIcons.chats, stringResource(R.string.r4s_chats), m, summary = stringResource(R.string.r4s_cat_chats_hint),
+                            ) { openPage(nav, SettingsArea.CHATS) }
+                            SettingsLogic.Category.BACKUP -> SettingsCategoryRow(
+                                SagaIcons.archive, stringResource(R.string.r4s_backup), m,
+                                summary = backup?.let { b ->
+                                    when {
+                                        b.running -> stringResource(R.string.ub_running_short)
+                                        b.lastOk != null -> stringResource(R.string.ub_last_ok_at, dateTimeText((b.lastOk * 1000).toLong(), true))
+                                        !b.ready -> stringResource(R.string.ub_not_set_up)
+                                        else -> stringResource(R.string.ub_none_yet)
+                                    }
+                                },
+                            ) { nav.push(Dest.Backup) }
+                            SettingsLogic.Category.NEXTCLOUD -> SettingsCategoryRow(
+                                SagaIcons.cloud, "Nextcloud", m,
+                                summary = ncShown?.let { n -> if (n.connected) stringResource(R.string.nc_connected_as, n.user.orEmpty()) else stringResource(R.string.nc_not_connected) },
+                            ) { nav.push(Dest.Nextcloud) }
+                            SettingsLogic.Category.ACCOUNT -> SettingsCategoryRow(
+                                SagaIcons.user, stringResource(R.string.settings_account), m, summary = stringResource(R.string.r4s_cat_account_hint),
+                            ) { openPage(nav, SettingsArea.KONTO) }
+                            SettingsLogic.Category.INFO -> {
+                                val dotLabel = stringResource(R.string.settings_update_dot)
+                                SettingsCategoryRow(
+                                    SagaIcons.info, stringResource(R.string.settings_info), m, summary = stringResource(R.string.r4s_cat_info_hint),
+                                    trailing = if (update != null) ({
+                                        Box(
+                                            Modifier.padding(end = 8.dp).size(10.dp).background(MaterialTheme.colorScheme.error, CircleShape)
+                                                .semantics { contentDescription = dotLabel },
+                                        )
+                                    }) else null,
+                                ) { openPage(nav, SettingsArea.INFO) }
                             }
-                        },
-                        colors = SEG, modifier = Modifier.sagaSegment(1, 2).clickable { nav.push(Dest.SettingsInfo) },
-                    )
+                        }
+                    }
                 }
             }
-            item(key = "logout") {
-                Column(w.padding(start = 16.dp, end = 16.dp, top = 28.dp, bottom = 16.dp)) {
-                    // Design 2: Abmelden als tonaler Warnknopf ueber die ganze Breite (gut zu treffen, klar als Warnung)
-                    SagaFilledTonalButton(
-                        onClick = { confirmLogout = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        ),
-                    ) { Text(stringResource(R.string.sign_out)) }
-                    Text(
-                        stringResource(R.string.settings_sign_out_explainer),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
-                    )
-                }
-            }
+            item(key = "end") { Box(Modifier.padding(bottom = 24.dp)) }
         }
     }
-    if (confirmLogout) {
-        AlertDialog(
-            onDismissRequest = { confirmLogout = false },
-            title = { Text(stringResource(R.string.settings_sign_out_this_device)) },
-            confirmButton = {
-                SagaTextButton(onClick = { confirmLogout = false; repo.launchAction { repo.logout() } }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = { SagaTextButton(onClick = { confirmLogout = false }) { Text(stringResource(R.string.action_cancel)) } },
-        )
-    }
+}
+
+/** Unterseite oeffnen (Benachrichtigungen und Chats teilen sich das Ziel Dest.SettingsGeneral, siehe SettingsGeneralScreen) */
+private fun openPage(nav: AppNavigator, area: SettingsArea) {
+    nav.push(SettingsNav.dest(area))
 }
 
 // ------------------------------------------------------------------------------------------------ Konto
 
-/** Konto: Anmeldung, Name, Profilbild, Sicherheit, oeffentlicher Name, Foederation, Mein Backup, Apps & Geraete */
+/** Konto: Anmeldung, Name, Profilbild, Sicherheit, oeffentlicher Name, Foederation, Apps & Geraete, Abmelden */
 @Composable
 fun SettingsAccountScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val server by repo.server.collectAsState()
@@ -187,6 +235,7 @@ fun SettingsAccountScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
     var appsError by remember { mutableStateOf<UiText?>(null) }
     var drop by remember { mutableStateOf<DeviceInfo?>(null) }
     var ownAvatar by remember { mutableStateOf(SettingsMemory.avatar) }
+    var confirmLogout by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     suspend fun loadApps() {
@@ -231,8 +280,7 @@ fun SettingsAccountScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
             // Veroeffentlichen: oeffentlicher Name; 2.3: "In Adressbuechern verbundener Server erscheinen"
             item(key = "public") { PublicNameBlock(repo, w.padding(top = 8.dp), reloadKey = signIns) }
             item(key = "federation") { FederationDirectoryBlock(repo, w, reloadKey = signIns) }
-            // 2.3: "Mein Backup" (nur Server, die es koennen)
-            item(key = "backup") { AccountServicesRows(repo, nav, w, reloadKey = signIns, nextcloud = false) }
+            // "Mein Backup" steht seit Design-Runde 4 als "Sicherung ›" in der Hauptliste
 
             item(key = "apps") { SagaSectionTitle(stringResource(R.string.settings_apps_devices), w.padding(top = 12.dp)) }
             item(key = "apps-hint") {
@@ -270,9 +318,11 @@ fun SettingsAccountScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
                     }
                 }
             }
-            item(key = "end") { Box(Modifier.padding(bottom = 24.dp)) }
+            // NAV-11: Abmelden am Ende von "Konto" - Textknopf in Fehlerfarbe, mit Rueckfrage (keine grosse Flaeche)
+            item(key = "logout") { SignOutRow(w.padding(top = 20.dp, bottom = 24.dp)) { confirmLogout = true } }
         }
     }
+    if (confirmLogout) SignOutConfirmDialog(repo) { confirmLogout = false }
     drop?.let { d ->
         AlertDialog(
             onDismissRequest = { drop = null },
@@ -300,14 +350,29 @@ fun SettingsAccountScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
 
 // ------------------------------------------------------------------------------------------------ Einstellungen
 
-/** Allgemein (Sprache) · Benachrichtigungen (Glocke, Mitteilungen, Anrufe) · Chat (Geraete, Datenschutz) · Dienste (Nextcloud) */
+/**
+ * Ziel Dest.SettingsGeneral: Unterseite "Benachrichtigungen" oder "Chats" (je nachdem, welche Kategorie zuletzt
+ * geoeffnet wurde - SettingsNav.dest merkt es sich). Eigene Ziele je Unterseite brauchen Dest-Eintraege in ui/nav.
+ */
 @Composable
 fun SettingsGeneralScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
+    when (SettingsMemory.page) {
+        SettingsArea.CHATS -> SettingsChatsScreen(repo, nav, chrome)
+        else -> SettingsNotificationsScreen(repo, nav, chrome)
+    }
+}
+
+/**
+ * NAV-20 Benachrichtigungen: oben "Auf diesem Geraet" (Systemmitteilungen: Zustellweg/Ruhezeiten in Saga, Link in
+ * die Android-Einstellungen der Kanaele), darunter "Was Saga dir meldet" (Server-Einstellungen, gelten auf allen
+ * Geraeten) in Gruppen: Seiten & Kommentare · Erwaehnungen · Chats & Anrufe · Aufgaben · Weitere.
+ */
+@Composable
+fun SettingsNotificationsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
+    val context = LocalContext.current
     val signIns by repo.signInCount.collectAsState()
     var notifKinds by remember { mutableStateOf(SettingsMemory.kinds.takeIf { SettingsMemory.kindsKey == signIns } ?: emptyList()) }
     val pushSupported by repo.push.supported.collectAsState()
-    val chatState by repo.chat.state.collectAsState()
-    val chatMe by repo.chat.me.collectAsState()
     val callsOn by repo.calls.enabled.collectAsState()
     LaunchedEffect(signIns) {
         try {
@@ -319,83 +384,112 @@ fun SettingsGeneralScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
         } catch (_: Exception) {
         }
         repo.push.load()
-        repo.chat.refresh()
         if (repo.calls.enabled.value == null) repo.calls.checkEnabled()
     }
-    val listState = rememberAreaListState(SettingsArea.EINSTELLUNGEN, signIns)
+    val listState = rememberAreaListState(SettingsArea.BENACHRICHTIGUNGEN, signIns)
     val features25 by repo.serverFeatures.collectAsState()
-    Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_settings), nav, chrome) }) { pad ->
+    Scaffold(topBar = { SagaTopBar(stringResource(R.string.notifications), nav, chrome) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), state = listState, horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
-            // Allgemein: Sprache der App (auf einem fremden/geteilten Geraet unabhaengig von der Geraetesprache)
-            item(key = "g-general") { GroupHeading(stringResource(R.string.settings_group_general), w) }
-            item(key = "sprache") { LanguageRow(w.sagaSegment(0, 1)) }
-
-            // Benachrichtigungen: Glocke je Art, Mitteilungen (UnifiedPush bzw. eigene Verbindung), Anruf-Hinweise
-            val callHints = callsOn == true
-            if (notifKinds.isNotEmpty() || pushSupported || callHints) {
-                item(key = "notifs") { GroupHeading(stringResource(R.string.notifications), w) }
-            }
-            if (notifKinds.isNotEmpty()) {
-                itemsIndexed(notifKinds, key = { _, it -> "nk-" + it.kind }) { i, k ->
-                    io.github.yggdrasil_sh.saga.ui.push.SwitchRow(stringResource(notifKindLabel(k.kind)), k.on, w.sagaSegment(i, notifKinds.size)) { on ->
-                        repo.launchAction { notifKinds = repo.live.setKind(k.kind, on).kinds; SettingsMemory.kinds = notifKinds }
-                    }
-                }
-            }
+            // Auf diesem Geraet: Systemmitteilungen (Android) - was dieses Geraet anzeigt und wann es still ist
+            item(key = "system-head") { GroupHeading(stringResource(R.string.r4s_on_device), w) }
+            item(key = "system-hint") { Explainer(stringResource(R.string.r4s_on_device_hint), w) }
+            val n = if (pushSupported) 2 else 1
             if (pushSupported) {
                 item(key = "push") {
-                    ListItem(
-                        headlineContent = { Text(stringResource(R.string.push_title)) },
-                        supportingContent = { Text(stringResource(R.string.push_settings_hint)) },
-                        trailingContent = { SagaIcon(SagaIcons.chevronRight, null) },
-                        colors = SEG, modifier = w.padding(top = if (notifKinds.isNotEmpty()) 10.dp else 0.dp).sagaSegment(0, 1).clickable { nav.push(Dest.Push) },
-                    )
+                    SettingsCategoryRow(
+                        SagaIcons.smartphone, stringResource(R.string.r4s_system_notifications), w.sagaSegment(0, n),
+                        summary = stringResource(R.string.push_settings_hint),
+                    ) { nav.push(Dest.Push) }
                 }
             }
-            // 2.5 E2 (taskdue1): taegliche Zusammenfassung der Aufgaben (Schalter + Uhrzeit)
-            if ("taskdue1" in features25) item(key = "task-digest") { TaskDigestRow(repo, w) }
+            item(key = "system") {
+                SettingsCategoryRow(
+                    SagaIcons.settings, stringResource(R.string.r4s_android_channels), w.sagaSegment(n - 1, n),
+                    summary = stringResource(R.string.r4s_android_channels_hint), external = true,
+                ) { openSystemNotificationSettings(context) }
+            }
+            val callHints = callsOn == true
             if (callHints) item(key = "calls") { CallsFullScreenHint(w) }
             if (callHints) item(key = "calls-push") { CallsPushHint(repo.push, w) { nav.push(Dest.Push) } }
 
-            // Chat: Chats & Geraete, Datenschutz (2.4: Gelesen-Bestaetigungen und Online-Status, aeltere Server: fehlt)
+            // Was Saga dir meldet (Glocke; Server-Einstellung, gilt auf allen Geraeten)
+            val digest = "taskdue1" in features25
+            if (notifKinds.isNotEmpty() || digest) {
+                item(key = "notifs") { GroupHeading(stringResource(R.string.r4s_what_saga_reports), w) }
+                item(key = "notifs-hint") { Explainer(stringResource(R.string.r4s_what_saga_reports_hint), w) }
+            }
+            SettingsLogic.grouped(notifKinds) { it.kind }.forEach { (g, list) ->
+                item(key = "ng-" + g.name.lowercase()) { SubHeading(stringResource(notifGroupLabel(g)), w) }
+                list.forEachIndexed { i, k ->
+                    item(key = "nk-" + k.kind) {
+                        io.github.yggdrasil_sh.saga.ui.push.SwitchRow(stringResource(notifKindLabel(k.kind)), k.on, w.sagaSegment(i, list.size)) { on ->
+                            repo.launchAction { notifKinds = repo.live.setKind(k.kind, on).kinds; SettingsMemory.kinds = notifKinds }
+                        }
+                    }
+                }
+            }
+            // 2.5 E2 (taskdue1): taegliche Zusammenfassung der Aufgaben (Schalter + Uhrzeit)
+            if (digest) {
+                item(key = "ng-tasks") { SubHeading(stringResource(R.string.r4s_ngroup_tasks), w) }
+                item(key = "digest") { TaskDigestRow(repo, w) }
+            }
+            item(key = "end") { Box(Modifier.padding(bottom = 24.dp)) }
+        }
+    }
+}
+
+/** Chats: Chats & Geraete, gesperrte Personen, Linkvorschau, Datenschutz (Gelesen-Bestaetigungen, Online-Status) */
+@Composable
+fun SettingsChatsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
+    val signIns by repo.signInCount.collectAsState()
+    val chatState by repo.chat.state.collectAsState()
+    val chatMe by repo.chat.me.collectAsState()
+    LaunchedEffect(signIns) { repo.chat.refresh() }
+    val listState = rememberAreaListState(SettingsArea.CHATS, signIns)
+    Scaffold(topBar = { SagaTopBar(stringResource(R.string.r4s_chats), nav, chrome) }) { pad ->
+        LazyColumn(Modifier.padding(pad).fillMaxSize(), state = listState, horizontalAlignment = Alignment.CenterHorizontally) {
+            val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
             val chatDev = chatState != ChatSetup.UNSUPPORTED && chatState != ChatSetup.OFF
             val rcFeat = chatState == ChatSetup.READY && io.github.yggdrasil_sh.saga.chat.ReceiptLogic.has(chatMe, "receipts") && chatMe?.privacy != null
             val onFeat = chatState == ChatSetup.READY && io.github.yggdrasil_sh.saga.chat.ReceiptLogic.has(chatMe, "online") && chatMe?.privacy != null
-            if (chatDev || rcFeat || onFeat) item(key = "g-chat") { GroupHeading(stringResource(R.string.settings_group_chat), w) }
+            val stdF = repo.chat.std
+            val std = chatState == ChatSetup.READY && (stdF.block || stdF.unfurl)
+            if (chatState == ChatSetup.OFF || chatState == ChatSetup.UNSUPPORTED) {
+                item(key = "off") { Explainer(stringResource(R.string.r4s_chats_off), w.padding(top = 12.dp)) }
+            }
+            if (chatDev || std) item(key = "chats-head") { GroupHeading(stringResource(R.string.r4s_chats_devices_group), w) }
+            val rows = (if (chatDev) 1 else 0) + (if (std && stdF.block) 1 else 0) + (if (std && stdF.unfurl) 1 else 0)
+            var idx = 0
             if (chatDev) {
+                val i = idx++
                 item(key = "chats") {
-                    ListItem(
-                        headlineContent = { Text(stringResource(R.string.chat_devices)) },
-                        supportingContent = { Text(stringResource(R.string.chat_devices_hint)) },
-                        trailingContent = { SagaIcon(SagaIcons.chevronRight, null) },
-                        colors = SEG, modifier = w.sagaSegment(0, 1).clickable { nav.push(Dest.ChatDevices) },
-                    )
+                    SettingsCategoryRow(
+                        SagaIcons.devices, stringResource(R.string.chat_devices), w.sagaSegment(i, rows), summary = stringResource(R.string.chat_devices_hint),
+                    ) { nav.push(Dest.ChatDevices) }
                 }
             }
             // 2.5 Chat-Standard: gesperrte Personen (block2), Linkvorschau (unfurl1, nur dieses Geraet)
-            val stdF = repo.chat.std
-            if (chatState == ChatSetup.READY && (stdF.block || stdF.unfurl)) {
-                val n = (if (stdF.block) 1 else 0) + (if (stdF.unfurl) 1 else 0)
-                if (stdF.block) item(key = "chat-blocks") {
+            if (std && stdF.block) {
+                val i = idx++
+                item(key = "blocked") {
                     var open by remember { mutableStateOf(false) }
-                    ListItem(
-                        headlineContent = { Text(stringResource(R.string.std_blocked_list)) },
-                        trailingContent = { SagaIcon(SagaIcons.chevronRight, null) },
-                        colors = SEG, modifier = w.padding(top = 4.dp).sagaSegment(0, n).clickable { open = true },
-                    )
+                    SettingsCategoryRow(SagaIcons.ban, stringResource(R.string.std_blocked_list), w.sagaSegment(i, rows)) { open = true }
                     if (open) io.github.yggdrasil_sh.saga.ui.chat.LocalBlocksDialog(repo) { open = false }
                 }
-                if (stdF.unfurl) item(key = "chat-unfurl") {
+            }
+            if (std && stdF.unfurl) {
+                val i = idx++
+                item(key = "unfurl") {
                     var on by remember { mutableStateOf(repo.chat.unfurlOn) }
                     io.github.yggdrasil_sh.saga.ui.push.SwitchRow(
-                        stringResource(R.string.std_unfurl_setting), on, w.sagaSegment(n - 1, n), hint = stringResource(R.string.std_unfurl_hint),
+                        stringResource(R.string.std_unfurl_setting), on, w.sagaSegment(i, rows), hint = stringResource(R.string.std_unfurl_hint),
                     ) { v -> repo.chat.unfurlOn = v; on = v }
                 }
             }
             if (rcFeat || onFeat) {
                 val pv = chatMe?.privacy ?: io.github.yggdrasil_sh.saga.chat.ChatPrivacy()
-                item(key = "privacy") { SagaSectionTitle(stringResource(R.string.chat_privacy_title), w.padding(top = 4.dp)) }
+                item(key = "privacy") { GroupHeading(stringResource(R.string.chat_privacy_title), w) }
                 val pn = (if (rcFeat) 1 else 0) + (if (onFeat) 1 else 0)
                 if (rcFeat) item(key = "privacy-receipts") {
                     io.github.yggdrasil_sh.saga.ui.push.SwitchRow(
@@ -408,15 +502,38 @@ fun SettingsGeneralScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
                     ) { on -> repo.launchAction { repo.chat.setPrivacy(online = on) } }
                 }
             }
-
-            // Dienste: Nextcloud (2.3, nur Server, die es koennen); Immich/Kalender verwaltet Android im Web
-            item(key = "nextcloud") { AccountServicesRows(repo, nav, w, reloadKey = signIns, backup = false, heading = { GroupHeading(stringResource(R.string.settings_group_services), Modifier) }) }
             item(key = "end") { Box(Modifier.padding(bottom = 24.dp)) }
         }
     }
 }
 
-/** Ueberschrift einer Gruppe von Abschnitten (Allgemein · Benachrichtigungen · Chat · Dienste) */
+/** Erklaersatz unter einem Abschnittskopf */
+@Composable
+private fun Explainer(text: String, modifier: Modifier) {
+    Text(
+        text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
+    )
+}
+
+/** Kleiner Unterkopf innerhalb eines Abschnitts (TalkBack: Ueberschrift) */
+@Composable
+private fun SubHeading(text: String, modifier: Modifier) {
+    Text(
+        text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 6.dp).semantics { heading() },
+    )
+}
+
+/** Gruppen-Beschriftung der Benachrichtigungsarten */
+private fun notifGroupLabel(g: SettingsLogic.NotifGroup): Int = when (g) {
+    SettingsLogic.NotifGroup.PAGES -> R.string.r4s_ngroup_pages
+    SettingsLogic.NotifGroup.MENTIONS -> R.string.r4s_ngroup_mentions
+    SettingsLogic.NotifGroup.CHATS -> R.string.r4s_ngroup_chats
+    SettingsLogic.NotifGroup.OTHER -> R.string.r4s_ngroup_other
+}
+
+/** Abschnittskopf (Goldbalken, TalkBack-Ueberschrift) */
 @Composable
 private fun GroupHeading(text: String, modifier: Modifier) {
     SagaSectionTitle(text, modifier.padding(top = 14.dp, bottom = 2.dp))
@@ -634,13 +751,14 @@ private fun UpdateHintSection(modifier: Modifier) {
 
 // ------------------------------------------------------------------------------------------------ Spruenge
 
-/** Spruenge in die Einstellungen (Mitteilung ?settings=…, Glocke): Startliste, Bereich, ggf. Unterseite + Zeile */
+/** Spruenge in die Einstellungen (Mitteilung ?settings=…, Glocke): Hauptliste, Bereich, ggf. Unterseite + Zeile */
 object SettingsNav {
     fun open(nav: AppNavigator, section: String?, replace: Boolean) {
         if (replace) nav.top(Dest.Settings) else nav.push(Dest.Settings)
-        val area = SettingsArea.of(section) ?: return
-        SettingsMemory.scrollTo = SettingsArea.scrollTarget(section)?.let { area to it }
-        nav.push(dest(area))
+        SettingsArea.of(section)?.let { area ->
+            SettingsMemory.scrollTo = SettingsArea.scrollTarget(section)?.let { area to it }
+            nav.push(dest(area))
+        }
         when (SettingsArea.sub(section)) {
             SettingsArea.Sub.BACKUP -> nav.push(Dest.Backup)
             SettingsArea.Sub.NEXTCLOUD -> nav.push(Dest.Nextcloud)
@@ -648,9 +766,13 @@ object SettingsNav {
         }
     }
 
+    /** Ziel eines Bereichs; Benachrichtigungen und Chats teilen sich Dest.SettingsGeneral (Unterseite gemerkt) */
     fun dest(a: SettingsArea): Dest = when (a) {
         SettingsArea.KONTO -> Dest.SettingsAccount
-        SettingsArea.EINSTELLUNGEN -> Dest.SettingsGeneral
+        SettingsArea.BENACHRICHTIGUNGEN, SettingsArea.CHATS -> {
+            SettingsMemory.page = a
+            Dest.SettingsGeneral
+        }
         SettingsArea.INFO -> Dest.SettingsInfo
     }
 }
@@ -738,6 +860,11 @@ private object SettingsMemory {
     var kindsKey = -1
     var avatar: String? = null
     var scrollTo: Pair<SettingsArea, String>? = null
+    /** Unterseite hinter Dest.SettingsGeneral (Benachrichtigungen oder Chats) */
+    var page: SettingsArea = SettingsArea.BENACHRICHTIGUNGEN
+    var backup: io.github.yggdrasil_sh.saga.data.BackupStatus? = null
+    var nc: io.github.yggdrasil_sh.saga.data.NcSettings? = null
+    var servicesKey = -1
 }
 
 /** 2.5 E2 (taskdue1): "Heute fällig"-Zusammenfassung an/aus und Uhrzeit (GET/PUT api/tasks/digest) */

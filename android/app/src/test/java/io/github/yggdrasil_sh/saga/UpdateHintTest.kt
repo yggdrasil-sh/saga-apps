@@ -111,15 +111,20 @@ class UpdateHintTest {
     }
 
     @Test fun settingsJumps() {
-        assertEquals(SettingsArea.EINSTELLUNGEN, SettingsArea.of("chats"))
-        assertEquals("chats", SettingsArea.scrollTarget("chats"))
-        assertEquals(SettingsArea.KONTO, SettingsArea.of("backup"))
+        // Design-Runde 4: Chats und Benachrichtigungen sind eigene Unterseiten, Sicherung/Nextcloud direkt aus der Hauptliste
+        assertEquals(SettingsArea.CHATS, SettingsArea.of("chats"))
+        assertNull("Unterseite selbst: oben bleiben", SettingsArea.scrollTarget("chats"))
+        assertEquals("privacy", SettingsArea.scrollTarget("privacy"))
+        assertNull(SettingsArea.of("backup"))
         assertEquals(SettingsArea.Sub.BACKUP, SettingsArea.sub("backup"))
         assertNull("Unterseite statt Scrollen", SettingsArea.scrollTarget("backup"))
-        assertEquals(SettingsArea.EINSTELLUNGEN, SettingsArea.of("nextcloud"))
+        assertNull(SettingsArea.of("nextcloud"))
         assertEquals(SettingsArea.Sub.NEXTCLOUD, SettingsArea.sub("nextcloud"))
         assertEquals(SettingsArea.KONTO, SettingsArea.of("public"))
-        assertEquals(SettingsArea.EINSTELLUNGEN, SettingsArea.of("notifs"))
+        assertEquals(SettingsArea.BENACHRICHTIGUNGEN, SettingsArea.of("notifs"))
+        assertEquals(SettingsArea.BENACHRICHTIGUNGEN, SettingsArea.of("push"))
+        assertEquals("push", SettingsArea.scrollTarget("push"))
+        assertNull("Sprache steht in der Hauptliste", SettingsArea.of("sprache"))
         assertEquals(SettingsArea.INFO, SettingsArea.of("info"))
         assertNull(SettingsArea.scrollTarget("info"))
         assertNull(SettingsArea.of("YES"))

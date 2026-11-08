@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,9 +48,13 @@ private tailrec fun Context.activity(): Activity? = when (this) {
     else -> null
 }
 
-/** Gewaehlte App-Sprache als Zustand; folgt auch Aenderungen in den Android-Einstellungen (Konfigurationswechsel) */
+/**
+ * Gewaehlte App-Sprache als Zustand und Setzer; folgt auch Aenderungen in den Android-Einstellungen
+ * (Konfigurationswechsel). Oeffentlich fuer eigene Menues (Kontomenue "Sprache ›"): Optionen = AppLanguage.OPTIONS,
+ * Beschriftung = languageOptionLabel(tag).
+ */
 @Composable
-private fun rememberAppLanguage(): Pair<String, (String) -> Unit> {
+fun rememberAppLanguage(): Pair<String, (String) -> Unit> {
     val context = LocalContext.current
     val config = LocalConfiguration.current
     var chosen by remember(config) { mutableStateOf(AppLanguage.current(context)) }
@@ -59,8 +64,9 @@ private fun rememberAppLanguage(): Pair<String, (String) -> Unit> {
     }
 }
 
+/** Beschriftung einer Sprach-Option ("" = Automatisch, sonst Name in der eigenen Sprache) */
 @Composable
-private fun optionLabel(tag: String): String = if (tag.isEmpty()) stringResource(R.string.language_auto) else AppLanguage.nativeName(tag)
+fun languageOptionLabel(tag: String): String = if (tag.isEmpty()) stringResource(R.string.language_auto) else AppLanguage.nativeName(tag)
 
 /** Einstellungen: Zeile "Sprache" mit aktueller Wahl; Antippen oeffnet die Auswahl */
 @Composable
@@ -69,9 +75,10 @@ fun LanguageRow(modifier: Modifier = Modifier) {
     var open by remember { mutableStateOf(false) }
     ListItem(
         headlineContent = { Text(stringResource(R.string.language)) },
-        supportingContent = { Text(optionLabel(chosen)) },
+        supportingContent = { Text(languageOptionLabel(chosen)) },
         leadingContent = { SagaIcon(SagaIcons.globe, contentDescription = null) },
-        modifier = modifier.clickable { open = true },
+        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+        modifier = modifier.heightIn(min = 48.dp).clickable(role = Role.Button) { open = true },
     )
     if (open) {
         AlertDialog(
@@ -89,7 +96,7 @@ fun LanguageRow(modifier: Modifier = Modifier) {
                         ) {
                             RadioButton(selected = tag == chosen, onClick = null)
                             Spacer(Modifier.width(12.dp))
-                            Text(optionLabel(tag))
+                            Text(languageOptionLabel(tag))
                         }
                     }
                     Text(
@@ -120,7 +127,7 @@ fun LanguageMenuButton(modifier: Modifier = Modifier) {
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             AppLanguage.OPTIONS.forEach { tag ->
                 DropdownMenuItem(
-                    text = { Text(optionLabel(tag)) },
+                    text = { Text(languageOptionLabel(tag)) },
                     leadingIcon = { RadioButton(selected = tag == chosen, onClick = null) },
                     onClick = { open = false; if (tag != chosen) choose(tag) },
                 )

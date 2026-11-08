@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 4 (r4-settings): Einstellungen als Kategorien, Darstellung, Systemmitteilungen -->
+<resources>
+    <string name="r4s_appearance">รูปลักษณ์</string>
+    <string name="r4s_appearance_system">ตามระบบ</string>
+    <string name="r4s_appearance_light">สว่าง</string>
+    <string name="r4s_appearance_dark">มืด</string>
+    <string name="r4s_group_alerts">การแจ้งเตือนและแชท</string>
+    <string name="r4s_group_data">ข้อมูลและบริการ</string>
+    <string name="r4s_group_account">บัญชีและแอป</string>
+    <string name="r4s_chats">แชท</string>
+    <string name="r4s_cat_notifications_hint">สิ่งที่ Saga แจ้ง การแจ้งเตือนของระบบบนอุปกรณ์นี้</string>
+    <string name="r4s_cat_chats_hint">อุปกรณ์ บุคคลที่บล็อก ความเป็นส่วนตัว</string>
+    <string name="r4s_backup">การสำรองข้อมูล</string>
+    <string name="r4s_cat_account_hint">ชื่อ รูปโปรไฟล์ การลงชื่อเข้าใช้ อุปกรณ์ ออกจากระบบ</string>
+    <string name="r4s_cat_info_hint">เวอร์ชัน การอัปเดต การวินิจฉัย สัญญาอนุญาต</string>
+    <string name="r4s_on_device">การแจ้งเตือนของระบบบนอุปกรณ์นี้</string>
+    <string name="r4s_on_device_hint">สิ่งที่อุปกรณ์นี้แสดงและช่วงที่เงียบ – ใช้เฉพาะที่นี่</string>
+    <string name="r4s_system_notifications">การส่งและช่วงเวลาเงียบ</string>
+    <string name="r4s_android_channels">การตั้งค่าการแจ้งเตือนของ Android</string>
+    <string name="r4s_android_channels_hint">เสียง หน้าจอล็อก ช่องทาง เช่น แชทหรือการโทร</string>
+    <string name="r4s_what_saga_reports">สิ่งที่ Saga แจ้งคุณ</string>
+    <string name="r4s_what_saga_reports_hint">การแจ้งเตือนในกระดิ่ง – ใช้กับบัญชีของคุณในทุกอุปกรณ์</string>
+    <string name="r4s_ngroup_pages">หน้าและความคิดเห็น</string>
+    <string name="r4s_ngroup_mentions">การกล่าวถึง</string>
+    <string name="r4s_ngroup_chats">แชทและการโทร</string>
+    <string name="r4s_ngroup_tasks">งาน</string>
+    <string name="r4s_ngroup_other">อื่น ๆ</string>
+    <string name="r4s_chats_off">เซิร์ฟเวอร์นี้ไม่มีแชท</string>
+    <string name="r4s_chats_devices_group">อุปกรณ์และบุคคล</string>
+</resources>

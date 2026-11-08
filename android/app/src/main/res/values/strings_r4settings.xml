@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 4 (r4-settings): Einstellungen als Kategorien, Darstellung, Systemmitteilungen -->
+<resources>
+    <string name="r4s_appearance">Appearance</string>
+    <string name="r4s_appearance_system">Same as system</string>
+    <string name="r4s_appearance_light">Light</string>
+    <string name="r4s_appearance_dark">Dark</string>
+    <string name="r4s_group_alerts">Notifications &amp; chats</string>
+    <string name="r4s_group_data">Data &amp; services</string>
+    <string name="r4s_group_account">Account &amp; app</string>
+    <string name="r4s_chats">Chats</string>
+    <string name="r4s_cat_notifications_hint">What Saga reports, system notifications on this device</string>
+    <string name="r4s_cat_chats_hint">Devices, blocked people, privacy</string>
+    <string name="r4s_backup">Backup</string>
+    <string name="r4s_cat_account_hint">Name, profile picture, sign-in, devices, sign out</string>
+    <string name="r4s_cat_info_hint">Version, updates, diagnostics, licenses</string>
+    <string name="r4s_on_device">System notifications on this device</string>
+    <string name="r4s_on_device_hint">What this device shows and when it stays quiet – applies only here.</string>
+    <string name="r4s_system_notifications">Delivery &amp; quiet hours</string>
+    <string name="r4s_android_channels">Android notification settings</string>
+    <string name="r4s_android_channels_hint">Sounds, lock screen, channels such as chats or calls</string>
+    <string name="r4s_what_saga_reports">What Saga reports</string>
+    <string name="r4s_what_saga_reports_hint">Notifications in the bell – they apply to your account on all devices.</string>
+    <string name="r4s_ngroup_pages">Pages &amp; comments</string>
+    <string name="r4s_ngroup_mentions">Mentions</string>
+    <string name="r4s_ngroup_chats">Chats &amp; calls</string>
+    <string name="r4s_ngroup_tasks">Tasks</string>
+    <string name="r4s_ngroup_other">More</string>
+    <string name="r4s_chats_off">Chats are not available on this server.</string>
+    <string name="r4s_chats_devices_group">Devices &amp; people</string>
+</resources>

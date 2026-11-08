@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 4 (r4-settings): Einstellungen als Kategorien, Darstellung, Systemmitteilungen -->
+<resources>
+    <string name="r4s_appearance">Apariencia</string>
+    <string name="r4s_appearance_system">Como el sistema</string>
+    <string name="r4s_appearance_light">Claro</string>
+    <string name="r4s_appearance_dark">Oscuro</string>
+    <string name="r4s_group_alerts">Notificaciones y chats</string>
+    <string name="r4s_group_data">Datos y servicios</string>
+    <string name="r4s_group_account">Cuenta y app</string>
+    <string name="r4s_chats">Chats</string>
+    <string name="r4s_cat_notifications_hint">Qué avisa Saga, notificaciones del sistema en este dispositivo</string>
+    <string name="r4s_cat_chats_hint">Dispositivos, personas bloqueadas, privacidad</string>
+    <string name="r4s_backup">Copia de seguridad</string>
+    <string name="r4s_cat_account_hint">Nombre, foto de perfil, inicio de sesión, dispositivos, cerrar sesión</string>
+    <string name="r4s_cat_info_hint">Versión, actualizaciones, diagnóstico, licencias</string>
+    <string name="r4s_on_device">Notificaciones del sistema en este dispositivo</string>
+    <string name="r4s_on_device_hint">Qué muestra este dispositivo y cuándo guarda silencio: solo se aplica aquí.</string>
+    <string name="r4s_system_notifications">Entrega y horas de silencio</string>
+    <string name="r4s_android_channels">Ajustes de notificaciones de Android</string>
+    <string name="r4s_android_channels_hint">Sonidos, pantalla de bloqueo, canales como chats o llamadas</string>
+    <string name="r4s_what_saga_reports">Qué te avisa Saga</string>
+    <string name="r4s_what_saga_reports_hint">Notificaciones de la campana: se aplican a tu cuenta en todos los dispositivos.</string>
+    <string name="r4s_ngroup_pages">Páginas y comentarios</string>
+    <string name="r4s_ngroup_mentions">Menciones</string>
+    <string name="r4s_ngroup_chats">Chats y llamadas</string>
+    <string name="r4s_ngroup_tasks">Tareas</string>
+    <string name="r4s_ngroup_other">Otras</string>
+    <string name="r4s_chats_off">Los chats no están disponibles en este servidor.</string>
+    <string name="r4s_chats_devices_group">Dispositivos y personas</string>
+</resources>

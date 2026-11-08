@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde 4 (r4-settings): Einstellungen als Kategorien, Darstellung, Systemmitteilungen -->
+<resources>
+    <string name="r4s_appearance">Оформление</string>
+    <string name="r4s_appearance_system">Как в системе</string>
+    <string name="r4s_appearance_light">Светлое</string>
+    <string name="r4s_appearance_dark">Тёмное</string>
+    <string name="r4s_group_alerts">Уведомления и чаты</string>
+    <string name="r4s_group_data">Данные и сервисы</string>
+    <string name="r4s_group_account">Аккаунт и приложение</string>
+    <string name="r4s_chats">Чаты</string>
+    <string name="r4s_cat_notifications_hint">О чём сообщает Saga, системные уведомления на этом устройстве</string>
+    <string name="r4s_cat_chats_hint">Устройства, заблокированные люди, конфиденциальность</string>
+    <string name="r4s_backup">Резервная копия</string>
+    <string name="r4s_cat_account_hint">Имя, фото профиля, вход, устройства, выход</string>
+    <string name="r4s_cat_info_hint">Версия, обновления, диагностика, лицензии</string>
+    <string name="r4s_on_device">Системные уведомления на этом устройстве</string>
+    <string name="r4s_on_device_hint">Что показывает это устройство и когда оно молчит — действует только здесь.</string>
+    <string name="r4s_system_notifications">Доставка и тихие часы</string>
+    <string name="r4s_android_channels">Настройки уведомлений Android</string>
+    <string name="r4s_android_channels_hint">Звуки, экран блокировки, каналы, например чаты или звонки</string>
+    <string name="r4s_what_saga_reports">О чём сообщает Saga</string>
+    <string name="r4s_what_saga_reports_hint">Уведомления в колокольчике — действуют для вашего аккаунта на всех устройствах.</string>
+    <string name="r4s_ngroup_pages">Страницы и комментарии</string>
+    <string name="r4s_ngroup_mentions">Упоминания</string>
+    <string name="r4s_ngroup_chats">Чаты и звонки</string>
+    <string name="r4s_ngroup_tasks">Задачи</string>
+    <string name="r4s_ngroup_other">Другое</string>
+    <string name="r4s_chats_off">Чаты недоступны на этом сервере.</string>
+    <string name="r4s_chats_devices_group">Устройства и люди</string>
+</resources>

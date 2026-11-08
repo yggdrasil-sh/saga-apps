@@ -9,6 +9,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Android: Design-Runde 4 r4-settings „Einstellungen“
+
+- **Einstellungen als Kategorien** statt einer langen Liste: oben Konto-Kopf, „Allgemein“ mit Sprache und
+  **Darstellung (Hell/Dunkel/System, neu)**, dann Benachrichtigungen ›, Chats ›, Sicherung ›, Nextcloud › (nur wenn
+  der Server sie anbietet), Konto ›, Info ›. Keine doppelte Ebene „Einstellungen“ → „Einstellungen“ mehr.
+- **Benachrichtigungen klar getrennt:** „Systemmitteilungen auf diesem Gerät“ (Zustellung & Ruhezeiten, Link in die
+  Android-Einstellungen der Mitteilungen) und „Was Saga dir meldet“ (Konto-Einstellung, gruppiert nach Seiten &
+  Kommentare, Erwähnungen, Chats & Anrufe, Aufgaben, Weitere).
+- **Abmelden** steht als Textknopf in Fehlerfarbe am Ende von „Konto“ (mit Rückfrage), nicht mehr als große Fläche.
+
 ### Geändert – Android: Design-Runde 3 „Editor“
 
 - **Werkzeugleiste neu aufgeteilt:** links scrollend „+ · Typ · Fett/Kursiv/Unterstrichen/Durchgestrichen · Link ·

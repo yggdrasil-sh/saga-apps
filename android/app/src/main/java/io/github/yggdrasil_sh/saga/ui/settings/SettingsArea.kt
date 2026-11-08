@@ -1,27 +1,32 @@
 package io.github.yggdrasil_sh.saga.ui.settings
 
 /**
- * Einstellungen in drei Bereichen (2.5, wie ios/App/SettingsLogic.swift): Konto · Einstellungen · Info - Spruenge aus
- * anderen Teilen der App (Mitteilung "Backup fehlgeschlagen" -> ?settings=backup, Chat-Hinweis, Glocke). Reine Regeln,
- * Tests: UpdateHintTest.
+ * Unterseiten der Einstellungen (Design-Runde 4, NAV-20): Hauptliste "Einstellungen" mit Allgemein (Sprache,
+ * Darstellung) und Kategorien Benachrichtigungen › · Chats › · Sicherung › · Nextcloud › · Konto › · Info ›.
+ * Spruenge aus anderen Teilen der App (Mitteilung "Backup fehlgeschlagen" -> ?settings=backup, Chat-Hinweis, Glocke).
+ * Reine Regeln, Tests: UpdateHintTest, SettingsLogicTest.
  */
 enum class SettingsArea {
-    KONTO, EINSTELLUNGEN, INFO;
+    KONTO, BENACHRICHTIGUNGEN, CHATS, INFO;
 
-    /** Unterseite, die nach dem Bereich geoeffnet wird */
+    /** Unterseite, die zusaetzlich geoeffnet wird (Sicherung, Nextcloud - beide direkt aus der Hauptliste) */
     enum class Sub { BACKUP, NEXTCLOUD }
 
     companion object {
-        private val kontoRows = setOf("konto", "name", "avatar", "security", "public", "federation", "backup", "apps")
-        private val settingsRows = setOf("einstellungen", "sprache", "notifs", "push", "calls", "chats", "privacy", "nextcloud")
+        private val kontoRows = setOf("konto", "name", "avatar", "security", "public", "federation", "apps", "logout")
+        private val notifRows = setOf("notifs", "push", "calls", "system", "digest")
+        private val chatRows = setOf("chats", "privacy", "blocked", "unfurl")
         private val infoRows = setOf("info", "about", "update")
+        /** Unterseite selbst (oben bleiben) */
+        private val pageNames = setOf("konto", "notifs", "chats", "info", "about")
 
-        /** Bereich zu einem Sprungziel; null: nur die Startliste */
+        /** Bereich zu einem Sprungziel; null: nur die Hauptliste (auch "einstellungen", "sprache", "darstellung") */
         fun of(section: String?): SettingsArea? {
             val s = section?.trim()?.lowercase() ?: return null
             return when (s) {
                 in kontoRows -> KONTO
-                in settingsRows -> EINSTELLUNGEN
+                in notifRows -> BENACHRICHTIGUNGEN
+                in chatRows -> CHATS
                 in infoRows -> INFO
                 else -> null
             }
@@ -30,12 +35,11 @@ enum class SettingsArea {
         /** Zeile (Schluessel in der Liste), zu der im Bereich gescrollt wird (null: oben bleiben) */
         fun scrollTarget(section: String?): String? {
             val s = section?.trim()?.lowercase() ?: return null
-            if (of(s) == null || s in setOf("konto", "einstellungen", "info", "about")) return null
-            if (sub(s) != null) return null
+            if (of(s) == null || s in pageNames) return null
             return s
         }
 
-        /** Eigene Unterseite (Mein Backup, Nextcloud) - wird zusaetzlich geoeffnet */
+        /** Eigene Unterseite (Mein Backup, Nextcloud) - wird aus der Hauptliste geoeffnet */
         fun sub(section: String?): Sub? = when (section?.trim()?.lowercase()) {
             "backup" -> Sub.BACKUP
             "nextcloud" -> Sub.NEXTCLOUD
