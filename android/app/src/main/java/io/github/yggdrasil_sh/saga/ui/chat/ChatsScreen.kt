@@ -170,7 +170,7 @@ private fun ChatPickEmpty(modifier: Modifier = Modifier, onNewChat: () -> Unit) 
             icon = SagaIcons.chats,
             text = stringResource(R.string.r6_chat_pick_text),
             action = {
-                androidx.compose.material3.FilledTonalButton(onClick = onNewChat) {
+                io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton(onClick = onNewChat) {
                     SagaIcon(SagaIcons.plus, null, Modifier.size(18.dp))
                     androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.chat_new))
