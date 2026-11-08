@@ -75996,36 +75996,104 @@
         }
       }
     },
-    "Die Verbindung zum Knoten ließ sich nicht wiederherstellen. Bitte erneut beitreten." : {
+    "Die Verbindung zum Anruf-Knoten ließ sich nicht wiederherstellen." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die Verbindung zum Knoten ließ sich nicht wiederherstellen. Bitte erneut beitreten."
+            "value" : "Die Verbindung zum Anruf-Knoten ließ sich nicht wiederherstellen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The connection to the node could not be restored. Please join again."
+            "value" : "The connection to the call node could not be restored."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No se pudo restablecer la conexión con el nodo. Vuelve a unirte."
+            "value" : "No se pudo restablecer la conexión con el nodo de llamada."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Не удалось восстановить связь с узлом. Присоединитесь снова."
+            "value" : "Не удалось восстановить соединение с узлом звонка."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ไม่สามารถกู้คืนการเชื่อมต่อกับโหนดได้ โปรดเข้าร่วมอีกครั้ง"
+            "value" : "ไม่สามารถกู้คืนการเชื่อมต่อกับโหนดการโทรได้"
+          }
+        }
+      }
+    },
+    "Anruf-Knoten nicht erreichbar – direkt verbunden" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anruf-Knoten nicht erreichbar – direkt verbunden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Call node unreachable – connected directly"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nodo de llamada no accesible – conectado directamente"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Узел звонка недоступен – прямое соединение"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เข้าถึงโหนดการโทรไม่ได้ – เชื่อมต่อโดยตรงแล้ว"
+          }
+        }
+      }
+    },
+    "Gegenstelle veraltet – direkt verbunden" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gegenstelle veraltet – direkt verbunden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other side outdated – connected directly"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El otro extremo está desactualizado – conectado directamente"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Собеседник использует устаревшую версию – прямое соединение"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปลายทางใช้เวอร์ชันเก่า – เชื่อมต่อโดยตรงแล้ว"
           }
         }
       }

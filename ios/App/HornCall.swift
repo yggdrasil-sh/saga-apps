@@ -152,6 +152,10 @@ final class HornSession: ObservableObject {
     var rec = HornRecover()
     /// Knoten, die der Server in dieser Sitzung angeboten hat (avoid-Regel: einzigen Knoten nicht meiden)
     var known = Set<String>()
+    /// im laufenden Wiederaufbau verlorener Knoten (nie meiden, als letzter Versuch)
+    var lost: String?
+    /// Vertrag horn_direct1: Signale anderer Geraete waehrend des Knoten-Anrufs (Angebote nach dem Wechsel auf direkt)
+    var meshQ: [(t: Double, s: [String: Any])] = []
     var own = HornLogic.OwnKey()
     var ownAt = 0.0
     var plan = HornLogic.KeyPlan()
@@ -192,7 +196,7 @@ final class HornSession: ObservableObject {
         var a = bad.filter { $0.value > now }.map(\.key)
         if let l = leaving, l.until > now, !a.contains(l.node) { a.append(l.node) }
         for n in extra where !a.contains(n) { a.append(n) }
-        return HornRecover.avoid(a, known: Array(known.union(blk.map(\.node))))   // einzigen Knoten nie meiden
+        return HornRecover.avoid(a, known: Array(known.union(blk.map(\.node))), lost: lost)   // verlorenen/einzigen nie meiden
     }
     func note(_ s: String) { if note != s { note = s } }
     func trace(_ s: String) {
@@ -343,15 +347,16 @@ extension CallManager {
     func hornStart(_ list0: [HornLogic.Candidate], why: HornLogic.Why) async throws -> HornConn {
         guard let H = horn else { throw HornFail.cancelled }
         let now = Self.hornNow()
-        var cands = list0.filter { (H.bad[$0.node] ?? 0) <= now || list0.count == 1 }
-        if cands.isEmpty { cands = list0 }                                  // alle zuletzt gescheitert: trotzdem versuchen
+        // zuletzt gescheiterte (auch der verlorene) nicht weglassen, sondern zuletzt versuchen
+        let good = list0.filter { (H.bad[$0.node] ?? 0) <= now }, late = list0.filter { (H.bad[$0.node] ?? 0) > now }
+        var cands = good + late
         guard !cands.isEmpty else { throw HornFail.noNode }
         let one = cands.count == 1
         if one && !cands[0].udp { Task { _ = await hornMeasure(cands) } }  // einziger ohne UDP: gleich verbinden
         else {
             let m = await hornMeasure(cands)
             guard hornLive(H) else { throw HornFail.cancelled }
-            if !one { cands = HornLogic.rank(cands, m).map(\.cand) }
+            if !one { cands = (good.count > 1 ? HornLogic.rank(good, m).map(\.cand) : good) + late }
         }
         return try await hornTry(cands, why: why, i: 0)
     }
@@ -718,24 +723,41 @@ extension CallManager {
     func hornRetry(_ why: HornLogic.Why, after: Int? = nil) {
         guard let H = horn, hornLive(H) else { return }
         if H.rec.muted { return }
-        hornRecoverStep(H, why, H.rec.failed(now: Self.hornNow(), retryAfter: after, rnd: Double.random(in: 0..<1)))
+        hornRecoverStep(H, why, H.rec.failed(now: Self.hornNow(), retryAfter: after, rnd: Double.random(in: 0..<1),
+                                             canDirect: hornCanDirect && connected))
     }
     /// Horn-Fix: Verbindung zum Knoten verloren -> neu ueber einen Knoten verbinden (nie direkt/p2p). Der einzige Knoten
     /// wird dabei nicht gemieden; die Beobachtung bleibt stumm, solange ein Versuch laeuft oder geplant ist.
     func hornRecover(_ why: HornLogic.Why, lost node: String?) {
         guard let H = horn, hornLive(H) else { return }
         let now = Self.hornNow()
-        guard let step = H.rec.lost(now: now, rnd: Double.random(in: 0..<1)) else { return }   // laeuft schon
+        guard let step = H.rec.lost(now: now, rnd: Double.random(in: 0..<1), canDirect: hornCanDirect && connected) else { return }   // laeuft schon
         H.trace("wiederaufbau \(node ?? "-") \(why.rawValue)")
         diagEvent("switch", "lost (wiederaufbau)")
-        if let node { H.bad[node] = now + HornLogic.badMs }                  // nur bei mehreren Knoten gemieden
+        if let node { H.bad[node] = now + HornLogic.badMs; H.lost = node }   // nie gemieden, nur zuletzt versucht
         hornRecoverStep(H, why, step)
     }
+    /// Vertrag horn_direct1: der Server kann einen laufenden Knoten-Anruf auf direkt umschalten
+    var hornCanDirect: Bool { serverFeatures.contains("horn_direct1") }
     private func hornRecoverStep(_ H: HornSession, _ why: HornLogic.Why, _ step: HornRecover.Step) {
-        guard case .wait(let s) = step else {
+        let s: Double
+        switch step {
+        case .giveUp:
             H.trace("wiederaufbau aufgegeben")
-            fail(String(localized: "Die Verbindung zum Knoten ließ sich nicht wiederherstellen. Bitte erneut beitreten."))
+            fail(String(localized: "Die Verbindung zum Anruf-Knoten ließ sich nicht wiederherstellen."))
             return
+        case .direct:
+            H.retryTask?.cancel()
+            H.retryTask = Task { [weak self, weak H] in
+                guard let self, let H, self.hornLive(H), !Task.isCancelled else { return }
+                let a = await self.hornDirectAsk(H)
+                guard self.hornLive(H), !Task.isCancelled else { return }
+                H.trace("direkt? \(a)")
+                if case .ended = a { self.remoteEnded(reason: nil); _ = H.rec.direct(a, now: Self.hornNow(), rnd: 0); return }
+                if let nx = H.rec.direct(a, now: Self.hornNow(), rnd: Double.random(in: 0..<1)) { self.hornRecoverStep(H, why, nx) }
+            }
+            return
+        case .wait(let x): s = x
         }
         H.note(connected ? String(localized: "Verbindung wird wiederhergestellt …")
                          : String(localized: "Kein Knoten erreichbar – neuer Versuch in \(max(1, Int(s.rounded()))) s …"))
@@ -752,7 +774,8 @@ extension CallManager {
                 if case HornFail.ended? = error as? HornFail { self.remoteEnded(reason: nil); return }
                 let after = (error as? HornBusy)?.after
                 H.trace("wiederaufbau fehlgeschlagen \(after.map { "429 \($0) s" } ?? error.localizedDescription)")
-                self.hornRecoverStep(H, why, H.rec.failed(now: Self.hornNow(), retryAfter: after, rnd: Double.random(in: 0..<1)))
+                self.hornRecoverStep(H, why, H.rec.failed(now: Self.hornNow(), retryAfter: after, rnd: Double.random(in: 0..<1),
+                                                          canDirect: self.hornCanDirect && self.connected))
             }
         }
     }
@@ -802,7 +825,7 @@ extension CallManager {
         let now = Self.hornNow(), cur = H.cur
         if let cur, now - H.tuneT > 5000 { hornTune(cur) }            // Stromsparmodus an/aus
         for c in H.conns { for L in c.all { L.poll(now: now) } }
-        if let cur, H.rec.tick(now: now, rx: cur.rx > 0) { H.trace("wiederaufbau ok \(cur.node)") }
+        if let cur, H.rec.tick(now: now, rx: cur.rx > 0) { H.lost = nil; H.trace("wiederaufbau ok \(cur.node)") }
         if let cur, !H.switching, !H.rec.muted, let d = H.sw?.conn(now, cur.worst()) {
             H.trace("ice \(cur.worst())"); hornSwitch(d.why); return
         }

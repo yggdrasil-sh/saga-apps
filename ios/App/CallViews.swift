@@ -300,6 +300,9 @@ struct CallScreen: View {
             if meetOn { statusLine }                                         // Dauer direkt unter dem Titel (Anruf-UI-Regeln)
             if calls.phase != .ended { roomInfo }
             if let H = calls.horn, calls.phase != .ended { HornInfoLine(calls: calls, horn: H) }    // 2.5: Weg, Runensiegel, Schloss
+            if meetOn, calls.horn == nil, !calls.directNote.isEmpty, calls.phase != .ended {          // Horn-Fix: direkt statt Knoten
+                Text(verbatim: calls.directNote).font(.caption).foregroundStyle(.white.opacity(0.85)).shadow(radius: 2)
+            }
             if calls.horn == nil, calls.phase != .ended { HStack(spacing: 6) {
                 if calls.verified {
                     Label("Ende-zu-Ende verschlüsselt", systemImage: "lock.fill").labelStyle(.titleAndIcon)
@@ -352,6 +355,9 @@ struct CallScreen: View {
                 .overlay(Circle().strokeBorder(Color.gold.opacity(calls.phase == .incoming || calls.phase == .ringingOut ? 0.8 : 0), lineWidth: 3).padding(-6))
             Text(verbatim: calls.peerName).font(.title.weight(.semibold)).multilineTextAlignment(.center)
             statusLine
+            if !calls.directNote.isEmpty {
+                Text(verbatim: calls.directNote).font(.footnote).foregroundStyle(.white.opacity(0.8)).multilineTextAlignment(.center)
+            }
             if calls.phase == .active && !calls.remote.mic {
                 Label("\(calls.peerName) ist stummgeschaltet", systemImage: "mic.slash.fill").font(.footnote).foregroundStyle(.white.opacity(0.8))
             }

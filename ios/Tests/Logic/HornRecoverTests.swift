@@ -1,7 +1,7 @@
 import Foundation
 
 // Horn-Fix (Saga 2.5): Wiederaufbau nach Knotenverlust - dieselben Faelle wie HornRecoverTest.kt (Android).
-// Immer ueber Knoten, nie direkt (p2p).
+// 30 s ueber Knoten, danach direkt (wenn moeglich); ohne Direkt-Weg Abbruch nach 120 s.
 func hornRecoverTests() {
     typealias R = HornRecover
     func near(_ a: Double, _ b: Double) -> Bool { abs(a - b) < 1e-9 }
@@ -45,9 +45,10 @@ func hornRecoverTests() {
     // ---- 429 mit/ohne retry_after
     r = R()
     _ = r.lost(now: 0, rnd: 0.5)
-    check(secs(r.failed(now: 100, retryAfter: 7, rnd: 0.5)) == 7 && r.fails == 0, "429 retry_after 7: 7 s warten, kein Fehlversuch")
+    check(secs(r.failed(now: 100, retryAfter: 7, rnd: 0.5)) == 7, "429 retry_after 7: max(7, Backoff 1) = 7 s")
     check(secs(r.failed(now: 200, retryAfter: 300, rnd: 0.5)) == 60, "429 retry_after > 60: hoechstens 60 s")
-    check(secs(r.failed(now: 300, retryAfter: nil, rnd: 0.5)) == 1, "429 ohne Feld (alter Server): Backoff normal (1 s)")
+    check(secs(r.failed(now: 300, retryAfter: nil, rnd: 0.5)) == 4, "429 ohne Feld (alter Server): Backoff normal weiter (4 s)")
+    check(secs(r.failed(now: 400, retryAfter: 2, rnd: 0.5)) == 8, "429 kuerzer als Backoff: Backoff (8 s)")
     check(R.retryAfter(status: 429, body: ["error": "busy", "retry_after": 12]) == 12, "Vertrag: Body retry_after")
     check(R.retryAfter(status: 429, body: ["error": "busy", "retry_after": "5"]) == 5, "retry_after als Text")
     check(R.retryAfter(status: 429, body: ["error": "busy"], header: "9") == 9, "ersatzweise Header Retry-After")
@@ -64,8 +65,53 @@ func hornRecoverTests() {
     check(R.avoid(["n1"], known: ["n1", "n2"]) == ["n1"], "mehrere Knoten: verlorenen meiden")
     check(R.avoid(["n1", "n2"], known: ["n1", "n2"]) == [], "alle gemieden waere leer: nichts meiden")
     check(R.avoid(["n2", "n1"], known: ["n1", "n2", "n3"]) == ["n1", "n2"], "mehrere gemieden, einer bleibt (sortiert)")
+    check(R.avoid(["n1"], known: ["n1", "n2"], lost: "n1") == [], "verlorenen Knoten nie in avoid (letzter Versuch)")
+    check(R.avoid(["n1", "n2"], known: ["n1", "n2", "n3"], lost: "n1") == ["n2"], "andere gescheiterte weiter meiden")
 
-    // ---- 120-s-Abbruch, kein p2p-Rueckfall
+    // ---- 30-s-Fenster, dann direkt (Horn faellt aus)
+    r = R()
+    _ = r.lost(now: 0, rnd: 0.5, canDirect: true)
+    var st: [R.Step] = []
+    t = 0
+    while t < 200_000 {
+        let s = r.failed(now: t, retryAfter: nil, rnd: 0.5, canDirect: true)
+        st.append(s)
+        if case .wait(let x) = s { t += x * 1000 + 500 } else { break }
+    }
+    check(st.last == .direct && t >= 30_000 && t < 31_000, "nach 30 s ohne Knoten: direkt")
+    check(st.dropLast().allSatisfy { if case .wait = $0 { return true }; return false }, "bis 30 s nur Knoten-Versuche")
+    check(r.muted, "Direkt-Anfrage laeuft: weiter stumm")
+    check(r.direct(.switched(offerTo: ["b"]), now: t, rnd: 0.5) == nil && !r.active && !r.muted, "200: umgeschaltet, Wiederaufbau beendet")
+    // node_ready: weiter ueber Knoten, danach erneut fragen; limit/fed: nie mehr fragen, Ende nach 120 s
+    r = R()
+    _ = r.lost(now: 0, rnd: 0.5, canDirect: true)
+    check(r.failed(now: 31_000, retryAfter: nil, rnd: 0.5, canDirect: true) == .direct, "31 s: direkt fragen")
+    check(secs(r.direct(.nodeReady, now: 31_500, rnd: 0.5)) == 1, "node_ready: erst wieder ueber den Knoten (Backoff)")
+    check(r.failed(now: 34_000, retryAfter: nil, rnd: 0.5, canDirect: true) == .direct, "Knoten wieder nicht: erneut direkt fragen")
+    check(secs(r.direct(.busy(20), now: 34_500, rnd: 0.5)) == 20, "429 auf /direct: retry_after abwarten")
+    check(r.failed(now: 55_000, retryAfter: nil, rnd: 0.5, canDirect: true) == .direct, "danach wieder fragen")
+    check(secs(r.direct(.noPath("limit"), now: 55_500, rnd: 0.5)) != nil && r.noDirect, "limit: kein Direkt-Weg mehr")
+    check(secs(r.failed(now: 70_000, retryAfter: nil, rnd: 0.5, canDirect: true)) != nil, "nach limit: weiter ueber Knoten statt direkt")
+    check(r.failed(now: 120_000, retryAfter: nil, rnd: 0.5, canDirect: true) == .giveUp, "ohne Direkt-Weg: nach 120 s Ende")
+    r = R()
+    _ = r.lost(now: 0, rnd: 0.5, canDirect: true)
+    _ = r.failed(now: 40_000, retryAfter: nil, rnd: 0.5, canDirect: true)
+    check(r.direct(.ended, now: 40_500, rnd: 0.5) == nil && !r.active, "404: Anruf vorbei")
+    r = R()
+    _ = r.lost(now: 0, rnd: 0.5, canDirect: true)
+    check(secs(r.failed(now: 10_000, retryAfter: 60, rnd: 0.5, canDirect: true)) == 20, "429 im Fenster: Wartezeit endet am Fensterende")
+    check(r.failed(now: 30_000, retryAfter: nil, rnd: 0.5, canDirect: true) == .direct, "am Fensterende: direkt")
+    r = R()
+    _ = r.lost(now: 0, rnd: 0.5, canDirect: true)
+    _ = r.failed(now: 1000, retryAfter: nil, rnd: 0.5, canDirect: true)
+    r.adopted(now: 5000)
+    check(r.tick(now: 15_000, rx: true), "Knoten wieder da (< 30 s): kein Umschalten")
+    r = R()
+    _ = r.lost(now: 0, rnd: 0.5)
+    check(secs(r.failed(now: 40_000, retryAfter: nil, rnd: 0.5, canDirect: false)) != nil, "ohne Direkt-Weg: nach 30 s weiter ueber Knoten")
+    check(r.failed(now: 45_000, retryAfter: nil, rnd: 0.5, canDirect: true) == .direct, "Direkt-Weg wird moeglich: umschalten")
+
+    // ---- 120-s-Abbruch nur ohne Direkt-Weg
     r = R()
     _ = r.lost(now: 0, rnd: 0.5)
     var steps: [R.Step] = []
@@ -77,22 +123,39 @@ func hornRecoverTests() {
         if case .wait(let x) = s { t += x * 1000 + 500 }                     // Versuch dauert 0,5 s
     }
     check(steps.last == .giveUp && t >= 120_000 && t < 121_000, "nach 120 s ohne Erfolg aufgeben")
-    check(steps.dropLast().allSatisfy { if case .wait = $0 { return true }; return false }, "bis dahin nur Warten + neuer Knoten-Versuch")
+    check(steps.dropLast().allSatisfy { if case .wait = $0 { return true }; return false }, "ohne Direkt-Weg: bis dahin nur Knoten-Versuche")
     check(!r.muted, "nach Aufgabe nicht mehr stumm")
     r = R()
     _ = r.lost(now: 0, rnd: 0.5)
     check(secs(r.failed(now: 115_000, retryAfter: 30, rnd: 0.5)) == 5, "Wartezeit endet an der Frist")
     check(r.failed(now: 120_000, retryAfter: nil, rnd: 0.5) == .giveUp && r.expired(now: 120_000), "an der Frist: aufgeben")
 
-    // ---- Verdrahtung (Quelltext): kein Rueckfall auf direkt
+    // ---- Antwort von /direct (Vertrag horn_direct1)
+    check(R.directAnswer(status: 200, body: ["ok": true, "call": ["topo": "mesh"], "offer_to": ["b", "c"]]) == .switched(offerTo: ["b", "c"]), "200 -> umgeschaltet")
+    check(R.directAnswer(status: 200, body: ["ok": true, "call": ["topo": "horn"]]) == .error, "200 ohne mesh: Fehler")
+    check(R.directAnswer(status: 409, body: ["horn_block": "node_ready", "horn": [:]]) == .nodeReady, "409 node_ready")
+    check(R.directAnswer(status: 409, body: ["horn_block": "limit"]) == .noPath("limit"), "409 limit")
+    check(R.directAnswer(status: 409, body: ["horn_block": "fed"]) == .noPath("fed"), "409 fed")
+    check(R.directAnswer(status: 404, body: ["ended": true]) == .ended, "404 beendet")
+    check(R.directAnswer(status: 429, body: ["retry_after": 9]) == .busy(9), "429 retry_after")
+    check(R.directAnswer(status: 500, body: nil) == .error && R.directAnswer(status: nil, body: nil) == .error, "500/Netz: Fehler")
+    let me = String(repeating: "5", count: 32), lo = String(repeating: "1", count: 32), hi = String(repeating: "a", count: 32)
+    check(R.offerTargets([hi, lo, hi], me: me) == [hi], "Mesh: nur an groessere IDs anbieten (kein Glare)")
+    check(R.unreached(["n1": 100_000, "n2": 50_000], now: 60_000, badMs: 60_000) == ["n1"], "avoid fuer /direct: in den letzten 30 s nicht erreicht")
+    check(R.startNote("node") == .nodeDown && R.startNote("old") == .peerOld && R.startNote("peer") == .peerOld, "Start-Hinweise")
+    check(R.startNote("off") == nil && R.startNote("caps") == nil && R.startNote("fed") == nil && R.startNote(nil) == nil, "off/caps/fed: kein Hinweis")
+
+    // ---- Verdrahtung (Quelltext)
     guard let dir = ProcessInfo.processInfo.environment["SAGA_APP_SRC"],
           let call = try? String(contentsOfFile: dir + "/HornCall.swift", encoding: .utf8) else { check(false, "SAGA_APP_SRC fehlt"); return }
     check(call.contains("if why == .lost { hornRecover(why, lost: H.cur?.node); return }"), "lost -> Wiederaufbau")
     check(call.contains("!H.switching, !H.rec.muted, let d = H.sw?.conn"), "Monitor stumm waehrend Wiederaufbau")
     check(call.contains("if code == 429 { throw HornBusy("), "429 ist kein noNode")
     check(call.contains("H.rec.adopted(now: now)") && !call.contains("H.retryTask?.cancel(); H.retryTask = nil"), "Adopt bricht den Plan nicht ab")
-    if let a = call.range(of: "func hornRecover("), let b = call.range(of: "func hornConnClose(") {
-        let body = String(call[a.lowerBound..<b.lowerBound]).lowercased()
-        check(!body.contains("mesh") && !body.contains("p2p") && !body.contains("topo"), "Wiederaufbau ohne Rueckfall auf direkt (Mesh/p2p)")
-    } else { check(false, "hornRecover fehlt") }
+    check(call.contains("var hornCanDirect: Bool { serverFeatures.contains(\"horn_direct1\") }"), "direkt nur mit horn_direct1")
+    check(call.contains("let a = await self.hornDirectAsk(H)"), "nach 30 s: Direkt-Anfrage")
+    guard let dir2 = try? String(contentsOfFile: dir + "/HornDirect.swift", encoding: .utf8),
+          let calls = try? String(contentsOfFile: dir + "/Calls.swift", encoding: .utf8) else { check(false, "HornDirect.swift fehlt"); return }
+    check(dir2.contains("api/calls/\\(id)/direct") && dir2.contains("HornRecover.offerTargets(others, me: dev)"), "POST /direct, Angebote an groessere IDs")
+    check(calls.contains("case \"call.topo\": hornTopoIn(d)") && calls.contains("hornStartNote(ShareJSON.str(j?[\"horn_block\"]))"), "call.topo und Start-Hinweis verdrahtet")
 }

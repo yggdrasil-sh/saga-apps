@@ -76,6 +76,8 @@ final class CallManager: NSObject, ObservableObject {
     @Published private(set) var enabled = true
     /// Hinweis ausserhalb eines Anrufs ("Du telefonierst gerade schon.")
     @Published var toast: String?
+    /// Horn-Fix: Anruf laeuft direkt statt ueber den Knoten (bleibt bis zum Ende sichtbar)
+    @Published var directNote = ""
     /// 2.3.1: Anruf-Oberflaeche verkleinert (iPhone/iPad) - zurueck in der App, oben die Leiste "Anruf laeuft".
     /// Nur die Anzeige: Verbindung, Ton und Video laufen unveraendert weiter (spaeter auch Bild-im-Bild).
     @Published var minimized = false
@@ -491,6 +493,7 @@ final class CallManager: NSObject, ObservableObject {
         switch CallRoom.dmHornOutcome(code: res?.1, body: j) {
         case .direct:
             CallEnv.log("dm via horn: fallback direct (\(ShareJSON.str(j?["horn_block"]) ?? (res == nil ? "net" : "-")))")
+            hornStartNote(ShareJSON.str(j?["horn_block"]))                 // node / old / peer: Hinweis
             links = [L]
             return false
         case .busy:
@@ -936,6 +939,7 @@ final class CallManager: NSObject, ObservableObject {
             runSoon()
         case "call.horn_move": hornMoveIn(d)                               // 2.5: Knoten wird geleert/aktualisiert/entfernt
         case "call.mod": hornModIn(d)                                       // 2.5: Gastgeber hat stummgeschaltet/entfernt
+        case "call.topo": hornTopoIn(d)                                     // Horn-Fix: Server hat auf direkt umgestellt
         case "call.state":
             guard let cid else { return }
             let st = d["state"] as? String, group = (d["kind"] as? String) == "group"
@@ -982,6 +986,7 @@ final class CallManager: NSObject, ObservableObject {
         guard let from = s["from_device"] as? String, !ending else { return }
         if horn != nil || topo == "horn" {                                 // 2.5: Knoten-Anruf - nur fkey/fkey-ack/state
             if horn == nil { horn = HornSession(nil) }
+            hornMeshKeep(s)                                                 // Horn-Fix: Angebote vor call.topo
             await hornSig(s); return
         }
         var found = link(from)
@@ -1681,7 +1686,7 @@ final class CallManager: NSObject, ObservableObject {
 
     func reset() {
         for L in links { L.close() }
-        hornStop(); horn = nil; topo = ""; meshNoted = false; callHost = false
+        hornStop(); horn = nil; topo = ""; meshNoted = false; callHost = false; directNote = ""
         meet = MeetState(); meetSpk = Meeting.Speakers(); meetShareAt = [:]; meetOrder = Meeting.Order()
         id = nil; chatID = 0; peer = ""; links = []; seen = []; early = []
         v2 = nil; roomHandle = nil
