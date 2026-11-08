@@ -88,6 +88,8 @@ class DesignR6NavTest {
         assertFalse(LoginLayout.card(411f))
         assertFalse(LoginLayout.card(599f))
         assertTrue(LoginLayout.card(600f))
+        assertFalse(LoginLayout.card(915f, 411f))   // Phone quer bleibt ohne Karte
+        assertTrue(LoginLayout.card(1280f, 800f))
         assertTrue(LoginLayout.card(1280f))
         assertEquals(480f, LoginLayout.CARD_MAX.value, 0.01f)
     }

@@ -95,7 +95,9 @@ internal object LoginLayout {
     const val CARD_FROM_DP = 600f
     val CARD_MAX = 480.dp
     val CARD_MARGIN = 24.dp
-    fun card(widthDp: Float): Boolean = widthDp >= CARD_FROM_DP
+    /** Hoehe mindestens so viel, dass es kein Phone quer ist (Pruefung R6: "Phone unveraendert") */
+    const val CARD_MIN_H_DP = 480f
+    fun card(widthDp: Float, heightDp: Float = Float.MAX_VALUE): Boolean = widthDp >= CARD_FROM_DP && heightDp >= CARD_MIN_H_DP
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -177,7 +179,7 @@ fun LoginScreen(repo: SagaRepository) {
         // Passt der Block nicht ueber die Tastatur (Tablet quer), wird nur gescrollt: Feld + "Anmelden" ins Bild.
         // A11Y-27: ab 600 dp Breite (Tablet) als Karte (max. 480 dp) mittig, scrollbar; Phone unveraendert oben ausgerichtet
         androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding().imePadding(), contentAlignment = Alignment.TopCenter) {
-            val card = LoginLayout.card(maxWidth.value)
+            val card = LoginLayout.card(maxWidth.value, androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.toFloat())
             val viewportH = maxHeight
             val fieldArea = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
             var fieldFocused by remember { mutableStateOf(false) }

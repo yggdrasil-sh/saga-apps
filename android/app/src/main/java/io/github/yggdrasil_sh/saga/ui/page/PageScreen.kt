@@ -609,7 +609,13 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 }
             }
         }
-        if (sheet != null) RowSheetBar(barTitle, titleInBar, sheet, barActions)
+        if (sheet != null) {
+            // R6-Pruefung: erst speichern, dann als ganze Seite oeffnen (sonst laedt die Seite den Stand vor dem letzten Tippen)
+            val full = remember(sheet, ed) {
+                RowSheetChrome(sheet.onClose, sheet.onPrev, sheet.onNext) { repo.launchAction { ed.saveAndWait(); sheet.onOpenFull() } }
+            }
+            RowSheetBar(barTitle, titleInBar, full, barActions)
+        }
         else SagaTopBar(barTitle, nav, chrome, titleVisible = titleInBar, actions = barActions)
         if (ed.conflict && !conflictDialog) {
             ConflictBanner(ed.conflictBy) { conflictDialog = true }
