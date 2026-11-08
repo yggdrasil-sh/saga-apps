@@ -249,6 +249,8 @@ internal fun InfoItem(icon: Int, title: String, value: String? = null, color: an
 @Composable
 fun AttachSheet(tiles: List<io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile>, onDismiss: () -> Unit, onPick: (io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile) -> Unit) {
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
+        // R5-Nachbesserung: dunkel waren die Statusleisten-Symbole dunkel auf dunklem Grund
+        io.github.yggdrasil_sh.saga.ui.common.SheetBarIcons()
         Text(
             stringResource(R.string.chat_attach), style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp).semantics { heading() },

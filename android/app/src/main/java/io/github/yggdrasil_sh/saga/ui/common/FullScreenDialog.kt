@@ -42,3 +42,20 @@ fun FullScreenDialogBars() {
         }
     }
 }
+
+/**
+ * R5-Nachbesserung: Symbole der Leisten im eigenen Fenster eines ModalBottomSheet nach Thema (dunkel: helle Symbole) -
+ * im Inhalt des Blatts aufrufen. Das Blatt behaelt seine Darstellung (randlos, Abdunklung), nur die Symbolfarbe wird gesetzt.
+ */
+@Composable
+fun SheetBarIcons() {
+    val view = LocalView.current
+    val lightIcons = FullScreenDialog.lightIcons(MaterialTheme.colorScheme.background.luminance())
+    SideEffect {
+        val window = generateSequence(view.parent) { it.parent }.filterIsInstance<DialogWindowProvider>().firstOrNull()?.window ?: return@SideEffect
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !lightIcons
+            isAppearanceLightNavigationBars = !lightIcons
+        }
+    }
+}

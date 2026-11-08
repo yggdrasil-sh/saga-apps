@@ -92,4 +92,11 @@ class DesignR5FixChatTest {
             assertFalse(f, t.contains("fillMaxWidth().widthIn(max = ChatInfoLogic.MAX_WIDTH_DP.dp)"))
         }
     }
+
+    @Test
+    fun attachSheetBarIcons() {
+        val ui = read("ui/chat/ChatR5Ui.kt")
+        val sheet = ui.substring(ui.indexOf("fun AttachSheet("), ui.indexOf("private fun attachTile("))
+        assertTrue(sheet.contains("SheetBarIcons()"))
+    }
 }
