@@ -22,6 +22,7 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -736,7 +737,7 @@ internal fun MeetLayoutOptions(ms: MeetState, share: Boolean) {
         Meeting.Pref.SPEAKER to stringResource(R.string.meet_layout_speaker), Meeting.Pref.PRESENTATION to stringResource(R.string.meet_layout_presentation),
     )
     val cur = ms.effPref
-    Column(Modifier.fillMaxWidth().semantics { androidx.compose.ui.semantics.selectableGroup() }) {
+    Column(Modifier.fillMaxWidth().selectableGroup()) {
         Text(
             stringResource(R.string.meet_layout), style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },

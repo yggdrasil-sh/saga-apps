@@ -47,6 +47,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.AlertDialog
@@ -991,7 +992,7 @@ internal fun CallMoreSheet(entries: List<CallMoreEntry>, onDismiss: () -> Unit, 
 @Composable
 private fun AudioSheet(calls: CallManager, routes: AudioRoutes, onDismiss: () -> Unit) {
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().padding(bottom = 16.dp).semantics { androidx.compose.ui.semantics.selectableGroup() }) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 16.dp).selectableGroup()) {
             Text(
                 stringResource(R.string.r5_call_audio_title), style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp).semantics { heading() },

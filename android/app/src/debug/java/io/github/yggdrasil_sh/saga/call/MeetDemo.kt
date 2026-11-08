@@ -131,11 +131,11 @@ fun MeetDemoContent(scenario: String, hidden: Boolean = false) {
                     Box(Modifier.fillMaxHeight().safeDrawingPadding().padding(4.dp)) {
                         Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(SagaRadius.pill)) {
                             Column(Modifier.width(64.dp).fillMaxHeight().padding(vertical = 6.dp), verticalArrangement = Arrangement.SpaceEvenly, horizontalAlignment = Alignment.CenterHorizontally) {
-                                RoundButton(SagaIcons.mic, stringResource(R.string.call_mute), tc, tf, compact = true, col = 48.dp) {}
-                                RoundButton(SagaIcons.video, stringResource(R.string.call_cam_off), tc, tf, compact = true, col = 48.dp) {}
-                                RoundButton(SagaIcons.screenShare, stringResource(R.string.call_screen_share), tc, tf, compact = true, col = 48.dp) {}
+                                // Design-Runde 5 (CH-18): vier feste Knoepfe + Mehr
+                                RoundButton(SagaIcons.mic, stringResource(R.string.r5_call_mic), tc, tf, compact = true, col = 48.dp) {}
+                                RoundButton(SagaIcons.video, stringResource(R.string.r5_call_cam), tc, tf, compact = true, col = 48.dp) {}
                                 RoundButton(SagaIcons.volume, stringResource(R.string.call_speaker), tc, tf, compact = true, col = 48.dp) {}
-                                if (Meeting.layoutButton(model)) MeetLayoutButton(ms, model.screens.isNotEmpty(), 48.dp, tc, tf) {}
+                                RoundButton(SagaIcons.moreHoriz, stringResource(R.string.r5_call_more), tc, tf, compact = true, col = 48.dp) {}
                                 RoundButton(SagaIcons.phoneOff, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = true, col = 48.dp) {}
                             }
                         }
@@ -143,20 +143,17 @@ fun MeetDemoContent(scenario: String, hidden: Boolean = false) {
                     return@MeetingLayer
                 }
                 BoxWithConstraints(Modifier.fillMaxWidth().safeDrawingPadding().padding(horizontal = 8.dp, vertical = 8.dp)) {
-                    val showLayout = Meeting.layoutButton(model)
-                    val n = if (showLayout) 7 else 6
-                    val col = minOf(72.dp, maxWidth / n)
-                    val tc = MaterialTheme.colorScheme.surfaceContainerHighest
-                    val tf = MaterialTheme.colorScheme.onSurface
+                    val col = minOf(96.dp, maxWidth / 5)
+                    val tc = CallDesign.toggleColors.onContainer
+                    val tf = CallDesign.toggleColors.onContent
                     Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(SagaRadius.pill)) {
                         Row(Modifier.fillMaxWidth().padding(vertical = if (flat) 4.dp else 10.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
-                            RoundButton(SagaIcons.mic, stringResource(R.string.call_mute), tc, tf, compact = true, col = col) {}
-                            RoundButton(SagaIcons.video, stringResource(R.string.call_cam_off), tc, tf, compact = true, col = col) {}
-                            RoundButton(SagaIcons.cameraSwitch, stringResource(R.string.call_switch_camera), tc, tf, compact = true, col = col) {}
-                            RoundButton(SagaIcons.screenShare, stringResource(R.string.call_screen_share), tc, tf, compact = true, col = col) {}
-                            RoundButton(SagaIcons.volume, stringResource(R.string.call_speaker), tc, tf, compact = true, col = col) {}
-                            if (showLayout) MeetLayoutButton(ms, model.screens.isNotEmpty(), col, tc, tf) {}
-                            RoundButton(SagaIcons.phoneOff, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = true, col = col) {}
+                            // Design-Runde 5 (CH-18): vier feste Knoepfe + Mehr (Teilen, Layout, Kamera wechseln im Mehr-Blatt)
+                            RoundButton(SagaIcons.mic, stringResource(R.string.r5_call_mic), tc, tf, col = col) {}
+                            RoundButton(SagaIcons.video, stringResource(R.string.r5_call_cam), tc, tf, col = col) {}
+                            RoundButton(SagaIcons.volume, stringResource(R.string.call_speaker), tc, tf, col = col) {}
+                            RoundButton(SagaIcons.moreHoriz, stringResource(R.string.r5_call_more), tc, tf, col = col) {}
+                            RoundButton(SagaIcons.phoneOff, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, col = col) {}
                         }
                     }
                 }
