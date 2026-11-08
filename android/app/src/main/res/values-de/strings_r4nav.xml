@@ -11,4 +11,18 @@
         <item quantity="one">%d ungelesen</item>
         <item quantity="other">%d ungelesen</item>
     </plurals>
+    <!-- R4-Nachbesserung (46b, 17) -->
+    <string name="r4nav_chats_unread_some">Ungelesene Gespräche</string>
+    <plurals name="r4nav_unread_chats">
+        <item quantity="one">%d ungelesenes Gespräch</item>
+        <item quantity="other">%d ungelesene Gespräche</item>
+    </plurals>
+    <plurals name="r4nav_tasks_due">
+        <item quantity="one">%d Aufgabe fällig</item>
+        <item quantity="other">%d Aufgaben fällig</item>
+    </plurals>
+    <plurals name="r4nav_tasks_overdue">
+        <item quantity="one">%d überfällig</item>
+        <item quantity="other">%d überfällig</item>
+    </plurals>
 </resources>

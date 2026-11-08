@@ -13,4 +13,24 @@
         <item quantity="many">%d непрочитанных</item>
         <item quantity="other">%d непрочитанного</item>
     </plurals>
+    <!-- R4-Nachbesserung (46b, 17) -->
+    <string name="r4nav_chats_unread_some">Есть непрочитанные чаты</string>
+    <plurals name="r4nav_unread_chats">
+        <item quantity="one">%d непрочитанный чат</item>
+        <item quantity="few">%d непрочитанных чата</item>
+        <item quantity="many">%d непрочитанных чатов</item>
+        <item quantity="other">%d непрочитанного чата</item>
+    </plurals>
+    <plurals name="r4nav_tasks_due">
+        <item quantity="one">%d задача к сроку</item>
+        <item quantity="few">%d задачи к сроку</item>
+        <item quantity="many">%d задач к сроку</item>
+        <item quantity="other">%d задачи к сроку</item>
+    </plurals>
+    <plurals name="r4nav_tasks_overdue">
+        <item quantity="one">%d просрочена</item>
+        <item quantity="few">%d просрочены</item>
+        <item quantity="many">%d просрочено</item>
+        <item quantity="other">%d просрочено</item>
+    </plurals>
 </resources>

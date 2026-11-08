@@ -70,6 +70,12 @@ object NavModel {
         add(Dest.Trash); add(Dest.Settings)
     }
 
+    /** R4-Nachbesserung 68: Ziele der Fusszeile, die als Unterziel (push, mit Zurueck-Pfeil) oeffnen */
+    fun footerPush(d: Dest): Boolean = d == Dest.Trash
+
+    /** Fusszeile in Reihen zu je zwei Zielen (R4-Nachbesserung 39/79b: genug Breite fuer die Beschriftung) */
+    fun footerRows(dests: List<Dest>): List<List<Dest>> = dests.chunked(2)
+
     /** Gleiches Ziel fuer die Markierung (Graph mit/ohne Fokus zaehlt als Graph) */
     fun same(root: Dest, d: Dest): Boolean = when (d) {
         is Dest.Graph -> root is Dest.Graph
@@ -78,6 +84,35 @@ object NavModel {
             root == Dest.SettingsNotifications || root == Dest.SettingsChats
         else -> root == d
     }
+
+    /** Chats-Badge: Zahl der Gespraeche noch unbekannt (Liste nicht geladen) - nur ein Punkt, keine Zahl */
+    const val CHATS_UNKNOWN = -1
+
+    /**
+     * R4-Nachbesserung 46b: Badge an "Chats" zaehlt ungelesene Gespraeche, nicht Nachrichten. Der Server liefert nur
+     * die Nachrichtensumme (GET /api/chats/unread, `totalMessages`; als ungelesen markierte Chats zaehlen dort je 1);
+     * die Gespraeche kommen aus der Chat-Liste (je Chat `unread`/`unread_mark`, dieselben Regeln wie der Server-Zaehler:
+     * nicht stumm, nicht archiviert, keine offene Anfrage). 0 = nichts ungelesen (Server-Summe ist massgeblich),
+     * [CHATS_UNKNOWN] = es gibt Ungelesenes, die Liste ist aber noch nicht geladen.
+     */
+    fun unreadChats(chats: List<io.github.yggdrasil_sh.saga.chat.ChatSummary>?, totalMessages: Int): Int {
+        if (totalMessages <= 0) return 0
+        if (chats == null) return CHATS_UNKNOWN
+        val n = chats.count { !it.muted && it.archived != true && !it.request && !it.hidden && (it.unread > 0 || it.unreadMark) }
+        // Liste kurz hinter der Summe (Live-Ereignis noch unterwegs): wenigstens 1, nie mehr als Nachrichten
+        return n.coerceIn(1, totalMessages)
+    }
+
+    /**
+     * R4-Nachbesserung 17: ueberfaellige offene Aufgaben (Teil des Seitenleisten-Badges, [TaskCounts] als Quelle) -
+     * nur sie werden rot und mit Wort gezeigt.
+     */
+    fun overdueCount(
+        merged: io.github.yggdrasil_sh.saga.data.TasksWithSources?,
+        tasks: List<io.github.yggdrasil_sh.saga.data.TaskItem>,
+        today: String,
+    ): Int = merged?.items?.count { io.github.yggdrasil_sh.saga.data.TaskCounts.overdue(it, today) }
+        ?: tasks.count { io.github.yggdrasil_sh.saga.data.TaskCounts.overdue(it, today) }
 
     /** Zaehler wie in Badges: 0 = keiner, ab 100 "99+" */
     fun badgeText(count: Int): String? = when {

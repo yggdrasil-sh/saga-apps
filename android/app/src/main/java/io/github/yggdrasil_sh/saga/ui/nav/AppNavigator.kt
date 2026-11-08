@@ -112,6 +112,22 @@ class AppNavigator(initial: List<Dest> = listOf(Dest.Today)) {
         if (stack.last() != d) stack.add(d)
     }
 
+    /**
+     * R4-Nachbesserung 22: Ziel ueber der aktuellen Wurzel oeffnen (Stapel = [Wurzel, d]). Mit der unteren Leiste ist die
+     * Wurzel das Leistenziel (Heute, Suchen, Chats …); eine aus der Schublade ("Seiten") geoeffnete Seite fuehrt mit
+     * Zurueck dorthin statt nach Heute. Ist die Wurzel selbst eine Seite (oder schon d), wird wie bisher ersetzt.
+     */
+    fun openOver(d: Dest) {
+        val r = root
+        if (r == d || r is Dest.Page) {
+            top(d)
+            return
+        }
+        stack.clear()
+        stack.add(r)
+        stack.add(d)
+    }
+
     fun pop(): Boolean {
         if (stack.size <= 1) return false
         stack.removeAt(stack.size - 1)

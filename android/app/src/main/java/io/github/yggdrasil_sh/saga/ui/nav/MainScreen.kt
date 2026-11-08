@@ -345,13 +345,16 @@ fun MainScreen(
                             }
                             // Saga 2.0: Chats (Ende-zu-Ende) und Benachrichtigungen mit Zaehler
                             val chatOn by repo.live.chatEnabled.collectAsState()
-                            val chatUnread by repo.live.chatUnread.collectAsState()
+                            val chatUnread = rememberUnreadChats(repo)
                             val notifOn by repo.live.supported.collectAsState()
                             val notifUnread by repo.live.unread.collectAsState()
                             if (chatOn) {
                                 NavigationRailItem(
                                     selected = nav.root == Dest.Chats || nav.root is Dest.Chat, onClick = { nav.top(Dest.Chats) },
-                                    icon = { BadgeIcon(chatUnread) { SagaIcon(SagaIcons.chats, null) } },
+                                    icon = {
+                                        val d = unreadChatsText(chatUnread)
+                                        Box(Modifier.clearAndSetSemantics { if (d != null) contentDescription = d }) { BadgeIcon(chatUnread) { SagaIcon(SagaIcons.chats, null) } }
+                                    },
                                     label = { Text(stringResource(R.string.chats)) },
                                 )
                             }
@@ -426,8 +429,7 @@ private fun BellButton(count: Int, onClick: () -> Unit) {
 @Composable
 private fun SagaBottomBar(repo: SagaRepository, nav: AppNavigator, drawerOpen: Boolean, onPages: () -> Unit, modifier: Modifier = Modifier) {
     val chatOn by repo.live.chatEnabled.collectAsState()
-    val chatUnread by repo.live.chatUnread.collectAsState()
-    val res = LocalResources.current
+    val chatUnread = rememberUnreadChats(repo)
     val accent = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current
     val selected = NavModel.selectedTab(nav.root, drawerOpen)
     androidx.compose.material3.NavigationBar(modifier, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
@@ -440,7 +442,7 @@ private fun SagaBottomBar(repo: SagaRepository, nav: AppNavigator, drawerOpen: B
             }
             val badge = if (tab == NavModel.Tab.CHATS) chatUnread else 0
             val text = stringResource(label)
-            val count = if (badge > 0) res.getQuantityString(R.plurals.r4nav_unread, badge, badge) else null
+            val count = if (tab == NavModel.Tab.CHATS) unreadChatsText(badge) else null
             NavigationBarItem(
                 selected = selected == tab,
                 onClick = {
@@ -451,7 +453,7 @@ private fun SagaBottomBar(repo: SagaRepository, nav: AppNavigator, drawerOpen: B
                         NavModel.Tab.CHATS -> nav.top(Dest.Chats)
                     }
                 },
-                // Zaehler als Text angesagt ("3 ungelesen"), nicht als nackte Zahl; Beschriftung liest die Leiste selbst
+                // Zaehler als Text angesagt ("1 ungelesenes Gespraech"), nicht als nackte Zahl; Beschriftung liest die Leiste selbst
                 icon = { Box(Modifier.clearAndSetSemantics { if (count != null) contentDescription = count }) { BadgeIcon(badge) { SagaIcon(icon, null) } } },
                 label = { NavLabel(text) },
                 colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
@@ -561,8 +563,35 @@ private fun screenTransition(
 /** Symbol mit Zaehler (Badge), 0 = ohne */
 @Composable
 fun BadgeIcon(count: Int, icon: @Composable () -> Unit) {
-    if (count <= 0) icon() else {
-        androidx.compose.material3.BadgedBox(badge = { androidx.compose.material3.Badge { Text(if (count > 99) "99+" else "$count") } }) { icon() }
+    when {
+        // NavModel.CHATS_UNKNOWN: es gibt Ungelesenes, Zahl der Gespraeche noch nicht bekannt -> Punkt ohne Zahl
+        count < 0 -> androidx.compose.material3.BadgedBox(badge = { androidx.compose.material3.Badge() }) { icon() }
+        count == 0 -> icon()
+        else -> androidx.compose.material3.BadgedBox(badge = { androidx.compose.material3.Badge { Text(if (count > 99) "99+" else "$count") } }) { icon() }
+    }
+}
+
+/**
+ * R4-Nachbesserung 46b: ungelesene Gespraeche fuer das Chats-Badge (Leiste, Rail, Seitenleiste). Ist die Chat-Liste noch
+ * nicht geladen, wird sie einmal still nachgeladen (ohne eingerichteten Chat bleibt es beim Punkt ohne Zahl).
+ */
+@Composable
+internal fun rememberUnreadChats(repo: SagaRepository): Int {
+    val total by repo.live.chatUnread.collectAsState()
+    val chats by repo.chat.chats.collectAsState()
+    val loaded by repo.chat.chatsLoaded.collectAsState()
+    LaunchedEffect(total > 0, loaded) { if (total > 0 && !loaded) repo.chat.loadChats() }
+    return NavModel.unreadChats(if (loaded) chats else null, total)
+}
+
+/** TalkBack-Text zum Chats-Badge ("1 ungelesenes Gespraech"); null = nichts ungelesen */
+@Composable
+internal fun unreadChatsText(count: Int): String? {
+    val res = LocalResources.current
+    return when {
+        count < 0 -> res.getString(R.string.r4nav_chats_unread_some)
+        count == 0 -> null
+        else -> res.getQuantityString(R.plurals.r4nav_unread_chats, count, count)
     }
 }
 

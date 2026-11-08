@@ -36,6 +36,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,7 +49,6 @@ import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.util.AppLanguage
 import io.github.yggdrasil_sh.saga.util.ShotMode
-import io.github.yggdrasil_sh.saga.ui.settings.AppearanceDialog
 import io.github.yggdrasil_sh.saga.ui.settings.SignOutConfirmDialog
 import io.github.yggdrasil_sh.saga.ui.settings.appearanceIcon
 import io.github.yggdrasil_sh.saga.ui.settings.appearanceLabel
@@ -78,7 +78,8 @@ internal fun AccountAvatarMenu(repo: SagaRepository, nav: AppNavigator, onNaviga
         adminUrl = try { NavModel.adminUrl(repo.api.get("api/account")) } catch (e: CancellationException) { throw e } catch (_: Exception) { adminUrl }
     }
     var langDialog by remember { mutableStateOf(false) }
-    var themeDialog by remember { mutableStateOf(false) }
+    // R4-Nachbesserung 60b: "Darstellung ›" als Untermenue im selben Menue (Zurueck-Kopf + drei Radio-Eintraege)
+    var themeSub by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
     // Sprache und Darstellung aus ui/settings (r4-settings) - dieselben Werte wie in den Einstellungen
     val (lang, chooseLang) = rememberAppLanguage()
@@ -100,7 +101,10 @@ internal fun AccountAvatarMenu(repo: SagaRepository, nav: AppNavigator, onNaviga
                 // 40 dp Avatar + 4 dp ringsum = 48-dp-Tippflaeche
                 .padding(4.dp),
         ) { io.github.yggdrasil_sh.saga.ui.notifications.Avatar(account, size = 40, avatar = ownAvatar) }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }, modifier = Modifier.widthIn(min = 240.dp)) {
+        DropdownMenu(expanded = open, onDismissRequest = { open = false; themeSub = false }, modifier = Modifier.widthIn(min = 240.dp)) {
+          if (themeSub) {
+            AppearanceSubmenu(appearance, onBack = { themeSub = false }, onChoose = chooseAppearance)
+          } else {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).semantics(mergeDescendants = true) {}) {
                 Text(account, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val host = ShotMode.host(PairLink.displayHost(server))
@@ -129,7 +133,7 @@ internal fun AccountAvatarMenu(repo: SagaRepository, nav: AppNavigator, onNaviga
                         SagaIcon(SagaIcons.chevronRight, null)
                     }
                 },
-                onClick = { open = false; themeDialog = true },
+                onClick = { themeSub = true },
             )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.nav_settings)) },
@@ -151,6 +155,7 @@ internal fun AccountAvatarMenu(repo: SagaRepository, nav: AppNavigator, onNaviga
                 leadingIcon = { SagaIcon(SagaIcons.logout, null) },
                 onClick = { open = false; confirmLogout = true },
             )
+          }
         }
     }
     if (langDialog) {
@@ -159,8 +164,34 @@ internal fun AccountAvatarMenu(repo: SagaRepository, nav: AppNavigator, onNaviga
             stringResource(R.string.language_hint), onPick = chooseLang, onDismiss = { langDialog = false },
         )
     }
-    if (themeDialog) AppearanceDialog(appearance, onDismiss = { themeDialog = false }, onChoose = { themeDialog = false; chooseAppearance(it) })
     if (confirmLogout) SignOutConfirmDialog(repo, onDismiss = { confirmLogout = false })
+}
+
+/**
+ * Untermenue "Darstellung": oben "‹ Darstellung" (zurueck zum Kontomenue), darunter Wie das System / Hell / Dunkel als
+ * Radio-Eintraege. Die Wahl gilt sofort (Thema wechselt hinter dem Menue), das Menue bleibt offen, damit man es sieht.
+ */
+@Composable
+private fun AppearanceSubmenu(current: io.github.yggdrasil_sh.saga.ui.settings.AppAppearance.Mode, onBack: () -> Unit, onChoose: (io.github.yggdrasil_sh.saga.ui.settings.AppAppearance.Mode) -> Unit) {
+    val back = stringResource(R.string.action_back)
+    DropdownMenuItem(
+        text = { Text(stringResource(R.string.r4s_appearance), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)) },
+        leadingIcon = { SagaIcon(SagaIcons.chevronLeft, null) },
+        onClick = onBack,
+        modifier = Modifier.semantics { onClick(label = back) { onBack(); true } },
+    )
+    HorizontalDivider()
+    Column(Modifier.selectableGroup()) {
+        io.github.yggdrasil_sh.saga.ui.settings.AppAppearance.Mode.entries.forEach { m ->
+            DropdownMenuItem(
+                text = { Text(appearanceLabel(m)) },
+                leadingIcon = { RadioButton(selected = m == current, onClick = null) },
+                trailingIcon = { SagaIcon(appearanceIcon(m), null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                onClick = { if (m != current) onChoose(m) },
+                modifier = Modifier.semantics { role = Role.RadioButton; selected = m == current },
+            )
+        }
+    }
 }
 
 /** Auswahlliste (Radio) als Dialog fuer die Sprache */

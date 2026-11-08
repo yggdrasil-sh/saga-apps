@@ -10,4 +10,15 @@
     <plurals name="r4nav_unread">
         <item quantity="other">ยังไม่อ่าน %d รายการ</item>
     </plurals>
+    <!-- R4-Nachbesserung (46b, 17) -->
+    <string name="r4nav_chats_unread_some">มีแชตที่ยังไม่ได้อ่าน</string>
+    <plurals name="r4nav_unread_chats">
+        <item quantity="other">แชตที่ยังไม่ได้อ่าน %d รายการ</item>
+    </plurals>
+    <plurals name="r4nav_tasks_due">
+        <item quantity="other">งานถึงกำหนด %d รายการ</item>
+    </plurals>
+    <plurals name="r4nav_tasks_overdue">
+        <item quantity="other">เลยกำหนด %d</item>
+    </plurals>
 </resources>

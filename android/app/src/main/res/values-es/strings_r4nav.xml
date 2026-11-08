@@ -12,4 +12,21 @@
         <item quantity="many">%d sin leer</item>
         <item quantity="other">%d sin leer</item>
     </plurals>
+    <!-- R4-Nachbesserung (46b, 17) -->
+    <string name="r4nav_chats_unread_some">Conversaciones sin leer</string>
+    <plurals name="r4nav_unread_chats">
+        <item quantity="one">%d conversación sin leer</item>
+        <item quantity="many">%d conversaciones sin leer</item>
+        <item quantity="other">%d conversaciones sin leer</item>
+    </plurals>
+    <plurals name="r4nav_tasks_due">
+        <item quantity="one">%d tarea pendiente</item>
+        <item quantity="many">%d tareas pendientes</item>
+        <item quantity="other">%d tareas pendientes</item>
+    </plurals>
+    <plurals name="r4nav_tasks_overdue">
+        <item quantity="one">%d vencida</item>
+        <item quantity="many">%d vencidas</item>
+        <item quantity="other">%d vencidas</item>
+    </plurals>
 </resources>

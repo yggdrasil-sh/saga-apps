@@ -84,7 +84,9 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit, bot
     val tasks by repo.tasks.collectAsState()
     // NAV-01: wie das Web-Badge "faellig heute + ueberfaellig" (mit Aufgabenquellen aus der zusammengefuehrten Liste)
     val mergedTasks by repo.taskList.collectAsState()
-    val taskBadge = io.github.yggdrasil_sh.saga.data.TaskCounts.badge(mergedTasks, tasks, io.github.yggdrasil_sh.saga.ui.common.todayIso())
+    val todayIso = io.github.yggdrasil_sh.saga.ui.common.todayIso()
+    val taskBadge = io.github.yggdrasil_sh.saga.data.TaskCounts.badge(mergedTasks, tasks, todayIso)
+    val taskOverdue = NavModel.overdueCount(mergedTasks, tasks, todayIso)
     val error by repo.error.collectAsState()
     val loading by repo.loading.collectAsState()
     var expanded by rememberSaveable { mutableStateOf(setOf<Long>()) }
@@ -97,7 +99,7 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit, bot
     // "Mit mir geteilt": Seiten dieser und anderer Saga-Instanzen (Foederation, negative IDs)
     val shared = remember(sharedLocal, fedShared) { sharedLocal + fedShared }
     val chatOn by repo.live.chatEnabled.collectAsState()
-    val chatUnread by repo.live.chatUnread.collectAsState()
+    val chatUnread = rememberUnreadChats(repo)       // 46b: Gespraeche, nicht Nachrichten
     val shareOff by repo.shareOff.collectAsState()
     var sharedExpanded by rememberSaveable { mutableStateOf(setOf<Long>()) }
     // 2.4: Verschieben (Zeilenmenue "⋮" bzw. Langdruck auf eine Seite); der Papierkorb ist ein eigenes Ziel (NAV-17)
@@ -127,7 +129,8 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit, bot
     }
 
     fun open(id: Long) {
-        nav.top(Dest.Page(id))
+        // R4-Nachbesserung 22: mit unterer Leiste ueber dem Leistenziel oeffnen (Zurueck -> dorthin), sonst wie bisher
+        if (bottomBar) nav.openOver(Dest.Page(id)) else nav.top(Dest.Page(id))
         onNavigate()
     }
 
@@ -218,12 +221,13 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit, bot
         item(key = "search") { SearchField { nav.top(Dest.Search); onNavigate() } }
         items(mainDests, key = { "main-" + Dest.encode(it) }) { d ->
             val (label, icon) = destLabel(d)
-            val badge = when (d) {
-                Dest.Tasks -> taskBadge
-                Dest.Chats -> chatUnread
-                else -> 0
+            val badge: (@Composable () -> Unit)? = when (d) {
+                // R4-Nachbesserung 17: wie Heute (goldene Zahl); Rot nur fuer "N ueberfaellig" mit Wort (Regel Runde 1)
+                Dest.Tasks -> if (taskBadge > 0) @Composable { TaskBadge(taskBadge, taskOverdue) } else null
+                Dest.Chats -> if (chatUnread != 0) @Composable { ChatBadge(chatUnread) } else null
+                else -> null
             }
-            NavItem(stringResource(label), null, NavModel.same(nav.root, d), badge = badge.takeIf { it > 0 }, painter = icon) {
+            NavItem(stringResource(label), null, NavModel.same(nav.root, d), badge = badge, painter = icon) {
                 nav.top(d); onNavigate()
             }
         }
@@ -316,7 +320,12 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit, bot
     }
     // NAV-07/24: feste Fusszeile wie Web (Symbolzeile), immer sichtbar unter dem Baum
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
-    SidebarFooter(NavModel.sidebarFooter(graphOn), nav.root) { d -> nav.top(d); onNavigate() }
+    // R4-Nachbesserung 68: Papierkorb ist ein Unterziel (Zurueck-Pfeil, Zurueck -> vorheriges Ziel), die anderen
+    // Fusszeilen-Ziele bleiben Wurzeln wie die Hauptpunkte
+    SidebarFooter(NavModel.sidebarFooter(graphOn), nav.root, nav.current) { d ->
+        if (NavModel.footerPush(d)) nav.push(d) else nav.top(d)
+        onNavigate()
+    }
     }
     movePage?.let { p -> io.github.yggdrasil_sh.saga.ui.pages.MovePageDialog(repo, p, onDismiss = { movePage = null }) }
     if (galleryOpen) {
@@ -384,28 +393,42 @@ private fun NewPageRow(enabled: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** NAV-07/24: Fusszeile als Symbolzeile mit Beschriftung (je mindestens 48 dp), gewaehltes Ziel in Gold-Soft */
+/**
+ * NAV-07/24: Fusszeile mit Symbol und Beschriftung (je mindestens 48 dp), gewaehltes Ziel in Gold-Soft.
+ * R4-Nachbesserung 39/79b: vier Spalten waren zu schmal ("Einstellun-gen", "Papier-korb" bei Schrift 1,3 und auf dem
+ * Tablet). Jetzt zwei Reihen mit je zwei Zielen (halbe Breite, Symbol links), Beschriftung ohne Silbentrennung,
+ * Umbruch nur an Leerzeichen (LineBreak.Simple), hoechstens zwei Zeilen, sonst Ellipse - liest sich auch in de/ru/th.
+ */
 @Composable
-private fun SidebarFooter(dests: List<Dest>, root: Dest, onPick: (Dest) -> Unit) {
+private fun SidebarFooter(dests: List<Dest>, root: Dest, current: Dest, onPick: (Dest) -> Unit) {
     val accent = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)) {
-        dests.forEach { d ->
-            val (label, icon) = destLabel(d)
-            val selected = NavModel.same(root, d)
-            Column(
-                Modifier.weight(1f).heightIn(min = 56.dp).clip(MaterialTheme.shapes.small)
-                    .background(if (selected) accent.goldSoft else androidx.compose.ui.graphics.Color.Transparent)
-                    .selectable(selected = selected, role = androidx.compose.ui.semantics.Role.Tab) { onPick(d) }
-                    .padding(horizontal = 2.dp, vertical = 6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                val tint = if (selected) accent.onGoldSoft else MaterialTheme.colorScheme.onSurfaceVariant
-                SagaIcon(icon, null, Modifier.size(22.dp), tint = tint)
-                Text(
-                    stringResource(label), style = MaterialTheme.typography.labelSmall, color = tint, maxLines = 2,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
+    val labelStyle = MaterialTheme.typography.labelMedium.copy(
+        hyphens = androidx.compose.ui.text.style.Hyphens.None,
+        lineBreak = androidx.compose.ui.text.style.LineBreak.Simple,
+    )
+    Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+        NavModel.footerRows(dests).forEach { row ->
+            Row(Modifier.fillMaxWidth()) {
+                row.forEach { d ->
+                    val (label, icon) = destLabel(d)
+                    val selected = NavModel.same(root, d) || current == d
+                    Row(
+                        Modifier.weight(1f).heightIn(min = 48.dp).clip(MaterialTheme.shapes.small)
+                            .background(if (selected) accent.goldSoft else androidx.compose.ui.graphics.Color.Transparent)
+                            .selectable(selected = selected, role = androidx.compose.ui.semantics.Role.Tab) { onPick(d) }
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        val tint = if (selected) accent.onGoldSoft else MaterialTheme.colorScheme.onSurfaceVariant
+                        SagaIcon(icon, null, Modifier.size(20.dp), tint = tint)
+                        Text(
+                            stringResource(label), style = labelStyle, color = tint, maxLines = 2,
+                            overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                }
+                // ungerade Anzahl (z. B. ohne Graph): letzte Zelle bleibt halb breit
+                repeat(2 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }
@@ -431,14 +454,14 @@ private fun sidebarItemColors() = io.github.yggdrasil_sh.saga.ui.theme.LocalSaga
 }
 
 @Composable
-private fun NavItem(label: String, icon: ImageVector?, selected: Boolean, badge: Int? = null, painter: Int? = null, onClick: () -> Unit) {
+private fun NavItem(label: String, icon: ImageVector?, selected: Boolean, badge: (@Composable () -> Unit)? = null, painter: Int? = null, onClick: () -> Unit) {
     NavigationDrawerItem(
         colors = sidebarItemColors(),
         label = { NavLabel(label) },
         icon = { if (painter != null) Icon(painterResource(painter), null) else if (icon != null) Icon(icon, null) },
         selected = selected,
         onClick = onClick,
-        badge = badge?.let { { Badge { Text("$it") } } },
+        badge = badge,
         // R2c: gewaehlte Zeile 6 dp wie Web-Steuerelemente (--r-sm) statt Material-Pille
         shape = MaterialTheme.shapes.small,
         modifier = Modifier.padding(horizontal = 12.dp),
@@ -509,34 +532,74 @@ private fun PageRowItem(
             } else if (p.shared || p.unread) {
                 Spacer(Modifier.width(48.dp))      // Nr. 22: Geteilt-Symbol/Punkt stehen buendig mit denen neben dem Pfeil
             }
-            // NAV-18: Zeilenmenue "⋮" (48 dp) ganz rechts, immer sichtbar (gedaempft); Langdruck bleibt als Abkuerzung
+            // NAV-18: Zeilenmenue "⋮" (48 dp) ganz rechts, immer sichtbar (gedaempft); Langdruck bleibt als Abkuerzung.
+            // R4-Nachbesserung 18b: das Menue haengt im selben Box wie der Knopf, damit es dort aufgeht (nicht am
+            // linken Rand der Schublade); Eintraege mit Saga-Symbolen.
             if (hasActions) {
-                IconButton(onClick = { menu = true }) {
-                    SagaIcon(
-                        SagaIcons.moreVert, stringResource(R.string.r4nav_row_actions, pageTitle(p)),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    )
+                Box {
+                    IconButton(onClick = { menu = true }) {
+                        SagaIcon(
+                            SagaIcons.moreVert, stringResource(R.string.r4nav_row_actions, pageTitle(p)),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        )
+                    }
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        if (canFavorite) {
+                            RowMenuItem(if (p.pinned) R.string.favorite_remove else R.string.favorite_add, SagaIcons.star) {
+                                menu = false
+                                repo.launchAction { repo.setPinned(p.id, !p.pinned) }
+                            }
+                        }
+                        if (canSub) {
+                            RowMenuItem(R.string.new_subpage, SagaIcons.filePlus) { menu = false; onNewChild(p.id) }
+                        }
+                        if (canTemplate) {
+                            RowMenuItem(R.string.gal_from_template, SagaIcons.template) { menu = false; onTemplate?.invoke(p) }
+                        }
+                        if (canMove) {
+                            RowMenuItem(R.string.mv_menu, SagaIcons.move) { menu = false; onMove?.invoke(p) }
+                        }
+                    }
                 }
             }
         }
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            if (canFavorite) {
-                DropdownMenuItem(text = { Text(stringResource(if (p.pinned) R.string.favorite_remove else R.string.favorite_add)) }, onClick = {
-                    menu = false
-                    repo.launchAction { repo.setPinned(p.id, !p.pinned) }
-                })
-            }
-            if (canSub) {
-                DropdownMenuItem(text = { Text(stringResource(R.string.new_subpage)) }, onClick = { menu = false; onNewChild(p.id) })
-            }
-            if (canTemplate) {
-                DropdownMenuItem(text = { Text(stringResource(R.string.gal_from_template)) }, onClick = { menu = false; onTemplate?.invoke(p) })
-            }
-            if (canMove) {
-                DropdownMenuItem(text = { Text(stringResource(R.string.mv_menu)) }, onClick = { menu = false; onMove?.invoke(p) })
-            }
-        }
     }
+}
+
+/** Aufgaben-Badge in der Seitenleiste: Zahl in Gold wie auf Heute, bei Ueberfaelligem davor rot "N ueberfaellig" */
+@Composable
+private fun TaskBadge(due: Int, overdue: Int) {
+    val res = LocalResources.current
+    val desc = res.getQuantityString(R.plurals.r4nav_tasks_due, due, due) +
+        (if (overdue > 0) ", " + res.getQuantityString(R.plurals.r4nav_tasks_overdue, overdue, overdue) else "")
+    Row(Modifier.clearAndSetSemantics { contentDescription = desc }, verticalAlignment = Alignment.CenterVertically) {
+        if (overdue > 0) {
+            Text(
+                res.getQuantityString(R.plurals.r4nav_tasks_overdue, overdue, overdue), style = MaterialTheme.typography.labelMedium,
+                color = io.github.yggdrasil_sh.saga.ui.theme.SagaColors.current.overdue, maxLines = 1,
+                modifier = Modifier.padding(end = 6.dp),
+            )
+        }
+        io.github.yggdrasil_sh.saga.ui.theme.SagaPill(NavModel.badgeText(due) ?: "")
+    }
+}
+
+/** Chats-Badge in der Seitenleiste (ohne untere Leiste): ungelesene Gespraeche, Punkt solange unbekannt */
+@Composable
+private fun ChatBadge(count: Int) {
+    val desc = unreadChatsText(count)
+    val m = if (desc != null) Modifier.clearAndSetSemantics { contentDescription = desc } else Modifier
+    if (count < 0) Badge(m) else Badge(m) { Text(NavModel.badgeText(count) ?: "") }
+}
+
+/** Eintrag im Zeilenmenue: Saga-Symbol (gleiche Groesse/Einrueckung fuer alle) und Beschriftung */
+@Composable
+private fun RowMenuItem(label: Int, icon: Int, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(stringResource(label)) },
+        leadingIcon = { SagaIcon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+        onClick = onClick,
+    )
 }
 
 /**
