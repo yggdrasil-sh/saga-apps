@@ -64,7 +64,7 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val merged by repo.taskList.collectAsState()
     var manage by remember { mutableStateOf(false) }
     Scaffold(topBar = {
-        SagaTopBar(stringResource(R.string.nav_tasks), nav, chrome) {
+        SagaTopBar(stringResource(R.string.nav_tasks), nav, chrome, contentMaxWidth = io.github.yggdrasil_sh.saga.ui.common.TopBarAlign.CONTENT) {
             if (merged != null) {
                 io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton(onClick = { manage = true }) { Text(stringResource(R.string.e2_task_sources)) }
             }

@@ -136,7 +136,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         backup = backup?.allowed == true,
         nextcloud = ncShown != null,
     )
-    Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_settings), nav, chrome) }) { pad ->
+    Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_settings), nav, chrome, contentMaxWidth = io.github.yggdrasil_sh.saga.ui.common.TopBarAlign.CONTENT) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
             // Kopf: wer ist angemeldet, wo (Antippen -> Konto)
@@ -252,7 +252,7 @@ fun SettingsAccountScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
     // Nach einer Kopplung/Anmeldung (gleicher Server, Ansicht bleibt) Geraeteliste neu laden (Nachtest N2)
     LaunchedEffect(signIns) { loadApps() }
     val listState = rememberAreaListState(SettingsArea.KONTO, signIns)
-    Scaffold(topBar = { SagaTopBar(stringResource(R.string.settings_account), nav, chrome) }) { pad ->
+    Scaffold(topBar = { SagaTopBar(stringResource(R.string.settings_account), nav, chrome, contentMaxWidth = io.github.yggdrasil_sh.saga.ui.common.TopBarAlign.CONTENT) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), state = listState, horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
             item(key = "konto") {
@@ -387,7 +387,7 @@ fun SettingsNotificationsScreen(repo: SagaRepository, nav: AppNavigator, chrome:
     }
     val listState = rememberAreaListState(SettingsArea.BENACHRICHTIGUNGEN, signIns)
     val features25 by repo.serverFeatures.collectAsState()
-    Scaffold(topBar = { SagaTopBar(stringResource(R.string.notifications), nav, chrome) }) { pad ->
+    Scaffold(topBar = { SagaTopBar(stringResource(R.string.notifications), nav, chrome, contentMaxWidth = io.github.yggdrasil_sh.saga.ui.common.TopBarAlign.CONTENT) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), state = listState, horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
             // Auf diesem Geraet: Systemmitteilungen (Android) - was dieses Geraet anzeigt und wann es still ist
@@ -446,7 +446,7 @@ fun SettingsChatsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome)
     val chatMe by repo.chat.me.collectAsState()
     LaunchedEffect(signIns) { repo.chat.refresh() }
     val listState = rememberAreaListState(SettingsArea.CHATS, signIns)
-    Scaffold(topBar = { SagaTopBar(stringResource(R.string.r4s_chats), nav, chrome) }) { pad ->
+    Scaffold(topBar = { SagaTopBar(stringResource(R.string.r4s_chats), nav, chrome, contentMaxWidth = io.github.yggdrasil_sh.saga.ui.common.TopBarAlign.CONTENT) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), state = listState, horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
             val chatDev = chatState != ChatSetup.UNSUPPORTED && chatState != ChatSetup.OFF
@@ -557,7 +557,7 @@ fun SettingsInfoScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) 
         UpdateHintModel.infoOpened()
     }
     val listState = rememberAreaListState(SettingsArea.INFO, repo.signInCount.collectAsState().value)
-    Scaffold(topBar = { SagaTopBar(stringResource(R.string.settings_info), nav, chrome) }) { pad ->
+    Scaffold(topBar = { SagaTopBar(stringResource(R.string.settings_info), nav, chrome, contentMaxWidth = io.github.yggdrasil_sh.saga.ui.common.TopBarAlign.CONTENT) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), state = listState, horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
             item(key = "versions") { io.github.yggdrasil_sh.saga.ui.common.SagaWrapSectionTitle(stringResource(R.string.settings_versions), w.padding(top = 8.dp)) }

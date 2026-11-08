@@ -78,7 +78,7 @@ fun EventsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     var edit by remember { mutableStateOf<Pair<CalEvent?, java.time.LocalDate>?>(null) }
 
     Scaffold(
-        topBar = { SagaTopBar(stringResource(R.string.nav_events), nav, chrome) },
+        topBar = { SagaTopBar(stringResource(R.string.nav_events), nav, chrome, contentMaxWidth = io.github.yggdrasil_sh.saga.ui.common.TopBarAlign.CONTENT) },
         floatingActionButton = {
             io.github.yggdrasil_sh.saga.ui.common.LabeledFab(stringResource(R.string.ev_add), { edit = null to java.time.LocalDate.now() })
         },

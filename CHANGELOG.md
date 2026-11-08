@@ -9,6 +9,21 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Android: Design-Runde 6 (Tablet) – Navigation
+
+- **Rail hochkant (600–840 dp) wie die Phone-Leiste:** Heute · Seiten · Suchen · Chats (mit Zähler), unten
+  Einstellungen. „Seiten“ öffnet den Seitenbaum als Schublade (der Menü-Knopf oben in der Rail entfällt) und ist
+  markiert, solange eine Seite offen ist; Aufgaben, Termine und Dienste stehen in der Schublade. Benachrichtigungen
+  über die Glocke im Kopf – keine doppelte Glocke mehr, keine Lupe neben „Suchen“.
+- **Chats quer (ab 840 dp):** Im Bereich Chats klappt die feste Seitenleiste dezent zur Rail ein (ohne Animation bei
+  „Animationen entfernen“), die Chat-Liste ist 320–360 dp breit, der Chat bekommt den Rest. Beim Tippen im Chat
+  steht nur der Chat; Entwurf und Scrollstand bleiben erhalten.
+- **Leerer Chat-Bereich:** „Kein Chat ausgewählt“ mit Symbol, kurzem Text und „Neuer Chat“ statt nacktem Hinweis.
+- **Anmeldung auf dem Tablet** als Karte (höchstens 480 dp) in der Mitte, weiterhin scrollbar mit Tastatur; Phone
+  unverändert.
+- **Titel fluchten mit dem Inhalt:** Bei zentrierter Inhaltsspalte (Aufgaben, Termine, Benachrichtigungen,
+  Einstellungen) stehen Titel und Aktionen der App-Leiste über der Spalte statt am Rand.
+
 ### Geändert – Android: Design-Runde 5 „Chats & Anrufe“
 
 - **Chat-Liste zeigt die letzte Nachricht:** „Du: …“, „Name: …“, „Foto“, „Sprachnachricht 0:12“, „Verpasster Anruf“

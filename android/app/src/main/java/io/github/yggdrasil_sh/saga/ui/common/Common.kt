@@ -65,30 +65,61 @@ data class Chrome(
     val headActions: (@Composable RowScope.() -> Unit)? = null,
 )
 
+/**
+ * A11Y-28 (Design-Runde 6): Titel und Aktionen der App-Leiste fluchten mit einer zentrierten Inhaltsspalte. Ist der
+ * Bereich breiter als die Spalte (praktisch nur quer ab 840 dp), ruecken Titel und Aktionen um die halbe Differenz ein.
+ */
+object TopBarAlign {
+    /** Breite der ueblichen zentrierten Inhaltsspalte (Aufgaben, Termine, Benachrichtigungen, Einstellungen) */
+    val CONTENT = 760.dp
+
+    /** Einzug links und rechts (dp): 0, solange der Bereich nicht breiter als die Spalte ist */
+    fun inset(paneDp: Float, contentMaxDp: Float): Float = ((paneDp - contentMaxDp) / 2f).coerceAtLeast(0f)
+}
+
+/**
+ * App-Leiste der Bildschirme. contentMaxWidth = Breite der zentrierten Inhaltsspalte darunter (z. B.
+ * [TopBarAlign.CONTENT]); dann stehen Titel und Aktionen ueber der Spalte statt am Rand (A11Y-28). null = wie bisher.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SagaTopBar(
     title: String, nav: AppNavigator, chrome: Chrome,
     /** false: Titel ausgeblendet (z. B. solange der grosse Seitentitel darunter sichtbar ist), blendet weich ein */
     titleVisible: Boolean = true,
+    contentMaxWidth: Dp? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val alpha by androidx.compose.animation.core.animateFloatAsState(
         if (titleVisible) 1f else 0f, io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.defaultEffects(), label = "bar-title",
     )
-    TopAppBar(
-        title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.graphicsLayer { this.alpha = alpha }) },
-        navigationIcon = {
-            when {
-                nav.canGoBack -> IconButton(onClick = { nav.pop() }) { SagaIcon(SagaIcons.arrowLeft, stringResource(R.string.action_back)) }
-                chrome.showMenu -> IconButton(onClick = chrome.onMenu) { SagaIcon(SagaIcons.menu, stringResource(R.string.action_sidebar)) }
-            }
-        },
-        actions = {
-            actions()
-            if (!nav.canGoBack) chrome.headActions?.invoke(this)
-        },
-    )
+    val bar: @Composable (Modifier) -> Unit = { m ->
+        TopAppBar(
+            title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.graphicsLayer { this.alpha = alpha }) },
+            navigationIcon = {
+                when {
+                    nav.canGoBack -> IconButton(onClick = { nav.pop() }) { SagaIcon(SagaIcons.arrowLeft, stringResource(R.string.action_back)) }
+                    chrome.showMenu -> IconButton(onClick = chrome.onMenu) { SagaIcon(SagaIcons.menu, stringResource(R.string.action_sidebar)) }
+                }
+            },
+            actions = {
+                actions()
+                if (!nav.canGoBack) chrome.headActions?.invoke(this)
+            },
+            modifier = m,
+        )
+    }
+    if (contentMaxWidth == null) {
+        bar(Modifier)
+        return
+    }
+    // Flaeche ueber die ganze Breite (gleiche Farbe wie die Leiste), die Leiste selbst eingerueckt
+    androidx.compose.foundation.layout.BoxWithConstraints(
+        Modifier.fillMaxWidth().background(androidx.compose.material3.TopAppBarDefaults.topAppBarColors().containerColor),
+    ) {
+        val inset = TopBarAlign.inset(maxWidth.value, contentMaxWidth.value).dp
+        bar(Modifier.padding(horizontal = inset))
+    }
 }
 
 @Composable

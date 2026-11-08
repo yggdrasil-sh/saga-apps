@@ -90,7 +90,7 @@ fun NextcloudScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         }
     }
 
-    Scaffold(topBar = { SagaTopBar("Nextcloud", nav, chrome) }) { pad ->
+    Scaffold(topBar = { SagaTopBar("Nextcloud", nav, chrome, contentMaxWidth = io.github.yggdrasil_sh.saga.ui.common.TopBarAlign.CONTENT) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
             item { Hint(stringResource(R.string.nc_intro), w.padding(top = 8.dp)) }

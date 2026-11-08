@@ -91,6 +91,11 @@ internal object LoginLayout {
     /** Wartezeit nach der letzten Groessenaenderung, bevor Feld + Knopf ins Bild gescrollt werden */
     const val SETTLE_MS = 80L
     fun isEnter(k: Key): Boolean = k == Key.Enter || k == Key.NumPadEnter
+    /** A11Y-27: ab dieser Breite (dp) steht die Anmeldung als Karte in der Mitte */
+    const val CARD_FROM_DP = 600f
+    val CARD_MAX = 480.dp
+    val CARD_MARGIN = 24.dp
+    fun card(widthDp: Float): Boolean = widthDp >= CARD_FROM_DP
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -170,7 +175,10 @@ fun LoginScreen(repo: SagaRepository) {
         // NAV-05: oben ausgerichtet statt zentriert - der Block springt nicht mit der Tastatur (Fehltipps auf QR).
         // R1-Nachbesserung: das Logo bleibt gleich gross (das Schrumpfen schob Feld und Knoepfe um 48 dp nach oben).
         // Passt der Block nicht ueber die Tastatur (Tablet quer), wird nur gescrollt: Feld + "Anmelden" ins Bild.
-        Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding(), contentAlignment = Alignment.TopCenter) {
+        // A11Y-27: ab 600 dp Breite (Tablet) als Karte (max. 480 dp) mittig, scrollbar; Phone unveraendert oben ausgerichtet
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().safeDrawingPadding().imePadding(), contentAlignment = Alignment.TopCenter) {
+            val card = LoginLayout.card(maxWidth.value)
+            val viewportH = maxHeight
             val fieldArea = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
             var fieldFocused by remember { mutableStateOf(false) }
             var viewport by remember { mutableStateOf(0) }
@@ -182,14 +190,7 @@ fun LoginScreen(repo: SagaRepository) {
                     fieldArea.bringIntoView()
                 }
             }
-            Column(
-                Modifier.widthIn(max = 420.dp).fillMaxWidth()
-                    .onSizeChanged { viewport = it.height }
-                    .verticalScroll(rememberScrollState())
-                    .padding(start = 28.dp, end = 28.dp, bottom = 28.dp, top = LoginLayout.TOP_PADDING),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
+            val form: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit = {
                 val logo = LoginLayout.LOGO
                 Image(
                     painterResource(R.drawable.ic_launcher_foreground), contentDescription = null,
@@ -283,6 +284,39 @@ fun LoginScreen(repo: SagaRepository) {
                 // Sprache vor dem Anmelden waehlbar (fremdes Geraet in einer anderen Sprache)
                 io.github.yggdrasil_sh.saga.ui.settings.LanguageMenuButton()
                 Spacer(Modifier.height(8.dp))
+            }
+            if (!card) {
+                Column(
+                    Modifier.widthIn(max = 420.dp).fillMaxWidth()
+                        .onSizeChanged { viewport = it.height }
+                        .verticalScroll(rememberScrollState())
+                        .padding(start = 28.dp, end = 28.dp, bottom = 28.dp, top = LoginLayout.TOP_PADDING),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    content = form,
+                )
+            } else {
+                // mindestens so hoch wie die Sichtflaeche, damit die Karte mittig steht; passt sie nicht (Tastatur), scrollt sie
+                Column(
+                    Modifier.fillMaxSize()
+                        .onSizeChanged { viewport = it.height }
+                        .verticalScroll(rememberScrollState())
+                        .heightIn(min = viewportH)
+                        .padding(LoginLayout.CARD_MARGIN),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    io.github.yggdrasil_sh.saga.ui.theme.SagaCard(
+                        Modifier.widthIn(max = LoginLayout.CARD_MAX).fillMaxWidth(), padding = 28.dp,
+                    ) {
+                        Column(
+                            Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                            content = form,
+                        )
+                    }
+                }
             }
         }
     }

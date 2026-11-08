@@ -202,7 +202,7 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         R.string.ub_mon, R.string.ub_tue, R.string.ub_wed, R.string.ub_thu, R.string.ub_fri, R.string.ub_sat, R.string.ub_sun,
     )
 
-    Scaffold(topBar = { SagaTopBar(stringResource(R.string.ub_title), nav, chrome) }) { pad ->
+    Scaffold(topBar = { SagaTopBar(stringResource(R.string.ub_title), nav, chrome, contentMaxWidth = io.github.yggdrasil_sh.saga.ui.common.TopBarAlign.CONTENT) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
             item { Hint(stringResource(R.string.ub_intro), w.padding(top = 8.dp)) }

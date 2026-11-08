@@ -75,7 +75,7 @@ fun NotificationsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome)
     val (fresh, earlier) = remember(items) { NotifGroups.sections(items) }
 
     Scaffold(topBar = {
-        SagaTopBar(stringResource(R.string.notifications), nav, chrome) {
+        SagaTopBar(stringResource(R.string.notifications), nav, chrome, contentMaxWidth = io.github.yggdrasil_sh.saga.ui.common.TopBarAlign.CONTENT) {
             // NAV-22: ohne Ungelesene ausgeblendet statt grau (wirkte wie ein Fehler)
             if (fresh.isNotEmpty() || unreadRows > 0) SagaTextButton(onClick = { repo.launchAction { live.markAllRead() } }) { Text(stringResource(R.string.notifications_mark_all)) }
             IconButton(onClick = { io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, "notifs", replace = true) }) { SagaIcon(SagaIcons.settings, stringResource(R.string.notifications_settings)) }
