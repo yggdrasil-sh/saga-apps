@@ -448,7 +448,8 @@ final class CallManager: NSObject, ObservableObject {
                 guard await ensureChat() else { throw APIError.other(String(localized: "Chats sind auf diesem Gerät noch nicht bereit.")) }
                 guard await loadConfig() else { throw APIError.other(String(localized: "Anrufe sind auf diesem Server abgeschaltet.")) }
                 // 2.5 A07: "Alle Anrufe ueber Knoten" (horn_dm) - erst ueber den Knoten, bei 409 fallback direkt wie bisher
-                let viaHorn = CallRoom.dmViaHorn(hornDm: ShareJSON.bool(cfg["horn_dm"]), myCaps: myCaps)
+                let viaHorn = CallRoom.dmViaHorn(hornDm: ShareJSON.bool(cfg["horn_dm"]), hornDmFed: ShareJSON.bool(cfg["horn_dm_fed"]),
+                                                 fed: v2 != nil, myCaps: myCaps)
                 if !viaHorn {
                     try await loadPeerKeys(L)
                     if L.devs.isEmpty { throw APIError.other(String(localized: "\(peerName) hat Chats noch auf keinem Gerät eingerichtet – Anrufe gehen erst danach.")) }

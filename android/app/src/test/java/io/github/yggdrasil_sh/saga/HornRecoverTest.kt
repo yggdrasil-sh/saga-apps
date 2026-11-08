@@ -206,6 +206,18 @@ class HornRecoverTest {
     }
 
     @Test
+    fun fedDmViaHorn() {
+        val caps = io.github.yggdrasil_sh.saga.call.CallRoom.myCaps(setOf("reneg", "multi", "horn"))
+        assertTrue(io.github.yggdrasil_sh.saga.call.CallRoom.dmViaHorn(false, true, true, caps))     // foederiert + horn_dm_fed
+        assertFalse(io.github.yggdrasil_sh.saga.call.CallRoom.dmViaHorn(false, true, false, caps))   // lokal: direkt
+        assertTrue(io.github.yggdrasil_sh.saga.call.CallRoom.dmViaHorn(true, false, false, caps))
+        assertFalse(io.github.yggdrasil_sh.saga.call.CallRoom.dmViaHorn(false, true, true, listOf("horn")))
+        val cfg = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+            .decodeFromString(io.github.yggdrasil_sh.saga.call.CallConfig.serializer(), """{"horn_dm_fed":true}""")
+        assertTrue(cfg.hornDmFed)
+    }
+
+    @Test
     fun wiring() {
         val s = src("HornSession.kt")
         assertTrue(s.contains("if (why == \"lost\") { recover(why, cur?.node); return }"))

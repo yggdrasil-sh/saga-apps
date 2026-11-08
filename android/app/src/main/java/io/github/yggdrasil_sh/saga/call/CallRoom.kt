@@ -176,6 +176,10 @@ object CallRoom {
      */
     fun dmViaHorn(hornDm: Boolean, myCaps: Collection<String>): Boolean = hornDm && CAP_HORN in myCaps && CAP_MULTI in myCaps
 
+    /** Horn-Fix (Vertrag 5): im foederierten Direkt-Chat auch mit horn_dm_fed ueber den Knoten */
+    fun dmViaHorn(hornDm: Boolean, hornDmFed: Boolean, fed: Boolean, myCaps: Collection<String>): Boolean =
+        dmViaHorn(hornDm || (fed && hornDmFed), myCaps)
+
     /** Antwort auf POST /api/calls mit `via: "horn"`: 409 {fallback: "direct"} -> nichts angelegt, mit derselben id direkt anrufen */
     fun dmHornFallback(code: Int, body: JsonObject?): Boolean = code == 409 && str(body, "fallback") == "direct"
 

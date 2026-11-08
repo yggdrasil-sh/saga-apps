@@ -1947,7 +1947,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 c.myCaps = CallRoom.myCaps(cfg.featureSet)       // 2.4: inkl. `multi` (Raum), wenn der Server es kann
                 c.capsHint = cfg.featureSet.isNotEmpty()
                 // 2.5 A07: "Alle Anrufe ueber Knoten" (horn_dm) - erst ueber den Knoten, bei 409 fallback direkt wie bisher
-                val viaHorn = CallRoom.dmViaHorn(cfg.hornDm, c.myCaps)
+                val viaHorn = CallRoom.dmViaHorn(cfg.hornDm, cfg.hornDmFed, c.v2, c.myCaps)
                 if (!viaHorn) {
                     peerKeys(c)
                     if (c.peerDevs.isEmpty()) throw UiTextException(UiText.Res(R.string.call_peer_no_keys, peer.shown))

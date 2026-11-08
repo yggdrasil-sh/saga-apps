@@ -428,6 +428,11 @@ enum CallRoom {
 
     /// Server meldet horn_dm und dieses Geraet hat horn + multi -> 1:1 zuerst mit via "horn" (ohne signals) anrufen
     static func dmViaHorn(hornDm: Bool, myCaps: [String]) -> Bool { hornDm && myCaps.contains("horn") && myCaps.contains("multi") }
+    /// Horn-Fix (Vertrag 5): im foederierten Direkt-Chat auch mit horn_dm_fed ueber den Knoten (der Server des Gegenuebers
+    /// fuehrt den Anruf, wenn er auf Knoten besteht; sonst 409 fallback direct)
+    static func dmViaHorn(hornDm: Bool, hornDmFed: Bool, fed: Bool, myCaps: [String]) -> Bool {
+        dmViaHorn(hornDm: hornDm || (fed && hornDmFed), myCaps: myCaps)
+    }
     /// POST /api/calls fuer 1:1 ueber Knoten: ohne signals, mit via und Geraeteklasse
     static func dmHornBody(id: String, chatID: Int, media: String, device: String, caps: [String], devClass: String) -> [String: Any] {
         ["id": id, "chat_id": chatID, "media": media, "device": device, "caps": caps, "via": "horn", "dev_class": devClass]

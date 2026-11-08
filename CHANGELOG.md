@@ -28,6 +28,8 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   wiederherstellen.“ Ältere Server ohne `horn_direct1`: nur Wiederaufbau über Knoten, Ende nach 120 s.
 - **Anrufstart ohne Knoten** (409 `fallback: "direct"`): Hinweis „Anruf-Knoten nicht erreichbar – direkt verbunden“
   (`horn_block: node`) bzw. „Gegenstelle veraltet – direkt verbunden“ (`old`, `peer`).
+- **Föderierter Direkt-Chat:** meldet der Server `horn_dm_fed`, ruft die App auch dort über den Knoten an (`via: "horn"`);
+  besteht der Server des Gegenübers auf Knoten, führt er den Anruf, sonst direkt wie bisher.
 - Texte in de/en/es/ru/th; Regeln als reine Einheit (iOS `HornRecover.swift`, Android `HornRecover.kt`) mit Tests.
 
 ### Behoben – iOS: leerer Chat-Verlauf

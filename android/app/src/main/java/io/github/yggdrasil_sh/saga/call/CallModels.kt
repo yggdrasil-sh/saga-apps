@@ -44,6 +44,8 @@ data class CallConfig(
     val features: JsonElement? = null,
     /** 2.5 "Alle Anrufe ueber Knoten" (calls.horn_all): 1:1 im Direkt-Chat mit `via: "horn"` anrufen */
     @SerialName("horn_dm") val hornDm: Boolean = false,
+    /** Horn-Fix (Vertrag 5): Server mit Foederation - im foederierten Direkt-Chat ueber den Knoten anrufen */
+    @SerialName("horn_dm_fed") val hornDmFed: Boolean = false,
 ) {
     val featureSet: Set<String> get() = CallV3.features(features)
 

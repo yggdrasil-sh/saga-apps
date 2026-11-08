@@ -145,6 +145,13 @@ func hornRecoverTests() {
     check(R.startNote("node") == .nodeDown && R.startNote("old") == .peerOld && R.startNote("peer") == .peerOld, "Start-Hinweise")
     check(R.startNote("off") == nil && R.startNote("caps") == nil && R.startNote("fed") == nil && R.startNote(nil) == nil, "off/caps/fed: kein Hinweis")
 
+    // ---- Vertrag 5: foederierter Direkt-Chat mit horn_dm_fed
+    let caps = CallV3.myCaps(serverFeatures: ["reneg", "multi", "horn"])
+    check(CallRoom.dmViaHorn(hornDm: false, hornDmFed: true, fed: true, myCaps: caps), "foederiert + horn_dm_fed: ueber Knoten")
+    check(!CallRoom.dmViaHorn(hornDm: false, hornDmFed: true, fed: false, myCaps: caps), "lokal nur horn_dm_fed: direkt")
+    check(CallRoom.dmViaHorn(hornDm: true, hornDmFed: false, fed: false, myCaps: caps), "horn_dm wie bisher")
+    check(!CallRoom.dmViaHorn(hornDm: false, hornDmFed: true, fed: true, myCaps: ["horn"]), "ohne multi: direkt")
+
     // ---- Verdrahtung (Quelltext)
     guard let dir = ProcessInfo.processInfo.environment["SAGA_APP_SRC"],
           let call = try? String(contentsOfFile: dir + "/HornCall.swift", encoding: .utf8) else { check(false, "SAGA_APP_SRC fehlt"); return }
