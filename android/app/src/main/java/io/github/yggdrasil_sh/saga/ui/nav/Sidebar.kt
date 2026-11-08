@@ -221,10 +221,12 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit, bot
         item(key = "search") { SearchField { nav.top(Dest.Search); onNavigate() } }
         items(mainDests, key = { "main-" + Dest.encode(it) }) { d ->
             val (label, icon) = destLabel(d)
-            val badge: (@Composable () -> Unit)? = when (d) {
-                // R4-Nachbesserung 17: wie Heute (goldene Zahl); Rot nur fuer "N ueberfaellig" mit Wort (Regel Runde 1)
-                Dest.Tasks -> if (taskBadge > 0) @Composable { TaskBadge(taskBadge, taskOverdue) } else null
-                Dest.Chats -> if (chatUnread != 0) @Composable { ChatBadge(chatUnread) } else null
+            // R4-Nachbesserung 17: wie Heute (goldene Zahl); Rot nur fuer "N ueberfaellig" mit Wort (Regel Runde 1)
+            val taskUi: @Composable () -> Unit = { TaskBadge(taskBadge, taskOverdue) }
+            val chatUi: @Composable () -> Unit = { ChatBadge(chatUnread) }
+            val badge: (@Composable () -> Unit)? = when {
+                d == Dest.Tasks && taskBadge > 0 -> taskUi
+                d == Dest.Chats && chatUnread != 0 -> chatUi
                 else -> null
             }
             NavItem(stringResource(label), null, NavModel.same(nav.root, d), badge = badge, painter = icon) {
