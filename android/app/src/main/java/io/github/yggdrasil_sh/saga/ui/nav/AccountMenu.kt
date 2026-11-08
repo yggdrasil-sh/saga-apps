@@ -1,10 +1,5 @@
 package io.github.yggdrasil_sh.saga.ui.nav
 
-import android.app.Activity
-import android.app.UiModeManager
-import android.content.Context
-import android.content.ContextWrapper
-import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,8 +29,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -55,29 +48,14 @@ import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.util.AppLanguage
 import io.github.yggdrasil_sh.saga.util.ShotMode
+import io.github.yggdrasil_sh.saga.ui.settings.AppearanceDialog
+import io.github.yggdrasil_sh.saga.ui.settings.SignOutConfirmDialog
+import io.github.yggdrasil_sh.saga.ui.settings.appearanceIcon
+import io.github.yggdrasil_sh.saga.ui.settings.appearanceLabel
+import io.github.yggdrasil_sh.saga.ui.settings.languageOptionLabel
+import io.github.yggdrasil_sh.saga.ui.settings.rememberAppLanguage
+import io.github.yggdrasil_sh.saga.ui.settings.rememberAppearance
 import kotlinx.coroutines.CancellationException
-
-private tailrec fun Context.findActivity(): Activity? = when (this) {
-    is Activity -> this
-    is ContextWrapper -> baseContext.findActivity()
-    else -> null
-}
-
-/** Darstellung der App (Android 12+: je App ueber UiModeManager, vom System gespeichert); Wahl fuer die Anzeige gemerkt */
-private object AppTheme {
-    private const val PREFS = "saga_r4nav"
-    private const val KEY = "theme"
-    val supported: Boolean get() = Build.VERSION.SDK_INT >= 31
-
-    fun current(ctx: Context): NavModel.Theme =
-        NavModel.Theme.of(ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null))
-
-    fun set(ctx: Context, t: NavModel.Theme) {
-        if (Build.VERSION.SDK_INT < 31) return
-        ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, t.key).apply()
-        ctx.getSystemService(UiModeManager::class.java)?.setApplicationNightMode(NavModel.nightMode(t))
-    }
-}
 
 /**
  * NAV-11 (Entscheidung 3): Avatar oben in der Seitenleiste oeffnet ein Kontomenue wie im Web - Name und Server oben,
@@ -102,6 +80,9 @@ internal fun AccountAvatarMenu(repo: SagaRepository, nav: AppNavigator, onNaviga
     var langDialog by remember { mutableStateOf(false) }
     var themeDialog by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
+    // Sprache und Darstellung aus ui/settings (r4-settings) - dieselben Werte wie in den Einstellungen
+    val (lang, chooseLang) = rememberAppLanguage()
+    val (appearance, chooseAppearance) = rememberAppearance()
     if (account.isEmpty()) return
 
     // A11Y-08: TalkBack liest "Konto: <Name>, Schaltflaeche" statt nur der Initiale; Aktion "Kontomenue oeffnen"
@@ -128,34 +109,28 @@ internal fun AccountAvatarMenu(repo: SagaRepository, nav: AppNavigator, onNaviga
                 }
             }
             HorizontalDivider()
-            val ctx = LocalContext.current
-            val config = LocalConfiguration.current
-            val lang = remember(config) { AppLanguage.current(ctx) }
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.language)) },
                 leadingIcon = { SagaIcon(SagaIcons.globe, null) },
                 trailingIcon = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(languageLabel(lang), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(languageOptionLabel(lang), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         SagaIcon(SagaIcons.chevronRight, null)
                     }
                 },
                 onClick = { open = false; langDialog = true },
             )
-            if (AppTheme.supported) {
-                val theme = remember(config) { AppTheme.current(ctx) }
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.r4nav_appearance)) },
-                    leadingIcon = { SagaIcon(if (theme == NavModel.Theme.DARK) SagaIcons.moon else SagaIcons.sun, null) },
-                    trailingIcon = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(themeLabel(theme), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            SagaIcon(SagaIcons.chevronRight, null)
-                        }
-                    },
-                    onClick = { open = false; themeDialog = true },
-                )
-            }
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.r4s_appearance)) },
+                leadingIcon = { SagaIcon(appearanceIcon(appearance), null) },
+                trailingIcon = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(appearanceLabel(appearance), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        SagaIcon(SagaIcons.chevronRight, null)
+                    }
+                },
+                onClick = { open = false; themeDialog = true },
+            )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.nav_settings)) },
                 leadingIcon = { SagaIcon(SagaIcons.settings, null) },
@@ -178,35 +153,17 @@ internal fun AccountAvatarMenu(repo: SagaRepository, nav: AppNavigator, onNaviga
             )
         }
     }
-    if (langDialog) LanguageDialog { langDialog = false }
-    if (themeDialog) ThemeDialog { themeDialog = false }
-    if (confirmLogout) {
-        AlertDialog(
-            onDismissRequest = { confirmLogout = false },
-            title = { Text(stringResource(R.string.settings_sign_out_this_device)) },
-            confirmButton = {
-                SagaTextButton(onClick = { confirmLogout = false; repo.launchAction { repo.logout() } }) {
-                    Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = { SagaTextButton(onClick = { confirmLogout = false }) { Text(stringResource(R.string.action_cancel)) } },
+    if (langDialog) {
+        ChoiceDialog(
+            stringResource(R.string.language), SagaIcons.globe, AppLanguage.OPTIONS, lang, { languageOptionLabel(it) },
+            stringResource(R.string.language_hint), onPick = chooseLang, onDismiss = { langDialog = false },
         )
     }
+    if (themeDialog) AppearanceDialog(appearance, onDismiss = { themeDialog = false }, onChoose = { themeDialog = false; chooseAppearance(it) })
+    if (confirmLogout) SignOutConfirmDialog(repo, onDismiss = { confirmLogout = false })
 }
 
-@Composable
-private fun languageLabel(tag: String): String = if (tag.isEmpty()) stringResource(R.string.language_auto) else AppLanguage.nativeName(tag)
-
-@Composable
-private fun themeLabel(t: NavModel.Theme): String = stringResource(
-    when (t) {
-        NavModel.Theme.SYSTEM -> R.string.r4nav_theme_system
-        NavModel.Theme.LIGHT -> R.string.r4nav_theme_light
-        NavModel.Theme.DARK -> R.string.r4nav_theme_dark
-    },
-)
-
-/** Auswahlliste (Radio) als Dialog - gemeinsam fuer Sprache und Darstellung */
+/** Auswahlliste (Radio) als Dialog fuer die Sprache */
 @Composable
 private fun <T> ChoiceDialog(title: String, icon: Int, options: List<T>, chosen: T, label: @Composable (T) -> String, hint: String?, onPick: (T) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
@@ -233,26 +190,5 @@ private fun <T> ChoiceDialog(title: String, icon: Int, options: List<T>, chosen:
             }
         },
         confirmButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
-    )
-}
-
-@Composable
-private fun LanguageDialog(onDismiss: () -> Unit) {
-    val ctx = LocalContext.current
-    val chosen = remember { AppLanguage.current(ctx) }
-    ChoiceDialog(
-        stringResource(R.string.language), SagaIcons.globe, AppLanguage.OPTIONS, chosen, { languageLabel(it) },
-        stringResource(R.string.language_hint),
-        onPick = { tag -> ctx.findActivity()?.let { AppLanguage.set(it, tag) } }, onDismiss = onDismiss,
-    )
-}
-
-@Composable
-private fun ThemeDialog(onDismiss: () -> Unit) {
-    val ctx = LocalContext.current
-    val chosen = remember { AppTheme.current(ctx) }
-    ChoiceDialog(
-        stringResource(R.string.r4nav_appearance), SagaIcons.sun, NavModel.Theme.entries, chosen, { themeLabel(it) }, null,
-        onPick = { AppTheme.set(ctx, it) }, onDismiss = onDismiss,
     )
 }

@@ -78,6 +78,8 @@ class DesignR4NavTest {
         assertEquals(listOf(Dest.Services, Dest.Trash, Dest.Settings), NavModel.sidebarFooter(graphOn = false))
         assertTrue(NavModel.same(Dest.Graph(12), Dest.Graph()))
         assertTrue(NavModel.same(Dest.SettingsGeneral, Dest.Settings))
+        assertTrue(NavModel.same(Dest.SettingsNotifications, Dest.Settings))
+        assertTrue(NavModel.same(Dest.SettingsChats, Dest.Settings))
         assertTrue(NavModel.same(Dest.Chat(2), Dest.Chats))
         assertFalse(NavModel.same(Dest.Today, Dest.Trash))
     }
@@ -96,6 +98,7 @@ class DesignR4NavTest {
     fun trashIsOwnDestinationAndSurvivesProcessDeath() {
         assertEquals("trash", Dest.encode(Dest.Trash))
         assertEquals(Dest.Trash, Dest.decode("trash"))
+        for (d in listOf(Dest.SettingsNotifications, Dest.SettingsChats)) assertEquals(d, Dest.decode(Dest.encode(d)))
         val nav = AppNavigator()
         nav.top(Dest.Trash)
         assertEquals(Dest.Trash, nav.root)
@@ -116,14 +119,5 @@ class DesignR4NavTest {
         assertNull(NavModel.adminUrl("""{"name":"a"}"""))
         assertNull(NavModel.adminUrl("""{"admin_url":"javascript:alert(1)"}"""))
         assertNull(NavModel.adminUrl("kein json"))
-    }
-
-    @Test
-    fun themeMapping() {
-        assertEquals(NavModel.Theme.SYSTEM, NavModel.Theme.of(null))
-        assertEquals(NavModel.Theme.DARK, NavModel.Theme.of("dark"))
-        assertEquals(0, NavModel.nightMode(NavModel.Theme.SYSTEM))
-        assertEquals(1, NavModel.nightMode(NavModel.Theme.LIGHT))
-        assertEquals(2, NavModel.nightMode(NavModel.Theme.DARK))
     }
 }

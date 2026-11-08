@@ -29,6 +29,9 @@ sealed interface Dest {
     data object SettingsAccount : Dest
     data object SettingsGeneral : Dest
     data object SettingsInfo : Dest
+    /** Design-Runde 4 (NAV-20): eigene Unterseiten Benachrichtigungen und Chats (statt geteiltem SettingsGeneral) */
+    data object SettingsNotifications : Dest
+    data object SettingsChats : Dest
     /** 2.5: Graph der Seiten; focus = Seite fuer "Lokal" (Seitenmenue "Lokaler Graph"), null = alle Seiten */
     data class Graph(val focus: Long? = null) : Dest
     /** Design-Runde 4 (NAV-17): Papierkorb als eigenes Ziel statt Vollbild-Dialog */
@@ -54,6 +57,8 @@ sealed interface Dest {
             SettingsAccount -> "settings-account"
             SettingsGeneral -> "settings-general"
             SettingsInfo -> "settings-info"
+            SettingsNotifications -> "settings-notifications"
+            SettingsChats -> "settings-chats"
             is Graph -> if (d.focus != null) "graph:${d.focus}" else "graph"
             Trash -> "trash"
         }
@@ -76,6 +81,8 @@ sealed interface Dest {
             s == "settings-account" -> SettingsAccount
             s == "settings-general" -> SettingsGeneral
             s == "settings-info" -> SettingsInfo
+            s == "settings-notifications" -> SettingsNotifications
+            s == "settings-chats" -> SettingsChats
             s == "graph" -> Graph()
             s == "trash" -> Trash
             s.startsWith("graph:") -> s.removePrefix("graph:").toLongOrNull()?.let { Graph(it) }

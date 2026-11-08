@@ -5,10 +5,6 @@
     <string name="r4nav_services_links">Services &amp; links</string>
     <string name="r4nav_row_actions">Actions for %1$s</string>
     <string name="r4nav_account_menu">Open account menu</string>
-    <string name="r4nav_appearance">Appearance</string>
-    <string name="r4nav_theme_system">Automatic (system)</string>
-    <string name="r4nav_theme_light">Light</string>
-    <string name="r4nav_theme_dark">Dark</string>
     <string name="r4nav_admin">Admin area</string>
     <string name="r4nav_admin_desc">Admin area, opens in the browser</string>
     <plurals name="r4nav_unread">

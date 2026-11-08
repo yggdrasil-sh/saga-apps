@@ -74,7 +74,8 @@ object NavModel {
     fun same(root: Dest, d: Dest): Boolean = when (d) {
         is Dest.Graph -> root is Dest.Graph
         Dest.Chats -> root == Dest.Chats || root is Dest.Chat
-        Dest.Settings -> root == Dest.Settings || root == Dest.SettingsAccount || root == Dest.SettingsGeneral || root == Dest.SettingsInfo
+        Dest.Settings -> root == Dest.Settings || root == Dest.SettingsAccount || root == Dest.SettingsGeneral || root == Dest.SettingsInfo ||
+            root == Dest.SettingsNotifications || root == Dest.SettingsChats
         else -> root == d
     }
 
@@ -103,21 +104,5 @@ object NavModel {
             ?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
     } catch (_: Exception) {
         null
-    }
-
-    /** Darstellung (Kontomenue): Automatisch / Hell / Dunkel */
-    enum class Theme(val key: String) {
-        SYSTEM("system"), LIGHT("light"), DARK("dark");
-
-        companion object {
-            fun of(key: String?): Theme = entries.firstOrNull { it.key == key } ?: SYSTEM
-        }
-    }
-
-    /** UiModeManager-Wert (MODE_NIGHT_AUTO = 0, NO = 1, YES = 2) */
-    fun nightMode(t: Theme): Int = when (t) {
-        Theme.SYSTEM -> 0
-        Theme.LIGHT -> 1
-        Theme.DARK -> 2
     }
 }

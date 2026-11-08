@@ -42,7 +42,7 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Fußzeile (Dienste & Links, Graph, Papierkorb, Einstellungen). „Zuletzt“ steht nur noch auf Heute.
 - **Seitenbaum:** jede Zeile hat ein „⋮“-Menü (Favorit, Unterseite, Aus Vorlage, Verschieben); der Langdruck bleibt.
 - **Papierkorb** ist ein eigener Bildschirm mit Zurück statt eines Vollbild-Dialogs.
-- **Kontomenü am Avatar** wie im Web: Name und Server, Sprache ›, Darstellung › (Android 12+), Einstellungen,
+- **Kontomenü am Avatar** wie im Web: Name und Server, Sprache ›, Darstellung ›, Einstellungen,
   Admin-Bereich ↗ (nur für Admins), Abmelden mit Rückfrage.
 
 ### Geändert – Android: Design-Runde 3 „Editor“

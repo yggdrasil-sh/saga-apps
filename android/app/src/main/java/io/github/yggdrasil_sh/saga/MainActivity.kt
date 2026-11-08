@@ -30,7 +30,8 @@ class MainActivity : ComponentActivity() {
         // Einmal-Links merkt sich zusaetzlich alreadyHandled; aus "Zuletzt" werden sie ignoriert.
         if (savedInstanceState == null) handleIntent(intent, newIntent = false)
         setContent {
-            SagaTheme {
+            // Design-Runde 4: Darstellung (Automatisch/Hell/Dunkel) aus den Einstellungen bzw. dem Kontomenue
+            SagaTheme(dark = io.github.yggdrasil_sh.saga.ui.settings.rememberSagaDarkTheme()) {
                 SagaRoot(app.repo, app.appScope)
             }
         }

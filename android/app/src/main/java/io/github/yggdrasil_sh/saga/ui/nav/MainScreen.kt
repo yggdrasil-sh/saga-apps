@@ -520,6 +520,8 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
                     Dest.SettingsAccount -> io.github.yggdrasil_sh.saga.ui.settings.SettingsAccountScreen(repo, nav, chrome)
                     Dest.SettingsGeneral -> io.github.yggdrasil_sh.saga.ui.settings.SettingsGeneralScreen(repo, nav, chrome)
                     Dest.SettingsInfo -> io.github.yggdrasil_sh.saga.ui.settings.SettingsInfoScreen(repo, nav, chrome)
+                    Dest.SettingsNotifications -> io.github.yggdrasil_sh.saga.ui.settings.SettingsNotificationsScreen(repo, nav, chrome)
+                    Dest.SettingsChats -> io.github.yggdrasil_sh.saga.ui.settings.SettingsChatsScreen(repo, nav, chrome)
                     is Dest.Page -> key(d.id) { PageScreen(d.id, repo, nav, chrome, appScope) }
                     Dest.Notifications -> NotificationsScreen(repo, nav, chrome)
                     Dest.Chats -> ChatsScreen(repo, nav, chrome, null)
