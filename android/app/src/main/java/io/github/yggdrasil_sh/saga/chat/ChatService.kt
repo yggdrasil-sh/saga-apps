@@ -569,6 +569,15 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
     fun setListPreviewMode(m: ListPreviewLogic.Mode) {
         listPreviewMode.value = m
         try { repo.secure.put("chat_list_preview", if (m == ListPreviewLogic.Mode.TEXT) null else m.key) } catch (_: Exception) {}
+        // Pruefer R5: "Nur Art" - schon gemerkte Texte verwerfen (nur Art und Absender bleiben)
+        if (m == ListPreviewLogic.Mode.KIND) scope.launch(Dispatchers.IO) {
+            loadListPreviews()
+            val next = ListPreviewLogic.stripTexts(listPreviews.value)
+            if (next != listPreviews.value) {
+                listPreviews.value = next
+                try { store.saveListPreviews(next) } catch (_: Exception) {}
+            }
+        }
     }
 
     /** Vorschau je Chat aus dem lokalen Stand (Konto-Bereich, fuer den sie geladen ist) */
@@ -584,7 +593,9 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
     }
 
     /** Vorschau eines Chats merken (null = vergessen); speichert nur bei Aenderung */
-    suspend fun rememberListPreview(chat: Long, p: ListPreview?) = withContext(Dispatchers.IO) {
+    suspend fun rememberListPreview(chat: Long, p0: ListPreview?) = withContext(Dispatchers.IO) {
+        // Pruefer R5: bei "Nur Art" keinen Text speichern
+        val p = ListPreviewLogic.forMode(p0, listPreviewMode.value)
         loadListPreviews()
         if (listPreviews.value[chat] == p) return@withContext
         val next = ListPreviewLogic.put(listPreviews.value, chat, p)

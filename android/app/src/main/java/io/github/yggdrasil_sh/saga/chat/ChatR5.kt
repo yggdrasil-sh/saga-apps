@@ -158,6 +158,13 @@ object ListPreviewLogic {
         return if (who.isNullOrEmpty()) body else "$who: $body"
     }
 
+    /** Pruefer R5: was gespeichert wird - bei "Nur Art" ohne Text */
+    fun forMode(p: ListPreview?, mode: Mode): ListPreview? = if (mode == Mode.KIND) p?.copy(text = "") else p
+
+    /** Pruefer R5: beim Umschalten auf "Nur Art" alle gemerkten Texte verwerfen */
+    fun stripTexts(all: Map<Long, ListPreview>): Map<Long, ListPreview> =
+        if (all.values.none { it.text.isNotEmpty() }) all else all.mapValues { (_, p) -> p.copy(text = "") }
+
     /** Eintrag merken (neueste je Chat), Gesamtzahl begrenzen: die zuletzt gemerkten bleiben */
     fun put(all: Map<Long, ListPreview>, chat: Long, p: ListPreview?): Map<Long, ListPreview> {
         val m = LinkedHashMap(all)

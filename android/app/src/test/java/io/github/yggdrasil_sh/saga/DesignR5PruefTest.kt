@@ -1,8 +1,12 @@
 package io.github.yggdrasil_sh.saga
 
+import io.github.yggdrasil_sh.saga.chat.ListPreview
+import io.github.yggdrasil_sh.saga.chat.ListPreviewLogic
 import io.github.yggdrasil_sh.saga.ui.common.NotifPrompt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -25,4 +29,20 @@ class DesignR5PruefTest {
         assertTrue(conv.contains("CallPermissions.missing(context, video, notifications = askNotif)"))
     }
 
+    @Test
+    fun kindOnlyStoresNoText() {
+        val p = ListPreview(seq = 3, upTo = 3, kind = "image", text = "Urlaub", from = "Clara")
+        assertEquals("", ListPreviewLogic.forMode(p, ListPreviewLogic.Mode.KIND)!!.text)
+        assertEquals("Clara", ListPreviewLogic.forMode(p, ListPreviewLogic.Mode.KIND)!!.from)
+        assertEquals(p, ListPreviewLogic.forMode(p, ListPreviewLogic.Mode.TEXT))
+        assertNull(ListPreviewLogic.forMode(null, ListPreviewLogic.Mode.KIND))
+        val all = linkedMapOf(1L to p, 2L to ListPreview(seq = 1, text = "geheim"), 3L to ListPreview(seq = 2, kind = "missed"))
+        val s = ListPreviewLogic.stripTexts(all)
+        assertTrue(s.values.all { it.text.isEmpty() })
+        assertEquals(listOf(1L, 2L, 3L), s.keys.toList())
+        assertEquals("image", s[1L]!!.kind)
+        assertSame(s, ListPreviewLogic.stripTexts(s))                          // nichts zu tun -> unveraendert
+        val svc = src.resolve("chat/ChatService.kt").readText()
+        assertTrue(svc.contains("ListPreviewLogic.forMode(p0, listPreviewMode.value)") && svc.contains("ListPreviewLogic.stripTexts("))
+    }
 }
