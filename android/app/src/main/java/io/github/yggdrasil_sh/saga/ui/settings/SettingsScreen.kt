@@ -454,12 +454,12 @@ fun SettingsChatsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome)
             val onFeat = chatState == ChatSetup.READY && io.github.yggdrasil_sh.saga.chat.ReceiptLogic.has(chatMe, "online") && chatMe?.privacy != null
             val stdF = repo.chat.std
             val std = chatState == ChatSetup.READY && (stdF.block || stdF.unfurl)
+            // CH-07: "Vorschau in der Chat-Liste" (nur dieses Geraet), sobald Chats eingerichtet sind
+            val pvRow = chatState == ChatSetup.READY
             if (chatState == ChatSetup.OFF || chatState == ChatSetup.UNSUPPORTED) {
                 item(key = "off") { Explainer(stringResource(R.string.r4s_chats_off), w.padding(top = 12.dp)) }
             }
             if (chatDev || std || pvRow) item(key = "chats-head") { GroupHeading(stringResource(R.string.r4s_chats_devices_group), w) }
-            // CH-07: "Vorschau in der Chat-Liste" (nur dieses Geraet), sobald Chats eingerichtet sind
-            val pvRow = chatState == ChatSetup.READY
             val rows = (if (chatDev) 1 else 0) + (if (pvRow) 1 else 0) + (if (std && stdF.block) 1 else 0) + (if (std && stdF.unfurl) 1 else 0)
             var idx = 0
             if (chatDev) {
