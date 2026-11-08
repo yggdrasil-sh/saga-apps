@@ -129,4 +129,12 @@ class R5CallTest {
         assertEquals(R.string.call_e2e, CallControls.securityLong(true))
         assertEquals(R.string.r5_call_unverified, CallControls.securityLong(false))
     }
+
+    /** R5-Fix: Knopfleiste am Tablet hoechstens 480 dp; Spalten bleiben <= 96 dp */
+    @Test
+    fun leisteTablet() {
+        assertEquals(androidx.compose.ui.unit.Dp(480f), io.github.yggdrasil_sh.saga.call.CallLayout.BAR_MAX)
+        assertEquals(androidx.compose.ui.unit.Dp(94.4f), io.github.yggdrasil_sh.saga.call.CallLayout.column(androidx.compose.ui.unit.Dp(472f), 5))
+        assertEquals(androidx.compose.ui.unit.Dp(96f), io.github.yggdrasil_sh.saga.call.CallLayout.column(androidx.compose.ui.unit.Dp(1200f), 5))
+    }
 }

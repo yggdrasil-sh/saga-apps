@@ -1237,7 +1237,8 @@ private fun Controls(
             // Design 2: schwebende Knopfleiste (abgerundete Flaeche, auch ueber Video lesbar)
             Surface(
                 color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(SagaRadius.pill),
-                modifier = Modifier.fillMaxWidth().padding(bottom = if (flat) 2.dp else 16.dp),
+                // R5-Fix: auf Tablets nicht ueber die ganze Breite (Knoepfe weit auseinander) - hoechstens 480 dp, mittig
+                modifier = Modifier.widthIn(max = CallLayout.BAR_MAX).fillMaxWidth().padding(bottom = if (flat) 2.dp else 16.dp),
             ) {
                 androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = if (flat) 4.dp else 10.dp)) {
                     // CH-17: eine Schrift je Reihe (die kleinste, die fuer alle Beschriftungen passt, mind. 11 sp); passt es
@@ -1648,6 +1649,9 @@ internal object CallLayout {
      */
     fun controlRows(n: Int, fontScale: Float, flat: Boolean, widthDp: Float): Int =
         if (flat || n < 5) 1 else if (fontScale >= 1.3f || widthDp / n < 60f) 2 else 1
+
+    /** R5-Fix: hoechste Breite der Knopfleiste im laufenden Anruf (Tablet; wie CH-23 beim Eingehen 400 dp) */
+    val BAR_MAX = 480.dp
 
     /** CH-17: Spaltenbreite bei perRow Knoepfen je Reihe (hoechstens 96 dp) */
     fun column(width: androidx.compose.ui.unit.Dp, perRow: Int): androidx.compose.ui.unit.Dp = minOf(96.dp, width / perRow.coerceAtLeast(1))
