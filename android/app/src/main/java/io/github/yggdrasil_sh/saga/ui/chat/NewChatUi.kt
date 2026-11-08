@@ -118,7 +118,9 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
             onOpen(c.id)
         }
     }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+    Dialog(onDismissRequest = onDismiss, properties = io.github.yggdrasil_sh.saga.ui.common.FullScreenDialog.properties) {
+        // R5-Nachbesserung: Statusleisten-Symbole passend zum Hintergrund (hell/dunkel), randlos
+        io.github.yggdrasil_sh.saga.ui.common.FullScreenDialogBars()
         BackHandler(enabled = mode != Mode.PERSON) { back() }
         Scaffold(
             topBar = {
