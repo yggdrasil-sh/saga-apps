@@ -912,6 +912,8 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
         scope.launch(Dispatchers.IO) {
             blobs.clearChat(ChatDeleteLogic.blobPrefix(cid))
             repo.dropChatLocal(cid)
+            // CH-07: gemerkte Vorschau (entschluesselter Text) mit wegnehmen
+            quietly { rememberListPreview(cid, null) }
         }
         if (removeFromList) {
             chats.value = chats.value.filter { it.id != cid }
@@ -953,7 +955,16 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
                 ChatDeleteLogic.parse(ev.type, ev.data, me.value?.uid.orEmpty())?.let { onWipe(it) }
                 if (chatsLoaded.value) loadChats()
             }
-            "chat.message", "chat.changed", "chat.deleted", "chat.hidden", "chat.read", "chat.request" -> if (chatsLoaded.value) loadChats()
+            "chat.message", "chat.changed", "chat.deleted", "chat.hidden", "chat.read", "chat.request" -> {
+                // CH-07: geloeschte Nachricht nicht weiter als Vorschau zeigen (Loeschen erhoeht last_seq nicht)
+                if (ev.type == "chat.deleted") ev.long("chat_id")?.let { cid ->
+                    val seq = ev.long("seq")
+                    if (listPreviews.value[cid]?.let { seq == null || it.seq == seq } == true) {
+                        quietly { rememberListPreview(cid, null) }
+                    }
+                }
+                if (chatsLoaded.value) loadChats()
+            }
             // 2.3: eigene Schluessel geaendert (Geraet neu/entfernt): Zertifikate/Geraete-Liste v2 neu signieren
             "chat.keys.changed" -> if (state.value == ChatSetup.READY && FedChat.keysChanged(ev.data).second) fed.certs()
             "reset" -> {

@@ -262,4 +262,13 @@ class DesignR5ChatTest {
         val c = src.resolve("Conversation.kt").readText()
         assertTrue(c.contains("Text(messageText(") && c.contains("Modifier.longPressOverLinks"))
     }
+
+    @Test fun vorschauVerschwindetBeiLoeschen() {
+        // Pruefer R5: Loeschen erhoeht last_seq nicht - Vorschau bei chat.deleted bzw. Wegraeumen des Chats vergessen
+        val src = listOf(java.io.File("src/main/java"), java.io.File("app/src/main/java")).first { it.isDirectory }.resolve("io/github/yggdrasil_sh/saga/chat")
+        val c = src.resolve("ChatService.kt").readText()
+        val wipe = c.substring(c.indexOf("fun wipeLocal("), c.indexOf("private fun onWipe("))
+        assertTrue(wipe.contains("rememberListPreview(cid, null)"))
+        assertTrue(c.contains("ev.type == \"chat.deleted\"") && c.contains("it.seq == seq"))
+    }
 }
