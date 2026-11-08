@@ -176,7 +176,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     /** Horn-Fix: Wiederaufbau nach Knotenverlust (immer ueber Knoten, nie direkt); Regeln in HornRecover.kt */
     private val rec = HornRecover()
     /** Knoten, die der Server in dieser Sitzung angeboten hat (avoid-Regel: einzigen Knoten nicht meiden) */
-    private val known = HashSet<String>()
+    private val knownNodes = HashSet<String>()
     /** TT 67: Knoten, die in dieser Runde am Zertifikat scheiterten; anderer Fehler in dieser Runde; Runden nur Zertifikat */
     private val certBad = LinkedHashSet<String>()
     private var otherFail = false
@@ -489,12 +489,12 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         val a = bad.filter { it.value > now }.keys.toMutableList()
         leaving?.let { (n, until) -> if (until > now && n !in a) a.add(n) }
         for (n in extra) if (n !in a) a.add(n)
-        return HornRecover.avoid(a, known + blk.candidates.map { it.node })   // einzigen Knoten nie meiden
+        return HornRecover.avoid(a, knownNodes + blk.candidates.map { it.node })   // einzigen Knoten nie meiden
     }
 
     /** Kandidaten vom Server; merkt sich die angebotenen Knoten */
     private suspend fun cands(node: String?, avoid: List<String>): List<HornLogic.Cand> =
-        host.cands(node, avoid).also { l -> known.addAll(l.map { it.node }) }
+        host.cands(node, avoid).also { l -> knownNodes.addAll(l.map { it.node }) }
 
     private suspend fun fresh(c: HornLogic.Cand): HornLogic.Cand =
         cands(c.node, avoid()).firstOrNull { it.node == c.node } ?: throw NoNode()
