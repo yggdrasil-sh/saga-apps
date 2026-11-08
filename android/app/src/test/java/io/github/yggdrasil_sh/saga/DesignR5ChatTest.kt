@@ -2,6 +2,7 @@ package io.github.yggdrasil_sh.saga
 
 import io.github.yggdrasil_sh.saga.call.CallEntry
 import io.github.yggdrasil_sh.saga.chat.ChatContent
+import io.github.yggdrasil_sh.saga.chat.AttachLogic
 import io.github.yggdrasil_sh.saga.chat.ChatFile
 import io.github.yggdrasil_sh.saga.chat.ChatInfoLogic
 import io.github.yggdrasil_sh.saga.chat.ChatMenuLogic
@@ -179,4 +180,16 @@ class DesignR5ChatTest {
         assertFalse(ChatInfoLogic.Row.MEDIA in g || ChatInfoLogic.Row.BLOCK in g)
         assertFalse(ChatInfoLogic.Row.SAFETY in ChatInfoLogic.rows(f.copy(hasOthers = false)))
     }
+
+    // ---------------------------------------------------------------- CH-11 Anhang-Menue, CH-12 Vorschaureihe
+
+    @Test
+    fun attachTiles() {
+        assertEquals(
+            listOf(AttachLogic.Tile.GALLERY, AttachLogic.Tile.CAMERA, AttachLogic.Tile.VIDEO_CAMERA, AttachLogic.Tile.FILE, AttachLogic.Tile.PAGE, AttachLogic.Tile.IMMICH),
+            AttachLogic.tiles(camera = true, immich = true, clipImage = false),
+        )
+        assertEquals(listOf(AttachLogic.Tile.GALLERY, AttachLogic.Tile.FILE, AttachLogic.Tile.PAGE, AttachLogic.Tile.PASTE), AttachLogic.tiles(false, false, true))
+    }
+
 }

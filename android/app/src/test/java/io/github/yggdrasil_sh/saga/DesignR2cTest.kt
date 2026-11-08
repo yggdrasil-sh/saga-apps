@@ -52,13 +52,13 @@ class DesignR2cTest {
     }
 
     @Test fun anhangMenueHatUeberallSymbole() {
+        // R5 (CH-11): Anhang-Menue ist ein Bottom Sheet mit Kacheln - jede Kachel hat ein Linien-Symbol
         val c = read("ui/chat/Conversation.kt")
-        val start = c.indexOf("DropdownMenu(expanded = attach")
-        val menu = c.substring(start, c.indexOf("\n                }\n", start))
-        val items = Regex("DropdownMenuItem\\(").findAll(menu).count()
-        val icons = Regex("leadingIcon = \\{ SagaIcon\\(SagaIcons\\.").findAll(menu).count()
-        assertEquals(7, items)
-        assertEquals(items, icons)
+        assertTrue(c.contains("AttachSheet("))
+        assertFalse(c.contains("DropdownMenu(expanded = attach"))
+        val ui = read("ui/chat/ChatR5Ui.kt")
+        val icons = Regex("AttachLogic\\.Tile\\.[A-Z_]+ -> SagaIcons\\.").findAll(ui).count()
+        assertEquals(io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.entries.size, icons)
     }
 
     @Test fun balkenSpurIstOutline() {

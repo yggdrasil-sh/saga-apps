@@ -225,3 +225,18 @@ object ChatInfoLogic {
     /** rot unten (eigener Abschnitt) */
     fun danger(r: Row): Boolean = r == Row.BLOCK || r == Row.REPORT || r == Row.LEAVE
 }
+
+/** CH-11: Kacheln des Anhang-Menues (Bottom Sheet) in fester Reihenfolge */
+object AttachLogic {
+    enum class Tile { GALLERY, CAMERA, VIDEO_CAMERA, FILE, PAGE, IMMICH, PASTE }
+
+    fun tiles(camera: Boolean, immich: Boolean, clipImage: Boolean): List<Tile> = buildList {
+        add(Tile.GALLERY)                    // Fotos und Videos (PickMultipleVisualMedia)
+        if (camera) { add(Tile.CAMERA); add(Tile.VIDEO_CAMERA) }
+        add(Tile.FILE)
+        add(Tile.PAGE)
+        if (immich) add(Tile.IMMICH)
+        if (clipImage) add(Tile.PASTE)
+    }
+}
+

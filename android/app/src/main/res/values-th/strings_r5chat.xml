@@ -32,4 +32,11 @@
     <string name="r5_info_menu">ข้อมูลแชท…</string>
     <string name="r5_info_mute">ปิดเสียง</string>
     <string name="r5_info_safety">ตรวจสอบหมายเลขความปลอดภัย</string>
+    <string name="r5_att_gallery">แกลเลอรี</string>
+    <string name="r5_att_camera">กล้อง</string>
+    <string name="r5_att_video_camera">อัดวิดีโอ</string>
+    <string name="r5_att_file">ไฟล์</string>
+    <string name="r5_att_page">หน้า</string>
+    <string name="r5_att_immich">Immich</string>
+    <string name="r5_att_paste">วางรูปภาพ</string>
 </resources>

@@ -15,6 +15,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.TopAppBar
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.github.yggdrasil_sh.saga.chat.ChatInfoLogic
@@ -220,3 +229,47 @@ internal fun InfoItem(icon: Int, title: String, value: String? = null, color: an
         modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp).heightIn(min = 56.dp).clickable(role = Role.Button, onClick = onClick),
     )
 }
+
+/** CH-11: Anhang-Menue als Bottom Sheet mit Kachelraster (Linien-Symbole, je Kachel mindestens 72 dp) */
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+fun AttachSheet(tiles: List<io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile>, onDismiss: () -> Unit, onPick: (io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile) -> Unit) {
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
+        Text(
+            stringResource(R.string.chat_attach), style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 24.dp).padding(bottom = 8.dp).semantics { heading() },
+        )
+        androidx.compose.foundation.layout.FlowRow(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 24.dp),
+            maxItemsInEachRow = 4,
+        ) {
+            tiles.forEach { t ->
+                val (icon, label) = attachTile(t)
+                Column(
+                    Modifier.weight(1f).heightIn(min = 88.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(io.github.yggdrasil_sh.saga.ui.theme.SagaRadius.md))
+                        .clickable(role = Role.Button) { onDismiss(); onPick(t) }.padding(vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    io.github.yggdrasil_sh.saga.ui.theme.SagaIconTile(size = 52.dp, container = MaterialTheme.colorScheme.secondaryContainer) {
+                        SagaIcon(icon, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                    }
+                    Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, maxLines = 2, modifier = Modifier.padding(top = 6.dp))
+                }
+            }
+            // letzte Reihe auffuellen, damit die Kacheln gleich breit bleiben
+            repeat((4 - tiles.size % 4) % 4) { Box(Modifier.weight(1f)) }
+        }
+    }
+}
+
+@Composable
+private fun attachTile(t: io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile): Pair<Int, String> = when (t) {
+    io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.GALLERY -> SagaIcons.gallery to stringResource(R.string.r5_att_gallery)
+    io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.CAMERA -> SagaIcons.camera to stringResource(R.string.r5_att_camera)
+    io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.VIDEO_CAMERA -> SagaIcons.video to stringResource(R.string.r5_att_video_camera)
+    io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.FILE -> SagaIcons.file to stringResource(R.string.r5_att_file)
+    io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.PAGE -> SagaIcons.link to stringResource(R.string.r5_att_page)
+    io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.IMMICH -> SagaIcons.cloud to stringResource(R.string.r5_att_immich)
+    io.github.yggdrasil_sh.saga.chat.AttachLogic.Tile.PASTE -> SagaIcons.clipboard to stringResource(R.string.r5_att_paste)
+}
+
