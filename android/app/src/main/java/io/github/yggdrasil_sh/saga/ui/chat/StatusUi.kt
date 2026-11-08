@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -80,15 +82,19 @@ fun WithOnlineDot(online: Boolean, content: @Composable () -> Unit) {
     }
 }
 
-/** Haken an der eigenen Blase: ⏳ → ✓ → ✓✓ (gelesen: farbig; Gruppe teilweise: mit Zaehler) */
+/** Haken an der eigenen Blase: Uhr (ausstehend) → ✓ → ✓✓ (gelesen: farbig; Gruppe teilweise: mit Zaehler) */
 @Composable
 fun TickMark(t: Tick, fg: Color, group: Boolean, readAt: Long?, readColor: Color = MaterialTheme.colorScheme.primary) {
     if (t.kind == TickKind.NONE) return
     val read = t.kind == TickKind.READ
     val full = read && (!group || t.all)
     val label = tickLabel(t, group, readAt).orEmpty()
+    // CH-20: ausstehend (wird zugestellt) mit Linien-Uhr statt Sanduhr-Emoji und statt Haken
+    if (t.kind == TickKind.PENDING) {
+        SagaIcon(SagaIcons.clock, label, Modifier.padding(start = 4.dp).size(12.dp), tint = fg)
+        return
+    }
     val sym = when (t.kind) {
-        TickKind.PENDING -> "⏳"
         TickKind.SENT -> "✓"
         else -> if (group && !t.all) "✓✓ ${t.readers}" else "✓✓"
     }
