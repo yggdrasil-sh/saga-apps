@@ -511,7 +511,8 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
         if (!m.kind.startsWith("chat.") || info.value?.settings?.names != true) return null
         val id = NotifyRoute.chatId(m.url) ?: return null
         val c = repo.chat.chats.value.firstOrNull { it.id == id } ?: return null
-        val title = try { repo.chat.displayName(c) } catch (_: Exception) { return null }
+        // ohne den Ende-zu-Ende-verschluesselten Titel freier Gruppen (lokal entschluesselt): der stand nie in Mitteilungen
+        val title = try { io.github.yggdrasil_sh.saga.chat.ChatLogic.displayName(c, null) } catch (_: Exception) { return null }
         if (title.isBlank()) return null
         val dm = c.kind == "dm"
         return ChatLook(title, !dm, if (dm) title else null)

@@ -87,6 +87,19 @@ class DesignR4NotifyTest {
     }
 
     @Test
+    fun regroupDropsDuplicateIds() {
+        // Nachladen ueberlappt mit frisch geladener erster Seite: einzelne und gebuendelte Zeilen nicht doppelt
+        val share = NotifItem(id = 4, kind = "share.added")
+        val page1 = NotifGroups.regroup(listOf(msg(9), msg(5), share))
+        val merged = NotifGroups.regroup(page1 + listOf(share, msg(5), msg(2)))
+        assertEquals(2, merged.size)
+        assertEquals(listOf(9L, 5L, 2L), merged[0].ids)
+        assertEquals(1, merged.count { it.id == 4L })
+        val heads = merged.map { NotifGroups.head(it) }
+        assertEquals(heads.size, heads.toSet().size)
+    }
+
+    @Test
     fun markReadWholeRowsAndGroups() {
         val rows = NotifGroups.regroup(listOf(msg(10), msg(8), msg(6, chat = 9), NotifItem(id = 4, kind = "share.added")))
         // nach Gruppe: ganze Zeile, Schluessel gemeldet

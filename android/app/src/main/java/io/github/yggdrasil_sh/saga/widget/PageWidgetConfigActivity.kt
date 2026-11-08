@@ -68,7 +68,8 @@ class PageWidgetConfigActivity : ComponentActivity() {
         }
         val repo = (application as SagaApplication).repo
         setContent {
-            SagaTheme {
+            // Design-Runde 4: gewaehlte Darstellung (Hell/Dunkel) auch hier, vor Android 12 sonst nur System
+            SagaTheme(dark = io.github.yggdrasil_sh.saga.ui.settings.rememberSagaDarkTheme()) {
                 val demo = BuildConfig.DEBUG && ShotMode.on
                 val needsLogin by repo.needsLogin.collectAsState()
                 val ready by repo.ready.collectAsState()

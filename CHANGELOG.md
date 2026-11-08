@@ -18,6 +18,7 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Android-Einstellungen der Mitteilungen) und „Was Saga dir meldet“ (Konto-Einstellung, gruppiert nach Seiten &
   Kommentare, Erwähnungen, Chats & Anrufe, Aufgaben, Weitere).
 - **Abmelden** steht als Textknopf in Fehlerfarbe am Ende von „Konto“ (mit Rückfrage), nicht mehr als große Fläche.
+
 ### Geändert – Android: Design-Runde 4 „r4-today“ (Heute, Suchen, leere Zustände)
 
 - **Heute wie im Web:** Gruß mit Vorname („Guten Tag, Anna“), Schnellaktionen Neue Seite · Aus Vorlage … · Aufgabe ·
@@ -30,6 +31,7 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Leere Zustände einheitlich** mit Symbol, Hinweis und Aktion: Termine („Neuer Termin“), Dienste & Links
   (Erklärung und „Link hinzufügen“), Papierkorb („Nichts im Papierkorb“).
 - **„Dienste & Links“** statt „Dienste“/„Lesezeichen“: Titel, Knopf „Link hinzufügen“, Dialog „Neuer Link“.
+
 ### Geändert – Android: Design-Runde 4 r4-nav „Navigation“
 
 - **Untere Leiste am Phone** wie das Web am Handy: Heute · Seiten · Suchen · Chats (mit Zähler ungelesener
@@ -44,6 +46,7 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Papierkorb** ist ein eigener Bildschirm mit Zurück statt eines Vollbild-Dialogs.
 - **Kontomenü am Avatar** wie im Web: Name und Server, Sprache ›, Darstellung ›, Einstellungen,
   Admin-Bereich ↗ (nur für Admins), Abmelden mit Rückfrage.
+
 ### Geändert – Android: Design-Runde 4 r4-notify „Mitteilungen“
 
 - **Glocke als Blatt von unten, gebündelt wie im Web:** eine Zeile je Gespräch, verpassten Anrufen eines Chats oder

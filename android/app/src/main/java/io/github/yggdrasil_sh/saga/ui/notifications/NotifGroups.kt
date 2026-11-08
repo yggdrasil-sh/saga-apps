@@ -56,11 +56,17 @@ object NotifGroups {
         )
     }
 
-    /** Gleiche Einheit und gleicher Lesestand -> eine Zeile; neueste zuerst */
+    /**
+     * Gleiche Einheit und gleicher Lesestand -> eine Zeile; neueste zuerst. Schon gesehene ids fallen weg (Nachladen
+     * parallel zu frischem Laden: sonst doppelte Zeilen und doppelte LazyColumn-Schluessel = Absturz).
+     */
     fun regroup(list: List<NotifItem>): List<NotifItem> {
         val out = ArrayList<NotifItem>()
         val at = HashMap<String, Int>()
-        for (it in list) {
+        val seen = HashSet<Long>()
+        for (raw in list) {
+            val it = if (idsOf(raw).any { id -> id in seen }) dropIds(listOf(raw), seen).firstOrNull() ?: continue else raw
+            seen += idsOf(it)
             val k = it.groupKey
             if (k.isNullOrEmpty()) { out += it; continue }
             val key = k + if (it.read) "|r" else "|u"
