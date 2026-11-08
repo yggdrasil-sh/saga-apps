@@ -88,6 +88,8 @@ fun SagaTopBar(
     /** false: Titel ausgeblendet (z. B. solange der grosse Seitentitel darunter sichtbar ist), blendet weich ein */
     titleVisible: Boolean = true,
     contentMaxWidth: Dp? = null,
+    /** R6: Spaltenbreite abhaengig von der verfuegbaren Breite (z. B. Heute ein-/zweispaltig); gewinnt vor contentMaxWidth */
+    contentWidthFor: ((Dp) -> Dp)? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val alpha by androidx.compose.animation.core.animateFloatAsState(
@@ -109,7 +111,7 @@ fun SagaTopBar(
             modifier = m,
         )
     }
-    if (contentMaxWidth == null) {
+    if (contentMaxWidth == null && contentWidthFor == null) {
         bar(Modifier)
         return
     }
@@ -117,7 +119,8 @@ fun SagaTopBar(
     androidx.compose.foundation.layout.BoxWithConstraints(
         Modifier.fillMaxWidth().background(androidx.compose.material3.TopAppBarDefaults.topAppBarColors().containerColor),
     ) {
-        val inset = TopBarAlign.inset(maxWidth.value, contentMaxWidth.value).dp
+        val col = contentWidthFor?.invoke(maxWidth) ?: contentMaxWidth!!
+        val inset = TopBarAlign.inset(maxWidth.value, col.value).dp
         bar(Modifier.padding(horizontal = inset))
     }
 }

@@ -146,7 +146,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         scope.launch { repo.refresh() }
     }
     Scaffold(topBar = {
-        SagaTopBar(stringResource(R.string.nav_today), nav, chrome) {
+        SagaTopBar(stringResource(R.string.nav_today), nav, chrome, contentWidthFor = ::todayContentWidth) {
             IconButton(onClick = { refresh() }) { SagaIcon(SagaIcons.refresh, stringResource(R.string.action_refresh)) }
         }
     }) { pad ->
