@@ -94,16 +94,19 @@ fun SagaSectionTitle(
     ) {
         Box(Modifier.size(width = 4.dp, height = 18.dp).clip(RoundedCornerShape(2.dp)).background(LocalSagaAccent.current.gold))
         Spacer(Modifier.width(SagaSpace.s + 2.dp))
-        Text(
-            text, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false).semantics { heading() },
-        )
-        if (count != null && count > 0) {
-            Spacer(Modifier.width(SagaSpace.s))
-            SagaPill(count.toString())
+        // Titel + Zahl teilen sich den ganzen Restplatz (vorher bekam der Titel durch den zweiten weight-Spacer
+        // hoechstens die halbe Breite und wurde unnoetig gekuerzt); die Aktion bleibt rechts
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false).semantics { heading() },
+            )
+            if (count != null && count > 0) {
+                Spacer(Modifier.width(SagaSpace.s))
+                SagaPill(count.toString())
+            }
         }
-        Spacer(Modifier.weight(1f))
         action?.invoke(this)
     }
 }
