@@ -7,7 +7,9 @@
     <string name="horn_lost">Связь с узлом потеряна.</string>
     <string name="horn_retry">Нет доступных узлов – новая попытка через %1$d с …</string>
     <string name="horn_reconnecting">Восстановление соединения …</string>
-    <string name="horn_recover_failed">Не удалось восстановить связь с узлом. Присоединитесь снова.</string>
+    <string name="horn_recover_failed">Не удалось восстановить соединение с узлом звонка.</string>
+    <string name="horn_direct_node">Узел звонка недоступен – прямое соединение</string>
+    <string name="horn_direct_old">Собеседник использует устаревшую версию – прямое соединение</string>
     <string name="horn_block_node">Сейчас нет доступного узла для больших групповых звонков – попробуйте чуть позже.</string>
     <string name="horn_block_removed">Вас удалили из этого звонка. Присоединиться снова можно после нового приглашения.</string>
     <string name="horn_path_udp">UDP (самый быстрый путь)</string>

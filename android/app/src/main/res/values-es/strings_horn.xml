@@ -7,7 +7,9 @@
     <string name="horn_lost">Se perdió la conexión con el nodo.</string>
     <string name="horn_retry">Ningún nodo accesible – nuevo intento en %1$d s …</string>
     <string name="horn_reconnecting">Restableciendo la conexión …</string>
-    <string name="horn_recover_failed">No se pudo restablecer la conexión con el nodo. Vuelve a unirte.</string>
+    <string name="horn_recover_failed">No se pudo restablecer la conexión con el nodo de llamada.</string>
+    <string name="horn_direct_node">Nodo de llamada no accesible – conectado directamente</string>
+    <string name="horn_direct_old">El otro extremo está desactualizado – conectado directamente</string>
     <string name="horn_block_node">Ahora mismo no hay ningún nodo accesible para llamadas grupales grandes – inténtalo de nuevo en un momento.</string>
     <string name="horn_block_removed">Te han quitado de esta llamada. Podrás volver a unirte cuando te inviten.</string>
     <string name="horn_path_udp">UDP (camino más rápido)</string>

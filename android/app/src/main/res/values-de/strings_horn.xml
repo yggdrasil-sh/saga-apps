@@ -7,7 +7,9 @@
     <string name="horn_lost">Verbindung zum Knoten verloren.</string>
     <string name="horn_retry">Kein Knoten erreichbar – neuer Versuch in %1$d s …</string>
     <string name="horn_reconnecting">Verbindung wird wiederhergestellt …</string>
-    <string name="horn_recover_failed">Die Verbindung zum Knoten ließ sich nicht wiederherstellen. Bitte erneut beitreten.</string>
+    <string name="horn_recover_failed">Die Verbindung zum Anruf-Knoten ließ sich nicht wiederherstellen.</string>
+    <string name="horn_direct_node">Anruf-Knoten nicht erreichbar – direkt verbunden</string>
+    <string name="horn_direct_old">Gegenstelle veraltet – direkt verbunden</string>
     <string name="horn_block_node">Gerade ist kein Knoten für große Gruppenanrufe erreichbar – bitte gleich noch einmal.</string>
     <string name="horn_block_removed">Du wurdest aus diesem Anruf entfernt. Beitreten geht wieder, sobald du eingeladen wirst.</string>
     <string name="horn_path_udp">UDP (schnellster Weg)</string>

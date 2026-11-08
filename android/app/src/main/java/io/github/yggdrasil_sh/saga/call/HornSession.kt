@@ -111,6 +111,10 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         fun iceLocal(): Boolean = false
         /** Waermestufe (PowerManager.THERMAL_STATUS_*) fuer Diagnose/Protokoll; -1 = unbekannt */
         fun thermal(): Int = -1
+        /** Horn-Fix (Vertrag horn_direct1): laufenden Anruf auf direkt umschalten moeglich */
+        fun canDirect(): Boolean = false
+        /** POST /api/calls/{id}/direct; bei Switched schaltet der Host selbst um (Knoten zu, Mesh) */
+        suspend fun direct(avoid: List<String>): HornRecover.DirectAnswer = HornRecover.DirectAnswer.Error
         /** A1: Hoehe (kurze Kante) von Kamera bzw. geteiltem Bildschirm fuer die Deckel auf TCP/TLS; 0 = unbekannt */
         fun camHeight(): Int = 0
         fun screenHeight(): Int = 0
@@ -177,6 +181,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     private val rec = HornRecover()
     /** Knoten, die der Server in dieser Sitzung angeboten hat (avoid-Regel: einzigen Knoten nicht meiden) */
     private val knownNodes = HashSet<String>()
+    /** im laufenden Wiederaufbau verlorener Knoten (nie meiden, als letzter Versuch) */
+    private var lostNode: String? = null
     /** TT 67: Knoten, die in dieser Runde am Zertifikat scheiterten; anderer Fehler in dieser Runde; Runden nur Zertifikat */
     private val certBad = LinkedHashSet<String>()
     private var otherFail = false
@@ -489,7 +495,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         val a = bad.filter { it.value > now }.keys.toMutableList()
         leaving?.let { (n, until) -> if (until > now && n !in a) a.add(n) }
         for (n in extra) if (n !in a) a.add(n)
-        return HornRecover.avoid(a, knownNodes + blk.candidates.map { it.node })   // einzigen Knoten nie meiden
+        return HornRecover.avoid(a, knownNodes + blk.candidates.map { it.node }, lostNode)   // verlorenen/einzigen nie meiden
     }
 
     /** Kandidaten vom Server; merkt sich die angebotenen Knoten */
@@ -503,13 +509,19 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
 
     /** Kandidaten messen, ordnen, der Reihe nach versuchen. why: join | lost | draining | better | retry */
     private suspend fun begin(cands0: List<HornLogic.Cand>, why: String): Conn {
-        val cands = cands0.filter { !isBad(it.node) || cands0.size == 1 }.ifEmpty { cands0 }   // alle gescheitert: trotzdem
+        // zuletzt gescheiterte (auch der verlorene) nicht weglassen, sondern zuletzt versuchen
+        val good = cands0.filter { !isBad(it.node) }
+        val late = cands0.filter { isBad(it.node) }
+        val cands = good + late
         if (cands.isEmpty()) throw NoNode()
         val one = cands.size == 1
         val list = if (one && !cands[0].udp) {
             scope.launch { try { measure(cands) } catch (_: Exception) {} }       // nur fuer die Anzeige
             cands
-        } else HornLogic.rank(cands, measure(cands)).map { it.cand }
+        } else {
+            val m = measure(cands)
+            (if (good.size > 1) HornLogic.rank(good, m).map { it.cand } else good) + late
+        }
         return tryList(list, why, 0)
     }
 
@@ -1186,8 +1198,11 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     /** Wechsel/Beitritt gescheitert: Wiederaufbau mit Backoff (zaehlt als Fehlversuch) */
     private fun retry(why: String, after: Int? = null) {
         if (closed || rec.muted) return
-        step(why, rec.failed(System.currentTimeMillis(), after, rnd.nextDouble()), failure = true)
+        step(why, rec.failed(System.currentTimeMillis(), after, rnd.nextDouble(), directOk()), failure = true)
     }
+
+    /** Direkt-Weg nur im laufenden Anruf (Start ohne Knoten regelt der Server per 409 fallback) */
+    private fun directOk(): Boolean = since > 0 && host.canDirect()
 
     /**
      * Horn-Fix: Verbindung zum Knoten verloren -> neu ueber einen Knoten verbinden (nie direkt/p2p). Der einzige Knoten
@@ -1196,20 +1211,35 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     private fun recover(why: String, node: String?) {
         if (closed) return
         val now = System.currentTimeMillis()
-        val st = rec.lost(now, rnd.nextDouble()) ?: return          // laeuft schon
+        val st = rec.lost(now, rnd.nextDouble(), directOk()) ?: return   // laeuft schon
         log("wiederaufbau ${node ?: "-"} $why")
         host.diagEvent("switch", "lost (wiederaufbau)")
-        if (node != null) bad[node] = now + HornLogic.BAD_MS        // nur bei mehreren Knoten gemieden
+        if (node != null) {                                         // nie gemieden, nur zuletzt versucht
+            bad[node] = now + HornLogic.BAD_MS
+            lostNode = node
+        }
         step(why, st, failure = st is HornRecover.Step.Wait && st.ms > 0)
     }
 
     private fun step(why: String, st: HornRecover.Step, failure: Boolean) {
         if (closed) return
-        if (st !is HornRecover.Step.Wait) {
+        if (st is HornRecover.Step.GiveUp) {
             log("wiederaufbau aufgegeben")
             host.lost(UiText.Res(R.string.horn_recover_failed))
             return
         }
+        if (st is HornRecover.Step.Direct) {                        // 30 s ohne Knoten: direkt anfragen
+            retryJob?.cancel()
+            retryJob = scope.launch {
+                val a = host.direct(HornRecover.unreached(bad, System.currentTimeMillis(), HornLogic.BAD_MS))
+                if (closed) return@launch
+                log("direkt? $a")
+                if (a == HornRecover.DirectAnswer.Ended) host.ended()
+                rec.direct(a, System.currentTimeMillis(), rnd.nextDouble())?.let { step(why, it, failure = false) }
+            }
+            return
+        }
+        st as HornRecover.Step.Wait
         // TT 67: alle Knoten lehnt TLS wegen des Zertifikats ab -> Grund nennen; nach CERT_ROUNDS Runden aufgeben statt
         // endlos zu wiederholen (selbst signierte Knoten werden bewusst NICHT akzeptiert)
         val cert = certBad.toList()
@@ -1249,7 +1279,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             }
             if (closed) return@launch
             log("wiederaufbau fehlgeschlagen${after?.let { " 429 $it s" } ?: ""}")
-            step(why, rec.failed(System.currentTimeMillis(), after, rnd.nextDouble()), failure = true)
+            step(why, rec.failed(System.currentTimeMillis(), after, rnd.nextDouble(), directOk()), failure = true)
         }
     }
 
@@ -1304,7 +1334,10 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         if (closed) return
         val now = System.currentTimeMillis()
         val c = cur
-        if (c != null && rec.tick(now, c.rx > 0)) log("wiederaufbau ok ${c.node}")
+        if (c != null && rec.tick(now, c.rx > 0)) {
+            lostNode = null
+            log("wiederaufbau ok ${c.node}")
+        }
         if (c != null && !switching && !rec.muted) {
             var worst = "connected"
             for (L in c.legs.values) {

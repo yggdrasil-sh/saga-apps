@@ -7,7 +7,9 @@
     <string name="horn_lost">Connection to the node lost.</string>
     <string name="horn_retry">No node reachable – trying again in %1$d s …</string>
     <string name="horn_reconnecting">Reconnecting …</string>
-    <string name="horn_recover_failed">The connection to the node could not be restored. Please join again.</string>
+    <string name="horn_recover_failed">The connection to the call node could not be restored.</string>
+    <string name="horn_direct_node">Call node unreachable – connected directly</string>
+    <string name="horn_direct_old">Other side outdated – connected directly</string>
     <string name="horn_block_node">No node for large group calls is reachable right now – please try again shortly.</string>
     <string name="horn_block_removed">You were removed from this call. You can join again once you are invited.</string>
     <string name="horn_path_udp">UDP (fastest path)</string>

@@ -14,15 +14,21 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Wiederaufbau nach Knotenverlust** (Gruppenanruf über einen einzigen Gjallarhorn-Knoten, Abbruch nach längerer
   Laufzeit): Der verlorene Knoten wurde gemieden, der Server bot dann keinen Kandidaten mehr an („kein Knoten“), die
   Beobachtung löste alle 0,5 s einen neuen Wechsel aus und brach den geplanten Versuch jedes Mal ab – Backoff und
-  2-Minuten-Grenze griffen nie. Jetzt wird der einzige Knoten nicht gemieden (andere nur, wenn noch einer übrig bleibt),
+  2-Minuten-Grenze griffen nie. Jetzt wird der verlorene Knoten nie gemieden (gibt es andere, kommt er zuletzt dran),
   die Beobachtung bleibt stumm, solange ein Versuch läuft oder geplant ist, und der Plan wird nicht mehr abgebrochen.
-- **Backoff** 1/2/4/8/15 s mit ±20 % Zufall; zurückgestellt erst, wenn die neue Verbindung wieder Daten liefert
-  (Verlust in den ersten 10 s zählt als Fehlversuch). Nach 120 s ohne Erfolg endet der Anruf mit klarer Meldung.
-- **429 vom Server** (`retry_after` im Body bzw. `Retry-After`) wird abgewartet (höchstens 60 s) und nicht mehr als
-  „kein Knoten“ gewertet; ältere Server ohne Angabe: normaler Backoff.
-- Im Anruf steht „Verbindung wird wiederhergestellt …“ (de/en/es/ru/th). **Kein Rückfall auf direkt (p2p):** der
-  Wiederaufbau läuft immer über einen Knoten. Regeln als reine Einheit (iOS `HornRecover.swift`, Android
-  `HornRecover.kt`) mit Tests.
+- **Backoff** 1/2/4/8/15 s mit ±20 % Zufall, erster Versuch sofort; zurückgestellt erst, wenn die neue Verbindung wieder
+  Daten liefert (Verlust in den ersten 10 s zählt als Fehlversuch). Im Anruf steht „Verbindung wird wiederhergestellt …“.
+- **429 vom Server** (`retry_after` im Body bzw. `Retry-After`) ist nicht mehr „kein Knoten“: nächster Versuch nach
+  max(retry_after, Backoff), retry_after höchstens 60 s; ältere Server ohne Angabe: normaler Backoff.
+- **Direkt nur, wenn das Horn ausfällt** (Server mit `horn_direct1`): nach 30 s ohne Knoten fragt die App
+  `POST /api/calls/{id}/direct`; bei Erfolg (und für alle anderen über das Ereignis `call.topo`) werden die
+  Knoten-Verbindungen geschlossen und der Anruf läuft direkt weiter (Angebote nur an größere Geräte-IDs), Hinweis
+  „Anruf-Knoten nicht erreichbar – direkt verbunden“ bleibt stehen. `node_ready` → weiter über den Knoten; `limit`/`fed`
+  → kein Direkt-Weg. Nur dann endet der Anruf nach 120 s mit „Die Verbindung zum Anruf-Knoten ließ sich nicht
+  wiederherstellen.“ Ältere Server ohne `horn_direct1`: nur Wiederaufbau über Knoten, Ende nach 120 s.
+- **Anrufstart ohne Knoten** (409 `fallback: "direct"`): Hinweis „Anruf-Knoten nicht erreichbar – direkt verbunden“
+  (`horn_block: node`) bzw. „Gegenstelle veraltet – direkt verbunden“ (`old`, `peer`).
+- Texte in de/en/es/ru/th; Regeln als reine Einheit (iOS `HornRecover.swift`, Android `HornRecover.kt`) mit Tests.
 
 ### Behoben – iOS: leerer Chat-Verlauf
 

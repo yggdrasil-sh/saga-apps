@@ -11,7 +11,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
-/** Horn-Fix (Saga 2.5): Wiederaufbau nach Knotenverlust - dieselben Faelle wie iOS HornRecoverTests.swift. Nie direkt (p2p). */
+/** Horn-Fix (Saga 2.5): Wiederaufbau nach Knotenverlust - dieselben Faelle wie iOS HornRecoverTests.swift. 30 s ueber Knoten, dann direkt. */
 class HornRecoverTest {
     private fun obj(s: String) = Json.parseToJsonElement(s) as JsonObject
     private fun ms(s: Step?): Long? = (s as? Step.Wait)?.ms
@@ -75,10 +75,10 @@ class HornRecoverTest {
     fun tooManyRequests() {
         val r = HornRecover()
         r.lost(0, 0.5)
-        assertEquals(7000L, ms(r.failed(100, 7, 0.5)))
-        assertEquals(0, r.fails)                                    // 429 ist kein Fehlversuch
-        assertEquals(60_000L, ms(r.failed(200, 300, 0.5)))
-        assertEquals(1000L, ms(r.failed(300, null, 0.5)))           // alter Server ohne Feld: Backoff normal
+        assertEquals(7000L, ms(r.failed(100, 7, 0.5)))              // max(7, Backoff 1)
+        assertEquals(60_000L, ms(r.failed(200, 300, 0.5)))          // hoechstens 60 s
+        assertEquals(4000L, ms(r.failed(300, null, 0.5)))           // alter Server ohne Feld: Backoff normal weiter
+        assertEquals(8000L, ms(r.failed(400, 2, 0.5)))              // 429 kuerzer als Backoff
         assertEquals(12, HornRecover.retryAfter(429, obj("""{"error":"busy","retry_after":12}""")))
         assertEquals(5, HornRecover.retryAfter(429, obj("""{"error":"busy","retry_after":"5"}""")))
         assertEquals(9, HornRecover.retryAfter(429, obj("""{"error":"busy"}"""), "9"))
@@ -97,10 +97,93 @@ class HornRecoverTest {
         assertEquals(listOf("n1"), HornRecover.avoid(listOf("n1"), listOf("n1", "n2")))
         assertEquals(emptyList<String>(), HornRecover.avoid(listOf("n1", "n2"), listOf("n1", "n2")))
         assertEquals(listOf("n1", "n2"), HornRecover.avoid(listOf("n2", "n1"), listOf("n1", "n2", "n3")))
+        assertEquals(emptyList<String>(), HornRecover.avoid(listOf("n1"), listOf("n1", "n2"), lost = "n1"))   // verlorenen nie
+        assertEquals(listOf("n2"), HornRecover.avoid(listOf("n1", "n2"), listOf("n1", "n2", "n3"), lost = "n1"))
     }
 
     @Test
-    fun giveUpAfter120sNeverDirect() {
+    fun directAfter30s() {
+        var r = HornRecover()
+        r.lost(0, 0.5, canDirect = true)
+        val st = ArrayList<Step>()
+        var t = 0L
+        while (t < 200_000) {
+            val s = r.failed(t, null, 0.5, canDirect = true)
+            st.add(s)
+            if (s is Step.Wait) t += s.ms + 500 else break
+        }
+        assertTrue(st.last() is Step.Direct)
+        assertTrue(t in 30_000 until 31_000)
+        assertTrue(st.dropLast(1).all { it is Step.Wait })
+        assertTrue(r.muted)                                         // Direkt-Anfrage laeuft
+        assertNull(r.direct(HornRecover.DirectAnswer.Switched(listOf("b")), t, 0.5))
+        assertFalse(r.active || r.muted)
+        // 429 im Fenster endet am Fensterende
+        r = HornRecover()
+        r.lost(0, 0.5, canDirect = true)
+        assertEquals(20_000L, ms(r.failed(10_000, 60, 0.5, canDirect = true)))
+        assertTrue(r.failed(30_000, null, 0.5, canDirect = true) is Step.Direct)
+        // Knoten wieder da: kein Umschalten
+        r = HornRecover()
+        r.lost(0, 0.5, canDirect = true)
+        r.failed(1000, null, 0.5, canDirect = true)
+        r.adopted(5000)
+        assertTrue(r.tick(15_000, true))
+        // ohne Direkt-Weg weiter ueber Knoten, wird er moeglich: umschalten
+        r = HornRecover()
+        r.lost(0, 0.5)
+        assertTrue(r.failed(40_000, null, 0.5, canDirect = false) is Step.Wait)
+        assertTrue(r.failed(45_000, null, 0.5, canDirect = true) is Step.Direct)
+    }
+
+    @Test
+    fun directRefused() {
+        val r = HornRecover()
+        r.lost(0, 0.5, canDirect = true)
+        assertTrue(r.failed(31_000, null, 0.5, canDirect = true) is Step.Direct)
+        assertEquals(1000L, ms(r.direct(HornRecover.DirectAnswer.NodeReady, 31_500, 0.5)))   // erst wieder Knoten
+        assertTrue(r.failed(34_000, null, 0.5, canDirect = true) is Step.Direct)
+        assertEquals(20_000L, ms(r.direct(HornRecover.DirectAnswer.Busy(20), 34_500, 0.5)))
+        assertTrue(r.failed(55_000, null, 0.5, canDirect = true) is Step.Direct)
+        assertTrue(r.direct(HornRecover.DirectAnswer.NoPath("limit"), 55_500, 0.5) is Step.Wait)
+        assertTrue(r.noDirect)
+        assertTrue(r.failed(70_000, null, 0.5, canDirect = true) is Step.Wait)   // nach limit: nicht mehr fragen
+        assertTrue(r.failed(120_000, null, 0.5, canDirect = true) is Step.GiveUp) // kein Direkt-Weg: Ende nach 120 s
+        val r2 = HornRecover()
+        r2.lost(0, 0.5, canDirect = true)
+        r2.failed(40_000, null, 0.5, canDirect = true)
+        assertNull(r2.direct(HornRecover.DirectAnswer.Ended, 40_500, 0.5))
+        assertFalse(r2.active)
+    }
+
+    @Test
+    fun directAnswerAndTargets() {
+        assertEquals(HornRecover.DirectAnswer.Switched(listOf("b", "c")),
+            HornRecover.directAnswer(200, obj("""{"ok":true,"call":{"topo":"mesh"},"offer_to":["b","c"]}""")))
+        assertEquals(HornRecover.DirectAnswer.Error, HornRecover.directAnswer(200, obj("""{"ok":true,"call":{"topo":"horn"}}""")))
+        assertEquals(HornRecover.DirectAnswer.NodeReady, HornRecover.directAnswer(409, obj("""{"horn_block":"node_ready","horn":{}}""")))
+        assertEquals(HornRecover.DirectAnswer.NoPath("limit"), HornRecover.directAnswer(409, obj("""{"horn_block":"limit"}""")))
+        assertEquals(HornRecover.DirectAnswer.NoPath("fed"), HornRecover.directAnswer(409, obj("""{"horn_block":"fed"}""")))
+        assertEquals(HornRecover.DirectAnswer.Ended, HornRecover.directAnswer(404, obj("""{"ended":true}""")))
+        assertEquals(HornRecover.DirectAnswer.Busy(9), HornRecover.directAnswer(429, obj("""{"retry_after":9}""")))
+        assertEquals(HornRecover.DirectAnswer.Error, HornRecover.directAnswer(500, null))
+        assertEquals(HornRecover.DirectAnswer.Error, HornRecover.directAnswer(null, null))
+        val me = "5".repeat(32)
+        val lo = "1".repeat(32)
+        val hi = "a".repeat(32)
+        assertEquals(listOf(hi), HornRecover.offerTargets(listOf(hi, lo, hi), me))       // nur groessere IDs (kein Glare)
+        assertEquals(listOf("n1"), HornRecover.unreached(mapOf("n1" to 100_000L, "n2" to 50_000L), 60_000, 60_000))
+        assertEquals("node", HornRecover.startNote("node"))
+        assertEquals("old", HornRecover.startNote("old"))
+        assertEquals("old", HornRecover.startNote("peer"))
+        assertNull(HornRecover.startNote("off"))
+        assertNull(HornRecover.startNote("caps"))
+        assertNull(HornRecover.startNote("fed"))
+        assertNull(HornRecover.startNote(null))
+    }
+
+    @Test
+    fun giveUpAfter120sWithoutDirect() {
         val r = HornRecover()
         r.lost(0, 0.5)
         val steps = ArrayList<Step>()
@@ -113,7 +196,7 @@ class HornRecoverTest {
         }
         assertTrue(steps.last() is Step.GiveUp)
         assertTrue(t in 120_000 until 121_000)
-        assertTrue(steps.dropLast(1).all { it is Step.Wait })      // nur Warten + neuer Knoten-Versuch
+        assertTrue(steps.dropLast(1).all { it is Step.Wait })      // ohne Direkt-Weg: nur Knoten-Versuche
         assertFalse(r.muted)
         val r2 = HornRecover()
         r2.lost(0, 0.5)
@@ -130,9 +213,14 @@ class HornRecoverTest {
         assertTrue(s.contains("rec.adopted(now)"))
         val adopt = s.substring(s.indexOf("private fun adopt("), s.indexOf("fun switch(why"))
         assertFalse(adopt.contains("retryJob?.cancel()"))           // Adopt bricht den Plan nicht ab
-        val rec = s.substring(s.indexOf("private fun retry("), s.indexOf("private fun newRound()")).lowercase()
-        assertFalse(rec.contains("mesh") || rec.contains("p2p") || rec.contains("topo"))   // kein Rueckfall auf direkt
+        assertTrue(s.contains("private fun directOk(): Boolean = since > 0 && host.canDirect()"))
+        assertTrue(s.contains("val a = host.direct(HornRecover.unreached(bad, System.currentTimeMillis(), HornLogic.BAD_MS))"))
         val cm = src("CallManager.kt")
         assertTrue(cm.contains("throw HornSession.HornBusy(HornRecover.retryAfter(e.code, b))"))   // 429 ist kein noNode
+        assertTrue(cm.contains("private fun hornDirect1(): Boolean = \"horn_direct1\" in"))
+        assertTrue(cm.contains("api.post(\"api/calls/\${r.id}/direct\""))
+        assertTrue(cm.contains("\"call.topo\" -> {") && cm.contains("hornToMesh(c, null)"))
+        assertTrue(cm.contains("HornRecover.offerTargets(others, me)"))
+        assertTrue(cm.contains("directStartNote(c, CallRoom.str(o, \"horn_block\"))"))
     }
 }

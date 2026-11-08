@@ -249,6 +249,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         var took = false
         /** 2.5 P10: Hinweis horn_mesh schon gezeigt */
         var meshNoted = false
+        /** Horn-Fix: Anruf laeuft direkt statt ueber den Knoten (bleibt bis zum Ende sichtbar) */
+        var directNote: UiText? = null
+        /** Horn-Fix (horn_direct1): Signale waehrend des Knoten-Anrufs (Angebote vor call.topo), Zeit -> Signal */
+        val meshQ = ArrayList<Pair<Long, CallSignalDto>>()
         /** Ueber join bzw. als Gruppe begonnen (Raum ohne eigene erste Verbindung) */
         var inRoom = false
         /** Gruppenanruf selbst begonnen (klingelt bei den anderen) */
@@ -2003,6 +2007,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             when {
                 CallRoom.dmHornFallback(e.code, o) -> {
                     log("dm via horn: fallback direct (${CallRoom.str(o, "horn_block")})")
+                    directStartNote(c, CallRoom.str(o, "horn_block"))   // node / old / peer: Hinweis
                     return false
                 }
                 e.code == 409 && (o?.get("busy") as? JsonPrimitive)?.booleanOrNull == true -> {
@@ -3915,6 +3920,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 verified = horn.connected && horn.unverified.isEmpty() && horn.runes != null,
                 message = if (anyConn && horn.note == null && reconnecting != true) null else horn.note ?: u.message,
             )
+        }.let { u ->                                            // Horn-Fix: "direkt verbunden" bleibt stehen
+            val dn = c.rs.directNote
+            if (dn != null && u.message == null && horn == null && phase != CallPhase.ENDED) u.copy(message = dn) else u
         }
     }
 
@@ -4029,6 +4037,89 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         update(c)
     }
 
+    /** Vertrag horn_direct1: der Server kann einen laufenden Knoten-Anruf auf direkt umschalten */
+    private fun hornDirect1(): Boolean = "horn_direct1" in (config?.featureSet ?: emptySet())
+
+    /** Hinweis beim Anrufstart (409 fallback direct): horn_block node -> Knoten weg, old/peer -> Gegenstelle veraltet */
+    private fun directStartNote(c: Call, block: String?) {
+        val t = when (HornRecover.startNote(block)) {
+            "node" -> UiText.Res(R.string.horn_direct_node)
+            "old" -> UiText.Res(R.string.horn_direct_old)
+            else -> return
+        }
+        c.rs.directNote = t
+        repo.notify(t)
+    }
+
+    /**
+     * Horn-Fix: laufender Knoten-Anruf -> direkt (Mesh wie Gruppenanruf 2.4). Knoten-Verbindungen zu; Angebote nur an
+     * Geraete mit groesserer ID (offer_to bzw. selbst bestimmt), von kleineren auf Angebote warten. Kein Rueckweg.
+     */
+    private fun hornToMesh(c: Call, offerTo: List<String>?) {
+        val h = c.rs.horn ?: return
+        val q = c.rs.meshQ.map { it.second }
+        c.rs.meshQ.clear()
+        h.close()
+        c.rs.horn = null
+        hornSinks.clear()
+        val note = UiText.Res(R.string.horn_direct_node)
+        c.rs.directNote = note
+        repo.notify(note)
+        log("horn -> direkt")
+        update(c)
+        scope.launch {
+            try {
+                fetchRoster(c)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
+            if (!live(c) || c.rs.horn != null) return@launch
+            val cfg = config ?: return@launch
+            val me = myDevId()
+            val others = c.rs.roster.legs.map { it.device }.filter { it != me }
+            for (d in offerTo ?: HornRecover.offerTargets(others, me)) {
+                if (linkOf(c, d) != null) continue
+                val x = c.rs.roster.legs.firstOrNull { it.device == d } ?: continue
+                try {
+                    val l = newLink(c, d, x, caller = true)
+                    peerKeys(l)
+                    if (CallRoom.needsFreshKeys(d, l.peerDevs.keys)) peerKeys(l, fresh = true)
+                    if (l.peerDevs[d] == null || !live(c)) continue
+                    c.rs.links[d] = l
+                    val pc = makePc(l, cfg)
+                    l.pc = pc
+                    addLocal(l, pc, false)
+                    val o = createSdp(pc, true)
+                    setSdp(pc, true, o)
+                    noteMids(l)
+                    val sdp = pc.localDescription?.description ?: o.description
+                    sendSignal(l, buildJsonObject {
+                        put("t", "offer")
+                        put("pc", CallRoom.pairId(me, d))
+                        put("n", 1)
+                        put("caps", capsJson(l))
+                        put("media", c.media)
+                        put("sdp", sdp)
+                        put("fp", buildJsonArray { CallCrypto.sdpFingerprints(sdp).forEach { add(JsonPrimitive(it)) } })
+                        putTracks(l, this)
+                    })
+                    flushIce(l)
+                    l.connJob = scope.launch {
+                        delay(30_000)
+                        if (live(l) && !l.connected) dropLink(l, UiText.Res(R.string.room_link_failed, l.peer.shown))
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    log("direkt: Angebot ${d.take(6)} ${e.message}")
+                }
+            }
+            for (s in q) if (s.fromDevice < me && live(c)) route(c, s)   // Angebote kleinerer IDs von vor dem Wechsel
+            update(c)
+        }
+    }
+
     /** Verbindung der Sitzung zum CallManager (Medien, Signale, Kandidaten, Oberflaeche) */
     private fun hornHostOf(r: Call): HornSession.Host = object : HornSession.Host {
         override val scope: kotlinx.coroutines.CoroutineScope get() = this@CallManager.scope
@@ -4094,6 +4185,25 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             fail(r, text, failed = true)
         }
         override fun ended() = remoteEnded(r, null)
+        override fun canDirect(): Boolean = hornDirect1()
+        override suspend fun direct(avoid: List<String>): HornRecover.DirectAnswer {
+            val (code, text) = try {
+                200 to api.post("api/calls/${r.id}/direct", buildJsonObject {
+                    put("device", myDevId())
+                    put("avoid", JsonArray(avoid.map { JsonPrimitive(it) }))
+                })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: ApiException) {
+                e.code to e.body
+            } catch (_: Exception) {
+                return HornRecover.DirectAnswer.Error
+            }
+            val o = try { Json.parseToJsonElement(text) as? JsonObject } catch (_: Exception) { null }
+            val a = HornRecover.directAnswer(code, o)
+            if (a is HornRecover.DirectAnswer.Switched && live(r)) hornToMesh(r, a.offerTo)
+            return a
+        }
         override fun removedHint() {
             scope.launch {
                 try {
@@ -4171,6 +4281,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     /** Signal im Knoten-Anruf oeffnen (Absender laut Teilnehmerliste, signiert) und an die Sitzung */
     private fun hornRoute(r: Call, s: CallSignalDto) {
+        if (hornDirect1()) {                                // Horn-Fix: Angebote kleinerer IDs koennen vor call.topo kommen
+            val now = System.currentTimeMillis()
+            r.rs.meshQ.add(now to s)
+            r.rs.meshQ.removeAll { now - it.first > 30_000 }
+            while (r.rs.meshQ.size > 80) r.rs.meshQ.removeAt(0)
+        }
         val h = hornHolder(r, s.fromDevice)
         if (h == null) {
             val q = r.rs.pend.getOrPut(s.fromDevice) { ArrayList() }
@@ -4387,6 +4503,14 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             "call.horn_move" -> {
                 val c = cur ?: return
                 if (c.id == ev.str("call_id")) c.rs.horn?.moveAway()
+            }
+            // Horn-Fix: der Server hat den Anruf auf direkt umgestellt (auch ohne eigenen Verlust)
+            "call.topo" -> {
+                val c = cur ?: return
+                if (c.id == ev.str("call_id") && ev.str("topo") == "mesh" && c.rs.horn != null) {
+                    log("call.topo mesh ${ev.str("why") ?: "-"}")
+                    hornToMesh(c, null)
+                }
             }
         }
     }
