@@ -84,7 +84,7 @@ internal fun CompactTableRow(st: DbViewState, repo: SagaRepository, r: DbRow, v:
     val q = DbQuery(s)
     val picks = DbCompact.compactProps(s.visibleProps(v), { p -> !DbQuery.isEmpty(q.value(p, r)) || r.fxErr[p.id] != null })
     val tint = rowColor(st, r, v)
-    Column(Modifier.fillMaxWidth().then(if (tint != null) Modifier.background(tint) else Modifier)) {
+    Column(Modifier.fillMaxWidth().then(if (tint != null) Modifier.background(tint) else Modifier).dbRowSelected(r.id)) {
         Column(
             Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 .clickable(onClickLabel = stringResource(R.string.dbv_open_entry)) { onOpen(r.id) }

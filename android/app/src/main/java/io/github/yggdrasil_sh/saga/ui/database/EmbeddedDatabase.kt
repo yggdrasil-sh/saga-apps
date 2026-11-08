@@ -35,6 +35,8 @@ import kotlinx.serialization.json.JsonObject
 @Composable
 fun EmbeddedDatabase(dbId: Long, data: JsonObject, pageId: Long, blockId: String, repo: SagaRepository, onOpen: (Long) -> Unit, hideTabs: Boolean) {
     val st = rememberEmbeddedDbState(dbId, repo, data, pageId, blockId)
+    // R6 (A11Y-24/ED-27): Zeilen ab 840 dp im Seitenblatt der umgebenden Seite; "Alle anzeigen"/"Ganz öffnen" bleiben Seiten
+    val openRow = rowOpener(st, onOpen)
     CompositionLocalProvider(LocalDbRepo provides repo) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val wide = maxWidth >= 600.dp
@@ -52,22 +54,22 @@ fun EmbeddedDatabase(dbId: Long, data: JsonObject, pageId: Long, blockId: String
                 if (!hideTabs && st.views.size > 1) ViewPills(st.views, v.id) { st.selectView(it) }
                 if (st.offline) Text(stringResource(R.string.dbv_offline_cached), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
                 when (v.type) {
-                    "board" -> DbBoard(st, repo, onOpen, Modifier.height(if (wide) 480.dp else 420.dp))
-                    "calendar" -> DbCalendar(st, repo, onOpen, wide)
+                    "board" -> DbBoard(st, repo, openRow, Modifier.height(if (wide) 480.dp else 420.dp))
+                    "calendar" -> DbCalendar(st, repo, openRow, wide)
                     "chart" -> DbChartView(st, repo, wide)
-                    "timeline" -> DbTimeline(st, repo, onOpen, wide)
+                    "timeline" -> DbTimeline(st, repo, openRow, wide)
                     "gallery" -> {
                         val cols = if (wide) 4 else 2
                         st.rows.chunked(cols).forEach { chunk ->
                             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                chunk.forEach { r -> Box(Modifier.weight(1f)) { GalleryCard(st, repo, r, v, onOpen) } }
+                                chunk.forEach { r -> Box(Modifier.weight(1f)) { GalleryCard(st, repo, r, v, openRow) } }
                                 repeat(cols - chunk.size) { Spacer(Modifier.weight(1f)) }
                             }
                         }
                     }
                     "list" -> withGroups(st, v).forEach { e ->
                         when (e) {
-                            is DbRow -> ListRow(st, repo, e, v, onOpen)
+                            is DbRow -> ListRow(st, repo, e, v, openRow)
                             is GroupHead -> GroupHeader(st, e)
                         }
                     }
@@ -77,7 +79,7 @@ fun EmbeddedDatabase(dbId: Long, data: JsonObject, pageId: Long, blockId: String
                         if (!compact) TableHead(st, v, wide)
                         withGroups(st, v).forEach { e ->
                             when (e) {
-                                is DbRow -> if (compact) CompactTableRow(st, repo, e, v, onOpen) else TableRow(st, repo, e, v, wide, onOpen)
+                                is DbRow -> if (compact) CompactTableRow(st, repo, e, v, openRow) else TableRow(st, repo, e, v, wide, openRow)
                                 is GroupHead -> GroupHeader(st, e)
                             }
                         }

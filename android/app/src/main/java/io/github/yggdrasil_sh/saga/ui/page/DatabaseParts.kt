@@ -181,9 +181,9 @@ fun RowProperties(ed: PageEditor, repo: SagaRepository) {
     }
     Column(
         Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(SagaRadius.s))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(SagaRadius.s)).padding(horizontal = 10.dp, vertical = 4.dp),
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(SagaRadius.s)).padding(vertical = 4.dp),
     ) {
-        if (meta.blocked) Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (meta.blocked) Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             SagaIcon(SagaIcons.ban, null, Modifier.padding(end = 6.dp).size(14.dp), tint = MaterialTheme.colorScheme.error)
             Text(stringResource(R.string.e1_blocked), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         }

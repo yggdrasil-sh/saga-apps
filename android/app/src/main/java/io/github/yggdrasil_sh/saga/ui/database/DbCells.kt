@@ -493,7 +493,8 @@ fun PropRow(p: DbProp, v: JsonElement?, fmt: DbFormat, editable: Boolean, onEdit
                 ) { if (p.type == "checkbox") onToggle() else onEdit() } else Modifier,
             )
             .semantics(mergeDescendants = true) { contentDescription = desc }
-            .padding(vertical = 6.dp),
+            // R6 (ED-28): Rand innen - Ripple/Hover ueber die volle Breite der Eigenschaften-Karte
+            .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(p.name, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant,

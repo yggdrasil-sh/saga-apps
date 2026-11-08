@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.material3.LinearProgressIndicator
 import io.github.yggdrasil_sh.saga.ui.common.IncomingImage
 import io.github.yggdrasil_sh.saga.ui.database.databaseItems
+import io.github.yggdrasil_sh.saga.ui.database.orderedRowIds
 import io.github.yggdrasil_sh.saga.ui.common.clipboardImages
 import io.github.yggdrasil_sh.saga.ui.common.prepareImage
 import io.github.yggdrasil_sh.saga.ui.common.readImage
@@ -37,6 +38,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -178,7 +180,7 @@ private fun BlockChoice.title(): String = if (type == "header") stringResource(R
 
 /** Eine Seite: Titel + Bloecke, bearbeitbar; speichert automatisch (verzoegert und beim Verlassen) */
 @Composable
-fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome, appScope: CoroutineScope) {
+fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome, appScope: CoroutineScope, sheet: RowSheetChrome? = null) {
     // neu angemeldet/gekoppelt (anderes Konto): Seite neu oeffnen - Rolle, Eigentuemer und Entwuerfe gehoeren zum Konto
     val signIns by repo.signInCount.collectAsState()
     val ed = remember(id, signIns) {
@@ -366,7 +368,40 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     }
     LaunchedEffect(ed.active) { if (ed.active != null) head.tapped = false }     // Schreiben im Inhalt: Kopf wieder ruhig
 
-    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
+    // R6 (A11Y-24/ED-27): ab 840 dp Breite oeffnen Zeilen (dieser Datenbank bzw. eingebetteter Datenbanken) als Blatt
+    // rechts; die Seite selbst als Blatt bietet kein weiteres Blatt an (dort wie bisher ganze Seite)
+    // 2.4: Datenbank-Seite - Zustand der Ansicht (bleibt beim Scrollen erhalten; R6: auch fuer "Vorige/Naechste Zeile")
+    val dbState = if (ed.isDatabase) io.github.yggdrasil_sh.saga.ui.database.rememberDbViewState(id, repo) else null
+    var sheetRow by androidx.compose.runtime.saveable.rememberSaveable(id) { mutableStateOf<Long?>(null) }
+    var sheetOrder by remember(id) { mutableStateOf<(() -> List<Long>)?>(null) }
+    var sheetChanged by remember(id) { mutableStateOf<(() -> Unit)?>(null) }
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+    val sheetOn = sheet == null && io.github.yggdrasil_sh.saga.ui.database.RowSheetLogic.enabled(maxWidth.value)
+    val sheetW = io.github.yggdrasil_sh.saga.ui.database.RowSheetLogic.sheetWidthDp(maxWidth.value).dp
+    // schmal geworden (Drehen, geteiltes Fenster): offene Zeile als ganze Seite oeffnen - Zurueck fuehrt zur Ansicht
+    LaunchedEffect(sheetOn, sheetRow) {
+        val r = sheetRow
+        if (sheet == null && io.github.yggdrasil_sh.saga.ui.database.RowSheetLogic.onNarrow(r, sheetOn) == io.github.yggdrasil_sh.saga.ui.database.RowSheetLogic.Narrow.OPEN_AS_PAGE && r != null) {
+            sheetRow = null
+            nav.push(Dest.Page(r))
+        }
+    }
+    val closeSheet: () -> Unit = {
+        sheetRow = null
+        sheetChanged?.invoke()
+    }
+    val opener = if (!sheetOn) null else io.github.yggdrasil_sh.saga.ui.database.RowSheetOpener { rid, order, changed ->
+        if (sheetRow != null && sheetRow != rid) sheetChanged?.invoke()
+        sheetOrder = order
+        sheetChanged = changed
+        sheetRow = rid
+    }
+    Row(Modifier.fillMaxSize()) {
+    CompositionLocalProvider(
+        io.github.yggdrasil_sh.saga.ui.database.LocalRowSheet provides opener,
+        io.github.yggdrasil_sh.saga.ui.database.LocalDbSelectedRow provides (if (sheetOn) sheetRow else null),
+    ) {
+    Column(Modifier.weight(1f).fillMaxHeight().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
         // G4: "Kein Zugriff": Kopfzeile ohne Titel/Symbol der Seite
         // grosser Titel im Seitenkopf sichtbar: in der Leiste ausgeblendet, beim Wegscrollen weich eingeblendet
         val titleInBar by remember {
@@ -375,7 +410,8 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 h == null || -h.offset > h.size * 0.55f
             }
         }
-        SagaTopBar(if (ed.noAccess) "" else ed.title.ifEmpty { if (ed.fetched) stringResource(R.string.page_untitled) else "" }, nav, chrome, titleVisible = titleInBar) {
+        val barTitle = if (ed.noAccess) "" else ed.title.ifEmpty { if (ed.fetched) stringResource(R.string.page_untitled) else "" }
+        val barActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {
             PresenceAvatars(liveSt)
             SaveState(ed)
             // KI-Assistent (1.6): nur sichtbar, wenn der Server ihn fuer diese Person anbietet
@@ -559,7 +595,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                             repo.launchAction {
                                 ed.saveAndWait()
                                 repo.archivePage(id, true)
-                                if (!nav.pop()) nav.top(Dest.Today)
+                                if (sheet != null) sheet.onClose() else if (!nav.pop()) nav.top(Dest.Today)
                                 repo.notify(UiText.Res(R.string.page_archived), UiText.Res(R.string.action_undo)) {
                                     repo.launchAction { repo.archivePage(id, false) }
                                 }
@@ -573,6 +609,8 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 }
             }
         }
+        if (sheet != null) RowSheetBar(barTitle, titleInBar, sheet, barActions)
+        else SagaTopBar(barTitle, nav, chrome, titleVisible = titleInBar, actions = barActions)
         if (ed.conflict && !conflictDialog) {
             ConflictBanner(ed.conflictBy) { conflictDialog = true }
         }
@@ -584,8 +622,6 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
             }
         }
 
-        // 2.4: Datenbank-Seite - Zustand der Ansicht (bleibt beim Scrollen erhalten)
-        val dbState = if (ed.isDatabase) io.github.yggdrasil_sh.saga.ui.database.rememberDbViewState(id, repo) else null
         val dbWide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
         Box(
             Modifier.weight(1f).fillMaxWidth()
@@ -682,7 +718,10 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 }
                 if (ed.fetched && ed.isDatabase && dbState != null) {
                     // 2.4: Ansichten, Filter, Sortierung, neue Eintraege, Werte bearbeiten - Zeilen direkt in dieser Liste
-                    databaseItems(dbState, repo, onOpen = { pid -> nav.push(Dest.Page(pid)) }, wide = dbWide)
+                    databaseItems(dbState, repo, onOpen = { pid ->
+                        // R6: Zeile dieser Datenbank ab 840 dp im Blatt (Reihenfolge = aktuelle Ansicht), sonst ganze Seite
+                        if (opener != null && pid != id) opener.open(pid, null) { dbState.reload(debounce = 600) } else nav.push(Dest.Page(pid))
+                    }, wide = dbWide)
                 }
             }
             }
@@ -700,6 +739,28 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 repo = repo, inserter = inserter,
             )
         }
+    }
+    }
+    val order = sheetOrder ?: { dbState?.orderedRowIds().orEmpty() }
+    RowSheetPane(sheetRow.takeIf { sheetOn }, sheetW, onBack = closeSheet) { r ->
+        val ids = order()
+        val prev = io.github.yggdrasil_sh.saga.ui.database.RowSheetLogic.neighbor(ids, r, -1)
+        val next = io.github.yggdrasil_sh.saga.ui.database.RowSheetLogic.neighbor(ids, r, 1)
+        val move: (Long) -> Unit = { to -> sheetChanged?.invoke(); sheetRow = to }
+        val chromeSheet = remember(r, prev, next) {
+            RowSheetChrome(
+                onClose = closeSheet,
+                onPrev = prev?.let { p -> { move(p) } },
+                onNext = next?.let { n -> { move(n) } },
+                onOpenFull = {
+                    sheetRow = null
+                    nav.push(Dest.Page(r))
+                },
+            )
+        }
+        PageScreen(r, repo, nav, chrome, appScope, sheet = chromeSheet)
+    }
+    }
     }
 
     if (showVersions) VersionsDialog(ed, repo) { showVersions = false }
@@ -741,7 +802,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                     repo.launchAction {
                         ed.saveAndWait()
                         repo.trashPage(id)
-                        if (!nav.pop()) nav.top(Dest.Today)
+                        if (sheet != null) sheet.onClose() else if (!nav.pop()) nav.top(Dest.Today)
                         repo.notify(UiText.Res(R.string.page_trashed), UiText.Res(R.string.action_undo)) {
                             repo.launchAction { repo.restorePage(id) }
                         }

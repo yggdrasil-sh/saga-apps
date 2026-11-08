@@ -694,7 +694,7 @@ internal fun TableRow(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbView
             contentAlignment = Alignment.CenterStart,
         ) { CompactValue(p, value, fmt, err = r.fxErr[p.id], labeled = false, maxLines = DbCompact.cellLines(p.effType, v.wraps(p.id))) }
     }
-    Column(Modifier.then(if (tint != null) Modifier.background(tint) else Modifier)) {
+    Column(Modifier.then(if (tint != null) Modifier.background(tint) else Modifier).dbRowSelected(r.id)) {
         Row(Modifier.heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(
                 Modifier.width(colWidth(null, wide)).clickable(onClickLabel = stringResource(R.string.dbv_open_entry)) { onOpen(r.id) }.padding(6.dp),
@@ -730,7 +730,7 @@ internal fun ListRow(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbView,
     val status = if (check == null) s.props.firstOrNull { it.status && it.type == "select" && it.firstOfGroup("done") != null } else null
     val chips = shown.filter { it.effType in setOf("select", "multi_select", "date", "number", "calc", "person") && it.id != status?.id }.take(3)
     val tint = rowColor(st, r, v)
-    Column(Modifier.then(if (tint != null) Modifier.background(tint) else Modifier).padding(start = (r.depth * 20).dp)) {
+    Column(Modifier.then(if (tint != null) Modifier.background(tint) else Modifier).dbRowSelected(r.id).padding(start = (r.depth * 20).dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
             if (check != null) {
                 val on = DbQuery.truthy(r.props[check.id])
@@ -774,7 +774,7 @@ internal fun GalleryCard(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbV
     Surface(
         shape = MaterialTheme.shapes.medium, color = ccol?.first ?: cardColor(),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
-        modifier = Modifier.fillMaxWidth().sagaPress(src).clip(MaterialTheme.shapes.medium)
+        modifier = Modifier.fillMaxWidth().sagaPress(src).clip(MaterialTheme.shapes.medium).dbCardSelected(r.id, MaterialTheme.shapes.medium)
             .clickable(interactionSource = src, indication = androidx.compose.foundation.LocalIndication.current, onClickLabel = stringResource(R.string.dbv_open_entry)) { onOpen(r.id) },
     ) {
         Column {
@@ -886,7 +886,7 @@ internal fun BoardCard(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbVie
         Surface(
             shape = MaterialTheme.shapes.medium, color = cardColor(), shadowElevation = 1.dp,
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-            modifier = Modifier.fillMaxWidth().sagaPress(src).clip(MaterialTheme.shapes.medium)
+            modifier = Modifier.fillMaxWidth().sagaPress(src).clip(MaterialTheme.shapes.medium).dbCardSelected(r.id, MaterialTheme.shapes.medium)
                 .combinedClickable(interactionSource = src, indication = androidx.compose.foundation.LocalIndication.current,onClickLabel = stringResource(R.string.dbv_open_entry), onLongClickLabel = moveLabel,
                     onLongClick = { if (!st.readOnly && targets.isNotEmpty()) menu = true }) { onOpen(r.id) }
                 .semantics { customActions = actions },
@@ -970,7 +970,7 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
                             fontWeight = if (day == today) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.semantics { heading() })
                         byDay[day.toString()].orEmpty().forEach { r ->
                             Text(label(r), style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(top = 3.dp).fillMaxWidth().clip(RoundedCornerShape(SagaRadius.xs)).background(MaterialTheme.colorScheme.surface)
+                                modifier = Modifier.padding(top = 3.dp).fillMaxWidth().clip(RoundedCornerShape(SagaRadius.xs)).background(MaterialTheme.colorScheme.surface).dbRowSelected(r.id)
                                     .clickable(onClickLabel = stringResource(R.string.dbv_open_entry)) { onOpen(r.id) }.padding(3.dp))
                         }
                         if (st.canAdd && dp.type == "date") SagaTextButton(onClick = { scope.launch { st.create(mapOf(dp.id to DbValues.date(day)))?.let(onOpen) } }) {
@@ -989,7 +989,7 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
                 val items = byDay[day.toString()].orEmpty()
                 if (items.isEmpty()) Text("–", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 items.forEach { r ->
-                    Row(Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.dbv_open_entry)) { onOpen(r.id) }.padding(vertical = 8.dp),
+                    Row(Modifier.fillMaxWidth().dbRowSelected(r.id).clickable(onClickLabel = stringResource(R.string.dbv_open_entry)) { onOpen(r.id) }.padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         PageIcon(r.icon, repo, size = 18.dp)
                         Text(label(r), maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -1077,7 +1077,7 @@ internal fun DbCalendar(st: DbViewState, repo: SagaRepository, onOpen: (Long) ->
             if (dayItems.isEmpty()) Text(stringResource(R.string.dbv_agenda_empty), color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 8.dp))
             dayItems.forEach { r ->
-                Row(Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.dbv_open_entry)) { onOpen(r.id) }.padding(vertical = 10.dp),
+                Row(Modifier.fillMaxWidth().dbRowSelected(r.id).clickable(onClickLabel = stringResource(R.string.dbv_open_entry)) { onOpen(r.id) }.padding(vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (compact) Box(Modifier.size(8.dp).clip(androidx.compose.foundation.shape.CircleShape).background(dotColor(r)))
                     PageIcon(r.icon, repo, size = 18.dp)
