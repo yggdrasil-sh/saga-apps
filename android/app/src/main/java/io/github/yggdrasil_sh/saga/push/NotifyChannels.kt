@@ -1,6 +1,7 @@
 package io.github.yggdrasil_sh.saga.push
 
 import android.app.NotificationChannel
+import android.app.NotificationChannelGroup
 import android.app.NotificationManager
 import android.content.Context
 import io.github.yggdrasil_sh.saga.R
@@ -43,12 +44,30 @@ object NotifyChannels {
     /** Wichtigkeit eines neuen Kanals: die des alten (vom Nutzer eingestellt) oder die Vorgabe. Rein (Tests). */
     fun importance(old: Int?, channel: String): Int = old ?: if (channel == CHATS) NotificationManager.IMPORTANCE_HIGH else NotificationManager.IMPORTANCE_DEFAULT
 
+    /** Kanalgruppen (Nachbesserung): statt "Other" in den System-Einstellungen; Kanal-IDs bleiben unveraendert */
+    const val G_NOTIFY = "saga_g_notify"
+    const val G_CALLS = "saga_g_calls"
+    const val G_BACKGROUND = "saga_g_background"
+
+    /** Gruppe je Kanal-ID (auch Kanaele anderer Teile: Klingeln, laufender Anruf, Hintergrund-Verbindung). Rein (Tests). */
+    fun channelGroup(id: String): String? = when (id) {
+        CHATS, MENTIONS, TASKS -> G_NOTIFY
+        CALLS, io.github.yggdrasil_sh.saga.call.CallNotify.CH_RING, io.github.yggdrasil_sh.saga.call.CallNotify.CH_RING_SOUND,
+        io.github.yggdrasil_sh.saga.call.CallNotify.CH_CALL -> G_CALLS
+        PushStreamService.CHANNEL, "saga_voice", "video_upload" -> G_BACKGROUND
+        else -> null
+    }
+
     @Volatile private var done = false
 
     /** Kanaele anlegen bzw. umbenennen (Sprache), einmal je Prozess */
     fun ensure(context: Context) {
-        if (done) return
+        if (done) {
+            groups(context)
+            return
+        }
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        groups(context)
         val old = nm.getNotificationChannel(MENTIONS)
         for (id in ALL) {
             val (name, desc) = texts(context, id)
@@ -62,6 +81,7 @@ object NotifyChannels {
             }
             val ch = NotificationChannel(id, name, importance(old?.importance, id))
             ch.description = desc
+            ch.group = channelGroup(id)
             if (old != null) {
                 ch.setSound(old.sound, old.audioAttributes)
                 ch.enableVibration(old.shouldVibrate())
@@ -73,10 +93,35 @@ object NotifyChannels {
             try {
                 nm.createNotificationChannel(ch)
             } catch (_: IllegalArgumentException) {               // z. B. ungueltige Wichtigkeit: mit Vorgabe anlegen
-                nm.createNotificationChannel(NotificationChannel(id, name, importance(null, id)).also { it.description = desc })
+                nm.createNotificationChannel(NotificationChannel(id, name, importance(null, id)).also { it.description = desc; it.group = channelGroup(id) })
             }
         }
         done = true
+        groups(context)
+    }
+
+    /**
+     * Gruppen anlegen (Name in der App-Sprache) und bestehenden Kanaele ohne Gruppe zuordnen - auch denen aus
+     * CallService/PushStreamService/Sprachnachrichten/Video-Upload; ein einmal gesetzte Gruppe aendert Android nicht mehr.
+     */
+    fun groups(context: Context) {
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        try {
+            nm.createNotificationChannelGroups(
+                listOf(
+                    NotificationChannelGroup(G_NOTIFY, context.getString(R.string.r4n_grp_notify)),
+                    NotificationChannelGroup(G_CALLS, context.getString(R.string.r4n_grp_calls)),
+                    NotificationChannelGroup(G_BACKGROUND, context.getString(R.string.r4n_grp_background)),
+                ),
+            )
+            for (ch in nm.notificationChannels) {
+                if (ch.group != null) continue
+                val g = channelGroup(ch.id) ?: continue
+                ch.group = g
+                nm.createNotificationChannel(ch)
+            }
+        } catch (_: Exception) {
+        }
     }
 
     private fun texts(context: Context, id: String): Pair<String, String> = when (id) {

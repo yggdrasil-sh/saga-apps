@@ -168,6 +168,9 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
     /** Design-Runde 4 (CH-04): Zeilen anderswo gelesen -> System-Mitteilungen dieser Einheiten entfernen (PushService) */
     @Volatile var onRowsRead: ((keys: Set<String>, all: Boolean) -> Unit)? = null
 
+    /** Nachbesserung R4 (CH-04): Chat entfernt/verlassen (Live "chat.removed") - PushService raeumt Shortcut und Mitteilung weg */
+    @Volatile var onChatRemoved: ((chat: Long) -> Unit)? = null
+
     private val _events = MutableSharedFlow<LiveEvent>(extraBufferCapacity = 64)
     val events: SharedFlow<LiveEvent> = _events
 
@@ -406,6 +409,7 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
                 if (nid != null && n != null) repo.markUnread(nid, n > 0)
             }
             "chat.message", "chat.read", "chat.deleted", "chat.changed" -> scope.launch { loadChatUnread() }
+            "chat.removed" -> ev.long("chat_id")?.let { onChatRemoved?.invoke(it) }
         }
         _events.tryEmit(ev)
     }

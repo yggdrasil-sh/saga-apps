@@ -57,4 +57,52 @@
         <item quantity="many">%1$d новых уведомлений</item>
         <item quantity="other">%1$d нового уведомления</item>
     </plurals>
+    <!-- Nachbesserung R4 (Mitteilungen): Saetze in der App-Sprache, Kanalgruppen -->
+    <string name="r4n_msg_new">Новое сообщение</string>
+    <string name="r4n_msg_mention">Упомянул(а) вас</string>
+    <string name="r4n_t_comment_from">%1$s прокомментировал(а) вашу страницу</string>
+    <string name="r4n_t_reply_from">%1$s ответил(а) в обсуждении</string>
+    <string name="r4n_t_comment_mention_from">%1$s упомянул(а) вас в комментарии</string>
+    <string name="r4n_t_page_mention_from">%1$s упомянул(а) вас</string>
+    <string name="r4n_t_chat_from">Новое сообщение от %1$s</string>
+    <string name="r4n_t_chat_mention_from">%1$s упомянул(а) вас в чате</string>
+    <string name="r4n_t_missed_from">Пропущенный звонок от %1$s</string>
+    <string name="r4n_t_db_from">%1$s назначил(а) вас</string>
+    <string name="r4n_t_comment">Новый комментарий на вашей странице</string>
+    <string name="r4n_t_reply">Новый ответ в обсуждении</string>
+    <string name="r4n_t_mention">Вас упомянули</string>
+    <string name="r4n_t_db">Вас назначили в базе данных</string>
+    <string name="r4n_t_tasks">Задачи на сегодня или просроченные</string>
+    <string name="r4n_t_missed">Пропущенный звонок</string>
+    <string name="r4n_t_chat_mention">Вас упомянули в чате</string>
+    <string name="r4n_t_share">С вами поделились страницей</string>
+    <string name="r4n_t_role">Ваша роль на общей странице изменилась</string>
+    <string name="r4n_t_test">Тестовое уведомление – уведомления приходят.</string>
+    <string name="r4n_grp_notify">Уведомления</string>
+    <string name="r4n_grp_calls">Звонки</string>
+    <string name="r4n_grp_background">Фоновые</string>
+    <plurals name="r4n_t_comments_n">
+        <item quantity="one">%1$d новый комментарий на вашей странице</item>
+        <item quantity="few">%1$d новых комментария на вашей странице</item>
+        <item quantity="many">%1$d новых комментариев на вашей странице</item>
+        <item quantity="other">%1$d новых комментария на вашей странице</item>
+    </plurals>
+    <plurals name="r4n_t_replies_n">
+        <item quantity="one">%1$d новый ответ в обсуждении</item>
+        <item quantity="few">%1$d новых ответа в обсуждении</item>
+        <item quantity="many">%1$d новых ответов в обсуждении</item>
+        <item quantity="other">%1$d новых ответа в обсуждении</item>
+    </plurals>
+    <plurals name="r4n_t_missed_n_from">
+        <item quantity="one">%1$d пропущенный звонок от %2$s</item>
+        <item quantity="few">%1$d пропущенных звонка от %2$s</item>
+        <item quantity="many">%1$d пропущенных звонков от %2$s</item>
+        <item quantity="other">%1$d пропущенного звонка от %2$s</item>
+    </plurals>
+    <plurals name="r4n_t_db_n_from">
+        <item quantity="one">%2$s назначил(а) вас %1$d раз</item>
+        <item quantity="few">%2$s назначил(а) вас %1$d раза</item>
+        <item quantity="many">%2$s назначил(а) вас %1$d раз</item>
+        <item quantity="other">%2$s назначил(а) вас %1$d раза</item>
+    </plurals>
 </resources>

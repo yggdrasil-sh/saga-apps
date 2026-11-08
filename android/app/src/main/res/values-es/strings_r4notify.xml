@@ -50,4 +50,48 @@
         <item quantity="many">%1$d notificaciones nuevas</item>
         <item quantity="other">%1$d notificaciones nuevas</item>
     </plurals>
+    <!-- Nachbesserung R4 (Mitteilungen): Saetze in der App-Sprache, Kanalgruppen -->
+    <string name="r4n_msg_new">Mensaje nuevo</string>
+    <string name="r4n_msg_mention">Te ha mencionado</string>
+    <string name="r4n_t_comment_from">%1$s ha comentado tu página</string>
+    <string name="r4n_t_reply_from">%1$s ha respondido en una conversación</string>
+    <string name="r4n_t_comment_mention_from">%1$s te ha mencionado en un comentario</string>
+    <string name="r4n_t_page_mention_from">%1$s te ha mencionado</string>
+    <string name="r4n_t_chat_from">Mensaje nuevo de %1$s</string>
+    <string name="r4n_t_chat_mention_from">%1$s te ha mencionado en un chat</string>
+    <string name="r4n_t_missed_from">Llamada perdida de %1$s</string>
+    <string name="r4n_t_db_from">%1$s te ha asignado</string>
+    <string name="r4n_t_comment">Comentario nuevo en tu página</string>
+    <string name="r4n_t_reply">Respuesta nueva en una conversación</string>
+    <string name="r4n_t_mention">Te han mencionado</string>
+    <string name="r4n_t_db">Te han asignado en una base de datos</string>
+    <string name="r4n_t_tasks">Tareas para hoy o vencidas</string>
+    <string name="r4n_t_missed">Llamada perdida</string>
+    <string name="r4n_t_chat_mention">Te han mencionado en un chat</string>
+    <string name="r4n_t_share">Alguien ha compartido una página contigo</string>
+    <string name="r4n_t_role">Tu rol en una página compartida ha cambiado</string>
+    <string name="r4n_t_test">Notificación de prueba: las notificaciones funcionan.</string>
+    <string name="r4n_grp_notify">Notificaciones</string>
+    <string name="r4n_grp_calls">Llamadas</string>
+    <string name="r4n_grp_background">Segundo plano</string>
+    <plurals name="r4n_t_comments_n">
+        <item quantity="one">%1$d comentario nuevo en tu página</item>
+        <item quantity="many">%1$d comentarios nuevos en tu página</item>
+        <item quantity="other">%1$d comentarios nuevos en tu página</item>
+    </plurals>
+    <plurals name="r4n_t_replies_n">
+        <item quantity="one">%1$d respuesta nueva en una conversación</item>
+        <item quantity="many">%1$d respuestas nuevas en una conversación</item>
+        <item quantity="other">%1$d respuestas nuevas en una conversación</item>
+    </plurals>
+    <plurals name="r4n_t_missed_n_from">
+        <item quantity="one">%1$d llamada perdida de %2$s</item>
+        <item quantity="many">%1$d llamadas perdidas de %2$s</item>
+        <item quantity="other">%1$d llamadas perdidas de %2$s</item>
+    </plurals>
+    <plurals name="r4n_t_db_n_from">
+        <item quantity="one">%2$s te ha asignado %1$d vez</item>
+        <item quantity="many">%2$s te ha asignado %1$d veces</item>
+        <item quantity="other">%2$s te ha asignado %1$d veces</item>
+    </plurals>
 </resources>

@@ -70,6 +70,14 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Einstellungen bleiben), „Aufgaben & Termine“ und „Verpasste Anrufe“; neue Kanäle übernehmen die bisherigen
   Einstellungen. Chats als Unterhaltung (mehrere Nachrichten eines Chats in einer Mitteilung), je Bereich eine
   Sammel-Mitteilung, Aktion „Als gelesen markieren“ ohne App-Start. Was anderswo gelesen wird, verschwindet auch hier.
+- **Nachbesserung:** Mitteilungstexte in der App-Sprache statt in der Sprache des Kontos (die App erkennt die Sätze des
+  Servers und baut sie neu). Kommentar-Mitteilungen zeigen als Titel die Seite bzw. die Person statt „Saga“.
+  Chat-Mitteilungen zeigen die schreibende Person (1:1: das Gegenüber, Gruppen: Gruppenname als Titel) – auch wenn die
+  App im Hintergrund noch nichts geladen hat; mit „Namen zeigen“ aus neutral „Neue Nachricht“. Mehrere Nachrichten
+  einer Person als eine Zeile mit Zahl. Chats erscheinen unter „Unterhaltungen“ (Shortcut je Chat, beim Entfernen des
+  Chats und beim Abmelden wieder weg). Kanäle in Gruppen „Mitteilungen“, „Anrufe“, „Hintergrund“ statt „Other“.
+  Glocken-Blatt öffnet ganz, „Alle anzeigen“ steht fest unten über der Gestenleiste. Wegwischen zählt die
+  Sammel-Mitteilung neu; „Als gelesen markieren“ wirkt nur noch für das Konto, für das die Mitteilung kam.
 
 ### Geändert – Android: Design-Runde 3 „Editor“
 

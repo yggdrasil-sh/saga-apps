@@ -36,4 +36,40 @@
     <plurals name="r4n_summary">
         <item quantity="other">การแจ้งเตือนใหม่ %1$d รายการ</item>
     </plurals>
+    <!-- Nachbesserung R4 (Mitteilungen): Saetze in der App-Sprache, Kanalgruppen -->
+    <string name="r4n_msg_new">ข้อความใหม่</string>
+    <string name="r4n_msg_mention">กล่าวถึงคุณ</string>
+    <string name="r4n_t_comment_from">%1$s แสดงความคิดเห็นในหน้าของคุณ</string>
+    <string name="r4n_t_reply_from">%1$s ตอบกลับในการสนทนา</string>
+    <string name="r4n_t_comment_mention_from">%1$s กล่าวถึงคุณในความคิดเห็น</string>
+    <string name="r4n_t_page_mention_from">%1$s กล่าวถึงคุณ</string>
+    <string name="r4n_t_chat_from">ข้อความใหม่จาก %1$s</string>
+    <string name="r4n_t_chat_mention_from">%1$s กล่าวถึงคุณในแชท</string>
+    <string name="r4n_t_missed_from">สายที่ไม่ได้รับจาก %1$s</string>
+    <string name="r4n_t_db_from">%1$s ได้มอบหมายคุณ</string>
+    <string name="r4n_t_comment">ความคิดเห็นใหม่ในหน้าของคุณ</string>
+    <string name="r4n_t_reply">การตอบกลับใหม่ในการสนทนา</string>
+    <string name="r4n_t_mention">มีคนกล่าวถึงคุณ</string>
+    <string name="r4n_t_db">คุณได้รับมอบหมายในฐานข้อมูล</string>
+    <string name="r4n_t_tasks">งานที่ครบกำหนดวันนี้หรือเลยกำหนด</string>
+    <string name="r4n_t_missed">สายที่ไม่ได้รับ</string>
+    <string name="r4n_t_chat_mention">คุณถูกกล่าวถึงในแชท</string>
+    <string name="r4n_t_share">มีคนแชร์หน้ากับคุณ</string>
+    <string name="r4n_t_role">บทบาทของคุณในหน้าที่แชร์เปลี่ยนไปแล้ว</string>
+    <string name="r4n_t_test">การแจ้งเตือนทดสอบ – การแจ้งเตือนใช้งานได้</string>
+    <string name="r4n_grp_notify">การแจ้งเตือน</string>
+    <string name="r4n_grp_calls">การโทร</string>
+    <string name="r4n_grp_background">เบื้องหลัง</string>
+    <plurals name="r4n_t_comments_n">
+        <item quantity="other">%1$d ความคิดเห็นใหม่ในหน้าของคุณ</item>
+    </plurals>
+    <plurals name="r4n_t_replies_n">
+        <item quantity="other">%1$d การตอบกลับใหม่ในการสนทนา</item>
+    </plurals>
+    <plurals name="r4n_t_missed_n_from">
+        <item quantity="other">สายที่ไม่ได้รับจาก %2$s %1$d สาย</item>
+    </plurals>
+    <plurals name="r4n_t_db_n_from">
+        <item quantity="other">%2$s ได้มอบหมายคุณ %1$d ครั้ง</item>
+    </plurals>
 </resources>

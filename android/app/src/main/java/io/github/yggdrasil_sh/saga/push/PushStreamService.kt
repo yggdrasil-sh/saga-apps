@@ -98,6 +98,8 @@ class PushStreamService : Service() {
                 val ch = NotificationChannel(CHANNEL, context.getString(R.string.push_stream_channel), NotificationManager.IMPORTANCE_MIN)
                 ch.setShowBadge(false)
                 ch.description = context.getString(R.string.push_stream_channel_desc)
+                ch.group = NotifyChannels.G_BACKGROUND
+                NotifyChannels.groups(context)                  // Gruppe muss vor dem Kanal bestehen
                 nm.createNotificationChannel(ch)
             }
         }

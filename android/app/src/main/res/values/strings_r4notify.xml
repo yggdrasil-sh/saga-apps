@@ -43,4 +43,44 @@
         <item quantity="one">%1$d new notification</item>
         <item quantity="other">%1$d new notifications</item>
     </plurals>
+    <!-- Nachbesserung R4 (Mitteilungen): Saetze in der App-Sprache, Kanalgruppen -->
+    <string name="r4n_msg_new">New message</string>
+    <string name="r4n_msg_mention">Mentioned you</string>
+    <string name="r4n_t_comment_from">%1$s commented on your page</string>
+    <string name="r4n_t_reply_from">%1$s replied in a thread</string>
+    <string name="r4n_t_comment_mention_from">%1$s mentioned you in a comment</string>
+    <string name="r4n_t_page_mention_from">%1$s mentioned you</string>
+    <string name="r4n_t_chat_from">New message from %1$s</string>
+    <string name="r4n_t_chat_mention_from">%1$s mentioned you in a chat</string>
+    <string name="r4n_t_missed_from">Missed call from %1$s</string>
+    <string name="r4n_t_db_from">%1$s assigned you</string>
+    <string name="r4n_t_comment">New comment on your page</string>
+    <string name="r4n_t_reply">New reply in a thread</string>
+    <string name="r4n_t_mention">You were mentioned</string>
+    <string name="r4n_t_db">You were assigned in a database</string>
+    <string name="r4n_t_tasks">Tasks due today or overdue</string>
+    <string name="r4n_t_missed">Missed call</string>
+    <string name="r4n_t_chat_mention">You were mentioned in a chat</string>
+    <string name="r4n_t_share">Someone shared a page with you</string>
+    <string name="r4n_t_role">Your role on a shared page has changed</string>
+    <string name="r4n_t_test">Test notification – notifications are working.</string>
+    <string name="r4n_grp_notify">Notifications</string>
+    <string name="r4n_grp_calls">Calls</string>
+    <string name="r4n_grp_background">Background</string>
+    <plurals name="r4n_t_comments_n">
+        <item quantity="one">%1$d new comment on your page</item>
+        <item quantity="other">%1$d new comments on your page</item>
+    </plurals>
+    <plurals name="r4n_t_replies_n">
+        <item quantity="one">%1$d new reply in a thread</item>
+        <item quantity="other">%1$d new replies in a thread</item>
+    </plurals>
+    <plurals name="r4n_t_missed_n_from">
+        <item quantity="one">%1$d missed call from %2$s</item>
+        <item quantity="other">%1$d missed calls from %2$s</item>
+    </plurals>
+    <plurals name="r4n_t_db_n_from">
+        <item quantity="one">%2$s assigned you %1$d time</item>
+        <item quantity="other">%2$s assigned you %1$d times</item>
+    </plurals>
 </resources>

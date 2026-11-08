@@ -24,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -161,7 +162,19 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
     init {
         // Design-Runde 4 (CH-04): Glocken-Zeilen anderswo gelesen -> passende System-Mitteilungen entfernen
         repo.live.onRowsRead = { keys, all -> Notifier.cancelRead(context, keys, all) }
+        // Nachbesserung: Chat entfernt/verlassen -> Unterhaltungs-Shortcut und Mitteilung weg
+        repo.live.onChatRemoved = { cid ->
+            ChatShortcuts.remove(context, accountTag(), cid)
+            Notifier.cancel(context, "chat-$cid")
+        }
+        // "Namen zeigen" merken: im Hintergrund (Prozess vom Mitteilungsdienst gestartet) ist info noch nicht geladen
+        scope.launch { info.collect { i -> if (i != null) uiPrefs.edit().putBoolean(namesKey(), i.settings.names).apply() } }
     }
+
+    /** Kurze Kennung von Server + Konto (Mitteilungs-Extras, Shortcuts) - kein Geheimnis */
+    fun accountTag(): String = Account.tag(repo.settings.server.value, repo.settings.accountKey.value)
+
+    private fun namesKey() = "push_names:" + key()
 
     private fun key() = "push_local:" + repo.settings.server.value + "|" + repo.settings.accountKey.value
 
@@ -347,6 +360,9 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
 
     fun clear() {
         PushStreamService.stop(context)
+        // Nachbesserung (CH-04): Abmelden/Kontowechsel - Unterhaltungs-Shortcuts und Mitteilungen des alten Kontos weg
+        ChatShortcuts.removeAll(context)
+        Notifier.cancelRead(context, emptySet(), all = true)
         info.value = null
         state.value = PushState.OFF
         error.value = null
@@ -497,25 +513,69 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
         // 4.11.: Nachricht aus dem Chat, der gerade offen ist (App vorne) - kein Banner/Ton, sie steht ja schon da
         val fg = androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
         if (io.github.yggdrasil_sh.saga.live.NotifLogic.hideWhileOpen(msg.kind, msg.url, if (fg) repo.chat.visibleChat else null)) return null
-        Notifier.show(context, msg, look(msg))
         // Design-Runde 4: Glocken-Zaehler auch ohne Live-Kanal (App im Hintergrund) nachziehen
         if (msg.kind != "test") scope.launch { repo.live.loadNotificationCount() }
-        return null
+        // Nachbesserung: Satz in der App-Sprache (NotifyText), Chat-Name/Seitentitel aus dem lokalen Stand - im Hintergrund
+        // ggf. erst nachladen (hoechstens ~4 s; der Empfaenger wartet auf diese Arbeit)
+        return scope.launch {
+            val p = NotifyText.parse(msg.kind, msg.body)
+            val names = namesOn(p)
+            val look = if (names) {
+                try {
+                    withTimeoutOrNull(4_000) { look(msg, p) }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    null
+                }
+            } else null
+            Notifier.show(context, msg, look, p, if (names) pageTitle(msg, p) else null, accountTag())
+        }
     }
 
     /**
-     * Design-Runde 4 (CH-04): Chat-Name/Gegenueber aus dem lokalen Stand - nur wenn "Namen zeigen" an ist (der Server
-     * laesst sie sonst bewusst weg) und der Chat geladen ist; nie Nachrichteninhalte.
+     * Darf die Mitteilung Namen tragen? Ja, wenn der Server einen Namen genannt hat (dann ist "Namen zeigen" fuer diesen
+     * Weg an, saga/push.py with_names) oder die Einstellung "Namen zeigen" (Einstellungen > Mitteilungen; Server-Standard
+     * an) zuletzt an war. Unbekannt -> aus (neutral).
      */
-    private fun look(m: PushMessage): ChatLook? {
-        if (!m.kind.startsWith("chat.") || info.value?.settings?.names != true) return null
+    private fun namesOn(p: NotifyText.Parsed?): Boolean =
+        NotifyText.named(p) || (info.value?.settings?.names ?: uiPrefs.getBoolean(namesKey(), false))
+
+    /** Seitentitel (lokal bekannt) bzw. Person fuer Kommentar-/Erwaehnungs-Mitteilungen; null = Titel des Servers */
+    private fun pageTitle(m: PushMessage, p: NotifyText.Parsed?): String? {
+        if (!m.kind.startsWith("comment.") && m.kind != "page.mention") return null
+        val id = (io.github.yggdrasil_sh.saga.live.NotifLogic.target(m.url) as? io.github.yggdrasil_sh.saga.live.NotifLogic.Target.Page)?.id
+        val t = id?.let { repo.page(it)?.title }?.trim()?.takeIf { it.isNotEmpty() }
+        return t ?: p?.name
+    }
+
+    /**
+     * Design-Runde 4 (CH-04): Chat-Name/Gegenueber aus dem lokalen Stand - nur wenn Namen erlaubt sind (namesOn); nie
+     * Nachrichteninhalte und nie der Ende-zu-Ende-verschluesselte Titel freier Gruppen. Nachbesserung: Chat-Liste im
+     * Hintergrund noch nicht geladen -> GET api/chats (ohne Entschluesseln); Person = Absender (1:1: Gegenueber, Gruppe:
+     * Name aus dem Satz des Servers), Konversationstitel nur bei Gruppen.
+     */
+    private suspend fun look(m: PushMessage, p: NotifyText.Parsed?): ChatLook? {
+        if (!m.kind.startsWith("chat.")) return null
         val id = NotifyRoute.chatId(m.url) ?: return null
-        val c = repo.chat.chats.value.firstOrNull { it.id == id } ?: return null
-        // ohne den Ende-zu-Ende-verschluesselten Titel freier Gruppen (lokal entschluesselt): der stand nie in Mitteilungen
+        val c = repo.chat.chats.value.firstOrNull { it.id == id } ?: fetchChats()?.firstOrNull { it.id == id } ?: return null
         val title = try { io.github.yggdrasil_sh.saga.chat.ChatLogic.displayName(c, null) } catch (_: Exception) { return null }
         if (title.isBlank()) return null
         val dm = c.kind == "dm"
-        return ChatLook(title, !dm, if (dm) title else null)
+        return ChatLook(title, !dm, if (dm) title else p?.name, id)
+    }
+
+    /** Chat-Liste ohne den Chat-Dienst (Hintergrund): nur Kennung, Art, Name, Mitglieder; raeumt alte Shortcuts weg */
+    private suspend fun fetchChats(): List<io.github.yggdrasil_sh.saga.chat.ChatSummary>? = try {
+        val r = withContext(Dispatchers.Default) {
+            json.decodeFromString(io.github.yggdrasil_sh.saga.chat.ChatList.serializer(), repo.api.get("api/chats"))
+        }
+        ChatShortcuts.prune(context, accountTag(), r.chats.map { it.id }.toSet())
+        r.chats
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
     }
 
     // ---------------------------------------------------------------- Einstellungen, Geraete, Test
@@ -603,14 +663,21 @@ object Notifier {
     private const val ID_SUMMARY = 0
     private const val MAX_LINES = 6
 
+    /** Zahl der zusammengefassten Nachrichten derselben Person (Extras der aktiven Mitteilung) */
+    private const val EXTRA_N = "saga_n"
+    private const val EXTRA_SENDER = "saga_sender"
+
     /**
-     * Design-Runde 4 (CH-04): Chat-Mitteilungen als MessagingStyle (Person mit Initialen; Name/Titel des Chats nur aus dem
-     * lokalen Stand und nur, wenn "Namen zeigen" an ist - look), mehrere Nachrichten eines Chats in einer Mitteilung
-     * (aus der aktiven Mitteilung uebernommen). Inhalt ist immer der Satz des Servers (E2E: kein Klartext). Je Kanal eine
-     * System-Gruppe mit Sammel-Mitteilung; Aktion "Als gelesen markieren" (NotifyReadReceiver, ohne App-Start).
-     * Keine "Antworten"-Aktion (Entscheidung offen).
+     * Design-Runde 4 (CH-04): Chat-Mitteilungen als MessagingStyle (Person = Absender mit Initialen; Konversationstitel nur
+     * bei Gruppen; Namen nur aus dem lokalen Stand und nur, wenn Namen erlaubt sind - look). Ohne Namen neutral ("Neue
+     * Nachricht", ohne Person). Je Kanal eine System-Gruppe mit Sammel-Mitteilung; Aktion "Als gelesen markieren"
+     * (NotifyReadReceiver, ohne App-Start). Keine "Antworten"-Aktion (Entscheidung offen).
+     *
+     * Nachbesserung: Saetze in der App-Sprache (NotifyText/localize; unbekannte Saetze wie vom Server), Titel bei
+     * Kommentaren = Seitentitel bzw. Person ([title]), Unterhaltungs-Shortcut je Chat (ChatShortcuts), Wegwischen zaehlt
+     * die Sammel-Mitteilung neu (deleteIntent), Konto-Kennung in den Aktionen ([account]).
      */
-    fun show(context: Context, m: PushMessage, look: ChatLook? = null) {
+    fun show(context: Context, m: PushMessage, look: ChatLook? = null, parsed: NotifyText.Parsed? = null, title: String? = null, account: String = "") {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return
@@ -625,6 +692,10 @@ object Notifier {
         val pi = PendingIntent.getActivity(context, tag.hashCode(), open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val whenMs = if (m.ts > 0) m.ts * 1000 else System.currentTimeMillis()
         val chat = channel == NotifyChannels.CHATS
+        val text = localize(context, m.kind, parsed) ?: m.body
+        val appName = context.getString(R.string.app_name)
+        val extras = android.os.Bundle().apply { if (key != null) putString(EXTRA_GROUP, key) }
+        val prev = active(context, tag)
         val b = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(NotifyDesign.ACCENT)
@@ -640,18 +711,58 @@ object Notifier {
                 },
             )
             .setWhen(whenMs).setShowWhen(true)
-            .addExtras(android.os.Bundle().apply { if (key != null) putString(EXTRA_GROUP, key) })
-        if (chat) {
-            b.setStyle(messaging(context, tag, m, look, whenMs))
-            b.setContentTitle(look?.title ?: m.title.ifEmpty { context.getString(R.string.app_name) }).setContentText(m.body)
+        var sensitive = title != null
+        if (chat && look != null) {
+            val mention = m.kind == "chat.mention"
+            val senderName = look.sender ?: look.title
+            val icon = androidx.core.graphics.drawable.IconCompat.createWithBitmap(NotifyDesign.initials(senderName))
+            val sender = androidx.core.app.Person.Builder().setName(senderName).setKey("u:$senderName").setIcon(icon).build()
+            // gleiche Person wie zuletzt -> eine Zeile mit Zahl statt fuenfmal "Neue Nachricht"
+            val sameSender = !mention && prev?.extras?.getString(EXTRA_SENDER) == senderName
+            val n = if (sameSender) (prev?.extras?.getInt(EXTRA_N, 1) ?: 1) + 1 else 1
+            val line = when {
+                mention -> context.getString(R.string.r4n_msg_mention)
+                n > 1 -> context.resources.getQuantityString(R.plurals.r4n_g_messages, n, n)
+                else -> context.getString(R.string.r4n_msg_new)
+            }
+            b.setStyle(messaging(context, prev, sameSender, look, sender, line, whenMs))
+            b.setContentTitle(if (look.group) look.title else senderName).setContentText(line)
+            extras.putString(EXTRA_SENDER, if (mention) null else senderName)
+            extras.putInt(EXTRA_N, n)
+            if (look.chat > 0 && account.isNotEmpty()) {
+                ChatShortcuts.push(context, account, look.chat, m.url, look.title, sender, if (look.group) null else icon)?.let { sid ->
+                    b.setShortcutId(sid).setLocusId(androidx.core.content.LocusIdCompat(sid))
+                }
+            }
+            sensitive = true
+        } else if (chat) {
+            // ohne Namen: neutral - keine Person, kein "Chats" als Absender; mehrere Nachrichten zaehlen
+            val n = if (m.kind == "chat.message") (prev?.extras?.getInt(EXTRA_N, 0) ?: 0) + 1 else 1
+            val line = when {
+                m.kind == "chat.mention" -> text
+                n > 1 -> context.resources.getQuantityString(R.plurals.r4n_g_messages, n, n)
+                else -> context.getString(R.string.r4n_msg_new)
+            }
+            extras.putInt(EXTRA_N, n)
+            b.setContentTitle(line)
         } else {
-            b.setContentTitle(m.title.ifEmpty { context.getString(R.string.app_name) })
-                .setContentText(m.body)
-                .setStyle(NotificationCompat.BigTextStyle().bigText(m.body))
+            b.setContentTitle(title ?: m.title.ifEmpty { appName })
+                .setContentText(text)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+        }
+        b.addExtras(extras)
+        if (sensitive) {
+            // Sperrbildschirm: lokal ergaenzte Namen/Seitentitel nur in der privaten Fassung
+            b.setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setPublicVersion(
+                NotificationCompat.Builder(context, channel).setSmallIcon(R.drawable.ic_notification).setColor(NotifyDesign.ACCENT)
+                    .setContentTitle(appName).setContentText(context.resources.getQuantityString(R.plurals.r4n_summary, 1, 1))
+                    .setWhen(whenMs).setShowWhen(true).build(),
+            )
         }
         if (NotifyRoute.canMarkRead(m.kind, m.url)) {
             val read = Intent(context, NotifyReadReceiver::class.java).setAction(NotifyReadReceiver.ACTION)
                 .putExtra(NotifyReadReceiver.EXTRA_TAG, tag).putExtra(NotifyReadReceiver.EXTRA_URL, m.url)
+                .putExtra(NotifyReadReceiver.EXTRA_ACCOUNT, account)
                 .apply { if (key != null) putExtra(NotifyReadReceiver.EXTRA_GROUP, key) }
             val rpi = PendingIntent.getBroadcast(context, ("read-" + tag).hashCode(), read, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             b.addAction(
@@ -661,32 +772,76 @@ object Notifier {
                     .build(),
             )
         }
+        // Wegwischen: Sammel-Mitteilung neu zaehlen (Pruefer offen #5)
+        val del = Intent(context, NotifyReadReceiver::class.java).setAction(NotifyReadReceiver.ACTION_DISMISSED)
+        b.setDeleteIntent(PendingIntent.getBroadcast(context, 0x5a6a, del, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
         try {
             NotificationManagerCompat.from(context).notify(tag, ID, b.build())
         } catch (_: SecurityException) {
         }
-        summary(context, group, channel)
+        refreshSummaries(context)
     }
 
-    /** Bisherige Nachrichten dieser Unterhaltung (aktive Mitteilung) plus die neue; hoechstens MAX_LINES */
-    private fun messaging(context: Context, tag: String, m: PushMessage, look: ChatLook?, whenMs: Long): NotificationCompat.MessagingStyle {
+    /** Aktive Mitteilung dieser Unterhaltung (fuer Zusammenfassen), sonst null */
+    private fun active(context: Context, tag: String): android.app.Notification? = try {
+        context.getSystemService(NotificationManager::class.java)?.activeNotifications?.firstOrNull { it.tag == tag && it.id == ID }?.notification
+    } catch (_: Exception) {
+        null
+    }
+
+    /**
+     * Satz in der App-Sprache aus dem erkannten Satz des Servers (NotifyText); null = unbekannt (Satz des Servers bleibt)
+     */
+    fun localize(context: Context, kind: String, p: NotifyText.Parsed?): String? {
+        if (p == null) return null
+        val r = context.resources
+        val name = p.name ?: ""
+        val n = p.n ?: 1
+        return when (p.sentence) {
+            NotifyText.Sentence.COMMENT_FROM -> context.getString(R.string.r4n_t_comment_from, name)
+            NotifyText.Sentence.COMMENTS_N -> r.getQuantityString(R.plurals.r4n_t_comments_n, n, n)
+            NotifyText.Sentence.REPLY_FROM -> context.getString(R.string.r4n_t_reply_from, name)
+            NotifyText.Sentence.REPLIES_N -> r.getQuantityString(R.plurals.r4n_t_replies_n, n, n)
+            NotifyText.Sentence.COMMENT_MENTION_FROM -> context.getString(R.string.r4n_t_comment_mention_from, name)
+            NotifyText.Sentence.PAGE_MENTION_FROM -> context.getString(R.string.r4n_t_page_mention_from, name)
+            NotifyText.Sentence.CHAT_FROM -> context.getString(R.string.r4n_t_chat_from, name)
+            NotifyText.Sentence.CHAT_MENTION_FROM -> context.getString(R.string.r4n_t_chat_mention_from, name)
+            NotifyText.Sentence.MISSED_FROM -> context.getString(R.string.r4n_t_missed_from, name)
+            NotifyText.Sentence.MISSED_N_FROM -> r.getQuantityString(R.plurals.r4n_t_missed_n_from, n, n, name)
+            NotifyText.Sentence.MISSED_N -> r.getQuantityString(R.plurals.r4n_g_calls, n, n)
+            NotifyText.Sentence.DB_FROM -> context.getString(R.string.r4n_t_db_from, name)
+            NotifyText.Sentence.DB_N_FROM -> r.getQuantityString(R.plurals.r4n_t_db_n_from, n, n, name)
+            NotifyText.Sentence.COMMENT -> context.getString(R.string.r4n_t_comment)
+            NotifyText.Sentence.REPLY -> context.getString(R.string.r4n_t_reply)
+            NotifyText.Sentence.MENTION -> context.getString(R.string.r4n_t_mention)
+            NotifyText.Sentence.DB -> context.getString(R.string.r4n_t_db)
+            NotifyText.Sentence.TASKS -> context.getString(R.string.r4n_t_tasks)
+            NotifyText.Sentence.MISSED -> context.getString(R.string.r4n_t_missed)
+            NotifyText.Sentence.CHAT -> context.getString(R.string.r4n_msg_new)
+            NotifyText.Sentence.CHAT_MENTION -> context.getString(R.string.r4n_t_chat_mention)
+            NotifyText.Sentence.SHARE -> context.getString(R.string.r4n_t_share)
+            NotifyText.Sentence.ROLE -> context.getString(R.string.r4n_t_role)
+            NotifyText.Sentence.TEST -> context.getString(R.string.r4n_t_test)
+        }
+    }
+
+    /** Bisherige Nachrichten dieser Unterhaltung (aktive Mitteilung) plus die neue; gleiche Person: letzte Zeile ersetzt */
+    private fun messaging(
+        context: Context, prevN: android.app.Notification?, replaceLast: Boolean, look: ChatLook,
+        sender: androidx.core.app.Person, line: String, whenMs: Long,
+    ): NotificationCompat.MessagingStyle {
         val me = androidx.core.app.Person.Builder().setName(context.getString(R.string.r4n_you)).setKey("me").build()
-        val senderName = look?.sender ?: look?.title ?: context.getString(R.string.r4n_ch_chats)
-        val sender = androidx.core.app.Person.Builder().setName(senderName).setKey(tag)
-            .apply { if (look != null) setIcon(androidx.core.graphics.drawable.IconCompat.createWithBitmap(NotifyDesign.initials(senderName))) }
-            .build()
         val prev = try {
-            context.getSystemService(NotificationManager::class.java)?.activeNotifications
-                ?.firstOrNull { it.tag == tag && it.id == ID }
-                ?.let { NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it.notification) }
+            prevN?.let { NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it) }
         } catch (_: Exception) {
             null
         }
         val style = NotificationCompat.MessagingStyle(me)
-        if (look?.group == true) style.setConversationTitle(look.title)
-        style.setGroupConversation(false)       // Absender ist unbekannt (E2E) - der Satz des Servers nennt ihn ggf.
-        prev?.messages?.takeLast(MAX_LINES - 1)?.forEach { style.addMessage(it) }
-        style.addMessage(NotificationCompat.MessagingStyle.Message(m.body, whenMs, sender))
+        if (look.group) style.setConversationTitle(look.title)
+        style.setGroupConversation(look.group)
+        val old = prev?.messages.orEmpty().let { if (replaceLast) it.dropLast(1) else it }
+        old.takeLast(MAX_LINES - 1).forEach { style.addMessage(it) }
+        style.addMessage(NotificationCompat.MessagingStyle.Message(line, whenMs, sender))
         return style
     }
 
@@ -744,13 +899,14 @@ object Notifier {
         refreshSummaries(context)
     }
 
-    private fun refreshSummaries(context: Context) {
+    /** Sammel-Mitteilungen aller Kanaele nachziehen (auch nach Wegwischen, NotifyReadReceiver) */
+    fun refreshSummaries(context: Context) {
         for (ch in NotifyChannels.ALL) summary(context, NotifyChannels.group(ch), ch)
     }
 }
 
-/** Lokaler Stand zu einem Chat fuer die Mitteilung (nur mit "Namen zeigen"): Anzeigename, Gruppe, Gegenueber */
-data class ChatLook(val title: String, val group: Boolean, val sender: String?)
+/** Lokaler Stand zu einem Chat fuer die Mitteilung (nur mit "Namen zeigen"): Anzeigename, Gruppe, Absender, Chat */
+data class ChatLook(val title: String, val group: Boolean, val sender: String?, val chat: Long = 0)
 
 /** Antworten des Verteilers (UnifiedPush-Connector) */
 class PushReceiver : BroadcastReceiver() {

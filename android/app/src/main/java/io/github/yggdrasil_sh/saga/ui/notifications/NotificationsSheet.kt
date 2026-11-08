@@ -3,7 +3,12 @@ package io.github.yggdrasil_sh.saga.ui.notifications
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,7 +54,9 @@ fun NotificationsSheet(onDismiss: () -> Unit, onOpen: (target: NotifItem) -> Uni
     val items by live.items.collectAsState()
     val loading by live.loading.collectAsState()
     val unreadRows by NotificationCounts.unreadGroups.collectAsState()
-    val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    // Nachbesserung (89, Tablet quer): halb offen lag "Alle anzeigen" unter der Gestenleiste - Blatt ganz oeffnen
+    // (hoechstens so hoch wie der Inhalt), "Alle anzeigen" als fester Fuss unter der Liste mit Navigationsleisten-Abstand
+    val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     LaunchedEffect(Unit) { live.loadNotifications() }
     val shown = remember(items) { items.take(SHEET_ROWS) }
     val (fresh, earlier) = remember(shown) { NotifGroups.sections(shown) }
@@ -68,7 +75,7 @@ fun NotificationsSheet(onDismiss: () -> Unit, onOpen: (target: NotifItem) -> Uni
                 SagaTextButton(onClick = { repo.launchAction { live.markAllRead() } }) { Text(stringResource(R.string.notifications_mark_all)) }
             }
         }
-        LazyColumn(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false), horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.fillMaxWidth()
             if (items.isEmpty() && !loading) item { NotifEmpty(w, compact = true) }
             if (items.isEmpty() && loading) item { CircularProgressIndicator(Modifier.padding(32.dp)) }
@@ -76,10 +83,13 @@ fun NotificationsSheet(onDismiss: () -> Unit, onOpen: (target: NotifItem) -> Uni
                 repo.launchAction { live.markRead(n) }
                 onOpen(n)
             }
-            item(key = "all") {
-                SagaTextButton(onClick = onShowAll, modifier = Modifier.padding(vertical = 8.dp).navigationBarsPadding()) {
-                    Text(stringResource(R.string.r4n_show_all))
-                }
+        }
+        Box(
+            Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)),
+            contentAlignment = Alignment.Center,
+        ) {
+            SagaTextButton(onClick = onShowAll, modifier = Modifier.padding(vertical = 8.dp)) {
+                Text(stringResource(R.string.r4n_show_all))
             }
         }
     }
