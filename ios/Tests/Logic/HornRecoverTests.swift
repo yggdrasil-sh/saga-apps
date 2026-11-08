@@ -41,6 +41,9 @@ func hornRecoverTests() {
     var r2 = R()
     _ = r2.lost(now: 0, rnd: 0.5); r2.adopted(now: 1000)
     check(secs(r2.lost(now: 12_000, rnd: 0.5)) == 0 && r2.t0 == 12_000, "Verlust >= 10 s nach Adopt (ohne tick): neu beginnen")
+    var r3 = R()
+    _ = r3.lost(now: 0, rnd: 0.5); r3.adopted(now: 1000)
+    check(secs(r3.lost(now: 15_000, rnd: 0.5, rx: false)) == 1 && r3.t0 == 0 && r3.fails == 1, "> 10 s, aber ohne Daten: Fehlversuch derselben Folge")
 
     // ---- 429 mit/ohne retry_after
     r = R()
@@ -99,6 +102,12 @@ func hornRecoverTests() {
     check(r.direct(.ended, now: 40_500, rnd: 0.5) == nil && !r.active, "404: Anruf vorbei")
     r = R()
     _ = r.lost(now: 0, rnd: 0.5, canDirect: true)
+    _ = r.failed(now: 31_000, retryAfter: nil, rnd: 0.5, canDirect: true)
+    _ = r.direct(.noPath("limit"), now: 31_500, rnd: 0.5)
+    r.adopted(now: 40_000)
+    check(r.noDirect && r.tick(now: 50_000, rx: true) && !r.noDirect, "noDirect bis zum erfolgreichen Wiederaufbau (wie Android)")
+    r = R()
+    _ = r.lost(now: 0, rnd: 0.5, canDirect: true)
     check(secs(r.failed(now: 10_000, retryAfter: 60, rnd: 0.5, canDirect: true)) == 20, "429 im Fenster: Wartezeit endet am Fensterende")
     check(r.failed(now: 30_000, retryAfter: nil, rnd: 0.5, canDirect: true) == .direct, "am Fensterende: direkt")
     r = R()
@@ -155,7 +164,7 @@ func hornRecoverTests() {
     // ---- Verdrahtung (Quelltext)
     guard let dir = ProcessInfo.processInfo.environment["SAGA_APP_SRC"],
           let call = try? String(contentsOfFile: dir + "/HornCall.swift", encoding: .utf8) else { check(false, "SAGA_APP_SRC fehlt"); return }
-    check(call.contains("if why == .lost { hornRecover(why, lost: H.cur?.node); return }"), "lost -> Wiederaufbau")
+    check(call.contains("if why == .lost { hornRecover(why, lost: H.cur?.node, rx: (H.cur?.rx ?? 0) > 0); return }"), "lost -> Wiederaufbau")
     check(call.contains("!H.switching, !H.rec.muted, let d = H.sw?.conn"), "Monitor stumm waehrend Wiederaufbau")
     check(call.contains("if code == 429 { throw HornBusy("), "429 ist kein noNode")
     check(call.contains("H.rec.adopted(now: now)") && !call.contains("H.retryTask?.cancel(); H.retryTask = nil"), "Adopt bricht den Plan nicht ab")

@@ -22,10 +22,12 @@ struct SvgImageView {
         }
     }
     @MainActor func makeCoordinator() -> Guard { Guard() }
+    /// ein gemeinsamer, fluechtiger Speicher fuer alle SVG-Ansichten (nicht je Bild ein eigener)
+    @MainActor private static let store = WKWebsiteDataStore.nonPersistent()
 
     @MainActor func make(_ g: Guard) -> Web {
         let cfg = WKWebViewConfiguration()
-        cfg.websiteDataStore = .nonPersistent()
+        cfg.websiteDataStore = Self.store
         cfg.defaultWebpagePreferences.allowsContentJavaScript = false
         cfg.preferences.javaScriptCanOpenWindowsAutomatically = false
         #if os(iOS)

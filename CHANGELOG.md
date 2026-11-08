@@ -15,7 +15,8 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   ohne Bild (Android), weil UIImage/Coil kein SVG können. Jetzt zeigt eine nicht-interaktive WebView das SVG – ohne
   neue Bibliothek, ohne JavaScript, ohne Netz- und Dateizugriff, nur als `data:`-`<img>` mit CSP `default-src 'none'`
   (SVG im `<img>` führt kein Skript aus und lädt nichts nach), Seitenverhältnis aus width/height bzw. viewBox. Über
-  3 MB: Platzhalter „Bild öffnen“. iOS gilt das auch für Titelbilder.
+  3 MB: Platzhalter „Bild öffnen“. iOS gilt das auch für Titelbilder. Ein gemeinsamer flüchtiger Speicher für alle SVG-Ansichten (iOS),
+  Seitenverhältnis und (Android) geladene SVGs werden zwischengespeichert, Android-Ansichten in Listen wiederverwendet.
 - **Seitenlinks auf Dateien** (`/files/<24 hex>` im Text): iOS zeigte sie als einfachen Text; jetzt öffnen sie die Datei
   wie ein Anhang über die Server-Adresse (Vorschau/Download), beim Speichern bleibt der Link relativ. Android öffnete
   sie schon so.

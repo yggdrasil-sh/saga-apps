@@ -41,6 +41,15 @@ extension CallManager {
         hornStop(); horn = nil
         if let c { adoptCall(c) }
         topo = "mesh"
+        // Signale kleinerer IDs von vor dem Wechsel (deren Angebote + ICE an uns) SOFORT in der Reihenfolge des Eingangs
+        // puffern und annehmen - vor den eigenen Angeboten; spaetere Signale (ICE) haengen sich hinten an (pend)
+        var froms: [String] = []
+        for s in q {
+            guard let f = s["from_device"] as? String, f < dev else { continue }
+            var l = pend[f] ?? []; l.append(s); if l.count > 80 { l.removeFirst() }; pend[f] = l
+            if !froms.contains(f) { froms.append(f) }
+        }
+        for f in froms { admit(f) }
         let note = String(localized: "Anruf-Knoten nicht erreichbar – direkt verbunden")
         directNote = note; toast = note
         diagEvent("switch", "direct")
@@ -69,8 +78,6 @@ extension CallManager {
                     flushIce(L); connTimer(L)
                 } catch { CallEnv.log("direkt: Angebot \(d.prefix(6)) \(error.localizedDescription)") }
             }
-            // Signale kleinerer IDs, die vor dem Wechsel kamen (deren Angebote an uns)
-            for s in q where ((s["from_device"] as? String) ?? "") < dev { await handleRaw(s) }
             syncPrimary()
         }
     }

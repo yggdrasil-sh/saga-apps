@@ -4062,6 +4062,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         h.close()
         c.rs.horn = null
         hornSinks.clear()
+        // Signale kleinerer IDs von vor dem Wechsel (deren Angebote + ICE an uns) SOFORT in Eingangsreihenfolge in den
+        // Mesh-Pfad (pend + incoming) - vor den eigenen Angeboten; spaetere ICE haengen sich hinten an
+        val me0 = myDevId()
+        for (s in q) if (s.fromDevice < me0) route(c, s)
         val note = UiText.Res(R.string.horn_direct_node)
         c.rs.directNote = note
         repo.notify(note)
@@ -4115,7 +4119,6 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     log("direkt: Angebot ${d.take(6)} ${e.message}")
                 }
             }
-            for (s in q) if (s.fromDevice < me && live(c)) route(c, s)   // Angebote kleinerer IDs von vor dem Wechsel
             update(c)
         }
     }

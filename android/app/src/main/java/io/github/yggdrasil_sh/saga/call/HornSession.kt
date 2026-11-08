@@ -1153,7 +1153,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     /** Wechseln. why: lost | draining | better (to) | udp-loss / udp (path, selber Knoten) */
     fun switch(why: String, to: String? = null, path: String? = null) {
         if (closed || rec.muted) return                             // Wiederaufbau laeuft: stumm
-        if (why == "lost") { recover(why, cur?.node); return }      // Horn-Fix: Wiederaufbau ueber Knoten
+        if (why == "lost") { recover(why, cur?.node, (cur?.rx ?: 0L) > 0); return }   // Horn-Fix: Wiederaufbau ueber Knoten
         if (switching) return
         val c = cur
         val hard = why == "lost" || why == "draining"
@@ -1208,10 +1208,10 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
      * Horn-Fix: Verbindung zum Knoten verloren -> neu ueber einen Knoten verbinden (nie direkt/p2p). Der einzige Knoten
      * wird dabei nicht gemieden; die Beobachtung bleibt stumm, solange ein Versuch laeuft oder geplant ist.
      */
-    private fun recover(why: String, node: String?) {
+    private fun recover(why: String, node: String?, rx: Boolean = true) {
         if (closed) return
         val now = System.currentTimeMillis()
-        val st = rec.lost(now, rnd.nextDouble(), directOk()) ?: return   // laeuft schon
+        val st = rec.lost(now, rnd.nextDouble(), directOk(), rx) ?: return   // laeuft schon
         log("wiederaufbau ${node ?: "-"} $why")
         host.diagEvent("switch", "lost (wiederaufbau)")
         if (node != null) {                                         // nie gemieden, nur zuletzt versucht

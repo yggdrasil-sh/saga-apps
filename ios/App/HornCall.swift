@@ -686,7 +686,7 @@ extension CallManager {
     /// why: lost | draining | better (to) | udp-loss / udp (path, selber Knoten) | moved (Saga: call.horn_move)
     func hornSwitch(_ why: HornLogic.Why, to: String? = nil, path: String? = nil) {
         guard let H = horn, hornLive(H), !H.rec.muted else { return }        // Wiederaufbau laeuft: stumm
-        if why == .lost { hornRecover(why, lost: H.cur?.node); return }      // Horn-Fix: Wiederaufbau ueber Knoten
+        if why == .lost { hornRecover(why, lost: H.cur?.node, rx: (H.cur?.rx ?? 0) > 0); return }   // Horn-Fix: Wiederaufbau ueber Knoten
         guard !H.switching else { return }
         H.trace("switch \(why.rawValue)")
         diagEvent("switch", "\(why.rawValue)\(path.map { " -> " + $0 } ?? "")")
@@ -728,10 +728,10 @@ extension CallManager {
     }
     /// Horn-Fix: Verbindung zum Knoten verloren -> neu ueber einen Knoten verbinden (nie direkt/p2p). Der einzige Knoten
     /// wird dabei nicht gemieden; die Beobachtung bleibt stumm, solange ein Versuch laeuft oder geplant ist.
-    func hornRecover(_ why: HornLogic.Why, lost node: String?) {
+    func hornRecover(_ why: HornLogic.Why, lost node: String?, rx: Bool = true) {
         guard let H = horn, hornLive(H) else { return }
         let now = Self.hornNow()
-        guard let step = H.rec.lost(now: now, rnd: Double.random(in: 0..<1), canDirect: hornCanDirect && connected) else { return }   // laeuft schon
+        guard let step = H.rec.lost(now: now, rnd: Double.random(in: 0..<1), canDirect: hornCanDirect && connected, rx: rx) else { return }   // laeuft schon
         H.trace("wiederaufbau \(node ?? "-") \(why.rawValue)")
         diagEvent("switch", "lost (wiederaufbau)")
         if let node { H.bad[node] = now + HornLogic.badMs; H.lost = node }   // nie gemieden, nur zuletzt versucht

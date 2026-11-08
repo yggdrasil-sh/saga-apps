@@ -529,7 +529,7 @@ fun ImageBlockEdit(block: JsonObject, path: JsonPath, key: String, env: BlockEnv
             val sized = if ((url.startsWith("/files/") || url.startsWith("/api/fed/files/")) && !url.contains("?")) "$url?w=2000" else url
             // 2.5: SVG (Trilium-Import) kann Coil nicht entpacken - dann einmal selbst laden und skriptlos anzeigen
             var failed by remember(sized) { mutableStateOf(false) }
-            var svg by remember(sized) { mutableStateOf<SvgFetch?>(null) }
+            var svg by remember(sized) { mutableStateOf<SvgFetch?>(SvgCache.bytes.get(sized)?.let { SvgFetch.Svg(it) }) }   // schon geladen: gleich zeigen
             LaunchedEffect(sized, failed) { if (failed && svg == null) svg = fetchSvg(env.repo, sized) }
             val desc = InlineHtml.plain(BlockDoc.str(d, "caption")).ifEmpty { stringResource(R.string.ed24_image) }
             val imgMod = Modifier.fillMaxWidth(if (bg && !wide) 0.6f else 1f).heightIn(min = 60.dp, max = 900.dp).clip(RoundedCornerShape(SagaRadius.s))
@@ -541,7 +541,7 @@ fun ImageBlockEdit(block: JsonObject, path: JsonPath, key: String, env: BlockEnv
                 when (val sv = svg) {
                     is SvgFetch.Svg -> SvgImage(
                         sv.data,
-                        imgMod.aspectRatio(remember(sv) { io.github.yggdrasil_sh.saga.util.SvgLogic.ratio(sv.data) } ?: (4f / 3f))
+                        imgMod.aspectRatio(remember(sv) { SvgCache.ratio(sized, sv.data) } ?: (4f / 3f))
                             .semantics { contentDescription = desc; role = Role.Image },
                     )
                     SvgFetch.TooBig -> Box(imgMod.heightIn(min = 120.dp).background(MaterialTheme.colorScheme.surfaceContainer), contentAlignment = Alignment.Center) {

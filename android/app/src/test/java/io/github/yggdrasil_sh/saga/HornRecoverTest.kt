@@ -69,6 +69,11 @@ class HornRecoverTest {
         r2.lost(0, 0.5); r2.adopted(1000)
         assertEquals(0L, ms(r2.lost(12_000, 0.5)))                  // >= 10 s nach Adopt: neu beginnen
         assertEquals(12_000L, r2.t0)
+        val r3 = HornRecover()
+        r3.lost(0, 0.5); r3.adopted(1000)
+        assertEquals(1000L, ms(r3.lost(15_000, 0.5, rx = false)))   // > 10 s, aber ohne Daten: Fehlversuch derselben Folge
+        assertEquals(0L, r3.t0)
+        assertEquals(1, r3.fails)
     }
 
     @Test
@@ -154,6 +159,15 @@ class HornRecoverTest {
         r2.failed(40_000, null, 0.5, canDirect = true)
         assertNull(r2.direct(HornRecover.DirectAnswer.Ended, 40_500, 0.5))
         assertFalse(r2.active)
+        // noDirect gilt bis zum erfolgreichen Wiederaufbau (wie iOS)
+        val r4 = HornRecover()
+        r4.lost(0, 0.5, canDirect = true)
+        r4.failed(31_000, null, 0.5, canDirect = true)
+        r4.direct(HornRecover.DirectAnswer.NoPath("limit"), 31_500, 0.5)
+        assertTrue(r4.noDirect)
+        r4.adopted(40_000)
+        assertTrue(r4.tick(50_000, true))
+        assertFalse(r4.noDirect)
     }
 
     @Test
@@ -220,7 +234,7 @@ class HornRecoverTest {
     @Test
     fun wiring() {
         val s = src("HornSession.kt")
-        assertTrue(s.contains("if (why == \"lost\") { recover(why, cur?.node); return }"))
+        assertTrue(s.contains("if (why == \"lost\") { recover(why, cur?.node, (cur?.rx ?: 0L) > 0); return }"))
         assertTrue(s.contains("if (c != null && !switching && !rec.muted) {"))
         assertTrue(s.contains("rec.adopted(now)"))
         val adopt = s.substring(s.indexOf("private fun adopt("), s.indexOf("fun switch(why"))

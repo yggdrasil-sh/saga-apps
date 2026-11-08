@@ -63,9 +63,10 @@ struct HornRecover {
     var muted: Bool { busy }
 
     /// Verbindung verloren (bzw. Wechsel/Beitritt gescheitert). nil = laeuft schon (ignorieren).
-    mutating func lost(now: Double, rnd: Double, canDirect: Bool = false) -> Step? {
+    /// rx = die verlorene Verbindung hatte Daten geliefert; ohne Daten zaehlt auch ein spaeter Verlust zur selben Folge.
+    mutating func lost(now: Double, rnd: Double, canDirect: Bool = false, rx: Bool = true) -> Step? {
         if busy { return nil }
-        if on && adoptAt > 0 && now - adoptAt < Self.settleMs {
+        if on && adoptAt > 0 && (now - adoptAt < Self.settleMs || !rx) {
             adoptAt = 0; busy = true                                        // neue Verbindung hielt nicht: Fehlversuch
             return next(now: now, retryAfter: nil, rnd: rnd, canDirect: canDirect)
         }

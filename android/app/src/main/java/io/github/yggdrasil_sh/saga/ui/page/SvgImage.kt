@@ -19,6 +19,7 @@ import io.github.yggdrasil_sh.saga.util.SvgLogic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
+import android.util.LruCache
 import java.io.ByteArrayInputStream
 
 /** Ergebnis beim Nachladen eines Bildes, das Coil nicht entpacken konnte */
@@ -28,8 +29,18 @@ sealed class SvgFetch {
     object None : SvgFetch()
 }
 
+/** Geladene SVGs (Zurueckblaettern: nicht neu laden) und ihr Seitenverhaeltnis (keine springende Hoehe) */
+object SvgCache {
+    val bytes = object : LruCache<String, ByteArray>(8 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: ByteArray): Int = value.size
+    }
+    val ratios = LruCache<String, Float>(256)
+    fun ratio(path: String, d: ByteArray): Float? = ratios.get(path) ?: SvgLogic.ratio(d)?.also { ratios.put(path, it) }
+}
+
 /** Bild mit der Sitzung (eigener Server) laden und pruefen, ob es ein SVG ist (hoechstens MAX_BYTES + 1 lesen) */
 suspend fun fetchSvg(repo: SagaRepository, path: String): SvgFetch = withContext(Dispatchers.IO) {
+    SvgCache.bytes.get(path)?.let { return@withContext SvgFetch.Svg(it) }
     try {
         val req = Request.Builder().url(repo.absoluteUrl(path)).build()
         repo.api.imageCallFactory.newCall(req).execute().use { r ->
@@ -40,7 +51,7 @@ suspend fun fetchSvg(repo: SagaRepository, path: String): SvgFetch = withContext
                 return@withContext if (SvgLogic.isSvg(head)) SvgFetch.TooBig else SvgFetch.None
             }
             val d = src.readByteArray()
-            if (SvgLogic.isSvg(d)) SvgFetch.Svg(d) else SvgFetch.None
+            if (SvgLogic.isSvg(d)) SvgFetch.Svg(d).also { SvgCache.bytes.put(path, d) } else SvgFetch.None
         }
     } catch (e: kotlinx.coroutines.CancellationException) {
         throw e
@@ -89,9 +100,11 @@ fun SvgImage(data: ByteArray, modifier: Modifier = Modifier, cover: Boolean = fa
                         if (request?.url?.scheme == "data") null
                         else WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
                 }
-                loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
             }
         },
+        // in langen Listen (LazyColumn) wiederverwenden statt neu anlegen; Inhalt nur bei Aenderung neu laden
+        update = { v -> if (v.tag !== html) { v.tag = html; v.loadDataWithBaseURL(null, html, "text/html", "utf-8", null) } },
+        onReset = { v -> v.tag = null },
         modifier = modifier,
         onRelease = { it.destroy() },
     )

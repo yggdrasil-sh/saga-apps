@@ -56,10 +56,13 @@ class HornRecover {
     /** Beobachtung stumm: kein neues "switch lost", kein Wechsel zu "besseren" Knoten */
     val muted: Boolean get() = busy
 
-    /** Verbindung verloren. null = laeuft schon (ignorieren). */
-    fun lost(now: Long, rnd: Double, canDirect: Boolean = false): Step? {
+    /**
+     * Verbindung verloren. null = laeuft schon (ignorieren). rx = die verlorene Verbindung hatte Daten geliefert; ohne
+     * Daten zaehlt auch ein spaeter Verlust zur selben Folge (t0 bleibt).
+     */
+    fun lost(now: Long, rnd: Double, canDirect: Boolean = false, rx: Boolean = true): Step? {
         if (busy) return null
-        if (active && adoptAt > 0 && now - adoptAt < SETTLE_MS) {
+        if (active && adoptAt > 0 && (now - adoptAt < SETTLE_MS || !rx)) {
             adoptAt = 0                                             // neue Verbindung hielt nicht: Fehlversuch
             busy = true
             return next(now, null, rnd, canDirect)
@@ -124,9 +127,7 @@ class HornRecover {
     /** Laufende Beobachtung: rx = die aktuelle Verbindung liefert Daten. true = Wiederaufbau erfolgreich beendet. */
     fun tick(now: Long, rx: Boolean): Boolean {
         if (!active || busy || adoptAt == 0L || !rx || now - adoptAt < SETTLE_MS) return false
-        val nd = noDirect
-        reset()
-        noDirect = nd                                               // limit/fed gilt fuer den ganzen Anruf
+        reset()                                                     // wie iOS: auch noDirect zurueck
         return true
     }
 

@@ -252,6 +252,9 @@ struct RemoteImage: View {
     /// 2.5: SVG (Trilium-Import) - Anzeige in SvgImageView; zu gross -> Platzhalter mit "Bild öffnen"
     @State private var svg: Data?
     @State private var svgBig = false
+    @State private var svgRatio: Double?
+    /// Seitenverhaeltnis je Bild merken (beim Wiedererscheinen nicht neu lesen, kein Springen der Hoehe)
+    static let svgRatios = NSCache<NSString, NSNumber>()
     private var key: String { Self.sized(path, w) }
     var body: some View {
         let key = key
@@ -262,7 +265,7 @@ struct RemoteImage: View {
         Group {
             if loadedKey == key, let svg {
                 if fill { SvgImageView(data: svg, cover: true) }
-                else { SvgImageView(data: svg).aspectRatio(CGFloat(SvgLogic.ratio(svg) ?? 4.0 / 3.0), contentMode: .fit) }
+                else { SvgImageView(data: svg).aspectRatio(CGFloat(svgRatio ?? 4.0 / 3.0), contentMode: .fit) }
             } else if loadedKey == key, svgBig {
                 ZStack {
                     Rectangle().fill(.secondary.opacity(0.12))
@@ -302,7 +305,11 @@ struct RemoteImage: View {
             guard let d = await store.imageData(key) else { continue }
             let decoded = await Task.detached(priority: .userInitiated) { ImageStore.decode(d) }.value      // im Hintergrund entpacken
             if decoded == nil, SvgLogic.isSvg(d) {                                  // 2.5: SVG - eigene, skriptlose Anzeige
-                if d.count <= SvgLogic.maxBytes { svg = d; svgBig = false } else { svg = nil; svgBig = true }
+                if d.count <= SvgLogic.maxBytes {
+                    if let r = Self.svgRatios.object(forKey: key as NSString) { svgRatio = r.doubleValue }
+                    else { let r = SvgLogic.ratio(d); svgRatio = r; if let r { Self.svgRatios.setObject(NSNumber(value: r), forKey: key as NSString) } }
+                    svg = d; svgBig = false
+                } else { svg = nil; svgBig = true }
                 img = nil; loadedKey = key
                 return
             }
