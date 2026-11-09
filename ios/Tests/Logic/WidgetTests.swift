@@ -279,3 +279,78 @@ func widgetNacharbeitTests() {
           && W.sourceContext(kind: "metric", src: "tasks", aggText: "Offene Aufgaben", srcName: "X", tasksText: "") == "Offene Aufgaben", "Saga-Aufgaben unveraendert")
     check(WidgetLogic.heatHeads(days: [nil, nil], today: nil, pitch: 6).isEmpty && WidgetLogic.heatHeads(days: [], today: nil, pitch: 6).isEmpty, "ohne Daten keine Zahlen")
 }
+
+/// Unterseiten als Liste oder Galerie (2.5, subpages1): Block/cfg, Werte, Bildpfade, Spalten, Foederation, Regel 0
+func widgetSubpagesTests() {
+    typealias W = WidgetLogic
+    func nd(_ d: [String: Any]) -> NSDictionary { NSDictionary(dictionary: d) }
+    // MARK: Block und cfg
+    let b = W.block(nd(["v": 1, "kind": "subpages", "size": "m", "title": "Leseliste", "cfg": ["view": "gallery", "image": "content"]]))
+    check(b.known && W.needsServer(b) && !W.hasLocalFallback(b), "subpages bekannt, Werte vom Server")
+    check(b.style == .plain, "ohne style: plain (ohne Rahmen)")
+    check(W.block(nd(["kind": "subpages", "style": "card"])).style == .card && W.block(nd(["kind": "subpages", "style": "neon"])).style == .card
+          && W.block(nd(["kind": "metric"])).style == .card, "style card bleibt, unbekannt -> card, andere Arten unveraendert")
+    check(W.subView(b.cfg) == .gallery && W.subImage(b.cfg) == .content, "Ansicht und Kartenbild gelesen")
+    check(W.subView([:]) == .list && W.subView(["view": "kanban"]) == .list && W.subView(["view": 3]) == .list, "unbekannte Ansicht -> Liste")
+    check(W.subImage([:]) == .cover && W.subImage(["image": "poster"]) == .cover && W.subImage(["image": "none"]) == .none, "unbekanntes Kartenbild -> Titelbild")
+    check(Widget2Logic.featureFor("subpages") == "subpages1", "Faehigkeit subpages1")
+    check(W.pageHasSubpages([["id": "t", "type": "toggle", "data": ["blocks": [["id": "w", "type": "widget", "data": ["kind": "subpages"]]]]]])
+          && !W.pageHasSubpages([["id": "w", "type": "widget", "data": ["kind": "clock"]], ["id": "p", "type": "paragraph", "data": ["kind": "subpages"]]]), "Unterseiten-Block auf der Seite finden")
+    check(W.pageNeedsServer([["id": "w", "type": "widget", "data": ["kind": "subpages"]]]), "Seite mit Unterseiten-Block fragt den Server")
+
+    // MARK: Werte (W.data)
+    let json = #"""
+    {"widgets":{"b7":{"kind":"subpages","value":6,"max":null,"text":null,"fmt":null,"as_of":"2026-11-09T20:00:00Z","error":null,
+      "data":{"items":[{"id":812,"title":"Der Nebelturm","icon":"📖","img":"/files/0123456789abcdef01234567","kind":"page"},
+                       {"id":813,"title":"  ","icon":"","img":null,"kind":"database"},
+                       {"id":-7,"title":"Fern","icon":"/api/fed/files/-7/abc","img":"/api/fed/files/-7/abc","kind":"page"},
+                       {"id":814,"title":"Galerie","icon":"/covers/x.jpg","img":"/covers/nebel-01.jpg","kind":"neu"},
+                       {"id":815,"title":"Fremd","icon":"https://example.org/i.png","img":"https://example.org/a.jpg"},
+                       {"id":816,"img":"/files/../api/x"}, {"id":817,"img":"//example.org/files/a"}, {"id":818,"img":"/files/a?w=9"},
+                       {"id":812,"title":"doppelt"}, {"id":0,"title":"null"}, {"id":"9","title":"Text-ID"}, {"id":1.5}, {"title":"ohne"}, "kaputt", {"id":true}],
+              "total":6,"more":2,"can_add":true}}}}
+    """#
+    guard let r = W.parse(Data(json.utf8)), let s = W.subpages(r.widgets["b7"]?.dict) else { check(false, "Unterseiten nicht lesbar"); return }
+    check(s.items.map(\.id) == [812, 813, -7, 814, 815, 816, 817, 818], "Eintraege in Server-Reihenfolge; ohne/doppelte/kaputte ID fallen weg")
+    check(s.items[0].title == "Der Nebelturm" && s.items[0].icon == "📖" && s.items[0].img == "/files/0123456789abcdef01234567" && !s.items[0].database, "Seite mit Bild")
+    check(s.items[1].title.isEmpty && s.items[1].icon.isEmpty && s.items[1].img == nil && s.items[1].database, "Datenbank ohne Titel/Symbol/Bild")
+    check(s.items[2].id < 0 && s.items[2].img == "/api/fed/files/-7/abc" && s.items[2].icon == "/api/fed/files/-7/abc", "foederiert: negative ID, Bildadresse des Heims")
+    check(s.items[3].img == "/covers/nebel-01.jpg" && s.items[3].icon.isEmpty && !s.items[3].database, "Titelbild-Galerie; unbekannte Art = Seite")
+    check(s.items[4].img == nil && s.items[4].icon.isEmpty, "fremde Adresse wird nie als Bild geladen")
+    check(s.items[5].img == nil && s.items[6].img == nil && s.items[7].img == nil, "Pfad mit .., // oder ? abgelehnt")
+    check(s.total == 8 && s.more == 2 && s.canAdd, "total (mindestens die gezeigten), more, can_add")
+    check(W.subpages(nil) == nil && W.subpages([:]) == nil && W.subpages(["items": "x"]) == nil, "ohne items kein Wert")
+    let e = W.subpages(["items": [Any](), "total": -4, "more": "viele", "can_add": "ja"])
+    check(e?.items.isEmpty == true && e?.total == 0 && e?.more == 0 && e?.canAdd == false, "leer; unbrauchbare Zahlen/Schalter -> 0/false")
+    let big = W.subpages(["items": (1...260).map { ["id": $0] as [String: Any] }, "total": 1e30, "more": 1e30])
+    check(big?.items.count == 200 && big?.total == 1_000_000_000, "hoechstens 200 Eintraege, riesige Zahlen begrenzt")
+    let long = W.subpages(["items": [["id": 1, "title": String(repeating: "t", count: 300), "icon": "kein Emoji"] as [String: Any], ["id": 2, "icon": "👩‍👧‍👦"]]])
+    check(long?.items[0].title.count == 200 && long?.items[0].icon.isEmpty == true && long?.items[1].icon == "👩‍👧‍👦", "Titel begrenzt; Symbol nur Emoji")
+
+    // MARK: Bildadresse, Seitenverhaeltnis, Spalten
+    check(W.subImageKey("/files/ab", image: .content) == "/files/ab?w=400" && W.subImageKey("/covers/a.jpg", image: .cover) == "/covers/a.jpg?w=640", "Vorschaubreite je Bildquelle")
+    check(W.isGalleryCover("/covers/a-1.jpg") && !W.isGalleryCover("/covers/.jpg") && !W.isGalleryCover("/covers/A.jpg") && !W.isGalleryCover("/covers/a/b.jpg") && !W.isGalleryCover("/covers/a.png"), "Titelbild-Galerie nur /covers/<name>.jpg")
+    check(W.subAspect(.content) == 2.0 / 3.0 && W.subAspect(.cover) == 16.0 / 9.0 && W.subAspect(.none) == nil, "2:3 Hochformat, 16:9, keine Flaeche")
+    check(W.subColumns(width: 361, size: .m, image: .content) == 2 && W.subColumns(width: 361, size: .l, image: .cover) == 2 && W.subColumns(width: 520, size: .s, image: .content) == 2, "iPhone hochkant: immer zwei Spalten")
+    check(W.subColumns(width: 760, size: .m, image: .content) == 4 && W.subColumns(width: 760, size: .s, image: .content) == 6 && W.subColumns(width: 760, size: .l, image: .content) == 3, "iPad: Kartengroesse = Mindestbreite")
+    check(W.subColumns(width: 760, size: .m, image: .cover) == 3 && W.subColumns(width: 760, size: .l, image: .cover) == 2 && W.subColumns(width: 760, size: .m, image: .none) == 4, "Banner breiter, ohne Bild dazwischen")
+    check(W.subColumns(width: 150, size: .m, image: .content) == 1 && W.subColumns(width: .nan, size: .m, image: .cover) == 1 && W.subColumns(width: 1e9, size: .s, image: .content) == 12, "sehr schmal eine Spalte, Grenzen")
+
+    // MARK: Hinweise, Foederation
+    check(W.notice(block: b, load: .loaded(r), value: r.widgets["b7"]) == nil, "Werte da: Inhalt")
+    check(W.notice(block: b, load: .missing, value: nil) == .olderServer && W.notice(block: b, load: .failed, value: nil) == .failed, "aelterer Server / offline")
+    let fed = W.parse(Data(#"{"widgets":{"m":{"kind":"metric","value":1}},"unsupported_kinds":["subpages",7]}"#.utf8))!
+    check(fed.unsupportedKinds == ["subpages"] && !fed.unsupported, "unsupported_kinds gelesen")
+    check(W.notice(block: b, load: .loaded(fed), value: nil) == .originOnly, "ohne wsubpages1: nur auf dem Ursprungsserver")
+    check(W.notice(block: W.block(nd(["kind": "metric"])), load: .loaded(fed), value: fed.widgets["m"]) == nil, "andere Arten der Seite bleiben")
+    check(W.notice(block: b, load: .loaded(r), value: W.Value(kind: "subpages", error: "no_access")) == .noAccess, "Fehler vom Server")
+
+    // MARK: Regel 0 - der Block bleibt beim Lesen unveraendert (auch unbekannte Felder und Werte)
+    let raw = #"{"id":"b7","type":"widget","data":{"v":3,"kind":"subpages","size":"xl","style":"neon","title":"  Leseliste ","neu":{"a":[1,2]},"cfg":{"view":"kanban","image":"poster","spalten":4}}}"#
+    let obj = try! JSONSerialization.jsonObject(with: Data(raw.utf8), options: [.mutableContainers]) as! NSMutableDictionary
+    let before = try! JSONSerialization.data(withJSONObject: obj, options: .sortedKeys)
+    let rb = W.block(obj["data"] as? NSDictionary)
+    _ = (W.subView(rb.cfg), W.subImage(rb.cfg), W.needsServer(rb), W.pageHasSubpages([obj]), W.pageNeedsServer([obj]))
+    check(rb.known && rb.size == .m && W.subView(rb.cfg) == .list && W.subImage(rb.cfg) == .cover, "unbekannte Werte: Standard")
+    check(try! JSONSerialization.data(withJSONObject: obj, options: .sortedKeys) == before, "Regel 0: Block unveraendert")
+}

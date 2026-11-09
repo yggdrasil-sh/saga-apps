@@ -6,7 +6,7 @@ import Foundation
 
 enum WidgetLogic {
     /// Arten der Etappe 1; andere Werte -> Karte "neuere Version noetig"
-    static let kinds: Set<String> = ["clock", "countdown", "progress", "metric", "quote", "weather", "habit", "upcoming", "chart", "reading"]
+    static let kinds: Set<String> = ["clock", "countdown", "progress", "metric", "quote", "weather", "habit", "upcoming", "chart", "reading", "subpages"]
 
     enum Size: String { case s, m, l }
     enum Style: String { case card, plain }
@@ -32,6 +32,8 @@ enum WidgetLogic {
         var b = Block(kind: (d["kind"] as? String) ?? "")
         b.size = Size(rawValue: d["size"] as? String ?? "") ?? .m
         b.style = Style(rawValue: d["style"] as? String ?? "") ?? .card
+        // Unterseiten (subpages1): ohne Angabe "plain" (ohne Rahmen, wie im Web); ein unbekannter Wert bleibt "card"
+        if b.kind == "subpages", !(d["style"] is String) { b.style = .plain }
         if let a = d["accent"] as? String, GestaltenLogic.palette.contains(a) { b.accent = a }
         b.title = String((d["title"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines).prefix(80))
         b.cfg = (d["cfg"] as? [String: Any]) ?? [:]
@@ -42,7 +44,7 @@ enum WidgetLogic {
     /// nach `pick` - gleiche Auswahl wie im Web); Uhr, Countdown und fester Fortschritt rechnen nur lokal
     static func needsServer(_ b: Block) -> Bool {
         switch b.kind {
-        case "metric", "quote", "weather", "habit", "upcoming", "chart", "reading": return true
+        case "metric", "quote", "weather", "habit", "upcoming", "chart", "reading", "subpages": return true
         case "progress": return (b.cfg["src"] as? String) == "db"
         default: return false
         }
@@ -95,12 +97,15 @@ enum WidgetLogic {
     struct Response: Equatable {
         var widgets: [String: Value] = [:]
         var unsupported = false
+        /// Foederation: Arten, die der Server der Seite nicht rechnet (z. B. "subpages" ohne wsubpages1)
+        var unsupportedKinds: Set<String> = []
     }
 
     static func parse(_ data: Data) -> Response? {
         guard let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         var r = Response()
         r.unsupported = (o["unsupported"] as? Bool) ?? false || (o["unsupported2"] as? Bool) ?? false
+        r.unsupportedKinds = Set(((o["unsupported_kinds"] as? [Any]) ?? []).compactMap { $0 as? String })
         for (id, raw) in (o["widgets"] as? [String: Any]) ?? [:] {
             guard let w = raw as? [String: Any] else { continue }
             var v = Value()
@@ -166,6 +171,7 @@ enum WidgetLogic {
         case .missing: return .olderServer
         case .loaded(let r):
             if r.unsupported { return .originOnly }
+            if value == nil, r.unsupportedKinds.contains(b.kind) { return .originOnly }
             return nil                                       // Wert fehlt noch (Seite eben geaendert) -> leer statt Fehler
         case .failed: return value == nil ? .failed : nil
         case .idle: return nil
@@ -492,6 +498,95 @@ enum WidgetLogic {
 
     /// Wetter: schmal (bis 330 wie die Container-Regel im Web) Tage als Liste statt Kacheln (Regel 15)
     static func weatherList(width: Double) -> Bool { width <= 330 }
+
+    // MARK: Unterseiten (2.5, subpages1): Liste oder Galerie der direkten Unterseiten (APP-API "Unterseiten als Liste oder Galerie")
+
+    enum SubView: String { case list, gallery }
+    enum SubImage: String { case cover, content, none }
+
+    /// cfg.view: unbekannt -> Liste
+    static func subView(_ cfg: [String: Any]) -> SubView { SubView(rawValue: cfg["view"] as? String ?? "") ?? .list }
+    /// cfg.image: unbekannt -> Titelbild
+    static func subImage(_ cfg: [String: Any]) -> SubImage { SubImage(rawValue: cfg["image"] as? String ?? "") ?? .cover }
+
+    struct Subpages: Equatable {
+        struct Item: Equatable, Identifiable {
+            var id: Int
+            var title: String          // leer = "Unbenannt" zeigen
+            var icon: String           // Emoji, Bildpfad oder leer (= Standardsymbol)
+            var img: String?           // /files/…, /covers/….jpg, /api/fed/files/… oder nil
+            var database: Bool
+        }
+        var items: [Item] = []
+        var total = 0
+        var more = 0
+        var canAdd = false
+    }
+
+    /// Pfade, die die App als Kartenbild laedt (immer vom eigenen Server, nie fremde Adressen)
+    static func subImagePathOK(_ p: String) -> Bool {
+        guard p.count <= 300, !p.contains(".."), !p.contains("//"), !p.contains("?"), !p.contains("#"), !p.contains("\\") else { return false }
+        if p.hasPrefix("/files/") || p.hasPrefix("/api/fed/files/") { return true }
+        return isGalleryCover(p)
+    }
+    /// Titelbild-Galerie: /covers/<name>.jpg (oeffentlich)
+    static func isGalleryCover(_ p: String) -> Bool {
+        guard p.hasPrefix("/covers/"), p.hasSuffix(".jpg") else { return false }
+        let name = p.dropFirst(8).dropLast(4)
+        return !name.isEmpty && name.unicodeScalars.allSatisfy { ("a"..."z").contains($0) || ("0"..."9").contains($0) || $0 == "-" }
+    }
+
+    /// W.data einer Unterseiten-Antwort; nil = (noch) kein Wert. Unbrauchbare Eintraege (ohne ID) fallen weg,
+    /// doppelte IDs nur einmal, hoechstens 200 wie der Server.
+    static func subpages(_ d: [String: Any]?) -> Subpages? {
+        guard let d, let raw = d["items"] as? [Any] else { return nil }
+        var s = Subpages(), seen = Set<Int>()
+        for case let x as [String: Any] in raw {
+            guard s.items.count < 200, let n = num(x["id"]), n == n.rounded(), abs(n) < 9e15 else { continue }
+            let id = Int(n)
+            guard id != 0, seen.insert(id).inserted else { continue }
+            let title = String((x["title"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))
+            var icon = (x["icon"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            // Symbol: Bild vom eigenen Server oder ein Emoji (hoechstens 4 Zeichen); alles andere -> Standardsymbol
+            if icon.hasPrefix("/") { if !subImagePathOK(icon) || isGalleryCover(icon) { icon = "" } } else if icon.count > 4 { icon = "" }
+            let img = (x["img"] as? String).flatMap { subImagePathOK($0) ? $0 : nil }
+            s.items.append(.init(id: id, title: title, icon: icon, img: img, database: (x["kind"] as? String) == "database"))
+        }
+        s.total = max(s.items.count, Int(max(0, min(1e9, num(d["total"]) ?? 0))))
+        s.more = Int(max(0, min(1e9, num(d["more"]) ?? 0)))
+        s.canAdd = (d["can_add"] as? Bool) ?? false
+        return s
+    }
+
+    /// Adresse des Kartenbilds mit Vorschaubreite (Hochformat 400, Banner 640 - wie im Web)
+    static func subImageKey(_ img: String, image: SubImage) -> String { "\(img)?w=\(image == .content ? 400 : 640)" }
+    /// Seitenverhaeltnis der Bildflaeche (Breite / Hoehe): Inhalt 2:3 (Buchcover), Titelbild 16:9; none = keine Flaeche
+    static func subAspect(_ image: SubImage) -> Double? { image == .content ? 2.0 / 3.0 : image == .cover ? 16.0 / 9.0 : nil }
+    /// Mindestbreite einer Spalte je Kartengroesse und Bildquelle (wie --sp-w im Web, 1rem = 16 pt)
+    static func subMinWidth(_ size: Size, image: SubImage) -> Double {
+        switch image {
+        case .cover: return size == .s ? 160 : size == .l ? 288 : 216
+        case .content: return size == .s ? 116 : size == .l ? 200 : 152
+        case .none: return size == .s ? 136 : size == .l ? 224 : 176
+        }
+    }
+    static let subGap = 12.0
+    /// Spalten der Galerie: schmal (bis 520 wie die Container-Regel im Web, also iPhone hochkant) immer zwei, sonst so
+    /// viele, wie mit der Mindestbreite passen (mindestens zwei); sehr schmale Spalte (unter 200): eine.
+    static func subColumns(width w: Double, size: Size, image: SubImage) -> Int {
+        guard w.isFinite, w >= 200 else { return 1 }
+        if w <= 520 { return 2 }
+        return max(2, min(12, Int((w + subGap) / (subMinWidth(size, image: image) + subGap))))
+    }
+    /// Enthaelt die Seite (auch in Spalten und Toggles) einen Unterseiten-Block? Dann laedt die App die Werte auch neu,
+    /// wenn sich der Seitenbaum aendert bzw. die Seite wieder sichtbar wird.
+    static func pageHasSubpages(_ blocks: NSArray) -> Bool {
+        var found = false
+        walk(blocks) { b in
+            if b["type"] as? String == "widget", ((b["data"] as? NSDictionary)?["kind"] as? String) == "subpages" { found = true }
+        }
+        return found
+    }
 
     // MARK: Hilfen
 
