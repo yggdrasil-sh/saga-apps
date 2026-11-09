@@ -584,8 +584,16 @@ private fun CountdownBody(w: WgCtx) {
     val locale = appLocale()
     val nf = java.text.NumberFormat.getIntegerInstance(locale)
     when {
-        // wie Web: 0 Tage = "Heute", auch nach Ablauf bzw. vor Beginn (kein "Erreicht"/"Noch nicht begonnen")
+        // wie iOS: 0 Tage = "Heute"; vorbei = "Ziel erreicht" (0,75 der Wertgroesse), "seit" in der Zukunft = "Noch nicht erreicht" (muted)
         cd.today -> WgValue(listOf(stringResource(R.string.pw_cd_today) to false), w)
+        cd.reached || cd.notYet -> {
+            val st = wgValueStyle(w)
+            Text(
+                stringResource(if (cd.reached) R.string.wd_cd_reached else R.string.wd_cd_not_yet),
+                style = st.copy(fontSize = st.fontSize * 0.75f, fontWeight = if (cd.reached) FontWeight.SemiBold else FontWeight.Normal),
+                color = if (cd.reached) w.valueColor else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
         cd.days != null -> {
             val n = cd.days.toInt()
             val unit = WidgetDesign.unitWord(pluralStringResource(R.plurals.wd_days, n, n), n.toString())

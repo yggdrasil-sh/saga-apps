@@ -312,13 +312,15 @@ object PageWidgets {
     // ---------------------------------------------------------------- Countdown (lokal)
 
     data class Countdown(
-        /** ganze Kalendertage (0 = "Heute") - null, wenn Stunden/Minuten gelten */
+        /** ganze Kalendertage - null, wenn Stunden/Minuten gelten bzw. bei [reached]/[notYet] */
         val days: Long?,
         val hours: Int, val minutes: Int,
-        /** until: Ziel liegt in der Vergangenheit; since: Start liegt noch in der Zukunft (Anzeige trotzdem "Heute" wie Web) */
-        val done: Boolean,
-        /** Anzeige "Heute": 0 Tage (auch nach Ablauf bzw. vor Beginn - Web wgCdParts) */
-        val today: Boolean,
+        /** "bis": Zeitpunkt liegt in der Vergangenheit -> "Ziel erreicht" */
+        val reached: Boolean = false,
+        /** "seit": Zeitpunkt liegt noch in der Zukunft -> "Noch nicht erreicht" */
+        val notYet: Boolean = false,
+        /** Anzeige "Heute": 0 Kalendertage (nicht auto) */
+        val today: Boolean = false,
     )
 
     data class CountdownCfg(val date: LocalDate?, val time: LocalTime?, val since: Boolean, val auto: Boolean)
@@ -340,21 +342,26 @@ object PageWidgets {
     }
 
     /**
-     * Wie Web (static/pages.js wgCdParts): Kalendertage in der Zone des Betrachters, nie negativ (0 = "Heute", auch nach
-     * Ablauf bzw. vor Beginn). Nur bei unit "auto" mit Uhrzeit und weniger als 24 h Abstand Stunden und Minuten.
-     * null = kein gueltiges Datum (bad_cfg).
+     * Wie iOS (WidgetLogic.countdown, Entscheidung 9.11.): unit "auto": Abstand <= 0 -> erreicht bzw. noch nicht, unter 24 h
+     * Std./Min. ("bis" auf die Minute aufgerundet, "seit" abgerundet). Sonst Kalendertage in der Zone des Betrachters:
+     * 0 -> "Heute" (auto: 0 Tage), < 0 -> erreicht ("bis") bzw. noch nicht ("seit"). null = kein gueltiges Datum (bad_cfg).
      */
     fun countdown(c: CountdownCfg, now: ZonedDateTime): Countdown? {
         val date = c.date ?: return null
+        if (c.auto) {
+            val target = ZonedDateTime.of(date, c.time ?: LocalTime.MIDNIGHT, now.zone)
+            val ms = (if (c.since) Duration.between(target, now) else Duration.between(now, target)).toMillis()
+            if (ms <= 0) return if (c.since) Countdown(null, 0, 0, notYet = true) else Countdown(null, 0, 0, reached = true)
+            if (ms < 86_400_000L) {
+                val total = if (c.since) (ms / 60_000L).toInt() else ((ms + 59_999L) / 60_000L).toInt()
+                return Countdown(null, total / 60, total % 60)
+            }
+        }
         val today = now.toLocalDate()
         val d = if (c.since) ChronoUnit.DAYS.between(date, today) else ChronoUnit.DAYS.between(today, date)
-        if (c.auto && c.time != null) {
-            val target = ZonedDateTime.of(date, c.time, now.zone)
-            val ms = (if (c.since) Duration.between(target, now) else Duration.between(now, target)).toMillis()
-            if (ms in 1 until 86_400_000L) return Countdown(null, (ms / 3_600_000L).toInt(), (ms % 3_600_000L / 60_000L).toInt(), done = false, today = false)
-        }
-        val n = maxOf(0L, d)
-        return Countdown(n, 0, 0, done = d < 0, today = n == 0L)
+        if (d == 0L) return if (c.auto) Countdown(0, 0, 0) else Countdown(0, 0, 0, today = true)
+        if (d < 0) return if (c.since) Countdown(null, 0, 0, notYet = true) else Countdown(null, 0, 0, reached = true)
+        return Countdown(d, 0, 0)
     }
 
     // ---------------------------------------------------------------- Fortschritt

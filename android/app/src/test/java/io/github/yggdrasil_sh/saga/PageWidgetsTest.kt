@@ -170,20 +170,21 @@ class PageWidgetsTest {
         val now = ZonedDateTime.of(2026, 10, 27, 23, 30, 0, 0, berlin)
         val a = cd("""{"date":"2026-12-24","time":"","dir":"until","unit":"days"}""", now)!!
         assertEquals(58L, a.days)
-        assertFalse(a.done)
+        assertFalse(a.reached)
         val heute = cd("""{"date":"2026-10-27","dir":"until"}""", now)!!
         assertTrue(heute.today)
-        assertFalse(heute.done)
-        val vorbei = cd("""{"date":"2026-10-01","dir":"until"}""", now)!!
-        assertTrue(vorbei.done)
-        assertTrue(vorbei.today)                                                // wie Web: abgelaufen -> "Heute"
-        assertEquals(0L, vorbei.days)
+        assertFalse(heute.reached)
+        val vorbei = cd("""{"date":"2026-10-01","dir":"until"}""", now)!!         // wie iOS: "Ziel erreicht"
+        assertTrue(vorbei.reached)
+        assertFalse(vorbei.today)
+        assertNull(vorbei.days)
         val seit = cd("""{"date":"2026-10-01","dir":"since"}""", now)!!
         assertEquals(26L, seit.days)
-        val nochNicht = cd("""{"date":"2027-01-01","dir":"since"}""", now)!!    // noch nicht begonnen -> "Heute"
-        assertTrue(nochNicht.done)
-        assertTrue(nochNicht.today)
-        assertNull(cd("""{"date":"27.10.2026"}""", now))                        // bad_cfg
+        val nochNicht = cd("""{"date":"2027-01-01","dir":"since"}""", now)!!     // "Noch nicht erreicht"
+        assertTrue(nochNicht.notYet)
+        assertFalse(nochNicht.reached)
+        assertTrue(cd("""{"date":"2026-10-27","dir":"since"}""", now)!!.today)
+        assertNull(cd("""{"date":"27.10.2026"}""", now))                         // bad_cfg
     }
 
     @Test
@@ -193,21 +194,29 @@ class PageWidgetsTest {
         assertNull(a.days)
         assertEquals(8, a.hours)
         assertEquals(30, a.minutes)
+        // "bis" auf die Minute aufgerundet, "seit" abgerundet (iOS)
+        val sec = now.plusSeconds(30)
+        assertEquals(30, cd("""{"date":"2026-10-27","time":"18:45","unit":"auto"}""", sec)!!.minutes)
+        assertEquals(15, cd("""{"date":"2026-10-27","time":"09:00","dir":"since","unit":"auto"}""", sec)!!.minutes)
         // ab einem Tag wieder Tage
         assertEquals(2L, cd("""{"date":"2026-10-29","time":"18:45","unit":"auto"}""", now)!!.days)
-        // unit days mit Uhrzeit: Kalendertage (wie Web)
-        assertEquals(0L, cd("""{"date":"2026-10-27","time":"18:45","unit":"days"}""", now)!!.days)
+        // unit days mit Uhrzeit: Kalendertage; 0 -> "Heute"
+        assertTrue(cd("""{"date":"2026-10-27","time":"18:45","unit":"days"}""", now)!!.today)
+        assertTrue(cd("""{"date":"2026-10-27","time":"09:00","unit":"days"}""", now)!!.today)
         assertEquals(1L, cd("""{"date":"2026-10-28","time":"08:00","unit":"days"}""", now)!!.days)
         // auto unter 24 h ueber Mitternacht: Stunden
         assertEquals(21, cd("""{"date":"2026-10-28","time":"08:00","unit":"auto"}""", now)!!.hours)
-        // Zeitpunkt heute schon vorbei -> "Heute" (Web: 0 Tage)
-        val vorbei = cd("""{"date":"2026-10-27","time":"09:00","unit":"auto"}""", now)!!
-        assertTrue(vorbei.today)
-        assertEquals(0L, vorbei.days)
+        // auto: Zeitpunkt vorbei -> erreicht; "seit" in der Zukunft -> noch nicht
+        assertTrue(cd("""{"date":"2026-10-27","time":"09:00","unit":"auto"}""", now)!!.reached)
+        assertTrue(cd("""{"date":"2026-10-27","time":"18:00","dir":"since","unit":"auto"}""", now)!!.notYet)
+        assertTrue(cd("""{"date":"2026-10-27","unit":"auto"}""", now)!!.reached)          // ohne Uhrzeit: Tagesbeginn
         // seit (auto)
         val s = cd("""{"date":"2026-10-27","time":"09:00","dir":"since","unit":"auto"}""", now)!!
         assertEquals(1, s.hours)
         assertEquals(15, s.minutes)
+        // auto, 0 Kalendertage, aber ueber 24 h? nicht moeglich; auto mit 0 Tagen -> 0 Tage statt "Heute"
+        val z = cd("""{"date":"2026-10-26","time":"09:00","dir":"since","unit":"auto"}""", now)!!
+        assertEquals(1L, z.days)
     }
 
     // ---------------------------------------------------------------- Fortschritt

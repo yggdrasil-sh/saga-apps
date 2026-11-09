@@ -81,4 +81,7 @@
     <string name="wd_goal_short">Ziel</string>
     <!-- TalkBack: Regen eines Tages in der Wettervorschau -->
     <string name="wd_wx_rain_desc">Regenwahrscheinlichkeit %1$d %%</string>
+    <!-- Countdown wie iOS (Localizable.xcstrings "Ziel erreicht"/"Noch nicht erreicht") -->
+    <string name="wd_cd_reached">Ziel erreicht</string>
+    <string name="wd_cd_not_yet">Noch nicht erreicht</string>
 </resources>
