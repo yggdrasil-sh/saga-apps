@@ -6,11 +6,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -135,8 +138,13 @@ fun SubpagesContent(
             val cols = Subpages.columns(widthDp, size, cfg.image, LocalDensity.current.fontScale)
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 shown.chunked(cols).forEach { row ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Subpages.GAP.dp), verticalAlignment = Alignment.Top) {
-                        row.forEach { x -> SubpageCard(x, cfg, size, repo, image, Modifier.weight(1f)) { onOpen(x.id) } }
+                    // ohne Bildflaeche (umrandete Karten): alle Karten einer Zeile gleich hoch
+                    val even = cfg.image == "none"
+                    Row(
+                        Modifier.fillMaxWidth().then(if (even) Modifier.height(IntrinsicSize.Min) else Modifier),
+                        horizontalArrangement = Arrangement.spacedBy(Subpages.GAP.dp), verticalAlignment = Alignment.Top,
+                    ) {
+                        row.forEach { x -> SubpageCard(x, cfg, size, repo, image, Modifier.weight(1f).then(if (even) Modifier.fillMaxHeight() else Modifier)) { onOpen(x.id) } }
                         repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
