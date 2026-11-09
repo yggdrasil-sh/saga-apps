@@ -32,6 +32,16 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   - Kontextzeile mit den Spaltennamen vom Server (`x_name`/`y_name`).
 - **Spalten:** Umbruch nach Breite wie im Web (4 → 2×2, 3 → 2+1), Karten einer Reihe gleich hoch, am Handy 10 dp Abstand.
 - Behoben dabei: Die Ziellinie war in en/es/ru/th als Speicherziel übersetzt.
+- **Nacharbeit (iOS):**
+  - Kennzahl und Fortschritt nennen die Quell-Datenbank wie im Web („Summe · Projekte“ bzw. „Projekte“), sobald der
+    Server sie mitschickt (`src_name`; ohne Zugriff oder auf veröffentlichten Seiten wie bisher).
+  - Spalten mit eigenen Breiten: Widget-Karten einer Reihe sind auch dort gleich hoch (die Breiten galten am iPad schon).
+  - „+ Block“ in gleich hohen Widget-Reihen nimmt keinen Platz mehr ein (die Reihe springt beim Zeigen nicht) und ist
+    ohne Zeiger über das Kontextmenü erreichbar („Neuer Block am Ende dieser Spalte“).
+  - VoiceOver: Diagramme lesen Kategorie und Wert statt Nummern; Anstehendes ohne Titel heißt „Unbenannt“.
+  - Heatmap der Gewohnheiten: Tageszahlen im Kopf überlappen bei kleinen Zellen nicht mehr.
+  - Unsignierte Test-Builds ohne Schlüsselbund holten bei jedem Start einen neuen Geräte-Schlüssel und verdrängten so
+    ihre eigenen Geräte-Anmeldungen; jetzt höchstens einmal am Tag bzw. bei der nächsten Anmeldung.
 
 ### Neu – iOS, Android: SVG-Bilder und Dateilinks in Seiten
 
