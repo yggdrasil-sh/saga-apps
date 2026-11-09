@@ -356,6 +356,7 @@ extension CallManager {
         }
         signalRetry()                                                       // 2.5 (9.11.): abgelehnte Buendel erneut
         let ch = CallRoom.diff(old: old, new: legs, here: here)
+        if !ch.added.isEmpty || !ch.removed.isEmpty { sigRounds = 0 }       // neue Lage: wieder bis zu retryMax Runden
         if inRoom || ready {
             for x in ch.added where x.who != me || x.device != here {
                 toast = String(localized: "\(x.name) (\(x.devName.isEmpty ? String(localized: "Gerät") : x.devName)) ist hinzugekommen")

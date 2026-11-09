@@ -206,6 +206,9 @@ final class CallManager: NSObject, ObservableObject {
     var sigPull = CallRoom.Pull()
     var sigRetry: [String: String] = [:]
     var stateRetry = false
+    /// Nachsende-Runden nach 400 seit der letzten Aenderung der Liste (hoechstens CallRoom.retryMax, sonst Schleife alle 2 s,
+    /// wenn der Server ein Ziel der Liste dauerhaft ablehnt)
+    var sigRounds = 0
     var hoTask: Task<Void, Never>?
     /// mit welcher Rolle dieses Geraet beigetreten ist ("" = angerufen/angenommen wie bisher)
     var joinRole = ""
@@ -411,7 +414,9 @@ final class CallManager: NSObject, ObservableObject {
         case .gone: if !roomMode { remoteEnded(reason: "gone") }
         case .ok(let dropped): if !dropped.isEmpty, roomMode { CallEnv.log("signal: \(dropped.count) Ziele verworfen"); rosterPull() }
         case .rejected:                                                     // aelterer Server: ein Ziel ist schon gegangen
-            if roomMode, L.targets.contains(where: { CallRoom.signalType(make($0)) == "state" }) { stateRetry = true; rosterPull() }
+            if roomMode, sigRounds < CallRoom.retryMax, L.targets.contains(where: { CallRoom.signalType(make($0)) == "state" }) {
+                sigRounds += 1; stateRetry = true; rosterPull()
+            }
         case .other: break
         }
     }
@@ -1760,7 +1765,7 @@ final class CallManager: NSObject, ObservableObject {
         kind = "dm"; dmRoom = false; mutedBy = nil; companion = false; sound = true; meshView = false; tiles = []; speakerDev = nil; handingOver = false
         limit = CallRoom.videoMax; oldNames = []; inRoom = false
         roster.reset(); ho = CallRoom.Handover(); hoTask?.cancel(); hoTask = nil; joinRole = ""; title = ""
-        sigPull = CallRoom.Pull(); sigRetry = [:]; stateRetry = false
+        sigPull = CallRoom.Pull(); sigRetry = [:]; stateRetry = false; sigRounds = 0
         diagTask?.cancel(); diagTask = nil; diag = nil                       // Diagnose je Anruf neu (Wiedereintritt nach Uebergabe)
         pend = [:]; admitting = []; badDevs = []; keysBy = [:]; speakerState = CallRoom.Speaker()
     }

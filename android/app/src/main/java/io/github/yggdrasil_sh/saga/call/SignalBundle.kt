@@ -14,6 +14,9 @@ import kotlinx.serialization.json.JsonPrimitive
 object SignalBundle {
     const val PULL_MS = 2000L
 
+    /** Nachsende-Runden nach 400 je Aenderung der Liste - lehnt der Server ein Ziel der Liste dauerhaft ab: Abbruch */
+    const val RETRY_MAX = 3
+
     sealed class Reply {
         data class Ok(val dropped: List<String>) : Reply()
         object Rejected : Reply()

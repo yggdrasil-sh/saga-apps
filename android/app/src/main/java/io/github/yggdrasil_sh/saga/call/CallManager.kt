@@ -209,6 +209,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         var sigPullAt = 0L
         val sigRetry = LinkedHashMap<String, String>()
         var stateRetry = false
+        /** Nachsende-Runden nach 400 seit der letzten Aenderung der Liste (hoechstens [SignalBundle.RETRY_MAX]) */
+        var sigRounds = 0
         var myHandle: String? = null
         /** 2.5: 1:1 ueber einen Knoten (Raum-Anruf mit dm) - Anzeige wie 1:1 */
         var dm = false
@@ -1182,8 +1184,11 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             // 2.5 (9.11.): aelterer Server lehnt das Buendel mit einem schon gegangenen Geraet ab - Zustand nach der Liste erneut
             else if (e.code == 400 && multi(c) && (body["t"] as? JsonPrimitive)?.contentOrNull == "state") {
                 val r = c.room ?: c
-                r.rs.stateRetry = true
-                rosterPull(r)
+                if (r.rs.sigRounds < SignalBundle.RETRY_MAX) {
+                    r.rs.sigRounds++
+                    r.rs.stateRetry = true
+                    rosterPull(r)
+                }
             }
         } catch (_: Exception) {
         }
@@ -1937,6 +1942,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             for (x in diff.joined) if (x.device != me) repo.notify(UiText.Res(R.string.room_joined, x.name.ifEmpty { x.who }, x.devName.ifEmpty { "?" }))
             if (!poll) for (x in diff.left) if (x.device != me) repo.notify(UiText.Res(R.string.room_left, x.name.ifEmpty { x.who }, x.devName.ifEmpty { "?" }))
         }
+        if (diff.joined.isNotEmpty() || diff.left.isNotEmpty()) rs.sigRounds = 0   // neue Lage: wieder bis zu RETRY_MAX Runden
         signalRetry(r)                                      // 2.5 (9.11.): abgelehnte Buendel erneut
         rs.horn?.let { h ->
             h.roster()
@@ -4340,10 +4346,11 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             // naechsten Liste erneut (vorher bekam das Gegenueber nach einer Uebergabe keinen Schluessel: kein Bild, kein Ton)
             if (e.code == 400) {
                 val x = SignalBundle.resendable(bodies.filterKeys { it in sig })
-                if (x.isNotEmpty()) {
+                if (x.isNotEmpty() && r.rs.sigRounds < SignalBundle.RETRY_MAX) {
+                    r.rs.sigRounds++
                     r.rs.sigRetry.putAll(x)
                     rosterPull(r)
-                }
+                } else if (x.isNotEmpty()) log("horn signal 400: nicht erneut (Grenze)")
             }
         } catch (e: Exception) {
             log("horn signal: ${e.message}")

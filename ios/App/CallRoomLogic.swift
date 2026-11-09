@@ -459,6 +459,8 @@ enum CallRoom {
 // 400 ab - fkey/state dann nach der naechsten Liste an die verbliebenen Ziele erneut senden (APP-API "Uebergabe")
 extension CallRoom {
     enum SignalReply: Equatable { case ok(dropped: [String]), rejected, gone, other }
+    /// Nachsende-Runden nach 400 je Aenderung der Liste (lehnt der Server ein Ziel der Liste dauerhaft ab: Abbruch)
+    static let retryMax = 3
     static func signalReply(code: Int?, body: [String: Any]?) -> SignalReply {
         guard let code else { return .other }
         if (200..<300).contains(code) { return .ok(dropped: (body?["dropped"] as? [Any] ?? []).compactMap { $0 as? String }.filter { !$0.isEmpty }) }

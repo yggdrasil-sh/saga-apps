@@ -1245,7 +1245,9 @@ extension CallManager {
             if !dropped.isEmpty { horn?.trace("signal: \(dropped.count) Ziele verworfen"); rosterPull() }
         case .rejected:                                                     // aelterer Server: Buendel mit gegangenem Ziel
             let x = CallRoom.resendable(bodies.filter { sig[$0.key] != nil })
-            if !x.isEmpty { sigRetry.merge(x) { _, new in new }; horn?.trace("signal 400: \(x.count) erneut nach der Liste"); rosterPull() }
+            if !x.isEmpty, sigRounds < CallRoom.retryMax {
+                sigRounds += 1; sigRetry.merge(x) { _, new in new }; horn?.trace("signal 400: \(x.count) erneut nach der Liste"); rosterPull()
+            } else if !x.isEmpty { horn?.trace("signal 400: nicht erneut (Grenze)") }
         case .other: break
         }
     }
