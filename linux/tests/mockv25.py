@@ -5,7 +5,7 @@ import json
 import time
 
 FEATURES = ["formula1", "rollup1", "dbgroup1", "person1", "file1", "move1", "render1", "relfilter1", "datetime1", "status1",
-            "subtasks1", "tableopts1", "weather1", "habit1", "upcoming1", "chart1"]
+            "subtasks1", "tableopts1", "weather1", "habit1", "upcoming1", "chart1", "subpages1"]
 
 
 def init(s):

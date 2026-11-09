@@ -140,6 +140,7 @@ class MockServer:
         # widgets1; widget_values: feste Antworten je Block-ID (sonst einfach aus den Zeilen gerechnet)
         self.widgets_api = True
         self.widget_values = {}
+        self.file_log = []                   # abgerufene Dateien (files/..., covers/..., api/fed/files/...) mit ?w=
         # Vorlagengalerie (Server ab 2.5): gallery_api True, sonst HTTP-Code fuer die Liste (404 aelterer Server, 403 abgeschaltet);
         # gallery_use_fail: HTTP-Code fuer POST .../use (mit {"error": ...}); gallery_used: [(id, body)]
         self.gallery_api = True
@@ -248,7 +249,7 @@ class MockServer:
                     continue
                 d = b.get("data") if isinstance(b.get("data"), dict) else {}
                 if b.get("type") == "widget":
-                    w = self._widget_value(b.get("id"), d)
+                    w = self._widget_value(b.get("id"), d, n)
                     if w is not None:
                         out[b.get("id")] = w
                 walk(d.get("blocks"))
@@ -256,10 +257,30 @@ class MockServer:
                     if isinstance(c, dict):
                         walk(c.get("blocks"))
         walk(blocks)
+        if getattr(self, "unsupported_kinds", None):
+            return self._reply(200, {"widgets": out, "unsupported_kinds": list(self.unsupported_kinds)})
         return self._reply(200, {"widgets": out})
 
-    def _widget_value(self, bid, d):
+    def _subpages_value(self, n, cfg):
+        """Widget-Art subpages (2.5, subpages1): direkte Unterseiten in Baum-Reihenfolge; Bild je cfg.image aus den
+        Test-Feldern sp_img (content) bzw. sp_cover (cover) der Unterseite; hoechstens subpages_limit Eintraege"""
+        kids = [k for k in self.notes.values() if k.get("parent_id") == n["id"] and not k.get("archived") and not k.get("template")]
+        image = cfg.get("image") if cfg.get("image") in ("content", "none") else "cover"
+        lim = getattr(self, "subpages_limit", 200)
+        items = [{"id": k["id"], "title": k.get("title") or "", "icon": k.get("icon") or "",
+                  "img": None if image == "none" else k.get("sp_img" if image == "content" else "sp_cover"),
+                  "kind": "database" if k.get("kind") == "database" else "page"} for k in kids[:lim]]
+        return {"kind": "subpages", "value": len(kids), "max": None, "text": None, "fmt": None,
+                "as_of": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "error": None,
+                "data": {"items": items, "total": len(kids), "more": len(kids) - len(items),
+                         "can_add": getattr(self, "subpages_can_add", True)}}
+
+    def _widget_value(self, bid, d, n=None):
         kind, cfg = d.get("kind"), d.get("cfg") if isinstance(d.get("cfg"), dict) else {}
+        if kind == "subpages":
+            if "subpages" in getattr(self, "unsupported_kinds", ()):       # fremde Seite: Ursprungsserver ohne wsubpages1
+                return None
+            return dict(self.widget_values[bid]) if bid in self.widget_values else self._subpages_value(n or {"id": None}, cfg)
         if bid in self.widget_values and kind in ("weather", "habit", "upcoming", "chart"):     # 2.5 Etappe 2 (feste Antworten)
             return dict(self.widget_values[bid])
         if kind not in ("progress", "metric", "quote") or (kind == "progress" and cfg.get("src") != "db"):
@@ -602,7 +623,8 @@ class MockServer:
             return self._public_name(method, body or {}) if self.publish_api else self._reply(404, {"error": "not found"})
         if path.startswith("api/settings"):
             return self._reply(200, {})
-        if path.startswith("files/"):
+        if path.startswith(("files/", "covers/", "api/fed/files/")):
+            self.file_log.append(path + ("?w=" + q["w"] if q.get("w") else ""))
             up = getattr(self, "uploads", {}).get("/" + path.split("?")[0])
             return self._reply(200, up if up else b"x" * 300000)
         return self._reply(200, {})

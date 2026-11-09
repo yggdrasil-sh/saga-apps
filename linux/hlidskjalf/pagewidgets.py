@@ -16,7 +16,8 @@ from zoneinfo import ZoneInfo
 from .i18n import _, ngettext, ui_language
 
 KINDS = ("clock", "countdown", "progress", "metric", "quote")
-KINDS2 = {"weather": "weather1", "habit": "habit1", "upcoming": "upcoming1", "chart": "chart1"}   # Etappe 2: Art -> Faehigkeit
+KINDS2 = {"weather": "weather1", "habit": "habit1", "upcoming": "upcoming1", "chart": "chart1",    # Etappe 2: Art -> Faehigkeit
+          "subpages": "subpages1"}                # Unterseiten als Liste/Galerie (2.5)
 FEATURES = None             # Faehigkeiten des Servers (Menge) - None: unbekannt (Etappe-2-Arten dann nicht anzeigen)
 SIZES = ("s", "m", "l")
 FMTS = ("num", "pct", "eur")
@@ -52,6 +53,8 @@ class Spec:
         self.kind = _str(d, "kind")
         self.size = d.get("size") if d.get("size") in SIZES else "m"
         self.style = "plain" if d.get("style") == "plain" else "card"
+        if self.kind == "subpages" and d.get("style") != "card":       # Unterseiten: ohne Angabe rahmenlos (wie im Web)
+            self.style = "plain"
         self.accent = d.get("accent") if d.get("accent") in PALETTE else None
         self.title = html.unescape(_str(d, "title")).strip()[:80]
         self.cfg = d.get("cfg") if isinstance(d.get("cfg"), dict) else {}
@@ -130,6 +133,12 @@ def parse_response(obj):
     return "ok", {k: parse_value(v) for k, v in w.items() if isinstance(k, str) and isinstance(v, dict)}
 
 
+def unsupported_kinds(obj):
+    """Arten, die der Server einer fremden Seite noch nicht kennt ("unsupported_kinds": ["subpages"]) -> Menge"""
+    u = obj.get("unsupported_kinds") if isinstance(obj, dict) else None
+    return frozenset(x for x in u if isinstance(x, str)) if isinstance(u, list) else frozenset()
+
+
 def error_state(code):
     """HTTP-Fehler beim Abruf: 404 = aelterer Server, 0 = nicht erreichbar, sonst Fehler"""
     if code == 404:
@@ -145,6 +154,7 @@ class Values:
 
     def __init__(self):
         self.state, self.values, self.stale, self.no2 = "none", {}, False, False
+        self.nokinds = frozenset()                  # Arten, die der Ursprungsserver nicht rechnet (unsupported_kinds)
 
     def apply(self, state, values=None):
         if state == "ok2":                          # Etappe-2-Arten fehlen (Ursprungsserver ohne widgets2)
@@ -369,11 +379,71 @@ def quote_index(n, pick, date, bid, rnd=None):
     return fnv1a(date.isoformat() + ":" + (bid or "")) % n
 
 
+# --- Unterseiten (2.5, subpages1): Liste | Galerie ----------------------------------------------------------
+SUB_MAX = 200
+# Mindestbreite einer Karte in px je Bildart und Groesse (wie im Web: --sp-w in rem * 16)
+SUB_WIDTH = {"cover": {"s": 160, "m": 216, "l": 288}, "content": {"s": 116, "m": 152, "l": 200},
+             "none": {"s": 136, "m": 176, "l": 224}}
+SUB_RATIO = {"cover": 16 / 9, "content": 2 / 3}                 # Breite / Hoehe der Bildflaeche
+SUB_THUMB_W = {"cover": 640, "content": 400}                    # ?w= fuer Vorschaubilder
+_SUB_IMG = re.compile(r"/(?:files/[A-Za-z0-9._-]{1,80}|covers/[A-Za-z0-9._-]{1,80}\.jpg|"
+                      r"api/fed/files/-?[0-9]{1,18}/[A-Za-z0-9._-]{1,80})")
+
+
+def subpages_cfg(cfg):
+    """cfg -> {"view": list|gallery, "image": cover|content|none}; Unbekanntes -> list bzw. cover"""
+    cfg = cfg if isinstance(cfg, dict) else {}
+    return {"view": "gallery" if cfg.get("view") == "gallery" else "list",
+            "image": cfg.get("image") if cfg.get("image") in ("content", "none") else "cover"}
+
+
+def _sub_path(v):
+    """Bildpfad dieses Servers (/files/..., /covers/....jpg, /api/fed/files/...) oder None - nie fremde Adressen"""
+    return v if isinstance(v, str) and ".." not in v and _SUB_IMG.fullmatch(v) else None
+
+
+def subpages_data(data):
+    """W.data -> {"items": [{"id", "title", "icon", "img", "kind"}], "total", "more", "can_add"} (falsche Typen fallen weg).
+    id: ganze Zahl ungleich 0 (negativ = Seite anderer Saga-Instanzen); icon: Emoji oder Bildpfad; title leer = unbenannt."""
+    data = data if isinstance(data, dict) else {}
+    items = []
+    for it in data.get("items") if isinstance(data.get("items"), list) else []:
+        if not isinstance(it, dict) or isinstance(it.get("id"), bool) or not isinstance(it.get("id"), int) or it["id"] == 0:
+            continue
+        ic = it.get("icon") if isinstance(it.get("icon"), str) else ""
+        if ic.startswith("/"):
+            ic = _sub_path(ic) or ""
+        items.append({"id": it["id"], "title": html.unescape(_str(it, "title")).strip()[:200], "icon": ic[:16] if not ic.startswith("/") else ic,
+                      "img": _sub_path(it.get("img")), "kind": "database" if it.get("kind") == "database" else "page"})
+        if len(items) >= SUB_MAX:
+            break
+
+    def cnt(k):
+        v = data.get(k)
+        return v if isinstance(v, int) and not isinstance(v, bool) and v >= 0 else 0
+    return {"items": items, "total": max(cnt("total"), len(items)), "more": cnt("more"), "can_add": data.get("can_add") is True}
+
+
+def subpage_title(item):
+    return item.get("title") or _("Untitled")
+
+
+def subpage_label(item):
+    """Bezeichnung fuer Screenreader: Titel, Seite bzw. Titel, Datenbank"""
+    if item.get("kind") == "database":
+        return _("{title}, database").format(title=subpage_title(item))
+    return _("{title}, page").format(title=subpage_title(item))
+
+
+def subpages_more(n):
+    return _("+ {n} more").format(n=n) if n > 0 else ""
+
+
 # --- Darstellung ----------------------------------------------------------------------------------------------
 def kind_label(kind):
     return {"clock": _("Clock"), "countdown": _("Countdown"), "progress": _("Progress"), "metric": _("Metric"),
             "quote": _("Quote"), "weather": _("Weather"), "habit": _("Habits"), "upcoming": _("Upcoming"),
-            "chart": _("Chart")}.get(kind, _("Widget"))
+            "chart": _("Chart"), "subpages": _("Subpages")}.get(kind, _("Widget"))
 
 
 def error_text(err):

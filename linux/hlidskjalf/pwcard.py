@@ -83,7 +83,26 @@ class WidgetCard(Gtk.Box):
         register(self.view, self)
         self.connect("map", lambda *_: (self.redraw(), self._arm()))
         self.connect("unmap", lambda *_: self._disarm())
+        self._tree_sig = 0
+        if self.spec.kind == "subpages" and self.spec.known:   # Seitenbaum geaendert -> Unterseiten neu holen (nur sichtbar)
+            self.connect("map", lambda *_: self._watch_tree(True))
+            self.connect("unmap", lambda *_: self._watch_tree(False))
         self.redraw()
+
+    def _watch_tree(self, on):
+        from .store import store
+        if self._tree_sig:
+            store.disconnect(self._tree_sig)
+            self._tree_sig = 0
+        if on:
+            ref = weakref.ref(self)
+
+            def changed(*_a):
+                me = ref()
+                f = getattr(me.view, "widgets_tree_changed", None) if me is not None else None
+                if f is not None:
+                    f()
+            self._tree_sig = store.connect("pages-changed", changed)
 
     # --- Inhalt -------------------------------------------------------------------------------------
     def present(self):
@@ -125,7 +144,7 @@ class WidgetCard(Gtk.Box):
         from . import pagewidgets as pwl
         vals = getattr(self.view, "wvalues", None)
         w = vals.get(self.spec.id) if vals is not None and self.spec.id else None
-        title = self.spec.title or pwl.kind_label(self.spec.kind)
+        title = self.spec.title or ("" if self.spec.kind == "subpages" else pwl.kind_label(self.spec.kind))
         self.title_lb.set_label(title)
         self.title_lb.set_visible(bool(title))
         for x in (self.main_lb, self.sub_lb, self.bar):
@@ -135,7 +154,8 @@ class WidgetCard(Gtk.Box):
             notice = pwl.error_text(w["error"])
         elif w is None or w.get("data") is None:
             st = vals.state if vals is not None else "none"
-            notice = _("Widget only available on the originating server") if (vals is not None and vals.no2) else pwl._missing(st, w)
+            away = vals is not None and (vals.no2 or self.spec.kind in vals.nokinds)     # Ursprungsserver kann die Art nicht
+            notice = _("Widget only available on the originating server") if away else pwl._missing(st, w)
         self.notice_lb.set_label(notice or "")
         self.notice_lb.set_visible(bool(notice))
         key = repr((w or {}).get("data")) + repr(notice)
@@ -156,6 +176,11 @@ class WidgetCard(Gtk.Box):
             self.extra.append(pwcard2.upcoming_box(d, open_note=lambda n: self.view.win.show_page(n)))
         elif k == "chart":
             self.extra.append(pwcard2.chart_box(d))
+        elif k == "subpages":
+            from .pwsubpages import subpages_box
+            nid = self.view.id
+            add = (lambda: self.view.win.new_page(nid)) if isinstance(nid, int) and nid > 0 else None
+            self.extra.append(subpages_box(self.spec, d, open_note=lambda n: self.view.win.show_page(n), add=add))
 
     def _habit(self, pid, day, on):
         """Abhaken: POST .../widgets/{bid}/habit -> neuer Stand des Widgets"""

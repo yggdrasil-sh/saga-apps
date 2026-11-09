@@ -351,6 +351,26 @@ window.hk-dark .hk-bg-red { background: alpha(#ff7369, 0.26); }
 .hk-widget-l .hk-w-main.hk-w-quote { font-size: 1.4em; }
 .hk-widget-s .hk-w-main.hk-w-quote { font-size: 1em; }
 .hk-w-error { color: var(--error-color, #c01c28); }
+/* Unterseiten (2.5, Widget-Art subpages): Liste | Galerie. Titel in Textfarbe, ruhige Flaechen, keine Akzentfarbe */
+.hk-sp-grid, .hk-sp-list { background: none; padding: 0; }
+flowboxchild.hk-sp-it { padding: 4px; border-radius: 12px; }
+flowboxchild.hk-sp-it:hover { background: alpha(currentColor, 0.05); }
+flowboxchild.hk-sp-it:active { background: alpha(currentColor, 0.09); }
+.hk-sp-pv { border-radius: 8px; background: alpha(currentColor, 0.06); box-shadow: inset 0 0 0 1px alpha(currentColor, 0.07); }
+.hk-sp-ph { opacity: 0.85; }
+label.hk-sp-ph { font-size: 38px; }
+.hk-widget-s label.hk-sp-ph { font-size: 30px; }
+.hk-widget-l label.hk-sp-ph { font-size: 48px; }
+.hk-sp-t { font-weight: 500; }
+.hk-sp-grid .hk-sp-t { font-size: 0.9em; }
+.hk-widget-l .hk-sp-grid .hk-sp-t { font-size: 1em; }
+.hk-sp-i-none flowboxchild.hk-sp-it { padding: 10px 12px; background: alpha(currentColor, 0.05); box-shadow: inset 0 0 0 1px alpha(currentColor, 0.08); border-radius: 10px; }
+.hk-sp-i-none flowboxchild.hk-sp-it:hover { background: alpha(currentColor, 0.09); }
+.hk-sp-list > row.hk-sp-it { padding: 5px 6px; min-height: 24px; border-radius: 6px; }
+.hk-widget-s .hk-sp-list > row.hk-sp-it { padding: 2px 6px; min-height: 22px; font-size: 0.9em; }
+.hk-widget-l .hk-sp-list > row.hk-sp-it { padding: 8px 6px; min-height: 30px; font-size: 1.15em; }
+.hk-sp-empty { padding: 6px 0; }
+.hk-sp-new { margin-top: 4px; }
 .hk-widget-newer { padding: 10px 12px; min-height: 0; }
 .hk-widget-newer .hk-w-notice { opacity: 0.75; }
 progressbar.hk-w-bar > trough { min-height: 8px; border-radius: 4px; }

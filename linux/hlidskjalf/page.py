@@ -263,6 +263,7 @@ class PageView(Gtk.Box):
         from .pagewidgets import Values
         self.wvalues = Values()                 # Widgets in Seiten (2.5): Werte vom Server (GET .../widgets)
         self._wv_busy = self._wv_once = False
+        self._wv_tree = 0
         if in_peek:
             self.append(self._peek_header())
             self.append(Gtk.Separator())
@@ -847,12 +848,25 @@ class PageView(Gtk.Box):
         def fin(r):
             self._wv_busy = False
             st, vals = pwl.parse_response(r)
+            self.wvalues.nokinds = pwl.unsupported_kinds(r)      # fremde Seite: Art, die ihr Server nicht rechnet
             self._widgets_done(st, vals)
 
         def err(e):
             self._wv_busy = False
             self._widgets_done(pwl.error_state(e.code if isinstance(e, APIError) else -1), {})
         bg(client.get, path, done=fin, error=err)
+
+    def widgets_tree_changed(self):
+        """Seitenbaum geaendert (neu, umbenannt, verschoben, geloescht): Unterseiten-Widgets kurz darauf neu holen"""
+        if self._wv_tree:
+            return
+
+        def go():
+            self._wv_tree = 0
+            if self.get_root() is not None:
+                self.load_widgets()
+            return False
+        self._wv_tree = GLib.timeout_add(600, go)
 
     def _widgets_done(self, st, vals):
         from .pwcard import redraw_all
