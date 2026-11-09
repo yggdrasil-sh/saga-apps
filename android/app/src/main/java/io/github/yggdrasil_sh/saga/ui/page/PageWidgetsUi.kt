@@ -883,15 +883,16 @@ private fun UpcomingBody(w: WgCtx, v: PageWidgets.Value?, env: BlockEnv) {
     val more = u.more + (u.items.size - items.size)
     if (items.isEmpty()) WgNote(pluralStringResource(R.plurals.wd_upcoming_none, u.days, u.days))
     val timeFmt = remember(locale) { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale) }
-    val dayFmt = remember(locale) { bestFmt(locale, "EEEdMMM") }
     val dmFmt = remember(locale) { bestFmt(locale, "dMMM") }
+    val wdFmt = remember(locale) { DateTimeFormatter.ofPattern("EEE", locale) }
     val todayL = stringResource(R.string.e1_today)
     val tomorrowL = stringResource(R.string.e1_tomorrow)
     fun dayName(d: LocalDate?): String = when (d) {
         null -> ""
         today -> todayL
         today.plusDays(1) -> tomorrowL
-        else -> d.format(dayFmt)
+        // wie im Web: Wochentag kurz ohne Punkt + ", " + Tag/Monat ("Mi, 11. Nov.") - Android setzt sonst "Mi.," (EEE)
+        else -> d.format(wdFmt).trimEnd('.') + ", " + d.format(dmFmt)
     }
     val head = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.04.em)
     val hideTime = w.widthDp < 200f
