@@ -422,10 +422,11 @@ struct ChartBody: View {
         let pie = Chart(Array(data.cats.indices.filter { vals[$0] > 0 }), id: \.self) { i in
             SectorMark(angle: .value("Wert", vals[i]), innerRadius: .ratio(data.type == "donut" ? 0.62 : 0), angularInset: 1)
                 .foregroundStyle(color(paints[safe: i] ?? .one))
+                .accessibilityLabel(Text(verbatim: data.label(i)))                      // VoiceOver: Name statt Index (Nacharbeit 1)
+                .accessibilityValue(Text(verbatim: NumFormat.text(vals[i], fmt: data.fmt, locale: locale)))
         }
         .frame(width: d, height: d)
-        .overlay { if data.type == "donut" { center(d) } }
-        .accessibilityHidden(true)
+        .overlay { if data.type == "donut" { center(d).accessibilityHidden(true) } }
         if L.beside {
             HStack(alignment: .center, spacing: 20) {
                 pie
@@ -464,6 +465,7 @@ struct ChartBody: View {
             if lg.more > 0 { Text("+ \(lg.more) weitere").italic().foregroundStyle(.secondary) }
         }
         .font(.footnote)
+        .accessibilityHidden(true)                              // VoiceOver liest die Segmente (alle, mit Wert) - nicht doppelt
     }
 
     // MARK: Balken, Linie, Flaeche
@@ -504,25 +506,27 @@ struct ChartBody: View {
                 switch data.type {
                 case "hbar":
                     if stacked {
-                        BarMark(xStart: .value("Wert", p.lo), xEnd: .value("Wert", p.hi), y: .value("Kategorie", k)).foregroundStyle(barColor(p))
+                        BarMark(xStart: .value("Wert", p.lo), xEnd: .value("Wert", p.hi), y: .value("Kategorie", k)).foregroundStyle(barColor(p)).accessibilityLabel(axLabel(p)).accessibilityValue(axValue(p))
                     } else {
-                        BarMark(x: .value("Wert", p.v), y: .value("Kategorie", k)).foregroundStyle(barColor(p)).position(by: .value("Reihe", ser))
+                        BarMark(x: .value("Wert", p.v), y: .value("Kategorie", k)).foregroundStyle(barColor(p)).position(by: .value("Reihe", ser)).accessibilityLabel(axLabel(p)).accessibilityValue(axValue(p))
                     }
                 case "line":
                     LineMark(x: .value("Kategorie", k), y: .value("Wert", p.hi)).foregroundStyle(by: .value("Reihe", ser))
                         .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-                    if dots { PointMark(x: .value("Kategorie", k), y: .value("Wert", p.hi)).foregroundStyle(by: .value("Reihe", ser)).symbolSize(28) }
+                        .accessibilityLabel(axLabel(p)).accessibilityValue(axValue(p))
+                    if dots { PointMark(x: .value("Kategorie", k), y: .value("Wert", p.hi)).foregroundStyle(by: .value("Reihe", ser)).symbolSize(28).accessibilityHidden(true) }
                 case "area":
                     AreaMark(x: .value("Kategorie", k), yStart: .value("Wert", p.lo), yEnd: .value("Wert", p.hi))
                         .foregroundStyle(by: .value("Reihe", ser)).opacity(0.2)
+                        .accessibilityLabel(axLabel(p)).accessibilityValue(axValue(p))
                     LineMark(x: .value("Kategorie", k), y: .value("Wert", p.hi)).foregroundStyle(by: .value("Reihe", ser))
-                        .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-                    if dots { PointMark(x: .value("Kategorie", k), y: .value("Wert", p.hi)).foregroundStyle(by: .value("Reihe", ser)).symbolSize(28) }
+                        .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)).accessibilityHidden(true)
+                    if dots { PointMark(x: .value("Kategorie", k), y: .value("Wert", p.hi)).foregroundStyle(by: .value("Reihe", ser)).symbolSize(28).accessibilityHidden(true) }
                 default:
                     if stacked {
-                        BarMark(x: .value("Kategorie", k), yStart: .value("Wert", p.lo), yEnd: .value("Wert", p.hi)).foregroundStyle(barColor(p))
+                        BarMark(x: .value("Kategorie", k), yStart: .value("Wert", p.lo), yEnd: .value("Wert", p.hi)).foregroundStyle(barColor(p)).accessibilityLabel(axLabel(p)).accessibilityValue(axValue(p))
                     } else {
-                        BarMark(x: .value("Kategorie", k), y: .value("Wert", p.v)).foregroundStyle(barColor(p)).position(by: .value("Reihe", ser))
+                        BarMark(x: .value("Kategorie", k), y: .value("Wert", p.v)).foregroundStyle(barColor(p)).position(by: .value("Reihe", ser)).accessibilityLabel(axLabel(p)).accessibilityValue(axValue(p))
                     }
                 }
             }
@@ -556,6 +560,13 @@ struct ChartBody: View {
             .font(.footnote)
         }
     }
+    /// VoiceOver je Punkt: Kategorie (bei mehreren Reihen mit Reihenname) und formatierter Wert - die Achse nutzt
+    /// Index-Schluessel ("0", "1" ...), ohne eigene Beschriftung laese VoiceOver Nummern (Nacharbeit 1)
+    private func axLabel(_ p: Pt) -> Text {
+        let s = data.multi ? data.series[safe: p.s]?.label ?? "" : ""
+        return Text(verbatim: data.label(p.i) + (s.isEmpty ? "" : ", " + s))
+    }
+    private func axValue(_ p: Pt) -> Text { Text(verbatim: NumFormat.text(p.v, fmt: data.fmt, locale: locale)) }
     /// Balkenfarbe: mehrere Reihen je Reihe, sonst je Kategorie (einfarbig, ausser >= 2 echte Optionsfarben)
     private func barColor(_ p: Pt) -> Color { data.multi ? color(data.seriesColor(p.s)) : color(data.catColor(p.i)) }
 
