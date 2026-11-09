@@ -584,9 +584,8 @@ private fun CountdownBody(w: WgCtx) {
     val locale = appLocale()
     val nf = java.text.NumberFormat.getIntegerInstance(locale)
     when {
+        // wie Web: 0 Tage = "Heute", auch nach Ablauf bzw. vor Beginn (kein "Erreicht"/"Noch nicht begonnen")
         cd.today -> WgValue(listOf(stringResource(R.string.pw_cd_today) to false), w)
-        cd.done && cfg.since -> WgValue(listOf(stringResource(R.string.pw_cd_not_started) to false), w)
-        cd.done -> WgValue(listOf(stringResource(R.string.pw_cd_reached) to false), w)
         cd.days != null -> {
             val n = cd.days.toInt()
             val unit = WidgetDesign.unitWord(pluralStringResource(R.plurals.wd_days, n, n), n.toString())

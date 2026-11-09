@@ -309,12 +309,12 @@ object PageWidgets {
     // ---------------------------------------------------------------- Countdown (lokal)
 
     data class Countdown(
-        /** ganze Tage (unit days bzw. auto ab einem Tag) - sonst null */
+        /** ganze Kalendertage (0 = "Heute") - null, wenn Stunden/Minuten gelten */
         val days: Long?,
         val hours: Int, val minutes: Int,
-        /** until: Ziel erreicht/ueberschritten; since: Start liegt noch in der Zukunft */
+        /** until: Ziel liegt in der Vergangenheit; since: Start liegt noch in der Zukunft (Anzeige trotzdem "Heute" wie Web) */
         val done: Boolean,
-        /** Ziel ohne Uhrzeit ist heute */
+        /** Anzeige "Heute": 0 Tage (auch nach Ablauf bzw. vor Beginn - Web wgCdParts) */
         val today: Boolean,
     )
 
@@ -336,22 +336,22 @@ object PageWidgets {
         return CountdownCfg(date, time, str(cfg, "dir") == "since", str(cfg, "unit") == "auto")
     }
 
-    /** null = kein gueltiges Datum (bad_cfg) */
+    /**
+     * Wie Web (static/pages.js wgCdParts): Kalendertage in der Zone des Betrachters, nie negativ (0 = "Heute", auch nach
+     * Ablauf bzw. vor Beginn). Nur bei unit "auto" mit Uhrzeit und weniger als 24 h Abstand Stunden und Minuten.
+     * null = kein gueltiges Datum (bad_cfg).
+     */
     fun countdown(c: CountdownCfg, now: ZonedDateTime): Countdown? {
         val date = c.date ?: return null
         val today = now.toLocalDate()
-        if (c.time == null) {
-            // nur Datum: Kalendertage in der Zone des Betrachters
-            val d = if (c.since) ChronoUnit.DAYS.between(date, today) else ChronoUnit.DAYS.between(today, date)
-            return Countdown(maxOf(0, d), 0, 0, done = d < 0, today = d == 0L)
+        val d = if (c.since) ChronoUnit.DAYS.between(date, today) else ChronoUnit.DAYS.between(today, date)
+        if (c.auto && c.time != null) {
+            val target = ZonedDateTime.of(date, c.time, now.zone)
+            val ms = (if (c.since) Duration.between(target, now) else Duration.between(now, target)).toMillis()
+            if (ms in 1 until 86_400_000L) return Countdown(null, (ms / 3_600_000L).toInt(), (ms % 3_600_000L / 60_000L).toInt(), done = false, today = false)
         }
-        val target = ZonedDateTime.of(date, c.time, now.zone)
-        val dur = if (c.since) Duration.between(target, now) else Duration.between(now, target)
-        if (dur.isNegative || dur.isZero) return Countdown(if (c.auto) null else 0, 0, 0, done = true, today = false)
-        val totalMin = dur.toMinutes()
-        val days = totalMin / 1440
-        if (!c.auto || days >= 1) return Countdown(days, 0, 0, done = false, today = days == 0L && date == today)
-        return Countdown(null, (totalMin / 60).toInt(), (totalMin % 60).toInt(), done = false, today = false)
+        val n = maxOf(0L, d)
+        return Countdown(n, 0, 0, done = d < 0, today = n == 0L)
     }
 
     // ---------------------------------------------------------------- Fortschritt

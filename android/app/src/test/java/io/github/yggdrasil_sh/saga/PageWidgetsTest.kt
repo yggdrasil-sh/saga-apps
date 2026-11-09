@@ -176,9 +176,13 @@ class PageWidgetsTest {
         assertFalse(heute.done)
         val vorbei = cd("""{"date":"2026-10-01","dir":"until"}""", now)!!
         assertTrue(vorbei.done)
+        assertTrue(vorbei.today)                                                // wie Web: abgelaufen -> "Heute"
+        assertEquals(0L, vorbei.days)
         val seit = cd("""{"date":"2026-10-01","dir":"since"}""", now)!!
         assertEquals(26L, seit.days)
-        assertTrue(cd("""{"date":"2027-01-01","dir":"since"}""", now)!!.done)  // noch nicht begonnen
+        val nochNicht = cd("""{"date":"2027-01-01","dir":"since"}""", now)!!    // noch nicht begonnen -> "Heute"
+        assertTrue(nochNicht.done)
+        assertTrue(nochNicht.today)
         assertNull(cd("""{"date":"27.10.2026"}""", now))                        // bad_cfg
     }
 
@@ -191,10 +195,15 @@ class PageWidgetsTest {
         assertEquals(30, a.minutes)
         // ab einem Tag wieder Tage
         assertEquals(2L, cd("""{"date":"2026-10-29","time":"18:45","unit":"auto"}""", now)!!.days)
-        // unit days mit Uhrzeit: volle Tage
+        // unit days mit Uhrzeit: Kalendertage (wie Web)
         assertEquals(0L, cd("""{"date":"2026-10-27","time":"18:45","unit":"days"}""", now)!!.days)
-        // Zeitpunkt erreicht
-        assertTrue(cd("""{"date":"2026-10-27","time":"09:00","unit":"auto"}""", now)!!.done)
+        assertEquals(1L, cd("""{"date":"2026-10-28","time":"08:00","unit":"days"}""", now)!!.days)
+        // auto unter 24 h ueber Mitternacht: Stunden
+        assertEquals(21, cd("""{"date":"2026-10-28","time":"08:00","unit":"auto"}""", now)!!.hours)
+        // Zeitpunkt heute schon vorbei -> "Heute" (Web: 0 Tage)
+        val vorbei = cd("""{"date":"2026-10-27","time":"09:00","unit":"auto"}""", now)!!
+        assertTrue(vorbei.today)
+        assertEquals(0L, vorbei.days)
         // seit (auto)
         val s = cd("""{"date":"2026-10-27","time":"09:00","dir":"since","unit":"auto"}""", now)!!
         assertEquals(1, s.hours)
