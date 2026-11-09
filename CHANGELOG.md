@@ -18,6 +18,16 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Leerer Block: Hinweis und – wer hier anlegen darf – „Unterseite anlegen“. Die Liste lädt neu, wenn die Seite wieder
   sichtbar wird oder sich ihre Unterseiten ändern. Einrichten (Ansicht, Kartenbild, Größe) bleibt im Web.
 
+### Neu – Android: Unterseiten als Liste oder Galerie (Widget „Unterseiten“)
+
+- Der Block „Unterseiten“ (Server 2.5, `subpages1`) erscheint in der Seite nativ statt als Ersatzkarte: als **Liste** (Symbol
+  und Titel) oder als **Galerie** mit Karten – Bild im Hochformat (erstes Bild der Seite, z. B. Buchcover), als Titelbild
+  16:9 oder ohne Bildfläche. Handy hochkant zwei Spalten, Tablet mehr; fehlt ein Bild, steht das Seitensymbol groß auf
+  ruhiger Fläche. Tippen öffnet die Unterseite (auch Datenbanken und Seiten anderer Server), „+ n weitere“ und der
+  Leerzustand mit „Unterseite anlegen“ sind dabei. Einrichten bleibt dem Web vorbehalten.
+- Widget-Werte einer Seite sind beim Zurückkehren sofort wieder da und werden dann aufgefrischt; ohne Netz bleibt der
+  letzte Stand stehen.
+
 ### Geändert – iOS, Android: Seiten-Widgets wie im Web (Widget-Design-Runde)
 
 - **Gleiche Gestaltung wie das Web:** Die Karte bleibt neutral. Eine gewählte Farbe färbt nur Ringe, Balken und Punkte, nicht
