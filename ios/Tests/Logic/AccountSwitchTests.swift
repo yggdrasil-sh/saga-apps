@@ -119,20 +119,29 @@ func accountSwitchTests() {
     check(AppKeyCleanup.parse(Data("[]".utf8)) == nil, "alter Server (Liste statt Objekt): nil")
 }
 
-/// Widget-Nacharbeit 6: kein neuer Geraete-Schluessel je Start, wenn der Schluesselbund ihn nicht haelt
+/// Widget-Nacharbeit 6: kein neuer Geraete-Schluessel je Start, wenn der Schluesselbund ihn nicht haelt (gestaffelt 1 h / 24 h)
 func deviceKeyMintTests() {
     typealias M = DeviceKeyMint
     let o = "https://saga.example", t0 = Date(timeIntervalSince1970: 1_800_000_000)
     check(M.allowed(marker: nil, origin: o, now: t0) && !M.allowed(marker: nil, origin: nil, now: t0) && !M.allowed(marker: nil, origin: "", now: t0), "ohne Marke erlaubt, ohne Server nie")
-    let m = M.after(stored: false, origin: o, now: t0)
-    check(m != nil && M.after(stored: true, origin: o, now: t0) == nil && M.after(stored: false, origin: nil, now: t0) == nil, "Marke nur, wenn nicht gespeichert")
-    // jeder weitere Start am selben Tag: kein neuer (vorher: je Start eine neue device_login-Zeile)
-    let starts = (1...10).map { t0.addingTimeInterval(Double($0) * 60) }
-    check(starts.allSatisfy { !M.allowed(marker: m, origin: o, now: $0) }, "10 Starts in Folge holen keinen neuen Schluessel")
-    check(M.allowed(marker: m, origin: o, now: t0.addingTimeInterval(M.retry)), "nach 24 h ein neuer Versuch")
-    check(M.allowed(marker: m, origin: "https://other.example", now: t0), "Marke eines anderen Servers zaehlt nicht")
-    check(M.allowed(marker: m, origin: o, now: t0.addingTimeInterval(-60)), "Uhr zurueckgestellt: wieder erlaubt")
-    // wie aus UserDefaults gelesen (NSNumber)
-    let ud: [String: Any] = ["origin": o, "at": NSNumber(value: t0.timeIntervalSince1970)]
-    check(!M.allowed(marker: ud, origin: o, now: t0.addingTimeInterval(5)) && M.allowed(marker: ["origin": o], origin: o, now: t0), "Marke aus den Einstellungen; kaputte Marke sperrt nicht")
+    let m1 = M.after(stored: false, origin: o, now: t0)
+    check(m1 != nil && M.count(marker: m1, origin: o) == 1 && M.after(stored: true, previous: m1, origin: o, now: t0) == nil && M.after(stored: false, origin: nil, now: t0) == nil, "Marke nur, wenn nicht gespeichert; Erfolg setzt zurueck")
+    // 1. Fehler: Starts innerhalb der Stunde holen keinen neuen, danach ein Versuch
+    let starts = (1...10).map { t0.addingTimeInterval(Double($0) * 5 * 60) }
+    check(starts.allSatisfy { !M.allowed(marker: m1, origin: o, now: $0) }, "10 Starts in 50 min holen keinen neuen Schluessel")
+    check(M.allowed(marker: m1, origin: o, now: t0.addingTimeInterval(M.retryFirst)), "nach dem 1. Fehler: nach 1 h ein neuer Versuch")
+    // 2. Fehler in Folge: 24 h
+    let t1 = t0.addingTimeInterval(M.retryFirst)
+    let m2 = M.after(stored: false, previous: m1, origin: o, now: t1)
+    check(M.count(marker: m2, origin: o) == 2 && !M.allowed(marker: m2, origin: o, now: t1.addingTimeInterval(M.retryFirst))
+          && !M.allowed(marker: m2, origin: o, now: t1.addingTimeInterval(M.retry - 60)) && M.allowed(marker: m2, origin: o, now: t1.addingTimeInterval(M.retry)), "ab dem 2. Fehler in Folge 24 h")
+    let m3 = M.after(stored: false, previous: m2, origin: o, now: t1)
+    check(M.count(marker: m3, origin: o) == 3 && M.wait(count: 3) == M.retry, "Zaehler steigt weiter, bleibt bei 24 h")
+    check(M.count(marker: M.after(stored: false, previous: m2, origin: "https://other.example", now: t1), origin: "https://other.example") == 1, "anderer Server zaehlt neu")
+    check(M.allowed(marker: m1, origin: "https://other.example", now: t0), "Marke eines anderen Servers zaehlt nicht")
+    check(M.allowed(marker: m2, origin: o, now: t1.addingTimeInterval(-60)), "Uhr zurueckgestellt: wieder erlaubt")
+    // wie aus UserDefaults gelesen (NSNumber); alte Marke ohne Zaehler = 1 Fehler
+    let ud: [String: Any] = ["origin": o, "at": NSNumber(value: t0.timeIntervalSince1970), "n": NSNumber(value: 2)]
+    check(!M.allowed(marker: ud, origin: o, now: t0.addingTimeInterval(2 * 3600)) && M.count(marker: ["origin": o, "at": 1.0], origin: o) == 1
+          && M.allowed(marker: ["origin": o], origin: o, now: t0), "Marke aus den Einstellungen; ohne Zaehler = 1; kaputte Marke sperrt nicht")
 }

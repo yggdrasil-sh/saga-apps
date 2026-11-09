@@ -328,7 +328,7 @@ final class Store: ObservableObject {
         if let t = j?["device_token"] as? String, t.hasPrefix("hkd_") {
             DeviceKey.set(t); ok = DeviceKey.stored() == t
             // Nacharbeit 6: nicht speicherbar -> nicht bei jedem Start einen neuen holen (ensureDeviceKey)
-            if let m = DeviceKeyMint.after(stored: ok, origin: AppConfig.serverOrigin, now: Date()) { AppConfig.store.set(m, forKey: DeviceKeyMint.storeKey) }
+            if let m = DeviceKeyMint.after(stored: ok, previous: AppConfig.store.dictionary(forKey: DeviceKeyMint.storeKey), origin: AppConfig.serverOrigin, now: Date()) { AppConfig.store.set(m, forKey: DeviceKeyMint.storeKey) }
             else { AppConfig.store.removeObject(forKey: DeviceKeyMint.storeKey) }
         }
         let k = (j?["app_key"] as? String).flatMap { $0.hasPrefix("hk_") ? $0 : nil }

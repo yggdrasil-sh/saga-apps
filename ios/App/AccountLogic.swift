@@ -186,24 +186,34 @@ enum PublicNameLogic {
 /// Widget-Nacharbeit 6: Geraete-Schluessel nicht bei jedem Start neu ausstellen lassen, wenn der Schluesselbund ihn nicht
 /// halten kann (unsignierter Simulator-Build ohne Berechtigungen, gesperrter Schluesselbund). Vorher holte jeder Start mit
 /// noch gueltiger Sitzung still einen neuen (POST /app/device -> neue Zeile device_login); bei DEVICE_LOGIN_MAX 20 auf
-/// dem Server verdraengte die App so ihre eigenen Anmeldungen. Jetzt: Marke je Server, erneuter Versuch fruehestens
-/// nach `retry` (24 h) - oder sofort nach einer neuen Anmeldung/Kopplung, deren Schluessel sich speichern liess.
+/// dem Server verdraengte die App so ihre eigenen Anmeldungen. Jetzt: Marke je Server mit Zaehler der Fehler in Folge -
+/// nach dem 1. Fehler erneuter Versuch nach 1 h (echte Geraete: Start vor dem ersten Entsperren), ab dem 2. nach 24 h.
+/// Erfolg, neue Anmeldung/Kopplung mit speicherbarem Schluessel und Abmelden setzen zurueck (Marke weg).
 enum DeviceKeyMint {
     static let storeKey = "deviceKeyUnstorable"
-    static let retry: TimeInterval = 86_400
+    static let retryFirst: TimeInterval = 3_600, retry: TimeInterval = 86_400
     /// Marke "Schluessel fuer diesen Server liess sich nicht speichern" (Einstellungen der App-Gruppe, kein Geheimnis)
-    static func marker(origin: String, at now: Date) -> [String: Any] { ["origin": origin, "at": now.timeIntervalSince1970] }
-    /// Darf die App still einen Geraete-Schluessel holen? Nur mit Server; Marke dieses Servers sperrt bis `retry`
-    /// (Uhr zurueckgestellt: wieder erlaubt). Marke eines anderen Servers zaehlt nicht.
+    static func marker(origin: String, at now: Date, count: Int = 1) -> [String: Any] { ["origin": origin, "at": now.timeIntervalSince1970, "n": count] }
+    private static func num(_ v: Any?) -> Double? { (v as? Double) ?? (v as? NSNumber)?.doubleValue }
+    /// Fehler in Folge laut Marke (0 = keine/andere Server-Marke)
+    static func count(marker m: [String: Any]?, origin: String?) -> Int {
+        guard let m, let origin, m["origin"] as? String == origin else { return 0 }
+        return max(1, Int(num(m["n"]) ?? 1))
+    }
+    /// Wartezeit nach n Fehlern in Folge
+    static func wait(count n: Int) -> TimeInterval { n >= 2 ? retry : retryFirst }
+    /// Darf die App still einen Geraete-Schluessel holen? Nur mit Server; Marke dieses Servers sperrt je nach Zaehler
+    /// 1 h bzw. 24 h (Uhr zurueckgestellt: wieder erlaubt). Marke eines anderen Servers zaehlt nicht.
     static func allowed(marker m: [String: Any]?, origin: String?, now: Date) -> Bool {
         guard let origin, !origin.isEmpty else { return false }
-        guard let m, m["origin"] as? String == origin, let at = (m["at"] as? Double) ?? (m["at"] as? NSNumber)?.doubleValue else { return true }
+        guard let m, m["origin"] as? String == origin, let at = num(m["at"]) else { return true }
         let age = now.timeIntervalSince1970 - at
-        return age >= retry || age < 0
+        return age >= wait(count: count(marker: m, origin: origin)) || age < 0
     }
-    /// Nach dem Speichern eines ausgestellten Schluessels: neue Marke (nicht gespeichert) bzw. keine (gespeichert)
-    static func after(stored: Bool, origin: String?, now: Date) -> [String: Any]? {
+    /// Nach dem Speichern eines ausgestellten Schluessels: neue Marke mit hochgezaehltem Zaehler (nicht gespeichert)
+    /// bzw. keine (gespeichert = zurueckgesetzt)
+    static func after(stored: Bool, previous: [String: Any]? = nil, origin: String?, now: Date) -> [String: Any]? {
         guard !stored, let origin, !origin.isEmpty else { return nil }
-        return marker(origin: origin, at: now)
+        return marker(origin: origin, at: now, count: count(marker: previous, origin: origin) + 1)
     }
 }
