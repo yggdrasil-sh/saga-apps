@@ -68,6 +68,10 @@ final class CallManager: NSObject, ObservableObject {
     @Published var incoming: IncomingCall?
     @Published var failed = false
     @Published var speaker = false
+    /// 2.5 (9.11.): tatsaechlicher Audio-Weg und ob Headset/Bluetooth/Auto da ist (dann System-Auswahl statt Umschalter)
+    @Published var audioRoute: CallRoute = .other
+    @Published var audioExternal = false
+    private var routeObs: NSObjectProtocol?
     /// Ton-Diagnose (getStats, alle 2 s): kommt Ton an, liefert das Mikrofon etwas - fuer den Handtest im Anruffenster
     @Published var audioIn = CallLogic.AudioIn.unknown
     @Published var audioMic = CallLogic.AudioMic.unknown
@@ -750,6 +754,9 @@ final class CallManager: NSObject, ObservableObject {
             }
         }
         if askMic { makeAudioTrack() }
+        #if os(iOS)
+        audioWatch()
+        #endif
         if video {
             let allowed = CallEnv.fakeMedia ? true : await AVCaptureDevice.requestAccess(for: .video)
             if allowed, let c = CallCamera(factory: CallRTC.factory) { camera = c; localVideo = c.track; cam = true; frontCamera = c.front; wire(c) }
@@ -1587,6 +1594,27 @@ final class CallManager: NSObject, ObservableObject {
     func toggleSpeaker() {
         speaker.toggle()
         CallAudio.route(speaker: speaker, video: media == "video")
+        audioRouteRead()
+    }
+    /// 2.5 (9.11.): Routenwechsel (AirPods an/aus, Kabel, Auswahl in CallKit bzw. der System-Auswahl) - Anzeige folgt dem
+    /// tatsaechlichen Weg, sonst zeigte der Knopf "Lautsprecher an", obwohl der Ton schon auf den AirPods lag (2 Tipps noetig)
+    func audioWatch() {
+        audioRouteRead()
+        guard routeObs == nil, !CallEnv.fakeMedia else { return }
+        routeObs = NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.audioRouteRead() }
+        }
+    }
+    func audioRouteRead() {
+        guard busy, !CallEnv.fakeMedia else { return }
+        let s = AVAudioSession.sharedInstance()
+        let outs = s.currentRoute.outputs.map(\.portType.rawValue)
+        let ins = (s.availableInputs ?? []).map(\.portType.rawValue) + s.currentRoute.inputs.map(\.portType.rawValue)
+        let r = CallRoute.of(outputs: outs), ext = CallRoute.hasExternal(inputs: ins, outputs: outs)
+        if r != audioRoute { audioRoute = r; CallEnv.log("audio route \(r.rawValue)") }
+        if ext != audioExternal { audioExternal = ext }
+        // erst mit aktiver Anruf-Session (vorher zeigt die Route noch die Wiedergabe davor)
+        if CallAudio.enabled, !outs.isEmpty, speaker != (r == .speaker) { speaker = r == .speaker }
     }
     #endif
 

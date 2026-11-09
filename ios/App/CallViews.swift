@@ -1,5 +1,8 @@
 import SwiftUI
 import WebRTC
+#if os(iOS)
+import AVKit
+#endif
 
 // Anrufe (Saga 2.1): Oberflaeche - Klingeln (ohne CallKit: Mac, Tests), Gespraech (Video gross, eigenes Bild klein),
 // Stumm/Kamera/Lautsprecher/Auflegen, "Ende-zu-Ende verschluesselt" erst nach der Pruefung des DTLS-Fingerabdrucks.
@@ -478,7 +481,9 @@ struct CallScreen: View {
                        on: !calls.sound, width: width) { echoGuard(.sound) }
             } else {
                 #if os(iOS)
-                if UIDevice.current.userInterfaceIdiom == .phone {           // nur iPhone hat eine Hoermuschel; auch bei Video umschaltbar
+                if calls.audioExternal {                                      // 2.5 (9.11.): Headset/Bluetooth/Auto - System-Auswahl
+                    routePicker(width: width)
+                } else if UIDevice.current.userInterfaceIdiom == .phone {     // nur iPhone hat eine Hoermuschel; auch bei Video umschaltbar
                     toggle("speaker.wave.2.fill", String(localized: "Lautsprecher"), on: calls.speaker, width: width) { calls.toggleSpeaker() }
                 }
                 #endif
@@ -566,6 +571,24 @@ struct CallScreen: View {
         .accessibilityValue(on ? Text("an") : Text("aus"))
         .accessibilityShowsLargeContentViewer { Label(label, systemImage: icon) }
     }
+    #if os(iOS)
+    /// 2.5 (9.11.): Audio-Ausgabe waehlen (iPhone, Lautsprecher, AirPods ...) ueber die System-Auswahl; Symbol = aktueller Weg
+    private func routePicker(width: CGFloat) -> some View {
+        let label = String(localized: "Audio")
+        return VStack(spacing: 6) {
+            ZStack {
+                Image(systemName: calls.audioRoute.icon).font(.title3).frame(width: flat ? 48 : 60, height: flat ? 48 : 60)
+                    .background(Color.white.opacity(0.18), in: Circle()).foregroundStyle(Color.white)
+                CallRoutePicker().frame(width: flat ? 48 : 60, height: flat ? 48 : 60)
+            }
+            if !flat { buttonLabel(label, width: width) }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(verbatim: label))
+        .accessibilityValue(Text(verbatim: CallRouteText.name(calls.audioRoute)))
+        .accessibilityShowsLargeContentViewer { Label(label, systemImage: calls.audioRoute.icon) }
+    }
+    #endif
     /// Feste Breite je Knopf, bis zu zwei Zeilen, nie unter 11 pt; alle oben ausgerichtet
     private func buttonLabel(_ label: String, width: CGFloat = 72) -> some View {
         // schmal (iPhone, 5 Knoepfe): 11 pt, damit auch "Lautsprecher" ungetrennt passt; breit: 12 pt
@@ -980,3 +1003,29 @@ struct SelfPip<Content: View>: View {
         }
     }
 }
+
+#if os(iOS)
+/// 2.5 (9.11.): System-Auswahl der Audio-Ausgabe (AVRoutePickerView) - eigenes Symbol liegt darunter, der Knopf selbst
+/// ist durchsichtig und nimmt das Tippen an
+struct CallRoutePicker: UIViewRepresentable {
+    func makeUIView(context: Context) -> AVRoutePickerView {
+        let v = AVRoutePickerView()
+        v.prioritizesVideoDevices = false
+        v.tintColor = .clear; v.activeTintColor = .clear
+        v.backgroundColor = .clear
+        return v
+    }
+    func updateUIView(_ v: AVRoutePickerView, context: Context) {}
+}
+enum CallRouteText {
+    static func name(_ r: CallRoute) -> String {
+        switch r {
+        case .receiver: return String(localized: "Hörmuschel")
+        case .speaker: return String(localized: "Lautsprecher")
+        case .bluetooth: return String(localized: "Bluetooth")
+        case .wired: return String(localized: "Kopfhörer")
+        case .other: return String(localized: "Audio")
+        }
+    }
+}
+#endif

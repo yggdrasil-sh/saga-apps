@@ -412,3 +412,36 @@ enum CallLogic {
         }
     }
 }
+
+// 2.5 (9.11.) Audio-Weg im Anruf (iPhone/iPad): aus AVAudioSession.currentRoute/availableInputs (Port-Typen als Text,
+// damit ohne AVFoundation pruefbar). Anzeige des Lautsprecher-Knopfs folgt dem tatsaechlichen Weg (auch nach Wechsel in
+// der System-Oberflaeche, Ein-/Ausstecken, AirPods), mit Headset/Bluetooth/Auto gibt es statt des Umschalters die
+// System-Auswahl (AVRoutePickerView).
+enum CallRoute: String, Equatable {
+    case receiver, speaker, bluetooth, wired, other
+    /// aktueller Weg aus den Ausgaben der Route (erste zaehlt)
+    static func of(outputs: [String]) -> CallRoute {
+        guard let o = outputs.first else { return .other }
+        switch o {
+        case "Receiver": return .receiver
+        case "Speaker": return .speaker
+        case "BluetoothHFP", "BluetoothA2DPOutput", "BluetoothLE": return .bluetooth
+        case "Headphones", "USBAudio", "LineOut", "CarAudio": return .wired
+        default: return .other
+        }
+    }
+    /// Gibt es mehr als Hoermuschel/Lautsprecher (Bluetooth, Headset, USB, Auto)? Dann System-Auswahl statt Umschalter
+    static func hasExternal(inputs: [String], outputs: [String]) -> Bool {
+        let ext: Set<String> = ["BluetoothHFP", "BluetoothA2DPOutput", "BluetoothLE", "MicrophoneWired", "Headphones", "USBAudio", "CarAudio", "LineOut"]
+        return inputs.contains(where: ext.contains) || outputs.contains(where: ext.contains)
+    }
+    var icon: String {
+        switch self {
+        case .receiver: return "iphone"
+        case .speaker: return "speaker.wave.2.fill"
+        case .bluetooth: return "airpodspro"
+        case .wired: return "headphones"
+        case .other: return "speaker.wave.2"
+        }
+    }
+}

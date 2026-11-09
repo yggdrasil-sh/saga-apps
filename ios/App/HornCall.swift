@@ -941,8 +941,13 @@ extension CallManager {
         guard let H = horn else { return }
         var rtt: Double?, vrtt: Double?, lost = 0, recv = 0, fz = 0      // A1: vrtt = RTT der Bild-Leitung (dort staut sich das Bild)
         for L in conn.all {
-            guard let pc = L.pc else { continue }
+            guard let pc = L.pc, !L.replaced else { continue }               // L3: ersetztes Ton-Bein sendet nichts mehr
             let rep = await pc.statsAsync()
+            guard L.pc === pc, !L.replaced else { continue }                 // waehrenddessen geschlossen/ersetzt
+            // Schluessel je PeerConnection: libwebrtc vergibt die Statistik-Kennungen je Verbindung neu - nach einer
+            // Rueckuebernahme (neues Bein, gleiche Rolle) liefen alte und neue Zaehler sonst unter derselben Quelle
+            // (Zuwachs negativ -> 0 kbps, Probe-Takt teilte sich) und OUT stand bei 0 fps/0 kbps
+            let pk = L.role + "." + String(UInt(bitPattern: ObjectIdentifier(pc).hashValue), radix: 36) + "."
             var tracks: [String: Int] = [:]
             for i in L.recv.indices { if let t = L.track(i)?.trackId { tracks[t] = i } }
             for s in rep.statistics.values {
@@ -950,7 +955,7 @@ extension CallManager {
                 if s.type == "inbound-rtp" || s.type == "outbound-rtp" {
                     let src = s.type == "outbound-rtp" ? "me"
                         : diagAlias((v["trackIdentifier"] as? String).flatMap { tracks[$0] }.flatMap { L.ownerOfCryptor($0) })
-                    diagSample(type: s.type, values: v, src: src, key: L.role + "." + s.id, rtt: conn.rtt, report: rep)
+                    diagSample(type: s.type, values: v, src: src, key: pk + s.id, rtt: conn.rtt, report: rep)
                 }
                 if s.type == "candidate-pair", (v["nominated"] as? NSNumber)?.boolValue == true, (v["state"] as? String) == "succeeded",
                    let r = (v["currentRoundTripTime"] as? NSNumber)?.doubleValue {
