@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga
 
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.LinearGradient
@@ -11,7 +12,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -34,6 +38,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.InetAddress
 import java.net.ServerSocket
+import java.util.Locale
 import kotlin.concurrent.thread
 
 /**
@@ -149,9 +154,14 @@ class SubpagesShotsTest {
         ActivityScenario.launch(ComponentActivity::class.java).use { sc ->
             sc.onActivity { a ->
                 a.enableEdgeToEdge()
+                // deutsche Texte unabhaengig von der Geraetesprache
+                val cfg = Configuration(a.resources.configuration).apply { setLocale(Locale.forLanguageTag("de")) }
+                val lc = a.createConfigurationContext(cfg)
                 a.setContent {
-                    SagaTheme(dark = dark) {
-                        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { content() }
+                    CompositionLocalProvider(LocalContext provides lc, LocalConfiguration provides cfg, androidx.activity.compose.LocalActivityResultRegistryOwner provides a) {
+                        SagaTheme(dark = dark) {
+                            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { content() }
+                        }
                     }
                 }
             }
