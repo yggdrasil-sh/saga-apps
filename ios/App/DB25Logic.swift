@@ -469,7 +469,7 @@ struct ChartData: Equatable {
         case "avg": return String(localized: "Durchschnitt")
         case "min": return String(localized: "Min")
         case "max": return String(localized: "Max")
-        case "pct_checked": return String(localized: "% angehakt")
+        case "pct_checked": return String(localized: "\("%") angehakt")     // "%" als Argument: ein Prozentzeichen im Schluessel waere ein Formatzeichen
         default: return String(localized: "Anzahl")
         }
     }
@@ -581,6 +581,24 @@ enum Widget2Logic {
         return Weather(now: num(n["t"]), code: (n["code"] as? Int) ?? 0, wind: num(n["wind"]), days: days,
                        units: (d["units"] as? String) ?? "metric", stale: d["stale"] as? Bool == true, place: (d["place"] as? String) ?? "")
     }
+    /// Wetterlage als Text (WMO-Code, groesster Eintrag <= code) wie im Web
+    static func weatherText(_ code: Int) -> String {
+        switch code {
+        case 95...: return String(localized: "Gewitter")
+        case 85...: return String(localized: "Schneeschauer")
+        case 80...: return String(localized: "Regenschauer")
+        case 77...: return String(localized: "Schneegriesel")
+        case 71...: return String(localized: "Schnee")
+        case 66...: return String(localized: "Gefrierender Regen")
+        case 61...: return String(localized: "Regen")
+        case 51...: return String(localized: "Nieselregen")
+        case 45...: return String(localized: "Nebel")
+        case 3...: return String(localized: "Bedeckt")
+        case 2: return String(localized: "Teils bewölkt")
+        case 1: return String(localized: "Überwiegend klar")
+        default: return String(localized: "Klar")
+        }
+    }
     static func weatherNotice(_ error: String?) -> String? {
         switch error {
         case "disabled": return String(localized: "Wetter ist auf diesem Server ausgeschaltet")
@@ -617,6 +635,12 @@ enum Widget2Logic {
                           note: x["note"] as? Int, task: x["task"] as? Int, overdue: x["overdue"] as? Bool == true)
         }
         return Upcoming(from: (d["from"] as? String) ?? "", days: (d["days"] as? Int) ?? 7, more: (d["more"] as? Int) ?? 0, errors: (d["errors"] as? Int) ?? 0, items: items)
+    }
+    /// Groesse S: hoechstens 4 Eintraege (ohne Tagekoepfe), der Rest zaehlt zu "und n weitere"
+    static func upcomingShown(_ u: Upcoming, small: Bool) -> (Upcoming, more: Int) {
+        guard small, u.items.count > 4 else { return (u, u.more) }
+        var v = u; v.items = Array(u.items.prefix(4))
+        return (v, u.more + u.items.count - 4)
     }
     /// Abschnitte: "Überfällig", "Heute", "Morgen", Datum (Reihenfolge wie geliefert)
     enum Section: Equatable, Hashable { case overdue, today, tomorrow, day(String) }

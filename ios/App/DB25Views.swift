@@ -311,11 +311,20 @@ struct DBChartView: View {
     @State private var loaded = false
     var body: some View {
         Group {
-            if let data { ChartBody(data: data, height: 260) }
+            if let data {
+                let spec = view?["chart"] as? [String: Any], agg = spec?["agg"] as? String
+                ChartBody(data: data, context: data.context(agg: agg, yName: propName(spec?["y"] as? String), xName: propName(spec?["x"] as? String)),
+                          cap: ChartData.aggLabel(agg))
+            }
             else if let err { Label(err == "bad_cfg" ? String(localized: "Diagramm ist nicht vollständig eingerichtet – im Web bearbeiten") : String(localized: "Diagramm konnte nicht geladen werden"), systemImage: "chart.bar.xaxis").foregroundStyle(.secondary) }
             else if !loaded { ProgressView().frame(maxWidth: .infinity, minHeight: 120) }
         }
         .task(id: "\(view?["id"] as? String ?? "")-\(store.dataTick)") { await load() }
+    }
+    /// Name einer Eigenschaft fuer die Kontextzeile ("Summe Betrag nach Kategorie")
+    private func propName(_ id: String?) -> String? {
+        guard let id else { return nil }
+        return id == "title" ? String(localized: "Name") : m.prop(id)?.name
     }
     private func load() async {
         let vid = (view?["id"] as? String ?? "").addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
@@ -334,132 +343,279 @@ struct DBChartView: View {
     }
 }
 
-/// Diagramm zeichnen (auch fuer das Widget): Balken, waagrechte Balken, Linie, Flaeche, Kreis, Ring, Zahl; Werte als Tabelle
+/// Diagramm zeichnen (auch fuer das Widget): Balken, waagrechte Balken, Linie, Flaeche, Kreis, Ring, Zahl; Werte als Tabelle.
+/// Widget-Design-Runde (9.11.): Kontextzeile "Summe · 8 Einträge", Palette ohne Optionsfarben (blau, orange, gruen …),
+/// Ring mit Gesamtwert in der Mitte und Legende mit Werten, Hoehe nach Groesse, Achse 11 pt kompakt, schmal 3 Ticks,
+/// gestapelte Flaeche stapelt, Ziellinie gestrichelt gedaempft mit "Ziel". Regeln in ChartData (DB25Logic.swift).
 struct ChartBody: View {
     let data: ChartData
-    var height: CGFloat = 220
+    /// Widget: Hoehe je Groesse (140/220/300); nil = Datenbank-Ansicht (nach Breite 160 … 300)
+    var height: CGFloat? = nil
+    /// Kontextzeile ueber dem Diagramm
+    var context: String? = nil
+    /// Beschriftung unter dem Gesamtwert im Ring ("Summe", "Anzahl"); nil = "Gesamt"
+    var cap: String? = nil
+    /// bewusst gewaehlte Widget-Farbe: einfarbige Reihe in dieser Farbe
+    var accent: Color? = nil
     @State private var showTable = false
-    private struct Pt: Identifiable { let id: Int; let i: Int; let cat: String; let series: String; let s: Int; let v: Double }
+    @State private var width: CGFloat = 0
+    @Environment(\.locale) private var envLocale
+    @Environment(\.widgetSize) private var size
+
+    private var locale: Locale { SagaDate.locale(envLocale) }
+    private var W: CGFloat { width > 0 ? width : 320 }
+    private var L: ChartData.Layout { ChartData.layout(width: Double(W), height: height.map(Double.init)) }
+    private var hasTable: Bool { data.type != "number" && !data.cats.isEmpty && !data.series.isEmpty }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if (context ?? "").isEmpty == false || (L.narrow && hasTable) {
+                HStack(spacing: 6) {
+                    if let c = context, !c.isEmpty { Text(verbatim: c).font(.footnote).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail) }
+                    Spacer(minLength: 4)
+                    if L.narrow && hasTable {
+                        Button { showTable.toggle() } label: {
+                            Image(systemName: "tablecells").font(.system(size: 12)).frame(width: 24, height: 24)
+                                .background(showTable ? Color.primary.opacity(0.1) : .clear, in: RoundedRectangle(cornerRadius: 6))
+                        }
+                        .buttonStyle(.plain).foregroundStyle(.secondary)
+                        .accessibilityLabel(Text("Werte als Tabelle")).help(Text("Werte als Tabelle"))
+                    }
+                }
+            }
+            switch data.type {
+            case "number":
+                WidgetValueText(text: NumFormat.text(data.total, fmt: data.fmt, locale: locale), size: height == nil ? 40 : widgetValueSize(size, width: W))
+                if let g = data.goal { Text("Ziel: \(NumFormat.text(g, fmt: data.fmt, locale: locale))").font(.footnote).foregroundStyle(.secondary) }
+            default:
+                if !hasTable { Text("Keine Einträge.").foregroundStyle(.secondary) }
+                else if data.round { ring } else { cartesian }
+            }
+            if data.other > 0 { Text("„Andere“ fasst \(data.other) weitere zusammen.").font(.caption).foregroundStyle(.secondary) }
+            if data.truncated { Text("Gekürzt – nur die ersten Werte werden gezeigt.").font(.caption).foregroundStyle(.secondary) }
+            if hasTable {
+                if L.narrow { if showTable { table } }
+                else { DisclosureGroup("Werte als Tabelle", isExpanded: $showTable) { table }.font(.footnote).foregroundStyle(.secondary) }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { if abs($0 - width) > 1 { width = $0 } }
+    }
+
+    // MARK: Farben
+
+    private func color(_ p: ChartData.Paint) -> Color {
+        switch p {
+        case .named(let n): return HKPalette.chart(n)
+        case .one: return accent ?? HKPalette.chart("blue")
+        case .other: return Color.secondary.opacity(0.45)
+        }
+    }
+
+    // MARK: Kreis und Ring
+
+    @ViewBuilder private var ring: some View {
+        let L = self.L, d = CGFloat(L.diameter)
+        let vals = data.cats.indices.map { i in max(0, (data.series.first?.values[safe: i] ?? nil) ?? 0) }
+        let paints = data.catColors
+        let items = data.cats.indices.map { i in (paints[safe: i] ?? .one, data.label(i), NumFormat.text(vals[i], fmt: data.fmt, locale: locale)) }
+        let pie = Chart(Array(data.cats.indices.filter { vals[$0] > 0 }), id: \.self) { i in
+            SectorMark(angle: .value("Wert", vals[i]), innerRadius: .ratio(data.type == "donut" ? 0.62 : 0), angularInset: 1)
+                .foregroundStyle(color(paints[safe: i] ?? .one))
+        }
+        .frame(width: d, height: d)
+        .overlay { if data.type == "donut" { center(d) } }
+        .accessibilityHidden(true)
+        if L.beside {
+            HStack(alignment: .center, spacing: 20) {
+                pie
+                legend(items, max: L.legendMax).frame(maxWidth: 320)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                pie.frame(maxWidth: .infinity)
+                legend(items, max: L.legendMax)
+            }
+        }
+    }
+    /// Gesamtwert gross in der Mitte, darunter klein "Summe"/"Anzahl"
+    private func center(_ d: CGFloat) -> some View {
+        let ri = d / 2 * 0.62, tv = NumFormat.text(data.total, fmt: data.fmt, locale: locale)
+        let fs = max(12, min(26, ri * 0.42, ri * 1.7 / CGFloat(max(3, tv.count)) * 1.6))
+        return VStack(spacing: 0) {
+            Text(verbatim: tv).font(.system(size: fs, weight: .semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.5)
+            if ri > 34 { Text(verbatim: cap ?? String(localized: "Gesamt")).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1) }
+        }
+        .frame(width: ri * 1.6)
+    }
+    /// Legende als Liste: Farbfeld, Name, Wert rechts; "+ n weitere"
+    private func legend(_ items: [(ChartData.Paint, String, String)], max m: Int) -> some View {
+        let lg = ChartData.legend(items, max: m)
+        return VStack(alignment: .leading, spacing: 5) {
+            ForEach(Array(lg.shown.enumerated()), id: \.offset) { _, it in
+                HStack(spacing: 7) {
+                    RoundedRectangle(cornerRadius: 3).fill(color(it.0)).frame(width: 10, height: 10)
+                    Text(verbatim: it.1).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
+                    Spacer(minLength: 8)
+                    Text(verbatim: it.2).monospacedDigit().lineLimit(1).fixedSize()
+                }
+                .accessibilityElement(children: .combine)
+            }
+            if lg.more > 0 { Text("+ \(lg.more) weitere").italic().foregroundStyle(.secondary) }
+        }
+        .font(.footnote)
+    }
+
+    // MARK: Balken, Linie, Flaeche
+
+    /// Punkt je Reihe und Kategorie; lo/hi = Unter-/Oberkante (gestapelt: aufsummiert je Kategorie)
+    private struct Pt: Identifiable { let id: Int; let i: Int; let s: Int; let v: Double; let lo: Double; let hi: Double }
+    private var stacked: Bool { data.stack && data.multi }
     private var points: [Pt] {
         var out: [Pt] = []
+        var pos = [Double](repeating: 0, count: data.cats.count), neg = pos
         for (j, s) in data.series.enumerated() {
             var acc = 0.0
             for i in data.cats.indices {
-                let raw = s.values.indices.contains(i) ? s.values[i] : nil
-                guard var v = raw else { continue }
+                guard var v = s.values[safe: i] ?? nil else { continue }
                 if data.cumulative { acc += v; v = acc }
-                out.append(Pt(id: j * 10000 + i, i: i, cat: data.label(i), series: s.label.isEmpty ? " " : s.label, s: j, v: v))
+                var lo = 0.0, hi = v
+                if stacked {
+                    if v >= 0 { lo = pos[i]; pos[i] += v; hi = pos[i] } else { lo = neg[i]; neg[i] += v; hi = neg[i] }
+                }
+                out.append(Pt(id: j * 10000 + i, i: i, s: j, v: v, lo: lo, hi: hi))
             }
         }
         return out
     }
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            switch data.type {
-            case "number":
-                Text(verbatim: NumFormat.text(data.total, fmt: data.fmt)).font(.system(size: 40, weight: .semibold)).monospacedDigit()
-                if let g = data.goal { Text("Ziel: \(NumFormat.text(g, fmt: data.fmt))").font(.caption).foregroundStyle(.secondary) }
-            case "pie", "donut": pie
-            default: cartesian
-            }
-            if data.truncated || data.other > 0 { Text("Weitere Werte als „Andere“ zusammengefasst").font(.caption2).foregroundStyle(.tertiary) }
-            if data.type != "number" && !data.cats.isEmpty {
-                DisclosureGroup("Werte als Tabelle", isExpanded: $showTable) { table }.font(.caption)
-            }
-        }
-    }
     @ViewBuilder private var cartesian: some View {
-        let pts = points, labels = data.cats.indices.map { data.label($0) }
-        let lo = data.range.0, hi = data.cumulative ? max(data.range.1, pts.map(\.v).max() ?? 0) : data.range.1
-        let ticks = ChartData.ticks(min(lo, 0), max(hi, 0), integer: data.integerValues)
+        let L = self.L, pts = points, horiz = data.type == "hbar"
+        let all = pts.flatMap { [$0.lo, $0.hi] } + (L.tiny ? [] : data.goal.map { [$0] } ?? [])
+        let ticks = ChartData.ticks(min(0, all.min() ?? 0), max(0, all.max() ?? 0), n: L.ticks, integer: data.integerValues)
+        let keys = data.cats.indices.map { String($0) }, labels = data.cats.indices.map { data.label($0) }
+        let sKeys = data.series.indices.map { String($0) }
+        let sCols = data.multi ? data.seriesColors.map { color($0) } : [color(.one)]
+        let dots = data.cats.count <= 24 && !L.tiny
+        let h = L.tiny ? min(CGFloat(L.height), 72) : (horiz ? max(CGFloat(L.height), CGFloat(labels.count) * 26 + 40) : CGFloat(L.height))
+        if L.tiny { WidgetValueText(text: NumFormat.text(data.total, fmt: data.fmt, locale: locale), size: 20) }
         Chart {
             ForEach(pts) { p in
-                let x = PlottableValue.value("Kategorie", p.cat), y = PlottableValue.value("Wert", p.v)
+                let k = String(p.i), ser = data.multi ? String(p.s) : "0"
                 switch data.type {
                 case "hbar":
-                    BarMark(x: .value("Wert", p.v), y: .value("Kategorie", p.cat)).foregroundStyle(color(p))
-                        .position(by: .value("Reihe", data.stack || data.single ? "" : p.series))
+                    if stacked {
+                        BarMark(xStart: .value("Wert", p.lo), xEnd: .value("Wert", p.hi), y: .value("Kategorie", k)).foregroundStyle(barColor(p))
+                    } else {
+                        BarMark(x: .value("Wert", p.v), y: .value("Kategorie", k)).foregroundStyle(barColor(p)).position(by: .value("Reihe", ser))
+                    }
                 case "line":
-                    LineMark(x: x, y: y).foregroundStyle(by: .value("Reihe", p.series)).symbol(by: .value("Reihe", p.series)).interpolationMethod(.monotone)
+                    LineMark(x: .value("Kategorie", k), y: .value("Wert", p.hi)).foregroundStyle(by: .value("Reihe", ser))
+                        .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                    if dots { PointMark(x: .value("Kategorie", k), y: .value("Wert", p.hi)).foregroundStyle(by: .value("Reihe", ser)).symbolSize(28) }
                 case "area":
-                    AreaMark(x: x, y: y, stacking: data.stack ? .standard : .unstacked).foregroundStyle(by: .value("Reihe", p.series)).opacity(0.5)
-                    LineMark(x: x, y: y).foregroundStyle(by: .value("Reihe", p.series))
+                    AreaMark(x: .value("Kategorie", k), yStart: .value("Wert", p.lo), yEnd: .value("Wert", p.hi))
+                        .foregroundStyle(by: .value("Reihe", ser)).opacity(0.2)
+                    LineMark(x: .value("Kategorie", k), y: .value("Wert", p.hi)).foregroundStyle(by: .value("Reihe", ser))
+                        .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                    if dots { PointMark(x: .value("Kategorie", k), y: .value("Wert", p.hi)).foregroundStyle(by: .value("Reihe", ser)).symbolSize(28) }
                 default:
-                    BarMark(x: x, y: y).foregroundStyle(color(p))
-                        .position(by: .value("Reihe", data.stack || data.single ? "" : p.series))
+                    if stacked {
+                        BarMark(x: .value("Kategorie", k), yStart: .value("Wert", p.lo), yEnd: .value("Wert", p.hi)).foregroundStyle(barColor(p))
+                    } else {
+                        BarMark(x: .value("Kategorie", k), y: .value("Wert", p.v)).foregroundStyle(barColor(p)).position(by: .value("Reihe", ser))
+                    }
                 }
             }
-            if let g = data.goal {
-                if data.type == "hbar" { RuleMark(x: .value("Ziel", g)).foregroundStyle(.red).lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3])) }
-                else { RuleMark(y: .value("Ziel", g)).foregroundStyle(.red).lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3])) }
+            if let g = data.goal, !L.tiny {
+                let gl = String(localized: "Ziel##Chart") + " " + ChartData.axisText(g, fmt: data.fmt, locale: locale)   // "Ziel" allein ist im Katalog ein Speicherziel
+                if horiz {
+                    RuleMark(x: .value("Ziel", g)).foregroundStyle(Color.secondary).lineStyle(StrokeStyle(lineWidth: 1.25, dash: [4, 4]))
+                        .annotation(position: .top, alignment: .center) { Text(verbatim: gl).font(.system(size: 11)).foregroundStyle(.secondary) }
+                } else {
+                    RuleMark(y: .value("Ziel", g)).foregroundStyle(Color.secondary).lineStyle(StrokeStyle(lineWidth: 1.25, dash: [4, 4]))
+                        .annotation(position: .top, alignment: .trailing) { Text(verbatim: gl).font(.system(size: 11)).foregroundStyle(.secondary) }
+                }
             }
         }
-        .chartForegroundStyleScale(domain: data.series.map { $0.label.isEmpty ? " " : $0.label }, range: data.series.indices.map { HKPalette.chart(data.seriesColor($0)) })
-        .chartLegend(data.single ? .hidden : .visible)
-        .modifier(AxisTicks(ticks: ticks, horizontal: data.type == "hbar", fmt: data.fmt, labels: labels))
-        .frame(height: data.type == "hbar" ? max(height, CGFloat(labels.count) * 26 + 40) : height)
-    }
-    private func color(_ p: Pt) -> Color {
-        data.single ? HKPalette.chart(data.catColor(p.i)) : HKPalette.chart(data.seriesColor(p.s))
-    }
-    @ViewBuilder private var pie: some View {
-        let vals = data.cats.indices.compactMap { i -> (Int, Double)? in
-            guard let v = data.series.first?.values[safe: i] ?? nil, v > 0 else { return nil }; return (i, v)
-        }
-        HStack(alignment: .center, spacing: 16) {
-            Chart(vals, id: \.0) { p in
-                SectorMark(angle: .value("Wert", p.1), innerRadius: .ratio(data.type == "donut" ? 0.58 : 0), angularInset: 1)
-                    .foregroundStyle(HKPalette.chart(data.catColor(p.0)))
-            }
-            .frame(width: min(height, 200), height: min(height, 200))
-            .overlay { if data.type == "donut" { Text(verbatim: NumFormat.text(data.total, fmt: data.fmt)).font(.headline).monospacedDigit() } }
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(vals, id: \.0) { p in
+        .chartForegroundStyleScale(domain: data.multi ? sKeys : ["0"], range: sCols)
+        .chartLegend(.hidden)
+        .modifier(AxisTicks(ticks: ticks, horizontal: horiz, fmt: data.fmt, keys: keys, labels: labels, hidden: L.tiny, locale: locale))
+        .frame(height: h)
+        if data.multi {
+            let items = data.series.indices.map { j in (data.seriesColor(j), data.series[j].label.isEmpty ? String(localized: "Wert") : data.series[j].label) }
+            let lg = ChartData.legend(items, max: L.narrow ? 4 : 10)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 84), spacing: 12, alignment: .leading)], alignment: .leading, spacing: 4) {
+                ForEach(Array(lg.shown.enumerated()), id: \.offset) { _, it in
                     HStack(spacing: 6) {
-                        RoundedRectangle(cornerRadius: 2).fill(HKPalette.chart(data.catColor(p.0))).frame(width: 10, height: 10)
-                        Text(verbatim: data.label(p.0)).lineLimit(1)
-                        Spacer(minLength: 4)
-                        Text(verbatim: NumFormat.text(p.1, fmt: data.fmt)).monospacedDigit().foregroundStyle(.secondary)
-                    }.font(.caption)
+                        RoundedRectangle(cornerRadius: 3).fill(color(it.0)).frame(width: 10, height: 10)
+                        Text(verbatim: it.1).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
+                    }
                 }
+                if lg.more > 0 { Text("+ \(lg.more) weitere").italic().foregroundStyle(.secondary) }
             }
+            .font(.footnote)
         }
     }
+    /// Balkenfarbe: mehrere Reihen je Reihe, sonst je Kategorie (einfarbig, ausser >= 2 echte Optionsfarben)
+    private func barColor(_ p: Pt) -> Color { data.multi ? color(data.seriesColor(p.s)) : color(data.catColor(p.i)) }
+
     private var table: some View {
         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 3) {
             GridRow {
                 Text(verbatim: "")
-                ForEach(Array(data.series.enumerated()), id: \.offset) { Text(verbatim: $0.element.label.isEmpty ? String(localized: "Wert") : $0.element.label).bold() }
+                ForEach(Array(data.series.enumerated()), id: \.offset) { Text(verbatim: data.series.count > 1 && !$0.element.label.isEmpty ? $0.element.label : String(localized: "Wert")).bold() }
             }
             ForEach(data.cats.indices, id: \.self) { i in
                 GridRow {
                     Text(verbatim: data.label(i))
                     ForEach(Array(data.series.enumerated()), id: \.offset) { s in
-                        Text(verbatim: (s.element.values[safe: i] ?? nil).map { NumFormat.text($0, fmt: data.fmt) } ?? "–").monospacedDigit()
+                        Text(verbatim: (s.element.values[safe: i] ?? nil).map { NumFormat.text($0, fmt: data.fmt, locale: locale) } ?? "–").monospacedDigit()
                     }
                 }
             }
         }
+        .font(.footnote).foregroundStyle(.primary)
         .padding(.top, 4)
     }
 }
 
-/// Achsenwerte wie im Web (1/2/2,5/5 x 10^k)
+/// Achsen wie im Web: Werte 1/2/2,5/5 x 10^k kompakt, Beschriftung 11 pt; Kategorien gekuerzt, ueberlappende ausgelassen
 private struct AxisTicks: ViewModifier {
     let ticks: [Double]
     let horizontal: Bool
     let fmt: String
+    let keys: [String]
     let labels: [String]
+    let hidden: Bool
+    let locale: Locale
+    private func valueMarks() -> some AxisContent {
+        AxisMarks(values: ticks) { v in
+            AxisGridLine()
+            AxisValueLabel { Text(verbatim: ChartData.axisText(v.as(Double.self) ?? 0, fmt: fmt, locale: locale)).font(.system(size: 11)) }
+        }
+    }
+    private func catMarks() -> some AxisContent {
+        AxisMarks(values: keys) { v in
+            AxisValueLabel(collisionResolution: .greedy) {
+                Text(verbatim: v.as(String.self).flatMap(Int.init).flatMap { labels[safe: $0] } ?? "").font(.system(size: 11)).lineLimit(1).truncationMode(.tail)
+            }
+        }
+    }
     func body(content: Content) -> some View {
         let dom = (ticks.first ?? 0)...(ticks.last ?? 1)
-        if horizontal {
+        if hidden {
+            if horizontal { content.chartXScale(domain: dom).chartYScale(domain: keys).chartXAxis(.hidden).chartYAxis(.hidden) }
+            else { content.chartYScale(domain: dom).chartXScale(domain: keys).chartXAxis(.hidden).chartYAxis(.hidden) }
+        } else if horizontal {
             content
-                .chartXScale(domain: dom).chartYScale(domain: labels)
-                .chartXAxis { AxisMarks(values: ticks) { v in AxisGridLine(); AxisValueLabel { Text(verbatim: NumFormat.text(v.as(Double.self), fmt: fmt)) } } }
+                .chartXScale(domain: dom).chartYScale(domain: keys)
+                .chartXAxis { valueMarks() }
+                .chartYAxis { catMarks() }
         } else {
             content
-                .chartYScale(domain: dom).chartXScale(domain: labels)
-                .chartYAxis { AxisMarks(values: ticks) { v in AxisGridLine(); AxisValueLabel { Text(verbatim: NumFormat.text(v.as(Double.self), fmt: fmt)) } } }
+                .chartYScale(domain: dom).chartXScale(domain: keys)
+                .chartYAxis { valueMarks() }
+                .chartXAxis { catMarks() }
         }
     }
 }

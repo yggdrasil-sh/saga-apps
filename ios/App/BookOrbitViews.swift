@@ -81,7 +81,7 @@ struct ReadingBookRow: View {
                     Text(verbatim: book.authorLine).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
                 HStack(spacing: 6) {
-                    ProgressView(value: book.progress, total: 100).progressViewStyle(.linear)
+                    WidgetBar(fraction: book.progress / 100)   // Balken wie die Widgets (6 pt, Pille)
                     Text(verbatim: "\(book.percent) %").font(.caption2).monospacedDigit().foregroundStyle(.secondary)
                 }
             }
@@ -100,7 +100,7 @@ struct ReadingGoalView: View {
         VStack(alignment: .leading, spacing: 6) {
             if let g = goal.goal, let f = goal.fraction {
                 Text(verbatim: "\(goal.done) / \(g)").font(size == .s ? .title3.weight(.semibold) : .largeTitle.weight(.semibold)).monospacedDigit()
-                ProgressView(value: f).progressViewStyle(.linear)
+                WidgetBar(fraction: f)
                 Group {
                     // Ohne Jahr keine leere Luecke ("Leseziel : ...")
                     if let y = yearText { Text("Leseziel \(y): \(goal.done) von \(g) Büchern") } else { Text("Leseziel: \(goal.done) von \(g) Büchern") }

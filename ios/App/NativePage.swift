@@ -1650,17 +1650,25 @@ struct BlockView: View {
             ToggleBlock(id: id, data: data)
         case "columns":
             let cols = (data["cols"] as? NSArray)?.compactMap { ($0 as? NSDictionary)?["blocks"] as? NSMutableArray } ?? []
+            let rows = colWidth > 0 ? ColumnsLogic.rows(count: cols.count, width: Double(colWidth)) : [ColumnsLogic.Row(items: Array(cols.indices), slots: cols.count)]
+            let equal = ColumnsLogic.equalHeight(cols)          // Karten einer Reihe gleich hoch (je Spalte genau ein Widget)
             if hsc == .compact {
-                VStack(alignment: .leading, spacing: 14) {   // iPhone: Spalten untereinander
+                VStack(alignment: .leading, spacing: 10) {   // iPhone: Spalten untereinander, ~10 pt Abstand (Widget-Design-Runde)
                     ForEach(Array(cols.enumerated()), id: \.offset) { _, c in
                         VStack(alignment: .leading, spacing: 4) { BlocksView(arr: c); ColumnAddButton(visible: true) { ed.continueInColumn(c) } }
                     }
                 }
-            } else if cols.count > 4, colWidth > 0, ColumnsLogic.perRow(count: cols.count, width: Double(colWidth)) < cols.count {
-                // 2.5 cols6: 5-6 Spalten mit Mindestbreite, passen sie nicht nebeneinander -> Umbruch in Zeilen
-                let per = ColumnsLogic.perRow(count: cols.count, width: Double(colWidth))
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: columnGap, alignment: .top), count: per), alignment: .leading, spacing: 14) {
-                    ForEach(Array(cols.enumerated()), id: \.offset) { i, c in column(i, c) }
+            } else if rows.count > 1 {
+                // Widget-Design-Runde (9.11.): Umbruch nach Breite wie im Web (4 -> 2x2, 3 -> 2 + 1, schmal untereinander);
+                // eigene Spaltenbreiten gelten nur, solange nicht umgebrochen ist
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(Array(rows.enumerated()), id: \.offset) { _, r in
+                        HStack(alignment: .top, spacing: columnGap) {
+                            ForEach(r.items, id: \.self) { i in column(i, cols[i], fill: equal) }
+                            ForEach(0..<max(0, r.slots - r.items.count), id: \.self) { _ in Color.clear.frame(maxWidth: .infinity, maxHeight: 1) }
+                        }
+                        .modifier(EqualRowHeight(on: equal))
+                    }
                 }
             } else if let ws = GestaltenLogic.colWeights(data["cols"] as? NSArray), ws.count == cols.count {
                 WeightedColumns(weights: ws, spacing: columnGap) {            // 2.5: Spaltenbreiten aus dem Web (cols[].w)
@@ -1668,8 +1676,9 @@ struct BlockView: View {
                 }
             } else {
                 HStack(alignment: .top, spacing: columnGap) {
-                    ForEach(Array(cols.enumerated()), id: \.offset) { i, c in column(i, c) }
+                    ForEach(Array(cols.enumerated()), id: \.offset) { i, c in column(i, c, fill: equal) }
                 }
+                .modifier(EqualRowHeight(on: equal))
             }
         case "database":
             if let db = data["db"] as? Int {
@@ -1699,20 +1708,20 @@ struct BlockView: View {
         case "nextcloud":                                            // 2.3: Datei/Ordner aus Nextcloud (Block bleibt unveraendert)
             NextcloudCard(data: data, note: ed.doc.id, remotePage: FedLogic.isRemote(ed.doc.id))
         case "widget":                                               // 2.5: Seiten-Widget (nur Anzeige; Block bleibt unveraendert)
-            WidgetBlockView(data: data, blockID: id)
+            WidgetBlockView(data: data, blockID: id, editable: !ed.locked && !ed.doc.access.readOnly)
         default:
             // 2.5: unbekannter Typ -> Hinweis-Karte statt unsichtbar; der Block bleibt beim Speichern unveraendert (Regel 0)
             if GestaltenLogic.needsFallback(type) { FallbackBlockCard(type: type, blockID: id, note: ed.doc.id) }
         }
     }
 
-    /// Eine Spalte (Mac/iPad nebeneinander)
-    private func column(_ i: Int, _ c: NSMutableArray) -> some View {
+    /// Eine Spalte (Mac/iPad nebeneinander); fill: Widget fuellt die Hoehe der Reihe
+    private func column(_ i: Int, _ c: NSMutableArray, fill: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            BlocksView(arr: c)
-            ColumnAddButton(visible: colHover == i) { ed.continueInColumn(c) }   // in DIESER Spalte weiterschreiben
+            BlocksView(arr: c).environment(\.widgetFill, fill)
+            if !fill || colHover == i { ColumnAddButton(visible: colHover == i) { ed.continueInColumn(c) } }   // in DIESER Spalte weiterschreiben
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: fill ? .infinity : nil, alignment: .topLeading)
         .contentShape(Rectangle())
         .onHover { colHover = $0 ? i : (colHover == i ? nil : colHover) }
     }
@@ -2130,6 +2139,14 @@ struct BlockMenu<L: View>: View {
 
 
 /// "+ Block" unter einer Spalte: neuer Absatz am Ende GENAU dieser Spalte (Mac beim Ueberfahren der Spalte)
+/// Reihe mit gleich hohen Widget-Karten: Hoehe = hoechste Karte (die Karten fuellen sie per widgetFill)
+private struct EqualRowHeight: ViewModifier {
+    let on: Bool
+    func body(content: Content) -> some View {
+        if on { content.fixedSize(horizontal: false, vertical: true) } else { content }
+    }
+}
+
 struct ColumnAddButton: View {
     let visible: Bool
     let action: () -> Void

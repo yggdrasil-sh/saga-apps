@@ -226,6 +226,14 @@ enum WidgetLogic {
         return f.string(from: date)
     }
 
+    /// Kurzdatum unter der Zeigeruhr ("Mo., 9. Nov.")
+    static func clockShortDate(_ date: Date, cfg: [String: Any], locale: Locale, viewer: TimeZone = .autoupdatingCurrent) -> String {
+        let f = DateFormatter()
+        f.locale = locale; f.calendar = Calendar(identifier: .gregorian); f.timeZone = clockZone(cfg, viewer: viewer)
+        f.setLocalizedDateFormatFromTemplate("EEEdMMM")
+        return f.string(from: date)
+    }
+
     /// Zeigerwinkel (Grad, 0 = 12 Uhr, im Uhrzeigersinn) fuer die Zeigeruhr
     struct Hands: Equatable { var hour: Double; var minute: Double; var second: Double }
 

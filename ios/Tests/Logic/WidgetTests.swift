@@ -222,6 +222,14 @@ func widgetDesignTests() {
     let en = Locale(identifier: "en_US")
     check(ChartData.axisText(1500, fmt: "num", locale: en) == "1.5K" && ChartData.axisText(7.5, fmt: "num", locale: en) == "7.5" && ChartData.axisText(10, fmt: "num", locale: en) == "10", "Achse kompakt")
 
+    // MARK: Wetterlage, Anstehendes S
+    check(Widget2Logic.weatherText(0) == "Klar" && Widget2Logic.weatherText(3) == "Bedeckt" && Widget2Logic.weatherText(48) == "Nebel" && Widget2Logic.weatherText(99) == "Gewitter", "Wetterlage als Text")
+    let it = Widget2Logic.Upcoming.Item(k: "task", title: "x", start: "2026-11-09", end: nil, allday: true, color: nil, cal: nil, note: nil, task: 1, overdue: false)
+    let up6 = Widget2Logic.Upcoming(from: "2026-11-09", days: 7, more: 2, errors: 0, items: Array(repeating: it, count: 6))
+    check(Widget2Logic.upcomingShown(up6, small: true).0.items.count == 4 && Widget2Logic.upcomingShown(up6, small: true).more == 4
+          && Widget2Logic.upcomingShown(up6, small: false).more == 2 && Widget2Logic.upcomingShown(up6, small: false).0.items.count == 6, "Anstehendes S: 4 Eintraege + weitere")
+    check(ChartData.aggLabel("pct_checked") == "% angehakt" && ChartData.aggLabel("avg") == "Durchschnitt", "Rechenart als Text")
+
     // MARK: Spalten (Regel 18)
     typealias C = ColumnsLogic
     check(C.rows(count: 4, width: 1000).map(\.items) == [[0, 1, 2, 3]] && C.rows(count: 4, width: 700) == [.init(items: [0, 1], slots: 2), .init(items: [2, 3], slots: 2)], "4 -> 2x2")
