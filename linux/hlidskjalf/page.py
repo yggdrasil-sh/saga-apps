@@ -315,6 +315,7 @@ class PageView(Gtk.Box):
             self.header_changed()
         self._trash_state()
         self._relabel_links()
+        self.widgets_tree_changed()
 
     def _trash_state(self):
         """Seite (bzw. ihre Elternseite) ging in den Papierkorb oder kam zurueck: sperren bzw. wieder freigeben (Hinweis
@@ -858,7 +859,8 @@ class PageView(Gtk.Box):
 
     def widgets_tree_changed(self):
         """Seitenbaum geaendert (neu, umbenannt, verschoben, geloescht): Unterseiten-Widgets kurz darauf neu holen"""
-        if self._wv_tree:
+        if self._wv_tree or not any(c.spec.kind == "subpages" and c.spec.known and c.get_mapped()
+                                    for c in list(getattr(self, "wcards", None) or ())):
             return
 
         def go():

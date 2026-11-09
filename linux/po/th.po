@@ -9291,3 +9291,30 @@ msgstr "คัดลอกรูปภาพแล้ว"
 #, python-brace-format
 msgid "Image not copied: {err}"
 msgstr "คัดลอกรูปภาพไม่ได้: {err}"
+
+#: hlidskjalf/pagewidgets.py
+#, python-brace-format
+msgid "{title}, database"
+msgstr "{title}, ฐานข้อมูล"
+
+#: hlidskjalf/pagewidgets.py
+#, python-brace-format
+msgid "{title}, page"
+msgstr "{title}, หน้า"
+
+#: hlidskjalf/pagewidgets.py
+#, python-brace-format
+msgid "+ {n} more"
+msgstr "+ อีก {n} รายการ"
+
+#: hlidskjalf/pwsubpages.py
+msgid "No subpages yet"
+msgstr "ยังไม่มีหน้าย่อย"
+
+#: hlidskjalf/pwsubpages.py
+msgid "Add subpage"
+msgstr "สร้างหน้าย่อย"
+
+#: hlidskjalf/pwsubpages.py
+msgid "Pages placed below this page appear here."
+msgstr "หน้าที่อยู่ใต้หน้านี้จะแสดงที่นี่"

@@ -83,26 +83,7 @@ class WidgetCard(Gtk.Box):
         register(self.view, self)
         self.connect("map", lambda *_: (self.redraw(), self._arm()))
         self.connect("unmap", lambda *_: self._disarm())
-        self._tree_sig = 0
-        if self.spec.kind == "subpages" and self.spec.known:   # Seitenbaum geaendert -> Unterseiten neu holen (nur sichtbar)
-            self.connect("map", lambda *_: self._watch_tree(True))
-            self.connect("unmap", lambda *_: self._watch_tree(False))
         self.redraw()
-
-    def _watch_tree(self, on):
-        from .store import store
-        if self._tree_sig:
-            store.disconnect(self._tree_sig)
-            self._tree_sig = 0
-        if on:
-            ref = weakref.ref(self)
-
-            def changed(*_a):
-                me = ref()
-                f = getattr(me.view, "widgets_tree_changed", None) if me is not None else None
-                if f is not None:
-                    f()
-            self._tree_sig = store.connect("pages-changed", changed)
 
     # --- Inhalt -------------------------------------------------------------------------------------
     def present(self):

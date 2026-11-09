@@ -9621,3 +9621,30 @@ msgstr "Изображение скопировано."
 #, python-brace-format
 msgid "Image not copied: {err}"
 msgstr "Изображение не скопировано: {err}"
+
+#: hlidskjalf/pagewidgets.py
+#, python-brace-format
+msgid "{title}, database"
+msgstr "{title}, база данных"
+
+#: hlidskjalf/pagewidgets.py
+#, python-brace-format
+msgid "{title}, page"
+msgstr "{title}, страница"
+
+#: hlidskjalf/pagewidgets.py
+#, python-brace-format
+msgid "+ {n} more"
+msgstr "+ ещё {n}"
+
+#: hlidskjalf/pwsubpages.py
+msgid "No subpages yet"
+msgstr "Подстраниц пока нет"
+
+#: hlidskjalf/pwsubpages.py
+msgid "Add subpage"
+msgstr "Создать подстраницу"
+
+#: hlidskjalf/pwsubpages.py
+msgid "Pages placed below this page appear here."
+msgstr "Здесь появятся страницы, вложенные в эту страницу."

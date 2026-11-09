@@ -334,7 +334,7 @@ def test_old_server_shows_fallback_card(win, srv):
     pump(None, 0.4)
     card = _card(v)
     assert card.has_css_class("hk-widget-newer") and not _items(card)
-    assert card.notice_lb.get_label() in ("Widget – a newer app version is needed", "Widget – neuere App-Version nötig")
+    assert card.notice_lb.get_label() in ("Widget – a newer app version is needed", "Widget – neuere Version nötig")
 
 
 def test_roundtrip_block_unchanged(win, srv):

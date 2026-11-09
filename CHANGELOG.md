@@ -28,6 +28,13 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Widget-Werte einer Seite sind beim Zurückkehren sofort wieder da und werden dann aufgefrischt; ohne Netz bleibt der
   letzte Stand stehen.
 
+### Neu – Linux: Widget „Unterseiten“ als Liste oder Galerie (`subpages1`)
+
+- Die Linux-App zeigt die neue Widget-Art statt der Ersatzkarte: als **Galerie** (umbrechendes Kartenraster, Bild im
+  Hochformat 2:3, als Titelbild 16:9 oder ohne Bild, darunter Symbol und Titel) oder als **Liste**. Klick oder Eingabetaste
+  öffnet die Unterseite – auch Datenbanken und Seiten anderer Saga-Instanzen. Mit „+ n weitere“, Leerzustand samt
+  „Unterseite anlegen“ und Aktualisierung, sobald sich der Seitenbaum ändert. Einrichten weiterhin im Web.
+
 ### Geändert – iOS, Android: Seiten-Widgets wie im Web (Widget-Design-Runde)
 
 - **Gleiche Gestaltung wie das Web:** Die Karte bleibt neutral. Eine gewählte Farbe färbt nur Ringe, Balken und Punkte, nicht
