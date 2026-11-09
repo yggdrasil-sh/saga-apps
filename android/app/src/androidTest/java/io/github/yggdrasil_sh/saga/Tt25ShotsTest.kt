@@ -181,7 +181,7 @@ class Tt25ShotsTest {
     @Test
     fun t15_slashMenuAtPageEnd() {
         shot("15-vorher", waitMs = 4000) { SlashPage("15 vorher: „/“ am Seitenende") { OldSlashCard() } }
-        shot("15-nachher", waitMs = 4000) { SlashPage("15 nachher: „/“ am Seitenende") { SlashMenuCard("", emptySet()) {} } }
+        shot("15-nachher", waitMs = 4000) { SlashPage("15 nachher: „/“ am Seitenende") { SlashMenuCard("", emptySet(), androidx.compose.ui.geometry.Rect.Zero) {} } }
     }
 
     @Test
