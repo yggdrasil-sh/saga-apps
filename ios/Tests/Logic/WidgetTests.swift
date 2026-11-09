@@ -265,5 +265,16 @@ func widgetNacharbeitTests() {
     let h14 = WidgetLogic.heatHeads(days: d14, today: 13, pitch: 8)
     check(h14.contains(13) && !h14.contains(12) && h14.contains(2) && h14.contains(7), "Zahl direkt neben heute faellt weg")
     check(WidgetLogic.heatHeads(days: d14, today: 13, pitch: 15).contains(12), "mit Platz bleibt sie")
+    // MARK: Kontext "Rechenart · Quelle" mit src_name (Nacharbeit 12)
+    let js = #"{"widgets":{"m":{"kind":"metric","value":3,"src_name":"  Projekte  "},"p":{"kind":"progress","value":1,"max":2,"src_name":null},"x":{"kind":"metric","value":1,"src_name":""},"l":{"kind":"metric","value":1,"src_name":"\#(String(repeating: "a", count: 200))"}}}"#
+    let rs = WidgetLogic.parse(Data(js.utf8))
+    check(rs?.widgets["m"]?.srcName == "Projekte" && rs?.widgets["p"]?.srcName == nil && rs?.widgets["x"]?.srcName == nil && rs?.widgets["l"]?.srcName?.count == 130, "src_name lesen (getrimmt, leer/null = keiner, hoechstens 130)")
+    typealias W = WidgetLogic
+    check(W.sourceContext(kind: "metric", src: "db", aggText: "Summe", srcName: "Projekte", tasksText: "T") == "Summe · Projekte", "Kennzahl: Rechenart · Datenbank")
+    check(W.sourceContext(kind: "metric", src: "db", aggText: "Summe", srcName: nil, tasksText: "T") == "Summe", "Kennzahl ohne Feld wie bisher")
+    check(W.sourceContext(kind: "progress", src: "db", aggText: "", srcName: "Projekte", tasksText: "T") == "Projekte"
+          && W.sourceContext(kind: "progress", src: "db", aggText: "", srcName: nil, tasksText: "T") == "", "Fortschritt: Datenbank bzw. nichts")
+    check(W.sourceContext(kind: "progress", src: "tasks", aggText: "", srcName: "X", tasksText: "Saga-Aufgaben") == "Saga-Aufgaben"
+          && W.sourceContext(kind: "metric", src: "tasks", aggText: "Offene Aufgaben", srcName: "X", tasksText: "") == "Offene Aufgaben", "Saga-Aufgaben unveraendert")
     check(WidgetLogic.heatHeads(days: [nil, nil], today: nil, pitch: 6).isEmpty && WidgetLogic.heatHeads(days: [], today: nil, pitch: 6).isEmpty, "ohne Daten keine Zahlen")
 }

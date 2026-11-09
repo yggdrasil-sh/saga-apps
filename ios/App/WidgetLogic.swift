@@ -85,6 +85,8 @@ enum WidgetLogic {
         var fmt: String?
         var asOf: Date?
         var error: String?
+        /// Titel der Quell-Datenbank (metric/progress mit src "db"); nil ohne Zugriff, auf veroeffentlichten Seiten bzw. aelterer Server
+        var srcName: String?
         /// 2.5 Etappe 2 (weather/habit/upcoming/chart): strukturierte Daten je Art (roh, JSON)
         var data: Data?
         var dict: [String: Any]? { data.flatMap { (try? JSONSerialization.jsonObject(with: $0)) as? [String: Any] } }
@@ -108,6 +110,7 @@ enum WidgetLogic {
             v.fmt = w["fmt"] as? String
             v.asOf = (w["as_of"] as? String).flatMap(isoDate)
             v.error = w["error"] as? String
+            v.srcName = (w["src_name"] as? String).map { String($0.trimmingCharacters(in: .whitespacesAndNewlines).prefix(130)) }.flatMap { $0.isEmpty ? nil : $0 }
             if let d = w["data"] as? [String: Any] { v.data = try? JSONSerialization.data(withJSONObject: d, options: .sortedKeys) }
             r.widgets[id] = v
         }
@@ -335,6 +338,15 @@ enum WidgetLogic {
     static func metricFmt(_ b: Block, value v: Value?) -> String {
         let f = v?.fmt ?? (b.cfg["fmt"] as? String)
         return ["num", "pct", "eur"].contains(f ?? "") ? f! : "num"
+    }
+
+    /// Kontextzeile "Rechenart · Quelle" wie im Web (pages.js srcName, Regel 10): Kennzahl = Rechenart · Datenbank,
+    /// Fortschritt = Datenbank; Saga-Aufgaben unveraendert (Kennzahl: Rechenart, Fortschritt: "Saga-Aufgaben").
+    /// Ohne `src_name` (kein Zugriff, veroeffentlicht, aelterer Server) bleibt es wie bisher: Rechenart bzw. nichts.
+    static func sourceContext(kind: String, src: String?, aggText: String, srcName: String?, tasksText: String) -> String {
+        if src == "tasks" { return kind == "metric" ? aggText : tasksText }
+        let db = src == "db" ? srcName ?? "" : ""
+        return (kind == "metric" ? [aggText, db] : [db]).filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
     /// Ziel einer Kennzahl erreicht? (nil = kein Ziel/kein Wert)

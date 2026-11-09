@@ -368,7 +368,9 @@ private struct WidgetContent: View {
                     Spacer(minLength: 4)
                     chip(raw)
                 }
-                if (block.cfg["src"] as? String) == "tasks" { Text("Saga-Aufgaben").font(.caption).foregroundStyle(.secondary) }
+                let src = block.cfg["src"] as? String
+                let sn = WidgetLogic.sourceContext(kind: "progress", src: src, aggText: "", srcName: value?.srcName, tasksText: String(localized: "Saga-Aufgaben"))
+                if src == "db" || src == "tasks", !sn.isEmpty { Text(verbatim: sn).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail) }
             }
         } else {
             Text(verbatim: "…").font(.system(size: vsize, weight: .semibold)).foregroundStyle(.secondary)
@@ -390,8 +392,10 @@ private struct WidgetContent: View {
         VStack(alignment: .leading, spacing: 6) {
             if let v = value {
                 WidgetValueText(text: WidgetLogic.format(v.value, fmt: fmt, locale: locale), size: vsize)
-                let ctx = WidgetKind.agg((block.cfg["agg"] as? String) ?? ((block.cfg["src"] as? String) == "tasks" ? "open" : "count"))
-                if ctx.compare(block.title.trimmingCharacters(in: .whitespaces), options: [.caseInsensitive]) != .orderedSame { WidgetSub(text: ctx) }
+                let src = block.cfg["src"] as? String
+                let ctx = WidgetLogic.sourceContext(kind: "metric", src: src, aggText: WidgetKind.agg((block.cfg["agg"] as? String) ?? (src == "tasks" ? "open" : "count")),
+                                                    srcName: v.srcName, tasksText: "")
+                if !ctx.isEmpty, ctx.compare(block.title.trimmingCharacters(in: .whitespaces), options: [.caseInsensitive]) != .orderedSame { WidgetSub(text: ctx) }
                 if let g = v.max ?? WidgetLogic.num(block.cfg["goal"]) {
                     let pm = g != 0 ? max(0, (v.value ?? 0) / g * 100) : 0
                     WidgetBar(fraction: pm / 100)
