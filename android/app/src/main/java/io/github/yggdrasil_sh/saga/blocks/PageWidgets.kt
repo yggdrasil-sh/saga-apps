@@ -166,18 +166,7 @@ object PageWidgets {
         return table.lastOrNull { it.first <= c }?.second ?: "clear"
     }
 
-    /** Symbol je Art (wie Web-Emoji; Material-Symbole bringt die App nicht mit) */
-    fun weatherEmoji(code: Int?): String = when (weatherKind(code)) {
-        "clear" -> "☀️"
-        "mostly_clear" -> "🌤️"
-        "partly" -> "⛅"
-        "fog" -> "🌫️"
-        "drizzle", "showers" -> "🌦️"
-        "rain", "sleet" -> "🌧️"
-        "snow" -> "🌨️"
-        "thunder" -> "⛈️"
-        else -> "☁️"
-    }
+    // Symbole: WidgetDesign.wxKind / WX_SVG (Linien-Symbole wie im Web statt Emoji)
 
     // ---------------------------------------------------------------- Gewohnheiten (habit1)
 

@@ -177,6 +177,64 @@ object WidgetDesign {
     /** Regen in der Liste erst ab 180 dp */
     fun weatherRain(widthDp: Float): Boolean = widthDp >= 180f
 
+    /** Ebene eines Wetter-Symbols: Schriftfarbe (Wolke, Schnee), Akzent (Sonne, Blitz), Blau (Regentropfen) - wie Web .wx-acc/.wx-wet */
+    enum class WxLayer { FG, ACCENT, WET }
+
+    data class WxPart(val layer: WxLayer, val path: String)
+
+    /** SVG-Kreis als Pfad (fuer den Pfad-Parser) */
+    private fun circle(cx: Float, cy: Float, r: Float): String = "M${cx - r} ${cy}a$r $r 0 1 0 ${2 * r} 0a$r $r 0 1 0 ${-2 * r} 0z"
+
+    private const val WX_CLOUD_LOW = "M7 13.5h10.5a3.8 3.8 0 0 0 .5-7.5 5.5 5.5 0 0 0-10.5 1.4A3.1 3.1 0 0 0 7 13.5z"
+
+    /**
+     * Linien-Symbole des Wetters wie im Web (static/pages.js WX_SVG, 24er-Raster, Strich 1,6, runde Enden) - statt Emoji,
+     * die je System anders aussehen.
+     */
+    val WX_SVG: Map<String, List<WxPart>> = mapOf(
+        "sun" to listOf(
+            WxPart(WxLayer.ACCENT, circle(12f, 12f, 4.2f)),
+            WxPart(WxLayer.ACCENT, "M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"),
+        ),
+        "part" to listOf(
+            WxPart(WxLayer.ACCENT, circle(8.5f, 8.5f, 3.2f)),
+            WxPart(WxLayer.ACCENT, "M8.5 2.2v1.6M2.2 8.5h1.6M4 4l1.1 1.1M13 4l-1.1 1.1"),
+            WxPart(WxLayer.FG, "M8 19.5h9a3.5 3.5 0 0 0 .4-7 5 5 0 0 0-9.6 1.3A2.9 2.9 0 0 0 8 19.5z"),
+        ),
+        "cloud" to listOf(WxPart(WxLayer.FG, "M7 18.5h10.5a4 4 0 0 0 .5-8 5.8 5.8 0 0 0-11.1 1.5A3.3 3.3 0 0 0 7 18.5z")),
+        "fog" to listOf(
+            WxPart(WxLayer.FG, "M7 13.5h10.5a3.6 3.6 0 0 0 .5-7.1 5.3 5.3 0 0 0-10.1 1.3A3 3 0 0 0 7 13.5z"),
+            WxPart(WxLayer.FG, "M4 17h16M6 20.5h12"),
+        ),
+        "drizzle" to listOf(
+            WxPart(WxLayer.FG, "M7 14.5h10.5a3.8 3.8 0 0 0 .5-7.5 5.5 5.5 0 0 0-10.5 1.4A3.1 3.1 0 0 0 7 14.5z"),
+            WxPart(WxLayer.WET, "M9 17.5v1M13 17.5v1M17 17.5v1"),
+        ),
+        "rain" to listOf(WxPart(WxLayer.FG, WX_CLOUD_LOW), WxPart(WxLayer.WET, "M8.5 16.5l-1 3M12.5 16.5l-1 3M16.5 16.5l-1 3")),
+        "snow" to listOf(WxPart(WxLayer.FG, WX_CLOUD_LOW), WxPart(WxLayer.FG, "M8.5 17.2v2.6M7.2 18.5h2.6M15.5 17.2v2.6M14.2 18.5h2.6")),
+        "storm" to listOf(WxPart(WxLayer.FG, WX_CLOUD_LOW), WxPart(WxLayer.ACCENT, "M12.5 14.5l-2 3.5h3l-2 3.5")),
+    )
+
+    /** WMO-Code -> Symbol (Web wxKind); null = kein Code (Web zeigt dann "·") */
+    fun wxKind(code: Int?): String? {
+        val c = code ?: return null
+        return when {
+            c >= 95 -> "storm"
+            c >= 85 -> "snow"
+            c >= 80 -> "rain"
+            c >= 71 -> "snow"
+            c >= 61 -> "rain"
+            c >= 51 -> "drizzle"
+            c >= 45 -> "fog"
+            c >= 3 -> "cloud"
+            c >= 1 -> "part"
+            else -> "sun"
+        }
+    }
+
+    /** Flamme der Serie (Web WG_FLAME, gefuellt, Farbe orange) */
+    const val FLAME = "M12 2c1 3.5 5 6 5 11a5 5 0 0 1-10 0c0-2.2 1-3.8 2.3-5 .2 1.6 1 2.7 2.2 3.2C11 8.6 11.3 5.3 12 2z"
+
     // ---------------------------------------------------------------- Spalten
 
     /**

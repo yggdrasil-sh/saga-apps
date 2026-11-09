@@ -45,7 +45,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -681,7 +684,7 @@ private fun WeatherBody(w: WgCtx, v: PageWidgets.Value?) {
     val unit = if (x.imperial) "°F" else "°C"
     fun deg(d: Double?) = d?.let { nf.format(Math.round(it)) + "°" } ?: "–"
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(PageWidgets.weatherEmoji(x.code), fontSize = 28.sp, modifier = Modifier.clearAndSetSemantics { })
+        WxIcon(x.code, 34.dp, w.accent)
         WgValue((x.now?.let { nf.format(Math.round(it)) } ?: "–") + " " + unit, w)
     }
     val sub = listOfNotNull(
@@ -709,7 +712,7 @@ private fun WeatherBody(w: WgCtx, v: PageWidgets.Value?) {
                     if (i > 0) HorizontalDivider(color = cs.outlineVariant)
                     Row(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = dayDesc(i) }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(d.day.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, locale), style = small, color = cs.onSurfaceVariant, modifier = Modifier.width(34.dp), maxLines = 1)
-                        Text(PageWidgets.weatherEmoji(d.code), style = small, modifier = Modifier.width(22.dp))
+                        Box(Modifier.width(22.dp), contentAlignment = Alignment.Center) { WxIcon(d.code, 20.dp, w.accent) }
                         Text(
                             if (WidgetDesign.weatherRain(w.widthDp) && (d.rain ?: 0) > 0) "💧" + d.rain + " %" else "",
                             style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant, modifier = Modifier.weight(1f), maxLines = 1,
@@ -726,7 +729,7 @@ private fun WeatherBody(w: WgCtx, v: PageWidgets.Value?) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(d.day.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, locale), style = small, color = cs.onSurfaceVariant, maxLines = 1)
-                        Text(PageWidgets.weatherEmoji(d.code), fontSize = 20.sp)
+                        WxIcon(d.code, 24.dp, w.accent, Modifier.padding(vertical = 2.dp))
                         MaxMin(deg(d.max), deg(d.min), small)
                         Text(if ((d.rain ?: 0) > 0) "💧" + d.rain + " %" else "", style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant, maxLines = 1)
                     }
@@ -736,6 +739,40 @@ private fun WeatherBody(w: WgCtx, v: PageWidgets.Value?) {
     }
     // Pflicht: Quellenangabe (CC BY 4.0)
     WgFoot(stringResource(R.string.e1_weather_source) + if (x.stale) " · " + stringResource(R.string.wd_stale) else "")
+}
+
+/** Wetter-Linien-Symbol wie im Web (WidgetDesign.WX_SVG): Sonne/Blitz in Akzent, Wolke/Schnee in Schriftfarbe, Tropfen blau; stumm fuer TalkBack */
+@Composable
+private fun WxIcon(code: Int?, size: Dp, accent: Color, modifier: Modifier = Modifier) {
+    val kind = WidgetDesign.wxKind(code)
+    val fg = MaterialTheme.colorScheme.onSurface
+    if (kind == null) {
+        Text("·", modifier.clearAndSetSemantics { }, color = fg)
+        return
+    }
+    val parts = remember(kind) { WidgetDesign.WX_SVG[kind].orEmpty().map { it.layer to PathParser().parsePathString(it.path).toPath() } }
+    Canvas(modifier.size(size).clearAndSetSemantics { }) {
+        val k = this.size.minDimension / 24f
+        scale(k, k, pivot = Offset.Zero) {
+            parts.forEach { (layer, path) ->
+                val c = when (layer) { WidgetDesign.WxLayer.ACCENT -> accent; WidgetDesign.WxLayer.WET -> WX_WET; else -> fg }
+                drawPath(path, c, style = Stroke(1.6f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            }
+        }
+    }
+}
+
+/** Regentropfen-Blau wie Web .wx-wet */
+private val WX_WET = Color(0xFF5AA9E6)
+
+/** Flamme der Serie (Web WG_FLAME, 12 dp), stumm - die Zahl daneben beschreibt die Zeile */
+@Composable
+private fun FlameIcon(color: Color) {
+    val path = remember { PathParser().parsePathString(WidgetDesign.FLAME).toPath() }
+    Canvas(Modifier.size(12.dp).clearAndSetSemantics { }) {
+        val k = size.minDimension / 24f
+        scale(k, k, pivot = Offset.Zero) { drawPath(path, color) }
+    }
 }
 
 @Composable
@@ -758,6 +795,7 @@ private fun HabitBody(w: WgCtx, v: PageWidgets.Value?, env: BlockEnv) {
     val locale = appLocale()
     val scope = rememberCoroutineScope()
     val id = w.s.id ?: return
+    val dark = cs.surface.luminance() < 0.5f
     var failed by remember { mutableStateOf(false) }
     val lay = WidgetDesign.habitLayout(h.days.size, w.widthDp, w.s.size)
     val shown = h.days.takeLast(lay.shown)
@@ -782,7 +820,10 @@ private fun HabitBody(w: WgCtx, v: PageWidgets.Value?, env: BlockEnv) {
         val desc = pluralStringResource(R.plurals.wd_habit_rate, x.streak, x.pct, x.streak)
         Row(modifier.semantics(mergeDescendants = true) { contentDescription = desc }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.End)) {
             Text(PageWidgets.format(x.pct.toDouble(), "pct", locale), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum"), color = cs.onSurface, maxLines = 1)
-            Text("🔥" + x.streak, style = labelStyle.copy(fontFeatureSettings = "tnum"), color = cs.onSurfaceVariant, maxLines = 1)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                FlameIcon(Color(Gestalten.textArgb("orange", dark)))
+                Text(x.streak.toString(), style = labelStyle.copy(fontFeatureSettings = "tnum"), color = cs.onSurfaceVariant, maxLines = 1)
+            }
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(if (w.s.size == "s") 6.dp else if (w.s.size == "l") 12.dp else 9.dp)) {
