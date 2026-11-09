@@ -42,7 +42,12 @@ final class PageWidgetValues: ObservableObject {
 
 /// Flaechen wie im Web (tokens.css): Karte, Rand, Feldrand (offene Kreise, mind. 3:1), Spur der Balken, Fehler
 enum WGColor {
+    #if os(macOS)
+    // eingefrorener nativer Mac-Teil: soll weiter bauen (Nacharbeit 4) - Kartenflaeche des Systems
+    static let card = Color(nsColor: .controlBackgroundColor)
+    #else
     static let card = Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? .secondarySystemBackground : .systemBackground })
+    #endif
     static let border = Color.adaptive(0xe7e2d7, 0x38383a)
     static let field = Color.adaptive(0x8f8670, 0x77777d)
     static let track = Color.primary.opacity(0.10)
