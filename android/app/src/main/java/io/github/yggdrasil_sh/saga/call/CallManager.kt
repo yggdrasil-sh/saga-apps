@@ -205,6 +205,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
      */
     private inner class RoomShared(var id: String?, var media: String) {
         var v2 = false
+        /** 2.5 (9.11.) Signal-Buendel: letzter Listen-Abruf; nach 400 (aelterer Server) erneut zu senden */
+        var sigPullAt = 0L
+        val sigRetry = LinkedHashMap<String, String>()
+        var stateRetry = false
         var myHandle: String? = null
         /** 2.5: 1:1 ueber einen Knoten (Raum-Anruf mit dm) - Anzeige wie 1:1 */
         var dm = false
@@ -1161,16 +1165,48 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (devs.isEmpty()) return
         try {
             val sig = withContext(Dispatchers.Default) { sealPerDevice(c, devs, body) }
-            api.post("api/calls/$id/signal", buildJsonObject {
+            val res = api.post("api/calls/$id/signal", buildJsonObject {
                 put("device", keys().dev.id)
                 put("signals", sig)
             })
+            val dropped = (SignalBundle.reply(200, res) as? SignalBundle.Reply.Ok)?.dropped.orEmpty()
+            if (dropped.isNotEmpty() && multi(c)) {
+                log("signal: ${dropped.size} Ziele verworfen")
+                rosterPull(c.room ?: c)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
             if (e.code == 409) remoteEnded(c, "gone")
+            // 2.5 (9.11.): aelterer Server lehnt das Buendel mit einem schon gegangenen Geraet ab - Zustand nach der Liste erneut
+            else if (e.code == 400 && multi(c) && (body["t"] as? JsonPrimitive)?.contentOrNull == "state") {
+                val r = c.room ?: c
+                r.rs.stateRetry = true
+                rosterPull(r)
+            }
         } catch (_: Exception) {
         }
+    }
+
+    /** 2.5 (9.11.): Teilnehmerliste neu holen (GET), hoechstens alle 2 s */
+    private fun rosterPull(r: Call) {
+        val now = System.currentTimeMillis()
+        if (r.done || !SignalBundle.pullDue(r.rs.sigPullAt, now)) return
+        r.rs.sigPullAt = now
+        scope.launch { fetchRoster(r) }
+    }
+
+    /** 2.5 (9.11.): nach einer neuen Liste abgelehnte Buendel an die verbliebenen Ziele erneut senden */
+    private fun signalRetry(r: Call) {
+        val rs = r.rs
+        if (rs.stateRetry && rs.horn == null) {
+            rs.stateRetry = false
+            stateAll(r)
+        }
+        if (rs.sigRetry.isEmpty() || rs.horn == null) return
+        val b = SignalBundle.targets(HashMap(rs.sigRetry), rs.roster.legs.map { it.device }.toSet(), myDevId())
+        rs.sigRetry.clear()
+        if (b.isNotEmpty()) scope.launch { hornSend(r, b) }
     }
 
     private suspend fun flushIce(c: Call) {
@@ -1900,6 +1936,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             for (x in diff.joined) if (x.device != me) repo.notify(UiText.Res(R.string.room_joined, x.name.ifEmpty { x.who }, x.devName.ifEmpty { "?" }))
             if (!poll) for (x in diff.left) if (x.device != me) repo.notify(UiText.Res(R.string.room_left, x.name.ifEmpty { x.who }, x.devName.ifEmpty { "?" }))
         }
+        signalRetry(r)                                      // 2.5 (9.11.): abgelehnte Buendel erneut
         rs.horn?.let { h ->
             h.roster()
             hornFlush(r)
@@ -4271,12 +4308,29 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
         if (sig.isEmpty() || !live(r)) return
         try {
-            api.post("api/calls/$id/signal", buildJsonObject {
+            val res = api.post("api/calls/$id/signal", buildJsonObject {
                 put("device", myDevId())
                 put("signals", JsonObject(sig))
             })
+            val dropped = (SignalBundle.reply(200, res) as? SignalBundle.Reply.Ok)?.dropped.orEmpty()
+            for (d in sig.keys) if (d !in dropped) r.rs.sigRetry.remove(d)     // angekommen: nichts Aelteres nachsenden
+            if (dropped.isNotEmpty()) {
+                log("horn signal: ${dropped.size} Ziele verworfen")
+                rosterPull(r)
+            }
         } catch (e: CancellationException) {
             throw e
+        } catch (e: ApiException) {
+            log("horn signal: ${e.message}")
+            // 2.5 (9.11.): aelterer Server lehnt das ganze Buendel ab, wenn ein Ziel schon gegangen ist - fkey/state nach der
+            // naechsten Liste erneut (vorher bekam das Gegenueber nach einer Uebergabe keinen Schluessel: kein Bild, kein Ton)
+            if (e.code == 400) {
+                val x = SignalBundle.resendable(bodies.filterKeys { it in sig })
+                if (x.isNotEmpty()) {
+                    r.rs.sigRetry.putAll(x)
+                    rosterPull(r)
+                }
+            }
         } catch (e: Exception) {
             log("horn signal: ${e.message}")
         }
