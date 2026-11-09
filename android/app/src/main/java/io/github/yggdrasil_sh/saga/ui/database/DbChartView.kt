@@ -199,11 +199,13 @@ fun ChartBlock(c: DbChart.Result, showTable: Boolean, size: String? = null, acce
                     Box {
                         Canvas(
                             Modifier.size(ring.diameter.dp).semantics { contentDescription = summary }.pointerInput(c, vals) {
+                                val sz = this.size
+                                val inset = 1.dp.toPx()
                                 detectTapGestures { o ->
-                                    val r = min(size.width, size.height) / 2f - 1.dp.toPx()
+                                    val r = min(sz.width, sz.height) / 2f - inset
                                     val ri = if (donut) r * 0.62f else 0f
-                                    val cx = size.width / 2f
-                                    val cy = size.height / 2f
+                                    val cx = sz.width / 2f
+                                    val cy = sz.height / 2f
                                     val i = WidgetDesign.pieAt(o.x - cx, o.y - cy, r, ri, vals)
                                     tip = i?.let {
                                         val mid = Math.toRadians(WidgetDesign.pieMidDeg(vals, it) - 90.0)
@@ -250,7 +252,7 @@ fun ChartBlock(c: DbChart.Result, showTable: Boolean, size: String? = null, acce
                     val nTicks = WidgetDesign.tickCount(wDp, h)
                     val axisFmt: (Double) -> String = { WidgetDesign.axisText(it, c.fmt, locale) }
                     val density = LocalDensity.current
-                    val wPx = with(density) { maxWidth.toPx() }
+                    val wPx = with(density) { wDp.dp.toPx() }
                     val hPx = with(density) { h.dp.toPx() }
                     // gleiche Flaeche wie beim Zeichnen: fuer Tippen (Tooltip) und TalkBack-Marken je Kategorie
                     val frame = remember(c, labels, wPx, hPx, tiny, gl, glSide, nTicks, density.density, axisStyle) {
