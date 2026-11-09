@@ -206,6 +206,9 @@ internal class TextureVideoView(ctx: Context, egl: EglBase.Context, mirror: Bool
         renderer.onFrame(frame)
     }
 
+    private var mirrored: Boolean? = null
+    fun mirror(on: Boolean) { if (mirrored != on) { mirrored = on; renderer.setMirror(on) } }
+
     fun release() = renderer.release()
 }
 
@@ -231,6 +234,7 @@ internal fun MeetVideo(calls: CallManager, sink: ProxySink, mirror: Boolean, fit
                     view = v
                 }
             },
+            update = { v -> v.mirror(mirror) },
             modifier = if (fit) aspect?.let { Modifier.aspectRatio(it) } ?: Modifier.fillMaxSize() else Modifier.fillMaxSize(),
         )
     }

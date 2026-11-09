@@ -43,6 +43,29 @@ internal object CallControls {
         }
     }
 
+    /** 2.5 (9.11.): Telecom-Weg (CallAudioState.ROUTE_*) einer Ausgabe - EARPIECE 1, BLUETOOTH 2, WIRED_HEADSET 4, SPEAKER 8 */
+    fun telecomRoute(k: AudioKind): Int = when (k) {
+        AudioKind.EARPIECE -> 1
+        AudioKind.BLUETOOTH -> 2
+        AudioKind.WIRED -> 4
+        AudioKind.SPEAKER -> 8
+    }
+
+    /** 2.5 (9.11.): Android 14+ CallEndpoint.TYPE_* - EARPIECE 1, BLUETOOTH 2, WIRED_HEADSET 3, SPEAKER 4 */
+    fun endpointType(k: AudioKind): Int = when (k) {
+        AudioKind.EARPIECE -> 1
+        AudioKind.BLUETOOTH -> 2
+        AudioKind.WIRED -> 3
+        AudioKind.SPEAKER -> 4
+    }
+
+    /**
+     * 2.5 (9.11.): Ein-/Ausstecken waehrend des Anrufs - nur umschalten, wenn ein Headset dazukam oder die aktive Ausgabe
+     * verschwand; sonst bleibt die Wahl des Nutzers stehen (vorher stellte jedes Geraete-Ereignis, auch der Aufruf direkt
+     * nach dem Anmelden des Rueckrufs, den Ton wieder aufs Headset bzw. den Lautsprecher zurueck)
+     */
+    fun reroute(first: Boolean, headsetAdded: Boolean, activeRemoved: Boolean): Boolean = !first && (headsetAdded || activeRemoved)
+
     /** CH-19: Ausgaben fuer das Auswahl-Blatt - doppelte Eintraege (SCO und BLE desselben Geraets) einmal, feste Reihenfolge */
     fun pickerRoutes(r: AudioRoutes): List<AudioRoute> =
         r.routes.distinctBy { it.kind to it.name }.sortedBy { it.kind.ordinal }

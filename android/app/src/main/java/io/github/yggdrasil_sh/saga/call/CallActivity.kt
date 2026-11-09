@@ -769,6 +769,7 @@ internal fun MeetCall(
     val hidden = Meeting.hideControls(System.currentTimeMillis() - lastAct, st.phase == CallPhase.CONNECTED, stageVideo, sr, menuOpen || moreOpen, notice || dblHint)
     // Vollbild verlassen per Zurueck
     BackHandler(enabled = ms.fullscreen) { ms.fullscreen = false }
+    val front by calls.frontCam.collectAsState()
     // Galerie: beginnt jemand zu teilen, einmal "Anna teilt den Bildschirm – Anzeigen"
     LaunchedEffect(model.screens.map { it.id }) {
         val fresh = model.screens.firstOrNull { it.id !in ms.hinted }
@@ -780,10 +781,10 @@ internal fun MeetCall(
         model, ms, st.meetSpeaker, hidden, reduced, phone, onActivity = { lastAct = System.currentTimeMillis() }, sideControls = flat,
         onShown = { calls.meetShown(it) },
         onPeople = { if (room?.horn != null) onPanel("people") else { meshPeople = true; menuOpen = true } },
-        tileVideo = { t, fit, m -> calls.meetSink(t)?.let { sink -> MeetVideo(calls, sink, mirror = t.me, fit = fit, modifier = m) } },
+        tileVideo = { t, fit, m -> calls.meetSink(t)?.let { sink -> MeetVideo(calls, sink, mirror = t.me && front, fit = fit, modifier = m) } },
         selfVideo = { m, onA ->
             Box(m) {
-                MeetVideo(calls, calls.localSink, mirror = true, fit = false, modifier = Modifier.fillMaxSize(), onAspect = onA)
+                MeetVideo(calls, calls.localSink, mirror = front, fit = false, modifier = Modifier.fillMaxSize(), onAspect = onA)
                 SelfSwitch(calls, Modifier.align(Alignment.TopEnd))           // CH-18
             }
         },
@@ -1563,6 +1564,7 @@ internal fun VideoView(
     sink: ProxySink = if (remote) calls.remoteSink else calls.localSink, overlay: Boolean = !remote,
 ) {
     var view by remember { mutableStateOf<SurfaceViewRenderer?>(null) }
+    val front by calls.frontCam.collectAsState()
     val aspectCb = androidx.compose.runtime.rememberUpdatedState(onAspect)
     val events = remember {
         object : RendererCommon.RendererEvents {
@@ -1593,7 +1595,10 @@ internal fun VideoView(
                 view = this
             }
         },
-        update = { it.visibility = if (visible) android.view.View.VISIBLE else android.view.View.INVISIBLE },
+        update = {
+            it.visibility = if (visible) android.view.View.VISIBLE else android.view.View.INVISIBLE
+            if (!remote) it.setMirror(front)                 // 2.5 (9.11.): Rueckkamera nicht spiegeln
+        },
         modifier = modifier,
     )
 }

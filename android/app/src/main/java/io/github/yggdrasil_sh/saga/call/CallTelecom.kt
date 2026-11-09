@@ -4,7 +4,12 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.OutcomeReceiver
+import android.telecom.CallAudioState
+import android.telecom.CallEndpoint
+import android.telecom.CallEndpointException
 import android.telecom.Connection
 import android.telecom.ConnectionRequest
 import android.telecom.ConnectionService
@@ -71,6 +76,45 @@ object CallTelecom {
         }
     }
 
+    /** 2.5 (9.11.): Telecom hat den Ton-Weg geaendert (Headset, Auto, Auswahl der App) - Anzeige neu lesen */
+    @Volatile var onRoute: (() -> Unit)? = null
+
+    /** Laeuft ein gemeldeter Anruf? Dann fuehrt Telecom den Ton-Weg (AudioManager-Aufrufe der App ueberstimmt es) */
+    val routing: Boolean get() = conn?.let { !it.closed } == true
+
+    /**
+     * 2.5 (9.11.): Ausgabe ueber Telecom waehlen (selbstverwalteter Anruf): Android 14+ requestCallEndpointChange, sonst
+     * setAudioRoute bzw. requestBluetoothAudio. Vorher ging setCommunicationDevice/setSpeakerphoneOn im Knoten-Anruf an
+     * Telecom vorbei und wurde zurueckgestellt (Wechsel Lautsprecher/Hoerer/Bluetooth "ging nicht richtig").
+     * name = Bluetooth-Geraetename (nur zur Auswahl unter mehreren); false = kein gemeldeter Anruf bzw. Weg fehlt.
+     */
+    fun route(kind: AudioKind, name: String = ""): Boolean {
+        val c = conn ?: return false
+        if (c.closed) return false
+        return try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                val t = CallControls.endpointType(kind)
+                val eps = c.endpoints.filter { it.endpointType == t }
+                val e = eps.firstOrNull { name.isNotEmpty() && it.endpointName.toString() == name } ?: eps.firstOrNull() ?: return false
+                c.requestCallEndpointChange(e, { it.run() }, object : OutcomeReceiver<Void, CallEndpointException> {
+                    override fun onResult(r: Void?) {}
+                    override fun onError(err: CallEndpointException) { Log.w("SagaCall", "telecom endpoint: ${err.code}") }
+                })
+                true
+            } else {
+                val st = c.callAudioState ?: return false
+                val r = CallControls.telecomRoute(kind)
+                if (st.supportedRouteMask and r == 0) return false
+                val bt = if (kind == AudioKind.BLUETOOTH && Build.VERSION.SDK_INT >= 28) st.supportedBluetoothDevices.firstOrNull() else null
+                if (bt != null) c.requestBluetoothAudio(bt) else c.setAudioRoute(r)
+                true
+            }
+        } catch (e: Exception) {
+            Log.w("SagaCall", "telecom route: ${e.message}")
+            false
+        }
+    }
+
     /** Anruf vorbei */
     fun end() {
         val c = conn ?: return
@@ -94,7 +138,9 @@ class SagaConnection(private val app: Context) : Connection() {
         audioModeIsVoip = true
     }
 
-    private var closed = false
+    @Volatile internal var closed = false
+    /** Android 14+: verfuegbare Ausgaben laut Telecom */
+    @Volatile internal var endpoints: List<CallEndpoint> = emptyList()
 
     internal fun close() {
         if (closed) return
@@ -112,6 +158,14 @@ class SagaConnection(private val app: Context) : Connection() {
         if (CallTelecom.conn === this) CallTelecom.conn = null
         close()
     }
+
+    @Deprecated("Android 14: onCallEndpointChanged")
+    override fun onCallAudioStateChanged(state: CallAudioState?) { CallTelecom.onRoute?.invoke() }
+    override fun onAvailableCallEndpointsChanged(list: List<CallEndpoint>) {
+        endpoints = list
+        CallTelecom.onRoute?.invoke()
+    }
+    override fun onCallEndpointChanged(ep: CallEndpoint) { CallTelecom.onRoute?.invoke() }
 
     override fun onDisconnect() = hangup()
     override fun onAbort() = hangup()

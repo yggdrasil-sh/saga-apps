@@ -698,6 +698,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val f = factory()
         val en = Camera2Enumerator(app)
         val name = en.deviceNames.firstOrNull { en.isFrontFacing(it) } ?: en.deviceNames.firstOrNull() ?: return false
+        frontCam.value = en.isFrontFacing(name)
         val cap = en.createCapturer(name, null) ?: return false
         val src = c.videoSource ?: f.createVideoSource(false).also { c.videoSource = it }
         val sth = c.surface ?: SurfaceTextureHelper.create("saga-cam", egl.eglBaseContext).also { c.surface = it }
@@ -3361,11 +3362,17 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         stateAll(c)
     }
 
+    /** 2.5 (9.11.): eigene Vorschau spiegeln nur mit der Frontkamera (Rueckkamera: Schrift lesbar, wie iOS) */
+    val frontCam = MutableStateFlow(true)
+
     fun switchCamera() {
         val c = cur ?: return
         // A1: nach dem Wechsel (Format der anderen Kamera) die Sendeparameter ueber den Knoten neu abstimmen (wie Web 6c6c476)
         c.capturer?.switchCamera(object : org.webrtc.CameraVideoCapturer.CameraSwitchHandler {
-            override fun onCameraSwitchDone(front: Boolean) { scope.launch { c.rs.horn?.retune() } }
+            override fun onCameraSwitchDone(front: Boolean) {
+                frontCam.value = front                      // 2.5 (9.11.): Vorschau nur bei der Frontkamera spiegeln
+                scope.launch { c.rs.horn?.retune() }
+            }
             override fun onCameraSwitchError(msg: String?) { log("switchCamera: $msg") }
         })
     }
@@ -3637,6 +3644,13 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     fun selectAudio(route: AudioRoute) {
         val st = _ui.value ?: return
         val a = am
+        // 2.5 (9.11.): gemeldeter Knoten-Anruf - Telecom fuehrt den Ton-Weg
+        if (CallTelecom.routing && CallTelecom.route(route.kind, if (route.kind == AudioKind.BLUETOOTH) route.name else "")) {
+            log("audio route ${route.kind} (telecom, picked)")
+            _ui.value = st.copy(speaker = route.kind == AudioKind.SPEAKER)
+            refreshRoutes()
+            return
+        }
         if (Build.VERSION.SDK_INT >= 31 && a != null) {
             try {
                 val d = a.availableCommunicationDevices.firstOrNull { it.id == route.id }
@@ -4603,8 +4617,34 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     /** Neues/entferntes Headset waehrend des Anrufs: Ton dorthin bzw. zurueck auf Lautsprecher (Video) / Hoerer */
     private val deviceCb = object : AudioDeviceCallback() {
-        override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>) = reroute()
-        override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) = reroute()
+        override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>) {
+            // der erste Aufruf direkt nach dem Anmelden meldet nur die schon vorhandenen Geraete (audioOn hat geroutet)
+            val first = cbFirst
+            cbFirst = false
+            if (CallControls.reroute(first, added.any { it.isSink && it.type in headsetTypes }, false)) reroute() else routeChanged()
+        }
+        override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) {
+            val act = audioRoutes.value.active
+            val gone = removed.any { it.isSink && (it.id == act || (act == null && it.type in headsetTypes)) }
+            if (CallControls.reroute(false, false, gone)) reroute() else routeChanged()
+        }
+    }
+    @Volatile private var cbFirst = true
+
+    /** 2.5 (9.11.): Weg vom System bzw. Telecom geaendert - Anzeige (Lautsprecher, aktive Ausgabe) neu lesen */
+    private fun routeChanged() {
+        scope.launch {
+            if (!audioActive) return@launch
+            refreshRoutes()
+            val a = am ?: return@launch
+            if (Build.VERSION.SDK_INT >= 31) {
+                val sp = a.communicationDevice?.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+                if (_ui.value?.speaker != sp) _ui.value = _ui.value?.copy(speaker = sp)
+            }
+        }
+    }
+    private val commCb: Any? by lazy {
+        if (Build.VERSION.SDK_INT >= 31) AudioManager.OnCommunicationDeviceChangedListener { routeChanged() } else null
     }
 
     private fun reroute() {
@@ -4635,7 +4675,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                         .build()
                         .also { a.requestAudioFocus(it) }
                     savedMicMute = a.isMicrophoneMute
+                    cbFirst = true
                     a.registerAudioDeviceCallback(deviceCb, null)
+                    if (Build.VERSION.SDK_INT >= 31) (commCb as? AudioManager.OnCommunicationDeviceChangedListener)?.let { a.addOnCommunicationDeviceChangedListener(app.mainExecutor, it) }
+                    CallTelecom.onRoute = { routeChanged() }
                 }
                 a.mode = AudioManager.MODE_IN_COMMUNICATION
                 if (a.isMicrophoneMute) a.isMicrophoneMute = false
@@ -4655,6 +4698,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         audioActive = false
         try {
             a.unregisterAudioDeviceCallback(deviceCb)
+            if (Build.VERSION.SDK_INT >= 31) (commCb as? AudioManager.OnCommunicationDeviceChangedListener)?.let { a.removeOnCommunicationDeviceChangedListener(it) }
+            CallTelecom.onRoute = null
             if (Build.VERSION.SDK_INT >= 31) a.clearCommunicationDevice() else @Suppress("DEPRECATION") run {
                 a.isSpeakerphoneOn = false
                 if (scoOn) {
@@ -4674,6 +4719,14 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     /** Ausgabe waehlen; Ergebnis: laeuft der Ton tatsaechlich ueber den Lautsprecher? */
     private fun setSpeaker(on: Boolean): Boolean {
         val a = am ?: return on
+        // 2.5 (9.11.): gemeldeter Knoten-Anruf - ueber Telecom (sonst stellt Telecom den Weg zurueck)
+        if (CallTelecom.routing) {
+            val k = if (on) AudioKind.SPEAKER else headset()?.let { kindOf(it.type) } ?: AudioKind.EARPIECE
+            if (CallTelecom.route(k) || (!on && k != AudioKind.EARPIECE && CallTelecom.route(AudioKind.EARPIECE))) {
+                log("audio route $k (telecom, speaker=$on)")
+                return on
+            }
+        }
         try {
             if (Build.VERSION.SDK_INT >= 31) {
                 val devs = a.availableCommunicationDevices
