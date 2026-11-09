@@ -9,6 +9,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – iOS: Unterseiten als Liste oder Galerie
+
+- Der Block „Unterseiten“ (Server 2.5, `subpages1`) erscheint auf iPhone und iPad nativ statt als Hinweis „neuere Version
+  nötig“: als **Galerie** (Karten mit Bild im Hochformat 2:3 bzw. als Banner 16:9, darunter Symbol und Titel; iPhone
+  hochkant zwei Spalten, iPad je nach Kartengröße mehr) oder als **Liste**. Tippen öffnet die Seite bzw. Datenbank, auch
+  bei Seiten anderer Saga-Instanzen. Ohne Bild zeigt die Karte das Seitensymbol; „und n weitere“ ab 200 Unterseiten.
+- Leerer Block: Hinweis und – wer hier anlegen darf – „Unterseite anlegen“. Die Liste lädt neu, wenn die Seite wieder
+  sichtbar wird oder sich ihre Unterseiten ändern. Einrichten (Ansicht, Kartenbild, Größe) bleibt im Web.
+
 ### Geändert – iOS, Android: Seiten-Widgets wie im Web (Widget-Design-Runde)
 
 - **Gleiche Gestaltung wie das Web:** Die Karte bleibt neutral. Eine gewählte Farbe färbt nur Ringe, Balken und Punkte, nicht

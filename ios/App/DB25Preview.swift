@@ -2,9 +2,10 @@ import SwiftUI
 
 #if DEBUG
 // Nur fuer Bilder (2.5 App-Runde E1, ohne Server): Datenbank-Ansichten, Diagramme, Zeitleiste und Widgets mit
-// Beispieldaten aus einem Testserver (Wegwerf-Konten).   -hkDB25Preview tabelle|board|diagramm|zeitleiste|widgets|unterseiten
+// Beispieldaten aus einem Testserver (Wegwerf-Konten).   -hkDB25Preview tabelle|board|diagramm|zeitleiste|widgets|unterseiten|unterseiten-liste
 enum DB25Preview {
     static var mode: String? { UserDefaults.standard.string(forKey: "hkDB25Preview") }
+    static var subMode: Bool { mode?.hasPrefix("unterseiten") == true }
     static let rows = #"""
 {"schema":{"_since":{"anh":[1,"562a8eeebf0a"],"blk":[1,"562a8eeebf0a"],"frist":[1,"562a8eeebf0a"],"menge":[1,"562a8eeebf0a"],"par":[1,"562a8eeebf0a"],"pbud":[1,"562a8eeebf0a"],"pnam":[1,"562a8eeebf0a"],"preis":[1,"562a8eeebf0a"],"proj":[1,"562a8eeebf0a"],"quot":[1,"562a8eeebf0a"],"rbccbabd5":[1,"562a8eeebf0a"],"rd7bec3cc":[1,"562a8eeebf0a"],"spaet":[1,"562a8eeebf0a"],"status/lauf":[1,"562a8eeebf0a"],"status/neu":[1,"562a8eeebf0a"],"status/ok":[1,"562a8eeebf0a"],"status/warten":[1,"562a8eeebf0a"],"summe":[1,"562a8eeebf0a"],"tag":[1,"562a8eeebf0a"],"wer":[1,"562a8eeebf0a"]},"props":[{"id":"status","name":"Status","options":[{"color":"gray","group":"todo","id":"neu","name":"Neu"},{"color":"blue","group":"doing","id":"lauf","name":"Läuft"},{"color":"yellow","group":"doing","id":"warten","name":"Wartet"},{"color":"green","group":"done","id":"ok","name":"Fertig"}],"status":true,"type":"select"},{"id":"menge","name":"Menge","type":"number"},{"fmt":"euro","id":"preis","name":"Preis","type":"number"},{"expr":"prop(\"menge\") * prop(\"preis\")","fmt":"euro","id":"summe","name":"Summe","rtype":"number","type":"formula"},{"expr":"10 / prop(\"menge\")","id":"quot","name":"Quote","rtype":"number","type":"formula"},{"expr":"formatDate(prop(\"frist\"), \"dddd\")","id":"tag","name":"Wochentag","rtype":"text","type":"formula"},{"expr":"prop(\"menge\") > 2","id":"spaet","name":"Spät","rtype":"checkbox","type":"formula"},{"id":"frist","name":"Frist","range":true,"time":true,"type":"date"},{"id":"proj","name":"Projekt","target":48,"type":"relation"},{"fn":"sum","id":"pbud","name":"Projektbudget","rel":"proj","rtype":"number","target":"bud","type":"rollup"},{"fn":"show","id":"pnam","name":"Projektnamen","rel":"proj","rtype":"list","target":"title","type":"rollup"},{"id":"wer","multi":true,"name":"Zuständig","notify":true,"type":"person"},{"id":"anh","max":10,"name":"Anhänge","type":"files"},{"id":"par","name":"Übergeordnet","pair":"rd7bec3cc","role":"parent","target":51,"type":"relation"},{"id":"blk","name":"Blockiert durch","pair":"rbccbabd5","role":"blocked_by","target":51,"type":"relation"},{"id":"rd7bec3cc","name":"Unteraufgaben","pair":"par","role":"children","target":51,"type":"relation"},{"id":"rbccbabd5","name":"Blockiert","pair":"blk","role":"blocking","target":51,"type":"relation"}],"srev":1,"views":[{"id":"tab","name":"Tabelle","type":"table","hidden":["quot","pnam","par","blk","r889b02fb","rd08b57ef","preis","anh"]},{"id":"board","name":"Board","type":"board","group_by":"status","group_status":true,"colors":[{"pid":"menge","op":"gt","value":"2","color":"red"}]},{"id":"liste","name":"Liste","type":"list","sub":{"parent":"par","mode":"nested"}},{"id":"zeit","name":"Zeitleiste","type":"timeline","date_by":"frist","scale":"day"},{"id":"woche","name":"Woche","type":"calendar","date_by":"frist","range":"week"}]},"rows":[{"created":1793148184.233071,"depth":0,"icon":"","id":52,"props":{"anh":[{"image":false,"mime":"application/octet-stream","name":"plan.pdf","size":13,"url":"/files/d4f9f47b6236032ccdf37e2b"}],"frist":"2026-10-27T09:00+01:00","menge":2,"pbud":1250.5,"pnam":["Alpha","Beta"],"preis":3.5,"proj":[49,50],"quot":5,"spaet":false,"status":"ok","summe":7,"tag":"Dienstag","wer":["~gc27sqqye2yzgxoa"]},"sub_of":null,"title":"Planen","updated":1793148184.2940974},{"created":1793148184.2403429,"depth":0,"icon":"","id":53,"props":{"frist":"2026-10-28/2026-10-30","menge":4,"pbud":1000,"pnam":["Alpha"],"preis":1,"proj":[49],"quot":2.5,"rbccbabd5":[54],"rd7bec3cc":[54],"spaet":true,"status":"lauf","summe":4,"tag":"Mittwoch","wer":["~gc27sqqye2yzgxoa","~2pjnl6f3eg3is6jl"]},"sub_of":null,"title":"Bauen","updated":1793148184.3021193},{"blocked":true,"created":1793148184.2527552,"depth":1,"icon":"","id":54,"props":{"blk":[53],"frist":"2026-10-29T14:30+01:00/2026-10-29T16:00+01:00","menge":3,"par":[53],"pnam":[],"preis":10,"quot":3.3333333333333335,"spaet":true,"status":"neu","summe":30,"tag":"Donnerstag","wer":["~2pjnl6f3eg3is6jl"]},"sub_of":53,"title":"Testen","updated":1793148184.27934},{"created":1793148184.2631783,"depth":0,"icon":"","id":55,"props":{"pnam":[],"spaet":false},"sub_of":null,"title":"Ohne","updated":1793148184.2631783},{"created":1793148184.2681053,"depth":0,"fx_err":{"quot":"num"},"icon":"","id":56,"props":{"menge":0,"pnam":[],"spaet":false,"status":"warten"},"sub_of":null,"title":"Kaputt","updated":1793148184.2681053}],"people":{"~2pjnl6f3eg3is6jl":{"avatar":null,"me":false,"name":"Bert Beispiel","remote":false},"~gc27sqqye2yzgxoa":{"avatar":null,"me":true,"name":"Anna Beispiel","remote":false}},"role":"owner"}
 """#
@@ -27,6 +28,12 @@ enum DB25Preview {
   {"id": 105, "title": "Winter in Harrowmoor", "icon": "❄️", "img": null, "kind": "page"},
   {"id": 106, "title": "Uhrmacher der Gezeiten", "icon": "⏳", "img": "/files/pv0000000000000000000005", "kind": "page"},
   {"id": 107, "title": "Leseliste", "icon": "", "img": null, "kind": "database"}], "total": 7, "more": 0, "can_add": true}},
+ "gal2": {"kind": "subpages", "value": 4, "as_of": "2026-11-09T20:00:00Z", "error": null, "data": {"items": [
+  {"id": 105, "title": "Winter in Harrowmoor", "icon": "❄️", "img": null, "kind": "page"},
+  {"id": 107, "title": "Leseliste", "icon": "", "img": null, "kind": "database"},
+  {"id": 106, "title": "Uhrmacher der Gezeiten", "icon": "⏳", "img": "/files/pv0000000000000000000005", "kind": "page"},
+  {"id": 103, "title": "Salz und Sterne", "icon": "", "img": "/files/pv0000000000000000000003", "kind": "page"}], "total": 4, "more": 0, "can_add": true}},
+ "leer": {"kind": "subpages", "value": 0, "as_of": "2026-11-09T20:00:00Z", "error": null, "data": {"items": [], "total": 0, "more": 0, "can_add": false}},
  "lst": {"kind": "subpages", "value": 9, "as_of": "2026-11-09T20:00:00Z", "error": null, "data": {"items": [
   {"id": 201, "title": "Der Nebelturm", "icon": "📖", "img": null, "kind": "page"},
   {"id": 202, "title": "Die Kartografin von Elmsund", "icon": "🧭", "img": null, "kind": "page"},
@@ -74,22 +81,22 @@ struct DB25PreviewView: View {
                             DBTimelineView(m: m, view: view("zeit"))
                             if let p = m.prop("frist") { DBWeekView(m: m, view: view("woche"), prop: p) }
                         case "widgets": widgetCards
-                        case "unterseiten": subpageCards
+                        case "unterseiten", "unterseiten-liste": subpageCards
                         case "liste": RowList(m: m, view: view("liste"))
                         default: TableGrid(m: m, view: view("tab"))
                         }
                     }
                 }
                 .padding()
-                .frame(maxWidth: DB25Preview.mode == "unterseiten" ? 792 : .infinity).frame(maxWidth: .infinity)
+                .frame(maxWidth: DB25Preview.subMode ? 792 : .infinity).frame(maxWidth: .infinity)
             }
-            .navigationTitle(Text(verbatim: DB25Preview.mode == "unterseiten" ? "Bibliothek" : "Aufgaben"))
+            .navigationTitle(Text(verbatim: DB25Preview.subMode ? "Bibliothek" : "Aufgaben"))
         }
         .environmentObject(store).environmentObject(nav)
         .task {
             store.features = ServerFeatures(["formula1", "rollup1", "person1", "file1", "status1", "datetime1", "relfilter1", "subtasks1", "tableopts1", "chart1", "weather1", "habit1", "upcoming1", "subpages1"])
             #if os(iOS)
-            if DB25Preview.mode == "unterseiten" { DB25Preview.primeCovers() }
+            if DB25Preview.subMode { DB25Preview.primeCovers() }
             #endif
             m.previewApply(Data(DB25Preview.rows.utf8))
             ready = true
@@ -109,11 +116,19 @@ struct DB25PreviewView: View {
         let r = WidgetLogic.parse(Data(DB25Preview.subpages.utf8)) ?? WidgetLogic.Response()
         let ed = PageEditor(doc: PageDoc(id: 1))
         let vals = PageWidgetValues(preview: .loaded(r))
+        let gallery: [String: Any] = ["view": "gallery", "image": "content"]
         Group {
-            Text(verbatim: "Galerie · Kartenbild aus dem Inhalt").font(.headline)
-            WidgetBlockView(data: ["kind": "subpages", "size": "m", "cfg": ["view": "gallery", "image": "content"] as [String: Any]] as NSDictionary, blockID: "gal")
-            Text(verbatim: "Liste").font(.headline).padding(.top, 6)
-            WidgetBlockView(data: ["kind": "subpages", "size": "m", "title": "Zuletzt gelesen", "cfg": ["view": "list"] as [String: Any]] as NSDictionary, blockID: "lst")
+            if DB25Preview.mode == "unterseiten-liste" {     // zweites Bild: Liste, Karten ohne Bild (Seite, Datenbank), Leerzustand
+                Text(verbatim: "Liste").font(.headline)
+                WidgetBlockView(data: ["kind": "subpages", "size": "m", "title": "Zuletzt gelesen", "cfg": ["view": "list"] as [String: Any]] as NSDictionary, blockID: "lst")
+                Text(verbatim: "Galerie · ohne Bild: Symbol").font(.headline).padding(.top, 6)
+                WidgetBlockView(data: ["kind": "subpages", "size": "s", "cfg": gallery] as NSDictionary, blockID: "gal2")
+                Text(verbatim: "Leer").font(.headline).padding(.top, 6)
+                WidgetBlockView(data: ["kind": "subpages", "cfg": gallery] as NSDictionary, blockID: "leer")
+            } else {
+                Text(verbatim: "Galerie · Kartenbild aus dem Inhalt").font(.headline)
+                WidgetBlockView(data: ["kind": "subpages", "size": "m", "cfg": gallery] as NSDictionary, blockID: "gal")
+            }
         }
         .environmentObject(vals).environmentObject(ed)
     }
