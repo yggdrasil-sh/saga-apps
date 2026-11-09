@@ -129,15 +129,16 @@ fun ReadingBookRow(b: BookOrbit.Book, repo: SagaRepository, accent: Color, compa
 @Composable
 private fun ReadingGoal(g: BookOrbit.Goal, accent: Color, big: @Composable () -> androidx.compose.ui.text.TextStyle) {
     val cs = MaterialTheme.colorScheme
-    val year = g.year?.toString().orEmpty()
+    // Ohne Jahr eigene Texte, sonst bliebe "Leseziel : ..." stehen
+    val year = g.year?.toString()
     val f = g.fraction
     if (g.goal != null && f != null) {
         Text("${g.done} / ${g.goal}", style = big(), color = accent)
         LinearProgressIndicator(progress = { f }, color = accent, trackColor = SagaProgressTrack, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp))
-        Text(stringResource(R.string.bo_goal_of, year, g.done, g.goal), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+        Text(if (year != null) stringResource(R.string.bo_goal_of, year, g.done, g.goal) else stringResource(R.string.bo_goal_of_noyear, g.done, g.goal), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
     } else {
         Text(g.done.toString(), style = big(), color = accent)
-        Text(stringResource(R.string.bo_goal_none, year), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+        Text(if (year != null) stringResource(R.string.bo_goal_none, year) else stringResource(R.string.bo_goal_none_noyear), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
     }
 }
 

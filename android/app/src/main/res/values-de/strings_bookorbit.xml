@@ -15,6 +15,8 @@
     <string name="bo_progress_a11y">Fortschritt %1$d Prozent</string>
     <string name="bo_goal_of">Leseziel %1$s: %2$d von %3$d Büchern</string>
     <string name="bo_goal_none">Gelesen im Jahr %1$s – kein Leseziel in BookOrbit gesetzt</string>
+    <string name="bo_goal_of_noyear">Leseziel: %1$d von %2$d Büchern</string>
+    <string name="bo_goal_none_noyear">Gelesen – kein Leseziel in BookOrbit gesetzt</string>
     <string name="bo_last7">Letzte 7 Tage: an %1$d gelesen</string>
     <string name="bo_settings_summary">Leseliste, Leseziel und Lesesträhne</string>
     <string name="bo_unsupported">BookOrbit ist auf diesem Server nicht verfügbar.</string>

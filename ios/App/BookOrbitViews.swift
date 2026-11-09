@@ -101,15 +101,20 @@ struct ReadingGoalView: View {
             if let g = goal.goal, let f = goal.fraction {
                 Text(verbatim: "\(goal.done) / \(g)").font(size == .s ? .title3.weight(.semibold) : .largeTitle.weight(.semibold)).monospacedDigit()
                 ProgressView(value: f).progressViewStyle(.linear)
-                Text("Leseziel \(yearText): \(goal.done) von \(g) Büchern").font(.caption).foregroundStyle(.secondary)
+                Group {
+                    // Ohne Jahr keine leere Luecke ("Leseziel : ...")
+                    if let y = yearText { Text("Leseziel \(y): \(goal.done) von \(g) Büchern") } else { Text("Leseziel: \(goal.done) von \(g) Büchern") }
+                }.font(.caption).foregroundStyle(.secondary)
             } else {
                 Text(verbatim: "\(goal.done)").font(size == .s ? .title3.weight(.semibold) : .largeTitle.weight(.semibold)).monospacedDigit()
-                Text("Gelesen im Jahr \(yearText) – kein Leseziel in BookOrbit gesetzt").font(.caption).foregroundStyle(.secondary)
+                Group {
+                    if let y = yearText { Text("Gelesen im Jahr \(y) – kein Leseziel in BookOrbit gesetzt") } else { Text("Gelesen – kein Leseziel in BookOrbit gesetzt") }
+                }.font(.caption).foregroundStyle(.secondary)
             }
         }
         .accessibilityElement(children: .combine)
     }
-    private var yearText: String { goal.year.map { String($0) } ?? "" }
+    private var yearText: String? { goal.year.map { String($0) } }
 }
 
 struct ReadingStreakView: View {
@@ -247,6 +252,7 @@ struct BookOrbitSettingsSection: View {
         do {
             _ = try await store.api("api/bookorbit/connect", method: "POST", body: BookOrbitLogic.connectBody(url: url, username: user, password: password), timeout: 30)
             password = ""
+            user = ""
             await load()
         } catch {
             password = ""

@@ -15,6 +15,8 @@
     <string name="bo_progress_a11y">progress %1$d percent</string>
     <string name="bo_goal_of">Reading goal %1$s: %2$d of %3$d books</string>
     <string name="bo_goal_none">Read in %1$s – no reading goal set in BookOrbit</string>
+    <string name="bo_goal_of_noyear">Reading goal: %1$d of %2$d books</string>
+    <string name="bo_goal_none_noyear">Read – no reading goal set in BookOrbit</string>
     <string name="bo_last7">Last 7 days: read on %1$d</string>
     <string name="bo_settings_summary">Reading list, goal and streak</string>
     <string name="bo_unsupported">BookOrbit is not available on this server.</string>

@@ -15,6 +15,8 @@
     <string name="bo_progress_a11y">ความคืบหน้า %1$d เปอร์เซ็นต์</string>
     <string name="bo_goal_of">เป้าหมายการอ่าน %1$s: %2$d จาก %3$d เล่ม</string>
     <string name="bo_goal_none">อ่านในปี %1$s – ยังไม่ได้ตั้งเป้าหมายการอ่านใน BookOrbit</string>
+    <string name="bo_goal_of_noyear">เป้าหมายการอ่าน: %1$d จาก %2$d เล่ม</string>
+    <string name="bo_goal_none_noyear">อ่านแล้ว – ยังไม่ได้ตั้งเป้าหมายการอ่านใน BookOrbit</string>
     <string name="bo_last7">7 วันล่าสุด: อ่าน %1$d วัน</string>
     <string name="bo_settings_summary">รายการอ่าน เป้าหมาย และการอ่านต่อเนื่อง</string>
     <string name="bo_unsupported">BookOrbit ไม่พร้อมใช้งานบนเซิร์ฟเวอร์นี้</string>

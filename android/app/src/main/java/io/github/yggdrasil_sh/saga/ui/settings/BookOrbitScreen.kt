@@ -85,6 +85,7 @@ fun BookOrbitScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         repo.launchAction(onError = { e -> busy = false; pw = ""; msg = repo.friendly(e) to false }) {
             repo.bookorbitConnect(url.orEmpty(), user, pw)
             pw = ""
+            user = ""
             msg = null
             busy = false
             load()
