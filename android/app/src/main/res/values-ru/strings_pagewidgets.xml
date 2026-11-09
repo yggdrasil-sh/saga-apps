@@ -19,8 +19,6 @@
     <string name="pw_err_too_big">Источник данных слишком велик для этого виджета</string>
     <string name="pw_no_quotes">Цитат пока нет</string>
     <string name="pw_cd_today">Сегодня</string>
-    <string name="pw_cd_reached">Достигнуто</string>
-    <string name="pw_cd_not_started">Ещё не началось</string>
     <string name="pw_cd_until_hm">через %1$d ч %2$d мин</string>
     <string name="pw_cd_since_hm">%1$d ч %2$d мин назад</string>
     <string name="pw_of">%1$s из %2$s</string>

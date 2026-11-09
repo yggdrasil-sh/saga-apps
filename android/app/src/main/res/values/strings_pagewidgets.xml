@@ -19,8 +19,6 @@
     <string name="pw_err_too_big">Data source too large for this widget</string>
     <string name="pw_no_quotes">No quotes yet</string>
     <string name="pw_cd_today">Today</string>
-    <string name="pw_cd_reached">Reached</string>
-    <string name="pw_cd_not_started">Not started yet</string>
     <string name="pw_cd_until_hm">in %1$d h %2$d min</string>
     <string name="pw_cd_since_hm">%1$d h %2$d min ago</string>
     <string name="pw_of">%1$s of %2$s</string>

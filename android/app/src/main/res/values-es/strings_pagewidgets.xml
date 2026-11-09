@@ -19,8 +19,6 @@
     <string name="pw_err_too_big">Fuente de datos demasiado grande para este widget</string>
     <string name="pw_no_quotes">Aún no hay citas</string>
     <string name="pw_cd_today">Hoy</string>
-    <string name="pw_cd_reached">Alcanzado</string>
-    <string name="pw_cd_not_started">Aún no ha empezado</string>
     <string name="pw_cd_until_hm">en %1$d h %2$d min</string>
     <string name="pw_cd_since_hm">hace %1$d h %2$d min</string>
     <string name="pw_of">%1$s de %2$s</string>

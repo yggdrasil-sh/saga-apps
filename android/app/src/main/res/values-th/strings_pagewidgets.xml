@@ -19,8 +19,6 @@
     <string name="pw_err_too_big">แหล่งข้อมูลใหญ่เกินไปสำหรับวิดเจ็ตนี้</string>
     <string name="pw_no_quotes">ยังไม่มีคำคม</string>
     <string name="pw_cd_today">วันนี้</string>
-    <string name="pw_cd_reached">ถึงแล้ว</string>
-    <string name="pw_cd_not_started">ยังไม่เริ่ม</string>
     <string name="pw_cd_until_hm">อีก %1$d ชม. %2$d นาที</string>
     <string name="pw_cd_since_hm">%1$d ชม. %2$d นาทีที่แล้ว</string>
     <string name="pw_of">%1$s จาก %2$s</string>

@@ -612,7 +612,10 @@ private fun ProgressBody(w: WgCtx, v: PageWidgets.Value?) {
     val fmt = v?.fmt ?: "num"
     WgBarRow(stringResource(R.string.pw_of, PageWidgets.format(p.value, fmt, locale), PageWidgets.format(p.max, fmt, locale)), raw, w)
     // Quelle als Fuss wie Web (wg-f): Name der Datenbank, sobald der Server ihn liefert
-    if (PageWidgets.cfgStr(w.s, "src") == "db") WidgetDesign.srcContext("progress", "db", null, v?.srcName).takeIf { it.isNotEmpty() }?.let { WgFoot(it) }
+    when (PageWidgets.cfgStr(w.s, "src")) {
+        "db" -> WidgetDesign.srcContext("progress", "db", null, v?.srcName).takeIf { it.isNotEmpty() }?.let { WgFoot(it) }
+        "tasks" -> WgFoot(stringResource(R.string.wd_saga_tasks))                  // Web srcName(): T('Saga-Aufgaben')
+    }
 }
 
 @Composable
@@ -850,7 +853,9 @@ private fun HabitBody(w: WgCtx, v: PageWidgets.Value?, env: BlockEnv) {
             fun Row2() = Cells { j, d ->
                 val on = x.done.getOrNull(offset + j) == true
                 val isToday = d == h.today
-                val desc = x.name + ", " + d.format(dayFmt) + ": " + stringResource(if (on) R.string.wd_done else R.string.wd_open)
+                // abhakbar: Zustand sagt toggleable ("aktiviert"); nur lesend steht "erledigt/offen" in der Beschreibung
+                val stateL = stringResource(if (on) R.string.wd_done else R.string.wd_open)
+                val desc = x.name + ", " + d.format(dayFmt) + if (h.canCheck) "" else ": $stateL"
                 val accent = w.accent
                 val field = cs.outline
                 val off = cs.onSurface.copy(alpha = 0.10f)

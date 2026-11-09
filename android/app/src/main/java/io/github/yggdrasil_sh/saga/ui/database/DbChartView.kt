@@ -5,7 +5,7 @@ import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -42,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -196,26 +197,28 @@ fun ChartBlock(c: DbChart.Result, showTable: Boolean, size: String? = null, acce
                     // Nacharbeit 10: Tippen auf ein Segment zeigt Name, Wert und Anteil (Web chartSvg mark/showTip)
                     var tip by remember(c) { mutableStateOf<ChartTip?>(null) }
                     val sum = vals.filter { it > 0 }.sum()
+                    // aktuelle Werte (Farben, Namen, Sprache) auch in der laufenden Geste: rememberUpdatedState statt Schluessel
+                    val pieHit by rememberUpdatedState { o: Offset, sz: IntSize, inset: Float ->
+                        val r = min(sz.width, sz.height) / 2f - inset
+                        val ri = if (donut) r * 0.62f else 0f
+                        val cx = sz.width / 2f
+                        val cy = sz.height / 2f
+                        val i = WidgetDesign.pieAt(o.x - cx, o.y - cy, r, ri, vals)
+                        i?.let {
+                            val mid = Math.toRadians(WidgetDesign.pieMidDeg(vals, it) - 90.0)
+                            val rm = if (donut) (r + ri) / 2 else r * 0.6f
+                            ChartTip(
+                                Offset(cx + (kotlin.math.cos(mid) * rm).toFloat(), cy + (kotlin.math.sin(mid) * rm).toFloat()),
+                                labels[it], WidgetDesign.tipValue(fmt(vals[it]), PageWidgets.format(vals[it] / sum * 100.0, "pct", locale), null, ""), catCol[it],
+                            )
+                        }
+                    }
                     Box {
                         Canvas(
-                            Modifier.size(ring.diameter.dp).semantics { contentDescription = summary }.pointerInput(c, vals) {
+                            Modifier.size(ring.diameter.dp).semantics { contentDescription = summary }.pointerInput(ring.diameter) {
                                 val sz = this.size
                                 val inset = 1.dp.toPx()
-                                detectTapGestures { o ->
-                                    val r = min(sz.width, sz.height) / 2f - inset
-                                    val ri = if (donut) r * 0.62f else 0f
-                                    val cx = sz.width / 2f
-                                    val cy = sz.height / 2f
-                                    val i = WidgetDesign.pieAt(o.x - cx, o.y - cy, r, ri, vals)
-                                    tip = i?.let {
-                                        val mid = Math.toRadians(WidgetDesign.pieMidDeg(vals, it) - 90.0)
-                                        val rm = if (donut) (r + ri) / 2 else r * 0.6f
-                                        ChartTip(
-                                            Offset(cx + (kotlin.math.cos(mid) * rm).toFloat(), cy + (kotlin.math.sin(mid) * rm).toFloat()),
-                                            labels[it], WidgetDesign.tipValue(fmt(vals[it]), PageWidgets.format(vals[it] / sum * 100.0, "pct", locale), null, ""), catCol[it],
-                                        )
-                                    }
-                                }
+                                detectTapGestures { o -> tip = pieHit(o, sz, inset) }
                             },
                         ) {
                             drawRound(vals, catCol, donut, totalText, capText, tm, big, capStyle)
@@ -260,10 +263,12 @@ fun ChartBlock(c: DbChart.Result, showTable: Boolean, size: String? = null, acce
                     }
                     var tip by remember(c) { mutableStateOf<ChartTip?>(null) }
                     val totalWord = stringResource(R.string.wd_total)
+                    // aktuelle Werte auch in der laufenden Geste (Farben, Namen, Sprache, Flaeche)
+                    val xyHit by rememberUpdatedState { o: Offset -> xyTip(c, frame, o, multi, catCol, serCol, oneCol, labels, totalWord) { fmt(it) } }
                     Box(Modifier.fillMaxWidth().height(h.dp)) {
                         Canvas(
-                            Modifier.fillMaxWidth().height(h.dp).semantics { contentDescription = summary }.pointerInput(c, frame) {
-                                detectTapGestures { o -> tip = xyTip(c, frame, o, multi, catCol, serCol, oneCol, labels, totalWord) { fmt(it) } }
+                            Modifier.fillMaxWidth().height(h.dp).semantics { contentDescription = summary }.pointerInput(Unit) {
+                                detectTapGestures { o -> tip = xyHit(o) }
                             },
                         ) {
                             drawXY(c, multi, catCol, serCol, oneCol, labels, grid, zeroC, goalC, cardC, tm, axisStyle, tiny, gl, glSide, nTicks, axisFmt)
@@ -278,7 +283,7 @@ fun ChartBlock(c: DbChart.Result, showTable: Boolean, size: String? = null, acce
                                 val across = with(density) { (if (f.horiz) f.pl else f.pt).toDp() }
                                 val acrossLen = with(density) { (if (f.horiz) f.pw else f.ph).toDp() }
                                 Box(
-                                    (if (f.horiz) Modifier.offset(across, at).size(acrossLen, band) else Modifier.offset(at, across).size(band, acrossLen))
+                                    (if (f.horiz) Modifier.absoluteOffset(across, at).size(acrossLen, band) else Modifier.absoluteOffset(at, across).size(band, acrossLen))
                                         .semantics { contentDescription = desc },
                                 )
                             }
@@ -411,6 +416,8 @@ private fun ChartTipPopup(tip: ChartTip, onDismiss: () -> Unit) {
                 x = x.coerceAtMost(windowSize.width - popupContentSize.width).coerceAtLeast(0)
                 var y = (ay - popupContentSize.height - gap).toInt()
                 if (y < anchorBounds.top || y < 0) y = (ay + below).toInt()
+                // unten nicht abschneiden: in den sichtbaren Bereich klemmen
+                y = y.coerceAtMost(windowSize.height - popupContentSize.height).coerceAtLeast(0)
                 return IntOffset(x, y)
             }
         }
