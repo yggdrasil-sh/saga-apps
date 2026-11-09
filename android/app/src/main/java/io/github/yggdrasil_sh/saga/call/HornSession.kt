@@ -898,6 +898,11 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     private var rosterAt = 0L
     private var tuneAt = 0L
     private var tuneLine = ""
+    /** 2.5 (9.11.): Kamera frueher drosseln (Waerme >= MODERATE oder anhaltend CPU-begrenzt) - [CallDiag.Throttle] */
+    private val throttle = CallDiag.Throttle()
+    private var cpuPrev: Pair<Double, Long>? = null
+    private var cpuConn: Conn? = null
+    private val CAM_RIDS = setOf("l", "m", "h")
 
     /**
      * 2.5 Akku: Kamera-Schichten nach Zahl der anderen und Energiesparen; A1 (Labor 2.11.): auf TCP/TLS bleibt l auch zu
@@ -910,7 +915,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         val others = conn.peers.keys.count { it !in mine }
         val lv = conn.gov?.level ?: 0
         val share = host.screenTrack() != null
-        val plan = HornLogic.txPlan(conn.path, lv, others, share, host.camHeight(), host.screenHeight(), lowPower = host.lowPower())
+        val plan = HornLogic.txPlan(conn.path, lv, others, share, host.camHeight(), host.screenHeight(), lowPower = host.lowPower() || throttle.on)
         val fps = plan.maxFps
         val f = HornLogic.camMaxFps(fps)                              // gemeinsam fuer alle Schichten, nie je Schicht
         val on = plan.cam.filterValues { it.active }.keys
@@ -1436,6 +1441,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         var bytes = 0L
         val levels = HashMap<String, Double>()
         val now = System.currentTimeMillis()
+        var cpuS: Double? = null                                        // 2.5 (9.11.): CPU-Grenze der Kamera (s, kumulativ)
         for (L in c.legs.values) {
             val r = stats(L.pc) ?: continue
             val byTrack = L.recv.associateBy { it.track?.id() }
@@ -1445,6 +1451,11 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                     val src = if (s.type == "outbound-rtp") "me" else host.diagAlias(byTrack[m["trackIdentifier"]?.toString()]?.owner)
                     val mm = if (s.type == "outbound-rtp") CallDiag.withSource(m, (m["mediaSourceId"] as? String)?.let { r.statsMap[it]?.members }) else m
                     host.diagSample(s.type, mm, src, L.role + "." + s.id, c.net?.rtt)
+                    if (s.type == "outbound-rtp" && m["kind"] == "video" && m["rid"]?.toString() in CAM_RIDS) {   // Kamera (Simulcast), nicht der Bildschirm
+                        val q = (m["qualityLimitationDurations"] as? Map<*, *>)?.get("cpu")
+                        val v = (q as? Number)?.toDouble() ?: q?.toString()?.toDoubleOrNull()
+                        if (v != null) cpuS = maxOf(cpuS ?: 0.0, v)
+                    }
                 }
                 if (s.type == "candidate-pair" && m["nominated"] == true && m["state"] == "succeeded") {
                     dbl(m["currentRoundTripTime"])?.let {
@@ -1477,6 +1488,18 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                         if (o != null && lv != null) levels[o] = maxOf(levels[o] ?: 0.0, lv)
                     }
                 }
+            }
+        }
+        if (cur === c) {
+            if (cpuConn !== c) { cpuConn = c; cpuPrev = null }           // andere Verbindung: Zaehler neu
+            val cpu = CallDiag.cpuLimited(cpuPrev?.first, cpuPrev?.second, cpuS, now)
+            cpuPrev = cpuS?.let { it to now }
+            val was = throttle.on
+            if (throttle.update(now, host.thermal(), cpu) != was) {
+                val d = if (throttle.on) "drossel an: ${throttle.why} (zurueck nach ${throttle.calmNeed / 1000} s ruhig)" else "drossel aus"
+                host.diagEvent("layers", d)
+                log(d)
+                tune(c)
             }
         }
         val p = c.q5 ?: longArrayOf(lost, recv, fz)

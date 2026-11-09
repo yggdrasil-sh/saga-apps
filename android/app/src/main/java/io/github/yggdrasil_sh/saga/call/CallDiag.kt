@@ -87,6 +87,56 @@ object CallDiag {
         }
     }
 
+    /** 2.5 (9.11.): Kamera am Knoten frueher drosseln ab THERMAL_STATUS_MODERATE (2) - der Bildschirm (5 fps) erst ab [HOT_FROM] */
+    const val WARM_FROM = 2
+
+    /**
+     * 2.5 (9.11., echter Anruf: Pixel nach 12-25 min bei ~30 kbit/s und 1-4 fps): Kamera ohne h und mit hoechstens 15 fps,
+     * wenn das Geraet warm ist (>= MODERATE) oder der Kodierer anhaltend (> [cpuMs]) durch die CPU begrenzt ist - bevor
+     * libwebrtc (BALANCED) selbst bis an die Untergrenze herunterfaehrt. Zurueck erst nach [calmMs] am Stueck ohne beides;
+     * springt es kurz nach dem Hochschalten wieder an, verdoppelt sich die Wartezeit (hoechstens [maxCalmMs]), sonst pendelte
+     * es (gedrosselt ist die CPU-Grenze weg, ungedrosselt kommt sie wieder). cpu = null: keine Messung (Kamera aus).
+     */
+    class Throttle(private val cpuMs: Long = 20_000, private val calmMs: Long = 60_000, private val maxCalmMs: Long = 300_000) {
+        var on = false
+            private set
+        var why = ""
+            private set
+        private var cpuSince: Long? = null
+        private var calmSince: Long? = null
+        private var offAt = 0L
+        private var need = calmMs
+        val calmNeed: Long get() = need
+        fun update(now: Long, thermal: Int, cpu: Boolean?): Boolean {
+            if (cpu == true) { if (cpuSince == null) cpuSince = now } else if (cpu == false) cpuSince = null
+            val warm = thermal >= WARM_FROM
+            val cpuLong = cpuSince?.let { now - it >= cpuMs } == true
+            if (!on) {
+                if (warm || cpuLong) {
+                    on = true
+                    why = if (warm) "waerme $thermal" else "cpu ${(now - (cpuSince ?: now)) / 1000} s"
+                    need = if (offAt > 0 && now - offAt < 2 * maxCalmMs) minOf(maxCalmMs, need * 2) else calmMs
+                    calmSince = null
+                }
+                return on
+            }
+            if (warm || cpu == true) { calmSince = null; return true }
+            val c = calmSince ?: now
+            calmSince = c
+            if (now - c >= need) { on = false; why = ""; offAt = now; calmSince = null; cpuSince = null }
+            return on
+        }
+    }
+
+    /**
+     * 2.5 (9.11.): ueberwiegend CPU-begrenzt seit der letzten Messung? cpuS = qualityLimitationDurations.cpu (Sekunden,
+     * kumulativ, hoechster Wert der Kamera-Schichten), prev = (cpuS, t) davor. null = keine Aussage (erste Messung, Zaehler neu)
+     */
+    fun cpuLimited(prevS: Double?, prevT: Long?, cpuS: Double?, now: Long, share: Double = 0.5): Boolean? {
+        if (cpuS == null || prevS == null || prevT == null || now <= prevT || cpuS < prevS) return null
+        return (cpuS - prevS) * 1000 / (now - prevT) >= share
+    }
+
     data class Sample(
         val t: Long, val dir: String, val src: String, val rid: String,
         val fps: Int = 0, val h: Int = 0, val kbps: Int = 0, val lost: Int = 0, val nack: Int = 0, val pli: Int = 0,
