@@ -149,31 +149,32 @@ struct ReadingWidget: View {
 
 // MARK: - Heute: Karte "Lesen"
 
-/// Nur sichtbar, wenn ein BookOrbit verbunden ist (abgelaufen/nicht erreichbar: kurzer Hinweis)
+/// Nur sichtbar, wenn ein BookOrbit verbunden ist (abgelaufen/nicht erreichbar: kurzer Hinweis).
+/// Der Zustand liegt in TodayScreen und wird dort per .task geladen: ein leeres `Group { if … }` hat keine Kinder,
+/// ein daran gehaengtes .task liefe nie (die Karte bliebe immer aus).
 struct ReadingTodaySection: View {
     @ObservedObject var store: Store
-    @State private var reading: BookOrbitLogic.Reading?
+    let reading: BookOrbitLogic.Reading?
     var body: some View {
-        Group {
-            if store.features.has(BookOrbitLogic.feature), let r = reading, BookOrbitLogic.todayVisible(r) {
-                Section {
-                    ReadingContentView(reading: r, compact: true, limit: BookOrbitLogic.todayLimit)
-                    if r.state == .ok, let s = r.streak, s.current > 0 {
-                        Label { Text("\(s.current) Tage in Folge gelesen") } icon: { Image(systemName: "flame") }
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
-                } header: { Text("Lesen##BookOrbit") }   // "Lesen" allein ist die Rolle (View)
-            }
+        if store.features.has(BookOrbitLogic.feature), let r = reading, BookOrbitLogic.todayVisible(r) {
+            Section {
+                ReadingContentView(reading: r, compact: true, limit: BookOrbitLogic.todayLimit)
+                if r.state == .ok, let s = r.streak, s.current > 0 {
+                    Label { Text("\(s.current) Tage in Folge gelesen") } icon: { Image(systemName: "flame") }
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
+            } header: { Text("Lesen##BookOrbit") }   // "Lesen" allein ist die Rolle (View)
         }
-        .task(id: store.features.has(BookOrbitLogic.feature)) { await load() }
     }
-    private func load() async {
-        guard store.features.has(BookOrbitLogic.feature) else { reading = nil; return }
+
+    /// Leseliste fuer die Heute-Karte; offline/Fehler: bisherigen Stand behalten
+    @MainActor static func load(_ store: Store, keeping old: BookOrbitLogic.Reading?) async -> BookOrbitLogic.Reading? {
+        guard store.features.has(BookOrbitLogic.feature) else { return nil }
         guard let d = try? await store.api("api/bookorbit/reading"),
-              let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { return }   // offline: letzten Stand behalten
+              let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { return old }
         var r = BookOrbitLogic.reading(j)
         r?.show = .current
-        reading = r
+        return r
     }
 }
 

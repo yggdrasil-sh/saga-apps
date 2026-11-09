@@ -853,11 +853,13 @@ struct PageScreen: View {
 
 struct TodayScreen: View {
     @ObservedObject var store: Store
+    @State private var reading: BookOrbitLogic.Reading?   // 2.5 bookorbit1: Karte "Lesen"
     var body: some View {
         List {
             TodaySection(store: store, header: false)
-            ReadingTodaySection(store: store)              // 2.5 bookorbit1: nur mit Verbindung
+            ReadingTodaySection(store: store, reading: reading)   // nur mit Verbindung
         }
+            .task(id: store.features.has(BookOrbitLogic.feature)) { reading = await ReadingTodaySection.load(store, keeping: reading) }
             .navigationTitle("Heute")
     }
 }
