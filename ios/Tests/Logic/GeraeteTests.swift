@@ -32,9 +32,16 @@ func geraeteTests() {
 
     // 2.5 (9.11.) Kamera frueher drosseln (wie Android CallThrottleTest)
     var w = CallDiag.Throttle()
-    check(!w.update(now: 0, thermal: 0, cpu: nil) && w.update(now: 3000, thermal: 1, cpu: nil) && w.why.hasPrefix("waerme"), "Drossel: .fair schaltet sofort")
-    check(w.update(now: 30_000, thermal: 0, cpu: false) && w.update(now: 89_000, thermal: 0, cpu: false) && !w.update(now: 90_000, thermal: 0, cpu: false), "Drossel: 60 s ruhig -> hoch")
-    check(w.update(now: 99_000, thermal: 1, cpu: nil) && w.calmNeed == 120_000, "Drossel: erneut kurz danach -> doppelte Wartezeit")
+    var fair = false
+    for s in stride(from: 0, through: 120, by: 3) { fair = fair || w.update(now: Double(s) * 1000, thermal: 1, cpu: false) }
+    check(!fair, "Drossel: .fair allein (Laden, einige Minuten Video) drosselt nicht")
+    check(w.update(now: 123_000, thermal: 2, cpu: nil) && w.why.hasPrefix("waerme"), "Drossel: .serious schaltet sofort")
+    check(w.update(now: 150_000, thermal: 1, cpu: false) && w.update(now: 209_000, thermal: 1, cpu: false) && !w.update(now: 210_000, thermal: 1, cpu: false), "Drossel: 60 s ruhig (.fair zaehlt als ruhig) -> hoch")
+    check(w.update(now: 219_000, thermal: 2, cpu: nil) && w.calmNeed == 120_000, "Drossel: erneut kurz danach -> doppelte Wartezeit")
+    var f = CallDiag.Throttle()
+    var fe = false
+    for s in stride(from: 0, through: 18, by: 3) { fe = fe || f.update(now: Double(s) * 1000, thermal: 1, cpu: true) }
+    check(!fe && f.update(now: 21_000, thermal: 1, cpu: true) && f.why.hasPrefix("cpu"), "Drossel: .fair + CPU-Grenze 20 s greift")
     var c = CallDiag.Throttle()
     var early = false
     for s in stride(from: 0, through: 18, by: 3) { early = early || c.update(now: Double(s) * 1000, thermal: 0, cpu: true) }

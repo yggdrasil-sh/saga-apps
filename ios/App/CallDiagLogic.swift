@@ -52,10 +52,12 @@ enum CallDiag {
     }
 
     /// Waerme-Hysterese: heiss -> mindestens `ms` heiss; zurueck erst nach `ms` am Stueck unter der Schwelle
-    /// 2.5 (9.11.): Kamera am Knoten frueher drosseln ab thermalState .fair (wie Android MODERATE); der Bildschirm erst ab .serious
-    static let warmFrom = 1
+    /// 2.5 (9.11.): Waerme allein drosselt die Kamera erst ab thermalState .serious - .fair meldet iOS schon beim Laden bzw.
+    /// nach wenigen Minuten Videoanruf (das iPhone waere sonst fast immer gedrosselt); .fair mit anhaltender CPU-Grenze greift
+    /// ueber die CPU-Bedingung
+    static let warmFrom = 2
     /// 2.5 (9.11., echter Anruf: Sender nach 12-25 min bei ~30 kbit/s und 1-4 fps): Kamera ohne h und mit hoechstens 15 fps,
-    /// wenn warm (>= .fair) oder der Kodierer anhaltend (> cpuMs) durch die CPU begrenzt ist; zurueck erst nach calmMs am
+    /// wenn warm (>= .serious) oder der Kodierer anhaltend (> cpuMs) durch die CPU begrenzt ist; zurueck erst nach calmMs am
     /// Stueck ohne beides, bei erneutem Anspringen kurz danach doppelt so lange (hoechstens maxCalmMs). cpu nil = keine Messung.
     /// Gleiche Regeln wie Android CallDiag.Throttle.
     struct Throttle {

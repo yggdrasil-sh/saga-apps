@@ -176,7 +176,7 @@ final class HornSession: ObservableObject {
     var candT = 0.0, statT = 0.0, udpProbeAt = 0.0, rosterT = 0.0, tuneT = 0.0
     /// Geraet heiss (thermalState >= .serious) mit Hysterese: mindestens 60 s, zurueck nach 60 s kuehl
     var hot = CallDiag.Hold()
-    /// 2.5 (9.11.): Kamera frueher drosseln (warm ab .fair oder anhaltend CPU-begrenzt)
+    /// 2.5 (9.11.): Kamera frueher drosseln (warm ab .serious oder anhaltend CPU-begrenzt)
     var throttle = CallDiag.Throttle()
     var cpuPrev: (s: Double, t: Double, conn: ObjectIdentifier)?
     var tuneKey = ""
