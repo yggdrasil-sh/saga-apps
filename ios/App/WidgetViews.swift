@@ -632,7 +632,10 @@ private struct HabitWidget: View {
             let first = max(0, h.days.count - L.shown)
             let idx = Array(first..<h.days.count)
             VStack(alignment: .leading, spacing: size == .s ? 6 : size == .l ? 12 : 9) {
-                if L.header && !h.habits.isEmpty { row(name: nil, stats: nil, L: L) { cells(idx, L: L) { i in headCell(h, i, L: L) } } }
+                if L.header && !h.habits.isEmpty {
+                    let heads = heads(h, idx, L: L)
+                    row(name: nil, stats: nil, L: L) { cells(idx, L: L) { i in headCell(h, i, L: L, show: heads.contains(i)) } }
+                }
                 ForEach(h.habits, id: \.pid) { it in
                     row(name: it.name, stats: stats(it), L: L) {
                         cells(idx, L: L) { i in cell(h, it, i, L: L) }
@@ -696,14 +699,21 @@ private struct HabitWidget: View {
         .padding(CGFloat(WidgetLogic.habitRingPad))        // Platz fuer den Ring um heute
     }
 
-    /// Kopf: Wochentag (7 Tage) bzw. Tag des Monats alle 5 Tage und heute (Heatmap)
-    private func headCell(_ h: Widget2Logic.Habit, _ i: Int, L: WidgetLogic.HabitLayout) -> some View {
+    /// Heatmap: welche Spalten eine Kopfzahl tragen (heute + jeder 5. Tag, bei kleinen Zellen weniger - WidgetLogic.heatHeads)
+    private func heads(_ h: Widget2Logic.Habit, _ idx: [Int], L: WidgetLogic.HabitLayout) -> Set<Int> {
+        guard L.heat else { return [] }
+        let g = geom(L)
+        let days = idx.map { i in dayDate(h.days[i]).map { SagaDate.calendar.component(.day, from: $0) } }
+        let t = idx.firstIndex { h.days[$0] == h.today }
+        return Set(WidgetLogic.heatHeads(days: days, today: t, pitch: g.cell + g.gap).map { idx[$0] })
+    }
+    /// Kopf: Wochentag (7 Tage) bzw. Tag des Monats (Heatmap, nur wo `show`)
+    private func headCell(_ h: Widget2Logic.Habit, _ i: Int, L: WidgetLogic.HabitLayout, show: Bool) -> some View {
         let day = h.days[i]
         var t = ""
         if let d = dayDate(day) {
             if L.heat {
-                let n = SagaDate.calendar.component(.day, from: d)
-                t = n % 5 == 0 || day == h.today ? "\(n)" : ""
+                t = show ? "\(SagaDate.calendar.component(.day, from: d))" : ""
             } else { t = String(fmtDate(d, "EEE", locale: locale).prefix(2)) }
         }
         return Text(verbatim: t).font(.caption2).foregroundStyle(.secondary).lineLimit(1).fixedSize()

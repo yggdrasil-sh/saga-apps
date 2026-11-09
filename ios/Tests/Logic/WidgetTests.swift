@@ -251,3 +251,19 @@ func widgetDesignTests() {
     let wcol: NSArray = [["type": "widget", "data": ["kind": "clock"]]], tcol: NSArray = [["type": "paragraph"]]
     check(C.equalHeight([wcol, wcol]) && !C.equalHeight([wcol, tcol]) && !C.equalHeight([wcol, [wcol[0], wcol[0]] as NSArray]) && !C.equalHeight([wcol]), "gleich hoch nur bei je genau einem Widget")
 }
+
+/// Widget-Nacharbeit (9.11.): Heatmap-Kopfzahlen, Kontext "Rechenart · Quelle"
+func widgetNacharbeitTests() {
+    // MARK: Heatmap-Kopfzahlen ueberlappen nicht (Nacharbeit 5)
+    let d30: [Int?] = (0..<30).map { (11 + $0 - 1) % 31 + 1 }       // 11. ... 31., 1. ... 9.
+    let t = 29                                                          // heute ganz rechts (9.)
+    let wide = WidgetLogic.heatHeads(days: d30, today: t, pitch: 15)
+    check(wide == Set([4, 9, 14, 19, 25, 29]), "breite Zellen: jeder 5. Tag (15., 20., 25., 30., 5.) und heute")
+    let narrow = WidgetLogic.heatHeads(days: d30, today: t, pitch: 6)
+    check(narrow.contains(t) && zip(narrow.sorted(), narrow.sorted().dropFirst()).allSatisfy { $1 - $0 >= 3 }, "kleine Zellen: Mindestabstand 3 Spalten")
+    let d14: [Int?] = (0..<14).map { 13 + $0 }                         // 13. ... 26., heute 26. neben dem 25.
+    let h14 = WidgetLogic.heatHeads(days: d14, today: 13, pitch: 8)
+    check(h14.contains(13) && !h14.contains(12) && h14.contains(2) && h14.contains(7), "Zahl direkt neben heute faellt weg")
+    check(WidgetLogic.heatHeads(days: d14, today: 13, pitch: 15).contains(12), "mit Platz bleibt sie")
+    check(WidgetLogic.heatHeads(days: [nil, nil], today: nil, pitch: 6).isEmpty && WidgetLogic.heatHeads(days: [], today: nil, pitch: 6).isEmpty, "ohne Daten keine Zahlen")
+}

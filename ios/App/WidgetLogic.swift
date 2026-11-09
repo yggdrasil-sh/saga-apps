@@ -460,6 +460,24 @@ enum WidgetLogic {
         return HabitGeom(name: name, cell: cell, gap: gap)
     }
 
+    /// Kopfzahlen der Heatmap (Tag des Monats): heute immer, sonst jeder 5. Tag - bei kleinen Zellen (4-13 pt) nur so
+    /// viele, dass sich die Zahlen nicht ueberlappen (Nacharbeit 5). `days` = Tag des Monats je Spalte (nil = unbekannt),
+    /// `pitch` = Zelle + Abstand. Eine Zahl braucht etwa `habitHeadWidth` pt (zwei Ziffern caption2 + Luft);
+    /// Schritt 5, 10, 15 ... und Mindestabstand zu jeder schon gezeigten Zahl. Rueckgabe: Indizes mit Zahl.
+    static let habitHeadWidth = 15.0
+    static func heatHeads(days: [Int?], today: Int?, pitch: Double) -> Set<Int> {
+        guard pitch > 0, !days.isEmpty else { return [] }
+        let k = Int((habitHeadWidth / pitch).rounded(.up))           // Mindestabstand in Spalten
+        let step = 5 * max(1, Int((Double(k) / 5).rounded(.up)))
+        var out = Set<Int>()
+        if let t = today, days.indices.contains(t) { out.insert(t) }
+        for (i, d) in days.enumerated() where !out.contains(i) {
+            guard let d, d % step == 0 else { continue }
+            if out.allSatisfy({ abs($0 - i) >= k }) { out.insert(i) }
+        }
+        return out
+    }
+
     /// Wetter: schmal (bis 330 wie die Container-Regel im Web) Tage als Liste statt Kacheln (Regel 15)
     static func weatherList(width: Double) -> Bool { width <= 330 }
 
