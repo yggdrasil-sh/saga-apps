@@ -14,6 +14,9 @@ final class PageWidgetValues: ObservableObject {
     /// einmal je Oeffnen gewuerfelt (Zitat mit pick "open", lokaler Rueckfall)
     let seed = UInt64.random(in: 0...UInt64.max)
     private var busy = false
+    private var again = false
+    /// Seite hat einen Unterseiten-Block (subpages1): dann auch neu laden, wenn sich der Seitenbaum aendert
+    @Published private(set) var hasSubpages = false
     init() {}
     #if DEBUG
     init(preview: WidgetLogic.Load) { load = preview }      // nur fuer Bilder (DB25Preview)
@@ -21,8 +24,18 @@ final class PageWidgetValues: ObservableObject {
 
     /// Laden, wenn die Seite Widgets mit Server-Wert hat; still (Fehler zeigt die Karte)
     func refresh(note: Int, blocks: NSArray, store: Store) async {
-        guard !busy, WidgetLogic.pageNeedsServer(blocks) else { return }
-        busy = true; defer { busy = false }
+        let sub = WidgetLogic.pageHasSubpages(blocks)
+        if sub != hasSubpages { hasSubpages = sub }
+        guard WidgetLogic.pageNeedsServer(blocks) else { return }
+        // laeuft schon ein Abruf (z. B. Unterseite eben angelegt): danach noch einmal, sonst bliebe der aeltere Stand stehen
+        if busy { again = true; return }
+        busy = true; again = false
+        await fetch(note: note, store: store)
+        if again && !Task.isCancelled { again = false; await fetch(note: note, store: store) }
+        busy = false
+    }
+
+    private func fetch(note: Int, store: Store) async {
         let tz = TimeZone.autoupdatingCurrent.identifier.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let next: WidgetLogic.Load
         do {
@@ -84,6 +97,7 @@ enum WidgetKind {
         case "habit": return "calendar.badge.checkmark"
         case "upcoming": return "list.bullet.indent"
         case "reading": return "book"
+        case "subpages": return "square.grid.2x2"
         default: return "chart.bar.xaxis"
         }
     }
@@ -99,6 +113,7 @@ enum WidgetKind {
         case "upcoming": return String(localized: "Anstehendes")
         case "chart": return String(localized: "Diagramm##Chart")
         case "reading": return String(localized: "Lesen##BookOrbit")
+        case "subpages": return String(localized: "Unterseiten")
         default: return String(localized: "Widget")
         }
     }
@@ -160,6 +175,7 @@ struct WidgetBlockView: View {
             WidgetCard(block: b, unset: unset, editable: editable) {
                 if unset { WidgetEmptyView(kind: b.kind, editable: editable) }
                 else if let notice { WidgetNoticeView(notice: notice) }
+                else if b.kind == "subpages" { SubpagesWidget(block: b, value: v, editable: editable) }   // 2.5 subpages1 (SubpagesWidget.swift)
                 else { WidgetContent(block: b, value: v, blockID: blockID) }
             }
         }
@@ -180,13 +196,15 @@ private struct WidgetCard<Content: View>: View {
         let card = block.style == .card
         let accent = block.accent.map { HKPalette.textColor($0) } ?? .accentColor
         let dashed = unset && editable
+        // Unterseiten (wie im Web): Kopf nur mit eigenem Titel, keine Mindesthoehe, ohne Rahmen kaum Abstand
+        let sub = block.kind == "subpages"
         VStack(alignment: .leading, spacing: block.size == .s ? 6 : block.size == .l ? 10 : 8) {
-            if !unset || !block.title.isEmpty { header }
+            if (!unset || !block.title.isEmpty) && (!sub || !block.title.isEmpty) { header }
             content
         }
-        .frame(maxWidth: .infinity, minHeight: WidgetLogic.minHeight(block.size), maxHeight: fill ? .infinity : nil, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: sub ? 0 : WidgetLogic.minHeight(block.size), maxHeight: fill ? .infinity : nil, alignment: .topLeading)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { if abs($0 - width) > 1 { width = $0 } }
-        .padding(.vertical, pad.v).padding(.horizontal, card ? pad.h : 0)
+        .padding(.vertical, sub && !card ? 4 : pad.v).padding(.horizontal, card ? pad.h : 0)
         .background { if card { RoundedRectangle(cornerRadius: 10).fill(WGColor.card) } }
         .overlay {
             if card {

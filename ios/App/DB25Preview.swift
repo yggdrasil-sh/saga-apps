@@ -2,7 +2,7 @@ import SwiftUI
 
 #if DEBUG
 // Nur fuer Bilder (2.5 App-Runde E1, ohne Server): Datenbank-Ansichten, Diagramme, Zeitleiste und Widgets mit
-// Beispieldaten aus einem Testserver (Wegwerf-Konten).   -hkDB25Preview tabelle|board|diagramm|zeitleiste|widgets
+// Beispieldaten aus einem Testserver (Wegwerf-Konten).   -hkDB25Preview tabelle|board|diagramm|zeitleiste|widgets|unterseiten
 enum DB25Preview {
     static var mode: String? { UserDefaults.standard.string(forKey: "hkDB25Preview") }
     static let rows = #"""
@@ -17,6 +17,41 @@ enum DB25Preview {
     static let widgets = #"""
 {"widgets": {"ch": {"as_of": "2026-10-28T00:43:04Z", "data": {"cats": [{"color": "gray", "key": "neu", "label": "Neu"}, {"color": "blue", "key": "lauf", "label": "Läuft"}, {"color": "yellow", "key": "warten", "label": "Wartet"}, {"color": "green", "key": "ok", "label": "Fertig"}], "fmt": "num", "other": 0, "rows": 5, "series": [{"color": null, "key": "", "label": "", "values": [1, 1, 1, 1]}], "total": 5, "truncated": false, "type": "donut", "x_kind": "cat"}, "error": null, "fmt": "num", "kind": "chart", "max": null, "text": null, "value": 5}, "hb": {"as_of": "2026-10-28T00:43:04Z", "data": {"can_check": true, "days": ["2026-10-22", "2026-10-23", "2026-10-24", "2026-10-25", "2026-10-26", "2026-10-27", "2026-10-28"], "habits": [{"done": [false, false, false, true, false, true, true], "name": "Sport", "pct": 43, "pid": "sport", "streak": 2, "week": 2}], "today": "2026-10-28"}, "error": null, "fmt": null, "kind": "habit", "max": 1, "text": null, "value": 1}, "nm": {"as_of": "2026-10-28T00:43:04Z", "data": {"cats": [], "fmt": "num", "other": 0, "rows": 5, "series": [], "total": 5, "truncated": false, "type": "number", "x_kind": "cat"}, "error": null, "fmt": "num", "kind": "chart", "max": null, "text": null, "value": 5}, "up": {"as_of": "2026-10-28T00:43:04Z", "data": {"days": 7, "errors": 0, "from": "2026-10-28", "items": [{"allday": true, "cal": null, "color": null, "end": "2026-10-30", "k": "row", "note": 53, "overdue": false, "start": "2026-10-28", "task": null, "title": "Bauen"}, {"allday": false, "cal": null, "color": null, "end": "2026-10-29T16:00+01:00", "k": "row", "note": 54, "overdue": false, "start": "2026-10-29T14:30+01:00", "task": null, "title": "Testen"}], "more": 0}, "error": null, "fmt": null, "kind": "upcoming", "max": null, "text": null, "value": 2}, "wx": {"kind": "weather", "value": 12.3, "error": null, "data": {"now": {"t": 12.3, "code": 3, "wind": 14}, "days": [{"d": "2026-10-28", "min": 6, "max": 13, "code": 61, "rain": 70}, {"d": "2026-10-29", "min": 5, "max": 11, "code": 2, "rain": 10}, {"d": "2026-10-30", "min": 4, "max": 10, "code": 0, "rain": 0}, {"d": "2026-10-31", "min": 7, "max": 12, "code": 80, "rain": 60}, {"d": "2026-11-01", "min": 3, "max": 8, "code": 71, "rain": 40}], "units": "metric", "stale": false, "place": "Hamburg"}}}}
 """#
+    // Unterseiten (subpages1): Galerie mit Hochformat-Covern (Platzhalterfarben, erfundene Titel) und Liste
+    static let subpages = #"""
+{"widgets": {"gal": {"kind": "subpages", "value": 7, "as_of": "2026-11-09T20:00:00Z", "error": null, "data": {"items": [
+  {"id": 101, "title": "Der Nebelturm", "icon": "📖", "img": "/files/pv0000000000000000000001", "kind": "page"},
+  {"id": 102, "title": "Die Kartografin von Elmsund", "icon": "🧭", "img": "/files/pv0000000000000000000002", "kind": "page"},
+  {"id": 103, "title": "Salz und Sterne", "icon": "", "img": "/files/pv0000000000000000000003", "kind": "page"},
+  {"id": 104, "title": "Das Archiv der leisen Dinge – Erinnerungen einer Bibliothekarin", "icon": "🗝️", "img": "/files/pv0000000000000000000004", "kind": "page"},
+  {"id": 105, "title": "Winter in Harrowmoor", "icon": "❄️", "img": null, "kind": "page"},
+  {"id": 106, "title": "Uhrmacher der Gezeiten", "icon": "⏳", "img": "/files/pv0000000000000000000005", "kind": "page"},
+  {"id": 107, "title": "Leseliste", "icon": "", "img": null, "kind": "database"}], "total": 7, "more": 0, "can_add": true}},
+ "lst": {"kind": "subpages", "value": 9, "as_of": "2026-11-09T20:00:00Z", "error": null, "data": {"items": [
+  {"id": 201, "title": "Der Nebelturm", "icon": "📖", "img": null, "kind": "page"},
+  {"id": 202, "title": "Die Kartografin von Elmsund", "icon": "🧭", "img": null, "kind": "page"},
+  {"id": 203, "title": "Salz und Sterne", "icon": "", "img": null, "kind": "page"},
+  {"id": 204, "title": "", "icon": "", "img": null, "kind": "page"},
+  {"id": 205, "title": "Leseliste", "icon": "", "img": null, "kind": "database"}], "total": 9, "more": 4, "can_add": true}}}}
+"""#
+    #if os(iOS)
+    /// Platzhalter-Cover (2:3) unter den Bildadressen der Beispieldaten vormerken - RemoteImage zeigt sie ohne Server
+    static func primeCovers() {
+        let colors: [(UInt, UInt)] = [(0x2f4858, 0x86bbd8), (0x7a3e3e, 0xe0a458), (0x1f3d2b, 0x9bc53d), (0x3d2c5a, 0xb497d6), (0x5a4a2c, 0xe6c79c)]
+        func c(_ v: UInt) -> UIColor { UIColor(red: CGFloat((v >> 16) & 255) / 255, green: CGFloat((v >> 8) & 255) / 255, blue: CGFloat(v & 255) / 255, alpha: 1) }
+        for (i, col) in colors.enumerated() {
+            let size = CGSize(width: 400, height: 600)
+            let img = UIGraphicsImageRenderer(size: size).image { ctx in
+                c(col.0).setFill(); ctx.fill(CGRect(origin: .zero, size: size))
+                c(col.1).setFill()
+                ctx.fill(CGRect(x: 48, y: 96 + CGFloat(i % 3) * 60, width: 304, height: 10))
+                ctx.fill(CGRect(x: 48, y: 126 + CGFloat(i % 3) * 60, width: 190, height: 10))
+                UIBezierPath(ovalIn: CGRect(x: 140, y: 330, width: 120, height: 120)).fill()
+            }
+            ImageStore.cache.setObject(img, forKey: "/files/pv000000000000000000000\(i + 1)?w=400" as NSString)
+        }
+    }
+    #endif
 }
 
 struct DB25PreviewView: View {
@@ -39,18 +74,23 @@ struct DB25PreviewView: View {
                             DBTimelineView(m: m, view: view("zeit"))
                             if let p = m.prop("frist") { DBWeekView(m: m, view: view("woche"), prop: p) }
                         case "widgets": widgetCards
+                        case "unterseiten": subpageCards
                         case "liste": RowList(m: m, view: view("liste"))
                         default: TableGrid(m: m, view: view("tab"))
                         }
                     }
                 }
                 .padding()
+                .frame(maxWidth: DB25Preview.mode == "unterseiten" ? 792 : .infinity).frame(maxWidth: .infinity)
             }
-            .navigationTitle(Text(verbatim: "Aufgaben"))
+            .navigationTitle(Text(verbatim: DB25Preview.mode == "unterseiten" ? "Bibliothek" : "Aufgaben"))
         }
         .environmentObject(store).environmentObject(nav)
         .task {
-            store.features = ServerFeatures(["formula1", "rollup1", "person1", "file1", "status1", "datetime1", "relfilter1", "subtasks1", "tableopts1", "chart1", "weather1", "habit1", "upcoming1"])
+            store.features = ServerFeatures(["formula1", "rollup1", "person1", "file1", "status1", "datetime1", "relfilter1", "subtasks1", "tableopts1", "chart1", "weather1", "habit1", "upcoming1", "subpages1"])
+            #if os(iOS)
+            if DB25Preview.mode == "unterseiten" { DB25Preview.primeCovers() }
+            #endif
             m.previewApply(Data(DB25Preview.rows.utf8))
             ready = true
         }
@@ -62,6 +102,18 @@ struct DB25PreviewView: View {
         let vals = PageWidgetValues(preview: .loaded(r))
         ForEach([("wx", "weather", "Draußen"), ("hb", "habit", "Gewohnheiten"), ("up", "upcoming", "Anstehend"), ("ch", "chart", "Status")], id: \.0) { w in
             WidgetBlockView(data: ["kind": w.1, "title": w.2, "cfg": [:] as [String: Any]] as NSDictionary, blockID: w.0)
+        }
+        .environmentObject(vals).environmentObject(ed)
+    }
+    @ViewBuilder private var subpageCards: some View {
+        let r = WidgetLogic.parse(Data(DB25Preview.subpages.utf8)) ?? WidgetLogic.Response()
+        let ed = PageEditor(doc: PageDoc(id: 1))
+        let vals = PageWidgetValues(preview: .loaded(r))
+        Group {
+            Text(verbatim: "Galerie · Kartenbild aus dem Inhalt").font(.headline)
+            WidgetBlockView(data: ["kind": "subpages", "size": "m", "cfg": ["view": "gallery", "image": "content"] as [String: Any]] as NSDictionary, blockID: "gal")
+            Text(verbatim: "Liste").font(.headline).padding(.top, 6)
+            WidgetBlockView(data: ["kind": "subpages", "size": "m", "title": "Zuletzt gelesen", "cfg": ["view": "list"] as [String: Any]] as NSDictionary, blockID: "lst")
         }
         .environmentObject(vals).environmentObject(ed)
     }

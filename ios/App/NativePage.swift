@@ -1065,6 +1065,16 @@ struct NativePageScreen: View {
                              })
     }
 
+    /// Kurzform der direkten Unterseiten laut Seitenbaum (ID, Titel, Symbol, Reihenfolge); 0 = Seite ohne Unterseiten-Block
+    private var subpageSig: Int {
+        guard widgets.hasSubpages else { return 0 }
+        var h = Hasher()
+        for p in store.pages where p.parent_id == id { h.combine(p.id); h.combine(p.title); h.combine(p.icon) }
+        for p in store.shared where p.parent_id == id { h.combine(p.id); h.combine(p.title); h.combine(p.icon) }
+        let v = h.finalize()
+        return v == 0 ? 1 : v
+    }
+
     private func refreshWidgets() {
         guard doc.fetched, !doc.noAccess, !doc.isDatabase else { return }
         Task { await widgets.refresh(note: id, blocks: doc.root, store: store) }
@@ -1488,6 +1498,10 @@ struct NativePageScreen: View {
         // 2.5: Widget-Werte beim Oeffnen, nach neuem Stand der Seite und beim Zurueckkehren in den Vordergrund
         .onChange(of: doc.fetched ? doc.currentRev : -1, initial: true) { _, r in if r >= 0 { refreshWidgets() } }
         .onChange(of: phase) { _, p in if p == .active { refreshWidgets() } }
+        // Unterseiten-Block (subpages1): auch, wenn die Seite wieder sichtbar wird (zurueck aus einer Unterseite) und wenn
+        // sich ihre Unterseiten im Seitenbaum aendern (angelegt, umbenannt, Symbol, verschoben, geloescht)
+        .onAppear { if widgets.hasSubpages { refreshWidgets() } }
+        .onChange(of: subpageSig) { o, n in if o != 0 && n != 0 { refreshWidgets() } }
         .onReceive(store.live.events) { liveEvent($0) }
         .onChange(of: doc.updatedBy) { _, v in if v != nil { Task { try? await Task.sleep(for: .seconds(6)); doc.updatedBy = nil } } }
         .sheet(item: $assistant) { l in
