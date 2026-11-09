@@ -52,6 +52,50 @@ enum CallDiag {
     }
 
     /// Waerme-Hysterese: heiss -> mindestens `ms` heiss; zurueck erst nach `ms` am Stueck unter der Schwelle
+    /// 2.5 (9.11.): Kamera am Knoten frueher drosseln ab thermalState .fair (wie Android MODERATE); der Bildschirm erst ab .serious
+    static let warmFrom = 1
+    /// 2.5 (9.11., echter Anruf: Sender nach 12-25 min bei ~30 kbit/s und 1-4 fps): Kamera ohne h und mit hoechstens 15 fps,
+    /// wenn warm (>= .fair) oder der Kodierer anhaltend (> cpuMs) durch die CPU begrenzt ist; zurueck erst nach calmMs am
+    /// Stueck ohne beides, bei erneutem Anspringen kurz danach doppelt so lange (hoechstens maxCalmMs). cpu nil = keine Messung.
+    /// Gleiche Regeln wie Android CallDiag.Throttle.
+    struct Throttle {
+        let cpuMs: Double, calmMs: Double, maxCalmMs: Double
+        private(set) var on = false
+        private(set) var why = ""
+        private var cpuSince: Double?
+        private var calmSince: Double?
+        private var offAt = 0.0
+        private(set) var calmNeed: Double
+        init(cpuMs: Double = 20_000, calmMs: Double = 60_000, maxCalmMs: Double = 300_000) {
+            self.cpuMs = cpuMs; self.calmMs = calmMs; self.maxCalmMs = maxCalmMs; calmNeed = calmMs
+        }
+        mutating func update(now: Double, thermal: Int, cpu: Bool?) -> Bool {
+            if cpu == true { if cpuSince == nil { cpuSince = now } } else if cpu == false { cpuSince = nil }
+            let warm = thermal >= CallDiag.warmFrom
+            let cpuLong = cpuSince.map { now - $0 >= cpuMs } ?? false
+            if !on {
+                if warm || cpuLong {
+                    on = true
+                    why = warm ? "waerme \(thermal)" : "cpu \(Int((now - (cpuSince ?? now)) / 1000)) s"
+                    calmNeed = offAt > 0 && now - offAt < 2 * maxCalmMs ? min(maxCalmMs, calmNeed * 2) : calmMs
+                    calmSince = nil
+                }
+                return on
+            }
+            if warm || cpu == true { calmSince = nil; return true }
+            let c = calmSince ?? now
+            calmSince = c
+            if now - c >= calmNeed { on = false; why = ""; offAt = now; calmSince = nil; cpuSince = nil }
+            return on
+        }
+    }
+    /// 2.5 (9.11.): ueberwiegend CPU-begrenzt seit der letzten Messung? cpuS = qualityLimitationDurations.cpu (s, kumulativ,
+    /// hoechster Wert der Kamera-Schichten); nil = keine Aussage (erste Messung, Zaehler neu)
+    static func cpuLimited(prevS: Double?, prevT: Double?, cpuS: Double?, now: Double, share: Double = 0.5) -> Bool? {
+        guard let cpuS, let prevS, let prevT, now > prevT, cpuS >= prevS else { return nil }
+        return (cpuS - prevS) * 1000 / (now - prevT) >= share
+    }
+
     struct Hold {
         let ms: Double
         private(set) var on = false

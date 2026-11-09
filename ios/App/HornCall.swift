@@ -176,6 +176,9 @@ final class HornSession: ObservableObject {
     var candT = 0.0, statT = 0.0, udpProbeAt = 0.0, rosterT = 0.0, tuneT = 0.0
     /// Geraet heiss (thermalState >= .serious) mit Hysterese: mindestens 60 s, zurueck nach 60 s kuehl
     var hot = CallDiag.Hold()
+    /// 2.5 (9.11.): Kamera frueher drosseln (warm ab .fair oder anhaltend CPU-begrenzt)
+    var throttle = CallDiag.Throttle()
+    var cpuPrev: (s: Double, t: Double, conn: ObjectIdentifier)?
     var tuneKey = ""
     var levels: [String: Double] = [:]
     /// Meeting-Ansicht: Kamerabild je Geraet (hornDraw)
@@ -809,7 +812,7 @@ extension CallManager {
         let wasHot = horn?.hot.on ?? false
         let hot = horn?.hot.update(now: Self.hornNow(), raw: th.rawValue >= ProcessInfo.ThermalState.serious.rawValue) ?? false
         if hot != wasHot { diagEvent("thermal", "\(hot ? "heiss" : "normal") (Stufe \(th.rawValue))") }
-        let low = ProcessInfo.processInfo.isLowPowerModeEnabled || hot
+        let low = ProcessInfo.processInfo.isLowPowerModeEnabled || hot || (horn?.throttle.on ?? false)
         let lv = conn.gov?.level ?? 0
         // kurze Seite (Hochkant: Breite) von Kamera und geteiltem Bildschirm; 0 = unbekannt (dann keine Verkleinerung)
         let plan = HornTx.plan(path: conn.path, level: lv, others: others, share: sharing, h: camera?.height ?? 0,
@@ -940,6 +943,7 @@ extension CallManager {
     private func hornStats(_ conn: HornConn) async {
         guard let H = horn else { return }
         var rtt: Double?, vrtt: Double?, lost = 0, recv = 0, fz = 0      // A1: vrtt = RTT der Bild-Leitung (dort staut sich das Bild)
+        var cpuS: Double?                                                   // 2.5 (9.11.): CPU-Grenze der Kamera (s, kumulativ)
         for L in conn.all {
             guard let pc = L.pc, !L.replaced else { continue }               // L3: ersetztes Ton-Bein sendet nichts mehr
             let rep = await pc.statsAsync()
@@ -956,6 +960,10 @@ extension CallManager {
                     let src = s.type == "outbound-rtp" ? "me"
                         : diagAlias((v["trackIdentifier"] as? String).flatMap { tracks[$0] }.flatMap { L.ownerOfCryptor($0) })
                     diagSample(type: s.type, values: v, src: src, key: pk + s.id, rtt: conn.rtt, report: rep)
+                    if s.type == "outbound-rtp", (v["kind"] as? String) == "video", ["l", "m", "h"].contains(v["rid"] as? String ?? "") {
+                        let q = (v["qualityLimitationDurations"] as? [String: Any])?["cpu"]
+                        if let x = (q as? NSNumber)?.doubleValue ?? (q as? String).flatMap(Double.init) { cpuS = max(cpuS ?? 0, x) }
+                    }
                 }
                 if s.type == "candidate-pair", (v["nominated"] as? NSNumber)?.boolValue == true, (v["state"] as? String) == "succeeded",
                    let r = (v["currentRoundTripTime"] as? NSNumber)?.doubleValue {
@@ -977,6 +985,17 @@ extension CallManager {
         }
         guard hornLive(H), !conn.dead else { return }
         let t = Self.hornNow()
+        if conn === H.cur {
+            let me = ObjectIdentifier(conn), p = H.cpuPrev?.conn == me ? H.cpuPrev : nil   // andere Verbindung: Zaehler neu
+            let cpu = CallDiag.cpuLimited(prevS: p?.s, prevT: p?.t, cpuS: cpuS, now: t)
+            H.cpuPrev = cpuS.map { ($0, t, me) }
+            let was = H.throttle.on
+            if H.throttle.update(now: t, thermal: ProcessInfo.processInfo.thermalState.rawValue, cpu: cpu) != was {
+                let d = H.throttle.on ? "drossel an: \(H.throttle.why) (zurueck nach \(Int(H.throttle.calmNeed / 1000)) s ruhig)" : "drossel aus"
+                diagEvent("layers", d); H.trace(d)
+                hornTune(conn)
+            }
+        }
         let p = conn.q5 ?? (lost, recv, fz, t)
         let dl = lost - p.lost, dr = recv - p.recv
         let loss = dl + dr > 0 ? Double(max(0, dl)) / Double(dl + dr) : 0
