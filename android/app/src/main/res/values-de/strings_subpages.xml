@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 2.5 Widget-Art "subpages" (Unterseiten als Liste oder Galerie) -->
+    <string name="sp_kind">Unterseiten</string>
+    <string name="sp_empty">Noch keine Unterseiten</string>
+    <string name="sp_empty_hint">Hier erscheinen die Seiten, die unter dieser Seite liegen.</string>
+    <string name="sp_add">Unterseite anlegen</string>
+    <string name="sp_show_more">Mehr anzeigen</string>
+    <string name="sp_a11y_page">%1$s, Seite</string>
+    <string name="sp_a11y_db">%1$s, Datenbank</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 2.5 Widget-Art "subpages" (Unterseiten als Liste oder Galerie) -->
+    <string name="sp_kind">หน้าย่อย</string>
+    <string name="sp_empty">ยังไม่มีหน้าย่อย</string>
+    <string name="sp_empty_hint">หน้าที่อยู่ภายใต้หน้านี้จะแสดงที่นี่</string>
+    <string name="sp_add">สร้างหน้าย่อย</string>
+    <string name="sp_show_more">แสดงเพิ่มเติม</string>
+    <string name="sp_a11y_page">%1$s, หน้า</string>
+    <string name="sp_a11y_db">%1$s, ฐานข้อมูล</string>
+</resources>

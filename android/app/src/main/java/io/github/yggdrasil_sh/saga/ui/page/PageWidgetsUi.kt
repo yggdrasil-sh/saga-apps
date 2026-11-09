@@ -80,6 +80,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.blocks.Gestalten
 import io.github.yggdrasil_sh.saga.blocks.PageWidgets
+import io.github.yggdrasil_sh.saga.blocks.Subpages
 import io.github.yggdrasil_sh.saga.blocks.WidgetDesign
 import io.github.yggdrasil_sh.saga.data.ApiException
 import io.github.yggdrasil_sh.saga.data.SagaRepository
@@ -115,16 +116,25 @@ import kotlin.math.sin
  * Zurueckkehren in den Vordergrund (force). Der Server merkt sich die Werte selbst 60 s.
  */
 class PageWidgetCache(private val noteId: Long, private val repo: SagaRepository) {
+    private companion object {
+        /** Nur im Speicher, die letzten 24 Seiten (Haupt-Thread) */
+        val memo = object : LinkedHashMap<String, PageWidgets.Values.Ok>(32, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, PageWidgets.Values.Ok>?): Boolean = size > 24
+        }
+    }
+
     /** 2.5 habit1: einen Wert ersetzen (Antwort von .../habit oder lokal umgeschaltet) */
     fun replace(id: String, v: PageWidgets.Value) {
         val cur = values as? PageWidgets.Values.Ok ?: return
-        values = PageWidgets.Values.Ok(cur.map + (id to v))
+        values = cur.copy(map = cur.map + (id to v)).also { memo[memoKey] = it }
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var job: Job? = null
     private var at = 0L
-    var values by mutableStateOf<PageWidgets.Values?>(null)
+    /** Zuletzt gelieferte Werte dieser Seite (je Server und Konto): sofort da beim Zurueckkehren, ohne Netz der letzte Stand */
+    private val memoKey = repo.settings.server.value + "|" + repo.account.value + "|" + noteId
+    var values by mutableStateOf<PageWidgets.Values?>(memo[memoKey])
         private set
     /** Mindestens eine Karte braucht Server-Werte (sonst kein Abruf beim Zurueckkehren) */
     var wanted = false
@@ -134,15 +144,16 @@ class PageWidgetCache(private val noteId: Long, private val repo: SagaRepository
         wanted = true
         val now = System.currentTimeMillis()
         if (job?.isActive == true) return
-        if (!force && values != null && now - at < 60_000) return
+        if (!force && values != null && at != 0L && now - at < 60_000) return
         at = now
         job = scope.launch {
             values = try {
                 val text = repo.pageWidgetValues(noteId)
-                withContext(Dispatchers.Default) { PageWidgets.parseResponse(text) }
+                withContext(Dispatchers.Default) { PageWidgets.parseResponse(text) }.also { if (it is PageWidgets.Values.Ok) memo[memoKey] = it }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: ApiException) {
+                memo.remove(memoKey)                                  // kein Zugriff mehr / aelterer Server: nichts Altes zeigen
                 PageWidgets.fromHttpError(e.code)
             } catch (_: Exception) {
                 values?.takeIf { it is PageWidgets.Values.Ok } ?: PageWidgets.Values.Failed   // offline: alte Werte behalten
@@ -188,6 +199,7 @@ private fun kindName(kind: String): String = when (kind) {
     "upcoming" -> stringResource(R.string.e1_kind_upcoming)
     "chart" -> stringResource(R.string.e1_kind_chart)
     "reading" -> stringResource(R.string.bo_kind_reading)
+    Subpages.KIND -> stringResource(R.string.sp_kind)
     else -> stringResource(R.string.pw_kind_widget)
 }
 
@@ -200,7 +212,7 @@ private fun kindIcon(kind: String): Int = when (kind) {
     "weather" -> SagaIcons.sun
     "habit" -> SagaIcons.today
     "upcoming" -> SagaIcons.list
-    "reading" -> SagaIcons.file
+    "reading", Subpages.KIND -> SagaIcons.file
     else -> SagaIcons.chart
 }
 
@@ -275,6 +287,8 @@ fun PageWidgetBlock(block: JsonObject, env: BlockEnv) {
         all is PageWidgets.Values.Unsupported -> WgState.Note(stringResource(R.string.pw_unsupported))
         all is PageWidgets.Values.OldServer -> WgState.Note(stringResource(R.string.pw_old_server))
         all is PageWidgets.Values.Failed -> WgState.Note(stringResource(R.string.pw_failed))
+        // Seite eines anderen Servers, der diese Art nicht rechnet (unsupported_kinds, z. B. Unterseiten ohne wsubpages1)
+        all is PageWidgets.Values.Ok && s.kind in all.unsupportedKinds -> WgState.Note(stringResource(R.string.pw_unsupported))
         v == null -> WgState.Note(stringResource(R.string.pw_pending))
         v.error == PageWidgets.Err.BAD_CFG -> WgState.Unset
         v.error != null -> WgState.Error(v.error)
@@ -295,7 +309,10 @@ fun PageWidgetBlock(block: JsonObject, env: BlockEnv) {
     val slot = LocalWidgetRowSlot.current
     val density = LocalDensity.current
     val rowMin = slot?.let { with(density) { it.row.max.toDp() } } ?: 0.dp
-    val vPadPx = with(density) { bx.vPad.dp.roundToPx() }
+    // Unterseiten ohne Rahmen: flach wie im Web (keine Mindesthoehe, kleiner Abstand), Kopf nur mit eigenem Titel
+    val flat = s.kind == Subpages.KIND && !card
+    val vPad = if (flat) 4 else bx.vPad
+    val vPadPx = with(density) { vPad.dp.roundToPx() }
     val context = LocalContext.current
     val ed = env.editor
     val canOpenWeb = ed.editable && !ed.isRemote
@@ -304,20 +321,20 @@ fun PageWidgetBlock(block: JsonObject, env: BlockEnv) {
         io.github.yggdrasil_sh.saga.ui.common.openUrl(context, Gestalten.webUrl(env.repo.absoluteUrl("notes"), ed.id, s.id))
     }
     BoxWithConstraints(
-        Modifier.fillMaxWidth().heightIn(min = maxOf(bx.minHeight.dp, rowMin))
+        Modifier.fillMaxWidth().heightIn(min = maxOf(if (s.kind == Subpages.KIND) 0.dp else bx.minHeight.dp, rowMin))
             .then(
                 if (!card) Modifier
                 else Modifier.clip(shape).background(cs.surfaceContainerLow)
                     .then(if (unset) Modifier.dashedBorder(cs.outline, SagaRadius.md) else Modifier.border(1.dp, cs.outlineVariant, shape)),
             )
-            .padding(vertical = bx.vPad.dp, horizontal = if (card) bx.hPad.dp else 0.dp),
+            .padding(vertical = vPad.dp, horizontal = if (card) bx.hPad.dp else 0.dp),
     ) {
         val w = WgCtx(s, maxWidth.value, accent, valueColor, chosen)
         Column(
             Modifier.fillMaxWidth().then(if (slot != null) Modifier.onSizeChanged { slot.row.heights[slot.index] = it.height + 2 * vPadPx } else Modifier),
             verticalArrangement = Arrangement.spacedBy(bx.gap.dp),
         ) {
-            if (!unset) WgHead(s)
+            if (!unset && !(s.kind == Subpages.KIND && s.title.isEmpty())) WgHead(s)
             when (state) {
                 WgState.Loading -> Text("…", style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
                 WgState.Unset -> WgEmpty(s.kind, canOpenWeb, openWeb)
@@ -353,6 +370,7 @@ private fun WgBody(w: WgCtx, v: PageWidgets.Value?, env: BlockEnv) {
                 big = { wgValueStyle(w) }, valueColor = w.valueColor,
             )
         } ?: WgNote(stringResource(R.string.wd_no_values))
+        Subpages.KIND -> SubpagesWidget(s, w.widthDp, v, env)
         "chart" -> v?.data?.let { data ->
             val c = remember(data) { io.github.yggdrasil_sh.saga.db.DbChart.parseResult(data) }
             val agg = widgetAggLabel(PageWidgets.cfgStr(s, "agg").ifEmpty { null })

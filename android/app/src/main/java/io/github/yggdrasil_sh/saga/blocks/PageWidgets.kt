@@ -29,8 +29,8 @@ import kotlin.random.Random
  */
 object PageWidgets {
     val KINDS = setOf("clock", "countdown", "progress", "metric", "quote")
-    /** 2.5 Paket 4: rechnet der Server, nur mit passender Faehigkeit (weather1, habit1, upcoming1, chart1; reading: bookorbit1) */
-    val KINDS2 = setOf("weather", "habit", "upcoming", "chart", "reading")
+    /** 2.5 Paket 4: rechnet der Server, nur mit passender Faehigkeit (weather1, habit1, upcoming1, chart1, subpages1; reading: bookorbit1) */
+    val KINDS2 = setOf("weather", "habit", "upcoming", "chart", "reading", Subpages.KIND)
 
     /** Faehigkeit des Servers fuer eine Etappe-2-Art ("reading" gehoert zu BookOrbit) */
     fun featureFor(kind: String): String = if (kind == "reading") BookOrbit.FEATURE else "${kind}1"
@@ -46,7 +46,7 @@ object PageWidgets {
         /** Holt die App den Wert vom Server (Etappe 1: progress/db, metric, jedes quote - auch feste Zitate waehlt der
          *  Server nach `pick`, damit die Auswahl wie im Web ist)? */
         val serverValue: Boolean get() = when (kind) {
-            "metric", "quote", "weather", "habit", "upcoming", "chart", "reading" -> true
+            "metric", "quote", "weather", "habit", "upcoming", "chart", "reading", Subpages.KIND -> true
             "progress" -> str(cfg, "src") == "db"
             else -> false
         }
@@ -62,10 +62,12 @@ object PageWidgets {
     fun spec(block: JsonObject): Spec {
         val d = BlockDoc.data(block)
         val size = str(d, "size").takeIf { it in setOf("s", "m", "l") } ?: "m"
-        val style = str(d, "style").takeIf { it == "plain" } ?: "card"
+        val kind = str(d, "kind")
+        // Unterseiten (subpages1): ohne `style` rahmenlos, nur ausdruecklich "card" bekommt den Rahmen
+        val style = if (kind == Subpages.KIND) (str(d, "style").takeIf { it == "card" } ?: "plain") else (str(d, "style").takeIf { it == "plain" } ?: "card")
         val accent = str(d, "accent").takeIf { it in Gestalten.PALETTE }
         val title = InlineHtml.decodeEntities(str(d, "title")).trim().take(80)
-        return Spec(BlockDoc.id(block), str(d, "kind"), size, style, accent, title, d["cfg"] as? JsonObject ?: JsonObject(emptyMap()))
+        return Spec(BlockDoc.id(block), kind, size, style, accent, title, d["cfg"] as? JsonObject ?: JsonObject(emptyMap()))
     }
 
     /** Alle Widget-Bloecke der Seite (auch in Spalten und Toggles), Reihenfolge wie im Dokument */
@@ -105,7 +107,8 @@ object PageWidgets {
 
     /** Zustand aller Werte einer Seite */
     sealed interface Values {
-        data class Ok(val map: Map<String, Value>) : Values
+        /** [unsupportedKinds]: Arten, die der Server einer fremden Seite nicht rechnet (`unsupported_kinds`, z. B. subpages ohne wsubpages1) */
+        data class Ok(val map: Map<String, Value>, val unsupportedKinds: Set<String> = emptySet()) : Values
         /** Seite eines anderen Servers, der keine Widgets kann (`unsupported: true`) */
         data object Unsupported : Values
         /** Aelterer Server ohne den Endpunkt (404) */
@@ -245,8 +248,9 @@ object PageWidgets {
             null
         } ?: return Values.Failed
         if (bool(root, "unsupported")) return Values.Unsupported
-        val w = root["widgets"] as? JsonObject ?: return Values.Ok(emptyMap())
-        return Values.Ok(w.mapNotNull { (k, v) -> (v as? JsonObject)?.let { k to parseValue(it) } }.toMap())
+        val uk = (root["unsupported_kinds"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.content }.toSet()
+        val w = root["widgets"] as? JsonObject ?: return Values.Ok(emptyMap(), uk)
+        return Values.Ok(w.mapNotNull { (k, v) -> (v as? JsonObject)?.let { k to parseValue(it) } }.toMap(), uk)
     }
 
     /** Zeitzone des Betrachters fuer `?tz=` (nur IANA-Namen; sonst weglassen - der Server antwortet auf Ungueltiges mit 400) */

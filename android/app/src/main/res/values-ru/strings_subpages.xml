@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 2.5 Widget-Art "subpages" (Unterseiten als Liste oder Galerie) -->
+    <string name="sp_kind">Подстраницы</string>
+    <string name="sp_empty">Подстраниц пока нет</string>
+    <string name="sp_empty_hint">Здесь появятся страницы, вложенные в эту страницу.</string>
+    <string name="sp_add">Создать подстраницу</string>
+    <string name="sp_show_more">Показать ещё</string>
+    <string name="sp_a11y_page">%1$s, страница</string>
+    <string name="sp_a11y_db">%1$s, база данных</string>
+</resources>
