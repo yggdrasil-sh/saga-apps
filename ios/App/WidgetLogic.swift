@@ -345,7 +345,7 @@ enum WidgetLogic {
     /// Ohne `src_name` (kein Zugriff, veroeffentlicht, aelterer Server) bleibt es wie bisher: Rechenart bzw. nichts.
     static func sourceContext(kind: String, src: String?, aggText: String, srcName: String?, tasksText: String) -> String {
         if src == "tasks" { return kind == "metric" ? aggText : tasksText }
-        let db = src == "db" ? srcName ?? "" : ""
+        let db = srcName ?? ""   // Server schickt src_name nur bei Datenbank-Quellen; Kennzahlen haben oft gar kein src (= db)
         return (kind == "metric" ? [aggText, db] : [db]).filter { !$0.isEmpty }.joined(separator: " · ")
     }
 

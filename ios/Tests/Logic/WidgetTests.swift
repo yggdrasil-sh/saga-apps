@@ -272,6 +272,7 @@ func widgetNacharbeitTests() {
     typealias W = WidgetLogic
     check(W.sourceContext(kind: "metric", src: "db", aggText: "Summe", srcName: "Projekte", tasksText: "T") == "Summe · Projekte", "Kennzahl: Rechenart · Datenbank")
     check(W.sourceContext(kind: "metric", src: "db", aggText: "Summe", srcName: nil, tasksText: "T") == "Summe", "Kennzahl ohne Feld wie bisher")
+    check(W.sourceContext(kind: "metric", src: nil, aggText: "Summe", srcName: "Projekte", tasksText: "T") == "Summe · Projekte", "Kennzahl ohne src (= Datenbank) nennt die Quelle")
     check(W.sourceContext(kind: "progress", src: "db", aggText: "", srcName: "Projekte", tasksText: "T") == "Projekte"
           && W.sourceContext(kind: "progress", src: "db", aggText: "", srcName: nil, tasksText: "T") == "", "Fortschritt: Datenbank bzw. nichts")
     check(W.sourceContext(kind: "progress", src: "tasks", aggText: "", srcName: "X", tasksText: "Saga-Aufgaben") == "Saga-Aufgaben"
