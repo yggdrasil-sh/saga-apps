@@ -1716,12 +1716,21 @@ struct BlockView: View {
     }
 
     /// Eine Spalte (Mac/iPad nebeneinander); fill: Widget fuellt die Hoehe der Reihe
+    /// Nacharbeit 2: in gleich hohen Widget-Reihen nimmt "+ Block" keinen Platz ein (die Reihe springt nicht mehr beim
+    /// Zeigen) - mit Zeiger liegt er als kleine Kapsel ueber der Karte unten rechts, ohne Zeiger (Touch, VoiceOver,
+    /// Tastatur) steht er im Kontextmenue des Blocks ("Neuer Block am Ende dieser Spalte", BlockMenuItems).
     private func column(_ i: Int, _ c: NSMutableArray, fill: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             BlocksView(arr: c).environment(\.widgetFill, fill)
-            if !fill || colHover == i { ColumnAddButton(visible: colHover == i) { ed.continueInColumn(c) } }   // in DIESER Spalte weiterschreiben
+            if !fill { ColumnAddButton(visible: colHover == i) { ed.continueInColumn(c) } }   // in DIESER Spalte weiterschreiben
         }
         .frame(maxWidth: .infinity, maxHeight: fill ? .infinity : nil, alignment: .topLeading)
+        .overlay(alignment: .bottomTrailing) {
+            if fill && colHover == i && !ed.locked {
+                ColumnAddButton(visible: true) { ed.continueInColumn(c) }
+                    .background(.regularMaterial, in: Capsule()).padding(6)
+            }
+        }
         .contentShape(Rectangle())
         .onHover { colHover = $0 ? i : (colHover == i ? nil : colHover) }
     }
@@ -2098,6 +2107,10 @@ struct BlockMenuItems: View {
         Button { copyText(AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/notes#\(ed.doc.id):\(id)") } label: { Label("Link zum Block kopieren", systemImage: "link") }
         // Spalten wie Notion: hinein, heraus, zusammenfuehren
         if let c = ed.columnOf(id) {
+            // Nacharbeit 2: "+ Block" ohne Zeiger erreichbar (in gleich hohen Widget-Reihen gibt es keinen sichtbaren Knopf)
+            if let blocks = (((c.cols["data"] as? NSDictionary)?["cols"] as? NSArray)?[safe: c.col] as? NSDictionary)?["blocks"] as? NSMutableArray {
+                Button { ed.continueInColumn(blocks) } label: { Label("Neuer Block am Ende dieser Spalte", systemImage: "plus") }
+            }
             Menu {
                 ForEach(0..<ed.colCount(c.cols), id: \.self) { ci in
                     if ci != c.col { Button("Spalte \(ci + 1)") { ed.moveIntoColumn(id, cols: c.cols, col: ci) } }
