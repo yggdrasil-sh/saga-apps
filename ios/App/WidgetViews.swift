@@ -640,18 +640,19 @@ private struct HabitWidget: View {
         } else { Text(verbatim: "…").foregroundStyle(.secondary) }
     }
 
-    /// Kreisgroesse wie --hbc im Web (S/M/L, Heatmap kleiner)
-    private func cellSize(_ L: WidgetLogic.HabitLayout) -> CGFloat {
-        L.heat ? (size == .l ? 17 : 13) : (size == .s ? 19 : size == .l ? 30 : 22)
+    /// Feste Zellmasse aus Kartenbreite und Anzahl (Logik in WidgetLogic.habitGeom, getestet)
+    private func geom(_ L: WidgetLogic.HabitLayout) -> WidgetLogic.HabitGeom {
+        WidgetLogic.habitGeom(width: Double(width), layout: L, size: size)
     }
 
     /// Breit: Name | Tage | Quote in einer Zeile; sonst Name + Quote oben, Tage darunter ueber die volle Breite
     @ViewBuilder private func row<C: View>(name: String?, stats: AnyView?, L: WidgetLogic.HabitLayout, @ViewBuilder cells: () -> C) -> some View {
         if L.oneLine {
-            HStack(spacing: 10) {
-                Text(verbatim: name ?? "").font(.subheadline).lineLimit(1).frame(minWidth: 80, maxWidth: 144, alignment: .leading)
+            HStack(spacing: WidgetLogic.habitRowGap) {
+                Text(verbatim: name ?? "").font(.subheadline).lineLimit(1).truncationMode(.tail)
+                    .frame(width: geom(L).name, alignment: .leading)
                 cells()
-                Group { if let stats { stats } else { Color.clear } }.frame(width: 104, alignment: .trailing)
+                Group { if let stats { stats } else { Color.clear } }.frame(width: WidgetLogic.habitStatsWidth, alignment: .trailing)
             }
         } else {
             VStack(alignment: .leading, spacing: 4) {
@@ -669,21 +670,25 @@ private struct HabitWidget: View {
 
     /// Tage: Kreise ueber die volle Breite verteilt (heute rechts), Heatmap linksbuendig dicht
     @ViewBuilder private func cells<C: View>(_ idx: [Int], L: WidgetLogic.HabitLayout, @ViewBuilder _ one: @escaping (Int) -> C) -> some View {
-        let s = cellSize(L)
-        if L.heat {
-            HStack(spacing: 2) {
-                ForEach(idx, id: \.self) { i in one(i).frame(maxWidth: s).aspectRatio(1, contentMode: .fit) }
-                Spacer(minLength: 0)
-            }
-        } else {
-            HStack(spacing: 0) {
-                ForEach(Array(idx.enumerated()), id: \.element) { k, i in
-                    if k > 0 { Spacer(minLength: 3) }
-                    one(i).frame(maxWidth: s).aspectRatio(1, contentMode: .fit)
+        // Feste quadratische Zellen (frame width = height). Vorher frame(maxWidth:).aspectRatio(1): die Hoehe folgte
+        // der vom HStack angebotenen Restbreite und wuchs nach rechts (iPad, breite Karte).
+        let g = geom(L), s = CGFloat(g.cell)
+        Group {
+            if L.heat {
+                HStack(spacing: CGFloat(g.gap)) {
+                    ForEach(idx, id: \.self) { i in one(i).frame(width: s, height: s) }
+                    Spacer(minLength: 0)
+                }
+            } else {
+                HStack(spacing: 0) {
+                    ForEach(Array(idx.enumerated()), id: \.element) { k, i in
+                        if k > 0 { Spacer(minLength: CGFloat(g.gap)) }
+                        one(i).frame(width: s, height: s)
+                    }
                 }
             }
-            .padding(2)        // Platz fuer den Ring um heute
         }
+        .padding(CGFloat(WidgetLogic.habitRingPad))        // Platz fuer den Ring um heute
     }
 
     /// Kopf: Wochentag (7 Tage) bzw. Tag des Monats alle 5 Tage und heute (Heatmap)

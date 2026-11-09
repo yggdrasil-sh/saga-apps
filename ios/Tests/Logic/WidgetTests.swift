@@ -189,6 +189,18 @@ func widgetDesignTests() {
     check(W.habitLayout(days: 14, width: 350, size: .m).hint == nil && W.habitLayout(days: 14, width: 350, size: .m).shown == 14, "14 Tage schmal: alle")
     check(W.habitLayout(days: 30, width: 200, size: .m) == .init(shown: 7, heat: false, header: false, oneLine: false, hint: 7), "sehr schmal: letzte 7 als Kreise")
     check(W.habitLayout(days: 14, width: 350, size: .s) == .init(shown: 7, heat: true, header: true, oneLine: false, hint: 7), "Groesse S: letzte 7")
+    // Zellmasse: fest quadratisch, Maximum wie --hbc, nie groesser bei breiter Karte (iPad-Fund: Zellen wuchsen)
+    func geo(_ d: Int, _ w: Double, _ s: W.Size = .m) -> W.HabitGeom { W.habitGeom(width: w, layout: W.habitLayout(days: d, width: w, size: s), size: s) }
+    check(geo(30, 350).cell == 13 && geo(30, 1000).cell == 13 && geo(30, 2000, .l).cell == 17, "Heatmap: Maximum 13/17 auch sehr breit")
+    check(geo(30, 1000).name == 144 && geo(30, 500).name == 80, "breit: Name gibt Platz ab, wenn die Tage sonst schrumpfen")
+    check(geo(30, 500).cell == 7.5, "30 Tage bei 500: Zellen schrumpfen statt Ueberlauf")
+    check(geo(7, 200).cell == 22 && geo(7, 1100).cell == 22 && geo(7, 120).cell == 14 && geo(7, 300, .l).cell == 30, "Kreise: Maximum, schmal kleiner")
+    for d in [7, 14, 30] { for s in [W.Size.s, .m, .l] { for w in stride(from: 120.0, through: 1400, by: 20) {
+        let L = W.habitLayout(days: d, width: w, size: s), g = W.habitGeom(width: w, layout: L, size: s)
+        let row = L.oneLine ? w - 2 * W.habitRowGap - W.habitStatsWidth - g.name : w
+        let used = Double(L.shown) * g.cell + Double(L.shown - 1) * g.gap + 2 * W.habitRingPad
+        if used > row + 0.01 || g.cell > W.habitCellMax(heat: L.heat, size: s) { check(false, "Gewohnheiten passen nicht: \(d) Tage, \(s), \(w)") }
+    } } }
     check(W.weatherList(width: 250) && !W.weatherList(width: 400), "Wetter schmal als Liste")
     check(W.padding(.s) == (10, 12) && W.padding(.l) == (18, 20) && W.minHeight(.m) == 104 && W.chartHeight(.l) == 300, "Abstaende und Hoehen je Groesse")
 

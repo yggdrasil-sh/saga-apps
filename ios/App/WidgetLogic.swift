@@ -437,6 +437,29 @@ enum WidgetLogic {
         return HabitLayout(shown: shown, heat: heat, header: header, oneLine: oneLine, hint: shown < n ? shown : nil)
     }
 
+    /// Zellmasse der Gewohnheiten wie im Web (grid minmax(0, --hbc)): Zelle = min(Maximum, Platz / Anzahl), immer
+    /// quadratisch mit fester Seitenlaenge - wird nie hoeher als breit, auch bei sehr breiter Karte (iPad).
+    /// Breit (oneLine): Name 80...144 | Tage | Quote 104, Abstaende 2 x 10; der Name gibt Platz ab, wenn die Tage
+    /// sonst schrumpfen muessten. Tage-Zeile hat 2 pt Rand je Seite fuer den Ring um heute.
+    struct HabitGeom: Equatable { var name: Double; var cell: Double; var gap: Double }
+    static let habitStatsWidth = 104.0, habitRowGap = 10.0, habitRingPad = 2.0
+    static func habitCellMax(heat: Bool, size: Size) -> Double {
+        heat ? (size == .l ? 17 : 13) : (size == .s ? 19 : size == .l ? 30 : 22)
+    }
+    static func habitGeom(width w: Double, layout L: HabitLayout, size: Size) -> HabitGeom {
+        let n = Double(max(1, L.shown)), gap = L.heat ? 2.0 : 3.0, mx = habitCellMax(heat: L.heat, size: size)
+        let need = n * mx + (n - 1) * gap + 2 * habitRingPad
+        var name = 0.0, avail = max(0, w)
+        if L.oneLine {
+            let rest = avail - 2 * habitRowGap - habitStatsWidth
+            name = min(144, max(80, rest - need))
+            avail = max(0, rest - name)
+        }
+        let fit = (avail - 2 * habitRingPad - (n - 1) * gap) / n
+        let cell = max(4, min(mx, (fit * 2).rounded(.down) / 2))
+        return HabitGeom(name: name, cell: cell, gap: gap)
+    }
+
     /// Wetter: schmal (bis 330 wie die Container-Regel im Web) Tage als Liste statt Kacheln (Regel 15)
     static func weatherList(width: Double) -> Bool { width <= 330 }
 
