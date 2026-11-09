@@ -61,6 +61,8 @@ class WidgetNacharbeitTest {
     fun kontextRechenartUndQuelle() {
         assertEquals("Summe · Ausgaben", WidgetDesign.srcContext("metric", "db", "Summe", "Ausgaben"))
         assertEquals("Summe", WidgetDesign.srcContext("metric", "db", "Summe", null))            // wie bisher
+        assertEquals("Summe · Ausgaben", WidgetDesign.srcContext("metric", "", "Summe", "Ausgaben"))   // ohne src = Datenbank
+        assertEquals("Summe", WidgetDesign.srcContext("metric", "", "Summe", null))
         assertEquals("Ausgaben", WidgetDesign.srcContext("progress", "db", null, "Ausgaben"))
         assertEquals("", WidgetDesign.srcContext("progress", "db", null, null))
         assertEquals("Offen", WidgetDesign.srcContext("metric", "tasks", "Offen", "egal"))       // tasks unveraendert

@@ -349,7 +349,7 @@ object WidgetDesign {
     fun srcContext(kind: String, src: String, agg: String?, srcName: String?): String {
         val name = srcName?.trim()?.ifEmpty { null }
         if (src == "tasks") return if (kind == "metric") agg.orEmpty() else ""
-        if (src != "db") return if (kind == "metric") agg.orEmpty() else ""
+        if (src != "db" && kind != "metric") return ""   // Kennzahl ohne src = Datenbank (Server schickt src_name nur dann)
         return listOfNotNull(if (kind == "metric") agg?.ifEmpty { null } else null, name).joinToString(" · ")
     }
 
