@@ -98,6 +98,16 @@ class SubpagesTest {
     }
 
     @Test
+    fun safeImgRejectsPathTricks() {
+        for (u in listOf("//evil.example/a", "/files//evil.example", "/files/a?x=1", "/files/a#x", "/files/%2e%2e/api/x",
+            "/files/..\\x", "/files/a b", "/FILES/a", "https://evil.example/files/a", "/api/fed/files/1/../../x")) {
+            assertNull(u, Subpages.safeImg(u))
+        }
+        assertEquals("/files/abc", Subpages.safeImg(" /files/abc "))
+        assertEquals("/api/fed/files/-3/abc", Subpages.safeImg("/api/fed/files/-3/abc"))
+    }
+
+    @Test
     fun spalten() {
         // Handy hochkant (Inhaltsbreite ~328-380 dp): immer zwei, egal welche Groesse/Bildquelle
         for (size in listOf("s", "m", "l")) for (img in listOf("cover", "content", "none")) {

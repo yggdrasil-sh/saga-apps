@@ -40,8 +40,16 @@ object Subpages {
     /** Nur Adressen des eigenen Servers (Datei, Titelbild-Galerie, Datei einer foederierten Seite) - nie fremde Hosts */
     fun safeImg(s: String?): String? {
         val u = s?.trim().orEmpty()
-        if (u.isEmpty() || ".." in u || u.startsWith("//")) return null
+        // keine Pfad-Tricks: "..", "//", Parameter/Anker, Backslash, Prozent-Kodierung (%2e%2e), Steuer-/Leerzeichen
+        if (u.isEmpty() || u.length > 300 || ".." in u || "//" in u || u.any { it in "?#\\%" || it.code <= 0x20 || it.code == 0x7f }) return null
         return u.takeIf { it.startsWith("/files/") || it.startsWith("/covers/") || it.startsWith("/api/fed/files/") }
+    }
+
+    /** Symbol: Bildpfad nur wie [safeImg] (Titelbild-Galerie nicht), sonst Emoji/Text (kurz); Unbrauchbares -> Standardsymbol */
+    private fun icon(s: String): String {
+        val t = s.trim()
+        if (t.startsWith("/")) return safeImg(t)?.takeIf { !it.startsWith("/covers/") } ?: ""
+        return if (t.length > 16) "" else t
     }
 
     /** `W.data`; null = keine Daten (aelterer Stand, Fehler). Eintraege ohne gueltige ID fallen weg, doppelte IDs auch */
@@ -55,7 +63,7 @@ object Subpages {
             val id = (p.longOrNull ?: p.content.toLongOrNull())?.takeIf { it != 0L } ?: return@mapNotNull null
             if (!seen.add(id)) return@mapNotNull null
             Item(
-                id, str(x, "title").replace(Regex("\\s+"), " ").trim().take(200), str(x, "icon").trim(),
+                id, str(x, "title").replace(Regex("\\s+"), " ").trim().take(200), icon(str(x, "icon")),
                 safeImg((x["img"] as? JsonPrimitive)?.takeIf { it.isString }?.content), str(x, "kind") == "database",
             )
         }
