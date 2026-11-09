@@ -149,7 +149,7 @@ func db25Tests() {
     // MARK: Diagramme
     let (c1, e1) = ChartData.response(fx("chart_dia"))
     check(e1 == nil && c1?.cats.map(\.key) == ["todo", "doing", "done"] && c1?.series.count == 2 && c1?.series[0].label == "Anna Beispiel", "Diagramm mit Reihen")
-    check(c1?.catColor(0) == "gray" && c1?.seriesColor(1) == "orange", "Farben: Palette bzw. Ersatzreihenfolge")
+    check(c1?.catColor(0) == .named("gray") && c1?.seriesColor(1) == .named("orange") && c1?.rows == 5, "Farben: Optionsfarben (2 echte) bzw. Palette je Reihe")
     let (c2, _) = ChartData.response(fx("chart_dia2"))
     check(c2?.xKind == "date" && c2?.cumulative == true && c2?.goal == 50 && c2?.series[0].values == [7, 11, 41] && c2?.cats[0].start == "2026-10-27", "Datum, kumuliert, Ziel")
     check(c2.map { $0.range == (0, 50) } == true, "Bereich mit Ziel")

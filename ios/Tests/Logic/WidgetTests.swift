@@ -159,3 +159,75 @@ func widgetTests() {
     check(NSDictionary(dictionary: bs[1]).isEqual(to: bb[1]), "unbekannte Widget-Art in Spalte unveraendert")
     check(GestaltenLogic.knownTypes.contains("widget") && !GestaltenLogic.needsFallback("widget"), "widget ist bekannt (keine Rueckfall-Karte)")
 }
+
+// Widget-Design-Runde (9.11.): Wert/Einheit, Zitat-Quelle, Gewohnheiten je Breite, Diagramm-Palette/Masse, Spalten-Umbruch
+func widgetDesignTests() {
+    typealias W = WidgetLogic
+    // MARK: Wert und Einheit (Regel 5)
+    check(W.valueParts("2.250,00 €") == .init(prefix: nil, number: "2.250,00", unit: "€"), "Euro klein dahinter")
+    check(W.valueParts("42 Tage") == .init(prefix: nil, number: "42", unit: "Tage") && W.valueParts("68 %") == .init(prefix: nil, number: "68", unit: "%"), "Tage/Prozent")
+    check(W.valueParts("12\u{00A0}°C").unit == "°C" && W.valueParts("12\u{00A0}°C").number == "12", "Grad mit geschuetztem Leerzeichen")
+    check(W.valueParts("$1,250.50") == .init(prefix: "$", number: "1,250.50", unit: nil), "Waehrung davor")
+    check(W.valueParts("09:32") == .init(prefix: nil, number: "09:32", unit: nil) && W.valueParts("1234").unit == nil && W.valueParts("–").unit == nil, "ohne Einheit")
+    check(W.valueParts("12 Kilometer").unit == nil, "lange Woerter sind keine Einheit")
+
+    // MARK: Zitat-Quelle (Regel 11)
+    let q1 = W.quoteParts("Der Weg ist das Ziel. – Konfuzius")
+    check(q1.text == "Der Weg ist das Ziel." && q1.source == "Konfuzius", "Quelle nach Satzende")
+    let q2 = W.quoteParts("Erst denken,\n— Marie von Ebner-Eschenbach")
+    check(q2.text == "Erst denken," && q2.source == "Marie von Ebner-Eschenbach", "Quelle nach Zeilenumbruch")
+    check(W.quoteParts("Von 9 – 17 Uhr geöffnet").source == nil, "Strich mitten im Satz ist keine Quelle")
+    check(W.quoteParts("Kurz. – klein").source == nil, "Quelle braucht Grossbuchstaben")
+    check(W.quoteParts("Ein langer Satz hier. – Das ist kein Name sondern ein ganzer Satz.").source == nil, "Satz statt Name")
+    check(W.quoteLines(.s) == 4 && W.quoteLines(.m) == 6 && W.quoteLines(.l) == 8, "Zitat-Zeilen S/M/L")
+
+    // MARK: Gewohnheiten je Breite (Regel 12)
+    check(W.habitLayout(days: 7, width: 300, size: .m) == .init(shown: 7, heat: false, header: true, oneLine: false, hint: nil), "7 Tage: Kreise")
+    check(W.habitLayout(days: 7, width: 500, size: .m).oneLine, "breit: eine Zeile je Gewohnheit")
+    check(W.habitLayout(days: 30, width: 500, size: .m) == .init(shown: 30, heat: true, header: true, oneLine: true, hint: nil), "30 Tage breit: Heatmap ganz")
+    check(W.habitLayout(days: 30, width: 350, size: .m) == .init(shown: 14, heat: true, header: true, oneLine: false, hint: 14), "30 Tage schmal: letzte 14")
+    check(W.habitLayout(days: 14, width: 350, size: .m).hint == nil && W.habitLayout(days: 14, width: 350, size: .m).shown == 14, "14 Tage schmal: alle")
+    check(W.habitLayout(days: 30, width: 200, size: .m) == .init(shown: 7, heat: false, header: false, oneLine: false, hint: 7), "sehr schmal: letzte 7 als Kreise")
+    check(W.habitLayout(days: 14, width: 350, size: .s) == .init(shown: 7, heat: true, header: true, oneLine: false, hint: 7), "Groesse S: letzte 7")
+    check(W.weatherList(width: 250) && !W.weatherList(width: 400), "Wetter schmal als Liste")
+    check(W.padding(.s) == (10, 12) && W.padding(.l) == (18, 20) && W.minHeight(.m) == 104 && W.chartHeight(.l) == 300, "Abstaende und Hoehen je Groesse")
+
+    // MARK: Diagramm-Palette (Regel 14)
+    typealias P = ChartData.Paint
+    check(ChartData.colors([(false, nil), (false, nil), (false, nil)], one: false) == [P.named("blue"), .named("orange"), .named("green")], "Palette der Reihe nach")
+    check(ChartData.colors([(false, "gray"), (false, nil), (false, "gray")], one: false) == [P.named("blue"), .named("orange"), .named("green")], "grau zaehlt als keine Farbe")
+    check(ChartData.colors([(false, "blue"), (false, "gray"), (false, "green")], one: false) == [P.named("blue"), .named("gray"), .named("green")], "zwei echte Optionsfarben: Optionsfarben")
+    check(ChartData.colors([(false, "red"), (false, nil)], one: false) == [P.named("blue"), .named("orange")], "eine echte Optionsfarbe reicht nicht")
+    check(ChartData.colors([(false, nil), (true, nil), (false, nil)], one: false) == [P.named("blue"), .other, .named("orange")], "Andere/Leer neutral, zaehlt nicht mit")
+    check(ChartData.colors([(false, nil), (false, "red")], one: true) == [P.one, .one], "eine Reihe einfarbig")
+    var ring = ChartData(type: "donut", xKind: "cat", cats: [.init(key: "a", label: "Anna", color: "gray"), .init(key: "o", label: "Offen", color: nil), .init(key: nil, label: "", color: nil)],
+                         series: [.init(key: "", label: "", color: nil, values: [12, 13, 6])], total: 31, fmt: "num", goal: nil, stack: false, cumulative: false, truncated: false, other: 0, rows: 8)
+    check(ring.catColors == [P.named("blue"), .named("orange"), .other], "Ring: Option ohne Farbe nimmt die Palette, Leer neutral")
+    check(ring.context(agg: "sum") == "Summe · 8 Einträge" && ring.context(agg: nil) == "Anzahl · 8 Einträge", "Kontextzeile Rechenart · Anzahl")
+    check(ring.context(agg: "sum", yName: "Betrag", xName: "Person") == "Summe Betrag nach Person · 8 Einträge", "Kontextzeile mit Namen")
+    ring.rows = nil; check(ring.context(agg: "count") == "Anzahl", "ohne Anzahl der Eintraege")
+    let bar = ChartData(type: "bar", xKind: "cat", cats: [.init(key: "x", label: "X", color: nil), .init(key: "y", label: "Y", color: nil)],
+                        series: [.init(key: "s1", label: "A", color: nil, values: [1, 2]), .init(key: "s2", label: "B", color: nil, values: [2, 1])],
+                        total: 6, fmt: "num", goal: nil, stack: true, cumulative: false, truncated: false, other: 0)
+    check(bar.multi && bar.seriesColors == [P.named("blue"), .named("orange")], "mehrere Reihen: Palette je Reihe")
+
+    // MARK: Diagramm-Masse
+    let l1 = ChartData.layout(width: 340, height: 220)
+    check(l1.beside && l1.height == 220 && l1.diameter == 153 && l1.ticks == 5 && !l1.tiny, "breit: Ring neben der Legende, nicht bildschirmfuellend")
+    let l2 = ChartData.layout(width: 250, height: 220)
+    check(!l2.beside && l2.height == 200 && l2.diameter == 200 && l2.ticks == 3 && l2.legendMax == 6, "schmal: Ring ueber der Legende, 3 Ticks")
+    check(ChartData.layout(width: 900, height: 140).diameter == 140 && ChartData.layout(width: 900, height: nil).height == 300, "Groesse S klein, Ansicht hoechstens 300")
+    let lg = ChartData.legend(Array(1...9), max: 6)
+    check(lg.shown == [1, 2, 3, 4, 5] && lg.more == 4 && ChartData.legend([1, 2, 3], max: 6).more == 0, "Legende mit + n weitere")
+    let en = Locale(identifier: "en_US")
+    check(ChartData.axisText(1500, fmt: "num", locale: en) == "1.5K" && ChartData.axisText(7.5, fmt: "num", locale: en) == "7.5" && ChartData.axisText(10, fmt: "num", locale: en) == "10", "Achse kompakt")
+
+    // MARK: Spalten (Regel 18)
+    typealias C = ColumnsLogic
+    check(C.rows(count: 4, width: 1000).map(\.items) == [[0, 1, 2, 3]] && C.rows(count: 4, width: 700) == [.init(items: [0, 1], slots: 2), .init(items: [2, 3], slots: 2)], "4 -> 2x2")
+    check(C.rows(count: 3, width: 600) == [.init(items: [0, 1], slots: 2), .init(items: [2], slots: 1)] && C.rows(count: 3, width: 700).count == 1, "3 -> 2 + 1 (volle Breite)")
+    check(C.rows(count: 2, width: 430).map(\.items) == [[0], [1]] && C.rows(count: 2, width: 500).count == 1, "unter 440 untereinander")
+    check(C.rows(count: 5, width: 600).last == .init(items: [4], slots: 2) && C.rows(count: 6, width: 1200).map(\.items) == [[0, 1, 2], [3, 4, 5]], "5-6 Spalten")
+    let wcol: NSArray = [["type": "widget", "data": ["kind": "clock"]]], tcol: NSArray = [["type": "paragraph"]]
+    check(C.equalHeight([wcol, wcol]) && !C.equalHeight([wcol, tcol]) && !C.equalHeight([wcol, [wcol[0], wcol[0]] as NSArray]) && !C.equalHeight([wcol]), "gleich hoch nur bei je genau einem Widget")
+}

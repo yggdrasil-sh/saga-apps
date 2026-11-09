@@ -347,6 +347,35 @@ enum ColumnsLogic {
         while n > 1 && Double(n) * minWidth + Double(n - 1) * spacing > width { n -= 1 }
         return n
     }
+
+    /// Widget-Design-Runde (9.11., Regel 18): Spalten je Reihe nach der Breite des Blocks wie die Container-Regeln im
+    /// Web (je Spalte mind. ~200): 4 -> 2x2 (< 880), 3 -> 2 + 1 (< 660), 5-6 -> Dreier- (< 1100, 6: < 1330) bzw.
+    /// Zweierreihen (< 660), unter 440 untereinander. slots: Plaetze der Reihe (die dritte von drei Spalten nimmt die
+    /// volle Breite, sonst bleibt ein Platz frei wie im Raster).
+    struct Row: Equatable { var items: [Int]; var slots: Int }
+    static func perRowWeb(count n: Int, width w: Double) -> Int {
+        guard n > 1 else { return max(1, n) }
+        if w < 440 { return 1 }
+        if (n == 3 || n >= 5) && w < 660 { return 2 }
+        if n >= 5 && w < 1100 { return 3 }
+        if n == 6 && w < 1330 { return 3 }
+        if n == 4 && w < 880 { return 2 }
+        return n
+    }
+    static func rows(count n: Int, width w: Double) -> [Row] {
+        let per = perRowWeb(count: n, width: w)
+        var out: [Row] = [], i = 0
+        while i < n {
+            let items = Array(i..<min(n, i + per))
+            out.append(Row(items: items, slots: n == 3 && per == 2 && items.count == 1 ? 1 : per))
+            i += per
+        }
+        return out
+    }
+    /// Karten einer Reihe gleich hoch - nur, wenn jede Spalte genau ein Widget enthaelt
+    static func equalHeight(_ cols: [NSArray]) -> Bool {
+        cols.count > 1 && cols.allSatisfy { c in c.count == 1 && ((c.firstObject as? NSDictionary)?["type"] as? String) == "widget" }
+    }
 }
 
 // MARK: - Vorschaubild Mathe/Mermaid (render1)
@@ -368,7 +397,7 @@ struct RenderPreview: Equatable {
 
 struct ChartData: Equatable {
     struct Cat: Equatable { var key: String?; var label: String; var color: String?; var start: String? }
-    struct Series: Equatable { var key: String; var label: String; var color: String?; var values: [Double?] }
+    struct Series: Equatable { var key: String; var label: String; var color: String?; var values: [Double?]; var nullKey = false }
     var type: String
     var xKind: String
     var cats: [Cat]
@@ -380,6 +409,8 @@ struct ChartData: Equatable {
     var cumulative: Bool
     var truncated: Bool
     var other: Int
+    /// Anzahl der Eintraege (Kontextzeile "Summe · 8 Einträge"); aeltere Server ohne Feld -> nil
+    var rows: Int? = nil
 
     static func parse(_ c: [String: Any]) -> ChartData {
         func num(_ v: Any?) -> Double? { v is NSNull ? nil : (v as? Double) ?? (v as? Int).map(Double.init) ?? (v as? NSNumber)?.doubleValue }
@@ -389,11 +420,12 @@ struct ChartData: Equatable {
         }
         let series = (c["series"] as? [[String: Any]] ?? []).map { s in
             Series(key: (s["key"] as? String) ?? "", label: (s["label"] as? String) ?? "", color: s["color"] as? String,
-                   values: (s["values"] as? [Any] ?? []).map { num($0) })
+                   values: (s["values"] as? [Any] ?? []).map { num($0) }, nullKey: s["key"] is NSNull)
         }
         return ChartData(type: (c["type"] as? String) ?? "bar", xKind: (c["x_kind"] as? String) ?? "cat", cats: cats, series: series,
                          total: num(c["total"]), fmt: (c["fmt"] as? String) ?? "num", goal: num(c["goal"]), stack: c["stack"] as? Bool == true,
-                         cumulative: c["cumulative"] as? Bool == true, truncated: c["truncated"] as? Bool == true, other: (c["other"] as? Int) ?? 0)
+                         cumulative: c["cumulative"] as? Bool == true, truncated: c["truncated"] as? Bool == true, other: (c["other"] as? Int) ?? 0,
+                         rows: (c["rows"] as? NSNumber)?.intValue)
     }
     /// Antwort GET /api/notes/{db}/chart -> Ergebnis oder Fehlercode
     static func response(_ d: Data) -> (ChartData?, String?) {
@@ -402,11 +434,77 @@ struct ChartData: Equatable {
         guard let c = j["chart"] as? [String: Any] else { return (nil, "bad_cfg") }
         return (parse(c), nil)
     }
-    /// Reihenfolge der Ersatzfarben, wenn der Server keine Farbe liefert
+    /// Palette ohne Optionsfarben in dieser Reihenfolge (Widget-Design-Runde 9.11., Regel 14; Web .ch-s0..7)
     static let fallback = ["blue", "orange", "green", "purple", "pink", "yellow", "red", "brown"]
-    /// Farbe einer Kategorie (Kreis/Ring, Balken mit einer Reihe) bzw. einer Reihe
-    func catColor(_ i: Int) -> String { cats.indices.contains(i) ? (cats[i].color ?? Self.fallback[i % 8]) : Self.fallback[i % 8] }
-    func seriesColor(_ j: Int) -> String { series.indices.contains(j) ? (series[j].color ?? Self.fallback[j % 8]) : Self.fallback[j % 8] }
+    /// Farbe eines Diagramm-Elements: Palettenfarbe, "eine Farbe" (eine Reihe: blau bzw. gewaehlte Widget-Farbe) oder
+    /// neutral ("Andere"/"Leer")
+    enum Paint: Equatable { case named(String), one, other }
+    /// Wie chartColors im Web: "gray"/leer zaehlt als keine Farbe. Optionsfarben nur, wenn >= 2 verschiedene echte
+    /// vorkommen, sonst Palette der Reihe nach (bzw. `one`: alles einfarbig). Neutrale Eintraege zaehlen nicht mit.
+    static func colors(_ list: [(neutral: Bool, color: String?)], one: Bool) -> [Paint] {
+        let real = Set(list.filter { !$0.neutral }.compactMap { $0.color }.filter { $0 != "gray" && !$0.isEmpty })
+        let useOpt = real.count >= 2
+        var k = 0
+        return list.map { x in
+            if x.neutral { return .other }
+            if useOpt { return .named(x.color.map { $0.isEmpty ? "gray" : $0 } ?? "gray") }
+            if one { return .one }
+            defer { k += 1 }
+            return .named(fallback[k % fallback.count])
+        }
+    }
+    var round: Bool { type == "pie" || type == "donut" }
+    /// mehrere Reihen (nicht bei Kreis/Ring: die zeigen nur die erste)
+    var multi: Bool { series.count > 1 && !round }
+    /// Farben je Kategorie (Kreis/Ring, Balken mit einer Reihe) bzw. je Reihe
+    var catColors: [Paint] { Self.colors(cats.map { ($0.key == nil || $0.key == "__other__", $0.color) }, one: !round && !multi) }
+    var seriesColors: [Paint] { Self.colors(series.map { ($0.nullKey || $0.key == "__other__", $0.color) }, one: false) }
+    func catColor(_ i: Int) -> Paint { let c = catColors; return c.indices.contains(i) ? c[i] : .one }
+    func seriesColor(_ j: Int) -> Paint { let c = seriesColors; return c.indices.contains(j) ? c[j] : .one }
+
+    /// Rechenart als Text (Kontextzeile, Ring-Mitte): "Anzahl", "Summe" …
+    static func aggLabel(_ agg: String?) -> String {
+        switch agg ?? "count" {
+        case "sum": return String(localized: "Summe")
+        case "avg": return String(localized: "Durchschnitt")
+        case "min": return String(localized: "Min")
+        case "max": return String(localized: "Max")
+        case "pct_checked": return String(localized: "% angehakt")
+        default: return String(localized: "Anzahl")
+        }
+    }
+    /// Kontextzeile ueber dem Diagramm (wie chartCtx im Web): "Summe · 8 Einträge", mit Namen der Eigenschaften
+    /// "Summe Betrag nach Kategorie · 8 Einträge" (Namen nur, wenn das Schema bekannt ist)
+    func context(agg: String?, yName: String? = nil, xName: String? = nil) -> String {
+        var head = Self.aggLabel(agg)
+        if (agg ?? "count") != "count", let y = yName, !y.isEmpty { head += " " + y }
+        if let x = xName, !x.isEmpty, type != "number" { head = String(localized: "\(head) nach \(x)") }
+        guard let n = rows else { return head }
+        return head + " · " + String(localized: "\(n) Einträge")
+    }
+
+    /// Masse eines Diagramms je Breite (wie paint im Web): Hoehe (Widget: S/M/L 140/220/300, nie hoeher als 0,8 x Breite),
+    /// Ring/Kreis neben der Legende ab 300 Breite, Durchmesser, Zahl der Legenden-Eintraege, y-Ticks (< 260: 3)
+    struct Layout: Equatable { var height: Double; var beside: Bool; var diameter: Double; var legendMax: Int; var ticks: Int; var tiny: Bool; var narrow: Bool }
+    static func layout(width w: Double, height h0: Double?) -> Layout {
+        let h = h0.map { min($0, max(120, w * 0.8)) } ?? max(160, min(w * 0.55, 300))
+        let beside = w >= 300
+        let d = beside ? min(h, w * 0.45) : min(h, w, 220)
+        let tiny = w < 180
+        return Layout(height: h.rounded(), beside: beside, diameter: d.rounded(), legendMax: beside ? max(3, Int(d / 24)) : (tiny ? 4 : 6),
+                      ticks: w < 260 ? 3 : (h < 180 ? 4 : 5), tiny: tiny, narrow: w < 360)
+    }
+    /// Legende kuerzen: hoechstens `max` Zeilen, sonst max-1 Eintraege + "+ n weitere"
+    static func legend<T>(_ items: [T], max m: Int) -> (shown: [T], more: Int) {
+        guard items.count > m, m > 1 else { return (items, 0) }
+        return (Array(items.prefix(m - 1)), items.count - m + 1)
+    }
+    /// Achsenbeschriftung kompakt ("1,5 Tsd.", "12 Mio. €"); Prozent wie ueberall
+    static func axisText(_ v: Double, fmt: String, locale: Locale = SagaDate.locale()) -> String {
+        if fmt == "pct" { return NumFormat.text(v, fmt: "pct", locale: locale) }
+        if fmt == "eur" { return v.formatted(.currency(code: "EUR").notation(.compactName).precision(.fractionLength(0...1)).locale(locale)) }
+        return v.formatted(.number.notation(.compactName).precision(.fractionLength(0...1)).locale(locale))
+    }
     /// Beschriftung einer Kategorie: leer -> "Leer", __other__ -> "Andere" (der Server liefert schon Texte)
     func label(_ i: Int) -> String {
         guard cats.indices.contains(i) else { return "" }

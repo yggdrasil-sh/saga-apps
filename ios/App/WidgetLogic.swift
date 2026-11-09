@@ -378,6 +378,60 @@ enum WidgetLogic {
         return h
     }
 
+    // MARK: Widget-Design-Runde (9.11.): Regeln wie im Web (static/pages.js wgVal, Zitat-Quelle, Gewohnheiten, Diagramm)
+
+    /// Innenabstand (oben/unten, seitlich) und Mindesthoehe je Groesse (Regel 4)
+    static func padding(_ s: Size) -> (v: Double, h: Double) { s == .s ? (10, 12) : s == .l ? (18, 20) : (14, 16) }
+    static func minHeight(_ s: Size) -> Double { s == .s ? 72 : s == .l ? 144 : 104 }
+    /// Diagrammhoehe je Groesse (Regel 14) - wie CH_H im Web
+    static func chartHeight(_ s: Size) -> Double { s == .s ? 140 : s == .l ? 300 : 220 }
+    /// Zeilen eines Zitats je Groesse (Regel 11)
+    static func quoteLines(_ s: Size) -> Int { s == .s ? 4 : s == .l ? 8 : 6 }
+
+    /// Wert in Zahl und kleine Einheit zerlegen (Regel 5): "2.250,00 €" -> ("2.250,00", "€"), "42 Tage" -> ("42", "Tage"),
+    /// "$12" -> Einheit davor. Wie wgVal im Web: Einheit hoechstens 4 Zeichen ohne Ziffern.
+    struct ValueParts: Equatable { var prefix: String?; var number: String; var unit: String? }
+    static func valueParts(_ s: String) -> ValueParts {
+        let ns = s as NSString, all = NSRange(location: 0, length: ns.length)
+        if let r = try? NSRegularExpression(pattern: #"^(.*?[\d)])\s*([^\d\s.,\-−+()]{1,4})$"#),
+           let m = r.firstMatch(in: s, range: all) {
+            return ValueParts(prefix: nil, number: ns.substring(with: m.range(at: 1)), unit: ns.substring(with: m.range(at: 2)))
+        }
+        if let r = try? NSRegularExpression(pattern: #"^([^\d\-−+\s]{1,4})\s*(.*\d.*)$"#),
+           let m = r.firstMatch(in: s, range: all) {
+            return ValueParts(prefix: ns.substring(with: m.range(at: 1)), number: ns.substring(with: m.range(at: 2)), unit: nil)
+        }
+        return ValueParts(prefix: nil, number: s, unit: nil)
+    }
+
+    /// Quelle eines Zitats (Regel 11): "Text. – Name" bzw. "Text\n— Name" -> eigene Zeile. Nur nach Satzende/Zeilenumbruch,
+    /// Name mit Grossbuchstaben, hoechstens 6 Woerter, ohne Satzzeichen am Ende (wie im Web)
+    static func quoteParts(_ text: String) -> (text: String, source: String?) {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines), ns = t as NSString
+        guard let r = try? NSRegularExpression(pattern: #"^([\s\S]{8,}?(?:[.!?…"“”»«’']|\n))\s*(?:—|–|--)\s*(\p{Lu}[^—–\n]{1,59})$"#),
+              let m = r.firstMatch(in: t, range: NSRange(location: 0, length: ns.length)) else { return (t, nil) }
+        let src = ns.substring(with: m.range(at: 2)).trimmingCharacters(in: .whitespaces)
+        guard src.split(whereSeparator: { $0 == " " || $0 == "\t" }).count <= 6, let last = src.last, !".!?…:".contains(last) else { return (t, nil) }
+        return (ns.substring(with: m.range(at: 1)).trimmingCharacters(in: .whitespacesAndNewlines), src)
+    }
+
+    /// Gewohnheiten je Kartenbreite (Regel 12): 7 Tage Kreise; 14/30 Tage Heatmap (Quadrate), schmal (< 420) nur die
+    /// letzten 14, sehr schmal (< 240) bzw. Groesse S nur die letzten 7 (unter 240 wieder als Kreise, ohne Kopf).
+    /// hint: "letzte n Tage", wenn weniger Tage gezeigt werden als die Quote abdeckt. oneLine: Name | Tage | Quote ab 420.
+    struct HabitLayout: Equatable { var shown: Int; var heat: Bool; var header: Bool; var oneLine: Bool; var hint: Int? }
+    static func habitLayout(days n: Int, width w: Double, size: Size) -> HabitLayout {
+        let oneLine = w >= 420
+        guard n > 7 else { return HabitLayout(shown: n, heat: false, header: true, oneLine: oneLine, hint: nil) }
+        var shown = n, heat = true, header = true
+        if w < 420 { shown = min(n, 14) }
+        if size == .s { shown = min(n, 7) }
+        if w < 240 { shown = min(n, 7); heat = false; header = false }
+        return HabitLayout(shown: shown, heat: heat, header: header, oneLine: oneLine, hint: shown < n ? shown : nil)
+    }
+
+    /// Wetter: schmal (bis 330 wie die Container-Regel im Web) Tage als Liste statt Kacheln (Regel 15)
+    static func weatherList(width: Double) -> Bool { width <= 330 }
+
     // MARK: Hilfen
 
     static func num(_ v: Any?) -> Double? {
