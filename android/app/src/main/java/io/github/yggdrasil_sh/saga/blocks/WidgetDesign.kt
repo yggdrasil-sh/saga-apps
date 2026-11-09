@@ -255,6 +255,17 @@ object WidgetDesign {
         return all.chunked(per)
     }
 
+    /**
+     * Kontextzeile "Rechenart · Quelle" wie Web srcName(): Kennzahl = Rechenart · Datenbank, Fortschritt = Datenbank;
+     * Quelle "tasks" bleibt wie bisher (Rechenart bzw. nichts). Ohne Namen (kein Zugriff, aelterer Server) nur die Rechenart.
+     */
+    fun srcContext(kind: String, src: String, agg: String?, srcName: String?): String {
+        val name = srcName?.trim()?.ifEmpty { null }
+        if (src == "tasks") return if (kind == "metric") agg.orEmpty() else ""
+        if (src != "db") return if (kind == "metric") agg.orEmpty() else ""
+        return listOfNotNull(if (kind == "metric") agg?.ifEmpty { null } else null, name).joinToString(" · ")
+    }
+
     /** Kennzahl: Kontextzeile entfaellt, wenn sie nur den Titel wiederholt */
     fun sameText(a: String, b: String): Boolean = a.trim().lowercase() == b.trim().lowercase()
 

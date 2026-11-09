@@ -1,6 +1,9 @@
 package io.github.yggdrasil_sh.saga
 
+import io.github.yggdrasil_sh.saga.blocks.PageWidgets
 import io.github.yggdrasil_sh.saga.blocks.WidgetDesign
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -38,5 +41,29 @@ class WidgetNacharbeitTest {
         assertTrue(WidgetDesign.WX_SVG.getValue("storm").any { it.layer == WidgetDesign.WxLayer.ACCENT })
         assertEquals(listOf(WidgetDesign.WxLayer.FG), WidgetDesign.WX_SVG.getValue("cloud").map { it.layer })
         assertTrue(WidgetDesign.FLAME.startsWith("M12 2") && WidgetDesign.FLAME.endsWith("z"))
+    }
+
+    // ---------------------------------------------------------------- Kontextzeile mit Quelle (Nacharbeit 12)
+
+    private fun pv(json: String) = PageWidgets.parseValue(Json.parseToJsonElement(json) as JsonObject)
+
+    @Test
+    fun quellNameVomServer() {
+        assertEquals("Ausgaben", pv("""{"kind":"metric","value":3,"src_name":"Ausgaben"}""").srcName)
+        assertNull(pv("""{"kind":"metric","value":3}""").srcName)                 // aelterer Server
+        assertNull(pv("""{"kind":"metric","value":3,"src_name":null}""").srcName) // ohne Zugriff
+        assertNull(pv("""{"kind":"metric","value":3,"src_name":"  "}""").srcName)
+        assertNull(pv("""{"kind":"metric","value":3,"src_name":5}""").srcName)
+        assertEquals(130, pv("""{"kind":"progress","value":1,"src_name":"${"x".repeat(200)}"}""").srcName!!.length)
+    }
+
+    @Test
+    fun kontextRechenartUndQuelle() {
+        assertEquals("Summe · Ausgaben", WidgetDesign.srcContext("metric", "db", "Summe", "Ausgaben"))
+        assertEquals("Summe", WidgetDesign.srcContext("metric", "db", "Summe", null))            // wie bisher
+        assertEquals("Ausgaben", WidgetDesign.srcContext("progress", "db", null, "Ausgaben"))
+        assertEquals("", WidgetDesign.srcContext("progress", "db", null, null))
+        assertEquals("Offen", WidgetDesign.srcContext("metric", "tasks", "Offen", "egal"))       // tasks unveraendert
+        assertEquals("", WidgetDesign.srcContext("progress", "tasks", null, "egal"))
     }
 }

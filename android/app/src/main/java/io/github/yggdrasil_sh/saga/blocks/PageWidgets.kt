@@ -99,6 +99,8 @@ object PageWidgets {
         val kind: String, val value: Double?, val max: Double?, val text: String?, val fmt: String?, val asOf: String?, val error: Err?,
         /** 2.5 Paket 4: strukturierte Werte je Art (bei error immer null) */
         val data: JsonObject? = null,
+        /** Nacharbeit 12: Titel der Quell-Datenbank (metric/progress mit src "db"); null ohne Zugriff, veroeffentlicht oder aelterer Server */
+        val srcName: String? = null,
     )
 
     /** Zustand aller Werte einer Seite */
@@ -132,6 +134,7 @@ object PageWidgets {
             str(o, "as_of").ifEmpty { null },
             if (e == null || !e.isString) null else err(e.content),
             o["data"] as? JsonObject,
+            (o["src_name"] as? JsonPrimitive)?.takeIf { it.isString }?.content?.trim()?.take(130)?.ifEmpty { null },
         )
     }
 

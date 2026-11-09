@@ -611,6 +611,8 @@ private fun ProgressBody(w: WgCtx, v: PageWidgets.Value?) {
     WgBar(p.fraction, w.accent, w.s.title.ifEmpty { kindName("progress") })
     val fmt = v?.fmt ?: "num"
     WgBarRow(stringResource(R.string.pw_of, PageWidgets.format(p.value, fmt, locale), PageWidgets.format(p.max, fmt, locale)), raw, w)
+    // Quelle als Fuss wie Web (wg-f): Name der Datenbank, sobald der Server ihn liefert
+    if (PageWidgets.cfgStr(w.s, "src") == "db") WidgetDesign.srcContext("progress", "db", null, v?.srcName).takeIf { it.isNotEmpty() }?.let { WgFoot(it) }
 }
 
 @Composable
@@ -620,10 +622,12 @@ private fun MetricBody(w: WgCtx, v: PageWidgets.Value?) {
     val fmt = PageWidgets.metricFmt(s, v)
     val value = v?.value
     WgValue(if (value == null) "–" else PageWidgets.format(value, fmt, locale), w)
-    // Kontext "Rechenart · Quelle" (Name der Quelle kennt die App hier nicht); weg, wenn gleich dem Titel
-    val ctx = if (PageWidgets.cfgStr(s, "src") == "tasks") widgetAggLabel(PageWidgets.cfgStr(s, "agg").ifEmpty { "open" })
+    // Kontext "Rechenart · Quelle" wie Web (Name der Datenbank vom Server: src_name, nur mit Zugriff); weg, wenn gleich dem Titel
+    val src = PageWidgets.cfgStr(s, "src")
+    val agg = if (src == "tasks") widgetAggLabel(PageWidgets.cfgStr(s, "agg").ifEmpty { "open" })
     else widgetAggLabel(PageWidgets.cfgStr(s, "agg").ifEmpty { null })
-    if (!WidgetDesign.sameText(ctx, s.title)) WgSub(ctx)
+    val ctx = WidgetDesign.srcContext("metric", src, agg, v?.srcName)
+    if (ctx.isNotEmpty() && !WidgetDesign.sameText(ctx, s.title)) WgSub(ctx)
     val goal = v?.max ?: PageWidgets.metricGoal(s)
     if (goal != null && value != null) {
         val pm = if (goal != 0.0) maxOf(0.0, value / goal * 100.0) else 0.0
