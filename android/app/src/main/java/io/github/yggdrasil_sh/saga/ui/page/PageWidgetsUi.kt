@@ -116,25 +116,37 @@ import kotlin.math.sin
  * Zurueckkehren in den Vordergrund (force). Der Server merkt sich die Werte selbst 60 s.
  */
 class PageWidgetCache(private val noteId: Long, private val repo: SagaRepository) {
-    private companion object {
-        /** Nur im Speicher, die letzten 24 Seiten (Haupt-Thread) */
-        val memo = object : LinkedHashMap<String, PageWidgets.Values.Ok>(32, 0.75f, true) {
+    companion object {
+        /** Nur im Speicher, die letzten 24 Seiten; Zugriff nur ueber [memoGet]/[memoPut]/[memoRemove] (synchronisiert) */
+        private val memo = object : LinkedHashMap<String, PageWidgets.Values.Ok>(32, 0.75f, true) {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, PageWidgets.Values.Ok>?): Boolean = size > 24
         }
+        private fun memoGet(k: String?): PageWidgets.Values.Ok? = k?.let { synchronized(memo) { memo[it] } }
+        private fun memoPut(k: String?, v: PageWidgets.Values.Ok) { if (k != null) synchronized(memo) { memo[k] = v } }
+        private fun memoRemove(k: String?) { if (k != null) synchronized(memo) { memo.remove(k) } }
+
+        /** Schluessel je Server + Konto (stabile Kennung, sonst Name) + Seite; ohne Server/Konto nichts merken (null) */
+        internal fun key(server: String, accountKey: String, account: String, noteId: Long): String? {
+            val acct = accountKey.ifEmpty { account }
+            return if (acct.isEmpty() || server.isEmpty()) null else "$server|$acct|$noteId"
+        }
+
+        /** Beim Abmelden/Kontowechsel: Werte (auch persoenliche wie Anstehendes/Lesen) des bisherigen Kontos verwerfen */
+        fun clearAll() = synchronized(memo) { memo.clear() }
     }
 
     /** 2.5 habit1: einen Wert ersetzen (Antwort von .../habit oder lokal umgeschaltet) */
     fun replace(id: String, v: PageWidgets.Value) {
         val cur = values as? PageWidgets.Values.Ok ?: return
-        values = cur.copy(map = cur.map + (id to v)).also { memo[memoKey] = it }
+        values = cur.copy(map = cur.map + (id to v)).also { memoPut(memoKey, it) }
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var job: Job? = null
     private var at = 0L
     /** Zuletzt gelieferte Werte dieser Seite (je Server und Konto): sofort da beim Zurueckkehren, ohne Netz der letzte Stand */
-    private val memoKey = repo.settings.server.value + "|" + repo.account.value + "|" + noteId
-    var values by mutableStateOf<PageWidgets.Values?>(memo[memoKey])
+    private val memoKey: String? = key(repo.settings.server.value, repo.settings.accountKey.value, repo.account.value, noteId)
+    var values by mutableStateOf<PageWidgets.Values?>(memoGet(memoKey))
         private set
     /** Mindestens eine Karte braucht Server-Werte (sonst kein Abruf beim Zurueckkehren) */
     var wanted = false
@@ -149,11 +161,11 @@ class PageWidgetCache(private val noteId: Long, private val repo: SagaRepository
         job = scope.launch {
             values = try {
                 val text = repo.pageWidgetValues(noteId)
-                withContext(Dispatchers.Default) { PageWidgets.parseResponse(text) }.also { if (it is PageWidgets.Values.Ok) memo[memoKey] = it }
+                withContext(Dispatchers.Default) { PageWidgets.parseResponse(text) }.also { if (it is PageWidgets.Values.Ok) memoPut(memoKey, it) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: ApiException) {
-                memo.remove(memoKey)                                  // kein Zugriff mehr / aelterer Server: nichts Altes zeigen
+                memoRemove(memoKey)                                   // kein Zugriff mehr / aelterer Server: nichts Altes zeigen
                 PageWidgets.fromHttpError(e.code)
             } catch (_: Exception) {
                 values?.takeIf { it is PageWidgets.Values.Ok } ?: PageWidgets.Values.Failed   // offline: alte Werte behalten

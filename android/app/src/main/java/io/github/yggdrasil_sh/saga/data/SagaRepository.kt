@@ -1830,6 +1830,7 @@ class SagaRepository(
             }
         }
         ai.clear()
+        io.github.yggdrasil_sh.saga.ui.page.PageWidgetCache.clearAll()   // Seiten-Widget-Werte des bisherigen Kontos
         if (appContext != null) push.clear()
         if (appContext != null) calls.reset()
         // 2.4: laufende Video-Uploads verwerfen (Schluessel im geschuetzten Speicher), Zwischendateien und Video-Cache weg
