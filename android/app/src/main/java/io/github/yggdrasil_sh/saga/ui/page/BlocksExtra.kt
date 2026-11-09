@@ -37,6 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -461,27 +462,40 @@ fun ColumnsBlockEdit(block: JsonObject, path: JsonPath, env: BlockEnv) {
                 }
             }
         }
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val perRow = io.github.yggdrasil_sh.saga.blocks.Gestalten.columnsPerRow(cols, maxWidth.value)
-            if (maxWidth >= io.github.yggdrasil_sh.saga.blocks.Gestalten.WIDE_DP.dp && perRow == cols) {
-                // G1 (2.5): Spaltengewichte cols[].w (fehlen sie: gleich breit)
-                val w = io.github.yggdrasil_sh.saga.blocks.Gestalten.columnWeights(block)?.takeIf { it.size == cols }
-                Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                    for (ci in 0 until cols) Box(Modifier.weight(w?.get(ci) ?: 1f)) { col(ci) }
-                }
-            } else if (maxWidth >= io.github.yggdrasil_sh.saga.blocks.Gestalten.WIDE_DP.dp) {
-                // 2.5 P6-2: 5-6 Spalten mit Mindestbreite - zu schmal: in Reihen umbrechen (gleich breit)
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    (0 until cols).chunked(perRow).forEach { chunk ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                            chunk.forEach { ci -> Box(Modifier.weight(1f)) { col(ci) } }
-                            repeat(perRow - chunk.size) { androidx.compose.foundation.layout.Spacer(Modifier.weight(1f)) }
-                        }
+        // Widget-Design-Runde (9.11.): Umbruch nach Breite des Blocks wie im Web (4 -> 2x2, 3 -> 2 + 1, < 440 dp untereinander);
+        // Handy untereinander. Steht je Spalte genau ein Widget, sind die Karten einer Reihe gleich hoch.
+        val colBlocks = (BlockDoc.data(block)["cols"] as? JsonArray).orEmpty().map { (it as? JsonObject)?.get("blocks") as? JsonArray }
+        fun onlyWidget(ci: Int): Boolean = colBlocks.getOrNull(ci)?.let { it.size == 1 && BlockDoc.type(it[0] as? JsonObject ?: return@let false) == "widget" } == true
+        @Composable
+        fun rowOf(chunk: List<Int>, per: Int, weights: List<Float>?) {
+            val equal = chunk.size > 1 && chunk.all { onlyWidget(it) }
+            val heights = remember(chunk, equal) { WidgetRowHeights() }
+            Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                chunk.forEachIndexed { k, ci ->
+                    Box(Modifier.weight(weights?.get(ci) ?: 1f)) {
+                        if (equal) CompositionLocalProvider(LocalWidgetRowSlot provides WidgetRowSlot(heights, k)) { col(ci) } else col(ci)
                     }
                 }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                repeat(per - chunk.size) { androidx.compose.foundation.layout.Spacer(Modifier.weight(1f)) }
+            }
+        }
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val wide = maxWidth >= io.github.yggdrasil_sh.saga.blocks.Gestalten.WIDE_DP.dp
+            val rows = if (wide) io.github.yggdrasil_sh.saga.blocks.WidgetDesign.columnRows(cols, maxWidth.value) else (0 until cols).map { listOf(it) }
+            if (rows.size == 1 && cols > 1) {
+                // G1 (2.5): Spaltengewichte cols[].w (fehlen sie: gleich breit) - nur ohne Umbruch
+                rowOf(rows[0], cols, io.github.yggdrasil_sh.saga.blocks.Gestalten.columnWeights(block)?.takeIf { it.size == cols })
+            } else if (rows.all { it.size == 1 }) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     for (ci in 0 until cols) col(ci)
+                }
+            } else {
+                val per = rows[0].size
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    rows.forEach { chunk ->
+                        // 3 Spalten: die dritte geht ueber die volle Breite (wie im Web), sonst gleiche Breiten
+                        if (chunk.size == 1 && cols == 3) col(chunk[0]) else rowOf(chunk, per, null)
+                    }
                 }
             }
         }

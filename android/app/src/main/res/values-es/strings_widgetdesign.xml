@@ -83,4 +83,5 @@
         <item quantity="many">Tasa de éxito %1$d %%, %2$d días seguidos</item>
         <item quantity="other">Tasa de éxito %1$d %%, %2$d días seguidos</item>
     </plurals>
+    <string name="wd_goal_short">Objetivo</string>
 </resources>

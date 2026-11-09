@@ -88,4 +88,5 @@
         <item quantity="many">Успешность %1$d %%, %2$d дней подряд</item>
         <item quantity="other">Успешность %1$d %%, %2$d дня подряд</item>
     </plurals>
+    <string name="wd_goal_short">Цель</string>
 </resources>

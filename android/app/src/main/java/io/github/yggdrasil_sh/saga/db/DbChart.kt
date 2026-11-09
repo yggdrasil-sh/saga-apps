@@ -24,7 +24,7 @@ object DbChart {
 
     data class Result(
         val type: String, val xKind: String, val bucket: String?, val cats: List<Cat>, val series: List<Series>,
-        val total: Double?, val fmt: String, val other: Int, val truncated: Boolean, val rows: Int, val goal: Double?,
+        val total: Double?, val fmt: String, val other: Int, val truncated: Boolean, val rows: Int?, val goal: Double?,
         val stack: Boolean, val cumulative: Boolean,
     ) {
         val pie: Boolean get() = type == "pie" || type == "donut"
@@ -65,7 +65,7 @@ object DbChart {
         return Result(
             type = o.s("type")?.takeIf { it in TYPES } ?: "bar", xKind = o.s("x_kind") ?: "cat", bucket = o.s("bucket"),
             cats = cats, series = series, total = o.d("total"), fmt = o.s("fmt")?.takeIf { it in setOf("num", "pct", "eur") } ?: "num",
-            other = o.d("other")?.toInt() ?: 0, truncated = o.b("truncated"), rows = o.d("rows")?.toInt() ?: 0, goal = o.d("goal"),
+            other = o.d("other")?.toInt() ?: 0, truncated = o.b("truncated"), rows = o.d("rows")?.toInt(), goal = o.d("goal"),
             stack = o.b("stack"), cumulative = o.b("cumulative"),
         )
     }

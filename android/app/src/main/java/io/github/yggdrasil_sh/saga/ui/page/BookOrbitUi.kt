@@ -46,7 +46,7 @@ import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
  * [limit]: hoechstens so viele Buecher (Heute).
  */
 @Composable
-fun ReadingContent(r: BookOrbit.Reading, repo: SagaRepository, accent: Color, onSettings: () -> Unit, compact: Boolean = false, limit: Int? = null, big: @Composable () -> androidx.compose.ui.text.TextStyle = { MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold) }) {
+fun ReadingContent(r: BookOrbit.Reading, repo: SagaRepository, accent: Color, onSettings: () -> Unit, compact: Boolean = false, limit: Int? = null, big: @Composable () -> androidx.compose.ui.text.TextStyle = { MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold) }, valueColor: Color = accent) {
     val cs = MaterialTheme.colorScheme
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         when (val c = BookOrbit.content(r, limit)) {
@@ -56,9 +56,9 @@ fun ReadingContent(r: BookOrbit.Reading, repo: SagaRepository, accent: Color, on
                 if (c.more > 0) Text(stringResource(R.string.bo_more, c.more), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
             }
             BookOrbit.Content.NoBooks -> Text(stringResource(R.string.bo_no_book), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
-            is BookOrbit.Content.GoalC -> ReadingGoal(c.goal, accent, big)
+            is BookOrbit.Content.GoalC -> ReadingGoal(c.goal, accent, big, valueColor)
             BookOrbit.Content.NoGoal -> Text(stringResource(R.string.bo_no_goal), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
-            is BookOrbit.Content.StreakC -> ReadingStreak(c.streak, accent, big)
+            is BookOrbit.Content.StreakC -> ReadingStreak(c.streak, accent, big, valueColor)
             BookOrbit.Content.NoStreak -> Text(stringResource(R.string.bo_no_streak), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
         }
         if (r.stale && r.state == BookOrbit.State.OK) Text(stringResource(R.string.bo_stale), style = MaterialTheme.typography.labelSmall, color = cs.tertiary)
@@ -127,25 +127,25 @@ fun ReadingBookRow(b: BookOrbit.Book, repo: SagaRepository, accent: Color, compa
 }
 
 @Composable
-private fun ReadingGoal(g: BookOrbit.Goal, accent: Color, big: @Composable () -> androidx.compose.ui.text.TextStyle) {
+private fun ReadingGoal(g: BookOrbit.Goal, accent: Color, big: @Composable () -> androidx.compose.ui.text.TextStyle, valueColor: Color = accent) {
     val cs = MaterialTheme.colorScheme
     // Ohne Jahr eigene Texte, sonst bliebe "Leseziel : ..." stehen
     val year = g.year?.toString()
     val f = g.fraction
     if (g.goal != null && f != null) {
-        Text("${g.done} / ${g.goal}", style = big(), color = accent)
+        Text("${g.done} / ${g.goal}", style = big(), color = valueColor)
         LinearProgressIndicator(progress = { f }, color = accent, trackColor = SagaProgressTrack, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp))
         Text(if (year != null) stringResource(R.string.bo_goal_of, year, g.done, g.goal) else stringResource(R.string.bo_goal_of_noyear, g.done, g.goal), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
     } else {
-        Text(g.done.toString(), style = big(), color = accent)
+        Text(g.done.toString(), style = big(), color = valueColor)
         Text(if (year != null) stringResource(R.string.bo_goal_none, year) else stringResource(R.string.bo_goal_none_noyear), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
     }
 }
 
 @Composable
-private fun ReadingStreak(s: BookOrbit.Streak, accent: Color, big: @Composable () -> androidx.compose.ui.text.TextStyle) {
+private fun ReadingStreak(s: BookOrbit.Streak, accent: Color, big: @Composable () -> androidx.compose.ui.text.TextStyle, valueColor: Color = accent) {
     val cs = MaterialTheme.colorScheme
-    Text(pluralStringResource(R.plurals.bo_days, s.current, s.current), style = big(), color = accent)
+    Text(pluralStringResource(R.plurals.bo_days, s.current, s.current), style = big(), color = valueColor)
     if (s.last7.isNotEmpty()) {
         val desc = stringResource(R.string.bo_last7, s.daysRead)
         Row(Modifier.semantics { contentDescription = desc }, horizontalArrangement = Arrangement.spacedBy(5.dp)) {

@@ -217,7 +217,7 @@ object PageWidgets {
         val day: LocalDate? get() = runCatching { LocalDate.parse(start.take(10)) }.getOrNull()
     }
 
-    data class UpcomingList(val items: List<Upcoming>, val more: Int, val errors: Int)
+    data class UpcomingList(val items: List<Upcoming>, val more: Int, val errors: Int, val days: Int = 7)
 
     fun upcoming(d: JsonObject?): UpcomingList? {
         d ?: return null
@@ -226,7 +226,7 @@ object PageWidgets {
             Upcoming(str(x, "k"), str(x, "title"), str(x, "start"), str(x, "end").ifEmpty { null }, (x["allday"] as? JsonPrimitive)?.booleanOrNull ?: true,
                 str(x, "color").ifEmpty { null }, str(x, "cal").ifEmpty { null }, num(x["note"])?.toLong(), num(x["task"])?.toLong(), bool(x, "overdue"))
         }
-        return UpcomingList(items, num(d["more"])?.toInt() ?: 0, num(d["errors"])?.toInt() ?: 0)
+        return UpcomingList(items, num(d["more"])?.toInt() ?: 0, num(d["errors"])?.toInt() ?: 0, num(d["days"])?.toInt()?.takeIf { it > 0 } ?: 7)
     }
 
     /** Gruppen: "overdue", "today", "tomorrow" oder das Datum (ISO) - Reihenfolge wie geliefert */
@@ -397,6 +397,9 @@ object PageWidgets {
     fun metricFmt(s: Spec, v: Value?): String = v?.fmt ?: str(s.cfg, "fmt").takeIf { it in setOf("num", "pct", "eur") } ?: "num"
 
     fun metricGoal(s: Spec): Double? = num(s.cfg["goal"])?.takeIf { it > 0 }
+
+    /** Widget-Design-Runde: Rechenart (cfg.agg) und Quelle (cfg.src) fuer die Kontextzeile */
+    fun cfgStr(s: Spec, k: String): String = str(s.cfg, k)
 
     // ---------------------------------------------------------------- Zitat
 
