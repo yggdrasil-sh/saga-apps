@@ -89,6 +89,21 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   wie ein Anhang über die Server-Adresse (Vorschau/Download), beim Speichern bleibt der Link relativ. Android öffnete
   sie schon so.
 
+### Behoben – iOS, Android: Geräte im Anruf (Ton-Weg, Rückkamera, Übergabe, Wärme)
+
+- **Ton-Weg:** iOS zeigt den tatsächlichen Weg (auch nach Wechsel in CallKit, AirPods an/aus); mit Headset, Bluetooth oder
+  Auto gibt es statt „Lautsprecher“ den Knopf **„Audio“** mit der System-Auswahl (auch iPad). Android wählt im
+  Knoten-Anruf Lautsprecher/Hörer/Bluetooth über Telecom (vorher stellte das System die Wahl zurück); Ein- und Ausstecken
+  überschreibt die Wahl nur, wenn ein Headset dazukommt oder die aktive Ausgabe wegfällt.
+- **Android:** die eigene Vorschau ist mit der Rückkamera nicht mehr gespiegelt.
+- **Übergabe:** verwirft der Server einzelne Ziele eines Signal-Bündels, holen die Apps die Teilnehmerliste neu; ältere
+  Server (400) bekommen Schlüssel und Zustand nach der nächsten Liste erneut (begrenzt) – vorher blieb das Gegenüber nach
+  einer Übergabe ohne Bild und Ton.
+- **Wärme/CPU (Knoten):** die Kamera wird früher gedrosselt (ohne höchste Schicht, höchstens 15 fps), wenn das Gerät warm
+  ist (Android ab MODERATE, iOS ab „ernst“) oder der Kodierer 20 s am Stück durch die CPU begrenzt ist; zurück nach 60 s
+  ruhig. Bildschirmteilen bleibt unverändert. Die Anruf-Diagnose zählt bei iOS je Verbindung (nach einer Rückübernahme
+  stand „OUT“ sonst bei 0).
+
 ### Behoben – iOS, Android: Knoten-Anruf kam nach Verbindungsverlust nicht wieder
 
 - **Wiederaufbau nach Knotenverlust** (Gruppenanruf über einen einzigen Gjallarhorn-Knoten, Abbruch nach längerer
