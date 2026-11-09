@@ -1213,8 +1213,16 @@ extension CallManager {
             if let s = seal(L, d, body) { sig[d] = s }
         }
         guard !sig.isEmpty, !ending else { return }
-        if let (_, code) = try? await store.apiResponse("api/calls/\(id)/signal", method: "POST", body: ["device": dev, "signals": sig]), code == 409 {
-            remoteEnded(reason: "gone")
+        let r = try? await store.apiResponse("api/calls/\(id)/signal", method: "POST", body: ["device": dev, "signals": sig])
+        switch CallRoom.signalReply(code: r?.1, body: r.flatMap { ShareJSON.obj($0.0) }) {
+        case .gone: remoteEnded(reason: "gone")
+        case .ok(let dropped):
+            for d in sig.keys where !dropped.contains(d) { sigRetry[d] = nil }   // angekommen: nichts Aelteres nachsenden
+            if !dropped.isEmpty { horn?.trace("signal: \(dropped.count) Ziele verworfen"); rosterPull() }
+        case .rejected:                                                     // aelterer Server: Buendel mit gegangenem Ziel
+            let x = CallRoom.resendable(bodies.filter { sig[$0.key] != nil })
+            if !x.isEmpty { sigRetry.merge(x) { _, new in new }; horn?.trace("signal 400: \(x.count) erneut nach der Liste"); rosterPull() }
+        case .other: break
         }
     }
     func hornAck(to: String, n: Int, s: String, ok: Bool) {

@@ -354,6 +354,7 @@ extension CallManager {
             finish(.elsewhere, message: String(localized: "Anruf auf \(other.devName.isEmpty ? String(localized: "anderes Gerät") : other.devName) übernommen."))
             return
         }
+        signalRetry()                                                       // 2.5 (9.11.): abgelehnte Buendel erneut
         let ch = CallRoom.diff(old: old, new: legs, here: here)
         if inRoom || ready {
             for x in ch.added where x.who != me || x.device != here {

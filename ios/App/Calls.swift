@@ -197,6 +197,11 @@ final class CallManager: NSObject, ObservableObject {
     // 2.4 E4/E5: Raum
     var roster = CallRoom.Roster()
     var ho = CallRoom.Handover()
+    /// 2.5 (9.11.) Signal-Buendel: Liste neu holen (hoechstens alle 2 s); nach 400 (aelterer Server) erneut zu senden:
+    /// Knoten fkey/state je Geraet, Mesh nur der eigene Zustand
+    var sigPull = CallRoom.Pull()
+    var sigRetry: [String: String] = [:]
+    var stateRetry = false
     var hoTask: Task<Void, Never>?
     /// mit welcher Rolle dieses Geraet beigetreten ist ("" = angerufen/angenommen wie bisher)
     var joinRole = ""
@@ -397,8 +402,32 @@ final class CallManager: NSObject, ObservableObject {
         guard let store, let id, let dev = myDevice, !ending, !L.gone else { return }
         var sig: [String: String] = [:]
         for d in L.targets { if let x = seal(L, d, make(d)) { sig[d] = x } }
-        guard !sig.isEmpty, let (_, code) = try? await store.apiResponse("api/calls/\(id)/signal", method: "POST", body: ["device": dev, "signals": sig]) else { return }
-        if code == 409 && !roomMode { remoteEnded(reason: "gone") }
+        guard !sig.isEmpty, let (d, code) = try? await store.apiResponse("api/calls/\(id)/signal", method: "POST", body: ["device": dev, "signals": sig]) else { return }
+        switch CallRoom.signalReply(code: code, body: ShareJSON.obj(d)) {
+        case .gone: if !roomMode { remoteEnded(reason: "gone") }
+        case .ok(let dropped): if !dropped.isEmpty, roomMode { CallEnv.log("signal: \(dropped.count) Ziele verworfen"); rosterPull() }
+        case .rejected:                                                     // aelterer Server: ein Ziel ist schon gegangen
+            if roomMode, L.targets.contains(where: { CallRoom.signalType(make($0)) == "state" }) { stateRetry = true; rosterPull() }
+        case .other: break
+        }
+    }
+    /// 2.5 (9.11.): Teilnehmerliste neu holen (GET /api/calls/{id}), hoechstens alle 2 s
+    func rosterPull() {
+        guard let store, let id, !ending, sigPull.due(now: Date().timeIntervalSince1970) else { return }
+        let asked = Date().timeIntervalSince1970
+        Task {
+            guard let (d, code) = try? await store.apiResponse("api/calls/\(id)"), code == 200,
+                  let c = ShareJSON.obj(d)?["call"] as? [String: Any], self.id == id, !self.ending, c["legs"] != nil else { return }
+            rosterIn(CallRoom.legs(c["legs"]), rv: asked, extra: c)
+        }
+    }
+    /// nach einer neuen Liste: abgelehnte Buendel an die verbliebenen Ziele erneut senden
+    func signalRetry() {
+        if stateRetry { stateRetry = false; Task { @MainActor in self.stateOut() } }
+        guard !sigRetry.isEmpty, horn != nil else { return }
+        let b = CallRoom.resendTargets(sigRetry, legs: roster.legs, here: myDevice ?? "")
+        sigRetry = [:]
+        if !b.isEmpty { Task { await self.hornSend(b) } }
     }
     /// Zustand an alle Verbindungen (bzw. eine)
     func stateOut(_ only: CallLink? = nil) {
@@ -1703,6 +1732,8 @@ final class CallManager: NSObject, ObservableObject {
         kind = "dm"; dmRoom = false; mutedBy = nil; companion = false; sound = true; meshView = false; tiles = []; speakerDev = nil; handingOver = false
         limit = CallRoom.videoMax; oldNames = []; inRoom = false
         roster.reset(); ho = CallRoom.Handover(); hoTask?.cancel(); hoTask = nil; joinRole = ""; title = ""
+        sigPull = CallRoom.Pull(); sigRetry = [:]; stateRetry = false
+        diagTask?.cancel(); diagTask = nil; diag = nil                       // Diagnose je Anruf neu (Wiedereintritt nach Uebergabe)
         pend = [:]; admitting = []; badDevs = []; keysBy = [:]; speakerState = CallRoom.Speaker()
     }
     func signedOut() { if busy { hangup() }; enabled = true; done = []; capsSent = ""; runBars = [] }

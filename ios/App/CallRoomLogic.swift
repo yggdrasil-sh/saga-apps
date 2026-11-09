@@ -453,3 +453,39 @@ enum CallRoom {
         return .failed(e?.isEmpty == false ? e : nil)
     }
 }
+
+// 2.5 (Fund 9.11.) Raum-Signal-Buendel (POST /api/calls/{id}/signal mit Zielliste): neuere Server verwerfen veraltete Ziele
+// einzeln ({ok, n, dropped}) - dann Teilnehmerliste neu holen (hoechstens alle 2 s); aeltere lehnen das ganze Buendel mit
+// 400 ab - fkey/state dann nach der naechsten Liste an die verbliebenen Ziele erneut senden (APP-API "Uebergabe")
+extension CallRoom {
+    enum SignalReply: Equatable { case ok(dropped: [String]), rejected, gone, other }
+    static func signalReply(code: Int?, body: [String: Any]?) -> SignalReply {
+        guard let code else { return .other }
+        if (200..<300).contains(code) { return .ok(dropped: (body?["dropped"] as? [Any] ?? []).compactMap { $0 as? String }.filter { !$0.isEmpty }) }
+        if code == 400 { return .rejected }
+        if code == 409 { return .gone }
+        return .other
+    }
+    /// Art eines Signal-Klartexts ("t"); nil = kein JSON
+    static func signalType(_ body: String) -> String? {
+        guard let d = body.data(using: .utf8), let o = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { return nil }
+        return o["t"] as? String
+    }
+    /// Nach einem 400 erneut senden? Nur Schluessel und Zustand (Angebote/Antworten verhandelt die Gegenseite neu)
+    static func resendable(_ bodies: [String: String]) -> [String: String] {
+        bodies.filter { ["fkey", "state"].contains(signalType($0.value) ?? "") }
+    }
+    /// Erneut zu sendende Buendel auf die aktuelle Liste beschraenken (gegangene Geraete fallen weg, nie an sich selbst)
+    static func resendTargets(_ bodies: [String: String], legs: [Leg], here: String) -> [String: String] {
+        let live = Set(legs.map(\.device))
+        return bodies.filter { live.contains($0.key) && $0.key != here }
+    }
+    /// Liste neu holen hoechstens alle `every` Sekunden
+    struct Pull {
+        private(set) var last: Double?
+        mutating func due(now: Double, every: Double = 2) -> Bool {
+            if let l = last, now - l < every { return false }
+            last = now; return true
+        }
+    }
+}
