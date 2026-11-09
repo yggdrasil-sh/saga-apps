@@ -808,7 +808,7 @@ private struct UpcomingWidget: View {
             .font(.subheadline).frame(minHeight: 28).contentShape(Rectangle())
         }
         .buttonStyle(.plain).disabled(it.note == nil)
-        .accessibilityLabel(Text(verbatim: (it.k == "task" ? String(localized: "Aufgabe") : String(localized: "Termin")) + ": " + it.title + (tm.isEmpty ? "" : ", " + tm)))
+        .accessibilityLabel(Text(verbatim: (it.k == "task" ? String(localized: "Aufgabe") : String(localized: "Termin")) + ": " + (it.title.isEmpty ? String(localized: "Unbenannt") : it.title) + (tm.isEmpty ? "" : ", " + tm)))
     }
     /// Zeit rechts: Uhrzeit, "ganztägig" (Termin), ueberfaellig das Datum; Groesse S mit Tag davor
     private func timeText(_ it: Widget2Logic.Upcoming.Item, _ sec: Widget2Logic.Section, small: Bool) -> String {
