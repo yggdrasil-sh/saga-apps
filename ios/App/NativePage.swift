@@ -2138,7 +2138,6 @@ struct BlockMenu<L: View>: View {
 }
 
 
-/// "+ Block" unter einer Spalte: neuer Absatz am Ende GENAU dieser Spalte (Mac beim Ueberfahren der Spalte)
 /// Reihe mit gleich hohen Widget-Karten: Hoehe = hoechste Karte (die Karten fuellen sie per widgetFill)
 private struct EqualRowHeight: ViewModifier {
     let on: Bool
@@ -2147,6 +2146,7 @@ private struct EqualRowHeight: ViewModifier {
     }
 }
 
+/// "+ Block" unter einer Spalte: neuer Absatz am Ende GENAU dieser Spalte (Mac beim Ueberfahren der Spalte)
 struct ColumnAddButton: View {
     let visible: Bool
     let action: () -> Void
