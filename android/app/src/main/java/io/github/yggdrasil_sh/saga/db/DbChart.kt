@@ -26,6 +26,8 @@ object DbChart {
         val type: String, val xKind: String, val bucket: String?, val cats: List<Cat>, val series: List<Series>,
         val total: Double?, val fmt: String, val other: Int, val truncated: Boolean, val rows: Int?, val goal: Double?,
         val stack: Boolean, val cumulative: Boolean,
+        /** Namen der Achsen-Eigenschaften vom Server (ab 2.5, fuer die Kontextzeile ohne Schema) */
+        val xName: String? = null, val yName: String? = null,
     ) {
         val pie: Boolean get() = type == "pie" || type == "donut"
         val horizontal: Boolean get() = type == "hbar"
@@ -71,6 +73,7 @@ object DbChart {
             cats = cats, series = series, total = o.d("total"), fmt = o.s("fmt")?.takeIf { it in setOf("num", "pct", "eur") } ?: "num",
             other = o.d("other")?.toInt() ?: 0, truncated = o.b("truncated"), rows = o.d("rows")?.toInt(), goal = o.d("goal"),
             stack = o.b("stack"), cumulative = o.b("cumulative"),
+            xName = o.s("x_name")?.take(130)?.ifBlank { null }, yName = o.s("y_name")?.take(130)?.ifBlank { null },
         )
     }
 

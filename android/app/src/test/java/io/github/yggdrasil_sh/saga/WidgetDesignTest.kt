@@ -264,4 +264,15 @@ class WidgetDesignTest {
         assertEquals(14, u.days)
         assertEquals(7, PageWidgets.upcoming(Json.parseToJsonElement("""{"items":[]}""") as JsonObject)!!.days)
     }
+
+    @Test
+    fun chartAxisNamesFromServer() {
+        val r = DbChart.parseResult(Json.parseToJsonElement(
+            """{"type":"donut","cats":[],"series":[],"rows":3,"x_name":"Status","y_name":"Betrag"}""") as JsonObject)
+        assertEquals("Status", r.xName)
+        assertEquals("Betrag", r.yName)
+        val old = DbChart.parseResult(Json.parseToJsonElement("""{"type":"bar","cats":[],"series":[],"x_name":""}""") as JsonObject)
+        assertNull(old.xName)
+        assertNull(old.yName)
+    }
 }

@@ -354,7 +354,7 @@ private fun WgBody(w: WgCtx, v: PageWidgets.Value?, env: BlockEnv) {
             val agg = widgetAggLabel(PageWidgets.cfgStr(s, "agg").ifEmpty { null })
             io.github.yggdrasil_sh.saga.ui.database.ChartBlock(
                 c, showTable = false, size = s.size, accent = if (w.chosen) w.accent else null,
-                ctx = io.github.yggdrasil_sh.saga.ui.database.chartContext(agg, "", "", c), cap = agg,
+                ctx = io.github.yggdrasil_sh.saga.ui.database.chartContext(agg, if (PageWidgets.cfgStr(s, "agg") != "count") c.yName.orEmpty() else "", c.xName.orEmpty(), c), cap = agg,
             )
         } ?: WgNote(stringResource(R.string.wd_no_values))
     }
