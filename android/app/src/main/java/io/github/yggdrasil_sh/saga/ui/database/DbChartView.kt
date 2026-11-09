@@ -3,6 +3,20 @@ package io.github.yggdrasil_sh.saga.ui.database
 import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -177,9 +191,34 @@ fun ChartBlock(c: DbChart.Result, showTable: Boolean, size: String? = null, acce
                 val big = TextStyle(fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum", color = valueColor)
                 val capStyle = TextStyle(fontSize = 11.sp, color = cs.onSurfaceVariant)
                 val capText = cap ?: stringResource(R.string.wd_total)
+                val donut = c.type == "donut"
                 val canvas = @Composable {
-                    Canvas(Modifier.size(ring.diameter.dp).semantics { contentDescription = summary }) {
-                        drawRound(vals, catCol, c.type == "donut", totalText, capText, tm, big, capStyle)
+                    // Nacharbeit 10: Tippen auf ein Segment zeigt Name, Wert und Anteil (Web chartSvg mark/showTip)
+                    var tip by remember(c) { mutableStateOf<ChartTip?>(null) }
+                    val sum = vals.filter { it > 0 }.sum()
+                    Box {
+                        Canvas(
+                            Modifier.size(ring.diameter.dp).semantics { contentDescription = summary }.pointerInput(c, vals) {
+                                detectTapGestures { o ->
+                                    val r = min(size.width, size.height) / 2f - 1.dp.toPx()
+                                    val ri = if (donut) r * 0.62f else 0f
+                                    val cx = size.width / 2f
+                                    val cy = size.height / 2f
+                                    val i = WidgetDesign.pieAt(o.x - cx, o.y - cy, r, ri, vals)
+                                    tip = i?.let {
+                                        val mid = Math.toRadians(WidgetDesign.pieMidDeg(vals, it) - 90.0)
+                                        val rm = if (donut) (r + ri) / 2 else r * 0.6f
+                                        ChartTip(
+                                            Offset(cx + (kotlin.math.cos(mid) * rm).toFloat(), cy + (kotlin.math.sin(mid) * rm).toFloat()),
+                                            labels[it], WidgetDesign.tipValue(fmt(vals[it]), PageWidgets.format(vals[it] / sum * 100.0, "pct", locale), null, ""), catCol[it],
+                                        )
+                                    }
+                                }
+                            },
+                        ) {
+                            drawRound(vals, catCol, donut, totalText, capText, tm, big, capStyle)
+                        }
+                        tip?.let { ChartTipPopup(it) { tip = null } }
                     }
                 }
                 if (ring.beside) {
@@ -208,9 +247,41 @@ fun ChartBlock(c: DbChart.Result, showTable: Boolean, size: String? = null, acce
                     val goalC = cs.onSurfaceVariant
                     val cardC = cs.surfaceContainerLow
                     val oneCol = chartTokenColor(WidgetDesign.ONE, accent)
-                    Canvas(Modifier.fillMaxWidth().height(h.dp).semantics { contentDescription = summary }) {
-                        drawXY(c, multi, catCol, serCol, oneCol, labels, grid, zeroC, goalC, cardC, tm, axisStyle, tiny, gl, glSide,
-                            WidgetDesign.tickCount(wDp, h)) { WidgetDesign.axisText(it, c.fmt, locale) }
+                    val nTicks = WidgetDesign.tickCount(wDp, h)
+                    val axisFmt: (Double) -> String = { WidgetDesign.axisText(it, c.fmt, locale) }
+                    val density = LocalDensity.current
+                    val wPx = with(density) { maxWidth.toPx() }
+                    val hPx = with(density) { h.dp.toPx() }
+                    // gleiche Flaeche wie beim Zeichnen: fuer Tippen (Tooltip) und TalkBack-Marken je Kategorie
+                    val frame = remember(c, labels, wPx, hPx, tiny, gl, glSide, nTicks, density.density, axisStyle) {
+                        xyFrame(c, labels, wPx, hPx, density.density, tm, axisStyle, tiny, gl, glSide, nTicks, axisFmt)
+                    }
+                    var tip by remember(c) { mutableStateOf<ChartTip?>(null) }
+                    val totalWord = stringResource(R.string.wd_total)
+                    Box(Modifier.fillMaxWidth().height(h.dp)) {
+                        Canvas(
+                            Modifier.fillMaxWidth().height(h.dp).semantics { contentDescription = summary }.pointerInput(c, frame) {
+                                detectTapGestures { o -> tip = xyTip(c, frame, o, multi, catCol, serCol, oneCol, labels, totalWord) { fmt(it) } }
+                            },
+                        ) {
+                            drawXY(c, multi, catCol, serCol, oneCol, labels, grid, zeroC, goalC, cardC, tm, axisStyle, tiny, gl, glSide, nTicks, axisFmt)
+                        }
+                        // TalkBack: je Kategorie eine Marke "Name: Wert" (bei mehreren Reihen alle Reihen) - Lage wie das Band
+                        val band = with(density) { frame.band.toDp() }
+                        frame.let { f ->
+                            for (i in 0 until f.n) {
+                                val desc = labels[i] + ": " + if (multi) c.series.joinToString(", ") { sr -> sr.label.ifEmpty { "–" } + " " + fmt(sr.values.getOrNull(i)) }
+                                else fmt(c.series.firstOrNull()?.values?.getOrNull(i))
+                                val at = with(density) { (f.start + f.band * i).toDp() }
+                                val across = with(density) { (if (f.horiz) f.pl else f.pt).toDp() }
+                                val acrossLen = with(density) { (if (f.horiz) f.pw else f.ph).toDp() }
+                                Box(
+                                    (if (f.horiz) Modifier.offset(across, at).size(acrossLen, band) else Modifier.offset(at, across).size(band, acrossLen))
+                                        .semantics { contentDescription = desc },
+                                )
+                            }
+                        }
+                        tip?.let { ChartTipPopup(it) { tip = null } }
                     }
                     // Legende: mehrere Reihen; Ziellinie als Eintrag, wenn neben der Linie kein Platz ist
                     val lg = ArrayList<Pair<Color?, String>>()
@@ -285,6 +356,78 @@ fun ChartTable(c: DbChart.Result, labels: List<String>, fmt: (Double?) -> String
     }
 }
 
+/** Tooltip eines Diagramms: Ort (Pixel in der Zeichenflaeche), Kopf (Kategorie, ggf. Reihe), Wert, Farbe der Marke */
+private data class ChartTip(val at: Offset, val name: String, val value: String, val color: Color)
+
+/** Tooltip zur getippten Stelle eines Achsendiagramms (null = keine Marke dort): Reihe nach Ort im Band bzw. Stapel/Naehe */
+private fun xyTip(
+    c: DbChart.Result, f: XYFrame, o: Offset, multi: Boolean, catCol: List<Color>, serCol: List<Color>, oneCol: Color, labels: List<String>,
+    totalWord: String, fmt: (Double?) -> String,
+): ChartTip? {
+    val along = if (f.horiz) o.y else o.x
+    val across = if (f.horiz) o.x else o.y
+    val i = WidgetDesign.bandAt(along, f.start, f.band, f.n) ?: return null
+    val stack = c.stack && multi
+    val line = c.type == "line" || c.type == "area"
+    val col = c.series.map { it.values.getOrNull(i) }
+    val si = when {
+        !multi -> 0
+        stack -> WidgetDesign.stackedSeriesAt(col, f.valueAt(across))
+        line -> col.indices.filter { col[it] != null }.minByOrNull { abs(f.vpos(col[it]!!) - across) }
+        else -> WidgetDesign.groupedSeriesAt(along, f.start + f.band * i, f.band, f.n, c.series.size)
+    } ?: return null
+    val v = col.getOrNull(si) ?: return null
+    val top = if (stack) WidgetDesign.stackTop(col, si) else v
+    val mid = f.start + f.band * (i + 0.5f)
+    val alongAt = if (multi && !stack && !line) {
+        val inner = WidgetDesign.barInner(f.band, f.n)
+        f.start + f.band * i + (f.band - inner) / 2 + inner / c.series.size * (si + 0.5f)
+    } else mid
+    val at = if (f.horiz) Offset(f.vpos(top), f.start + f.band * i) else Offset(alongAt, if (line) f.vpos(top) else f.vpos(maxOf(top, 0.0)))
+    val s = c.series[si]
+    val total = if (stack && line) fmt(top) else null                       // Web: gestapelte Linie "Wert (Gesamt Summe)"
+    return ChartTip(
+        at, WidgetDesign.tipName(labels[i], s.label, multi), WidgetDesign.tipValue(fmt(v), null, total, totalWord),
+        if (multi) serCol[si % serCol.size] else if (line) oneCol else catCol[i % catCol.size],
+    )
+}
+
+/** Tooltip wie Web .ch-tip: Kaestchen ueber der Marke (passt es nicht, darunter), innerhalb der Diagrammbreite; Tippen ausserhalb schliesst */
+@Composable
+private fun ChartTipPopup(tip: ChartTip, onDismiss: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val density = LocalDensity.current
+    val gap = with(density) { 10.dp.roundToPx() }
+    val below = with(density) { 14.dp.roundToPx() }
+    val provider = remember(tip.at, gap, below) {
+        object : PopupPositionProvider {
+            override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
+                val ax = anchorBounds.left + tip.at.x
+                val ay = anchorBounds.top + tip.at.y
+                var x = (ax - popupContentSize.width / 2f).toInt()
+                x = x.coerceAtMost(anchorBounds.right - popupContentSize.width).coerceAtLeast(anchorBounds.left)
+                x = x.coerceAtMost(windowSize.width - popupContentSize.width).coerceAtLeast(0)
+                var y = (ay - popupContentSize.height - gap).toInt()
+                if (y < anchorBounds.top || y < 0) y = (ay + below).toInt()
+                return IntOffset(x, y)
+            }
+        }
+    }
+    val shape = RoundedCornerShape(SagaRadius.s)
+    Popup(popupPositionProvider = provider, onDismissRequest = onDismiss, properties = PopupProperties(focusable = false, dismissOnClickOutside = true)) {
+        Column(
+            Modifier.widthIn(max = 256.dp).shadow(6.dp, shape).clip(shape).background(cs.surfaceContainer).border(1.dp, cs.outlineVariant, shape)
+                .padding(horizontal = 9.dp, vertical = 6.dp).clearAndSetSemantics { },
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(tip.color))
+                Text(tip.name, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text(tip.value, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, fontFeatureSettings = "tnum"), color = cs.onSurface, maxLines = 1)
+        }
+    }
+}
+
 /** Kreis bzw. Ring mit kleinen Fugen; im Ring Gesamtwert gross + Rechenart klein */
 private fun DrawScope.drawRound(
     vals: List<Double>, colors: List<Color>, donut: Boolean, total: String, cap: String, tm: TextMeasurer, big: TextStyle, capStyle: TextStyle,
@@ -323,19 +466,25 @@ private fun DrawScope.drawRound(
     }
 }
 
-private fun DrawScope.drawXY(
-    c: DbChart.Result, multi: Boolean, catCol: List<Color>, serCol: List<Color>, oneCol: Color, labels: List<String>, grid: Color, zeroC: Color, goalC: Color,
-    cardC: Color, tm: TextMeasurer, style: TextStyle, tiny: Boolean, gl: String?, glSide: Boolean, nTicks: Int, fmt: (Double) -> String,
-) {
-    val stack = c.stack && multi
+/** Zeichenflaeche eines Achsendiagramms (Pixel): Raender, Ticks, Baender - gemeinsam fuer Zeichnen, Tippen und TalkBack */
+private class XYFrame(val pl: Float, val pt: Float, val pw: Float, val ph: Float, val ticks: List<Double>, val horiz: Boolean, val n: Int) {
+    val tMin: Double get() = ticks.first()
+    val tMax: Double get() = ticks.last()
+    val band: Float get() = (if (horiz) ph else pw) / maxOf(1, n)
+    /** Beginn der Baender (oben bei waagrechten, links bei senkrechten Balken) */
+    val start: Float get() = if (horiz) pt else pl
+    fun vpos(v: Double): Float = if (horiz) pl + ((v - tMin) / (tMax - tMin)).toFloat() * pw else pt + ph - ((v - tMin) / (tMax - tMin)).toFloat() * ph
+    fun valueAt(p: Float): Double = if (horiz) tMin + (p - pl) / pw * (tMax - tMin) else tMin + (pt + ph - p) / ph * (tMax - tMin)
+}
+
+private fun xyFrame(
+    c: DbChart.Result, labels: List<String>, width: Float, height: Float, dp: Float, tm: TextMeasurer, style: TextStyle, tiny: Boolean,
+    gl: String?, glSide: Boolean, nTicks: Int, fmt: (Double) -> String,
+): XYFrame {
     val (lo0, hi0) = c.yRange()
     val ticks = DbChart.niceTicks(lo0, hi0, n = nTicks, integer = c.integerValues)
-    val tMin = ticks.first()
-    val tMax = ticks.last()
     val horiz = c.horizontal
     val tlab = ticks.map(fmt)
-    val n = c.cats.size
-    val dp = density
     var pl: Float
     var pr = 8f * dp
     var pt = 8f * dp
@@ -344,16 +493,33 @@ private fun DrawScope.drawXY(
     if (tiny) {
         pl = 2f * dp; pr = 2f * dp; pt = 4f * dp; pb = 2f * dp
     } else if (horiz) {
-        pl = min(size.width * 0.4f, (labels.maxOfOrNull { min(tw(it), 120f * dp) } ?: 0f) + 10f * dp)
+        pl = min(width * 0.4f, (labels.maxOfOrNull { min(tw(it), 120f * dp) } ?: 0f) + 10f * dp)
         pr = maxOf(8f * dp, tw(tlab.last()) / 2 + 2f * dp)
     } else {
-        pl = min(size.width * 0.4f, (tlab.maxOfOrNull { tw(it) } ?: 0f) + 10f * dp)
+        pl = min(width * 0.4f, (tlab.maxOfOrNull { tw(it) } ?: 0f) + 10f * dp)
     }
     if (gl != null && horiz) pt = 18f * dp
     if (glSide && gl != null) pr = tw(gl) + 12f * dp
-    val pw = size.width - pl - pr
-    val ph = size.height - pt - pb
-    fun vpos(v: Double): Float = if (horiz) pl + ((v - tMin) / (tMax - tMin)).toFloat() * pw else pt + ph - ((v - tMin) / (tMax - tMin)).toFloat() * ph
+    return XYFrame(pl, pt, width - pl - pr, height - pt - pb, ticks, horiz, c.cats.size)
+}
+
+private fun DrawScope.drawXY(
+    c: DbChart.Result, multi: Boolean, catCol: List<Color>, serCol: List<Color>, oneCol: Color, labels: List<String>, grid: Color, zeroC: Color, goalC: Color,
+    cardC: Color, tm: TextMeasurer, style: TextStyle, tiny: Boolean, gl: String?, glSide: Boolean, nTicks: Int, fmt: (Double) -> String,
+) {
+    val stack = c.stack && multi
+    val f = xyFrame(c, labels, size.width, size.height, density, tm, style, tiny, gl, glSide, nTicks, fmt)
+    val ticks = f.ticks
+    val horiz = f.horiz
+    val tlab = ticks.map(fmt)
+    val n = f.n
+    val dp = density
+    val pl = f.pl
+    val pt = f.pt
+    val pw = f.pw
+    val ph = f.ph
+    fun tw(s: String) = tm.measure(s, style, maxLines = 1).size.width.toFloat()
+    fun vpos(v: Double): Float = f.vpos(v)
     if (!tiny) {
         ticks.forEachIndexed { j, t ->
             val p = vpos(t)
@@ -397,7 +563,7 @@ private fun DrawScope.drawXY(
     val line = (c.type == "line" || c.type == "area") && !(tiny && c.type != "line" && c.type != "area")
     if (!line) {
         val k = if (stack) 1 else c.series.size
-        val inner = band * (if (n > 1) 0.72f else 0.5f)
+        val inner = WidgetDesign.barInner(band, n)
         val bw = inner / k
         val gap = if (k > 1) min(2f * dp, bw * 0.15f) else 0f
         val rr = if (stack) min(2f * dp, (bw - gap) / 4) else min(4f * dp, (bw - gap) / 3)
@@ -436,7 +602,7 @@ private fun DrawScope.drawXY(
         val cum = DoubleArray(n)
         val cumN = DoubleArray(n)
         val dots = n <= 24 && band >= 12f * dp && !tiny
-        val baseLine = vpos(maxOf(tMin, 0.0))
+        val baseLine = vpos(maxOf(f.tMin, 0.0))
         val layers = c.series.mapIndexed { si, s ->
             val pts = ArrayList<Triple<Offset, Float, Int>>()   // Punkt, Grundlinie, Index
             s.values.forEachIndexed { i, v ->

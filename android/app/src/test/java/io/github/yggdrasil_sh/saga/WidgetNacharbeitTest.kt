@@ -66,4 +66,62 @@ class WidgetNacharbeitTest {
         assertEquals("Offen", WidgetDesign.srcContext("metric", "tasks", "Offen", "egal"))       // tasks unveraendert
         assertEquals("", WidgetDesign.srcContext("progress", "tasks", null, "egal"))
     }
+
+    // ---------------------------------------------------------------- Diagramm-Tooltip (Nacharbeit 10)
+
+    @Test
+    fun tippenTrifftBand() {
+        // 4 Kategorien a 50 px ab x = 40
+        assertNull(WidgetDesign.bandAt(39f, 40f, 50f, 4))
+        assertEquals(0, WidgetDesign.bandAt(40f, 40f, 50f, 4))
+        assertEquals(1, WidgetDesign.bandAt(90f, 40f, 50f, 4))
+        assertEquals(3, WidgetDesign.bandAt(239f, 40f, 50f, 4))
+        assertNull(WidgetDesign.bandAt(240f, 40f, 50f, 4))
+        assertNull(WidgetDesign.bandAt(10f, 0f, 50f, 0))
+    }
+
+    @Test
+    fun gruppierteBalkenReihe() {
+        // Band 100 px, 72 % = 72 px fuer 3 Reihen ab 14 px: je 24 px
+        assertEquals(0, WidgetDesign.groupedSeriesAt(5f, 0f, 100f, 4, 3))      // Rand links -> erste Reihe
+        assertEquals(0, WidgetDesign.groupedSeriesAt(20f, 0f, 100f, 4, 3))
+        assertEquals(1, WidgetDesign.groupedSeriesAt(50f, 0f, 100f, 4, 3))
+        assertEquals(2, WidgetDesign.groupedSeriesAt(80f, 0f, 100f, 4, 3))
+        assertEquals(2, WidgetDesign.groupedSeriesAt(99f, 0f, 100f, 4, 3))
+        assertEquals(0, WidgetDesign.groupedSeriesAt(80f, 0f, 100f, 4, 1))
+    }
+
+    @Test
+    fun stapelReihe() {
+        val col = listOf(10.0, null, 5.0, -4.0)
+        assertEquals(0, WidgetDesign.stackedSeriesAt(col, 3.0))
+        assertEquals(2, WidgetDesign.stackedSeriesAt(col, 12.0))
+        assertEquals(2, WidgetDesign.stackedSeriesAt(col, 40.0))                // ueber dem Stapel -> oberste
+        assertEquals(3, WidgetDesign.stackedSeriesAt(col, -2.0))
+        assertNull(WidgetDesign.stackedSeriesAt(listOf(null, null), 1.0))
+        assertEquals(15.0, WidgetDesign.stackTop(col, 2), 1e-9)
+        assertEquals(-4.0, WidgetDesign.stackTop(col, 3), 1e-9)
+    }
+
+    @Test
+    fun kreisSegment() {
+        val v = listOf(1.0, 1.0, 0.0, 2.0)                                       // 0-90°, 90-180°, (leer), 180-360°
+        assertEquals(0, WidgetDesign.pieAt(10f, -50f, 100f, 0f, v))              // oben rechts
+        assertEquals(1, WidgetDesign.pieAt(30f, 50f, 100f, 0f, v))               // unten rechts
+        assertEquals(3, WidgetDesign.pieAt(-50f, 10f, 100f, 0f, v))              // links
+        assertNull(WidgetDesign.pieAt(200f, 0f, 100f, 0f, v))                    // ausserhalb
+        assertNull(WidgetDesign.pieAt(5f, 5f, 100f, 62f, v))                     // im Loch des Rings
+        assertEquals(45.0, WidgetDesign.pieMidDeg(v, 0), 1e-9)
+        assertEquals(270.0, WidgetDesign.pieMidDeg(v, 3), 1e-9)
+    }
+
+    @Test
+    fun tooltipTexteWieWeb() {
+        assertEquals("Offen · 2025", WidgetDesign.tipName("Offen", "2025", multi = true))
+        assertEquals("Offen", WidgetDesign.tipName("Offen", "2025", multi = false))
+        assertEquals("Offen", WidgetDesign.tipName("Offen", "", multi = true))
+        assertEquals("12 · 40 %", WidgetDesign.tipValue("12", "40 %", null, "Gesamt"))
+        assertEquals("12 (Gesamt 30)", WidgetDesign.tipValue("12", null, "30", "Gesamt"))
+        assertEquals("12", WidgetDesign.tipValue("12", null, null, "Gesamt"))
+    }
 }

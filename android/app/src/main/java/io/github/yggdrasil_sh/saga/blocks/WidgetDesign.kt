@@ -102,6 +102,93 @@ object WidgetDesign {
     /** Schriftgroesse des Gesamtwerts im Ring (dp) bei innerem Radius ri */
     fun ringValueSize(ri: Float, text: String): Float = max(12f, min(26f, min(ri * 0.42f, ri * 1.7f / max(3, text.length) * 1.6f)))
 
+    // ---------------------------------------------------------------- Tooltip (Nacharbeit 10, Web chartSvg mark/showTip)
+
+    /** Kategorie unter dem Finger: Band [start + i*band, start + (i+1)*band); null ausserhalb */
+    fun bandAt(pos: Float, start: Float, band: Float, n: Int): Int? {
+        if (n <= 0 || band <= 0f || pos < start) return null
+        val i = floor((pos - start) / band).toInt()
+        return if (i in 0 until n) i else null
+    }
+
+    /** Breite aller Balken einer Kategorie im Band (wie drawXY: 72 %, bei einer Kategorie 50 %) */
+    fun barInner(band: Float, n: Int): Float = band * (if (n > 1) 0.72f else 0.5f)
+
+    /** Gruppierte Balken (k Reihen nebeneinander): Reihe an der Stelle pos im Band ab bandStart */
+    fun groupedSeriesAt(pos: Float, bandStart: Float, band: Float, n: Int, k: Int): Int {
+        if (k <= 1) return 0
+        val inner = barInner(band, n)
+        val off = (band - inner) / 2
+        return floor((pos - bandStart - off) / (inner / k)).toInt().coerceIn(0, k - 1)
+    }
+
+    /**
+     * Gestapelt: Reihe, deren Abschnitt den Wert v enthaelt (positive Werte nach oben, negative nach unten gestapelt);
+     * sonst die oberste Reihe derselben Richtung; null ohne Werte.
+     */
+    fun stackedSeriesAt(values: List<Double?>, v: Double): Int? {
+        var accP = 0.0
+        var accN = 0.0
+        var lastP: Int? = null
+        var lastN: Int? = null
+        values.forEachIndexed { si, x ->
+            x ?: return@forEachIndexed
+            if (x >= 0) {
+                if (v >= accP && v <= accP + x) return si
+                accP += x
+                lastP = si
+            } else {
+                if (v <= accN && v >= accN + x) return si
+                accN += x
+                lastN = si
+            }
+        }
+        return if (v < 0) lastN ?: lastP else lastP ?: lastN
+    }
+
+    /** Summe bis einschliesslich Reihe si in derselben Richtung (Ende des Abschnitts im Stapel) */
+    fun stackTop(values: List<Double?>, si: Int): Double {
+        val x = values.getOrNull(si) ?: return 0.0
+        return values.take(si + 1).filterNotNull().filter { (it >= 0) == (x >= 0) }.sum()
+    }
+
+    /**
+     * Kreis/Ring: Segment unter dem Finger (dx/dy vom Mittelpunkt, y nach unten); Beginn oben, im Uhrzeigersinn wie
+     * drawRound. Ausserhalb des Kreises bzw. im Loch des Rings null.
+     */
+    fun pieAt(dx: Float, dy: Float, r: Float, ri: Float, vals: List<Double>): Int? {
+        val d = kotlin.math.sqrt(dx * dx + dy * dy)
+        if (d > r || d < ri) return null
+        val sum = vals.filter { it > 0 }.sum()
+        if (sum <= 0) return null
+        val a = ((Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())) + 90.0) % 360.0 + 360.0) % 360.0
+        var acc = 0.0
+        vals.forEachIndexed { i, v ->
+            if (v <= 0) return@forEachIndexed
+            acc += v / sum * 360.0
+            if (a < acc) return i
+        }
+        return vals.indexOfLast { it > 0 }.takeIf { it >= 0 }
+    }
+
+    /** Mittlerer Winkel (Grad, 0 = oben, im Uhrzeigersinn) des Segments i */
+    fun pieMidDeg(vals: List<Double>, i: Int): Double {
+        val sum = vals.filter { it > 0 }.sum()
+        if (sum <= 0) return 0.0
+        val before = vals.take(i).filter { it > 0 }.sum()
+        return (before + maxOf(0.0, vals.getOrElse(i) { 0.0 }) / 2) / sum * 360.0
+    }
+
+    /** Kopf des Tooltips: Kategorie, bei mehreren Reihen " · Reihe" (Web: labels[i] + ' · ' + s.label) */
+    fun tipName(cat: String, series: String, multi: Boolean): String = if (multi && series.isNotEmpty()) "$cat · $series" else cat
+
+    /** Wert im Tooltip: Kreis "Wert · Anteil", gestapelte Linie "Wert (Gesamt Summe)", sonst der Wert */
+    fun tipValue(value: String, share: String?, total: String?, totalWord: String): String = when {
+        share != null -> "$value · $share"
+        total != null -> "$value ($totalWord $total)"
+        else -> value
+    }
+
     // ---------------------------------------------------------------- Achsen: kompakte Zahlen
 
     private fun compactWords(locale: Locale): Triple<String, String, String> = when (locale.language) {
