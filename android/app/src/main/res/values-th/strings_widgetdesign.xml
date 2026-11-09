@@ -74,4 +74,6 @@
         <item quantity="other">อัตราสำเร็จ %1$d %%, %2$d วันติดต่อกัน</item>
     </plurals>
     <string name="wd_goal_short">เป้าหมาย</string>
+    <!-- TalkBack: Regen eines Tages in der Wettervorschau -->
+    <string name="wd_wx_rain_desc">โอกาสฝนตก %1$d %%</string>
 </resources>

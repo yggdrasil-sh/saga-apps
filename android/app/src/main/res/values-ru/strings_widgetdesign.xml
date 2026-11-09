@@ -89,4 +89,6 @@
         <item quantity="other">Успешность %1$d %%, %2$d дня подряд</item>
     </plurals>
     <string name="wd_goal_short">Цель</string>
+    <!-- TalkBack: Regen eines Tages in der Wettervorschau -->
+    <string name="wd_wx_rain_desc">Вероятность дождя %1$d %%</string>
 </resources>

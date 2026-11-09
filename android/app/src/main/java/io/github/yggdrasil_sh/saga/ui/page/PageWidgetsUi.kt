@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
@@ -680,7 +681,7 @@ private fun WeatherBody(w: WgCtx, v: PageWidgets.Value?) {
     val unit = if (x.imperial) "°F" else "°C"
     fun deg(d: Double?) = d?.let { nf.format(Math.round(it)) + "°" } ?: "–"
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(PageWidgets.weatherEmoji(x.code), fontSize = 28.sp, modifier = Modifier.semantics { contentDescription = "" })
+        Text(PageWidgets.weatherEmoji(x.code), fontSize = 28.sp, modifier = Modifier.clearAndSetSemantics { })
         WgValue((x.now?.let { nf.format(Math.round(it)) } ?: "–") + " " + unit, w)
     }
     val sub = listOfNotNull(
@@ -689,6 +690,16 @@ private fun WeatherBody(w: WgCtx, v: PageWidgets.Value?) {
     )
     if (sub.isNotEmpty()) WgSub(sub.joinToString(" · "))
     val days = x.days.drop(1)
+    // TalkBack: je Tag eine Zeile ("Di., Regen, 12° / 5°, 40 %") statt Emoji und Zahlen einzeln
+    val dayNames = days.map { weatherName(it.code) }
+    val rainDesc = days.map { d -> d.rain?.takeIf { it > 0 }?.let { stringResource(R.string.wd_wx_rain_desc, it) } }
+    fun dayDesc(i: Int): String {
+        val d = days[i]
+        return listOfNotNull(
+            d.day.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, locale), dayNames[i].ifEmpty { null },
+            deg(d.max) + " / " + deg(d.min), rainDesc[i],
+        ).joinToString(", ")
+    }
     if (days.isNotEmpty()) {
         val small = MaterialTheme.typography.bodySmall
         if (WidgetDesign.weatherAsList(w.widthDp)) {
@@ -696,7 +707,7 @@ private fun WeatherBody(w: WgCtx, v: PageWidgets.Value?) {
             Column {
                 days.forEachIndexed { i, d ->
                     if (i > 0) HorizontalDivider(color = cs.outlineVariant)
-                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = dayDesc(i) }.padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(d.day.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, locale), style = small, color = cs.onSurfaceVariant, modifier = Modifier.width(34.dp), maxLines = 1)
                         Text(PageWidgets.weatherEmoji(d.code), style = small, modifier = Modifier.width(22.dp))
                         Text(
@@ -709,9 +720,9 @@ private fun WeatherBody(w: WgCtx, v: PageWidgets.Value?) {
             }
         } else {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                days.forEach { d ->
+                days.forEachIndexed { i, d ->
                     Column(
-                        Modifier.weight(1f).clip(RoundedCornerShape(SagaRadius.s)).background(cs.onSurface.copy(alpha = 0.04f)).padding(vertical = 5.dp),
+                        Modifier.weight(1f).clearAndSetSemantics { contentDescription = dayDesc(i) }.clip(RoundedCornerShape(SagaRadius.s)).background(cs.onSurface.copy(alpha = 0.04f)).padding(vertical = 5.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(d.day.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, locale), style = small, color = cs.onSurfaceVariant, maxLines = 1)
@@ -813,9 +824,10 @@ private fun HabitBody(w: WgCtx, v: PageWidgets.Value?, env: BlockEnv) {
                             else drawCircle(field, r - 0.75.dp.toPx(), style = Stroke(1.5.dp.toPx()))
                         }
                         .then(
-                            if (h.canCheck) Modifier.clickable(role = androidx.compose.ui.semantics.Role.Checkbox) {
+                            // Regel A11y: Kaestchen mit Zustand (TalkBack: "aktiviert"/"nicht aktiviert"), wie aria-pressed im Web
+                            if (h.canCheck) Modifier.toggleable(value = on, role = androidx.compose.ui.semantics.Role.Checkbox) {
                                 failed = false
-                                val before = v ?: return@clickable
+                                val before = v ?: return@toggleable
                                 env.widgets.replace(id, before.copy(data = habitsJson(before.data, PageWidgets.habitToggled(h, x.pid, d, !on))))
                                 scope.launch {
                                     try {
