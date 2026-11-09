@@ -31,6 +31,14 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   - Ziellinie mit „Ziel“.
   - Kontextzeile mit den Spaltennamen vom Server (`x_name`/`y_name`).
 - **Spalten:** Umbruch nach Breite wie im Web (4 → 2×2, 3 → 2+1), Karten einer Reihe gleich hoch, am Handy 10 dp Abstand.
+- **Nacharbeit Android:**
+  - Wetter und Serie mit Linien-Symbolen wie im Web statt Emoji. TalkBack liest je Vorhersagetag eine Zeile.
+  - Gewohnheits-Zellen melden ihren Zustand (abgehakt/offen).
+  - Diagramme zeigen beim Tippen auf Balken, Punkt oder Segment ein Kästchen mit Kategorie und Wert (Kreis mit Anteil).
+    Tippen daneben schließt es. TalkBack hat je Kategorie eine Marke „Name: Wert“.
+  - Countdown wie im Web: nach Ablauf bzw. vor Beginn „Heute“ statt „Erreicht“/„Noch nicht begonnen“.
+  - Kennzahl und Fortschritt nennen die Quell-Datenbank („Summe · Ausgaben“), sobald der Server `src_name` liefert.
+  - Eigene Spaltenbreiten galten schon, solange die Spalten nebeneinander stehen (wie im Web).
 - Behoben dabei: Die Ziellinie war in en/es/ru/th als Speicherziel übersetzt.
 - **Nacharbeit (iOS):**
   - Kennzahl und Fortschritt nennen die Quell-Datenbank wie im Web („Summe · Projekte“ bzw. „Projekte“), sobald der
