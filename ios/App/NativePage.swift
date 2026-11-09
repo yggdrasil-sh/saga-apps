@@ -1728,11 +1728,14 @@ struct BlockView: View {
         .frame(maxWidth: .infinity, maxHeight: fill ? .infinity : nil, alignment: .topLeading)
         .overlay(alignment: .bottomTrailing) {
             if fill && colHover == i && !ed.locked {
+                // knapp unter der Karte (nur 4 pt ueberlappend) statt ueber ihrem Inhalt; ohne Platzreserve (Reihenhoehe gleich)
                 ColumnAddButton(visible: true) { ed.continueInColumn(c) }
-                    .background(.regularMaterial, in: Capsule()).padding(6)
+                    .background(.regularMaterial, in: Capsule()).padding(.trailing, 6)
+                    .alignmentGuide(.bottom) { $0[.top] + 4 }
             }
         }
         .contentShape(Rectangle())
+        .zIndex(colHover == i ? 1 : 0)
         .onHover { colHover = $0 ? i : (colHover == i ? nil : colHover) }
     }
 }

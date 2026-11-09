@@ -427,6 +427,9 @@ struct ChartBody: View {
         }
         .frame(width: d, height: d)
         .overlay { if data.type == "donut" { center(d).accessibilityHidden(true) } }
+        // Gesamtansage (wie die Mitte: "Summe"/"Anzahl" bzw. "Gesamt" + Wert); die Segmente bleiben einzeln erreichbar
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text(verbatim: (cap ?? String(localized: "Gesamt")) + ", " + NumFormat.text(data.total, fmt: data.fmt, locale: locale)))
         if L.beside {
             HStack(alignment: .center, spacing: 20) {
                 pie
