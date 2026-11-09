@@ -118,3 +118,21 @@ func accountSwitchTests() {
     check(pr?.devices.count == 2 && pr?.devices[0].keyID == 13 && pr?.devices[1].current == true && pr?.devices[1].keyID == nil && pr?.keys == [K(id: 7, prefix: "hk_OLDxyz")], "Antwort /api/settings/apps lesen")
     check(AppKeyCleanup.parse(Data("[]".utf8)) == nil, "alter Server (Liste statt Objekt): nil")
 }
+
+/// Widget-Nacharbeit 6: kein neuer Geraete-Schluessel je Start, wenn der Schluesselbund ihn nicht haelt
+func deviceKeyMintTests() {
+    typealias M = DeviceKeyMint
+    let o = "https://saga.example", t0 = Date(timeIntervalSince1970: 1_800_000_000)
+    check(M.allowed(marker: nil, origin: o, now: t0) && !M.allowed(marker: nil, origin: nil, now: t0) && !M.allowed(marker: nil, origin: "", now: t0), "ohne Marke erlaubt, ohne Server nie")
+    let m = M.after(stored: false, origin: o, now: t0)
+    check(m != nil && M.after(stored: true, origin: o, now: t0) == nil && M.after(stored: false, origin: nil, now: t0) == nil, "Marke nur, wenn nicht gespeichert")
+    // jeder weitere Start am selben Tag: kein neuer (vorher: je Start eine neue device_login-Zeile)
+    let starts = (1...10).map { t0.addingTimeInterval(Double($0) * 60) }
+    check(starts.allSatisfy { !M.allowed(marker: m, origin: o, now: $0) }, "10 Starts in Folge holen keinen neuen Schluessel")
+    check(M.allowed(marker: m, origin: o, now: t0.addingTimeInterval(M.retry)), "nach 24 h ein neuer Versuch")
+    check(M.allowed(marker: m, origin: "https://other.example", now: t0), "Marke eines anderen Servers zaehlt nicht")
+    check(M.allowed(marker: m, origin: o, now: t0.addingTimeInterval(-60)), "Uhr zurueckgestellt: wieder erlaubt")
+    // wie aus UserDefaults gelesen (NSNumber)
+    let ud: [String: Any] = ["origin": o, "at": NSNumber(value: t0.timeIntervalSince1970)]
+    check(!M.allowed(marker: ud, origin: o, now: t0.addingTimeInterval(5)) && M.allowed(marker: ["origin": o], origin: o, now: t0), "Marke aus den Einstellungen; kaputte Marke sperrt nicht")
+}

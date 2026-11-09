@@ -182,3 +182,28 @@ enum PublicNameLogic {
         return n.lowercased() == input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 }
+
+/// Widget-Nacharbeit 6: Geraete-Schluessel nicht bei jedem Start neu ausstellen lassen, wenn der Schluesselbund ihn nicht
+/// halten kann (unsignierter Simulator-Build ohne Berechtigungen, gesperrter Schluesselbund). Vorher holte jeder Start mit
+/// noch gueltiger Sitzung still einen neuen (POST /app/device -> neue Zeile device_login); bei DEVICE_LOGIN_MAX 20 auf
+/// dem Server verdraengte die App so ihre eigenen Anmeldungen. Jetzt: Marke je Server, erneuter Versuch fruehestens
+/// nach `retry` (24 h) - oder sofort nach einer neuen Anmeldung/Kopplung, deren Schluessel sich speichern liess.
+enum DeviceKeyMint {
+    static let storeKey = "deviceKeyUnstorable"
+    static let retry: TimeInterval = 86_400
+    /// Marke "Schluessel fuer diesen Server liess sich nicht speichern" (Einstellungen der App-Gruppe, kein Geheimnis)
+    static func marker(origin: String, at now: Date) -> [String: Any] { ["origin": origin, "at": now.timeIntervalSince1970] }
+    /// Darf die App still einen Geraete-Schluessel holen? Nur mit Server; Marke dieses Servers sperrt bis `retry`
+    /// (Uhr zurueckgestellt: wieder erlaubt). Marke eines anderen Servers zaehlt nicht.
+    static func allowed(marker m: [String: Any]?, origin: String?, now: Date) -> Bool {
+        guard let origin, !origin.isEmpty else { return false }
+        guard let m, m["origin"] as? String == origin, let at = (m["at"] as? Double) ?? (m["at"] as? NSNumber)?.doubleValue else { return true }
+        let age = now.timeIntervalSince1970 - at
+        return age >= retry || age < 0
+    }
+    /// Nach dem Speichern eines ausgestellten Schluessels: neue Marke (nicht gespeichert) bzw. keine (gespeichert)
+    static func after(stored: Bool, origin: String?, now: Date) -> [String: Any]? {
+        guard !stored, let origin, !origin.isEmpty else { return nil }
+        return marker(origin: origin, at: now)
+    }
+}

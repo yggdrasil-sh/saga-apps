@@ -325,7 +325,12 @@ final class Store: ObservableObject {
     private func adoptKeys(_ d: Data, takeAppKey: Bool = true) -> (ok: Bool, appKey: String?) {
         let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any]
         var ok = true
-        if let t = j?["device_token"] as? String, t.hasPrefix("hkd_") { DeviceKey.set(t); ok = DeviceKey.stored() == t }
+        if let t = j?["device_token"] as? String, t.hasPrefix("hkd_") {
+            DeviceKey.set(t); ok = DeviceKey.stored() == t
+            // Nacharbeit 6: nicht speicherbar -> nicht bei jedem Start einen neuen holen (ensureDeviceKey)
+            if let m = DeviceKeyMint.after(stored: ok, origin: AppConfig.serverOrigin, now: Date()) { AppConfig.store.set(m, forKey: DeviceKeyMint.storeKey) }
+            else { AppConfig.store.removeObject(forKey: DeviceKeyMint.storeKey) }
+        }
         let k = (j?["app_key"] as? String).flatMap { $0.hasPrefix("hk_") ? $0 : nil }
         if takeAppKey, let k, !AppConfig.hasToken { AppConfig.token = k; reloadWidgets() }
         return (ok, k)
@@ -354,6 +359,8 @@ final class Store: ObservableObject {
     private func ensureDeviceKey() async {
         guard !deviceKeyTried, DeviceKey.get() == nil else { return }
         deviceKeyTried = true
+        // Schluesselbund hielt den letzten nicht (z. B. unsignierter Simulator-Build): nicht je Start neu ausstellen lassen
+        guard DeviceKeyMint.allowed(marker: AppConfig.store.dictionary(forKey: DeviceKeyMint.storeKey), origin: AppConfig.serverOrigin, now: Date()) else { return }
         if let d = try? await api("app/device", method: "POST", body: ["device": DeviceKey.deviceName, "app_key": !AppConfig.hasToken]) { adoptKeys(d) }
     }
 
@@ -1193,7 +1200,7 @@ final class Store: ObservableObject {
         if forgetChat { await chat.forgetAccount() }                      // A10: Chat-Geraet abmelden, Chat-Schluessel weg
         // Geraete-Anmeldung beim Server loeschen, der sie ausgestellt hat (nie an einen anderen senden)
         if let tok = DeviceKey.stored() { await forgetDevice(tok, origin: AppConfig.keyOrigin(device: true)) }
-        DeviceKey.set(nil); deviceKeyTried = false
+        DeviceKey.set(nil); deviceKeyTried = false; AppConfig.store.removeObject(forKey: DeviceKeyMint.storeKey)
         if error == Store.keychainFailedText { error = nil }
         DraftOwner.app.signedOut(); accountChecked = false; accountName = nil // Entwuerfe bleiben liegen, aber nur fuer ihr Konto lesbar
         AppConfig.token = ""; reloadWidgets()                           // der Server loescht den Widget-Schluessel dieses Geraets mit
