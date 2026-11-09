@@ -44,6 +44,18 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   besteht der Server des Gegenübers auf Knoten, führt er den Anruf, sonst direkt wie bisher.
 - Texte in de/en/es/ru/th; Regeln als reine Einheit (iOS `HornRecover.swift`, Android `HornRecover.kt`) mit Tests.
 
+### Neu – iOS und Android: BookOrbit „Lesen“ (`bookorbit1`)
+
+- **Widget „Lesen“** (`kind: "reading"`) wird nativ angezeigt statt „Widget – neuere Version nötig“: *Gerade am Lesen*
+  (Cover, Titel, Autor:innen, Fortschritt; „und n weitere“), *Leseziel* (x / y im Jahr, ohne Ziel die gelesene Anzahl)
+  und *Lesesträhne* (aktuell, längste, letzte 7 Tage). Ohne Verbindung, abgelaufen oder BookOrbit nicht erreichbar: ein
+  freundlicher Hinweis, bei den ersten beiden mit „Einstellungen öffnen“. Bearbeiten wie bei den anderen Widgets im Web.
+- **Heute:** Karte „Lesen“ mit bis zu drei Büchern und der Strähne – nur, wenn ein BookOrbit verbunden ist.
+- **Einstellungen → BookOrbit** (iOS unter „Dienste“, Android eigene Unterseite): Adresse, Benutzername und Passwort
+  einmal eingeben – der Server behält nur ein Token; bei abgelaufener Anmeldung neu anmelden, Trennen mit Rückfrage.
+- Cover kommen immer über den Saga-Server (`/api/bookorbit/cover/<id>` mit der App-Sitzung) und werden wie andere Bilder
+  zwischengespeichert; die Apps sprechen nie selbst mit BookOrbit. Nur mit Servern, die `bookorbit1` melden.
+
 ### Behoben – iOS: leerer Chat-Verlauf
 
 - **Nachrichtenfläche blieb leer** (lange Direkt-Chats mit vielen Anruf-Einträgen und Bildern, beim Öffnen bzw. nach der
