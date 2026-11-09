@@ -31,7 +31,11 @@ object DbChart {
         val horizontal: Boolean get() = type == "hbar"
         /** Groesster/kleinster Wert der Y-Achse (gestapelt: Summen je Kategorie), Ziellinie eingeschlossen */
         fun yRange(): Pair<Double, Double> {
-            val vals = if (stack && series.size > 1 && type != "line") cats.indices.map { i -> series.sumOf { it.values.getOrNull(i) ?: 0.0 } }
+            // Stapel: positive und negative Werte getrennt (wie die Zeichnung und das Web), sonst ragen gemischte Stapel hinaus
+            val vals = if (stack && series.size > 1 && type != "line") cats.indices.flatMap { i ->
+                val v = series.mapNotNull { it.values.getOrNull(i) }
+                listOf(v.filter { it >= 0 }.sum(), v.filter { it < 0 }.sum())
+            }
             else series.flatMap { s -> s.values.filterNotNull() }
             val all = vals + listOfNotNull(goal)
             return (minOf(0.0, all.minOrNull() ?: 0.0)) to (maxOf(0.0, all.maxOrNull() ?: 0.0))

@@ -242,6 +242,14 @@ class WidgetDesignTest {
     }
 
     @Test
+    fun stackedRangeMixedSigns() {
+        // Stapel zeichnet positive und negative Teile getrennt -> Bereich muss beide Summen umfassen (wie Web)
+        val c = DbChart.parseResult(Json.parseToJsonElement("""{"type":"bar","stack":true,"cats":[{"key":"a","label":"A"},{"key":"b","label":"B"}],
+            "series":[{"key":"x","values":[5,1]},{"key":"y","values":[-3,null]}]}""") as JsonObject)
+        assertEquals(-3.0 to 5.0, c.yRange())
+    }
+
+    @Test
     fun overGoalMarker() {
         assertEquals(50.0, WidgetDesign.overPercent(150.0)!!, 1e-9)
         assertNull(WidgetDesign.overPercent(100.0))
