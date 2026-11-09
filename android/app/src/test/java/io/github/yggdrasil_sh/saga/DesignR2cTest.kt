@@ -64,7 +64,8 @@ class DesignR2cTest {
     @Test fun balkenSpurIstOutline() {
         assertTrue(read("ui/theme/Components.kt").contains("val SagaProgressTrack: Color @Composable get() = MaterialTheme.colorScheme.outline"))
         // alle Balken mit Fortschrittswert (Tabelle/Board, Widgets, Upload) nutzen die sichtbare Spur
-        listOf("ui/database/DbCells.kt" to 2, "ui/page/PageWidgetsUi.kt" to 2, "ui/chat/ChatVideo.kt" to 2).forEach { (f, n) ->
+        // Widgets (Design-Runde 9.11.): ein gemeinsamer Balken WgBar fuer Fortschritt und Kennzahl
+        listOf("ui/database/DbCells.kt" to 2, "ui/page/PageWidgetsUi.kt" to 1, "ui/chat/ChatVideo.kt" to 2).forEach { (f, n) ->
             assertEquals(f, n, Regex("trackColor = io\\.github\\.yggdrasil_sh\\.saga\\.ui\\.theme\\.SagaProgressTrack").findAll(read(f)).count())
         }
     }

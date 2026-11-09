@@ -471,12 +471,16 @@ private fun WgFoot(text: String) {
     Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-/** Balken 6 dp, Pill, Spur = Textfarbe 10 %, Fuellung = Akzent (hoechstens voll) */
+/**
+ * Balken 6 dp, Pill, Fuellung = Akzent (hoechstens voll). Spur: Web nimmt Textfarbe 10 %; die App bleibt bei der sichtbaren
+ * Spur (SagaProgressTrack, >= 3:1 auf Karten - Entscheidung R2c, DesignR2cTest), damit der Balken auch leer erkennbar ist.
+ */
 @Composable
 private fun WgBar(fraction: Float, accent: Color, desc: String) {
     val f = fraction.coerceIn(0f, 1f)
+    val trackColor = io.github.yggdrasil_sh.saga.ui.theme.SagaProgressTrack
     Box(
-        Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(SagaRadius.pill)).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f))
+        Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(SagaRadius.pill)).background(trackColor)
             .semantics { contentDescription = desc; progressBarRangeInfo = ProgressBarRangeInfo(f, 0f..1f) },
     ) {
         if (f > 0f) Box(Modifier.fillMaxWidth(f).fillMaxHeight().clip(RoundedCornerShape(SagaRadius.pill)).background(accent))

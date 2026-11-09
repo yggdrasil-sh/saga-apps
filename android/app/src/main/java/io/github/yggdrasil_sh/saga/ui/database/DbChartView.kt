@@ -296,7 +296,7 @@ private fun DrawScope.drawRound(
     val ri = if (donut) r * 0.62f else 0f
     val c = Offset(size.width / 2, size.height / 2)
     val segs = vals.count { it > 0 }
-    val gapDeg = if (segs > 1) Math.toDegrees(min(0.02, 1.2 / (r / density)).toDouble()).toFloat() else 0f
+    val gapDeg = if (segs > 1) Math.toDegrees(min(0.02, 1.2 / (r / density))).toFloat() else 0f
     var a = -90f
     vals.forEachIndexed { i, v ->
         if (v <= 0) return@forEachIndexed
