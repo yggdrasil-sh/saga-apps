@@ -7,7 +7,17 @@ import os
 
 from gi.repository import Gtk
 
+import pytest
+
 from hk_helpers import idle, pump
+
+
+@pytest.fixture(autouse=True)
+def _features_reset():
+    """Faehigkeiten des Servers nach jedem Test vergessen (Modul-Zustand, sonst sehen ihn spaetere Testdateien)"""
+    yield
+    from hlidskjalf import pagewidgets as pw
+    pw.FEATURES = None
 
 TITLES = ["Der Nebelturm", "Salz und Asche", "Die Kartenmacherin von Yl", "Mondfähre", "Unter gläsernen Dächern – eine sehr lange Chronik "
           "der sieben Häfen", "Rabenpost", "Das stille Archiv", "Windleser"]
@@ -83,7 +93,15 @@ def _card(v, bid="sp1"):
 
 
 def _items(card):
-    return [w for w in walk(card) if isinstance(w, (Gtk.FlowBoxChild, Gtk.ListBoxRow)) and getattr(w, "hk_note", None) is not None]
+    return [w for w in walk(card) if isinstance(w, (Gtk.Button, Gtk.ListBoxRow)) and getattr(w, "hk_note", None) is not None]
+
+
+def _go(item):
+    """wie Klick bzw. Eingabetaste auf Karte (Knopf) oder Zeile"""
+    if isinstance(item, Gtk.Button):
+        item.emit("clicked")
+    else:
+        item.activate()
 
 
 def _texts(card):
@@ -152,6 +170,15 @@ def test_labels():
     assert pw.subpages_more(0) == "" and "3" in pw.subpages_more(3)
 
 
+def test_grid_columns(win):
+    """Raster: so viele Spalten wie mit der Wunschbreite passen, mindestens 2, Karten gleich breit"""
+    from hlidskjalf.pwsubpages import Grid
+    g = Grid(152, col_gap=12)
+    assert g.columns(668) == (4, 158) and g.columns(340) == (2, 164) and g.columns(200) == (2, 94)
+    assert g.columns(152)[0] == 2 and g.columns(0) == (2, 1) and g.columns(1500)[0] == 9
+    assert Grid(288).columns(668) == (2, 328)
+
+
 def test_parse_keeps_data_and_unsupported_kinds():
     from hlidskjalf import pagewidgets as pw
     r = {"widgets": {"sp1": {"kind": "subpages", "value": 2, "error": None, "data": {"items": [{"id": 1, "title": "A"}], "total": 2}},
@@ -169,12 +196,13 @@ def test_gallery_shows_cards_and_loads_pictures(win, srv):
     v = _open(win)
     card = _card(v)
     its = _items(card)
-    assert [i.hk_note for i in its] == list(range(20, 28)) and all(isinstance(i, Gtk.FlowBoxChild) for i in its)
+    assert [i.hk_note for i in its] == list(range(20, 28)) and all(isinstance(i, Gtk.Button) for i in its)
     assert card.has_css_class("hk-widget-plain") and not card.title_lb.get_visible()          # ohne Titel: keine Kopfzeile
-    fb = its[0].get_parent()
-    assert isinstance(fb, Gtk.FlowBox) and fb.get_min_children_per_line() == 2 and fb.get_selection_mode() == Gtk.SelectionMode.NONE
+    from hlidskjalf.pwsubpages import Grid, Thumb
+    grid = its[0].get_parent()
+    assert isinstance(grid, Grid) and grid.min_cols == 2
     assert all(i.get_focusable() for i in its)
-    from hlidskjalf.pwsubpages import Thumb
+    assert len({i.get_width() for i in its}) == 1                                             # alle Karten gleich breit
     thumbs = [w for w in walk(card) if isinstance(w, Thumb)]
     assert len(thumbs) == 8
     pump(lambda: sum(t.state == "image" for t in thumbs) == 7, 6)
@@ -221,8 +249,28 @@ def test_gallery_two_columns_when_narrow(win, srv):
     its = _items(_card(v))
     from gi.repository import Graphene
     p0, p1, p2 = (i.compute_point(v, Graphene.Point().init(0, 0))[1] for i in its[:3])
+    assert v.get_width() < 520, v.get_width()                                                  # Fenster ist wirklich schmal
     assert abs(p0.y - p1.y) < 2 and p1.x > p0.x                                                # mindestens zwei nebeneinander
-    assert p2.y > p0.y or p2.x > p1.x
+    assert p2.y > p0.y and abs(p2.x - p0.x) < 2                                                # dritte Karte in der naechsten Zeile
+    assert its[1].get_width() < 200                                                            # schmaler als die Wunschbreite (l)
+    assert p2.y >= p0.y + its[0].get_height()                                                  # Zeilen ueberlappen nicht
+    # Fenster nachtraeglich breiter und wieder schmal: Hoehe folgt der Breite
+    grid = its[0].get_parent()
+    assert grid.get_height() == grid.measure(Gtk.Orientation.VERTICAL, grid.get_width())[1]
+    win.set_default_size(1180, 800)
+    pump(None, 0.6)
+    its = _items(_card(v))
+    grid = its[0].get_parent()
+    assert grid.columns(grid.get_width())[0] == 3 and its[3].get_width() == its[0].get_width()     # breit: drei Spalten
+    r0, r3 = (i.compute_point(v, Graphene.Point().init(0, 0))[1] for i in (its[0], its[3]))
+    assert r3.y >= r0.y + its[0].get_height() and abs(r3.x - r0.x) < 2
+    win.set_default_size(420, 800)
+    pump(None, 0.6)
+    its = _items(_card(v))                                  # die Seite baut ihre Bloecke bei neuer Breite ggf. neu
+    grid = its[0].get_parent()
+    assert grid.get_height() == grid.measure(Gtk.Orientation.VERTICAL, grid.get_width())[1]
+    q0, q2 = (i.compute_point(v, Graphene.Point().init(0, 0))[1] for i in (its[0], its[2]))
+    assert q2.y >= q0.y + its[0].get_height()
 
 
 def test_list_rows_and_more(win, srv):
@@ -247,8 +295,8 @@ def test_open_page_database_and_remote(win, srv):
     win.show_page = lambda pid, root=False: opened.append(pid)
     try:
         its = _items(_card(v))
-        its[0].activate()                                   # Eingabe/Klick auf die Zeile
-        its[1].activate()                                   # Datenbank
+        _go(its[0])                                         # Eingabe/Klick auf die Zeile
+        _go(its[1])                                         # Datenbank
         assert opened == [20, 21]
         srv.notes[3]["body"] = json.dumps({"blocks": [_block()]})
         srv.widget_values = {"sp1": {"kind": "subpages", "value": 1, "error": None, "data": {
@@ -258,7 +306,7 @@ def test_open_page_database_and_remote(win, srv):
         pump(None, 0.2)
         v = _open(win)
         pump(lambda: [i.hk_note for i in _items(_card(v))] == [-4711], 5)
-        _items(_card(v))[0].activate()                      # Karte der Galerie, Seite anderer Saga-Instanzen (negative ID)
+        _go(_items(_card(v))[0])                            # Karte der Galerie, Seite anderer Saga-Instanzen (negative ID)
         assert opened == [20, 21, -4711]
         pump(lambda: any(p.startswith("api/fed/files/-4711/") for p in srv.file_log), 4)
         assert any(p == "api/fed/files/-4711/00ff00ff00ff00ff?w=400" for p in srv.file_log)
@@ -270,7 +318,7 @@ def test_open_page_database_and_remote(win, srv):
     srv.widget_values = {}
     v.load_widgets()
     pump(lambda: len(_items(_card(v))) == 8, 5)
-    _items(_card(v))[0].activate()
+    _go(_items(_card(v))[0])
     pump(lambda: win.route == ("page", 20), 5)
     assert win.route == ("page", 20)
 
@@ -417,6 +465,12 @@ def test_shots_subpages(win, srv):
         win.set_focus_visible(True)
     pump(None, 1.0)
     shot(win, os.path.join(out, f"{pre}unterseiten-galerie-fokus-hell.png"))
+    if pre == "":                                           # schmales Fenster: zwei Spalten
+        win.set_default_size(430, 900)
+        pump(None, 1.0)
+        shot(win, os.path.join(out, "unterseiten-galerie-schmal-hell.png"))
+        win.set_default_size(1180, 980)
+        pump(None, 0.5)
     for k in [k for k in srv.notes if 20 <= k < 40]:
         del srv.notes[k]
     _setup(srv, blocks=head + [_block()], kids=0)
