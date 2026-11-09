@@ -9,6 +9,30 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – iOS, Android: Seiten-Widgets wie im Web (Widget-Design-Runde)
+
+- **Gleiche Gestaltung wie das Web:** Die Karte bleibt neutral. Eine gewählte Farbe färbt nur Ringe, Balken und Punkte, nicht
+  mehr die ganze Fläche. Jedes Widget hat einen Kopf mit Symbol und Titel (leer = Name der Art) und eine Kontextzeile.
+  Werte stehen in Textfarbe mit kleiner Einheit („42 Tage“, „2.250,00 €“) und brechen nicht um. Innenabstände und
+  Mindesthöhen richten sich nach S/M/L. Nicht eingerichtete Widgets zeigen „… einrichten“ statt einer Warnung.
+- **Je Art:**
+  - Uhr mit Datum, analog mit Marken.
+  - Countdown mit großer Zahl und „bis …“.
+  - Fortschritt und Kennzahl mit gemeinsamem Balken und „+n %“ über dem Ziel.
+  - Zitat in Serifenschrift mit Quelle.
+  - Wetter schmal als Liste.
+  - Gewohnheiten als Kreise (7 Tage) bzw. Heatmap (14/30 Tage), ohne Überlauf.
+  - Anstehendes mit Tagesköpfen und einheitlicher Symbolspalte.
+- **Diagramm (Widget und Datenbank-Ansicht):**
+  - Farbpalette statt Grau; Optionsfarben erst ab zwei echten.
+  - Ring mit Gesamtwert und Rechenart in der Mitte; Legende mit Werten.
+  - Höhe nach S/M/L; lesbare Achsen.
+  - Gestapelte Fläche stapelt.
+  - Ziellinie mit „Ziel“.
+  - Kontextzeile mit den Spaltennamen vom Server (`x_name`/`y_name`).
+- **Spalten:** Umbruch nach Breite wie im Web (4 → 2×2, 3 → 2+1), Karten einer Reihe gleich hoch, am Handy 10 dp Abstand.
+- Behoben dabei: Die Ziellinie war in en/es/ru/th als Speicherziel übersetzt.
+
 ### Neu – iOS, Android: SVG-Bilder und Dateilinks in Seiten
 
 - **SVG in Bildblöcken** (Trilium-Import speichert bereinigte SVGs als Bild): bisher blieb der Kasten leer (iOS) bzw.
