@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget-Design-Runde 9.11. (Texte wie im Web, Server-i18n) -->
+<resources>
+    <string name="wd_agg_count">จำนวน</string>
+    <string name="wd_agg_sum">ผลรวม</string>
+    <string name="wd_agg_avg">ค่าเฉลี่ย</string>
+    <string name="wd_agg_min">ต่ำสุด</string>
+    <string name="wd_agg_max">สูงสุด</string>
+    <string name="wd_agg_pct_checked">% ที่ทำเครื่องหมายแล้ว</string>
+    <string name="wd_agg_open">งานค้าง</string>
+    <string name="wd_agg_due_today">ครบกำหนดวันนี้</string>
+    <string name="wd_agg_overdue">เลยกำหนด</string>
+    <string name="wd_agg_done_week">เสร็จในสัปดาห์นี้</string>
+    <string name="wd_saga_tasks">งานใน Saga</string>
+    <string name="wd_total">รวม</string>
+    <string name="wd_more">+ อีก %1$d</string>
+    <string name="wd_and_more">และอีก %1$d</string>
+    <string name="wd_setup">ตั้งค่า %1$s</string>
+    <string name="wd_not_setup">ยังไม่ได้ตั้งค่า</string>
+    <string name="wd_hint_countdown">เลือกวันที่</string>
+    <string name="wd_hint_progress">เลือกแหล่งข้อมูลและเป้าหมาย</string>
+    <string name="wd_hint_metric">เลือกฐานข้อมูลและวิธีคำนวณ</string>
+    <string name="wd_hint_quote">ใส่คำคมหรือเลือกฐานข้อมูล</string>
+    <string name="wd_hint_weather">ค้นหาสถานที่</string>
+    <string name="wd_hint_habit">เลือกฐานข้อมูลและช่องทำเครื่องหมาย</string>
+    <string name="wd_hint_chart">เลือกฐานข้อมูลและการจัดกลุ่ม</string>
+    <string name="wd_hint_upcoming">เลือกแหล่งข้อมูล</string>
+    <string name="wd_hint_reading">เชื่อมต่อ BookOrbit</string>
+    <string name="wd_until">ถึง %1$s</string>
+    <string name="wd_since">ตั้งแต่ %1$s</string>
+    <string name="wd_pct_of_goal">%1$s ของเป้าหมาย %2$s</string>
+    <string name="wd_goal_reached">ถึงเป้าหมายแล้ว</string>
+    <string name="wd_last_days">%1$d วันล่าสุด</string>
+    <string name="wd_hours">ชม.</string>
+    <string name="wd_minutes">นาที</string>
+    <string name="wd_wind">ลม %1$s %2$s</string>
+    <string name="wd_allday">ทั้งวัน</string>
+    <string name="wd_stale">ข้อมูลก่อนหน้า</string>
+    <string name="wd_other_note">“อื่นๆ” รวมอีก %1$d รายการ</string>
+    <string name="wd_truncated">ตัดให้สั้น – แสดงเฉพาะค่าแรกๆ</string>
+    <string name="wd_no_entries">ไม่มีรายการ</string>
+    <string name="wd_done">เสร็จแล้ว</string>
+    <string name="wd_open">เปิด</string>
+    <string name="wd_task">งาน</string>
+    <string name="wd_event">นัดหมาย</string>
+    <string name="wd_by">%1$s ตาม %2$s</string>
+    <string name="wd_no_values">ยังไม่มีค่า</string>
+    <string name="wd_wx_0">ท้องฟ้าแจ่มใส</string>
+    <string name="wd_wx_1">ส่วนใหญ่แจ่มใส</string>
+    <string name="wd_wx_2">มีเมฆบางส่วน</string>
+    <string name="wd_wx_3">เมฆครึ้ม</string>
+    <string name="wd_wx_45">หมอก</string>
+    <string name="wd_wx_51">ฝนปรอย</string>
+    <string name="wd_wx_61">ฝน</string>
+    <string name="wd_wx_66">ฝนเยือกแข็ง</string>
+    <string name="wd_wx_71">หิมะ</string>
+    <string name="wd_wx_77">เกล็ดหิมะ</string>
+    <string name="wd_wx_80">ฝนซู่</string>
+    <string name="wd_wx_85">หิมะตกเป็นช่วง</string>
+    <string name="wd_wx_95">พายุฝนฟ้าคะนอง</string>
+    <plurals name="wd_entries">
+        <item quantity="other">%d รายการ</item>
+    </plurals>
+    <plurals name="wd_days">
+        <item quantity="other">%d วัน</item>
+    </plurals>
+    <plurals name="wd_upcoming_none">
+        <item quantity="other">ไม่มีอะไรใน %d วันข้างหน้า</item>
+    </plurals>
+    <plurals name="wd_sources_down">
+        <item quantity="other">%d แหล่งไม่พร้อมใช้งาน</item>
+    </plurals>
+    <plurals name="wd_habit_rate">
+        <item quantity="other">อัตราสำเร็จ %1$d %%, %2$d วันติดต่อกัน</item>
+    </plurals>
+</resources>

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget-Design-Runde 9.11. (Texte wie im Web, Server-i18n) -->
+<resources>
+    <string name="wd_agg_count">Cantidad</string>
+    <string name="wd_agg_sum">Suma</string>
+    <string name="wd_agg_avg">Media</string>
+    <string name="wd_agg_min">Mín.</string>
+    <string name="wd_agg_max">Máx.</string>
+    <string name="wd_agg_pct_checked">% marcadas</string>
+    <string name="wd_agg_open">Tareas pendientes</string>
+    <string name="wd_agg_due_today">Para hoy</string>
+    <string name="wd_agg_overdue">Vencidas</string>
+    <string name="wd_agg_done_week">Hechas esta semana</string>
+    <string name="wd_saga_tasks">Tareas de Saga</string>
+    <string name="wd_total">Total</string>
+    <string name="wd_more">+ %1$d más</string>
+    <string name="wd_and_more">y %1$d más</string>
+    <string name="wd_setup">Configurar %1$s</string>
+    <string name="wd_not_setup">Aún sin configurar</string>
+    <string name="wd_hint_countdown">Elige una fecha</string>
+    <string name="wd_hint_progress">Elige fuente y objetivo</string>
+    <string name="wd_hint_metric">Elige base de datos y cálculo</string>
+    <string name="wd_hint_quote">Escribe citas o elige una base de datos</string>
+    <string name="wd_hint_weather">Buscar un lugar</string>
+    <string name="wd_hint_habit">Elige base de datos y casillas</string>
+    <string name="wd_hint_chart">Elige base de datos y agrupación</string>
+    <string name="wd_hint_upcoming">Elige fuentes</string>
+    <string name="wd_hint_reading">Conectar BookOrbit</string>
+    <string name="wd_until">hasta %1$s</string>
+    <string name="wd_since">desde %1$s</string>
+    <string name="wd_pct_of_goal">%1$s del objetivo %2$s</string>
+    <string name="wd_goal_reached">Objetivo alcanzado</string>
+    <string name="wd_last_days">últimos %1$d días</string>
+    <string name="wd_hours">h</string>
+    <string name="wd_minutes">min</string>
+    <string name="wd_wind">Viento %1$s %2$s</string>
+    <string name="wd_allday">todo el día</string>
+    <string name="wd_stale">Datos anteriores</string>
+    <string name="wd_other_note">«Otros» agrupa %1$d más.</string>
+    <string name="wd_truncated">Recortado – solo se muestran los primeros valores.</string>
+    <string name="wd_no_entries">No hay entradas.</string>
+    <string name="wd_done">hecha</string>
+    <string name="wd_open">abierta</string>
+    <string name="wd_task">Tarea</string>
+    <string name="wd_event">Evento</string>
+    <string name="wd_by">%1$s por %2$s</string>
+    <string name="wd_no_values">Aún no hay valores</string>
+    <string name="wd_wx_0">Despejado</string>
+    <string name="wd_wx_1">Mayormente despejado</string>
+    <string name="wd_wx_2">Parcialmente nublado</string>
+    <string name="wd_wx_3">Cubierto</string>
+    <string name="wd_wx_45">Niebla</string>
+    <string name="wd_wx_51">Llovizna</string>
+    <string name="wd_wx_61">Lluvia</string>
+    <string name="wd_wx_66">Lluvia helada</string>
+    <string name="wd_wx_71">Nieve</string>
+    <string name="wd_wx_77">Granizo menudo</string>
+    <string name="wd_wx_80">Chubascos</string>
+    <string name="wd_wx_85">Chubascos de nieve</string>
+    <string name="wd_wx_95">Tormenta</string>
+    <plurals name="wd_entries">
+        <item quantity="one">%d entrada</item>
+        <item quantity="many">%d entradas</item>
+        <item quantity="other">%d entradas</item>
+    </plurals>
+    <plurals name="wd_days">
+        <item quantity="one">%d día</item>
+        <item quantity="many">%d días</item>
+        <item quantity="other">%d días</item>
+    </plurals>
+    <plurals name="wd_upcoming_none">
+        <item quantity="one">Nada en los próximos %d día</item>
+        <item quantity="many">Nada en los próximos %d días</item>
+        <item quantity="other">Nada en los próximos %d días</item>
+    </plurals>
+    <plurals name="wd_sources_down">
+        <item quantity="one">%d fuente no disponible</item>
+        <item quantity="many">%d fuentes no disponibles</item>
+        <item quantity="other">%d fuentes no disponibles</item>
+    </plurals>
+    <plurals name="wd_habit_rate">
+        <item quantity="one">Tasa de éxito %1$d %%, %2$d día seguidos</item>
+        <item quantity="many">Tasa de éxito %1$d %%, %2$d días seguidos</item>
+        <item quantity="other">Tasa de éxito %1$d %%, %2$d días seguidos</item>
+    </plurals>
+</resources>

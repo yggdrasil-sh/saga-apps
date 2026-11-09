@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget-Design-Runde 9.11. (Texte wie im Web, Server-i18n) -->
+<resources>
+    <string name="wd_agg_count">Anzahl</string>
+    <string name="wd_agg_sum">Summe</string>
+    <string name="wd_agg_avg">Durchschnitt</string>
+    <string name="wd_agg_min">Min</string>
+    <string name="wd_agg_max">Max</string>
+    <string name="wd_agg_pct_checked">% angehakt</string>
+    <string name="wd_agg_open">Offene Aufgaben</string>
+    <string name="wd_agg_due_today">Heute fällig</string>
+    <string name="wd_agg_overdue">Überfällig</string>
+    <string name="wd_agg_done_week">Diese Woche erledigt</string>
+    <string name="wd_saga_tasks">Saga-Aufgaben</string>
+    <string name="wd_total">Gesamt</string>
+    <string name="wd_more">+ %1$d weitere</string>
+    <string name="wd_and_more">und %1$d weitere</string>
+    <string name="wd_setup">%1$s einrichten</string>
+    <string name="wd_not_setup">Noch nicht eingerichtet</string>
+    <string name="wd_hint_countdown">Datum wählen</string>
+    <string name="wd_hint_progress">Quelle und Ziel wählen</string>
+    <string name="wd_hint_metric">Datenbank und Rechenart wählen</string>
+    <string name="wd_hint_quote">Zitate eintragen oder Datenbank wählen</string>
+    <string name="wd_hint_weather">Ort suchen</string>
+    <string name="wd_hint_habit">Datenbank und Häkchen wählen</string>
+    <string name="wd_hint_chart">Datenbank und Gruppierung wählen</string>
+    <string name="wd_hint_upcoming">Quellen wählen</string>
+    <string name="wd_hint_reading">BookOrbit verbinden</string>
+    <string name="wd_until">bis %1$s</string>
+    <string name="wd_since">seit %1$s</string>
+    <string name="wd_pct_of_goal">%1$s vom Ziel %2$s</string>
+    <string name="wd_goal_reached">Ziel erreicht</string>
+    <string name="wd_last_days">letzte %1$d Tage</string>
+    <string name="wd_hours">Std.</string>
+    <string name="wd_minutes">Min.</string>
+    <string name="wd_wind">Wind %1$s %2$s</string>
+    <string name="wd_allday">ganztägig</string>
+    <string name="wd_stale">Stand von vorhin</string>
+    <string name="wd_other_note">„Andere“ fasst %1$d weitere zusammen.</string>
+    <string name="wd_truncated">Gekürzt – nur die ersten Werte werden gezeigt.</string>
+    <string name="wd_no_entries">Keine Einträge.</string>
+    <string name="wd_done">erledigt</string>
+    <string name="wd_open">offen</string>
+    <string name="wd_task">Aufgabe</string>
+    <string name="wd_event">Termin</string>
+    <string name="wd_by">%1$s nach %2$s</string>
+    <string name="wd_no_values">Noch keine Werte</string>
+    <string name="wd_wx_0">Klar</string>
+    <string name="wd_wx_1">Überwiegend klar</string>
+    <string name="wd_wx_2">Teils bewölkt</string>
+    <string name="wd_wx_3">Bedeckt</string>
+    <string name="wd_wx_45">Nebel</string>
+    <string name="wd_wx_51">Nieselregen</string>
+    <string name="wd_wx_61">Regen</string>
+    <string name="wd_wx_66">Gefrierender Regen</string>
+    <string name="wd_wx_71">Schnee</string>
+    <string name="wd_wx_77">Schneegriesel</string>
+    <string name="wd_wx_80">Regenschauer</string>
+    <string name="wd_wx_85">Schneeschauer</string>
+    <string name="wd_wx_95">Gewitter</string>
+    <plurals name="wd_entries">
+        <item quantity="one">%d Eintrag</item>
+        <item quantity="other">%d Einträge</item>
+    </plurals>
+    <plurals name="wd_days">
+        <item quantity="one">%d Tag</item>
+        <item quantity="other">%d Tage</item>
+    </plurals>
+    <plurals name="wd_upcoming_none">
+        <item quantity="one">Nichts in den nächsten %d Tag</item>
+        <item quantity="other">Nichts in den nächsten %d Tagen</item>
+    </plurals>
+    <plurals name="wd_sources_down">
+        <item quantity="one">%d Quelle nicht erreichbar</item>
+        <item quantity="other">%d Quellen nicht erreichbar</item>
+    </plurals>
+    <plurals name="wd_habit_rate">
+        <item quantity="one">Erfolgsquote %1$d %%, %2$d Tag in Folge</item>
+        <item quantity="other">Erfolgsquote %1$d %%, %2$d Tage in Folge</item>
+    </plurals>
+</resources>

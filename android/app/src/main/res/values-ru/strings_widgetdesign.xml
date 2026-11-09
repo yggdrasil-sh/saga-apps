@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget-Design-Runde 9.11. (Texte wie im Web, Server-i18n) -->
+<resources>
+    <string name="wd_agg_count">Количество</string>
+    <string name="wd_agg_sum">Сумма</string>
+    <string name="wd_agg_avg">Среднее</string>
+    <string name="wd_agg_min">Мин.</string>
+    <string name="wd_agg_max">Макс.</string>
+    <string name="wd_agg_pct_checked">% отмечено</string>
+    <string name="wd_agg_open">Открытые задачи</string>
+    <string name="wd_agg_due_today">На сегодня</string>
+    <string name="wd_agg_overdue">Просрочено</string>
+    <string name="wd_agg_done_week">Сделано на этой неделе</string>
+    <string name="wd_saga_tasks">Задачи Saga</string>
+    <string name="wd_total">Всего</string>
+    <string name="wd_more">+ ещё %1$d</string>
+    <string name="wd_and_more">и ещё %1$d</string>
+    <string name="wd_setup">Настроить: %1$s</string>
+    <string name="wd_not_setup">Ещё не настроено</string>
+    <string name="wd_hint_countdown">Выберите дату</string>
+    <string name="wd_hint_progress">Выберите источник и цель</string>
+    <string name="wd_hint_metric">Выберите базу данных и способ расчёта</string>
+    <string name="wd_hint_quote">Введите цитаты или выберите базу данных</string>
+    <string name="wd_hint_weather">Найти место</string>
+    <string name="wd_hint_habit">Выберите базу данных и флажки</string>
+    <string name="wd_hint_chart">Выберите базу данных и группировку</string>
+    <string name="wd_hint_upcoming">Выберите источники</string>
+    <string name="wd_hint_reading">Подключить BookOrbit</string>
+    <string name="wd_until">до %1$s</string>
+    <string name="wd_since">с %1$s</string>
+    <string name="wd_pct_of_goal">%1$s от цели %2$s</string>
+    <string name="wd_goal_reached">Цель достигнута</string>
+    <string name="wd_last_days">последние %1$d дн.</string>
+    <string name="wd_hours">ч</string>
+    <string name="wd_minutes">мин</string>
+    <string name="wd_wind">Ветер %1$s %2$s</string>
+    <string name="wd_allday">весь день</string>
+    <string name="wd_stale">Прежние данные</string>
+    <string name="wd_other_note">«Прочее» объединяет ещё %1$d.</string>
+    <string name="wd_truncated">Сокращено – показаны только первые значения.</string>
+    <string name="wd_no_entries">Нет записей.</string>
+    <string name="wd_done">выполнено</string>
+    <string name="wd_open">открыто</string>
+    <string name="wd_task">Задача</string>
+    <string name="wd_event">Событие</string>
+    <string name="wd_by">%1$s по %2$s</string>
+    <string name="wd_no_values">Пока нет значений</string>
+    <string name="wd_wx_0">Ясно</string>
+    <string name="wd_wx_1">Преимущественно ясно</string>
+    <string name="wd_wx_2">Переменная облачность</string>
+    <string name="wd_wx_3">Пасмурно</string>
+    <string name="wd_wx_45">Туман</string>
+    <string name="wd_wx_51">Морось</string>
+    <string name="wd_wx_61">Дождь</string>
+    <string name="wd_wx_66">Ледяной дождь</string>
+    <string name="wd_wx_71">Снег</string>
+    <string name="wd_wx_77">Снежная крупа</string>
+    <string name="wd_wx_80">Ливень</string>
+    <string name="wd_wx_85">Снегопад</string>
+    <string name="wd_wx_95">Гроза</string>
+    <plurals name="wd_entries">
+        <item quantity="one">%d запись</item>
+        <item quantity="few">%d записи</item>
+        <item quantity="many">%d записей</item>
+        <item quantity="other">%d записи</item>
+    </plurals>
+    <plurals name="wd_days">
+        <item quantity="one">%d день</item>
+        <item quantity="few">%d дня</item>
+        <item quantity="many">%d дней</item>
+        <item quantity="other">%d дня</item>
+    </plurals>
+    <plurals name="wd_upcoming_none">
+        <item quantity="one">Ничего в ближайшие %d день</item>
+        <item quantity="few">Ничего в ближайшие %d дня</item>
+        <item quantity="many">Ничего в ближайшие %d дней</item>
+        <item quantity="other">Ничего в ближайшие %d дня</item>
+    </plurals>
+    <plurals name="wd_sources_down">
+        <item quantity="one">%d источник недоступен</item>
+        <item quantity="few">%d источника недоступны</item>
+        <item quantity="many">%d источников недоступны</item>
+        <item quantity="other">%d источника недоступны</item>
+    </plurals>
+    <plurals name="wd_habit_rate">
+        <item quantity="one">Успешность %1$d %%, %2$d день подряд</item>
+        <item quantity="few">Успешность %1$d %%, %2$d дня подряд</item>
+        <item quantity="many">Успешность %1$d %%, %2$d дней подряд</item>
+        <item quantity="other">Успешность %1$d %%, %2$d дня подряд</item>
+    </plurals>
+</resources>

@@ -23,7 +23,7 @@
     <string name="e1_inline_web">Contiene menciones o fórmulas: edita este párrafo en la web</string>
     <string name="e1_kind_chart">Gráfico</string>
     <string name="e1_kind_habit">Hábitos</string>
-    <string name="e1_kind_upcoming">Próximo</string>
+    <string name="e1_kind_upcoming">Próximamente</string>
     <string name="e1_kind_weather">Tiempo</string>
     <string name="e1_math_placeholder">Fórmula TeX</string>
     <string name="e1_next_week">Semana siguiente</string>

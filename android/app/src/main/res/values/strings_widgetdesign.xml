@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget-Design-Runde 9.11. (Texte wie im Web, Server-i18n) -->
+<resources>
+    <string name="wd_agg_count">Count</string>
+    <string name="wd_agg_sum">Sum</string>
+    <string name="wd_agg_avg">Average</string>
+    <string name="wd_agg_min">Min</string>
+    <string name="wd_agg_max">Max</string>
+    <string name="wd_agg_pct_checked">% checked</string>
+    <string name="wd_agg_open">Open tasks</string>
+    <string name="wd_agg_due_today">Due today</string>
+    <string name="wd_agg_overdue">Overdue</string>
+    <string name="wd_agg_done_week">Done this week</string>
+    <string name="wd_saga_tasks">Saga tasks</string>
+    <string name="wd_total">Total</string>
+    <string name="wd_more">+ %1$d more</string>
+    <string name="wd_and_more">and %1$d more</string>
+    <string name="wd_setup">Set up %1$s</string>
+    <string name="wd_not_setup">Not set up yet</string>
+    <string name="wd_hint_countdown">Choose a date</string>
+    <string name="wd_hint_progress">Choose source and goal</string>
+    <string name="wd_hint_metric">Choose database and calculation</string>
+    <string name="wd_hint_quote">Enter quotes or choose a database</string>
+    <string name="wd_hint_weather">Search for a place</string>
+    <string name="wd_hint_habit">Choose database and checkboxes</string>
+    <string name="wd_hint_chart">Choose database and grouping</string>
+    <string name="wd_hint_upcoming">Choose sources</string>
+    <string name="wd_hint_reading">Connect BookOrbit</string>
+    <string name="wd_until">until %1$s</string>
+    <string name="wd_since">since %1$s</string>
+    <string name="wd_pct_of_goal">%1$s of goal %2$s</string>
+    <string name="wd_goal_reached">Goal reached</string>
+    <string name="wd_last_days">last %1$d days</string>
+    <string name="wd_hours">h</string>
+    <string name="wd_minutes">min</string>
+    <string name="wd_wind">Wind %1$s %2$s</string>
+    <string name="wd_allday">all day</string>
+    <string name="wd_stale">Earlier data</string>
+    <string name="wd_other_note">“Other” combines %1$d more.</string>
+    <string name="wd_truncated">Shortened – only the first values are shown.</string>
+    <string name="wd_no_entries">No entries.</string>
+    <string name="wd_done">done</string>
+    <string name="wd_open">open</string>
+    <string name="wd_task">Task</string>
+    <string name="wd_event">Event</string>
+    <string name="wd_by">%1$s by %2$s</string>
+    <string name="wd_no_values">No values yet</string>
+    <string name="wd_wx_0">Clear</string>
+    <string name="wd_wx_1">Mainly clear</string>
+    <string name="wd_wx_2">Partly cloudy</string>
+    <string name="wd_wx_3">Overcast</string>
+    <string name="wd_wx_45">Fog</string>
+    <string name="wd_wx_51">Drizzle</string>
+    <string name="wd_wx_61">Rain</string>
+    <string name="wd_wx_66">Freezing rain</string>
+    <string name="wd_wx_71">Snow</string>
+    <string name="wd_wx_77">Snow grains</string>
+    <string name="wd_wx_80">Rain showers</string>
+    <string name="wd_wx_85">Snow showers</string>
+    <string name="wd_wx_95">Thunderstorm</string>
+    <plurals name="wd_entries">
+        <item quantity="one">%d entry</item>
+        <item quantity="other">%d entries</item>
+    </plurals>
+    <plurals name="wd_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <plurals name="wd_upcoming_none">
+        <item quantity="one">Nothing in the next %d day</item>
+        <item quantity="other">Nothing in the next %d days</item>
+    </plurals>
+    <plurals name="wd_sources_down">
+        <item quantity="one">%d source unavailable</item>
+        <item quantity="other">%d sources unavailable</item>
+    </plurals>
+    <plurals name="wd_habit_rate">
+        <item quantity="one">Success rate %1$d %%, %2$d day in a row</item>
+        <item quantity="other">Success rate %1$d %%, %2$d days in a row</item>
+    </plurals>
+</resources>

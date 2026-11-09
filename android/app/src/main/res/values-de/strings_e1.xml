@@ -23,7 +23,7 @@
     <string name="e1_inline_web">Enthält Erwähnungen oder Formeln – diesen Absatz im Web bearbeiten</string>
     <string name="e1_kind_chart">Diagramm</string>
     <string name="e1_kind_habit">Gewohnheiten</string>
-    <string name="e1_kind_upcoming">Anstehend</string>
+    <string name="e1_kind_upcoming">Anstehendes</string>
     <string name="e1_kind_weather">Wetter</string>
     <string name="e1_math_placeholder">TeX-Formel</string>
     <string name="e1_next_week">Nächste Woche</string>
