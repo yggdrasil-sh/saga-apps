@@ -30,6 +30,8 @@ struct BlockStyleMod: ViewModifier {
 struct WeightedColumns: Layout {
     let weights: [Double]
     let spacing: CGFloat
+    /// Karten einer Reihe gleich hoch (Regel 18, je Spalte genau ein Widget): jede Spalte bekommt die Hoehe der hoechsten
+    var equalHeight = false
     private func widths(_ total: CGFloat, _ n: Int) -> [CGFloat] {
         let free = max(0, total - spacing * CGFloat(max(0, n - 1)))
         return (0..<n).map { i in free * CGFloat(i < weights.count ? weights[i] : 1 / Double(max(n, 1))) }
@@ -44,7 +46,7 @@ struct WeightedColumns: Layout {
         let ws = widths(bounds.width, subviews.count)
         var x = bounds.minX
         for (i, s) in subviews.enumerated() {
-            s.place(at: CGPoint(x: x, y: bounds.minY), anchor: .topLeading, proposal: ProposedViewSize(width: ws[i], height: nil))
+            s.place(at: CGPoint(x: x, y: bounds.minY), anchor: .topLeading, proposal: ProposedViewSize(width: ws[i], height: equalHeight ? bounds.height : nil))
             x += ws[i] + spacing
         }
     }

@@ -1671,8 +1671,9 @@ struct BlockView: View {
                     }
                 }
             } else if let ws = GestaltenLogic.colWeights(data["cols"] as? NSArray), ws.count == cols.count {
-                WeightedColumns(weights: ws, spacing: columnGap) {            // 2.5: Spaltenbreiten aus dem Web (cols[].w)
-                    ForEach(Array(cols.enumerated()), id: \.offset) { i, c in column(i, c) }
+                // 2.5: Spaltenbreiten aus dem Web (cols[].w) - iPad nebeneinander im Verhaeltnis; gleich hoch wie ohne Breiten
+                WeightedColumns(weights: ws, spacing: columnGap, equalHeight: equal) {
+                    ForEach(Array(cols.enumerated()), id: \.offset) { i, c in column(i, c, fill: equal) }
                 }
             } else {
                 HStack(alignment: .top, spacing: columnGap) {
