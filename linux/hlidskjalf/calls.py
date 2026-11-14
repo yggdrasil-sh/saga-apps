@@ -135,6 +135,35 @@ def group_rings(c):
         and not c.get("mine")
 
 
+def _num(x):
+    return isinstance(x, (int, float)) and not isinstance(x, bool)
+
+
+def ring_left(c):
+    """Restdauer des Klingelns (Sekunden). (2.5, L7) Gruppe mit invite_since und now (Server-Uhr): ab dem letzten
+    Klingeln der eigenen Einladung (erneutes Klingeln spaeter im Anruf), mindestens 5 s wie im Web. Sonst wie bisher:
+    expires_in (Server: ab created) bzw. ring_s."""
+    rs = c.get("ring_s")
+    rs = float(rs) if _num(rs) and rs > 0 else float(RING_FALLBACK_S)
+    since, now = c.get("invite_since"), c.get("now")
+    if is_group(c) and _num(since) and _num(now):
+        return max(5.0, since + rs - now)
+    left = c.get("expires_in")
+    return float(left) if _num(left) and left > 0 else rs
+
+
+def rings_again(c, done_at, t=None):
+    """(2.5, L7) Gruppenanruf, der hier schon erledigt war (done_at: time.time() beim Erledigen - abgelehnt, vorbei,
+    angenommen): klingelt er erneut? Nur wenn die Einladung jetzt klingelt (group_rings) und das Klingeln laut
+    invite_since nach dem Erledigen begann (Server-Uhr ueber now abgebildet, 1 s Spiel). Aeltere Server ohne
+    invite_since: nie (wie bisher) - nachgeholte call.invite-Ereignisse klingeln dort sonst erneut."""
+    since, now = c.get("invite_since"), c.get("now")
+    if not group_rings(c) or not (_num(since) and _num(now) and _num(done_at)):
+        return False
+    t = time.time() if t is None else t
+    return since > now - (t - done_at) - 1.0
+
+
 def device_caps(cfg):
     """(2.4, N5) Faehigkeiten dieses Geraets fuer PUT /api/calls/caps (Vertrag: docs/APP-API.md "Mehrgeraete und Gruppen").
     Die Linux-App fuehrt kein WebRTC-Gespraech selbst - sie klingelt und das Gespraech laeuft im Browser, der dort als
@@ -428,7 +457,7 @@ class Calls(GObject.Object):
             self.check(cid)
         elif typ == "call.invite":                          # (2.4) Gruppenanruf klingelt (grosse Gruppen: still)
             self._invites[cid] = d
-            self.check(cid)
+            self.check(cid, again=True)                     # (2.5, L7) auch erneut geklingelt (schon erledigt)
         elif typ == "call.roster" and cid:                  # (2.4) eigenes Geraet ist beigetreten: hier aufhoeren
             me = self._me()
             r = self.ringing
@@ -454,11 +483,12 @@ class Calls(GObject.Object):
         if not cid:
             return False
         self._push[cid] = d
-        if (d or {}).get("kind") == "call.group" or (d or {}).get("group"):     # (2.4) Gruppenanruf (Push-Art call.group)
+        group = (d or {}).get("kind") == "call.group" or bool((d or {}).get("group"))
+        if group:                                           # (2.4) Gruppenanruf (Push-Art call.group)
             self._push_group.add(cid)
             self._invites.setdefault(cid, {"call_id": cid, "kind": "group", "media": d.get("media"), "chat_id": d.get("chat"),
                                            "from": {"name": d.get("caller")} if isinstance(d.get("caller"), str) else {}})
-        self.check(cid)
+        self.check(cid, again=group)                        # (2.5, L7) Gruppe: auch erneut geklingelt
         return True
 
     def _push_fallback(self, cid):
@@ -557,8 +587,12 @@ class Calls(GObject.Object):
         open_in_browser(join_url(cid, "video" if video else "audio", role), parent)
         self.emit("info", _("The call opens in your browser …"))
 
-    def check(self, cid):
-        if not valid_id(cid) or cid in self.done or cid in self.checking or (self.ringing and self.ringing["id"] == cid):
+    def check(self, cid, again=False):
+        """GET /api/calls/<id> und ggf. klingeln. again (2.5, L7: call.invite, Push call.group): auch fuer einen hier
+        schon erledigten bzw. gerade klingelnden Anruf pruefen - erneutes Klingeln entscheidet _maybe_ring"""
+        if not valid_id(cid) or cid in self.checking:
+            return
+        if not again and (cid in self.done or (self.ringing and self.ringing["id"] == cid)):
             return
         self.checking.add(cid)
         self._hold(True)
@@ -573,8 +607,10 @@ class Calls(GObject.Object):
                 c.setdefault("kind", "group")
             if isinstance(c, dict) and ((c.get("state") == "ringing" and c.get("role") == "callee") or group_rings(c)):
                 self._maybe_ring(c)
+            elif isinstance(c, dict) and self.ringing and self.ringing["id"] == cid:
+                self._done(cid)                               # klingelte hier noch (again): aufhoeren
             elif isinstance(c, dict):
-                self.done[cid] = time.time()
+                self.done.setdefault(cid, time.time())        # (2.5, L7) erstes Erledigen zaehlt (rings_again)
             if not self.ringing:
                 self._hold(False)
 
@@ -590,25 +626,51 @@ class Calls(GObject.Object):
 
     def _maybe_ring(self, c):
         cid = c.get("id")
-        if not cid or cid in self.done or (self.ringing and self.ringing["id"] == cid):
+        if not cid:
             return
+        if self.ringing and self.ringing["id"] == cid:
+            self._extend(c)
+            return
+        if cid in self.done:
+            if not rings_again(c, self.done[cid]):         # (2.5, L7) erneut geklingelt? sonst bleibt es erledigt
+                return
+            self.done.pop(cid, None)
         if self.ringing:                                     # schon ein anderer Anruf klingelt: der erste bleibt
             return
-        left = c.get("expires_in")
-        left = float(left) if isinstance(left, (int, float)) and left > 0 else float(c.get("ring_s") or RING_FALLBACK_S)
+        left = ring_left(c)
         group = is_group(c)
         self.ringing = {"id": cid, "media": c.get("media") or "audio", "chat_id": c.get("chat_id"),
                         "peer": c.get("peer") or (c.get("from") if isinstance(c.get("from"), dict) else {}),
                         "until": time.monotonic() + left, "group": group, "silent": bool(group and c.get("silent")),
-                        "from": c.get("from") if isinstance(c.get("from"), dict) else {}}
+                        "from": c.get("from") if isinstance(c.get("from"), dict) else {},
+                        "since": c.get("invite_since") if group and _num(c.get("invite_since")) else None}
         self._hold(True)
         self._notify()
         if not self.ringing["silent"]:                      # grosse Gruppe (silent): nur Leiste und Mitteilung, kein Ton
             self.ringer.start()
         self.emit("ring", self.ringing)
+        if any(x.get("id") == cid for x in self.running):  # (2.5, L7) erneut geklingelt: eigene Leiste statt "Anruf laeuft"
+            self._set_running(self.running)
         if self._timer:
             GLib.source_remove(self._timer)
         self._timer = GLib.timeout_add(int(left * 1000) + 500, self._timeout, cid)
+
+    def _extend(self, c):
+        """(2.5, L7) klingelt hier schon und wurde erneut geklingelt (neueres invite_since): Klingeldauer ab dem neuen
+        Beginn, gezieltes Klingeln ist laut (auch wenn der Start in einer grossen Gruppe still war)"""
+        r, since = self.ringing, c.get("invite_since")
+        if not r or not r.get("group") or not _num(since) or not _num(r.get("since")) or since <= r["since"] + 0.5:
+            return
+        left = ring_left(c)
+        r["since"], r["until"] = since, time.monotonic() + left
+        if r.get("silent") and not c.get("silent"):
+            r["silent"] = False
+            self._notify()
+            self.ringer.start()
+            self.emit("ring", r)
+        if self._timer:
+            GLib.source_remove(self._timer)
+        self._timer = GLib.timeout_add(int(left * 1000) + 500, self._timeout, r["id"])
 
     def _timeout(self, cid):
         self._timer = 0

@@ -35,6 +35,13 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   öffnet die Unterseite – auch Datenbanken und Seiten anderer Saga-Instanzen. Mit „+ n weitere“, Leerzustand samt
   „Unterseite anlegen“ und Aktualisierung, sobald sich der Seitenbaum ändert. Einrichten weiterhin im Web.
 
+### Behoben – Linux: Erneutes Klingeln im Gruppenanruf klingelt wieder
+
+- Lässt jemand im laufenden Gruppenanruf erneut klingeln („Erneut klingeln“, Server 2.5), klingelt die Linux-App wieder –
+  auch wenn das erste Klingeln hier schon vorbei oder abgelehnt war (Live-Ereignis, Push und Abfrage beim Start). Die
+  Klingeldauer zählt ab dem letzten Klingeln (`invite_since`), nicht ab dem Start des Anrufs; gezieltes Klingeln ist auch
+  in großen Gruppen laut. Solange es klingelt, weicht die Leiste „Anruf läuft“ der Klingel-Leiste. Ältere Server: wie bisher.
+
 ### Geändert – iOS, Android: Seiten-Widgets wie im Web (Widget-Design-Runde)
 
 - **Gleiche Gestaltung wie das Web:** Die Karte bleibt neutral. Eine gewählte Farbe färbt nur Ringe, Balken und Punkte, nicht
