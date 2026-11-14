@@ -45,8 +45,8 @@ class InviteLogicTest {
         assertEquals(1000.0, k.now!!, 0.0)
         assertEquals(2, k.invitesMore)
         assertEquals(3, k.invites!!.size)
-        assertEquals("/api/avatar/cora", k.invites!![0].avatar)
-        assertEquals("peer.example", k.invites!![1].host)
+        assertEquals("/api/avatar/cora", k.invites[0].avatar)
+        assertEquals("peer.example", k.invites[1].host)
         // aelterer Server: Feld fehlt -> null (Abschnitt nicht zeigen)
         val old = json.decodeFromString(CallState.serializer(), """{"call": {"id": "c1", "kind": "group"}}""").call
         assertNull(old.invites)
