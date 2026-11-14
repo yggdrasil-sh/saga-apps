@@ -1709,7 +1709,10 @@ final class CallManager: NSObject, ObservableObject {
         ending = true
         let cid = id ?? incoming?.id
         if let cid { done.insert(cid) }
-        diagFinal()                                                         // letzte Diagnose (nie blockierend)
+        // 2.5 (L7): die eigene Einladung bleibt nach Beitritt/Verlassen bis zum Ablauf "ringing" (altes invite_since) - ohne
+        // Klingeln hier (Uebernahme, Beitritt ueber die Leiste) galt sie sonst als neu und klingelte nach dem Auflegen erneut
+        if let cid, kind == "group" { ringSince[cid] = max(ringSince[cid] ?? 0, invites.now(device: Date().timeIntervalSince1970)) }
+        diagFinal()                                                        // letzte Diagnose (nie blockierend)
         aliveTask?.cancel(); statsTask?.cancel(); hoTask?.cancel()
         net?.cancel(); net = nil
         #if os(iOS)

@@ -101,6 +101,8 @@ func inviteTests() {
           "nie hier geklingelt (selbst begonnen/verlassen): klingelt")
     check(I.ringAgain(invite: "ringing", mine: 0, state: "active", inviteSince: 990, now: 1000, device: 0, ringS: 45, handled: 990) == nil,
           "dasselbe Klingeln (z. B. hier abgelehnt, Antwort unterwegs): nicht nochmal")
+    check(I.ringAgain(invite: "ringing", mine: 0, state: "active", inviteSince: 990, now: 1000, device: 0, ringS: 45, handled: 995) == nil,
+          "hier beigetreten (ohne Klingeln) und aufgelegt: Einladung noch ringing, aelter als das Auflegen - nicht")
     check(I.ringAgain(invite: "ringing", mine: 0, state: "active", inviteSince: nil, now: 1000, device: 0, ringS: 45, handled: nil) == nil,
           "aeltere Server ohne invite_since: wie bisher")
     check(I.ringAgain(invite: "missed", mine: 0, state: "active", inviteSince: 990, now: 1000, device: 0, ringS: 45, handled: nil) == nil, "nicht ringing")
