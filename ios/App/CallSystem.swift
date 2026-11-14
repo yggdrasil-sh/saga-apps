@@ -89,6 +89,8 @@ final class CallSystem: NSObject {
     }()
     private let controller = CXCallController()
     private var reported = Set<UUID>()
+    /// 2.5 (L7): UUIDs, die hier schon einmal geklingelt haben (nur fuer das Fehlerlog beim erneuten Klingeln)
+    private var rung = Set<UUID>()
     private var outgoing = Set<UUID>()
     private var registry: PKPushRegistry?
     private(set) var voipToken: String? = UserDefaults.standard.string(forKey: "hk.push.voip")
@@ -152,7 +154,14 @@ final class CallSystem: NSObject {
         if CallEnv.callKit, let u = CallLogic.uuid(inc.id) {
             let up = update(name: inc.name, video: inc.media == "video", chat: inc.chatID)
             if reported.contains(u) { provider.reportCall(with: u, updated: up) }
-            else { reported.insert(u); provider.reportNewIncomingCall(with: u, update: up) { _ in } }
+            else {
+                let again = rung.contains(u)
+                reported.insert(u); if rung.count > 200 { rung.removeAll() }; rung.insert(u)
+                provider.reportNewIncomingCall(with: u, update: up) { e in
+                    // 2.5 (L7): erneutes Klingeln meldet dieselbe UUID nach dem Ende noch einmal - lehnt CallKit ab, ins Fehlerlog
+                    if let e { Task { @MainActor in ClientLog.shared.report("error", ClientLogLogic.callKitMessage(code: (e as NSError).code, again: again)) } }
+                }
+            }
             // in CallKit angenommen, waehrend die App den Anruf noch abfragte (Kaltstart per VoIP-Push): jetzt annehmen
             if let a = pendingAnswer, a.call == inc.id {
                 pendingAnswer = nil
@@ -290,7 +299,12 @@ extension CallSystem: PKPushRegistryDelegate {
             let known = reported.contains(u)                                   // klingelt schon (Live-Kanal): trotzdem melden,
             reported.insert(u)                                                 // CallKit antwortet dann "existiert schon"
             pushMedia[p.call] = p.media
-            provider.reportNewIncomingCall(with: u, update: up) { _ in completion() }
+            let again = !known && rung.contains(u)                             // 2.5 (L7): nach dem Ende erneut geklingelt
+            if rung.count > 200 { rung.removeAll() }; rung.insert(u)
+            provider.reportNewIncomingCall(with: u, update: up) { e in
+                if let e, !known { Task { @MainActor in ClientLog.shared.report("error", ClientLogLogic.callKitMessage(code: (e as NSError).code, again: again)) } }
+                completion()
+            }
             if known { return }
             if let m = manager { Task { await m.ringing(callID: p.call, hint: p) } } else { pendingRings.append(p) }
             // Schutz: klingelt der Anruf nach voipGrace s in der App nicht (Abfrage haengt, Modell fehlt), CallKit beenden

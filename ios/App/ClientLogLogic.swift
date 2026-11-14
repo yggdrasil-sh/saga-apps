@@ -217,6 +217,9 @@ enum ClientLogLogic {
         let ok = { (s: String) in s.range(of: "^[a-zA-Z]{1,20}$", options: .regularExpression) != nil ? s : "other" }
         return "CallError.setup: phase.\(ok(phase)) reason.\(ok(reason))"
     }
+    /// 2.5 (L7): CallKit lehnte das Melden eines eingehenden Anrufs ab (z. B. erneutes Klingeln mit derselben UUID nach
+    /// dem Ende) - nur Fehlercode und ob die UUID hier schon einmal klingelte, keine Namen
+    static func callKitMessage(code: Int, again: Bool) -> String { "CallKitError.incoming: code.\(code) again.\(again ? 1 : 0)" }
     /// Bildschirm-Bezeichnung nach Vertrag ([a-z][a-z0-9-]{0,23}), sonst "other"
     static func screen(_ s: String) -> String { s.range(of: "^[a-z][a-z0-9\\-]{0,23}$", options: .regularExpression) != nil ? s : "other" }
 

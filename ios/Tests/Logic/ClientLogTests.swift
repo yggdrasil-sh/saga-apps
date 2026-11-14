@@ -50,6 +50,7 @@ func clientLogTests() {
     check(dec == "DecodingError.keyNotFound: http.GET api.app.today" && L.scrub(dec) == dec, "Dekodierfehler ohne Schluesselnamen: \(dec)")
     check(L.callMessage(phase: "connecting", reason: "failed") == "CallError.setup: phase.connecting reason.failed", "Anruf-Meldung")
     check(L.callMessage(phase: "x y", reason: "Anna ruft") == "CallError.setup: phase.other reason.other", "Anruf-Meldung nur Bezeichner")
+    check(L.callKitMessage(code: 2, again: true) == "CallKitError.incoming: code.2 again.1", "CallKit-Meldung")
     check(L.saveMessage(code: 503) == "SaveError.status5xx", "Speicher-Meldung")
     // Freitext
     check(L.note("Hallo\nMeine Adresse a@b.de, Schluessel hk_abcdefgh1 https://x.y/z") == "Hallo\nMeine Adresse <email>, Schluessel <secret> <url>", "Freitext maskiert: \(L.note("Hallo\nMeine Adresse a@b.de, Schluessel hk_abcdefgh1 https://x.y/z"))")
