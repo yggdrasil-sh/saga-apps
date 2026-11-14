@@ -98,6 +98,7 @@ extension CallManager {
             list = [Meeting.Device(device: "me-dev", who: "me", name: "Max", devName: "iPhone", own: true, here: true, mic: true, cam: false)]
             list.append(d("e1", "eva", "Eva Beispiel", "MacBook"))
             meet.people = true
+            invitesIn(Self.mockInvites())
         default:                                                             // gallery
             kind = "group"; peerName = "Projekt Nordlicht"
             for (i, n) in names.prefix(4).enumerated() { list.append(d("p\(i)", n.lowercased(), n, i == 1 ? "Pixel" : "Mac", mic: i != 3, cam: i != 2)) }
@@ -105,6 +106,16 @@ extension CallManager {
         }
         UserDefaults.standard.set(m == "gallery" || m == "pages" ? "gallery" : "auto", forKey: "call.layout")
         meet.demo = list
+    }
+
+    /// nur fuer Bilder (away/meet-away): "Nicht dabei" wie vom Server - nicht angenommen, abgelehnt, klingelt, App zu alt
+    static func mockInvites() -> [String: Any] {
+        let now = Date().timeIntervalSince1970
+        return ["rv": now, "now": now, "ring_s": 45, "invites_more": 0, "invites": [
+            ["who": "anna", "name": "Anna Beispiel", "state": "missed", "since": now - 80],
+            ["who": "bert", "name": "Bert Beispiel", "state": "declined", "since": now - 30],
+            ["who": "cora", "name": "Cora Beispiel", "state": "ringing", "since": now - 3],
+            ["who": "dora", "name": "Dora Beispiel", "state": "old", "since": now - 200]]]
     }
 
     /// nur fuer Bilder: Zustand eines laufenden Knoten-Anrufs ohne Netz und ohne Medien
@@ -140,6 +151,7 @@ extension CallManager {
         if let o = hornSelfTile(H.meDevice ?? "") { H.tiles.append(o) }   // eigene Kachel wie im echten Anruf
         hornPeople()
         H.plist = mode == "people" || mode == "remove" || mode == "away"
+        if mode == "away" { invitesIn(Self.mockInvites()) }
         H.rpop = mode == "runes"
         if mode == "path" { Task { try? await Task.sleep(for: .seconds(1.5)); H.ppop = true } }   // Feld erst, wenn die Ansicht steht
         if mode == "remove" { H.rmSure = others.dropFirst().first?.device }      // zweite Stufe "Wirklich entfernen?"
