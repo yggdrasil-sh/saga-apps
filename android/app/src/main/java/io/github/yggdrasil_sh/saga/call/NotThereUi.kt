@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -26,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -85,71 +87,95 @@ private fun NotThereHead(inv: Invites.Snapshot, onRing: (List<String>) -> Unit) 
         try { head.requestFocus() } catch (_: IllegalStateException) {}
     }
     val all = Invites.ringAll(rows)
-    Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(R.string.inv_head, Invites.count(inv)), style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f).padding(vertical = 6.dp).focusRequester(head).focusable().semantics { heading() },
-            )
-            if (all.isNotEmpty()) {
-                val cd = stringResource(R.string.inv_ring_all_cd, all.size)
-                SagaTextButton(onClick = { ring(all) }, modifier = Modifier.semantics { contentDescription = cd }) {
-                    Text(stringResource(R.string.inv_ring_all), maxLines = 2)
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+        // grosse Schrift bzw. schmale Breite: Knoepfe unter den Text statt daneben (Namen nicht abschneiden)
+        val stacked = maxWidth < 260.dp * LocalDensity.current.fontScale
+        Column(Modifier.fillMaxWidth()) {
+            val allBtn: @Composable () -> Unit = {
+                if (all.isNotEmpty()) {
+                    val cd = stringResource(R.string.inv_ring_all_cd, all.size)
+                    SagaTextButton(onClick = { ring(all) }, modifier = Modifier.semantics { contentDescription = cd }) {
+                        Text(stringResource(R.string.inv_ring_all), maxLines = 2)
+                    }
                 }
             }
-        }
-        for (r in rows) InviteRow(r, ring)
-        if (inv.more > 0) Text(
-            stringResource(R.string.inv_more, inv.more), style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
-        )
-        // Ergebnis bzw. Fehler des Klingelns (vorgelesen)
-        val note = inv.note?.resolve()
-        Box(Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }) {
-            if (note != null) Text(
-                note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp),
+            val title: @Composable (Modifier) -> Unit = { m ->
+                Text(
+                    stringResource(R.string.inv_head, Invites.count(inv)), style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = m.padding(vertical = 6.dp).focusRequester(head).focusable().semantics { heading() },
+                )
+            }
+            if (stacked) {
+                title(Modifier.fillMaxWidth())
+                allBtn()
+            } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                title(Modifier.weight(1f))
+                allBtn()
+            }
+            for (r in rows) InviteRow(r, stacked, ring)
+            if (inv.more > 0) Text(
+                stringResource(R.string.inv_more, inv.more), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
             )
+            // Ergebnis bzw. Fehler des Klingelns (vorgelesen)
+            val note = inv.note?.resolve()
+            Box(Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite }) {
+                if (note != null) Text(
+                    note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun InviteRow(r: Invites.Row, onRing: (List<String>) -> Unit) {
+private fun InviteRow(r: Invites.Row, stacked: Boolean, onRing: (List<String>) -> Unit) {
     val name = r.x.name.ifEmpty { "?" }
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(Modifier.clearAndSetSemantics {}) { Avatar(name, size = 36, avatar = r.x.avatar) }
-        Column(Modifier.weight(1f)) {
-            Text(name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    val text: @Composable (Modifier) -> Unit = { m ->
+        Column(m) {
+            Text(name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = if (stacked) 2 else 1,
+                overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (r.st == Invites.St.RINGING) Box(
                     Modifier.padding(end = 6.dp).size(8.dp).clip(CircleShape).background(SagaColors.current.ok),
                 )
-                Text(
-                    inviteLabel(r.st), style = MaterialTheme.typography.labelMedium,
-                    color = if (r.st == Invites.St.OLD) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 3,
-                )
-            }
-        }
-        when (r.btn) {
-            Invites.Btn.NONE -> {}
-            Invites.Btn.OLD -> {
-                val cd = stringResource(R.string.inv_old_cd, name)
-                SagaOutlinedButton(onClick = {}, enabled = false, modifier = Modifier.semantics { contentDescription = cd }) {
-                    Text(stringResource(R.string.inv_ring_again), maxLines = 2)
-                }
-            }
-            else -> {
-                val again = r.btn == Invites.Btn.RING_AGAIN
-                val cd = stringResource(if (again) R.string.inv_ring_again_cd else R.string.inv_ring_cd, name)
-                SagaOutlinedButton(onClick = { onRing(listOf(r.x.who)) }, modifier = Modifier.semantics { contentDescription = cd }) {
-                    Text(stringResource(if (again) R.string.inv_ring_again else R.string.inv_ring), maxLines = 2)
-                }
+                Text(inviteLabel(r.st), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
+    if (stacked) Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(Modifier.clearAndSetSemantics {}) { Avatar(name, size = 36, avatar = r.x.avatar) }
+        Column(Modifier.weight(1f)) {
+            text(Modifier.fillMaxWidth())
+            InviteButton(r, name, onRing)
+        }
+    } else Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(Modifier.clearAndSetSemantics {}) { Avatar(name, size = 36, avatar = r.x.avatar) }
+        text(Modifier.weight(1f))
+        InviteButton(r, name, onRing)
+    }
     HorizontalDivider()
+}
+
+@Composable
+private fun InviteButton(r: Invites.Row, name: String, onRing: (List<String>) -> Unit) {
+    when (r.btn) {
+        Invites.Btn.NONE -> {}
+        Invites.Btn.OLD -> {
+            val cd = stringResource(R.string.inv_old_cd, name)
+            SagaOutlinedButton(onClick = {}, enabled = false, modifier = Modifier.semantics { contentDescription = cd }) {
+                Text(stringResource(R.string.inv_ring_again), maxLines = 2)
+            }
+        }
+        else -> {
+            val again = r.btn == Invites.Btn.RING_AGAIN
+            val cd = stringResource(if (again) R.string.inv_ring_again_cd else R.string.inv_ring_cd, name)
+            SagaOutlinedButton(onClick = { onRing(listOf(r.x.who)) }, modifier = Modifier.semantics { contentDescription = cd }) {
+                Text(stringResource(if (again) R.string.inv_ring_again else R.string.inv_ring), maxLines = 2)
+            }
+        }
+    }
 }
