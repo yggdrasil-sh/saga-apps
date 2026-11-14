@@ -2,7 +2,8 @@
 import SwiftUI
 
 // Nur fuer Bilder (Debug-Build, ohne Server, ohne Kamera/Mikrofon): Gruppenanruf ueber einen Knoten mit erfundenem
-// Zustand. Start: -hkHornPreview grid|speaker|share|people|runes [-hkHornDark YES] [-hkHornPath udp|tcp|turn] [-hkLandscape YES]
+// Zustand. Start: -hkHornPreview grid|speaker|share|people|runes|away|meet-away [-hkHornDark YES] [-hkHornPath udp|tcp|turn] [-hkLandscape YES]
+// (away/meet-away: Teilnehmerliste eines kleinen Gruppenanrufs ueber Knoten bzw. direkt, offen - Bilder "Nicht dabei")
 // (Mac zusammen mit -hkSnapshot <pfad.png>; iPhone/iPad: xcrun simctl io <id> screenshot). Bewegte Bilder sind hier
 // Farbflaechen (kein WebRTC), Namen und Geraete erfunden.
 
@@ -41,10 +42,11 @@ struct HornPreviewView: View {
                                                   ("Lena", "Firefox", "member"), ("Mo", "iPhone", "member"), ("Ida", "Chrome", "member"), ("Jon", "Galaxy", "member"),
                                                   ("Eva", "Safari", "member"), ("Ole", "iPhone", "member"), ("Uma", "Mac mini", "member")]
         var legs: [[String: Any]] = [["device": "me000000000000000000000000000000", "who": "ich", "name": "Max", "dev_name": "Mac", "hp": "p0"]]
-        for (i, p) in people.enumerated() {
+        let few: [(String, String, String)] = [("Eva Beispiel", "iPhone", "member"), ("Jonas Beispiel", "Pixel", "member")]
+        for (i, p) in (mode == "away" ? few : people).enumerated() {
             legs.append(["device": String(format: "d%031d", i + 1), "who": p.0.lowercased(), "name": p.0, "dev_name": p.1, "role": p.2, "hp": "p\(i + 1)"])
         }
-        c.mockHorn(title: "Sommerfest", legs: CallRoom.legs(legs), mode: mode, path: UserDefaults.standard.string(forKey: "hkHornPath") ?? "tcp")
+        c.mockHorn(title: mode == "away" ? "Projekt Nordlicht" : "Sommerfest", legs: CallRoom.legs(legs), mode: mode, path: UserDefaults.standard.string(forKey: "hkHornPath") ?? "tcp")
         #if os(iOS)
         // -hkLandscape YES: quer starten (Bilder vom iPhone-Querformat ohne Simulator-Bedienung)
         if UserDefaults.standard.bool(forKey: "hkLandscape"), let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
@@ -91,6 +93,11 @@ extension CallManager {
             kind = "group"; peerName = "Sommerfest"
             for (i, n) in names.enumerated() { list.append(d("p\(i)", n.lowercased(), n, "iPad", mic: i % 3 != 2, cam: i % 2 == 0)) }
             meet.speaking = ["ben"]
+        case "away":                                                         // kleiner Gruppenanruf, Teilnehmerliste offen
+            kind = "group"; peerName = "Projekt Nordlicht"; cam = false
+            list = [Meeting.Device(device: "me-dev", who: "me", name: "Max", devName: "iPhone", own: true, here: true, mic: true, cam: false)]
+            list.append(d("e1", "eva", "Eva Beispiel", "MacBook"))
+            meet.people = true
         default:                                                             // gallery
             kind = "group"; peerName = "Projekt Nordlicht"
             for (i, n) in names.prefix(4).enumerated() { list.append(d("p\(i)", n.lowercased(), n, i == 1 ? "Pixel" : "Mac", mic: i != 3, cam: i != 2)) }
@@ -132,7 +139,7 @@ extension CallManager {
         horn = H
         if let o = hornSelfTile(H.meDevice ?? "") { H.tiles.append(o) }   // eigene Kachel wie im echten Anruf
         hornPeople()
-        H.plist = mode == "people" || mode == "remove"
+        H.plist = mode == "people" || mode == "remove" || mode == "away"
         H.rpop = mode == "runes"
         if mode == "path" { Task { try? await Task.sleep(for: .seconds(1.5)); H.ppop = true } }   // Feld erst, wenn die Ansicht steht
         if mode == "remove" { H.rmSure = others.dropFirst().first?.device }      // zweite Stufe "Wirklich entfernen?"

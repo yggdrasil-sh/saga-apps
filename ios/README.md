@@ -101,7 +101,7 @@ Die Anruf-Signalisierung (`App/CallCrypto.swift`, `App/CallLogic.swift`) prüft 
   und einer eigenen iOS-Simulator-ID (am Mac läuft nur die Messung). UDP-Weg (eine Leitung, Schichten l/m/h): zweiter
   Knoten mit `HORN_UDP=1` auf einem anderen Port und `TEST_RUNNER_SAGA_HORN_NODE_UDP=https://127.0.0.1:<port2>`
   (sonst werden die `…UDP`-Tests übersprungen). Bilder ohne Server: Startparameter
-  `-hkHornPreview grid|speaker|share|people|runes` (Debug, erfundener Zustand).
+  `-hkHornPreview grid|speaker|share|people|runes|away|meet-away` (Debug, erfundener Zustand).
 - iPhone/iPad: Hintergrundmodi `voip` und `audio` (Info.plist), CallKit für das Klingeln, PushKit-Token als eigenes
   Mitteilungs-Abo `apns-voip`. Zusätzliche Berechtigungen braucht die App-ID nicht: die Fähigkeit „Push
   Notifications“ reicht, der Server schickt mit demselben APNs-Schlüssel (.p8) an das Thema `<App-ID>.voip`.
