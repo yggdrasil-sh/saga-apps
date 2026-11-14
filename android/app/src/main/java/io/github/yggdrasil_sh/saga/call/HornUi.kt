@@ -380,17 +380,27 @@ fun HornRunesBody(ui: HornUi) {
 
 /** Teilnehmerliste; Gastgeber: Stummschalten, Entfernen (zwei Schritte: "Wirklich entfernen?", 4 s) */
 @Composable
-fun HornPeopleDialog(ui: HornUi, onMute: (String) -> Unit, onRemove: (String) -> Unit, onDismiss: () -> Unit) {
+fun HornPeopleDialog(
+    ui: HornUi, onMute: (String) -> Unit, onRemove: (String) -> Unit,
+    inv: Invites.Snapshot? = null, onRing: (List<String>) -> Unit = {}, onDismiss: () -> Unit,
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
         title = { Text(stringResource(R.string.horn_people, ui.people.size), modifier = Modifier.semantics { heading() }) },
-        text = { HornPeopleList(ui, onMute, onRemove) },
+        text = { HornPeopleList(ui, onMute, onRemove, inv, onRing) },
     )
 }
 
+/**
+ * Teilnehmerliste (Knoten und Mesh); 2.5 (L7) darunter "Nicht dabei" (inv, fehlt bei aelteren Servern) mit
+ * "Erneut klingeln" je Person und "Alle erneut klingeln".
+ */
 @Composable
-fun HornPeopleList(ui: HornUi, onMute: (String) -> Unit, onRemove: (String) -> Unit) {
+fun HornPeopleList(
+    ui: HornUi, onMute: (String) -> Unit, onRemove: (String) -> Unit,
+    inv: Invites.Snapshot? = null, onRing: (List<String>) -> Unit = {},
+) {
     var sure by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(sure) {
         if (sure != null) {
@@ -439,6 +449,7 @@ fun HornPeopleList(ui: HornUi, onMute: (String) -> Unit, onRemove: (String) -> U
             }
             HorizontalDivider()
         }
+        if (inv != null && Invites.visible(inv)) notThere(inv, onRing)
     }
 }
 

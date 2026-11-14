@@ -9,6 +9,17 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – Android: Gruppenanruf „Nicht dabei“ mit „Erneut klingeln“
+
+- Die Teilnehmerliste eines Gruppenanrufs (direkt und über Knoten) zeigt unter den Teilnehmenden den Abschnitt **„Nicht
+  dabei“**: Chat-Mitglieder ohne Gerät im Anruf mit Profilbild, Name und Zustand („klingelt …“, „hat abgelehnt“, „nicht
+  angenommen“, „hat den Anruf verlassen“, „noch nicht eingeladen“, „entfernt“, „App zu alt“). Je Person **„Erneut
+  klingeln“** bzw. „Klingeln“, oben **„Alle erneut klingeln“**; Entfernte darf nur der Gastgeber erneut klingeln lassen.
+  Ein Tippen zeigt sofort „klingelt …“; geht es schief, steht der alte Zustand wieder da mit Hinweis (z. B. „Gerade zu
+  oft geklingelt – bitte etwa eine Minute warten.“). „klingelt …“ läuft nach der Klingeldauer von selbst ab.
+- Wer erneut angeklingelt wird, hört es wieder klingeln – auch wenn das erste Klingeln auf dem Gerät schon vorbei oder
+  abgelehnt war; die Klingeldauer zählt ab dem erneuten Klingeln. Ältere Server zeigen den Abschnitt nicht.
+
 ### Neu – iOS: Unterseiten als Liste oder Galerie
 
 - Der Block „Unterseiten“ (Server 2.5, `subpages1`) erscheint auf iPhone und iPad nativ statt als Hinweis „neuere Version

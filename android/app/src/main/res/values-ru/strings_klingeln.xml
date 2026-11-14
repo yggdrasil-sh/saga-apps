@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (L7): Gruppenanruf - Abschnitt "Nicht dabei" mit Erneut klingeln -->
+<resources>
+    <string name="inv_head">Не в звонке (%1$d)</string>
+    <string name="inv_ringing">звоним …</string>
+    <string name="inv_declined">отклонил(а)</string>
+    <string name="inv_missed">не ответил(а)</string>
+    <string name="inv_left">покинул(а) звонок</string>
+    <string name="inv_none">ещё не приглашён(а)</string>
+    <string name="inv_removed">удалено</string>
+    <string name="inv_old">Приложение устарело</string>
+    <string name="inv_old_hint">Приложение устарело – нужна более новая версия Saga</string>
+    <string name="inv_ring">Позвонить</string>
+    <string name="inv_ring_again">Позвонить снова</string>
+    <string name="inv_ring_all">Позвонить всем снова</string>
+    <string name="inv_ring_all_cd">Позвонить всем снова (%1$d)</string>
+    <string name="inv_ring_cd">Позвонить: %1$s</string>
+    <string name="inv_ring_again_cd">Позвонить снова: %1$s</string>
+    <string name="inv_old_cd">%1$s: приложение устарело – нужна более новая версия Saga</string>
+    <string name="inv_more">и ещё %1$d</string>
+    <string name="inv_busy">Слишком много звонков подряд – подождите около минуты.</string>
+    <string name="inv_failed">Не удалось позвонить.</string>
+    <string name="inv_calling_one">Звоним: %1$s …</string>
+    <string name="inv_calling_n">Звоним участникам: %1$d …</string>
+</resources>

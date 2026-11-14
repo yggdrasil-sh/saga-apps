@@ -183,6 +183,15 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     private var ring: CallInfo? = null
     private var ringJob: Job? = null
     private val gone = HashSet<String>()
+    /** 2.5 (L7): wann ein Anruf hier vorbei/abgelehnt war (Geraete-Uhr ms) - erneutes Klingeln danach klingelt wieder */
+    private val goneAt = LinkedHashMap<String, Long>()
+
+    private fun markGone(id: String) {
+        gone.add(id)
+        goneAt.remove(id)
+        goneAt[id] = System.currentTimeMillis()
+        while (goneAt.size > 200) goneAt.remove(goneAt.keys.first())
+    }
     /** TT 64: Anrufe, von denen dieses Geraet weiss, dass sie beendet sind (Leiste "Gruppenanruf laeuft" weg) */
     private val endedIds = LinkedHashSet<String>()
 
@@ -278,6 +287,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         /** TT 63: Ende mit Grund bleibt stehen, bis es geschlossen wird (Beitritt gescheitert) */
         var stickyEnd = false
         var limit = 0
+        /** 2.5 (L7): "Nicht dabei" (invites mit eigenem rv) und ob ich Gastgeber bin (Entfernte erneut klingeln lassen) */
+        val inv = Invites.Book()
+        var invHost = false
+        var invNoteJob: Job? = null
         var old: List<String> = emptyList()
         /** Pegel der empfangenen Tonspuren je Geraet und aktiver Sprecher */
         val levels = HashMap<String, Double>()
@@ -1899,6 +1912,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         try {
             val st = json.decodeFromString(CallState.serializer(), api.get("api/calls/$id?device=${myDevId()}"))
             if (st.call.legs.isNotEmpty()) rosterIn(r, st.call.legs, null, st.call.limit, poll = true, mesh = st.call.hornMesh)
+            invitesIn(r, st.call)
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -2381,6 +2395,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         r.call?.let { k ->
             k.limit?.let { c.rs.limit = CallRoom.limit(c.media, it) }
             rosterIn(c, k.legs, null, k.limit, poll = true, mesh = k.hornMesh)
+            invitesIn(c, k)
         }
         startLoops(c)
         for (l in links(c)) {
@@ -2548,7 +2563,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 }
                 if (w != null) {
                     promo.promotedNow(w.already)
-                    w.call?.let { k -> rosterIn(r, k.legs, k.rv, null, poll = true) }
+                    w.call?.let { k ->
+                        rosterIn(r, k.legs, k.rv, null, poll = true)
+                        invitesIn(r, k)
+                    }
                     val h = rs.horn ?: throw java.io.IOException("horn")
                     val cands = HornLogic.parseBlock(w.horn, allowHttp = BuildConfig.DEBUG)?.candidates.orEmpty()
                     if (!h.reAudio(cands)) throw java.io.IOException("audio")
@@ -2695,6 +2713,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 r.call?.let { k ->
                     c.rs.old = k.old.map { it.name.ifEmpty { it.username } }
                     rosterIn(c, k.legs, null, k.limit, poll = true, mesh = k.hornMesh)
+                    invitesIn(c, k)
                     if (k.topo == CallRoom.TOPO_HORN) hornStart(c, k)       // 2.5: grosse Gruppe ueber einen Knoten
                 }
                 tone(ToneGenerator.TONE_SUP_RINGTONE)
@@ -2715,9 +2734,15 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     /** call.invite: Gruppenanruf klingelt (still bei grossen Gruppen: nur die Leiste) */
     private fun onInvite(ev: LiveEvent) {
         val id = ev.str("call_id") ?: return
-        if (!CallLogic.validId(id) || id in gone || cur?.id == id || ring?.id == id) return
+        if (!CallLogic.validId(id) || cur?.id == id || ring?.id == id) return
         if (ev.bool("silent")) {
             refreshRun()
+            return
+        }
+        // 2.5 (L7): dieses Klingeln war hier schon vorbei/abgelehnt - erneut geklingelt? Erst den Zustand pruefen
+        // (invite == ringing, kein eigenes Geraet dabei, nicht beendet; Restdauer ab invite_since)
+        if (id in gone) {
+            scope.launch { checkRing(id) }
             return
         }
         val from = ev.obj("from")
@@ -2769,7 +2794,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     }
 
     private suspend fun checkRing(callId: String) {
-        if (callId in gone || cur?.id == callId || ring?.id == callId) return
+        if (cur?.id == callId || ring?.id == callId) return
         val info = try {
             json.decodeFromString(CallState.serializer(), api.get("api/calls/$callId")).call
         } catch (e: CancellationException) {
@@ -2779,9 +2804,16 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
         // 2.4 E5: Gruppenanruf (Mitteilung "call.group"): eigene Einladung klingelt und noch kein eigenes Geraet dabei
         if (info.kind == CallRoom.KIND_GROUP) {
-            if (info.invite == "ringing" && !CallRoom.stopRinging(info.legs, myUser()) && callId !in gone && ring?.id != callId) {
+            // 2.5 (L7): hier schon vorbei/abgelehnt -> nur bei erneutem Klingeln (spaeterer Beginn invite_since)
+            val again = callId in gone
+            if (again && !Invites.ringsAgain(info, goneAt[callId], System.currentTimeMillis())) return
+            if (info.invite == "ringing" && !CallRoom.stopRinging(info.legs, myUser()) && ring?.id != callId && cur?.id != callId) {
+                // Alter ab invite_since (nicht ab Anrufbeginn) - aeltere Server ohne invite_since wie bisher
+                val left = Invites.ringLeftS(info)
+                if (left != null && left <= 0) return
+                if (again) gone.remove(callId)
                 val from = info.legs.firstOrNull()?.person() ?: info.peer
-                ringGroup(info.copy(peer = from, state = "ringing", role = "callee"))
+                ringGroup(info.copy(peer = from, state = "ringing", role = "callee", expiresIn = left ?: info.expiresIn))
             }
             return
         }
@@ -2899,7 +2931,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     }
 
     private fun unring(id: String, msg: UiText? = null, keepUi: Boolean = false) {
-        gone.add(id)
+        markGone(id)
         if (ring?.id != id) return
         ring = null
         ringJob?.cancel()
@@ -3264,6 +3296,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     val st = json.decodeFromString(CallState.serializer(), api.get("api/calls/$id?device=$dev&after=$after"))
                     for (s in st.signals) signalIn(id, s)
                     if (st.call.legs.isNotEmpty()) rosterIn(c, st.call.legs, null, st.call.limit, poll = true, mesh = st.call.hornMesh)
+                    invitesIn(c, st.call)
                     when {
                         st.call.state == "ended" -> remoteEnded(c, st.call.reason)
                         st.call.state == "active" && c.caller && c.peerDevice == null && c.pc != null && c.rs.kind == CallRoom.KIND_DM ->
@@ -3901,7 +3934,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             .copy(phase = CallPhase.ENDED, message = msg, error = error, remoteVideo = false, cam = false, room = null,
                 detail = detail, canRedial = end.redial)
         val id = c.id
-        if (id != null) gone.add(id)
+        if (id != null) markGone(id)
         val gen = ++endGen
         endTouch = 0L
         CallLogic.endDismissMs(error || end.stays, c.rs.stickyEnd)?.let { ms -> scope.launch {
@@ -4007,7 +4040,56 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 ?: rs.speaker?.let { sp -> ls.firstOrNull { it.peerDevice == sp } }?.let { io.github.yggdrasil_sh.saga.util.PersonName.shown(legOf(it)?.name ?: it.peer.name, it.peer.handle ?: it.peer.username, it.peer.host) }.orEmpty(),
             horn = rs.horn?.let { hornUi(c, it) },
             dm = rs.dm, title = rs.title, mutedBy = rs.mutedBy,
+            invites = if (rs.kind == CallRoom.KIND_GROUP && !rs.dm) rs.inv.snapshot(rs.invHost, System.currentTimeMillis()) else null,
         )
+    }
+
+    // ---------------------------------------------------------------- 2.5 (L7): Nicht dabei, Erneut klingeln
+
+    /** invites aus einem Anruf-Objekt (GET, join, start, promote) - gemeinsam mit rv der Antwort */
+    private fun invitesIn(c: Call, k: CallInfo) {
+        if (k.kind != CallRoom.KIND_GROUP || k.dm || k.invites == null) return
+        c.rs.invHost = k.host
+        if (c.rs.inv.apply(k.invites, k.invitesMore, k.rv, k.now, k.ringS, System.currentTimeMillis())) update(c)
+    }
+
+    /**
+     * Oberflaeche: "Erneut klingeln" bzw. "Alle erneut klingeln" - sofort "klingelt …" (vorlaeufig), POST /invite, Antwort
+     * uebernehmen; Fehler: vorlaeufigen Zustand zuruecknehmen und Hinweis (403 Text des Servers, 429 fester Text).
+     */
+    fun ringInvites(who: List<String>) {
+        val c = cur ?: return
+        val id = c.id ?: return
+        val uids = who.distinct().take(Invites.MAX)
+        if (uids.isEmpty() || c.done || !c.ready) return
+        val b = c.rs.inv
+        val names = uids.map { w -> b.list?.firstOrNull { it.who == w }?.name?.ifEmpty { null } ?: "?" }
+        val until = b.pending(uids, System.currentTimeMillis())
+        update(c)
+        scope.launch {
+            val note = try {
+                val r = json.decodeFromString(InviteReply.serializer(), api.post("api/calls/$id/invite", buildJsonObject {
+                    put("uids", JsonArray(uids.map { JsonPrimitive(it) }))
+                }))
+                b.settle(uids, until)
+                b.apply(r.invites, r.invitesMore, r.rv, r.now, null, System.currentTimeMillis())
+                Invites.doneText(names)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                b.settle(uids, until)
+                Invites.errorText((e as? ApiException)?.code, (e as? ApiException)?.text)
+            }
+            if (!live(c)) return@launch
+            b.note = note
+            b.noteUntil = System.currentTimeMillis() + Invites.NOTE_MS
+            update(c)
+            c.rs.invNoteJob?.cancel()
+            c.rs.invNoteJob = scope.launch {
+                delay(Invites.NOTE_MS + 50)
+                if (live(c)) update(c)
+            }
+        }
     }
 
     // ---------------------------------------------------------------- 2.5 Gjallarhorn: Gruppenanruf ueber Knoten
@@ -4057,6 +4139,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val k = r.call ?: throw UiTextException(UiText.Res(R.string.call_failed))
         k.limit?.let { c.rs.limit = it }
         rosterIn(c, k.legs, null, null, poll = true, mesh = k.hornMesh)
+        invitesIn(c, k)
         startLoops(c)
         hornStart(c, k)
         if (c.rs.hoRep != null) {
@@ -4576,6 +4659,13 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 refreshRun()
             }
             "call.invite" -> onInvite(ev)
+            // 2.5 (L7): "Nicht dabei" hat sich geaendert (eigener rv-Zaehler)
+            "call.invites" -> {
+                val c = cur ?: return
+                if (c.id != ev.str("call_id") || !c.ready || c.done) return
+                if (c.rs.inv.apply(Invites.parse(ev.data["invites"]), ev.int("invites_more") ?: 0, Invites.num(ev.data, "rv"),
+                        Invites.num(ev.data, "now"), ev.int("ring_s"), System.currentTimeMillis())) update(c)
+            }
             // 2.5 Gjallarhorn: Gastgeber hat stummgeschaltet/entfernt; Knoten wird geleert bzw. entfernt (Umzug)
             "call.mod" -> hornModIn(ev)
             "call.horn_move" -> {

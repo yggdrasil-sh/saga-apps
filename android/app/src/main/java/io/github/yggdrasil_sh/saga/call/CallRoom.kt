@@ -131,6 +131,8 @@ data class RoomUi(
     val title: String = "",
     /** 2.5: vom Gastgeber stummgeschaltet (Name), bis man das Mikrofon selbst einschaltet */
     val mutedBy: String? = null,
+    /** 2.5 (L7): Abschnitt "Nicht dabei" der Teilnehmerliste; null = aelterer Server bzw. kein Gruppenanruf */
+    val invites: Invites.Snapshot? = null,
 )
 
 /** Reine Regeln fuer Raum, Mesh und Mehrgeraete (Unit-Tests) */

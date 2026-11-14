@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (L7): Gruppenanruf - Abschnitt "Nicht dabei" mit Erneut klingeln -->
+<resources>
+    <string name="inv_head">Not in the call (%1$d)</string>
+    <string name="inv_ringing">ringing …</string>
+    <string name="inv_declined">declined</string>
+    <string name="inv_missed">didn’t answer</string>
+    <string name="inv_left">left the call</string>
+    <string name="inv_none">not invited yet</string>
+    <string name="inv_removed">removed</string>
+    <string name="inv_old">App too old</string>
+    <string name="inv_old_hint">App too old – needs a newer version of Saga</string>
+    <string name="inv_ring">Ring</string>
+    <string name="inv_ring_again">Ring again</string>
+    <string name="inv_ring_all">Ring everyone again</string>
+    <string name="inv_ring_all_cd">Ring everyone again (%1$d)</string>
+    <string name="inv_ring_cd">Ring %1$s</string>
+    <string name="inv_ring_again_cd">Ring %1$s again</string>
+    <string name="inv_old_cd">%1$s: app too old – needs a newer version of Saga</string>
+    <string name="inv_more">and %1$d more</string>
+    <string name="inv_busy">You’ve rung too often just now – please wait about a minute.</string>
+    <string name="inv_failed">Ringing didn’t work.</string>
+    <string name="inv_calling_one">Ringing %1$s …</string>
+    <string name="inv_calling_n">Ringing %1$d people …</string>
+</resources>

@@ -469,7 +469,8 @@ private fun CallScreen(
         if (st.phase == CallPhase.ENDED) hornPanel = ""
         when (hornPanel) {
             "runes" -> HornRunesDialog(h) { hornPanel = "" }
-            "people" -> HornPeopleDialog(h, onMute = { calls.moderate(it, "mute") }, onRemove = { calls.moderate(it, "remove") }) { hornPanel = "" }
+            "people" -> HornPeopleDialog(h, onMute = { calls.moderate(it, "mute") }, onRemove = { calls.moderate(it, "remove") },
+                inv = st.room?.invites, onRing = { calls.ringInvites(it) }) { hornPanel = "" }
         }
     }
     val room = st.room
@@ -758,7 +759,7 @@ internal fun MeetCall(
             onDismissRequest = { meshPeople = false; menuOpen = false },
             confirmButton = { SagaTextButton(onClick = { meshPeople = false; menuOpen = false }) { Text(stringResource(R.string.action_close)) } },
             title = { Text(meetPersons(model.persons), modifier = Modifier.semantics { heading() }) },
-            text = { HornPeopleList(ui, {}, {}) },
+            text = { HornPeopleList(ui, {}, {}, inv = room?.invites, onRing = { calls.ringInvites(it) }) },
         )
     }
     val am = remember { context.getSystemService(android.view.accessibility.AccessibilityManager::class.java) }

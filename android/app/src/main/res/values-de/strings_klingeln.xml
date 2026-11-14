@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (L7): Gruppenanruf - Abschnitt "Nicht dabei" mit Erneut klingeln -->
+<resources>
+    <string name="inv_head">Nicht dabei (%1$d)</string>
+    <string name="inv_ringing">klingelt …</string>
+    <string name="inv_declined">hat abgelehnt</string>
+    <string name="inv_missed">nicht angenommen</string>
+    <string name="inv_left">hat den Anruf verlassen</string>
+    <string name="inv_none">noch nicht eingeladen</string>
+    <string name="inv_removed">entfernt</string>
+    <string name="inv_old">App zu alt</string>
+    <string name="inv_old_hint">App zu alt – braucht eine neuere Saga-Version</string>
+    <string name="inv_ring">Klingeln</string>
+    <string name="inv_ring_again">Erneut klingeln</string>
+    <string name="inv_ring_all">Alle erneut klingeln</string>
+    <string name="inv_ring_all_cd">Alle erneut klingeln (%1$d)</string>
+    <string name="inv_ring_cd">%1$s klingeln lassen</string>
+    <string name="inv_ring_again_cd">%1$s erneut klingeln lassen</string>
+    <string name="inv_old_cd">%1$s: App zu alt – braucht eine neuere Saga-Version</string>
+    <string name="inv_more">und %1$d weitere</string>
+    <string name="inv_busy">Gerade zu oft geklingelt – bitte etwa eine Minute warten.</string>
+    <string name="inv_failed">Klingeln hat nicht geklappt.</string>
+    <string name="inv_calling_one">%1$s wird angerufen …</string>
+    <string name="inv_calling_n">%1$d Personen werden angerufen …</string>
+</resources>

@@ -123,6 +123,39 @@ data class CallInfo(
     val takeover: Boolean = false,
     /** Stand der Teilnehmerliste */
     val rv: Double? = null,
+    /** 2.5 (L7): Server-Uhr der Antwort (Sekunden) - Abstand zur Geraete-Uhr */
+    val now: Double? = null,
+    /** 2.5 (L7): Beginn des (letzten) Klingelns der eigenen Einladung (Server-Uhr), nur solange sie klingelt */
+    @SerialName("invite_since") val inviteSince: Double? = null,
+    /** 2.5 (L7): "Nicht dabei" - Mitglieder ohne Geraet im Anruf; null = aelterer Server (Abschnitt nicht zeigen) */
+    val invites: List<CallInvite>? = null,
+    @SerialName("invites_more") val invitesMore: Int = 0,
+)
+
+/** 2.5 (L7): Eintrag "Nicht dabei" (Anruf-Objekt `invites`, Ereignis `call.invites`, Antwort von /invite) */
+@Serializable
+data class CallInvite(
+    /** Kennung zum Klingeln (`uids` von /invite) */
+    val who: String = "",
+    val name: String = "",
+    val avatar: String? = null,
+    val handle: String? = null,
+    val host: String? = null,
+    /** ringing | declined | missed | left | none | removed | old (unbekannt = none) */
+    val state: String = "none",
+    /** Server-Uhr: seit wann der Zustand gilt (ringing: Beginn des Klingelns) */
+    val since: Double? = null,
+)
+
+/** 2.5 (L7): Antwort auf POST /api/calls/{id}/invite */
+@Serializable
+data class InviteReply(
+    val ok: Boolean = false,
+    val n: Int = 0,
+    val rv: Double? = null,
+    val now: Double? = null,
+    val invites: List<CallInvite>? = null,
+    @SerialName("invites_more") val invitesMore: Int = 0,
 )
 
 @Serializable

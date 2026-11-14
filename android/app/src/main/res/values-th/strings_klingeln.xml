@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (L7): Gruppenanruf - Abschnitt "Nicht dabei" mit Erneut klingeln -->
+<resources>
+    <string name="inv_head">ไม่ได้อยู่ในสาย (%1$d)</string>
+    <string name="inv_ringing">กำลังเรียก …</string>
+    <string name="inv_declined">ปฏิเสธแล้ว</string>
+    <string name="inv_missed">ไม่ได้รับสาย</string>
+    <string name="inv_left">ออกจากการโทรแล้ว</string>
+    <string name="inv_none">ยังไม่ได้เชิญ</string>
+    <string name="inv_removed">นำออกแล้ว</string>
+    <string name="inv_old">แอปเก่าเกินไป</string>
+    <string name="inv_old_hint">แอปเก่าเกินไป – ต้องใช้ Saga เวอร์ชันใหม่กว่า</string>
+    <string name="inv_ring">เรียก</string>
+    <string name="inv_ring_again">เรียกอีกครั้ง</string>
+    <string name="inv_ring_all">เรียกทุกคนอีกครั้ง</string>
+    <string name="inv_ring_all_cd">เรียกทุกคนอีกครั้ง (%1$d)</string>
+    <string name="inv_ring_cd">เรียก %1$s</string>
+    <string name="inv_ring_again_cd">เรียก %1$s อีกครั้ง</string>
+    <string name="inv_old_cd">%1$s: แอปเก่าเกินไป – ต้องใช้ Saga เวอร์ชันใหม่กว่า</string>
+    <string name="inv_more">และอีก %1$d</string>
+    <string name="inv_busy">เรียกบ่อยเกินไป – โปรดรอประมาณหนึ่งนาที</string>
+    <string name="inv_failed">เรียกไม่สำเร็จ</string>
+    <string name="inv_calling_one">กำลังเรียก %1$s …</string>
+    <string name="inv_calling_n">กำลังเรียก %1$d คน …</string>
+</resources>
