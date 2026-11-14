@@ -338,7 +338,7 @@ struct MeetingStage: View {
     @ViewBuilder private var hornButton: some View {
         Group {
             if let H = calls.horn { HornPeopleButton(horn: H) }
-            else if mode != .duo {
+            else if mode != .duo || calls.invitesShown {                    // 2.5 (L7): Gruppe zu zweit - "Nicht dabei" erreichbar
                 Button { calls.meet.people.toggle() } label: {
                     Image(systemName: "person.2.fill").frame(width: 36, height: 36)
                         .background(calls.meet.people ? Color.white.opacity(0.35) : Color.black.opacity(0.45), in: Circle())
@@ -668,18 +668,25 @@ struct MeetPeoplePanel: View {
             }
             .padding(.horizontal, 14).padding(.vertical, 10)
             Divider()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(people) { p in row(p); Divider().padding(.leading, 56) }
+            if sidebar { ScrollView { rows } }
+            else {
+                ViewThatFits(in: .vertical) {                               // 2.5 (L7): mit "Nicht dabei" laenger - erst ab Bedarf scrollen
+                    rows
+                    ScrollView { rows }
                 }
             }
         }
         .frame(maxWidth: sidebar ? .infinity : 440, maxHeight: sidebar ? .infinity : nil)
-        .fixedSize(horizontal: false, vertical: !sidebar)
         .background(HornCardBackground(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shadow(radius: sidebar ? 0 : 12)
         .padding(sidebar ? 0 : 16)
         .accessibilityAddTraits(sidebar ? [] : .isModal)
+    }
+    private var rows: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(people) { p in row(p); Divider().padding(.leading, 56) }
+            if calls.invitesShown { InviteSection(calls: calls, host: calls.callHost) }   // 2.5 (L7): "Nicht dabei"
+        }
     }
     private func row(_ p: Person) -> some View {
         let speaking = calls.meet.speaking.contains(p.id)

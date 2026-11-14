@@ -20,6 +20,17 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Wer erneut angeklingelt wird, hört es wieder klingeln – auch wenn das erste Klingeln auf dem Gerät schon vorbei oder
   abgelehnt war; die Klingeldauer zählt ab dem erneuten Klingeln. Ältere Server zeigen den Abschnitt nicht.
 
+### Neu – iOS: Gruppenanruf „Nicht dabei“ und Erneut klingeln
+
+- Die Teilnehmerliste eines Gruppenanrufs (direkt und über Knoten, iPhone und iPad) zeigt unter den Teilnehmenden den
+  Abschnitt **„Nicht dabei“**: Chat-Mitglieder ohne Gerät im Anruf mit Profilbild, Zustand („klingelt …“, „hat
+  abgelehnt“, „nicht angenommen“, „hat den Anruf verlassen“, „noch nicht eingeladen“, „entfernt“, „App zu alt“) und
+  Knopf **„Erneut klingeln“** bzw. „Klingeln“; „Alle erneut klingeln“ ab zwei Personen. Entfernte Personen lässt nur
+  der Gastgeber erneut klingeln. Ein Tipp zeigt sofort „klingelt …“; geht es nicht (zu oft, keine Berechtigung), steht
+  der Grund im Abschnitt. Allein im Anruf erreicht man die Liste über „Nicht dabei (n)“. Braucht Saga-Server 2.5 (L7).
+- Wer erneut geklingelt wird, hört es jetzt auch, wenn der Anruf auf dem Gerät schon abgelehnt, verpasst oder verlassen
+  war – das Klingeln zählt ab dem letzten Klingeln (`invite_since`), nicht ab dem Beginn des Anrufs.
+
 ### Neu – iOS: Unterseiten als Liste oder Galerie
 
 - Der Block „Unterseiten“ (Server 2.5, `subpages1`) erscheint auf iPhone und iPad nativ statt als Hinweis „neuere Version

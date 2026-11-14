@@ -346,6 +346,9 @@ enum CallRoom {
         var silent = false
         /// 2.5 handover2: "Hierher uebernehmen" geht (auch bei vollem Anruf, joinable false/full)
         var takeover = false
+        /// 2.5 (L7): Beginn des (letzten) Klingelns der eigenen Einladung und Server-Uhr (aeltere Server: nil)
+        var inviteSince: Double? = nil
+        var now: Double? = nil
     }
     static func running(_ any: Any?) -> Running? {
         guard let d = any as? [String: Any], let id = d["id"] as? String, id.count == 32 else { return nil }
@@ -357,7 +360,8 @@ enum CallRoom {
                        limit: limit(media: (d["media"] as? String) ?? "audio", server: (d["limit"] as? NSNumber)?.intValue),
                        invite: d["invite"] as? String, created: (d["created"] as? NSNumber)?.doubleValue ?? 0,
                        ringS: (d["ring_s"] as? NSNumber)?.doubleValue ?? 45, peerName: (peer["name"] as? String) ?? "", role: (d["role"] as? String) ?? "",
-                       takeover: (d["takeover"] as? Bool) == true)
+                       takeover: (d["takeover"] as? Bool) == true, inviteSince: (d["invite_since"] as? NSNumber)?.doubleValue,
+                       now: (d["now"] as? NSNumber)?.doubleValue)
     }
     enum Bar: Equatable {
         case none

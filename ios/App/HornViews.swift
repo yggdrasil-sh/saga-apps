@@ -161,6 +161,7 @@ struct HornPeoplePanel: View {
     private var rows: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(horn.people) { p in row(p); Divider().padding(.leading, 56) }
+            if calls.invitesShown { InviteSection(calls: calls, host: calls.callHost || horn.host) }   // 2.5 (L7): "Nicht dabei"
         }
     }
     private func row(_ p: HornPerson) -> some View {

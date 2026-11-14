@@ -39,6 +39,7 @@ extension CallManager {
         } else if !joinRole.isEmpty, let p = c["peer"] as? [String: Any] {
             peerName = ShareJSON.str(p["name"]).map { PersonName.shown($0, id: ShareJSON.str(p["handle"]), host: ShareJSON.str(p["host"])) } ?? peerName; peerAvatar = ShareJSON.str(p["avatar"]) ?? peerAvatar
         }
+        invitesIn(c)                                                        // 2.5 (L7): "Nicht dabei"
     }
     /// Raum ueber Servergrenzen: eigener Handle (Signale sind daran gebunden)
     func adoptV2(_ c: [String: Any]) async {
@@ -74,19 +75,24 @@ extension CallManager {
 
     // MARK: Gruppenanruf klingelt
 
-    func ringGroup(_ c: [String: Any], hint: CallLogic.Push?, silent: Bool) async {
+    /// reRing: 2.5 (L7) hier schon erledigt, der Server meldet ein neues Klingeln (ringing() hat es geprueft)
+    func ringGroup(_ c: [String: Any], hint: CallLogic.Push?, silent: Bool, reRing: Bool = false) async {
         guard let cid = c["id"] as? String else { return }
         let mine = (c["mine"] as? [Any] ?? []).count
-        let created = ShareJSON.num(c["created"]) ?? Date().timeIntervalSince1970
         let ringS = ShareJSON.num(c["ring_s"]) ?? 45
         let st = c["state"] as? String
+        let since = ShareJSON.num(c["invite_since"])
+        // 2.5 (L7): Alter ab dem (letzten) Klingeln der eigenen Einladung (invite_since, Server-Uhr), aeltere Server ab created
+        let age = Invites.ringAge(now: ShareJSON.num(c["now"]), device: Date().timeIntervalSince1970, inviteSince: since, created: ShareJSON.num(c["created"]))
         guard st != "ended", CallRoom.ringGroup(invite: c["invite"] as? String, mine: Array(repeating: "", count: mine), silent: silent, busy: busy,
-                                                 age: Date().timeIntervalSince1970 - created, ringS: ringS) else {
+                                                 age: age, ringS: ringS) else {
             CallSystem.shared.endReported(cid, reason: mine > 0 ? .answeredElsewhere : .remoteEnded)   // VoIP-Push: sofort beenden
             runSoon()
             return
         }
-        if incoming?.id == cid || id == cid || done.contains(cid) { return }
+        if incoming?.id == cid || id == cid || (done.contains(cid) && !reRing) { return }
+        done.remove(cid)
+        if let since { ringSince[cid] = since }                            // dieses Klingeln ist hier behandelt
         let from = c["from"] as? [String: Any] ?? c["peer"] as? [String: Any] ?? [:]
         let who = ShareJSON.str(from["name"]) ?? hint?.caller ?? ""
         let dm = (c["dm"] as? Bool) == true || hint?.dm == true              // 2.5: 1:1 ueber Knoten - klingelt wie 1:1
@@ -333,6 +339,7 @@ extension CallManager {
     /// "ist hinzugekommen" / "hat verlassen", Verbindungen zu Geraeten trennen, die nicht mehr dabei sind
     func rosterIn(_ legs: [CallRoom.Leg], rv: Double, extra: [String: Any]? = nil) {
         guard !ending else { return }
+        if let e = extra { invitesIn(e) }                                  // 2.5 (L7): Anruf-Objekt traegt auch "Nicht dabei" (eigenes rv)
         let old: [CallRoom.Leg]? = roster.known ? roster.legs : nil
         guard roster.apply(legs, rv: rv) else { CallEnv.log("roster: aeltere Liste verworfen"); return }
         let here = myDevice ?? ""
@@ -605,13 +612,19 @@ extension CallManager {
             guard let x = CallRoom.running(c) else { continue }
             if ringDM, !busy, x.kind == "dm", x.state == "ringing", x.role == "callee" { await ringing(callID: x.id); continue }
             if x.kind == "group", !x.mine.isEmpty, incoming?.id == x.id { stopGroupRing(x.id, declined: false) }
-            else if x.kind == "group", x.invite == "ringing", x.mine.isEmpty, !busy, incoming == nil, !done.contains(x.id),
-                    Date().timeIntervalSince1970 - x.created < x.ringS {
-                await ringing(callID: x.id)
+            else if x.kind == "group", x.invite == "ringing", x.mine.isEmpty, !busy, incoming == nil,
+                    Invites.ringAge(now: x.now, device: Date().timeIntervalSince1970, inviteSince: x.inviteSince, created: x.created) < x.ringS,
+                    !done.contains(x.id) || reRings(x) {
+                await ringing(callID: x.id, again: true)                    // 2.5 (L7): auch erneutes Klingeln (Alter ab invite_since)
             }
             if bar(x) != .none { bars.append(x) }
         }
         if runBars != bars { runBars = bars }
+    }
+    /// 2.5 (L7): hier schon erledigter Gruppenanruf, der Server meldet ein NEUES Klingeln der eigenen Einladung
+    func reRings(_ x: CallRoom.Running) -> Bool {
+        Invites.ringAgain(invite: x.invite, mine: x.mine.count, state: x.state, inviteSince: x.inviteSince, now: x.now,
+                          device: Date().timeIntervalSince1970, ringS: x.ringS, handled: ringSince[x.id]) != nil
     }
     func bar(_ x: CallRoom.Running) -> CallRoom.Bar {
         CallRoom.bar(x, here: myDevice ?? "", current: busy ? id : nil, ringing: incoming?.id == x.id, rejoin: ho2)

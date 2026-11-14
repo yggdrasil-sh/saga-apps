@@ -185,7 +185,7 @@ struct CallScreen: View {
                         #endif
                 }
             }
-            if meetOn && calls.horn == nil && calls.meet.people {             // Teilnehmerliste (Mesh/1:1)
+            if (meetOn || awayAlone) && calls.horn == nil && calls.meet.people {   // Teilnehmerliste (Mesh/1:1)
                 if peopleSidebar {
                     MeetPeoplePanel(calls: calls, devices: calls.meetingDevices(), sidebar: true)
                         .environment(\.colorScheme, systemScheme).foregroundStyle(systemScheme == .dark ? Color.white : Color.black)
@@ -347,6 +347,10 @@ struct CallScreen: View {
         return (parts.joined(separator: " · "), ok)
     }
 
+    /// 2.5 (L7): Gruppenanruf (Mesh) noch ohne andere - "Nicht dabei" ueber einen eigenen Knopf (die Buehne fehlt noch)
+    private var awayAlone: Bool {
+        !meetOn && calls.horn == nil && calls.invitesShown && [.ringingOut, .connecting, .active].contains(calls.phase)
+    }
     private var peerBlock: some View {
         VStack(spacing: 12) {
             Group {
@@ -363,6 +367,16 @@ struct CallScreen: View {
             }
             if calls.phase == .active && !calls.remote.mic {
                 Label("\(calls.peerName) ist stummgeschaltet", systemImage: "mic.slash.fill").font(.footnote).foregroundStyle(.white.opacity(0.8))
+            }
+            if awayAlone {
+                Button { calls.meet.people.toggle() } label: {
+                    Label { Text("Nicht dabei (\(calls.invites.count()))") } icon: { Image(systemName: "person.2.fill") }
+                        .font(.subheadline.weight(.semibold)).padding(.horizontal, 14).padding(.vertical, 8)
+                        .background(Color.white.opacity(calls.meet.people ? 0.35 : 0.16), in: Capsule())
+                        .frame(minHeight: 44).contentShape(Capsule())
+                }
+                .buttonStyle(.plain).foregroundStyle(.white)
+                .accessibilityAddTraits(calls.meet.people ? .isSelected : [])
             }
         }
     }

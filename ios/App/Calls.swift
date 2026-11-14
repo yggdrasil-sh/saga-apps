@@ -133,6 +133,14 @@ final class CallManager: NSObject, ObservableObject {
     @Published var limit = CallRoom.videoMax
     /// Personen ohne Saga 2.4 (Gruppe: sehen nur den Chat-Eintrag)
     @Published var oldNames: [String] = []
+    /// 2.5 (L7): Abschnitt "Nicht dabei" im Gruppenanruf (invites, eigener Stand rv); invTick zeichnet neu, wenn "klingelt" ablaeuft
+    @Published var invites = Invites.List()
+    @Published var invTick = 0
+    /// Hinweis im Abschnitt "Nicht dabei" (Fehler beim Klingeln: 403 Text des Servers, 429 "zu oft")
+    @Published var invNote: String?
+    var invTask: Task<Void, Never>?
+    /// 2.5 (L7): eigenes Klingeln je Anruf schon behandelt (invite_since) - ein erledigter Anruf klingelt nur bei NEUEM Klingeln wieder
+    var ringSince: [String: Double] = [:]
     /// Leiste "Anruf laeuft" (GET /api/calls/active): andere eigene Geraete bzw. Gruppenanrufe in eigenen Chats
     @Published var runBars: [CallRoom.Running] = []
     /// dieses Geraet ist (per join) im Raum
@@ -596,14 +604,27 @@ final class CallManager: NSObject, ObservableObject {
 
     // MARK: Klingeln (eingehend)
 
-    /// call.ring, call.invite oder VoIP-Push: Zustand holen, nur bei "ringing" klingeln
-    func ringing(callID cid: String, hint: CallLogic.Push? = nil, silent: Bool = false) async {
+    /// call.ring, call.invite oder VoIP-Push: Zustand holen, nur bei "ringing" klingeln.
+    /// again: Gruppen-Einladung (call.invite, Abfrage) - 2.5 (L7) klingelt ein hier schon erledigter Anruf wieder, wenn der
+    /// Server ein NEUES Klingeln meldet (invite "ringing", invite_since neuer als das behandelte, kein eigenes Geraet dabei)
+    func ringing(callID cid: String, hint: CallLogic.Push? = nil, silent: Bool = false, again: Bool = false) async {
         guard let store else { return }
-        if done.contains(cid) { CallSystem.shared.endReported(cid, reason: .remoteEnded); return }   // schon erledigt (VoIP-Push kam spaet)
+        let wasDone = done.contains(cid)
+        if wasDone && (!(again || hint?.group == true) || incoming?.id == cid || id == cid) {   // schon erledigt (VoIP-Push kam spaet)
+            CallSystem.shared.endReported(cid, reason: .remoteEnded); return
+        }
         if incoming?.id == cid || id == cid { return }
         guard let (d, code) = try? await store.apiResponse("api/calls/\(cid)"), code == 200,
               let c = ShareJSON.obj(d)?["call"] as? [String: Any] else { CallSystem.shared.endReported(cid, reason: .failed); return }
-        if (c["kind"] as? String) == "group" { await ringGroup(c, hint: hint, silent: silent); return }   // 2.4 E5
+        if wasDone {
+            guard (c["kind"] as? String) == "group", done.contains(cid), incoming?.id != cid, id != cid,
+                  let left = Invites.ringAgain(invite: c["invite"] as? String, mine: (c["mine"] as? [Any] ?? []).count, state: c["state"] as? String,
+                                               inviteSince: ShareJSON.num(c["invite_since"]), now: ShareJSON.num(c["now"]),
+                                               device: Date().timeIntervalSince1970, ringS: ShareJSON.num(c["ring_s"]) ?? 45, handled: ringSince[cid])
+            else { if incoming?.id != cid && id != cid { CallSystem.shared.endReported(cid, reason: .remoteEnded) }; return }
+            CallEnv.log("ring again \(cid.prefix(8)) \(Int(left))s")
+        }
+        if (c["kind"] as? String) == "group" { await ringGroup(c, hint: hint, silent: silent, reRing: wasDone); return }   // 2.4 E5
         let st = c["state"] as? String, r = c["role"] as? String
         guard st == "ringing", r == "callee" else { CallSystem.shared.endReported(cid, reason: st == "active" ? .answeredElsewhere : .remoteEnded); return }
         // Live-Kanal (call.ring) und Nachholen (checkActive/Push) koennen gleichzeitig fragen: klingelt derselbe Anruf
@@ -649,8 +670,9 @@ final class CallManager: NSObject, ObservableObject {
                 guard let self, let inc = self.incoming, inc.id == cid, let store = self.store else { return }
                 guard let (d, c) = try? await store.apiResponse("api/calls/\(cid)"), c == 200, let call = ShareJSON.obj(d)?["call"] as? [String: Any],
                       self.incoming?.id == cid else { continue }
-                let now = ShareJSON.num(call["now"]) ?? Date().timeIntervalSince1970
-                let age = now - (ShareJSON.num(call["created"]) ?? now)
+                // 2.5 (L7): Alter ab dem (letzten) Klingeln der eigenen Einladung, aeltere Server ab created
+                let age = Invites.ringAge(now: ShareJSON.num(call["now"]), device: Date().timeIntervalSince1970,
+                                          inviteSince: ShareJSON.num(call["invite_since"]), created: ShareJSON.num(call["created"]))
                 switch CallLogic.ringPoll(group: inc.group, state: call["state"] as? String, mine: (call["mine"] as? [Any] ?? []).count,
                                           invite: call["invite"] as? String, age: age, ringS: ShareJSON.num(call["ring_s"]) ?? 45) {
                 case .keep: continue
@@ -971,7 +993,8 @@ final class CallManager: NSObject, ObservableObject {
             chain = Task { await prev?.value; await self.handleRaw(d) }   // der Reihe nach (Neuverhandlung)
         case "call.invite":                                                 // 2.4 E5: Gruppenanruf klingelt
             guard let cid, CallLogic.isCallID(cid) else { return }
-            if !busy && incoming == nil && !done.contains(cid) { Task { await ringing(callID: cid, silent: ShareJSON.bool(d["silent"])) } }
+            // 2.5 (L7): auch ein hier schon erledigter Anruf (erneut klingeln) - ringing() prueft das neue Klingeln
+            if !busy && incoming == nil { Task { await ringing(callID: cid, silent: ShareJSON.bool(d["silent"]), again: true) } }
             runSoon()
         case "call.roster":                                                 // 2.4: Teilnehmerliste
             guard let cid else { return }
@@ -979,6 +1002,8 @@ final class CallManager: NSObject, ObservableObject {
             if cid == id, ready { rosterIn(CallRoom.legs(d["legs"]), rv: rv, extra: d) }
             if let inc = incoming, inc.id == cid, inc.group, CallRoom.stopRinging(CallRoom.legs(d["legs"]), me: me) { stopGroupRing(cid, declined: false) }
             runSoon()
+        case "call.invites":                                                // 2.5 (L7): "Nicht dabei" hat sich geaendert
+            if let cid, cid == id, !ending { invitesIn(d) }
         case "call.horn_move": hornMoveIn(d)                               // 2.5: Knoten wird geleert/aktualisiert/entfernt
         case "call.mod": hornModIn(d)                                       // 2.5: Gastgeber hat stummgeschaltet/entfernt
         case "call.topo": hornTopoIn(d)                                     // Horn-Fix: Server hat auf direkt umgestellt
@@ -1764,12 +1789,13 @@ final class CallManager: NSObject, ObservableObject {
         // 2.4 E4/E5
         kind = "dm"; dmRoom = false; mutedBy = nil; companion = false; sound = true; meshView = false; tiles = []; speakerDev = nil; handingOver = false
         limit = CallRoom.videoMax; oldNames = []; inRoom = false
+        invites = Invites.List(); invNote = nil; invTask?.cancel(); invTask = nil
         roster.reset(); ho = CallRoom.Handover(); hoTask?.cancel(); hoTask = nil; joinRole = ""; title = ""
         sigPull = CallRoom.Pull(); sigRetry = [:]; stateRetry = false; sigRounds = 0
         diagTask?.cancel(); diagTask = nil; diag = nil                       // Diagnose je Anruf neu (Wiedereintritt nach Uebergabe)
         pend = [:]; admitting = []; badDevs = []; keysBy = [:]; speakerState = CallRoom.Speaker()
     }
-    func signedOut() { if busy { hangup() }; enabled = true; done = []; capsSent = ""; runBars = [] }
+    func signedOut() { if busy { hangup() }; enabled = true; done = []; ringSince = [:]; capsSent = ""; runBars = [] }
 }
 
 extension RTCRtpTransceiver {
