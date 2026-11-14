@@ -94,6 +94,7 @@ struct InviteSection: View {
             case .old:
                 Button(String(localized: "Erneut klingeln")) {}
                     .buttonStyle(.bordered).controlSize(.small).disabled(true)
+                    .opacity(0.45)                                          // Liste setzt die Schriftfarbe fest - deaktiviert sichtbar machen
                     .accessibilityLabel(Text("\(e.name): App zu alt – braucht eine neuere Saga-Version"))
                     .help(Text("App zu alt – braucht eine neuere Saga-Version"))
             }
