@@ -137,6 +137,7 @@ class HornNodeLoopbackTest {
         }
 
         val cams = HashMap<String, VideoTrack?>()
+        val gen = java.util.concurrent.atomic.AtomicInteger()
         fun host(me: String, peer: String): HornSession.Host = object : HornSession.Host {
             override val scope: CoroutineScope get() = scope
             override val factory: PeerConnectionFactory get() = f
@@ -148,8 +149,11 @@ class HornNodeLoopbackTest {
             override fun screenTrack(): VideoTrack? = null
             override fun myState() = Triple(false, true, false)
             override suspend fun cands(node: String?, avoid: List<String>): List<HornLogic.Cand> = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                // je Abruf eigene leg_ref (wie Saga: neue Generation je Kandidatenliste) - sonst ersetzte der Knoten beim
+                // Wechsel das laufende Bein derselben Rolle (L3) und schloesse es, bevor die neue Verbindung steht
+                val g = gen.incrementAndGet()
                 val toks = listOf("audio", "video").associateWith { role ->
-                    Json.parseToJsonElement(post(http, "$base/api/dev/token", """{"room":"$room","peer":"$peer","role":"$role","device":"mobile"}"""))
+                    Json.parseToJsonElement(post(http, "$base/api/dev/token", """{"room":"$room","peer":"$peer","role":"$role","device":"mobile","leg":"$peer-$g-$role"}"""))
                         .jsonObject["token"]!!.jsonPrimitive.content
                 }
                 listOf(HornLogic.Cand("local", base!!, udp = false, here = true, peer = peer, exp = System.currentTimeMillis() / 1000 + 60, tokens = toks))
