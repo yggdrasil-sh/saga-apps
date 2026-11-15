@@ -21,6 +21,15 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Saga-Adresse“, Diagnose-Weg `ws`; reicht der Proxy keinen WebSocket durch, steht in Diagnose und Fehlerprotokoll
   „Proxy reicht WebSocket nicht durch“. Ältere Server ohne Tunnel: alles wie bisher.
 
+### Neu – Mac (Desktop-App): telefoniert auch hinter Nginx Proxy Manager (Tunnel, A3)
+
+- Die Anrufseite in der Desktop-App nimmt denselben Tunnel wie die iOS-App: Die Hülle meldet die Fähigkeit `tunnel` und
+  öffnet über die Brücke `hkTunnel` je Leitung den WebSocket zum Knoten und einen lokalen Port (nur 127.0.0.1, nur die
+  erste Verbindung, erst kurz vor dem Setzen der Antwort); das Web biegt den ICE-TCP-Kandidaten darauf. Nur für die
+  eigene Saga-Adresse, alle Tunnel zu bei Seitenwechsel, Neuladen und Abmelden. Neues Entitlement
+  `com.apple.security.network.server` (Lauscher in der Sandbox). Braucht Saga-Server 2.5 mit dieser Fähigkeit; ältere
+  Server und Browser ohne Hülle: alles wie bisher.
+
 ### Neu – Android: Gruppenanruf „Nicht dabei“ mit „Erneut klingeln“
 
 - Die Teilnehmerliste eines Gruppenanrufs (direkt und über Knoten) zeigt unter den Teilnehmenden den Abschnitt **„Nicht
