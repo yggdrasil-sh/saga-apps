@@ -10,6 +10,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -144,6 +146,13 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         /** Nur Geraetetests: Wartezeiten der Wege verlaengern (langsamer Emulator ohne Hardware) */
         @androidx.annotation.VisibleForTesting
         @Volatile internal var testWaitScale: Long = 1
+
+        /** Nur Geraetetests: Weg erzwingen ("ws" = Tunnel ueber die Saga-Adresse) */
+        @androidx.annotation.VisibleForTesting
+        @Volatile internal var testPath: String? = null
+
+        /** A3: Zaehler der Tunnel der laufenden Verbindungen (Protokoll/Test) */
+        fun tunnelStats(s: HornSession): String = s.conns().flatMap { c -> c.legs.values.mapNotNull { L -> L.tunnel?.let { "${L.role} ${it.stats()}" } } }.joinToString(" ; ")
     }
     private val allowHttp = BuildConfig.DEBUG
 
@@ -169,6 +178,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     var cur: Conn? = null
         private set
     private var next: Conn? = null
+    /** A3: zweite Verbindung im Wettlauf UDP | Tunnel ([race]), bis eine gewinnt */
+    private var side: Conn? = null
     private val olds = ArrayList<Conn>()
     private var seq = 0
     private val bad = HashMap<String, Long>()
@@ -255,6 +266,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         var scr: RtpTransceiver? = null
         val senders = ArrayList<FrameCryptor>()
         var ws: WebSocket? = null
+        /** A3 (Weg "ws"): Tunnel dieser Leitung (lokaler Lauscher + WebSocket ueber die Saga-Adresse) */
+        var tunnel: HornTunnel? = null
         var state: PeerConnection.PeerConnectionState = PeerConnection.PeerConnectionState.NEW
         /** 2.5 (handover2, L3): durch ein neues Bein mit gleicher leg_ref ersetzt - Ereignisse/Schliessen kein Verlust */
         var replaced = false
@@ -293,7 +306,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         val gov = if (path == "udp") null else HornLogic.TxGov(path)
     }
 
-    fun conns(): List<Conn> = (listOfNotNull(cur) + olds + listOfNotNull(next)).filter { !it.dead }.distinct()
+    fun conns(): List<Conn> = (listOfNotNull(cur) + olds + listOfNotNull(next, side)).filter { !it.dead }.distinct()
 
     // ---------------------------------------------------------------- Start, Ende
 
@@ -335,6 +348,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         for (c in conns() + olds) closeConn(c)
         cur = null
         next = null
+        side = null
         olds.clear()
         for ((d, t) in bound) try {
             t.removeSink(host.tileSink(d))
@@ -553,41 +567,93 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
 
     private var usedJoin = false
 
-    /** Weg waehlen: UDP (wenn udp_ok und die UDP-Probe klappt), sonst ICE-TCP, dann TURN-TLS mit frischen Token */
+    /**
+     * Weg waehlen (Vertrag A3 Punkt 10, [HornLogic.ways]): UDP (udp_ok + Probe) und - bietet der Kandidat ws an -
+     * gleichzeitig der Tunnel ueber die Saga-Adresse (UDP mit Vorsprung); sonst bzw. danach ICE-TCP, dann TURN-TLS mit
+     * frischen Token
+     */
     private suspend fun open(cand: HornLogic.Cand): Conn {
+        testPath?.let { return connect(cand, it) }                  // nur Geraetetests: Weg erzwingen
         val m = meas[cand.node]
         val udp = cand.udp && cand.tokens["both"] != null && m != null && (m.udp != null || m.udpMaybe)
-        try {
-            if (udp) {
-                try {
-                    return connect(cand, "udp", if (m.udp != null) HornLogic.WAIT_UDP else HornLogic.WAIT_UDP_MAYBE)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: HttpErr) {
-                    if (e.code == 404 || e.code == 429) throw e
-                } catch (_: Exception) {
-                }
-                return connect(fresh(cand), "tcp")
+        val ways = HornLogic.ways(cand, udp)
+        val udpWait = if (m?.udp != null) HornLogic.WAIT_UDP else HornLogic.WAIT_UDP_MAYBE
+        var last: Exception = IOException("kein weg")
+        if (ways.race.isNotEmpty()) {
+            try {
+                return if (ways.race.size > 1) race(cand, udpWait, if (m?.udp != null) HornLogic.WS_HEAD_UDP else HornLogic.WS_HEAD_UDP_MAYBE)
+                else connect(cand, ways.race[0], if (ways.race[0] == "udp") udpWait else 0)
+            } catch (e: Exception) {
+                if (stopErr(e)) throw e
+                last = e
             }
-            return connect(cand, "tcp")
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: HttpErr) {
-            if (e.code == 404 || e.code == 429) throw e
-            return connect(fresh(cand), "turn")
-        } catch (e: CallEnded) {
-            throw e
-        } catch (_: Exception) {
-            return connect(fresh(cand), "turn")
         }
+        var used = ways.race.isNotEmpty()                           // wie bisher: nach einem Versuch frische Token
+        for (p in ways.then) {
+            try {
+                val c = if (p == "turn" || used) fresh(cand) else cand
+                used = true
+                return connect(c, p)
+            } catch (e: Exception) {
+                if (stopErr(e)) throw e
+                last = e
+            }
+        }
+        throw last
     }
 
-    private suspend fun connect(cand: HornLogic.Cand, path: String, waitMs: Long = 0): Conn {
+    /** kein weiterer Weg: aufgelegt, beendet (404) oder voll/Leeren (429) */
+    private fun stopErr(e: Throwable): Boolean = e is CancellationException || e is CallEnded || e is HornBusy ||
+        (e is HttpErr && (e.code == 404 || e.code == 429))
+
+    /**
+     * A3 "Happy Eyeballs": UDP sofort, der Tunnel nach head ms (oder sobald UDP vorher scheitert). Die erste verbundene
+     * Verbindung gewinnt; die andere wird geschlossen (Beine per DELETE), auch wenn sie noch im Aufbau ist.
+     */
+    private suspend fun race(cand: HornLogic.Cand, udpWait: Long, head: Long): Conn = coroutineScope {
+        log("race ${cand.node} udp|ws ${head}ms")
+        val made = ArrayList<Conn>()
+        val udpDown = CompletableDeferred<Unit>()
+        val a = async {
+            runCatching { connect(cand, "udp", udpWait, made = { made.add(it) }) }.also { if (it.isFailure) udpDown.complete(Unit) }
+        }
+        val b = async {
+            withTimeoutOrNull(head * testWaitScale) { udpDown.await() }
+            runCatching { connect(cand, "ws", side = true, made = { made.add(it) }) }
+        }
+        val fails = ArrayList<Throwable>()
+        var left = listOf(a, b)
+        while (true) {
+            val (d, r) = select<Pair<kotlinx.coroutines.Deferred<Result<Conn>>, Result<Conn>>> { for (x in left) x.onAwait { x to it } }
+            val w = r.getOrNull()
+            if (w != null) {
+                for (x in left) if (x !== d) x.cancel()
+                for (c in made) if (c !== w) closeConn(c)
+                log("race ${w.path} gewinnt")
+                return@coroutineScope w
+            }
+            fails.add(r.exceptionOrNull() ?: IOException("race"))
+            left = left.filter { it !== d }
+            if (left.isEmpty()) throw (fails.firstOrNull { stopErr(it) } ?: fails.last())
+        }
+        @Suppress("UNREACHABLE_CODE") throw IOException("race")
+    }
+
+    /** A3: Tunnel scheiterte beim Aufbau - Protokoll, calldiag ("path"), clientlog; 426 = Proxy reicht WebSocket nicht durch */
+    private fun tunnelFail(e: HornTunnel.Fail) {
+        log(e.message.orEmpty())
+        host.diagEvent("path", e.message.orEmpty())
+        if (e.status > 0) io.github.yggdrasil_sh.saga.diag.ClientLogger.error(e, "calls")
+    }
+
+    /** side: zweite Verbindung im Wettlauf ([side] statt [next]); made: neue Verbindung melden (Wettlauf schliesst sie) */
+    private suspend fun connect(cand: HornLogic.Cand, path: String, waitMs: Long = 0, side: Boolean = false, made: ((Conn) -> Unit)? = null): Conn {
         val conn = Conn("c" + (++seq), cand, path)
-        next = conn
+        if (side) this.side = conn else next = conn
+        made?.invoke(conn)
         try {
             var turn: Pair<String, String>? = null
-            if (path == "turn") {
+            if (path == "turn" || path == "ws") {                    // ws: dieselben Zugangsdaten fuer die erste WS-Nachricht
                 val r = nodeHttp(cand.url + "/api/sfu/turn", buildJsonObject { put("token", cand.tokens["audio"].orEmpty()) })
                 val o = kotlinx.serialization.json.Json.parseToJsonElement(r) as? JsonObject
                 turn = ((o?.get("username") as? JsonPrimitive)?.contentOrNull ?: "") to ((o?.get("credential") as? JsonPrimitive)?.contentOrNull ?: "")
@@ -598,7 +664,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             connState(conn)
             val wait = if (waitMs > 0) waitMs else when (path) {
                 "udp" -> HornLogic.WAIT_UDP
-                "tcp" -> HornLogic.WAIT_TCP
+                "tcp", "ws" -> HornLogic.WAIT_TCP                   // ws: Wartezeit erst nach bereitem WS (ICE-TCP + DTLS)
                 else -> HornLogic.WAIT_TURN
             }
             val ok = withTimeoutOrNull(wait * testWaitScale) { d.await() }
@@ -612,6 +678,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         } catch (e: Throwable) {
             closeConn(conn)
             if (next === conn) next = null
+            if (this.side === conn) this.side = null
+            if (e is HornTunnel.Fail) tunnelFail(e)
             throw e
         }
     }
@@ -661,12 +729,23 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         // schon freigegebene KeyProvider wirft
         if (closed || conn.dead) throw CancellationException()
         var legObj: Leg? = null
-        val pc = host.factory.createPeerConnection(rtcConfig(conn.cand, turn), observer(conn) { legObj })
+        val pc = host.factory.createPeerConnection(rtcConfig(conn.cand, if (path == "ws") null else turn), observer(conn) { legObj })
             ?: throw IOException("peerconnection")
         val L = Leg(role, pc)
         L.pend = pend
         legObj = L
         conn.legs[role] = L
+        // A3: Tunnel je Leitung - WS gleich aufbauen (parallel zu Angebot und POST /api/sfu/leg), Lauscher erst vor der Antwort
+        val tunReady = CompletableDeferred<Unit>()
+        if (path == "ws") {
+            val cr = turn ?: throw IOException("ws zugang")
+            val t = HornTunnel(conn.cand.url, cr.first, cr.second, http)
+            L.tunnel = t
+            t.onClose = { why -> scope.launch { log("ws $role zu $why ${t.stats()}") } }
+            scope.launch(Dispatchers.IO) {
+                try { t.connect(); tunReady.complete(Unit) } catch (e: Throwable) { tunReady.completeExceptionally(e) }
+            }
+        }
         val me = host.myDev()
         val tiles = HornLogic.tileSlots(host.mobile())
         fun recv(kind: String): Recv {
@@ -739,7 +818,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         val local = pc.localDescription?.description ?: offer.description
         suspend fun post(c: HornLogic.Cand): String = nodeHttp(c.url + "/api/sfu/leg", buildJsonObject {
             put("token", c.tokens[role].orEmpty())
-            put("path", path)
+            put("path", HornWire.legPath(path))
             put("offer", local)
             put("audio", if (role != "video") 3 else 0)
             put("speaker", role != "audio")
@@ -763,7 +842,16 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         L.slots = res.slots
         conn.state = res.state
         peersIn(conn, res.peers)
-        sdpSet { pc.setRemoteDescription(it, SessionDescription(SessionDescription.Type.ANSWER, res.answer)) }
+        var answer = res.answer
+        val tun = L.tunnel
+        if (tun != null) {
+            tunReady.await()                                        // WS steht (sonst HornTunnel.Fail: naechster Weg)
+            if (closed || conn.dead || conn.legs[role] !== L) throw CancellationException()
+            if (!HornWire.bendable(answer)) throw IOException("ws ohne TCP-Kandidat")
+            val port = withContext(Dispatchers.IO) { tun.listen() }  // Lauscher erst jetzt (Vertrag 6)
+            answer = HornWire.bend(answer, port)
+        }
+        sdpSet { pc.setRemoteDescription(it, SessionDescription(SessionDescription.Type.ANSWER, answer)) }
         events(conn, L, false)
         mapAll()
     }
@@ -1098,6 +1186,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         val prev = cur
         val now = System.currentTimeMillis()
         if (next === conn) next = null
+        if (side === conn) side = null
         cur = conn
         if (prev != null && prev !== conn) {
             prev.retired = now
@@ -1307,6 +1396,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             } catch (_: Exception) {
             }
             L.ws = null
+            closeTunnel(L)
             L.id?.let { id -> scope.launch { try { nodeHttp(c.cand.url + "/api/sfu/leg/" + id, null, "DELETE") } catch (_: Exception) {} } }
             for (r in L.recv) {
                 r.scrubJob?.cancel()
@@ -1326,6 +1416,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         olds.remove(c)
         if (cur === c) cur = null
         if (next === c) next = null
+        if (side === c) side = null
         if (!closed) stateOut()                                     // state.hp ohne die geschlossene Verbindung
     }
 
@@ -1538,7 +1629,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         for ((d, t) in speakAt) if (now - t < 3600) speaking.add(d)
         if (cur === c && !switching) {
             val udpOk = c.path != "udp" && c.cand.udp && meas[c.node]?.udp != null
-            sw?.udp(now, loss, udpOk)?.let { x ->
+            sw?.udp(now, loss, udpOk, HornLogic.streamPath(c.cand))?.let { x ->
                 if (x.path != c.path && (x.path != "udp" || c.cand.tokens.isNotEmpty())) switch(x.why, path = x.path)
             }
         }
@@ -1736,7 +1827,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             val cand = cands.firstOrNull { it.node == conn.node && it.tokens[role] != null } ?: fresh(conn.cand)
             conn.cand = cand
             var turn: Pair<String, String>? = null
-            if (conn.path == "turn") {
+            if (conn.path == "turn" || conn.path == "ws") {
                 val r = nodeHttp(cand.url + "/api/sfu/turn", buildJsonObject { put("token", cand.tokens["audio"].orEmpty()) })
                 val o = kotlinx.serialization.json.Json.parseToJsonElement(r) as? JsonObject
                 turn = ((o?.get("username") as? JsonPrimitive)?.contentOrNull ?: "") to ((o?.get("credential") as? JsonPrimitive)?.contentOrNull ?: "")
@@ -1790,6 +1881,13 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         closeLeg(conn, L, delete = false)
     }
 
+    /** A3: Tunnel kurz nach der PeerConnection schliessen (letzte Bytes, DTLS-Ende, noch durchreichen) */
+    private fun closeTunnel(L: Leg) {
+        val t = L.tunnel ?: return
+        L.tunnel = null
+        scope.launch(Dispatchers.IO) { delay(300); t.close() }
+    }
+
     private fun closeLeg(conn: Conn, L: Leg, delete: Boolean = true) {
         try {
             L.ws?.cancel()
@@ -1797,6 +1895,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         }
         if (conn.ws === L.ws) conn.ws = null
         L.ws = null
+        closeTunnel(L)
         if (delete) L.id?.let { id -> scope.launch { try { nodeHttp(conn.cand.url + "/api/sfu/leg/" + id, null, "DELETE") } catch (_: Exception) {} } }
         for (r in L.recv) {
             r.scrubJob?.cancel()

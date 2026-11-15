@@ -184,6 +184,7 @@ object CallDiag {
         "udp" -> "udp"
         "tcp" -> "tcp"
         "turn" -> "tls"
+        "ws" -> "ws"                                            // A3: Tunnel ueber die Saga-Adresse
         else -> "?"
     }
 

@@ -77,11 +77,22 @@ class HornNodeLoopbackTest {
     private fun main(f: () -> Unit) = InstrumentationRegistry.getInstrumentation().runOnMainSync(f)
 
     @Test
-    fun twoSessionsThroughLocalNode() {
+    fun twoSessionsThroughLocalNode() = twoSessions(null)
+
+    /**
+     * Saga 2.5 A3: derselbe Ablauf ueber den Tunnel (Weg "ws": libwebrtc ICE-TCP -> 127.0.0.1 ->
+     * [io.github.yggdrasil_sh.saga.call.HornTunnel] -> wss://<hornNode>/api/sfu/ws, Kandidat des Knotens gebogen).
+     * hornNode darf ein TLS-beendender Proxy vor saga-media sein.
+     */
+    @Test
+    fun twoSessionsThroughTunnel() = twoSessions("ws")
+
+    private fun twoSessions(force: String?) {
         val base = InstrumentationRegistry.getArguments().getString("hornNode")
         assumeTrue("ohne lokalen Knoten (Argument hornNode) uebersprungen", base != null)
         val http = client()
         HornSession.testClient = http
+        HornSession.testPath = force
         HornSession.testWaitScale = 5                        // Emulator ohne Hardware: ICE-TCP + DTLS brauchen laenger
         val room = "p12" + System.currentTimeMillis() % 100000
         post(http, "$base/api/dev/room", """{"room":"$room"}""")
@@ -182,7 +193,13 @@ class HornNodeLoopbackTest {
             }
             var pathA = ""
             main { pathA = sessions[devA]!!.path }
-            assertEquals("Weg ohne UDP", "tcp", pathA)
+            assertEquals("Weg ohne UDP", force ?: "tcp", pathA)
+            if (force != null) {
+                var ts = ""
+                main { ts = HornSession.tunnelStats(sessions[devA]!!) }
+                android.util.Log.i("HornTunnel", "TUNNEL $ts")
+                assertTrue("je Leitung ein Tunnel mit genau einer lokalen Verbindung: $ts", ts.split(" ; ").count { it.contains("acc=1 ") } >= 2)
+            }
             assertTrue("B sieht A (${sinks["$devB<-$devA"]?.n})", (sinks["$devB<-$devA"]?.n?.get() ?: 0) > 20)
             assertTrue("A sieht B (${sinks["$devA<-$devB"]?.n})", (sinks["$devA<-$devB"]?.n?.get() ?: 0) > 20)
             var runes = ""
@@ -206,6 +223,7 @@ class HornNodeLoopbackTest {
             scope.cancel()
             HornSession.testClient = null
             HornSession.testWaitScale = 1
+            HornSession.testPath = null
             Thread.sleep(300)
             tracks.forEach { it.dispose() }
         }

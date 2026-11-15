@@ -437,14 +437,14 @@ extension CallManager {
         final class Box { var done = false, udpDown = false; var fails: [Error] = []; var conns: [HornConn] = [] }
         let box = Box()
         return try await withCheckedThrowingContinuation { (k: CheckedContinuation<HornConn, Error>) in
-            func won(_ c: HornConn) {
-                guard !box.done else { hornConnClose(c); return }
+            let won: @MainActor (HornConn) -> Void = { c in
+                guard !box.done else { self.hornConnClose(c); return }
                 box.done = true
-                for x in box.conns where x !== c { hornConnClose(x) }
+                for x in box.conns where x !== c { self.hornConnClose(x) }
                 H.trace("race \(c.path) gewinnt")
                 k.resume(returning: c)
             }
-            func lost(_ e: Error) {
+            let lost: @MainActor (Error) -> Void = { e in
                 box.fails.append(e)
                 guard box.fails.count == 2, !box.done else { return }
                 box.done = true
@@ -490,7 +490,7 @@ extension CallManager {
                 try await g.waitForAll()
             }
             guard hornLive(H), !conn.dead else { throw HornFail.cancelled }
-            let ms = wait ?? (path == "udp" ? HornLogic.waitUDP : path == "tcp" ? HornLogic.waitTCP : HornLogic.waitTURN)
+            let ms = wait ?? (path == "udp" ? HornLogic.waitUDP : path == "tcp" || path == "ws" ? HornLogic.waitTCP : HornLogic.waitTURN)   // ws: WS steht schon
             let ok: Bool = await withCheckedContinuation { k in
                 let once = HornOnce()
                 let t = Task { @MainActor in

@@ -241,11 +241,12 @@ object HornLogic {
         }
 
         /** UDP-Weg: Verlust (0..1) aus getStats; ok = UDP-Probe gelingt (fuer die Rueckkehr) */
-        fun udp(now: Long, loss: Double, ok: Boolean = false): Decision? {
+        /** stream = Weg ohne UDP fuer diesen Knoten ([streamPath]: "ws" bzw. "tcp") */
+        fun udp(now: Long, loss: Double, ok: Boolean = false, stream: String = "tcp"): Decision? {
             if (path == "udp") {
                 if (loss > UDP_LOSS) {
                     if (lossSince == 0L) lossSince = now
-                    if (now - lossSince >= UDP_LOSS_FOR) return Decision("path", "udp-loss", path = "tcp")
+                    if (now - lossSince >= UDP_LOSS_FOR) return Decision("path", "udp-loss", path = stream)
                 } else lossSince = 0
                 return null
             }
@@ -323,8 +324,35 @@ object HornLogic {
         "udp" -> "UDP"
         "turn" -> "TLS"
         "tcp" -> "TCP"
+        "ws" -> "WS"                                            // A3: Tunnel ueber die Saga-Adresse (Werte wie TCP)
         else -> ""
     }
+
+    // ---- Wegwahl (Vertrag A3 Punkt 10; wie ios/App/HornLogic.swift ways) -----------------------------------------
+
+    /**
+     * Reihenfolge der Wege: race = gleichzeitig ("Happy Eyeballs": UDP zuerst, der Tunnel nach [wsHead] bzw. sofort, wenn
+     * UDP vorher scheitert), then = danach der Reihe nach. ws:true -> UDP | Tunnel, kein Warten auf ICE-TCP/TURN-TLS;
+     * scheitern beide: TCP (wenn nicht tcp:false), dann TLS (wenn nicht tls:false). Ohne ws wie bisher UDP -> TCP -> TLS.
+     */
+    data class Ways(val race: List<String>, val then: List<String>)
+
+    fun ways(c: Cand, udp: Boolean): Ways {
+        val r = ArrayList<String>()
+        if (udp) r.add("udp")
+        if (c.ws) r.add("ws")
+        val t = ArrayList<String>()
+        if (c.tcp) t.add("tcp")
+        if (c.tls || (r.isEmpty() && t.isEmpty())) t.add("turn")      // nichts angeboten: TLS wie bisher als letzter Weg
+        return Ways(r, t)
+    }
+
+    /** Vorsprung fuer UDP im Wettlauf mit dem Tunnel (Probe beantwortet bzw. unklar) */
+    const val WS_HEAD_UDP = 600L
+    const val WS_HEAD_UDP_MAYBE = 250L
+
+    /** Weg bei UDP-Verlust im Anruf: Tunnel, wenn angeboten, sonst ICE-TCP (wie bisher) */
+    fun streamPath(c: Cand): String = if (c.ws) "ws" else "tcp"
 
     // ---- Simulcast (NODE.md "Erwartungen an Clients") ------------------------------------------------------------
 
@@ -394,6 +422,7 @@ object HornLogic {
     val TX: Map<String, TxCap> = mapOf(
         "tcp" to TxCap(l = 150, m = 600, mH = 720, screen = 900, screenFps = 8, screenH = 1080),
         "turn" to TxCap(l = 120, m = 450, mH = 540, screen = 600, screenFps = 5, screenH = 720),
+        "ws" to TxCap(l = 150, m = 600, mH = 720, screen = 900, screenFps = 8, screenH = 1080),     // A3: ICE-TCP im Tunnel = TCP
     )
     /** Faktor je Stufe auf m und Bildschirm */
     val TX_F = doubleArrayOf(1.0, 0.6, 0.4, 0.25)
@@ -530,6 +559,7 @@ object HornLogic {
 
     private fun JsonObject.str(k: String): String? = (this[k] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
     private fun JsonObject.bool(k: String): Boolean = (this[k] as? JsonPrimitive)?.booleanOrNull == true
+    private fun JsonObject.boolOr(k: String, d: Boolean): Boolean = (this[k] as? JsonPrimitive)?.takeIf { !it.isString }?.booleanOrNull ?: d
     private fun JsonObject.num(k: String): Double? = (this[k] as? JsonPrimitive)?.takeIf { !it.isString }?.doubleOrNull
 
     /** Kandidat aus `horn.candidates` (Knoten mit je eigenen Medien-Token) */
@@ -542,6 +572,10 @@ object HornLogic {
         val peer: String = "",
         val exp: Long = 0,
         val tokens: Map<String, String> = emptyMap(),
+        /** A3 (2.5): Tunnel ueber die Saga-Adresse geht; tcp/tls = rohes ICE-TCP bzw. TURN-TLS (fehlend: wie bisher) */
+        val ws: Boolean = false,
+        val tcp: Boolean = true,
+        val tls: Boolean = true,
     ) {
         val host: String get() = url.removePrefix("https://").removePrefix("http://").substringBefore('/').substringBeforeLast(':').trim('[', ']')
         val port: Int get() = url.removePrefix("https://").removePrefix("http://").substringBefore('/').let { h ->
@@ -564,7 +598,8 @@ object HornLogic {
                 val s = (v as? JsonPrimitive)?.takeIf { it.isString }?.content
                 if (k in setOf("audio", "video", "both") && s != null && s.length <= 4096) k to s else null
             }?.toMap().orEmpty()
-            Cand(node, url, c.bool("udp"), c.bool("here"), c.num("load"), c.str("peer").orEmpty(), c.num("exp")?.toLong() ?: 0, tk)
+            Cand(node, url, c.bool("udp"), c.bool("here"), c.num("load"), c.str("peer").orEmpty(), c.num("exp")?.toLong() ?: 0, tk,
+                ws = c.bool("ws"), tcp = c.boolOr("tcp", true), tls = c.boolOr("tls", true))
         }.take(3)
         return Block(o.str("e2e").orEmpty(), (o.num("ttl") ?: 60.0).toInt(), cands)
     }

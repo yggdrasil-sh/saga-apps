@@ -147,6 +147,7 @@ fun hornQualityColor(q: String, onDark: Boolean = true): Color {
 private fun pathText(path: String): String = when (path) {
     "udp" -> stringResource(R.string.horn_path_udp)
     "turn" -> stringResource(R.string.horn_path_tls)
+    "ws" -> stringResource(R.string.horn_path_ws)                 // A3: Tunnel ueber die Saga-Adresse
     else -> stringResource(R.string.horn_path_tcp)
 }
 
