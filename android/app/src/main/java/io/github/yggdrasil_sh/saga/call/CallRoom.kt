@@ -142,6 +142,8 @@ object CallRoom {
     const val CAP_ASKMUTE = "askmute"
     /** 2.5: Gruppenanrufe ueber Gjallarhorn-Knoten (Frame-E2E saga-horn/v1 mit FrameCryptor) */
     const val CAP_HORN = "horn"
+    /** 2.5 A3 (Vertrag S10): Medien-Tunnel - nur dann zaehlt Saga Knoten im Tunnel-Betrieb fuer dieses Geraet als bereit */
+    const val CAP_WS = "ws"
     const val TOPO_HORN = "horn"
     const val FEATURE_GROUP = "group"
     const val ROLE_MEMBER = "member"
@@ -167,7 +169,8 @@ object CallRoom {
     fun myCaps(serverFeatures: Set<String>, screen2: Boolean = true, multi: Boolean = true, horn: Boolean = true): List<String> {
         val m = multi && CallV3.CAP_RENEG in serverFeatures && CAP_MULTI in serverFeatures
         return CallV3.myCaps(serverFeatures, screen2) +
-            listOfNotNull(CAP_MULTI.takeIf { m }, CAP_HORN.takeIf { m && horn && CAP_HORN in serverFeatures }, CAP_ASKMUTE.takeIf { m })
+            listOfNotNull(CAP_MULTI.takeIf { m }, CAP_HORN.takeIf { m && horn && CAP_HORN in serverFeatures },
+                CAP_WS.takeIf { m && horn && CAP_HORN in serverFeatures }, CAP_ASKMUTE.takeIf { m })
     }
 
     fun multi(caps: Collection<String>): Boolean = CAP_MULTI in caps

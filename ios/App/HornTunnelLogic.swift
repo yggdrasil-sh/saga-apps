@@ -71,9 +71,12 @@ enum HornWire {
         }
     }
     /// Quittieren (Vertrag S3): sofort ab ackBytes unquittierten Bytes, sonst spaetestens ackMs nach dem ersten
-    /// unquittierten Byte; Werte aus der ok-Antwort, fehlen sie: 16384 / 15
-    static let ackBytes: UInt64 = 16384
-    static let ackMs = 15
+    /// unquittierten Byte; Werte aus der ok-Antwort, fehlen sie: 8192 / 10 (Vertrag S8)
+    static let ackBytes: UInt64 = 8192
+    static let ackMs = 10
+    /// Lauscher: so lange auf die erste lokale Verbindung warten, danach zu (libwebrtc verbindet sich Millisekunden nach
+    /// setRemoteDescription; die Frist schliesst nur einen liegengebliebenen Port, bremst den Aufbau nicht)
+    static let listenMs = 10_000
 
     /// Weg im Body von POST /api/sfu/leg (Vertrag S4): "ws" - fuer den Knoten ein ICE-TCP-Bein, auch ohne oeffentliches
     /// ICE-TCP angenommen; aeltere Knoten antworten 400 (naechster Weg)

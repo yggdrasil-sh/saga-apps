@@ -39,9 +39,11 @@ object HornWire {
     const val K_DATA: Byte = 0
     const val K_ACK: Byte = 1
     /** Quittieren (Vertrag S3): sofort ab ACK_BYTES unquittierten Bytes, sonst spaetestens ACK_MS nach dem ersten
-     * unquittierten Byte; Werte aus der ok-Antwort, fehlen sie: 16384 / 15 */
-    const val ACK_BYTES = 16384L
-    const val ACK_MS = 15L
+     * unquittierten Byte; Werte aus der ok-Antwort, fehlen sie: 8192 / 10 (Vertrag S8) */
+    const val ACK_BYTES = 8192L
+    const val ACK_MS = 10L
+    /** Lauscher: so lange auf die erste lokale Verbindung warten, danach zu (bremst den Aufbau nicht) */
+    const val LISTEN_MS = 10_000
 
     /** wss://<Host der Kandidaten-URL>/api/sfu/ws (http nur fuer Tests: ws); null = keine http(s)-Adresse */
     fun url(base: String): String? {
@@ -223,12 +225,13 @@ class HornTunnel(base: String, user: String, pass: String, private val http: OkH
         val s = ServerSocket()
         s.receiveBufferSize = 64 shl 10                                     // gilt fuer angenommene Verbindungen
         s.bind(InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0), 4)
+        s.soTimeout = HornWire.LISTEN_MS                                     // Pruefung F8: Frist fuer die erste Verbindung
         server = s
         port = s.localPort
         thread(name = "horn-tunnel-accept", isDaemon = true) {
-            val c = try { s.accept() } catch (_: IOException) { null }
+            val c = try { s.accept() } catch (_: IOException) { null }      // auch SocketTimeoutException (Frist)
             runCatching { s.close() }                                       // keine weitere lokale Verbindung
-            if (c == null) return@thread
+            if (c == null) { fail("lauscher frist"); return@thread }
             if (dead || sock != null) { refused.incrementAndGet(); runCatching { c.close() }; return@thread }
             accepted.incrementAndGet()
             c.tcpNoDelay = true

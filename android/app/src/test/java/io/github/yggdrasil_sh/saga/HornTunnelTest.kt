@@ -83,6 +83,16 @@ class HornTunnelTest {
     }
 
     @Test
+    fun capsWs() {
+        val full = setOf("reneg", "multi", "horn", "screen2")
+        val c = io.github.yggdrasil_sh.saga.call.CallRoom.myCaps(full)
+        assertTrue("ws mit horn (S10): $c", "ws" in c && "horn" in c)
+        assertFalse("ohne horn kein ws", "ws" in io.github.yggdrasil_sh.saga.call.CallRoom.myCaps(setOf("reneg", "multi")))
+        assertFalse("horn aus -> kein ws", "ws" in io.github.yggdrasil_sh.saga.call.CallRoom.myCaps(full, horn = false))
+        assertTrue("hoechstens 16 caps (Server CAPS_MAX)", c.size <= 16)
+    }
+
+    @Test
     fun bend() {
         val ans = listOf(
             "v=0", "a=candidate:1 1 udp 2130706431 203.0.113.7 443 typ host",
@@ -123,7 +133,8 @@ class HornTunnelTest {
         assertNull("role nur audio/video", Json.parseToJsonElement(HornWire.hello("u", "p", "x")).jsonObject["role"])
         assertFalse("Zugang nie in der Adresse", HornWire.url("https://saga.example.org")!!.contains("abc"))
         assertEquals(HornWire.Reply.Ok(8192, 10), HornWire.reply("""{"t":"ok","v":1,"ack_bytes":8192,"ack_ms":10}"""))
-        assertEquals(HornWire.Reply.Ok(16384, 15), HornWire.reply("""{"t":"ok","v":1}"""))
+        assertEquals("ok ohne Werte: 8192/10 (S8)", HornWire.Reply.Ok(8192, 10), HornWire.reply("""{"t":"ok","v":1}"""))
+        assertTrue("Lauscher-Frist laenger als die Wartezeit des Wegs", HornWire.LISTEN_MS >= 5000 && HornWire.LISTEN_MS > H.WAIT_TCP)
         assertEquals(HornWire.Reply.Ok(), HornWire.reply("""{"t":"ok","ack_bytes":0,"ack_ms":-1}"""))
         assertEquals(HornWire.Reply.Denied("auth"), HornWire.reply("""{"t":"err","v":1,"code":"auth"}"""))
         assertEquals(HornWire.Reply.Denied("err"), HornWire.reply("""{"t":"err","v":1}"""))

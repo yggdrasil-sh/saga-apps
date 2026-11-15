@@ -133,6 +133,10 @@ final class HornTunnel: @unchecked Sendable {
             src.setCancelHandler { Darwin.close(fd) }
             src.resume()
             lsrc = src
+            q.asyncAfter(deadline: .now() + .milliseconds(HornWire.listenMs)) { [weak self] in   // Pruefung F8: Frist fuer die erste Verbindung
+                guard let self, !self.dead, self.local == nil else { return }
+                self.fail("lauscher frist")
+            }
             return port
         }
     }

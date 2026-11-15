@@ -186,7 +186,7 @@ private func roomGroupTests() {
     check(!CallV3.myCaps(serverFeatures: ["multi"]).contains("multi"), "multi nur mit reneg")
     check(!CallV3.myCaps(serverFeatures: ["reneg", "screen2"]).contains("multi"), "E3-Server: kein multi")
     // 2.5 Gjallarhorn: horn nur mit reneg + multi + horn am Server
-    check(CallV3.myCaps(serverFeatures: ["reneg", "screen2", "multi", "horn"]).last == "horn", "2.5-Server: horn")
+    check(CallV3.myCaps(serverFeatures: ["reneg", "screen2", "multi", "horn"]).suffix(2) == ["horn", "ws"], "2.5-Server: horn (und ws, S10)")
     check(!CallV3.myCaps(serverFeatures: ["reneg", "horn"]).contains("horn"), "horn nur mit multi")
     check(!CallV3.myCaps(serverFeatures: ["reneg", "multi", "horn"], horn: false).contains("horn"), "horn abschaltbar")
     check(!CallV3.myCaps(serverFeatures: ["reneg", "multi"]).contains("horn"), "Server ohne horn")

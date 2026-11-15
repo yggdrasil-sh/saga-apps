@@ -40,6 +40,13 @@ func hornTunnelTests() {
     _ = sw.udp(1000, loss: 0, ok: true, stream: "ws")
     check(sw.udp(1000 + L.udpBackFor, loss: 0, ok: true, stream: "ws")?.path == "udp", "vom Tunnel zurueck auf UDP, wenn UDP wieder geht")
 
+    // ---- Faehigkeit ws (Vertrag S10): mit horn, sonst nicht
+    let full = ["reneg", "multi", "horn", "screen2"]
+    check(CallV3.myCaps(serverFeatures: full).contains("ws") && CallV3.myCaps(serverFeatures: full).contains("horn"), "caps: ws mit horn")
+    check(!CallV3.myCaps(serverFeatures: ["reneg", "multi"]).contains("ws"), "caps: ohne horn kein ws")
+    check(!CallV3.myCaps(serverFeatures: full, horn: false).contains("ws"), "caps: horn aus -> kein ws")
+    check(CallV3.myCaps(serverFeatures: full).count <= 16, "caps hoechstens 16 (Server CAPS_MAX)")
+
     // ---- Senderate und Namen
     check(HornTx.caps["ws"] == HornTx.caps["tcp"], "ws: Deckel wie TCP (Vertrag 11)")
     check(HornCamPlan.layers(path: "ws").map(\.kbit) == [150, 600] && HornCamPlan.screenRate(path: "ws") == (900, 8), "ws: Kamera l 150/m 600, Bildschirm 900/8")
@@ -78,7 +85,8 @@ func hornTunnelTests() {
     check(h2["role"] == nil, "role nur audio/video")
     check(!(HornWire.url("https://saga.example.org")?.absoluteString ?? "").contains("abc"), "Zugang nie in der Adresse")
     check(HornWire.reply(#"{"t":"ok","v":1,"ack_bytes":8192,"ack_ms":10}"#) == .ok(.init(bytes: 8192, ms: 10)), "Antwort ok mit Quittungswerten")
-    check(HornWire.reply(#"{"t":"ok","v":1}"#) == .ok(.init(bytes: 16384, ms: 15)), "ok ohne Werte: 16384 / 15")
+    check(HornWire.reply(#"{"t":"ok","v":1}"#) == .ok(.init(bytes: 8192, ms: 10)), "ok ohne Werte: 8192 / 10 (S8)")
+    check(HornWire.listenMs >= 5000 && Double(HornWire.listenMs) > HornLogic.waitTCP, "Lauscher-Frist laenger als die Wartezeit des Wegs")
     check(HornWire.reply(#"{"t":"ok","ack_bytes":0,"ack_ms":-1}"#) == .ok(.init()), "unsinnige Werte: Standard")
     check(HornWire.reply(#"{"t":"err","v":1,"code":"auth"}"#) == .denied("auth"), "Antwort abgelehnt mit Code")
     check(HornWire.reply(#"{"t":"err","v":1}"#) == .denied("err"), "Fehler ohne Code")
