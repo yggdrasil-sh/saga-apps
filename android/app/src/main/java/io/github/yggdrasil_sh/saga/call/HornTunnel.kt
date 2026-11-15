@@ -4,7 +4,6 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
@@ -39,8 +38,9 @@ object HornWire {
     const val READY_MS = 10_000L
     const val K_DATA: Byte = 0
     const val K_ACK: Byte = 1
-    /** sofort quittieren ab so vielen unquittierten Bytes, sonst spaetestens nach ACK_MS (Vertrag 5: 10-20 ms) */
-    const val ACK_BYTES = 4096L
+    /** Quittieren (Vertrag S3): sofort ab ACK_BYTES unquittierten Bytes, sonst spaetestens ACK_MS nach dem ersten
+     * unquittierten Byte; Werte aus der ok-Antwort, fehlen sie: 16384 / 15 */
+    const val ACK_BYTES = 16384L
     const val ACK_MS = 15L
 
     /** wss://<Host der Kandidaten-URL>/api/sfu/ws (http nur fuer Tests: ws); null = keine http(s)-Adresse */
@@ -49,28 +49,33 @@ object HornWire {
         return (if (m.groupValues[1] == "http") "ws://" else "wss://") + m.groupValues[2] + PATH
     }
 
-    /** Erste Textnachricht: Zugang nur hier (nie in URL, Query oder Kopf), mode "ice" (A3) */
-    fun hello(user: String, pass: String): String = buildJsonObject {
-        put("credential", pass)
-        put("mode", "ice")
-        put("username", user)
+    /**
+     * Erste Textnachricht (Vertrag S2): Zugang nur hier (nie in URL, Query oder Kopf). user/cred = POST /api/sfu/turn mit
+     * dem Ton-Token (ein Satz fuer beide WS), mode "ice" (A3), role nur fuer die Diagnose am Knoten
+     */
+    fun hello(user: String, pass: String, role: String? = null): String = buildJsonObject {
+        put("t", "auth")
         put("v", 1)
+        put("mode", "ice")
+        put("user", user)
+        put("cred", pass)
+        if (role == "audio" || role == "video") put("role", role)
     }.toString()
 
+    /** Antwort: {"t":"ok","v":1,"ack_bytes":…,"ack_ms":…} bzw. {"t":"err","v":1,"code":"…"} */
     sealed class Reply {
-        object Ok : Reply()
+        data class Ok(val ackBytes: Long = ACK_BYTES, val ackMs: Long = ACK_MS) : Reply()
         data class Denied(val code: String) : Reply()
         object Bad : Reply()
     }
 
     fun reply(text: String): Reply = try {
         val o = kotlinx.serialization.json.Json.parseToJsonElement(text) as? JsonObject
-        val ok = (o?.get("ok") as? JsonPrimitive)?.booleanOrNull == true
-        val err = (o?.get("error") as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
-        when {
-            o == null -> Reply.Bad
-            ok -> Reply.Ok
-            !err.isNullOrEmpty() -> Reply.Denied(err.take(40))
+        fun str(k: String) = (o?.get(k) as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
+        fun num(k: String) = (o?.get(k) as? JsonPrimitive)?.takeIf { !it.isString }?.contentOrNull?.toLongOrNull()
+        when (str("t")) {
+            "ok" -> Reply.Ok(num("ack_bytes")?.takeIf { it in 1..(1L shl 20) } ?: ACK_BYTES, num("ack_ms")?.takeIf { it in 1..1000 } ?: ACK_MS)
+            "err" -> Reply.Denied(str("code")?.take(40)?.ifEmpty { null } ?: "err")
             else -> Reply.Bad
         }
     } catch (_: Exception) {
@@ -95,8 +100,8 @@ object HornWire {
         else -> Frame.Unknown
     }
 
-    /** Weg im Body von POST /api/sfu/leg: fuer den Knoten ist ein Tunnel-Bein ein ICE-TCP-Bein */
-    fun legPath(p: String): String = if (p == "ws") "tcp" else p
+    /** Weg im Body von POST /api/sfu/leg (Vertrag S4): "ws"; aeltere Knoten antworten 400 (naechster Weg) */
+    fun legPath(p: String): String = p
 
     /** Fehler in Worten (calldiag/clientlog/Protokoll); 426 = Proxy ohne "Websockets Support" */
     fun failText(status: Int, code: String? = null): String = when {
@@ -138,12 +143,14 @@ object HornWire {
  * begrenzt (256 KiB). Der vorhandene Foreground-Service (phoneCall/microphone/camera) haelt den Prozess.
  * Die Tunnel-Adresse erzeugt die App selbst: Sie geht NICHT durch [IceFilter].
  */
-class HornTunnel(base: String, user: String, pass: String, private val http: OkHttpClient) : WebSocketListener() {
+class HornTunnel(base: String, user: String, pass: String, private val http: OkHttpClient, role: String? = null) : WebSocketListener() {
     /** Aufbau gescheitert; status 426 = Proxy reicht WebSocket nicht durch */
     class Fail(val status: Int, val code: String? = null) : IOException(HornWire.failText(status, code))
 
     private val url = HornWire.url(base) ?: throw Fail(0, "url")
-    private val hello = HornWire.hello(user, pass)
+    private val hello = HornWire.hello(user, pass, role)
+    @Volatile private var ackBytes = HornWire.ACK_BYTES
+    @Volatile private var ackMs = HornWire.ACK_MS
     private val lock = ReentrantLock()
     private val room = lock.newCondition()
     @Volatile private var dead = false
@@ -189,7 +196,7 @@ class HornTunnel(base: String, user: String, pass: String, private val http: OkH
     override fun onMessage(webSocket: WebSocket, text: String) {
         if (ready.isCompleted) return                               // nach dem Zugang keine Textnachrichten vorgesehen
         when (val x = HornWire.reply(text)) {
-            is HornWire.Reply.Ok -> { readyAt = System.nanoTime(); ready.complete(Unit) }
+            is HornWire.Reply.Ok -> { ackBytes = x.ackBytes; ackMs = x.ackMs; readyAt = System.nanoTime(); ready.complete(Unit) }
             is HornWire.Reply.Denied -> { ready.completeExceptionally(Fail(0, x.code)); fail("abgelehnt") }
             else -> { ready.completeExceptionally(Fail(0, "antwort")); fail("antwort") }
         }
@@ -235,7 +242,7 @@ class HornTunnel(base: String, user: String, pass: String, private val http: OkH
             thread(name = "horn-tunnel-ack", isDaemon = true) {
                 while (!dead) {
                     Thread.sleep(5)
-                    if (ackDue != 0L && System.nanoTime() - ackDue >= HornWire.ACK_MS * 1_000_000) ack()
+                    if (ackDue != 0L && System.nanoTime() - ackDue >= ackMs * 1_000_000) ack()
                 }
             }
         }
@@ -260,7 +267,7 @@ class HornTunnel(base: String, user: String, pass: String, private val http: OkH
             }
         } catch (_: Exception) {
         }
-        fail("lokal")
+        fail("lokal", 1000)                                         // libwebrtc schloss die lokale Verbindung
     }
 
     /** Knoten -> libwebrtc (blockiert = Rueckstau), Quittungen zurueck */
@@ -275,7 +282,7 @@ class HornTunnel(base: String, user: String, pass: String, private val http: OkH
                     fail("lokal"); return
                 }
                 synchronized(this) { rcvd += f.b.size }
-                if (rcvd - ackedOut >= HornWire.ACK_BYTES) ack() else if (ackDue == 0L) ackDue = System.nanoTime()
+                if (rcvd - ackedOut >= ackBytes) ack() else if (ackDue == 0L) ackDue = System.nanoTime()
                 lock.withLock { room.signalAll() }
             }
             is HornWire.Frame.Ack -> synchronized(this) { acksIn++ }
@@ -292,13 +299,13 @@ class HornTunnel(base: String, user: String, pass: String, private val http: OkH
         ws?.send(HornWire.ack(v).toByteString())
     }
 
-    private fun fail(why: String) {
+    private fun fail(why: String, code: Int = 0) {
         if (dead && closedWhy.isNotEmpty()) return
         dead = true
         if (closedWhy.isEmpty()) closedWhy = why
         lock.withLock { room.signalAll() }
         runCatching { server?.close() }
-        runCatching { ws?.cancel() }
+        runCatching { if (code == 1000) ws?.close(1000, null) else ws?.cancel() }
         runCatching { sock?.close() }
         val k = onClose
         onClose = null

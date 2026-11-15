@@ -538,7 +538,7 @@ extension CallManager {
         // A3: Tunnel je Leitung - WS gleich aufbauen (parallel zu Angebot und POST /api/sfu/leg), Lauscher erst vor der Antwort
         var tunReady: Task<Void, Error>?
         if conn.path == "ws" {
-            guard let a = tun, let T = HornTunnel(base: conn.url, user: a.user, pass: a.pass) else { throw HornFail.failed }
+            guard let a = tun, let T = HornTunnel(base: conn.url, user: a.user, pass: a.pass, role: role) else { throw HornFail.failed }
             L.tunnel = T
             T.onClose = { [weak self] why in Task { @MainActor in self?.horn?.trace("ws \(role) zu \(why) \(T.stats.line)") } }
             tunReady = Task { try await T.connect() }

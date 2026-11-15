@@ -265,24 +265,26 @@ enum HornLogic {
 
     // MARK: Wegwahl (Vertrag A3 Punkt 10)
 
-    /// Reihenfolge der Wege fuer einen Kandidaten. race = gleichzeitig ("Happy Eyeballs": UDP zuerst, der Tunnel nach
-    /// wsHead ms bzw. sofort, wenn UDP vorher scheitert), then = danach der Reihe nach.
-    /// - ws:true -> UDP (wenn angeboten und die Probe antwortet) und Tunnel parallel, kein Warten auf ICE-TCP/TURN-TLS;
-    ///   scheitern beide: TCP (wenn nicht tcp:false), dann TLS (wenn nicht tls:false)
-    /// - ohne ws: wie bisher UDP -> TCP -> TLS (tcp:false/tls:false ueberspringen); den Tunnel nur, wenn angeboten
+    /// Reihenfolge der Wege fuer einen Kandidaten (Vertrag S5). race = gleichzeitig ("Happy Eyeballs": UDP zuerst, der
+    /// Tunnel nach wsHead ms bzw. sofort, wenn UDP vorher scheitert), then = danach der Reihe nach.
+    /// - Tunnel-Betrieb (ws, ohne tcp und tls): UDP (wenn angeboten und die Probe antwortet) und Tunnel parallel, kein
+    ///   Warten auf ICE-TCP/TURN-TLS, die es dort nicht gibt
+    /// - sonst wie bisher UDP -> TCP -> TLS (tcp:false/tls:false ueberspringen), bietet der Kandidat ws an: der Tunnel als
+    ///   letzter Weg (z. B. hinter Firmen-Proxys mit TLS-Pruefung); ohne jede Angabe TLS wie bisher
     struct Ways: Equatable { var race: [String]; var then: [String] }
     static func ways(_ c: Candidate, udp: Bool) -> Ways {
-        var r: [String] = udp ? ["udp"] : []
-        if c.ws { r.append("ws") }
+        let u: [String] = udp ? ["udp"] : []
+        if c.ws && !c.tcp && !c.tls { return Ways(race: u + ["ws"], then: []) }
         var t: [String] = []
         if c.tcp { t.append("tcp") }
-        if c.tls || (r.isEmpty && t.isEmpty) { t.append("turn") }                // nichts angeboten: TLS wie bisher als letzter Weg
-        return Ways(race: r, then: t)
+        if c.tls || (!c.tcp && !c.ws) { t.append("turn") }
+        if c.ws { t.append("ws") }
+        return Ways(race: u, then: t)
     }
     /// Vorsprung fuer UDP im Wettlauf mit dem Tunnel: Probe beantwortet -> 600 ms (sauberer Aufbau ~0,3 s), unklar -> 250 ms
     static let wsHeadUDP = 600.0, wsHeadUDPMaybe = 250.0
-    /// Weg bei UDP-Verlust im Anruf (Umschalter): Tunnel, wenn angeboten, sonst ICE-TCP (wie bisher)
-    static func streamPath(_ c: Candidate) -> String { c.ws ? "ws" : "tcp" }
+    /// Weg bei UDP-Verlust im Anruf (Umschalter): ICE-TCP, wenn angeboten (wie bisher), sonst der Tunnel
+    static func streamPath(_ c: Candidate) -> String { !c.tcp && c.ws ? "ws" : "tcp" }
 }
 
 // MARK: - Knoten: Bein-Antwort, Ereigniskanal, Zuordnung

@@ -739,7 +739,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         val tunReady = CompletableDeferred<Unit>()
         if (path == "ws") {
             val cr = turn ?: throw IOException("ws zugang")
-            val t = HornTunnel(conn.cand.url, cr.first, cr.second, http)
+            val t = HornTunnel(conn.cand.url, cr.first, cr.second, http, role)
             L.tunnel = t
             t.onClose = { why -> scope.launch { log("ws $role zu $why ${t.stats()}") } }
             scope.launch(Dispatchers.IO) {

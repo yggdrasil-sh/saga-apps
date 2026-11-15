@@ -13,18 +13,21 @@ func hornTunnelTests() {
     c = L.Candidate(["node": "n1", "url": "https://saga.example.org", "ws": "ja"])!
     check(!c.ws, "ws nur als Wahrheitswert")
 
-    // ---- Wegwahl (Vertrag 10)
+    // ---- Wegwahl (Vertrag 10 / S5)
     func cand(ws: Bool = false, tcp: Bool = true, tls: Bool = true) -> L.Candidate { L.Candidate(node: "n", url: "https://x.example", ws: ws, tcp: tcp, tls: tls) }
     check(L.ways(cand(), udp: true) == L.Ways(race: ["udp"], then: ["tcp", "turn"]), "ohne ws: UDP -> TCP -> TLS wie bisher")
     check(L.ways(cand(), udp: false) == L.Ways(race: [], then: ["tcp", "turn"]), "ohne ws und ohne UDP: TCP -> TLS")
-    check(L.ways(cand(ws: true, tcp: false, tls: false), udp: true) == L.Ways(race: ["udp", "ws"], then: []), "Proxy-Betrieb mit UDP: UDP | Tunnel parallel, kein TCP/TLS")
-    check(L.ways(cand(ws: true, tcp: false, tls: false), udp: false) == L.Ways(race: ["ws"], then: []), "Proxy-Betrieb ohne UDP: nur Tunnel, ohne Wartezeit")
-    check(L.ways(cand(ws: true), udp: true) == L.Ways(race: ["udp", "ws"], then: ["tcp", "turn"]), "ws neben TCP/TLS (Ein Port): erst UDP | Tunnel, dann TCP, TLS")
+    check(L.ways(cand(ws: true, tcp: false, tls: false), udp: true) == L.Ways(race: ["udp", "ws"], then: []), "Tunnel-Betrieb mit UDP: UDP | Tunnel parallel, kein TCP/TLS")
+    check(L.ways(cand(ws: true, tcp: false, tls: false), udp: false) == L.Ways(race: ["ws"], then: []), "Tunnel-Betrieb ohne UDP: nur Tunnel, ohne Wartezeit")
+    check(L.ways(cand(ws: true), udp: true) == L.Ways(race: ["udp"], then: ["tcp", "turn", "ws"]), "ws neben TCP/TLS (Ein Port): bisherige Reihenfolge, Tunnel zuletzt")
+    check(L.ways(cand(ws: true, tcp: false), udp: false) == L.Ways(race: [], then: ["turn", "ws"]), "ws neben TLS: TLS, dann Tunnel")
+    check(L.ways(cand(ws: true, tls: false), udp: false) == L.Ways(race: [], then: ["tcp", "ws"]), "ws neben TCP: TCP, dann Tunnel")
     check(L.ways(cand(tcp: false), udp: false) == L.Ways(race: [], then: ["turn"]), "tcp:false: gleich TLS")
     check(L.ways(cand(tcp: false, tls: false), udp: false) == L.Ways(race: [], then: ["turn"]), "nichts angeboten: TLS als letzter Versuch (wie bisher)")
     check(!L.ways(cand(), udp: true).race.contains("ws") && !L.ways(cand(), udp: true).then.contains("ws"), "Tunnel nur, wenn der Kandidat ihn anbietet")
     check(L.wsHeadUDP > L.wsHeadUDPMaybe && L.wsHeadUDP < L.waitUDP, "UDP-Vorsprung kleiner als die UDP-Wartezeit")
-    check(L.streamPath(cand(ws: true)) == "ws" && L.streamPath(cand()) == "tcp", "Weg ohne UDP: ws bzw. tcp")
+    check(L.streamPath(cand(ws: true, tcp: false, tls: false)) == "ws" && L.streamPath(cand(ws: true)) == "tcp" && L.streamPath(cand()) == "tcp",
+          "UDP-Verlust: tcp, wenn angeboten, sonst ws")
 
     // ---- Umschalter: UDP-Verlust -> ws
     var sw = L.Switcher(node: "n", path: "udp", now: 0)
@@ -43,7 +46,7 @@ func hornTunnelTests() {
     check(HornTx.plan(path: "ws", level: 0, others: 1).cam["m"]!.maxBps == 600_000, "ws: Plan wie TCP")
     check(L.pathName("ws") == "WS" && L.pathName("tcp") == "TCP", "Wegname ws")
     check(CallDiag.transport(horn: "ws") == "ws" && CallDiag.transport(horn: "turn") == "tls", "calldiag: transport ws")
-    check(HornWire.legPath("ws") == "tcp" && HornWire.legPath("udp") == "udp" && HornWire.legPath("turn") == "turn", "Leg-Body: Tunnel-Bein ist fuer den Knoten tcp")
+    check(HornWire.legPath("ws") == "ws" && HornWire.legPath("udp") == "udp" && HornWire.legPath("turn") == "turn", "Leg-Body: Weg ws (Vertrag S4)")
 
     // ---- SDP biegen
     let ans = ["v=0", "a=candidate:1 1 udp 2130706431 203.0.113.7 443 typ host",
@@ -66,13 +69,20 @@ func hornTunnelTests() {
     check(HornWire.url("http://127.0.0.1:8080")?.absoluteString == "ws://127.0.0.1:8080/api/sfu/ws", "http (Tests): ws")
     check(HornWire.url("ftp://x") == nil && HornWire.url("") == nil, "andere Schemata nicht")
     check(HornWire.proto == "saga-tunnel.1", "Unterprotokoll saga-tunnel.1")
-    let h = HornWire.hello(user: "1700000000:abc", pass: "p/w+=")
+    let h = HornWire.hello(user: "1700000000:abc", pass: "p/w+=", role: "video")
     let hj = (try? JSONSerialization.jsonObject(with: Data(h.utf8))) as? [String: Any] ?? [:]
-    check(hj["mode"] as? String == "ice" && hj["username"] as? String == "1700000000:abc" && hj["credential"] as? String == "p/w+=", "erste Nachricht: mode ice + Zugangsdaten")
+    check(hj["t"] as? String == "auth" && hj["v"] as? Int == 1 && hj["mode"] as? String == "ice", "erste Nachricht: t auth, v 1, mode ice (S2)")
+    check(hj["user"] as? String == "1700000000:abc" && hj["cred"] as? String == "p/w+=" && hj["role"] as? String == "video", "erste Nachricht: user/cred/role")
+    check(h.utf8.count <= 4096, "erste Nachricht hoechstens 4 KiB")
+    let h2 = (try? JSONSerialization.jsonObject(with: Data(HornWire.hello(user: "u", pass: "p", role: "x").utf8))) as? [String: Any] ?? [:]
+    check(h2["role"] == nil, "role nur audio/video")
     check(!(HornWire.url("https://saga.example.org")?.absoluteString ?? "").contains("abc"), "Zugang nie in der Adresse")
-    check(HornWire.reply(#"{"ok":true}"#) == .ok, "Antwort ok")
-    check(HornWire.reply(#"{"ok":false,"error":"auth"}"#) == .denied("auth"), "Antwort abgelehnt mit Code")
-    check(HornWire.reply("kaputt") == .bad && HornWire.reply("{}") == .bad, "Antwort unlesbar")
+    check(HornWire.reply(#"{"t":"ok","v":1,"ack_bytes":8192,"ack_ms":10}"#) == .ok(.init(bytes: 8192, ms: 10)), "Antwort ok mit Quittungswerten")
+    check(HornWire.reply(#"{"t":"ok","v":1}"#) == .ok(.init(bytes: 16384, ms: 15)), "ok ohne Werte: 16384 / 15")
+    check(HornWire.reply(#"{"t":"ok","ack_bytes":0,"ack_ms":-1}"#) == .ok(.init()), "unsinnige Werte: Standard")
+    check(HornWire.reply(#"{"t":"err","v":1,"code":"auth"}"#) == .denied("auth"), "Antwort abgelehnt mit Code")
+    check(HornWire.reply(#"{"t":"err","v":1}"#) == .denied("err"), "Fehler ohne Code")
+    check(HornWire.reply("kaputt") == .bad && HornWire.reply("{}") == .bad && HornWire.reply(#"{"ok":true}"#) == .bad, "Antwort unlesbar")
     let d = Data([1, 2, 3])
     check(HornWire.data(d) == Data([0, 1, 2, 3]) && HornWire.frame(HornWire.data(d)) == .data(d), "Datenrahmen: Art 0 + Nutzbytes")
     check(HornWire.ack(0x0102030405060708) == Data([1, 1, 2, 3, 4, 5, 6, 7, 8]), "Quittung: Art 1 + 8 Byte big endian")

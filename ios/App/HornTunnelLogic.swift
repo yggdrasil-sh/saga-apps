@@ -22,21 +22,33 @@ enum HornWire {
         return c.url
     }
 
-    /// Erste Textnachricht: Zugang nur hier (nie in URL, Query oder Kopf - der Proxy protokolliert die Anfragezeile).
-    /// Inhalt: kurzlebige TURN-Zugangsdaten des Medien-Tokens (POST /api/sfu/turn) und mode "ice" (A3).
-    static func hello(user: String, pass: String) -> String {
-        let o: [String: Any] = ["v": 1, "mode": "ice", "username": user, "credential": pass]
+    /// Erste Textnachricht (Vertrag S2): Zugang nur hier (nie in URL, Query oder Kopf - der Proxy protokolliert die
+    /// Anfragezeile). user/cred = POST /api/sfu/turn mit dem Ton-Token (ein Satz fuer beide WS), mode "ice" (A3),
+    /// role nur fuer die Diagnose am Knoten
+    static func hello(user: String, pass: String, role: String? = nil) -> String {
+        var o: [String: Any] = ["t": "auth", "v": 1, "mode": "ice", "user": user, "cred": pass]
+        if let role, role == "audio" || role == "video" { o["role"] = role }
         guard let d = try? JSONSerialization.data(withJSONObject: o, options: [.sortedKeys]), let s = String(data: d, encoding: .utf8) else { return "{}" }
         return s
     }
 
-    /// Antwort des Knotens auf die erste Nachricht
-    enum Reply: Equatable { case ok, denied(String), bad }
+    /// Antwort des Knotens auf die erste Nachricht: {"t":"ok","v":1,"ack_bytes":…,"ack_ms":…} bzw.
+    /// {"t":"err","v":1,"code":"auth|version|mode|bad|timeout|unavailable"}
+    struct Acking: Equatable { var bytes: UInt64 = HornWire.ackBytes; var ms = HornWire.ackMs }
+    enum Reply: Equatable { case ok(Acking), denied(String), bad }
     static func reply(_ text: String) -> Reply {
         guard let d = text.data(using: .utf8), let o = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { return .bad }
-        if o["ok"] as? Bool == true { return .ok }
-        if let e = o["error"] as? String, !e.isEmpty { return .denied(String(e.prefix(40))) }
-        return .bad
+        switch o["t"] as? String {
+        case "ok":
+            var a = Acking()
+            if let b = (o["ack_bytes"] as? NSNumber)?.intValue, b >= 1, b <= 1 << 20 { a.bytes = UInt64(b) }
+            if let m = (o["ack_ms"] as? NSNumber)?.intValue, m >= 1, m <= 1000 { a.ms = m }
+            return .ok(a)
+        case "err":
+            let c = (o["code"] as? String).map { String($0.prefix(40)) } ?? ""
+            return .denied(c.isEmpty ? "err" : c)
+        default: return .bad
+        }
     }
 
     /// Binaerrahmen: erstes Byte = Art
@@ -58,13 +70,14 @@ enum HornWire {
         default: return .unknown
         }
     }
-    /// Quittieren: sofort ab so vielen unquittierten Bytes, sonst spaetestens nach ackMs (Vertrag 5: 10-20 ms statt 5)
-    static let ackBytes: UInt64 = 4096
+    /// Quittieren (Vertrag S3): sofort ab ackBytes unquittierten Bytes, sonst spaetestens ackMs nach dem ersten
+    /// unquittierten Byte; Werte aus der ok-Antwort, fehlen sie: 16384 / 15
+    static let ackBytes: UInt64 = 16384
     static let ackMs = 15
 
-    /// Weg im Body von POST /api/sfu/leg: fuer den Knoten ist ein Tunnel-Bein ein ICE-TCP-Bein (er kennt den Tunnel aus
-    /// mux.Inject); die App fuehrt intern den Weg "ws" (Diagnose, Senderate wie TCP)
-    static func legPath(_ p: String) -> String { p == "ws" ? "tcp" : p }
+    /// Weg im Body von POST /api/sfu/leg (Vertrag S4): "ws" - fuer den Knoten ein ICE-TCP-Bein, auch ohne oeffentliches
+    /// ICE-TCP angenommen; aeltere Knoten antworten 400 (naechster Weg)
+    static func legPath(_ p: String) -> String { p }
 
     /// Fehler beim Aufbau in Worten fuer Diagnose (calldiag/clientlog/Protokoll). 426 = Proxy ohne "Websockets Support"
     static func failText(status: Int, code: String? = nil) -> String {

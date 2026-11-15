@@ -331,28 +331,29 @@ object HornLogic {
     // ---- Wegwahl (Vertrag A3 Punkt 10; wie ios/App/HornLogic.swift ways) -----------------------------------------
 
     /**
-     * Reihenfolge der Wege: race = gleichzeitig ("Happy Eyeballs": UDP zuerst, der Tunnel nach [wsHead] bzw. sofort, wenn
-     * UDP vorher scheitert), then = danach der Reihe nach. ws:true -> UDP | Tunnel, kein Warten auf ICE-TCP/TURN-TLS;
-     * scheitern beide: TCP (wenn nicht tcp:false), dann TLS (wenn nicht tls:false). Ohne ws wie bisher UDP -> TCP -> TLS.
+     * Reihenfolge der Wege (Vertrag S5): race = gleichzeitig ("Happy Eyeballs": UDP zuerst, der Tunnel nach
+     * [WS_HEAD_UDP] bzw. sofort, wenn UDP vorher scheitert), then = danach der Reihe nach.
+     * Tunnel-Betrieb (ws ohne tcp und tls): UDP | Tunnel, kein Warten auf ICE-TCP/TURN-TLS. Sonst wie bisher
+     * UDP -> TCP -> TLS, bietet der Kandidat ws an: Tunnel als letzter Weg; ohne jede Angabe TLS wie bisher.
      */
     data class Ways(val race: List<String>, val then: List<String>)
 
     fun ways(c: Cand, udp: Boolean): Ways {
-        val r = ArrayList<String>()
-        if (udp) r.add("udp")
-        if (c.ws) r.add("ws")
+        val u = if (udp) listOf("udp") else emptyList()
+        if (c.ws && !c.tcp && !c.tls) return Ways(u + "ws", emptyList())
         val t = ArrayList<String>()
         if (c.tcp) t.add("tcp")
-        if (c.tls || (r.isEmpty() && t.isEmpty())) t.add("turn")      // nichts angeboten: TLS wie bisher als letzter Weg
-        return Ways(r, t)
+        if (c.tls || (!c.tcp && !c.ws)) t.add("turn")
+        if (c.ws) t.add("ws")
+        return Ways(u, t)
     }
 
     /** Vorsprung fuer UDP im Wettlauf mit dem Tunnel (Probe beantwortet bzw. unklar) */
     const val WS_HEAD_UDP = 600L
     const val WS_HEAD_UDP_MAYBE = 250L
 
-    /** Weg bei UDP-Verlust im Anruf: Tunnel, wenn angeboten, sonst ICE-TCP (wie bisher) */
-    fun streamPath(c: Cand): String = if (c.ws) "ws" else "tcp"
+    /** Weg bei UDP-Verlust im Anruf: ICE-TCP, wenn angeboten (wie bisher), sonst der Tunnel */
+    fun streamPath(c: Cand): String = if (!c.tcp && c.ws) "ws" else "tcp"
 
     // ---- Simulcast (NODE.md "Erwartungen an Clients") ------------------------------------------------------------
 

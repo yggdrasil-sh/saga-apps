@@ -50,10 +50,10 @@ final class HornTunnel: @unchecked Sendable {
     /// Tunnel nach dem Aufbau zu (WS weg oder lokale Verbindung zu) - Grund fuer das Protokoll; auf q
     var onClose: ((String) -> Void)?
 
-    /// base: Kandidaten-URL (BASE_URL im Proxy-Betrieb); user/pass: POST /api/sfu/turn mit dem Ton-Token
-    init?(base: String, user: String, pass: String, session: URLSession = HornNet.session) {
+    /// base: Kandidaten-URL (BASE_URL im Tunnel-Betrieb); user/pass: POST /api/sfu/turn mit dem Ton-Token; role: Leitung
+    init?(base: String, user: String, pass: String, role: String? = nil, session: URLSession = HornNet.session) {
         guard let u = HornWire.url(base) else { return nil }
-        url = u; hello = HornWire.hello(user: user, pass: pass); self.session = session
+        url = u; hello = HornWire.hello(user: user, pass: pass, role: role); self.session = session
     }
     deinit { lsrc?.cancel() }
 
@@ -84,7 +84,7 @@ final class HornTunnel: @unchecked Sendable {
                 throw Fail.upgrade(s == 101 ? 0 : s)
             case .success(.string(let s)):
                 switch HornWire.reply(s) {
-                case .ok: break
+                case .ok(let a): q.sync { acking = a }
                 case .denied(let c): throw Fail.denied(c)
                 case .bad: throw Fail.denied("antwort")
                 }
@@ -153,22 +153,23 @@ final class HornTunnel: @unchecked Sendable {
     // MARK: 3. Durchreichen (alles auf q)
 
     private var sent: UInt64 = 0, rcvd: UInt64 = 0, ackedOut: UInt64 = 0, ackPending = false
+    private var acking = HornWire.Acking()
     private var wsBusy = 0, held: Data?
 
     private func accepted(_ c: Int32) {
         st.accepted += 1
         let l = HornLocalSock(fd: c, q: q)
         local = l
-        l.onClose = { [weak self] in self?.fail("lokal") }
+        l.onClose = { [weak self] in self?.fail("lokal", code: .normalClosure) }   // libwebrtc schloss: 1000
         readWS()
         readLocal()
     }
-    private func fail(_ why: String) {
+    private func fail(_ why: String, code: URLSessionWebSocketTask.CloseCode = .goingAway) {
         guard !dead else { return }
         dead = true
         st.closed = why
         stopListening()
-        ws?.cancel(with: .goingAway, reason: nil); ws = nil
+        ws?.cancel(with: code, reason: nil); ws = nil
         local?.cancel(); local = nil
         let k = onClose; onClose = nil
         k?(why)
@@ -179,7 +180,7 @@ final class HornTunnel: @unchecked Sendable {
         guard !dead, held == nil, let l = local else { return }
         l.receive { [weak self] d in
             guard let self, !self.dead else { return }
-            guard let d else { self.fail("lokal"); return }
+            guard let d else { self.fail("lokal", code: .normalClosure); return }
             if self.wsBusy > 64 { self.held = d; self.st.held += 1; return }
             self.send(d)
             self.readLocal()
@@ -223,10 +224,10 @@ final class HornTunnel: @unchecked Sendable {
     private func deliver(_ d: Data) {
         local?.send(d)
         rcvd &+= UInt64(d.count); st.rxBytes = rcvd
-        if rcvd &- ackedOut >= HornWire.ackBytes { ack() }
+        if rcvd &- ackedOut >= acking.bytes { ack() }
         else if !ackPending {
             ackPending = true
-            q.asyncAfter(deadline: .now() + .milliseconds(HornWire.ackMs)) { [weak self] in self?.ack() }
+            q.asyncAfter(deadline: .now() + .milliseconds(acking.ms)) { [weak self] in self?.ack() }
         }
     }
     private func ack() {
