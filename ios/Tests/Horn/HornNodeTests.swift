@@ -124,6 +124,21 @@ final class HornNodeTests: XCTestCase {
         for legs in [a, b, c] { for L in legs.values { L.close() } }
         withExtendedLifetime((src, cap, cam)) {}
     }
+    /// A3 Gegenprobe: Proxy ohne "Websockets Support" (SAGA_HORN_NOWS = Adresse, die jede Anfrage mit 426 beantwortet,
+    /// wie der Knoten ohne Upgrade-Kopf) -> HornTunnel.Fail.upgrade(426) mit der verstaendlichen Meldung
+    func testTunnelWithoutWebSocket() async throws {
+        guard let nows = ProcessInfo.processInfo.environment["SAGA_HORN_NOWS"], !nows.isEmpty else { throw XCTSkip("SAGA_HORN_NOWS nicht gesetzt") }
+        let T = try XCTUnwrap(HornTunnel(base: nows, user: "u", pass: "p", role: "audio"))
+        do {
+            try await T.connect()
+            XCTFail("Tunnel ohne WebSocket darf nicht aufgehen")
+        } catch let f as HornTunnel.Fail {
+            print("NOWS \(f) \(f.errorDescription ?? "")")
+            XCTAssertEqual(f, .upgrade(426))
+            XCTAssertTrue((f.errorDescription ?? "").contains("Proxy reicht WebSocket nicht durch"))
+        }
+        XCTAssertThrowsError(try T.listen(), "kein Lauscher ohne WS")
+    }
     /// je Leitung ein Tunnel: WS stand vor der Antwort, genau eine lokale Verbindung, Bytes in beide Richtungen, quittiert
     private func tunnelCheck(_ all: [[String: HornLeg]]) {
         for legs in all { for (r, L) in legs {

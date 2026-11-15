@@ -87,6 +87,20 @@ class HornNodeLoopbackTest {
     @Test
     fun twoSessionsThroughTunnel() = twoSessions("ws")
 
+    /** A3 Gegenprobe: Proxy ohne "Websockets Support" (Argument noWs = Adresse, die mit 426 antwortet) -> verstaendlicher Fehler */
+    @Test
+    fun tunnelWithoutWebSocket() {
+        val nows = InstrumentationRegistry.getArguments().getString("noWs")
+        assumeTrue("ohne Argument noWs uebersprungen", nows != null)
+        val t = io.github.yggdrasil_sh.saga.call.HornTunnel(nows!!, "u", "p", client(), "audio")
+        val e = runCatching { kotlinx.coroutines.runBlocking { t.connect() } }.exceptionOrNull()
+        android.util.Log.i("HornTunnel", "NOWS ${e?.javaClass?.simpleName} ${e?.message}")
+        assertTrue("Fehler HornTunnel.Fail: $e", e is io.github.yggdrasil_sh.saga.call.HornTunnel.Fail)
+        assertEquals(426, (e as io.github.yggdrasil_sh.saga.call.HornTunnel.Fail).status)
+        assertTrue(e.message.orEmpty().contains("Proxy reicht WebSocket nicht durch"))
+        t.close()
+    }
+
     /**
      * A3 Ende zu Ende gemischt (nur mit Argument mixRoom): wie [twoSessionsThroughTunnel] im vorgegebenen Raum, mit festem
      * Test-Schluessel (0x41) und mixHoldS Sekunden Laufzeit - in dieser Zeit tritt der iOS-Test testMixedRoomWithAndroid
