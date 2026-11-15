@@ -87,14 +87,32 @@ class HornNodeLoopbackTest {
     @Test
     fun twoSessionsThroughTunnel() = twoSessions("ws")
 
-    private fun twoSessions(force: String?) {
+    /**
+     * A3 Ende zu Ende gemischt (nur mit Argument mixRoom): wie [twoSessionsThroughTunnel] im vorgegebenen Raum, mit festem
+     * Test-Schluessel (0x41) und mixHoldS Sekunden Laufzeit - in dieser Zeit tritt der iOS-Test testMixedRoomWithAndroid
+     * (Simulator ueber den Tunnel + Gegenueber ueber TURN-TLS) demselben Raum bei und entschluesselt das Bild von A.
+     */
+    @Test
+    fun mixRoomThroughTunnel() {
+        val a = InstrumentationRegistry.getArguments()
+        val room = a.getString("mixRoom")
+        assumeTrue("ohne Argument mixRoom uebersprungen", room != null)
+        HornSession.testOwnKey = ByteArray(32) { 0x41 }
+        try {
+            twoSessions("ws", room, (a.getString("mixHoldS")?.toLongOrNull() ?: 60) * 1000)
+        } finally {
+            HornSession.testOwnKey = null
+        }
+    }
+
+    private fun twoSessions(force: String?, mixRoom: String? = null, holdMs: Long = 0) {
         val base = InstrumentationRegistry.getArguments().getString("hornNode")
         assumeTrue("ohne lokalen Knoten (Argument hornNode) uebersprungen", base != null)
         val http = client()
         HornSession.testClient = http
         HornSession.testPath = force
         HornSession.testWaitScale = 5                        // Emulator ohne Hardware: ICE-TCP + DTLS brauchen laenger
-        val room = "p12" + System.currentTimeMillis() % 100000
+        val room = mixRoom ?: ("p12" + System.currentTimeMillis() % 100000)
         post(http, "$base/api/dev/room", """{"room":"$room"}""")
 
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
@@ -206,6 +224,13 @@ class HornNodeLoopbackTest {
             }
             assertTrue("B sieht A (${sinks["$devB<-$devA"]?.n})", (sinks["$devB<-$devA"]?.n?.get() ?: 0) > 20)
             assertTrue("A sieht B (${sinks["$devA<-$devB"]?.n})", (sinks["$devA<-$devB"]?.n?.get() ?: 0) > 20)
+            if (holdMs > 0) {                                       // gemischter Test: Raum offen halten, A/B laufen weiter
+                Thread.sleep(holdMs)
+                assertTrue("B sieht A nach ${holdMs / 1000} s", (sinks["$devB<-$devA"]?.n?.get() ?: 0) > holdMs / 200)
+                var ts = ""
+                main { ts = HornSession.tunnelStats(sessions[devA]!!) }
+                android.util.Log.i("HornTunnel", "MIX $ts")
+            }
             var runes = ""
             main { runes = sessions[devA]!!.runes?.runes.orEmpty() }
             assertEquals(6, runes.codePointCount(0, runes.length))

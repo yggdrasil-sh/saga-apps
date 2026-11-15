@@ -147,6 +147,10 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         @androidx.annotation.VisibleForTesting
         @Volatile internal var testWaitScale: Long = 1
 
+        /** Nur Geraetetests: fester eigener Schluessel (gemischter Ende-zu-Ende-Test mit iOS im selben Raum) */
+        @androidx.annotation.VisibleForTesting
+        @Volatile internal var testOwnKey: ByteArray? = null
+
         /** Nur Geraetetests: Weg erzwingen ("ws" = Tunnel ueber die Saga-Adresse) */
         @androidx.annotation.VisibleForTesting
         @Volatile internal var testPath: String? = null
@@ -157,7 +161,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     private val allowHttp = BuildConfig.DEBUG
 
     private val provider: FrameCryptorKeyProvider = HornCryptor.keyProvider()
-    val own = HornLogic.OwnKeys({ ByteArray(32).also { rnd.nextBytes(it) } }, hex(8))
+    val own = HornLogic.OwnKeys({ testOwnKey?.copyOf() ?: ByteArray(32).also { rnd.nextBytes(it) } }, hex(8))
     private val peerKeys = HashMap<String, HornLogic.PeerKeys>()
     /** Geraete, an die der eigene Schluessel schon ging */
     private val known = LinkedHashSet<String>()

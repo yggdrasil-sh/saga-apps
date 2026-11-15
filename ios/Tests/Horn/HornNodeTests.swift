@@ -398,7 +398,8 @@ final class HornNodeTests: XCTestCase {
 
     private func join(room: String, peer: String, dev: String, provider: RTCFrameCryptorKeyProvider, camera: RTCVideoTrack?, path: String,
                       tiles: Int = 8, mobile: Bool = false, screen: RTCVideoTrack? = nil, leg: String? = nil,
-                      factory: RTCPeerConnectionFactory = HornNodeTests.factory) async throws -> [String: HornLeg] {
+                      factory: RTCPeerConnectionFactory = HornNodeTests.factory, on: String? = nil) async throws -> [String: HornLeg] {
+        let base = on ?? self.base                                          // anderer Zugang zum selben Knoten (direkt statt Proxy)
         var out: [String: HornLeg] = [:]
         var turn: HornLeg.Turn?
         var auth: (user: String, pass: String)?
@@ -847,6 +848,45 @@ extension HornNodeTests {
         XCTAssertTrue(olds.allSatisfy { !$0.stats.closed.isEmpty }, "alte Tunnel zu")
         tunnelCheck([a2.legs, b.legs])
         for d in [a2, b] { for L in d.legs.values { L.close() } }
+        withExtendedLifetime((s0, cam)) {}
+    }
+
+    /// A3 Ende zu Ende gemischt (nur mit SAGA_HORN_MIX=<Raum> und SAGA_HORN_NODE_DIRECT=https://<Knoten direkt>): im selben
+    /// Raum wie der Android-Geraetetest mixRoomThroughTunnel (Emulator, zwei Sitzungen pa/pb ueber den Tunnel, fester
+    /// Test-Schluessel 0x41) - I (dieser Simulator) ueber den Tunnel, T ueber TURN-TLS direkt am Knoten. I entschluesselt
+    /// das Bild von Android A (FrameCryptor plattformuebergreifend), T entschluesselt das Bild von I.
+    func testMixedRoomWithAndroid() async throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let room = env["SAGA_HORN_MIX"], !room.isEmpty, let direct = env["SAGA_HORN_NODE_DIRECT"], !direct.isEmpty else {
+            throw XCTSkip("SAGA_HORN_MIX/SAGA_HORN_NODE_DIRECT nicht gesetzt")
+        }
+        _ = try await HornNet.json(base + "/api/dev/room", body: ["room": room])
+        let kI = Data(repeating: 0x49, count: 32), kA = Data(repeating: 0x41, count: 32)
+        let (s0, cap, cam) = cam720("mix-i")
+        cap.start(); defer { cap.stop() }
+        let devOf = ["pa": "devA", "pb": "devB", "pi": "devI", "pt": "devT"]
+        let pI = HornCryptor.keyProvider(), pT = HornCryptor.keyProvider()
+        pI.setKey(kI, with: 0, forParticipant: "devI"); HornCryptor.setSlots(pI, device: "devA", newest: 0, key: kA)
+        HornCryptor.setSlots(pT, device: "devI", newest: 0, key: kI)
+        let tiles = HornLogic.tileSlots(mobile: false)
+        let i = Dev(dev: "devI", peer: "pi", path: "ws"), t = Dev(dev: "devT", peer: "pt", path: "turn")
+        i.legs = try await join(room: room, peer: i.peer, dev: i.dev, provider: pI, camera: cam, path: "ws", tiles: tiles, leg: "mix-i", factory: Self.factoryApp)
+        t.legs = try await join(room: room, peer: t.peer, dev: t.dev, provider: pT, camera: nil, path: "turn", tiles: tiles, leg: "mix-t",
+                                factory: Self.factoryApp, on: direct)
+        wire(i, devOf: devOf); wire(t, devOf: devOf)
+        let ok = try await up([i, t])
+        XCTAssertTrue(ok, "I (Tunnel) und T (TURN-TLS) verbunden")
+        var fa = 0, fi = 0
+        for _ in 0..<40 {                                                   // bis 20 s: Bilder in beide Richtungen
+            try await Task.sleep(nanoseconds: 500_000_000)
+            fa = await frames(i, cls: "tile", from: "devA"); fi = await frames(t, cls: "tile", from: "devI")
+            if fa > 30 && fi > 30 { break }
+        }
+        print("MIX: I<-A(Android, Tunnel) \(fa) Bilder, T(TURN-TLS)<-I(Tunnel) \(fi) Bilder, peers \(i.peers.keys.sorted())")
+        XCTAssertGreaterThan(fa, 30, "I entschluesselt das Bild von Android A (beide ueber den Tunnel)")
+        XCTAssertGreaterThan(fi, 30, "T (TURN-TLS) entschluesselt das Bild von I (Tunnel)")
+        tunnelCheck([i.legs])
+        for d in [i, t] { for L in d.legs.values { L.close() } }
         withExtendedLifetime((s0, cam)) {}
     }
 
