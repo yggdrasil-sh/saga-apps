@@ -211,6 +211,8 @@ targets:
       - Shared/TaskSourceLogic.swift
       - Shared/DateFormats.swift
       - App/UpdateLogic.swift                              # Sparkle nur, wenn das Bauskript den Appcast eintraegt
+      - App/HornTunnelLogic.swift                          # 2.5 A3: Medien-Tunnel fuer Web-Anrufe (gemeinsam mit der iOS-App)
+      - App/HornTunnel.swift                               #   (Shell/ShellTunnel.swift: Bruecke hkTunnel, Entitlement network.server)
       - App/Assets.xcassets
     info:
       path: Shell/Info.plist

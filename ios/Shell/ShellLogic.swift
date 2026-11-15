@@ -5,7 +5,8 @@ import Foundation
 /// Vertrag: docs/APP-API-HOST.md im Server-Repo (Abschnitte 3, 6, 7, 8).
 enum ShellLogic {
     /// Fähigkeiten, die die Mac-Huelle meldet. Kein `notify`: Mitteilungen kommen am Mac ueber APNs (sonst doppelt).
-    static let caps = ["badge", "widgets", "openExternal", "settings", "token"]
+    /// 2.5 A3: `tunnel` = Medien-Tunnel fuer Web-Anrufe (Bruecke hkTunnel, ShellTunnelLogic)
+    static let caps = ["badge", "widgets", "openExternal", "settings", "token", "tunnel"]
 
     /// Link-Schemata, die die Huelle annimmt (registriert: SAGA_SHELL_URL_SCHEME/_ALT = saga, hlidskjalf).
     /// `saga-test` nur fuer eine Test-Huelle mit eigener App-ID (Config/Base.xcconfig); Inhalt wie `saga://`.

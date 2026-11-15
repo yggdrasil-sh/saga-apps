@@ -56,7 +56,14 @@ extension ShellModel: WKNavigationDelegate {
         }
     }
 
-    func webViewWebContentProcessDidTerminate(_ wv: WKWebView) { wv.reload() }   // abgestuerzter Inhaltsprozess
+    // 2.5 A3: neue Seite im Hauptfenster (Navigation, Neuladen) -> Tunnel der alten Seite zu (in-App-Wechsel per
+    // pushState zaehlen nicht: der Anruf laeuft dort weiter)
+    func webView(_ wv: WKWebView, didCommit nav: WKNavigation!) { if wv === webView { tunnel.closeAll() } }
+
+    func webViewWebContentProcessDidTerminate(_ wv: WKWebView) {                   // abgestuerzter Inhaltsprozess
+        if wv === webView { tunnel.closeAll() }
+        wv.reload()
+    }
 }
 
 extension ShellModel: WKUIDelegate {

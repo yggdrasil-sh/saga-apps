@@ -46,6 +46,8 @@ final class ShellModel: NSObject, ObservableObject {
     private var netUp: Bool?
     var popups: [PopupCatcher] = []                   // offene leere Fenster (window.open('', '_blank'))
     let push = ShellPush()
+    /// 2.5 A3: Medien-Tunnel fuer Web-Anrufe hinter TLS-beendenden Proxys (ShellTunnel.swift, Bruecke hkTunnel)
+    let tunnel = ShellTunnelBridge(server: { AppConfig.server })
 
     override init() {
         let cfg = WKWebViewConfiguration()
@@ -58,6 +60,7 @@ final class ShellModel: NSObject, ObservableObject {
         webView = WKWebView(frame: .zero, configuration: cfg)
         super.init()
         cfg.userContentController.add(ShellWeakHandler(self), name: "hk")
+        cfg.userContentController.addScriptMessageHandler(tunnel, contentWorld: .page, name: ShellTunnelLogic.handlerName)
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.allowsBackForwardNavigationGestures = true
@@ -382,6 +385,7 @@ final class ShellModel: NSObject, ObservableObject {
         reloadWidgets(force: true)
         ShellSpotlight.shared.clear()
         push.signedOut()
+        tunnel.closeAll()
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
     }
 
