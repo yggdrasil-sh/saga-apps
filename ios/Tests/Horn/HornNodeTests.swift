@@ -40,6 +40,12 @@ final class HornNodeTests: XCTestCase {
         f.setOptions(o)
         return f
     }()
+    /// A3: Fabrik mit den Voreinstellungen der App (Loopback-Adapter ignoriert) - libwebrtc verbindet sich dann von en0
+    /// aus mit dem Tunnel auf 127.0.0.1, wie in der App
+    static let factoryApp: RTCPeerConnectionFactory = {
+        _ = factory
+        return RTCPeerConnectionFactory(encoderFactory: VP8Only(), decoderFactory: VP8Only(), audioDevice: SilentAudioDevice())
+    }()
 
     func testProbe() async throws {
         let m = await HornNet.probe(HornLogic.Candidate(node: "local", url: base), ms: 3000)
@@ -56,27 +62,27 @@ final class HornNodeTests: XCTestCase {
     /// Saga 2.5 A3: ICE-TCP durch den Tunnel (HornTunnel je Leitung, WS vorab, Kandidat des Knotens auf 127.0.0.1 gebogen)
     /// -> wss://<base>/api/sfu/ws. base darf ein TLS-beendender Proxy vor saga-media sein (Pruefstand: tlsproxy ->
     /// saga-media -> Knoten); FrameCryptor wie auf den anderen Wegen (B entschluesselt, C ohne Schluessel nicht)
-    func testTwoDevicesOverWSTunnel() async throws { try await twoDevices(path: "ws") }
+    func testTwoDevicesOverWSTunnel() async throws { try await twoDevices(path: "ws", factory: Self.factoryApp) }
 
-    private func twoDevices(path: String) async throws {
+    private func twoDevices(path: String, factory F: RTCPeerConnectionFactory = HornNodeTests.factory) async throws {
         let room = "apple-\(path)-\(UInt32.random(in: 1...UInt32.max))"
         _ = try await HornNet.json(base + "/api/dev/room", body: ["room": room])
         let kA = Data(repeating: 0x5A, count: 32)
-        let src = Self.factory.videoSource(), cap = TestPattern(delegate: src)
-        let cam = Self.factory.videoTrack(with: src, trackId: "horn-node-cam")
+        let src = F.videoSource(), cap = TestPattern(delegate: src)
+        let cam = F.videoTrack(with: src, trackId: "horn-node-cam")
         cap.start(); defer { cap.stop() }
         let devOf = ["peerAAAA": "devA", "peerBBBB": "devB", "peerCCCC": "devC"]
 
         // A: sendet (Bild mit Simulcast + Ton), Schluessel K fuer devA, Platz 0
         let pa = HornCryptor.keyProvider()
         pa.setKey(kA, with: 0, forParticipant: "devA")
-        let a = try await join(room: room, peer: "peerAAAA", dev: "devA", provider: pa, camera: cam, path: path)
+        let a = try await join(room: room, peer: "peerAAAA", dev: "devA", provider: pa, camera: cam, path: path, factory: F)
         // B: empfaengt mit den Plaetzen fuer devA (n = 0 und vier Ratschenstufen)
         let pb = HornCryptor.keyProvider()
         HornCryptor.setSlots(pb, device: "devA", newest: 0, key: kA)
-        let b = try await join(room: room, peer: "peerBBBB", dev: "devB", provider: pb, camera: nil, path: path)
+        let b = try await join(room: room, peer: "peerBBBB", dev: "devB", provider: pb, camera: nil, path: path, factory: F)
         // C: ohne Schluessel
-        let c = try await join(room: room, peer: "peerCCCC", dev: "devC", provider: HornCryptor.keyProvider(), camera: nil, path: path)
+        let c = try await join(room: room, peer: "peerCCCC", dev: "devC", provider: HornCryptor.keyProvider(), camera: nil, path: path, factory: F)
 
         var events: [HornLogic.Event] = []
         var map: [UInt32: String] = [:]
@@ -391,7 +397,8 @@ final class HornNodeTests: XCTestCase {
     }
 
     private func join(room: String, peer: String, dev: String, provider: RTCFrameCryptorKeyProvider, camera: RTCVideoTrack?, path: String,
-                      tiles: Int = 8, mobile: Bool = false, screen: RTCVideoTrack? = nil, leg: String? = nil) async throws -> [String: HornLeg] {
+                      tiles: Int = 8, mobile: Bool = false, screen: RTCVideoTrack? = nil, leg: String? = nil,
+                      factory: RTCPeerConnectionFactory = HornNodeTests.factory) async throws -> [String: HornLeg] {
         var out: [String: HornLeg] = [:]
         var turn: HornLeg.Turn?
         var auth: (user: String, pass: String)?
@@ -409,7 +416,7 @@ final class HornNodeTests: XCTestCase {
             var tb: [String: Any] = ["room": room, "peer": peer, "role": role, "device": mobile ? "mobile" : "desktop", "udp": path == "udp"]
             if let leg { tb["leg"] = leg + "-" + role }                      // weiteres Bein derselben Person (Wechsel)
             let tok = try await HornNet.json(base + "/api/dev/token", body: tb)["token"] as? String ?? ""
-            let L = HornLeg(role: role, path: path, me: dev, tiles: tiles, factory: Self.factory, provider: provider)
+            let L = HornLeg(role: role, path: path, me: dev, tiles: tiles, factory: factory, provider: provider)
             XCTAssertTrue(L.build(turn: turn, audio: nil, camera: camera, screen: screen, keyIndex: 0, sid: "s" + peer))
             var ready: Task<Void, Error>?
             if let auth {                                                   // wie hornLeg: WS parallel zu Angebot und POST
