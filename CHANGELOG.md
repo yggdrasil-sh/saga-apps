@@ -9,6 +9,18 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – iOS/Android: Anrufe über die Saga-Adresse hinter jedem Proxy (Tunnel, A3)
+
+- Gruppenanrufe über den eingebauten Knoten gehen jetzt auch, wenn Saga hinter einem Proxy läuft, der TLS selbst beendet
+  (z. B. Nginx Proxy Manager mit „Websockets Support“): je Leitung ein WebSocket an `wss://<Saga>/api/sfu/ws`
+  (`saga-tunnel.1`), darin ICE-TCP; Echo-Unterdrückung, Jitter-Puffer, Ratenregelung und Ende-zu-Ende-Verschlüsselung
+  bleiben unverändert. Der WebSocket steht schon, bevor die Antwort gesetzt wird (kein langsamerer Aufbau), der lokale
+  Port gilt nur für 127.0.0.1 und nur für die erste Verbindung.
+- Wegwahl: Bietet der Server nur den Tunnel an, laufen UDP (falls angeboten) und Tunnel gleichzeitig, ohne Warten auf
+  ICE-TCP/TLS; sonst bleibt die Reihenfolge UDP → TCP → TLS, der Tunnel kommt zuletzt. Weg-Anzeige „WebSocket über die
+  Saga-Adresse“, Diagnose-Weg `ws`; reicht der Proxy keinen WebSocket durch, steht in Diagnose und Fehlerprotokoll
+  „Proxy reicht WebSocket nicht durch“. Ältere Server ohne Tunnel: alles wie bisher.
+
 ### Neu – Android: Gruppenanruf „Nicht dabei“ mit „Erneut klingeln“
 
 - Die Teilnehmerliste eines Gruppenanrufs (direkt und über Knoten) zeigt unter den Teilnehmenden den Abschnitt **„Nicht
