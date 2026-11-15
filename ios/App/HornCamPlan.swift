@@ -41,6 +41,7 @@ enum HornTx {
     static let caps: [String: Cap] = [
         "tcp": Cap(l: 150, m: 600, mH: 720, screen: 900, screenFps: 8, screenH: 1080),
         "turn": Cap(l: 120, m: 450, mH: 540, screen: 600, screenFps: 5, screenH: 720),
+        "ws": Cap(l: 150, m: 600, mH: 720, screen: 900, screenFps: 8, screenH: 1080),     // A3: ICE-TCP im Tunnel = Werte wie TCP
     ]
     /// Faktor je Stufe auf m und Bildschirm
     static let factor: [Double] = [1, 0.6, 0.4, 0.25]

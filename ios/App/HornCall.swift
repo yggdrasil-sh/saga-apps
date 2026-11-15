@@ -140,6 +140,8 @@ final class HornSession: ObservableObject {
     var blk: [HornLogic.Candidate] = []
     var cur: HornConn?
     var next: HornConn?
+    /// A3: zweite Verbindung im Wettlauf UDP | Tunnel (HornCall.hornRace), bis eine gewinnt
+    var side: HornConn?
     var olds: [HornConn] = []
     var seq = 0
     var bad: [String: Double] = [:]
@@ -194,7 +196,7 @@ final class HornSession: ObservableObject {
     var log: [String] = []
     var started = false
     init(_ blk: Any?) { self.blk = HornLogic.candidates(blk) }
-    var conns: [HornConn] { ([cur] + olds + [next]).compactMap { $0 }.filter { !$0.dead } }
+    var conns: [HornConn] { ([cur] + olds + [next, side]).compactMap { $0 }.filter { !$0.dead } }
     func avoid(_ extra: [String] = [], now: Double) -> [String] {
         var a = bad.filter { $0.value > now }.map(\.key)
         if let l = leaving, l.until > now, !a.contains(l.node) { a.append(l.node) }
@@ -387,43 +389,104 @@ extension CallManager {
             return try await hornTry(list, why: why, i: i + 1)
         }
     }
-    /// Weg: UDP (udp_ok + Probe), sonst ICE-TCP, sonst TURN-TLS mit frischen Token
+    /// Weg (Vertrag A3 Punkt 10, HornLogic.ways): UDP (udp_ok + Probe) und - bietet der Kandidat ws an - gleichzeitig der
+    /// Tunnel ueber die Saga-Adresse (UDP mit Vorsprung); sonst bzw. danach ICE-TCP, dann TURN-TLS mit frischen Token
     private func hornOpen(_ cand: HornLogic.Candidate) async throws -> HornConn {
         guard let H = horn else { throw HornFail.cancelled }
         let m = H.meas[cand.node]
         let udp = cand.udp && cand.tokens["both"] != nil && m != nil && (m?.udp != nil || m?.udpMaybe == true)
-        do {
-            if udp {
-                do { return try await hornConnect(cand, path: "udp", wait: m?.udp != nil ? HornLogic.waitUDP : HornLogic.waitUDPMaybe) }
-                catch HornFail.cancelled { throw HornFail.cancelled }
-                catch { return try await hornConnect(cand, path: "tcp") }
+        let ways = HornLogic.ways(cand, udp: udp)
+        let udpWait = m?.udp != nil ? HornLogic.waitUDP : HornLogic.waitUDPMaybe
+        var last: Error = HornFail.failed
+        if !ways.race.isEmpty {
+            do {
+                if ways.race.count > 1 {
+                    return try await hornRace(cand, udpWait: udpWait, head: m?.udp != nil ? HornLogic.wsHeadUDP : HornLogic.wsHeadUDPMaybe)
+                }
+                let p = ways.race[0]
+                return try await hornConnect(cand, path: p, wait: p == "udp" ? udpWait : nil)
+            } catch {
+                if Self.hornStop(error) { throw error }
+                last = error
             }
-            return try await hornConnect(cand, path: "tcp")
-        } catch {
-            if case HornFail.cancelled? = error as? HornFail { throw error }
-            if let s = (error as? HornNet.HTTPError)?.status, s == 404 || s == 429 { throw error }   // beendet bzw. voll/Leeren
-            let c2 = try await hornFresh(cand, avoid: H.avoid(now: Self.hornNow()))
-            return try await hornConnect(c2, path: "turn")
+        }
+        var used = ways.race.contains("ws")                                // Ton-/Bild-Token schon am Knoten benutzt
+        for p in ways.then {
+            do {
+                let c = p == "turn" || used ? try await hornFresh(cand, avoid: H.avoid(now: Self.hornNow())) : cand
+                used = true
+                return try await hornConnect(c, path: p)
+            } catch {
+                if Self.hornStop(error) { throw error }
+                last = error
+            }
+        }
+        throw last
+    }
+    /// kein weiterer Weg: aufgelegt bzw. beendet (404) oder voll/Leeren (429)
+    private static func hornStop(_ e: Error) -> Bool {
+        if case HornFail.cancelled? = e as? HornFail { return true }
+        if let s = (e as? HornNet.HTTPError)?.status, s == 404 || s == 429 { return true }
+        return false
+    }
+    /// A3 "Happy Eyeballs": UDP sofort, der Tunnel nach head ms (oder sobald UDP vorher scheitert). Die erste verbundene
+    /// Verbindung gewinnt; die andere wird geschlossen (Beine per DELETE), auch wenn sie noch im Aufbau ist.
+    private func hornRace(_ cand: HornLogic.Candidate, udpWait: Double, head: Double) async throws -> HornConn {
+        guard let H = horn else { throw HornFail.cancelled }
+        H.trace("race \(cand.node) udp|ws \(Int(head)) ms")
+        final class Box { var done = false, udpDown = false; var fails: [Error] = []; var conns: [HornConn] = [] }
+        let box = Box()
+        return try await withCheckedThrowingContinuation { (k: CheckedContinuation<HornConn, Error>) in
+            func won(_ c: HornConn) {
+                guard !box.done else { hornConnClose(c); return }
+                box.done = true
+                for x in box.conns where x !== c { hornConnClose(x) }
+                H.trace("race \(c.path) gewinnt")
+                k.resume(returning: c)
+            }
+            func lost(_ e: Error) {
+                box.fails.append(e)
+                guard box.fails.count == 2, !box.done else { return }
+                box.done = true
+                k.resume(throwing: box.fails.first(where: Self.hornStop) ?? box.fails.last ?? e)
+            }
+            Task { @MainActor in
+                do { won(try await self.hornConnect(cand, path: "udp", wait: udpWait, made: { box.conns.append($0) })) }
+                catch { box.udpDown = true; lost(error) }
+            }
+            Task { @MainActor in
+                let t0 = Self.hornNow()
+                while !box.done && !box.udpDown && Self.hornNow() - t0 < head { try? await Task.sleep(for: .milliseconds(25)) }
+                guard !box.done else { lost(HornFail.cancelled); return }
+                do { won(try await self.hornConnect(cand, path: "ws", side: true, made: { box.conns.append($0) })) }
+                catch { lost(error) }
+            }
         }
     }
     /// Beine aufbauen und auf "verbunden" warten
-    private func hornConnect(_ cand: HornLogic.Candidate, path: String, wait: Double? = nil) async throws -> HornConn {
+    /// side: zweite Verbindung im Wettlauf (H.side statt H.next); made: neue Verbindung melden (Wettlauf schliesst sie)
+    private func hornConnect(_ cand: HornLogic.Candidate, path: String, wait: Double? = nil, side: Bool = false,
+                             made: ((HornConn) -> Void)? = nil) async throws -> HornConn {
         guard let H = horn else { throw HornFail.cancelled }
         H.seq += 1
         let conn = HornConn(key: "c\(H.seq)", cand: cand, path: path, now: Self.hornNow())
-        H.next = conn
+        if side { H.side = conn } else { H.next = conn }
+        made?(conn)
         H.trace("connect \(cand.node) \(path)")
         do {
             var turn: HornLeg.Turn?
+            var tun: HornLeg.Turn?
             if path == "turn", let tok = cand.tokens["audio"], let hp = cand.hostPort {
                 let t = try await HornNet.turn(cand.url, token: tok)
                 let tu = IceFilter.turnsURL(host: hp.host, port: hp.port)
                 guard IceFilter.allowed(tu, serverLocal: iceLocal) else { throw HornFail.failed }        // pt2 A4: naechster Weg/Knoten
                 turn = HornLeg.Turn(url: tu, user: t.user, pass: t.pass)
             }
+            if path == "ws" { tun = try await hornTunnelAuth(cand) }
+            guard !conn.dead else { throw HornFail.cancelled }
             let roles = path == "udp" ? ["both"] : ["audio", "video"]
             try await withThrowingTaskGroup(of: Void.self) { g in
-                for r in roles { g.addTask { @MainActor in try await self.hornLeg(conn, role: r, turn: turn) } }
+                for r in roles { g.addTask { @MainActor in try await self.hornLeg(conn, role: r, turn: turn, tun: tun) } }
                 try await g.waitForAll()
             }
             guard hornLive(H), !conn.dead else { throw HornFail.cancelled }
@@ -443,10 +506,26 @@ extension CallManager {
         } catch {
             hornConnClose(conn)
             if H.next === conn { H.next = nil }
+            if H.side === conn { H.side = nil }
+            if let f = error as? HornTunnel.Fail { hornTunnelFail(f) }
             throw hornLive(H) ? error : HornFail.cancelled
         }
     }
-    private func hornLeg(_ conn: HornConn, role: String, turn: HornLeg.Turn?, pend: Bool = false) async throws {
+    /// A3: Zugang fuer die Tunnel-WS (wie TURN-TLS: POST /api/sfu/turn mit dem Ton-Token; ein Satz fuer beide Leitungen)
+    private func hornTunnelAuth(_ cand: HornLogic.Candidate) async throws -> HornLeg.Turn {
+        guard let tok = cand.tokens["audio"] else { throw HornNet.HTTPError(status: 401, message: "token") }
+        let t = try await HornNet.turn(cand.url, token: tok)
+        return HornLeg.Turn(url: HornWire.path, user: t.user, pass: t.pass)
+    }
+    /// A3: Tunnel scheiterte beim Aufbau - Diagnose (calldiag-Ereignis "path", clientlog, Protokoll); 426 = Proxy reicht
+    /// WebSocket nicht durch ("Websockets Support" aus)
+    func hornTunnelFail(_ f: HornTunnel.Fail) {
+        let d = f.errorDescription ?? "ws"
+        horn?.trace(d)
+        diagEvent("path", d)
+        if f.status > 0 { ClientLog.shared.report("warn", "HornTunnel.setup: " + d) }
+    }
+    private func hornLeg(_ conn: HornConn, role: String, turn: HornLeg.Turn?, tun: HornLeg.Turn? = nil, pend: Bool = false) async throws {
         guard let H = horn, let me = myDevice else { throw HornFail.cancelled }
         let L = HornLeg(role: role, path: conn.path, me: me, tiles: HornLogic.tileSlots(mobile: hornMobile), factory: CallRTC.factory, provider: H.provider)
         L.pend = pend
@@ -456,6 +535,14 @@ extension CallManager {
         guard L.build(turn: turn, audio: audioTrack, camera: H.cur == nil || H.cur === conn ? camera?.track : nil,
                       screen: sharing ? scrTrack : nil, keyIndex: H.own.active.kid, sid: sid) else { throw HornFail.failed }
         L.onState = { [weak self, weak conn] _ in guard let self, let conn else { return }; self.hornConnState(conn) }
+        // A3: Tunnel je Leitung - WS gleich aufbauen (parallel zu Angebot und POST /api/sfu/leg), Lauscher erst vor der Antwort
+        var tunReady: Task<Void, Error>?
+        if conn.path == "ws" {
+            guard let a = tun, let T = HornTunnel(base: conn.url, user: a.user, pass: a.pass) else { throw HornFail.failed }
+            L.tunnel = T
+            T.onClose = { [weak self] why in Task { @MainActor in self?.horn?.trace("ws \(role) zu \(why) \(T.stats.line)") } }
+            tunReady = Task { try await T.connect() }
+        }
         L.onCryptor = { [weak self] dev, ok in
             guard let self, let H = self.horn else { return }
             if ok { H.need.good(dev) } else { H.need.bad(dev, now: Self.hornNow()) }
@@ -476,7 +563,14 @@ extension CallManager {
         guard hornLive(H), conn.legs[role] === L, !conn.dead else { L.close(); throw HornFail.cancelled }
         L.id = res.id; L.slots = res.slots; conn.state = res.state
         hornPeersIn(conn, res.peers)
-        try await L.answer(res.answer)
+        var answer = res.answer
+        if let tunReady, let T = L.tunnel {
+            try await tunReady.value                                        // WS steht (sonst Fail: naechster Weg)
+            guard hornLive(H), conn.legs[role] === L, !conn.dead else { throw HornFail.cancelled }
+            guard HornTunnelLogic.bendable(answer) else { H.trace("ws ohne TCP-Kandidat"); throw HornFail.failed }
+            answer = HornTunnelLogic.bend(answer, port: try T.listen())    // Lauscher erst jetzt (Vertrag 6)
+        }
+        try await L.answer(answer)
         hornEventsOpen(conn, L, again: false)
         hornMap(); hornDraw()
     }
@@ -495,17 +589,18 @@ extension CallManager {
         guard hornLive(H), H.cur === conn, !conn.dead else { throw HornFail.cancelled }
         cand.used = true
         conn.cand = cand
-        var turn: HornLeg.Turn?
+        var turn: HornLeg.Turn?, tun: HornLeg.Turn?
         if conn.path == "turn", let tok = cand.tokens["audio"], let hp = cand.hostPort {
             let t = try await HornNet.turn(cand.url, token: tok)
             let tu = IceFilter.turnsURL(host: hp.host, port: hp.port)
             guard IceFilter.allowed(tu, serverLocal: iceLocal) else { throw HornFail.failed }        // pt2 A4: naechster Weg/Knoten
             turn = HornLeg.Turn(url: tu, user: t.user, pass: t.pass)
         }
+        if conn.path == "ws" { tun = try await hornTunnelAuth(cand) }
         old.replaced = true
         H.trace("ton neu \(conn.node) \(role)")
         do {
-            try await hornLeg(conn, role: role, turn: turn, pend: true)
+            try await hornLeg(conn, role: role, turn: turn, tun: tun, pend: true)
             guard let L = conn.legs[role], L !== old else { throw HornFail.failed }
             let t0 = Self.hornNow()
             while L.state != .connected {
@@ -651,6 +746,7 @@ extension CallManager {
         guard let H = horn else { return }
         let prev = H.cur, now = Self.hornNow()
         if H.next === conn { H.next = nil }
+        if H.side === conn { H.side = nil }
         H.cur = conn
         if let p = prev, p !== conn {
             p.retired = now; H.olds.append(p)
@@ -794,6 +890,7 @@ extension CallManager {
             H.olds.removeAll { $0 === conn }
             if H.cur === conn { H.cur = nil }
             if H.next === conn { H.next = nil }
+            if H.side === conn { H.side = nil }
             H.moving = !H.olds.isEmpty
             if hornLive(H) { hornStateOut() }                                  // state.hp ohne die geschlossene Verbindung
         }
@@ -1022,7 +1119,7 @@ extension CallManager {
             if H.loss != conn.loss { H.loss = conn.loss }
             if !H.switching {
                 let udpOk = conn.path != "udp" && conn.cand.udp && H.meas[conn.node]?.udp != nil
-                if let x = H.sw?.udp(t, loss: loss, ok: udpOk), let p = x.path, p != conn.path, p != "udp" || conn.cand.tokens["both"] != nil {
+                if let x = H.sw?.udp(t, loss: loss, ok: udpOk, stream: HornLogic.streamPath(conn.cand)), let p = x.path, p != conn.path, p != "udp" || conn.cand.tokens["both"] != nil {
                     hornSwitch(x.why, path: p)
                 }
             }
@@ -1378,7 +1475,7 @@ extension CallManager {
         guard let H = horn else { return }
         H.monTask?.cancel(); H.retryTask?.cancel(); H.ackTask?.cancel(); H.rekeyTask?.cancel(); H.commitTask?.cancel(); H.stTask?.cancel()
         for c in H.conns + H.olds { hornConnClose(c) }
-        H.cur = nil; H.next = nil; H.olds = []
+        H.cur = nil; H.next = nil; H.side = nil; H.olds = []
         for (_, L) in H.links { L.close() }
         H.links = [:]
         H.tiles = []; H.share = nil; H.focusTrack = nil

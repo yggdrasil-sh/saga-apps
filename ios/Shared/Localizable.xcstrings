@@ -80643,6 +80643,40 @@
           }
         }
       }
+    },
+    "WebSocket über die Saga-Adresse" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WebSocket über die Saga-Adresse"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WebSocket via the Saga address"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WebSocket a través de la dirección de Saga"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WebSocket через адрес Saga"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WebSocket ผ่านที่อยู่ของ Saga"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

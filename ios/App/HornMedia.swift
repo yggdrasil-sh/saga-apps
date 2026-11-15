@@ -18,7 +18,7 @@ import WebRTC
 @MainActor
 final class HornLeg: NSObject {
     let role: String                                                        // audio | video | both
-    let path: String                                                        // udp | tcp | turn
+    let path: String                                                        // udp | tcp | turn | ws (A3: Tunnel)
     let me: String
     let tiles: Int
     private let factory: RTCPeerConnectionFactory
@@ -31,6 +31,8 @@ final class HornLeg: NSObject {
     var slots: [HornLogic.Slot] = []
     var est = 0
     var events: HornEvents?
+    /// A3 (Weg "ws"): Tunnel dieser Leitung (lokaler Lauscher + WebSocket ueber die Saga-Adresse)
+    var tunnel: HornTunnel?
     /// 2.5 Uebergabe (L3): Ersatz-Bein noch nicht verbunden (kein Verbindungsverlust) bzw. altes Bein ersetzt (Ereignisse egal)
     var pend = false
     var replaced = false
@@ -195,7 +197,7 @@ final class HornLeg: NSObject {
         return pc.localDescription?.sdp ?? o.sdp
     }
     func body(token: String, offer: String, mobile: Bool) -> [String: Any] {
-        ["token": token, "path": path, "offer": offer, "audio": role != "video" ? Self.audioSlots : 0,
+        ["token": token, "path": HornWire.legPath(path), "offer": offer, "audio": role != "video" ? Self.audioSlots : 0,
          "speaker": role != "audio", "screen": role != "audio", "tiles": role != "audio" ? tiles : 0,
          "device": mobile ? "mobile" : "desktop", "screen_mid": scr.map { $0.mid } ?? ""]
     }
@@ -211,6 +213,10 @@ final class HornLeg: NSObject {
         for (_, x) in rx { x.c.enabled = true }                            // nie setEnabled(false): FrameCryptor reichte Klartext durch
         pc?.close(); pc = nil
         rx = [:]; senders = []
+        if let t = tunnel {                                                 // kurz danach: letzte Bytes (DTLS-Ende) noch durchreichen
+            tunnel = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { t.close() }
+        }
     }
 
     // MARK: Spuren, Pegel, wer liefert gerade

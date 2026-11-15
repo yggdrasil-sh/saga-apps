@@ -159,7 +159,7 @@ enum CallDiag {
     }
     /// Zahl fuer den Server: endlich, >= 0, ganzzahlig (Int(NaN/inf) wuerde abstuerzen)
     static func int(_ v: Double?) -> Int { guard let v, v.isFinite, v > 0 else { return 0 }; return v >= 1e9 ? 1_000_000_000 : Int(v.rounded()) }
-    static func transport(horn path: String) -> String { path == "udp" ? "udp" : path == "tcp" ? "tcp" : path == "turn" ? "tls" : "?" }
+    static func transport(horn path: String) -> String { path == "udp" ? "udp" : path == "tcp" ? "tcp" : path == "turn" ? "tls" : path == "ws" ? "ws" : "?" }
     /// P2P: Weg aus CallV3.Path (direct, relay-udp, relay-tcp)
     static func transport(p2p wire: String?) -> String {
         switch wire { case "direct", "relay-udp": return "udp"; case "relay-tcp": return "tcp"; default: return "?" }

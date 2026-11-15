@@ -58,7 +58,8 @@ struct HornInfoLine: View {
     }
     private var dot: Color { horn.quality == .good ? .green : horn.quality == .mid ? .yellow : .red }
     private var way: String {
-        horn.path == "udp" ? String(localized: "UDP (schnellster Weg)") : horn.path == "turn" ? String(localized: "TLS über Port 443 (Rückfall)") : String(localized: "TCP über Port 443")
+        horn.path == "udp" ? String(localized: "UDP (schnellster Weg)") : horn.path == "turn" ? String(localized: "TLS über Port 443 (Rückfall)")
+            : horn.path == "ws" ? String(localized: "WebSocket über die Saga-Adresse") : String(localized: "TCP über Port 443")
     }
     private var qualityText: String {
         horn.quality == .good ? String(localized: "gute Verbindung") : horn.quality == .mid ? String(localized: "mittlere Verbindung") : String(localized: "schwache Verbindung")

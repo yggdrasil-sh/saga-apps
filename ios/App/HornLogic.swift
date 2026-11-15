@@ -79,14 +79,22 @@ enum HornLogic {
         var exp = 0.0
         var tokens: [String: String] = [:]
         var used = false
-        init(node: String, url: String = "", udp: Bool = false, here: Bool = false, load: Double = 0, peer: String = "", exp: Double = 0, tokens: [String: String] = [:]) {
+        /// A3 (Saga 2.5): Tunnel ueber die Saga-Adresse (wss://<url>/api/sfu/ws) geht; tcp/tls = rohes ICE-TCP bzw.
+        /// TURN-TLS am Knoten (fehlend: wie bisher angenommen)
+        var ws = false
+        var tcp = true
+        var tls = true
+        init(node: String, url: String = "", udp: Bool = false, here: Bool = false, load: Double = 0, peer: String = "", exp: Double = 0, tokens: [String: String] = [:],
+             ws: Bool = false, tcp: Bool = true, tls: Bool = true) {
             self.node = node; self.url = url; self.udp = udp; self.here = here; self.load = load; self.peer = peer; self.exp = exp; self.tokens = tokens
+            self.ws = ws; self.tcp = tcp; self.tls = tls
         }
         init?(_ any: Any?) {
             guard let d = any as? [String: Any], let n = d["node"] as? String, !n.isEmpty, let u = d["url"] as? String,
                   u.hasPrefix("https://") || u.hasPrefix("http://") else { return nil }
             node = n; url = u.hasSuffix("/") ? String(u.dropLast()) : u
             udp = d["udp"] as? Bool ?? false; here = d["here"] as? Bool ?? false
+            ws = d["ws"] as? Bool ?? false; tcp = d["tcp"] as? Bool ?? true; tls = d["tls"] as? Bool ?? true
             load = (d["load"] as? NSNumber)?.doubleValue ?? 0
             peer = d["peer"] as? String ?? ""
             exp = (d["exp"] as? NSNumber)?.doubleValue ?? 0
@@ -192,11 +200,12 @@ enum HornLogic {
             return Decision(why: .better, to: best.node)
         }
         /// UDP-Weg: Verlust (0...1) aus getStats; ok = UDP-Probe gelingt (Rueckkehr)
-        mutating func udp(_ now: Double, loss: Double, ok: Bool = false) -> Decision? {
+        /// stream = Weg ohne UDP fuer diesen Knoten (HornLogic.streamPath: "ws" bzw. "tcp")
+        mutating func udp(_ now: Double, loss: Double, ok: Bool = false, stream: String = "tcp") -> Decision? {
             if path == "udp" {
                 if loss > HornLogic.udpLoss {
                     if lossSince == 0 { lossSince = now }
-                    if now - lossSince >= HornLogic.udpLossFor { return Decision(why: .udpLoss, path: "tcp") }
+                    if now - lossSince >= HornLogic.udpLossFor { return Decision(why: .udpLoss, path: stream) }
                 } else { lossSince = 0 }
                 return nil
             }
@@ -252,7 +261,28 @@ enum HornLogic {
         if r > 200 || loss > 0.02 || freezes > 1 { return .mid }
         return .good
     }
-    static func pathName(_ p: String) -> String { p == "udp" ? "UDP" : p == "turn" ? "TLS" : p == "tcp" ? "TCP" : "" }
+    static func pathName(_ p: String) -> String { p == "udp" ? "UDP" : p == "turn" ? "TLS" : p == "tcp" ? "TCP" : p == "ws" ? "WS" : "" }
+
+    // MARK: Wegwahl (Vertrag A3 Punkt 10)
+
+    /// Reihenfolge der Wege fuer einen Kandidaten. race = gleichzeitig ("Happy Eyeballs": UDP zuerst, der Tunnel nach
+    /// wsHead ms bzw. sofort, wenn UDP vorher scheitert), then = danach der Reihe nach.
+    /// - ws:true -> UDP (wenn angeboten und die Probe antwortet) und Tunnel parallel, kein Warten auf ICE-TCP/TURN-TLS;
+    ///   scheitern beide: TCP (wenn nicht tcp:false), dann TLS (wenn nicht tls:false)
+    /// - ohne ws: wie bisher UDP -> TCP -> TLS (tcp:false/tls:false ueberspringen); den Tunnel nur, wenn angeboten
+    struct Ways: Equatable { var race: [String]; var then: [String] }
+    static func ways(_ c: Candidate, udp: Bool) -> Ways {
+        var r: [String] = udp ? ["udp"] : []
+        if c.ws { r.append("ws") }
+        var t: [String] = []
+        if c.tcp { t.append("tcp") }
+        if c.tls || (r.isEmpty && t.isEmpty) { t.append("turn") }                // nichts angeboten: TLS wie bisher als letzter Weg
+        return Ways(race: r, then: t)
+    }
+    /// Vorsprung fuer UDP im Wettlauf mit dem Tunnel: Probe beantwortet -> 600 ms (sauberer Aufbau ~0,3 s), unklar -> 250 ms
+    static let wsHeadUDP = 600.0, wsHeadUDPMaybe = 250.0
+    /// Weg bei UDP-Verlust im Anruf (Umschalter): Tunnel, wenn angeboten, sonst ICE-TCP (wie bisher)
+    static func streamPath(_ c: Candidate) -> String { c.ws ? "ws" : "tcp" }
 }
 
 // MARK: - Knoten: Bein-Antwort, Ereigniskanal, Zuordnung
