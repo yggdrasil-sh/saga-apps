@@ -143,6 +143,7 @@ final class HornTunnel: @unchecked Sendable {
         q.async {
             guard !self.dead else { return }
             self.dead = true
+            if self.st.closed.isEmpty { self.st.closed = "zu" }
             self.onClose = nil
             self.stopListening()
             self.ws?.cancel(with: .normalClosure, reason: nil); self.ws = nil

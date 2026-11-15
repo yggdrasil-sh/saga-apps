@@ -53,6 +53,10 @@ final class HornNodeTests: XCTestCase {
 
     func testTwoDevicesOverTCP() async throws { try await twoDevices(path: "tcp") }
     func testTwoDevicesOverTURN() async throws { try await twoDevices(path: "turn") }
+    /// Saga 2.5 A3: ICE-TCP durch den Tunnel (HornTunnel je Leitung, WS vorab, Kandidat des Knotens auf 127.0.0.1 gebogen)
+    /// -> wss://<base>/api/sfu/ws. base darf ein TLS-beendender Proxy vor saga-media sein (Pruefstand: tlsproxy ->
+    /// saga-media -> Knoten); FrameCryptor wie auf den anderen Wegen (B entschluesselt, C ohne Schluessel nicht)
+    func testTwoDevicesOverWSTunnel() async throws { try await twoDevices(path: "ws") }
 
     private func twoDevices(path: String) async throws {
         let room = "apple-\(path)-\(UInt32.random(in: 1...UInt32.max))"
@@ -110,8 +114,18 @@ final class HornNodeTests: XCTestCase {
         XCTAssertGreaterThan(rb.frames, 10, "B dekodiert Bilder von A ueber den Knoten (\(path)): \(rb)")
         XCTAssertGreaterThan(rc.packets, 10, "C bekommt Pakete")
         XCTAssertEqual(rc.frames, 0, "C ohne Schluessel dekodiert nichts: \(rc)")
+        if path == "ws" { tunnelCheck([a, b, c]) }
         for legs in [a, b, c] { for L in legs.values { L.close() } }
         withExtendedLifetime((src, cap, cam)) {}
+    }
+    /// je Leitung ein Tunnel: WS stand vor der Antwort, genau eine lokale Verbindung, Bytes in beide Richtungen, quittiert
+    private func tunnelCheck(_ all: [[String: HornLeg]]) {
+        for legs in all { for (r, L) in legs {
+            guard let s = L.tunnel?.stats else { XCTFail("Tunnel fehlt (\(r))"); continue }
+            print("TUNNEL \(r) \(s.line)")
+            XCTAssertTrue(s.ready && s.accepted == 1, "WS vorab bereit, eine lokale Verbindung (\(r)): \(s.line)")
+            XCTAssertTrue(s.txBytes > 0 && s.rxBytes > 0 && s.acksOut > 0, "Bytes in beide Richtungen, Quittungen (\(r)): \(s.line)")
+        } }
     }
 
     // 1:1 ueber den Knoten wie am iPhone (Fehler 26.10.): beide senden Kamera (Testbild 1280x720, 30 fps), Handy-Kacheln
@@ -380,6 +394,11 @@ final class HornNodeTests: XCTestCase {
                       tiles: Int = 8, mobile: Bool = false, screen: RTCVideoTrack? = nil, leg: String? = nil) async throws -> [String: HornLeg] {
         var out: [String: HornLeg] = [:]
         var turn: HornLeg.Turn?
+        var auth: (user: String, pass: String)?
+        if path == "ws" {                                                   // A3: Zugang fuer die Tunnel-WS wie hornTunnelAuth
+            let tok = try await HornNet.json(base + "/api/dev/token", body: ["room": room, "peer": peer, "role": "audio", "leg": (leg ?? peer) + "-ws", "device": "desktop"])["token"] as? String ?? ""
+            auth = try await HornNet.turn(base, token: tok)
+        }
         if path == "turn" {
             let tok = try await HornNet.json(base + "/api/dev/token", body: ["room": room, "peer": peer, "role": "audio", "leg": peer + "-turn", "device": "desktop"])["token"] as? String ?? ""
             let t = try await HornNet.turn(base, token: tok)
@@ -392,11 +411,23 @@ final class HornNodeTests: XCTestCase {
             let tok = try await HornNet.json(base + "/api/dev/token", body: tb)["token"] as? String ?? ""
             let L = HornLeg(role: role, path: path, me: dev, tiles: tiles, factory: Self.factory, provider: provider)
             XCTAssertTrue(L.build(turn: turn, audio: nil, camera: camera, screen: screen, keyIndex: 0, sid: "s" + peer))
+            var ready: Task<Void, Error>?
+            if let auth {                                                   // wie hornLeg: WS parallel zu Angebot und POST
+                let T = try XCTUnwrap(HornTunnel(base: base, user: auth.user, pass: auth.pass, role: role))
+                L.tunnel = T
+                ready = Task { try await T.connect() }
+            }
             let offer = try await L.offer()
             XCTAssertTrue(offer.contains("VP8") || role == "audio")
             let ans = try await HornNet.leg(base, L.body(token: tok, offer: offer, mobile: mobile))
             L.id = ans.id; L.slots = ans.slots
-            try await L.answer(ans.answer)
+            var sdp = ans.answer
+            if let ready, let T = L.tunnel {
+                try await ready.value
+                XCTAssertTrue(HornTunnelLogic.bendable(sdp), "passiver TCP-Kandidat in der Antwort")
+                sdp = HornTunnelLogic.bend(sdp, port: try T.listen())
+            }
+            try await L.answer(sdp)
             out[role] = L
         }
         return out
@@ -767,6 +798,49 @@ extension HornNodeTests {
         XCTAssertGreaterThan(f2 - f1, 60, "Kamera nach Pause fluessig (4 s): \(f1) -> \(f2)")
         for d in [a, b] { for L in d.legs.values { L.close() } }
         withExtendedLifetime((sA, tA)) {}
+    }
+
+    /// A3: Wechsel make-before-break ueber den Tunnel (z. B. Knoten leert sich / neue Verbindung): A baut eine zweite
+    /// Verbindung ueber neue Tunnel auf, das Bild geht auf die neue, die alten Beine (samt Tunnel) schliessen - B sieht A
+    /// ohne Unterbrechung weiter; danach sind die alten Tunnel zu
+    func testPathSwitchOverWSTunnel() async throws {
+        let room = "apple-wsw-\(UInt32.random(in: 1...UInt32.max))"
+        _ = try await HornNet.json(base + "/api/dev/room", body: ["room": room])
+        let kA = Data(repeating: 0x5A, count: 32)
+        let (s0, cap, cam) = cam720("wsw-a")
+        cap.start(); defer { cap.stop() }
+        let devOf = ["peerWA": "devA", "peerWB": "devB"]
+        let pa = HornCryptor.keyProvider(), pb = HornCryptor.keyProvider()
+        pa.setKey(kA, with: 0, forParticipant: "devA"); HornCryptor.setSlots(pb, device: "devA", newest: 0, key: kA)
+        let tiles = HornLogic.tileSlots(mobile: true)
+        let a1 = Dev(dev: "devA", peer: "peerWA", path: "ws"), b = Dev(dev: "devB", peer: "peerWB", path: "ws")
+        a1.legs = try await join(room: room, peer: a1.peer, dev: a1.dev, provider: pa, camera: cam, path: "ws", tiles: tiles, mobile: true, leg: "wa1")
+        b.legs = try await join(room: room, peer: b.peer, dev: b.dev, provider: pb, camera: nil, path: "ws", tiles: tiles, mobile: true)
+        wire(a1, devOf: devOf); wire(b, devOf: devOf)
+        var ok = try await up([a1, b])
+        XCTAssertTrue(ok, "verbunden ueber den Tunnel")
+        try await Task.sleep(nanoseconds: 4_000_000_000)
+        let f0 = await frames(b, cls: "tile", from: "devA")
+        let a2 = Dev(dev: "devA", peer: "peerWA", path: "ws")
+        a2.legs = try await join(room: room, peer: a2.peer, dev: a2.dev, provider: pa, camera: cam, path: "ws", tiles: tiles, mobile: true, leg: "wa2")
+        wire(a2, devOf: devOf)
+        ok = try await up([a2])
+        XCTAssertTrue(ok, "neue Verbindung ueber neue Tunnel")
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        for L in a1.legs.values { L.cam?.sender.track = nil }               // hornAdopt: Bild nur noch ueber die neue
+        let f1 = await frames(b, cls: "tile", from: "devA")
+        try await Task.sleep(nanoseconds: 2_000_000_000)
+        let olds = a1.legs.values.compactMap(\.tunnel)
+        for L in a1.legs.values { L.close() }                               // alte schliessen (hornMon)
+        try await Task.sleep(nanoseconds: 4_000_000_000)
+        let f2 = await frames(b, cls: "tile", from: "devA")
+        print("ws-wechsel: \(f0) / \(f1) -> \(f2) alt: \(olds.map(\.stats.line))")
+        XCTAssertGreaterThan(f0, 20, "vor dem Wechsel")
+        XCTAssertGreaterThan(f2 - f1, 30, "Bild laeuft nach dem Wechsel weiter (6 s): \(f1) -> \(f2)")
+        XCTAssertTrue(olds.allSatisfy { !$0.stats.closed.isEmpty }, "alte Tunnel zu")
+        tunnelCheck([a2.legs, b.legs])
+        for d in [a2, b] { for L in d.legs.values { L.close() } }
+        withExtendedLifetime((s0, cam)) {}
     }
 
     /// Wegwechsel waehrend A teilt (hornSwitch .udp, make-before-break wie hornAdopt): neue Beine entstehen mit der
