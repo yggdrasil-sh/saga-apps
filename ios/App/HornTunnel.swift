@@ -107,6 +107,7 @@ final class HornTunnel: @unchecked Sendable {
     func listen() throws -> UInt16 {
         try q.sync {
             guard !dead, ws != nil else { throw Fail.closed }
+            guard port == 0, lsrc == nil, local == nil else { throw Fail.listen }   // nur ein Lauscher je Tunnel (Pruefung Huelle: zweites listen liess den ersten offen)
             let fd = socket(AF_INET, SOCK_STREAM, 0)
             guard fd >= 0 else { throw Fail.listen }
             var one: Int32 = 1
