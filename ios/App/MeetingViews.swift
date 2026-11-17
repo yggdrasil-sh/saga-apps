@@ -336,7 +336,8 @@ struct MeetingStage: View {
     }
     /// Teilnehmerliste (oben rechts, blendet mit den Leisten aus); Knoten: Liste mit Moderation
     @ViewBuilder private var hornButton: some View {
-        Group {
+        HStack(spacing: 0) {
+            CallAddHintButton(calls: calls)                                 // 2.5 (L9): direktes 1:1 - nur Hinweis
             if let H = calls.horn { HornPeopleButton(horn: H) }
             else if mode != .duo || calls.invitesShown {                    // 2.5 (L7): Gruppe zu zweit - "Nicht dabei" erreichbar
                 Button { calls.meet.people.toggle() } label: {
@@ -659,10 +660,15 @@ struct MeetPeoplePanel: View {
         }
     }
     var body: some View {
+        if calls.addOpen && calls.addMode != .none { CallAddPanel(calls: calls) }   // 2.5 (L8/L9): Auswahl statt Liste
+        else { list }
+    }
+    private var list: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Im Anruf (\(people.count))").font(.headline)
                 Spacer()
+                CallAddButton(calls: calls)                                 // 2.5 (L8/L9): Person hinzufuegen
                 Button { calls.meet.people = false } label: { Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle()) }
                     .buttonStyle(.plain).accessibilityLabel(Text("Schließen")).padding(-7)
             }

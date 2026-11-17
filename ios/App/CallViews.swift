@@ -207,6 +207,11 @@ struct CallScreen: View {
             }
             if calls.screenHint { ScreenHintCard(calls: calls) }
             if let H = calls.horn { HornOverlays(calls: calls, horn: H, scheme: systemScheme, top: topInset - (flat ? 4 : 10), bottom: bottomInset - 10) }
+            if let n = calls.callNote {                                      // 2.5 (L8/L9): Umzug in die neue Gruppe, direktes 1:1
+                CallNoteChip(text: n).padding(.top, topInset + 4).padding(.horizontal, 20)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .allowsHitTesting(false)
+            }
         }
         #if os(iOS)
         .background { BroadcastPickerHost(capture: calls.capture).frame(width: 1, height: 1).allowsHitTesting(false) }
@@ -241,6 +246,12 @@ struct CallScreen: View {
             }
         }
         #endif
+        .overlay(alignment: .topTrailing) {                                  // 2.5 (L9): direktes 1:1 ohne Buehne - nur Hinweis
+            if !meetOn && CallLogic.isOngoing(calls.phase.rawValue) {
+                CallAddHintButton(calls: calls).padding(.trailing, 12).padding(.top, 6)
+                    .opacity(chromeHidden ? 0 : 1).allowsHitTesting(!chromeHidden)
+            }
+        }
         .foregroundStyle(.white)
         .environment(\.colorScheme, .dark)
         .dynamicTypeSize(...DynamicTypeSize.accessibility3)                 // groesste Stufen: Name/Status passen noch neben die Knoepfe

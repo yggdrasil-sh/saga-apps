@@ -19,6 +19,10 @@ extension CallManager {
 
     /// Felder aus GET /api/calls/{id}, POST /api/calls, /join: Art, Grenze, Personen ohne 2.4, Raum ueber Servergrenzen
     func adoptCall(_ c: [String: Any]) {
+        // 2.5 (L9): Abfrage zeigt den Anruf schon an einem neuen Chat (call.move verpasst) - wie das Ereignis weiterfuehren
+        if let m = CallAdd.missedMove(c, dmRoom: kind == "group" && dmRoom, chatID: chatID), movedTo != m.to, id != nil, ready {
+            moveIn(m, call: c); return
+        }
         if let k = c["kind"] as? String { kind = k == "group" ? "group" : "dm" }
         if let t = c["topo"] as? String { topo = t }                        // 2.5: "horn" = ueber einen Gjallarhorn-Knoten
         if let h = c["host"] as? Bool { callHost = h }
@@ -39,6 +43,7 @@ extension CallManager {
         } else if !joinRole.isEmpty, let p = c["peer"] as? [String: Any] {
             peerName = ShareJSON.str(p["name"]).map { PersonName.shown($0, id: ShareJSON.str(p["handle"]), host: ShareJSON.str(p["host"])) } ?? peerName; peerAvatar = ShareJSON.str(p["avatar"]) ?? peerAvatar
         }
+        if c["legs"] != nil { addCaps = CallAdd.Caps(c) }                   // 2.5 (L8/L9): volles Anruf-Objekt
         invitesIn(c)                                                        // 2.5 (L7): "Nicht dabei"
     }
     /// Raum ueber Servergrenzen: eigener Handle (Signale sind daran gebunden)

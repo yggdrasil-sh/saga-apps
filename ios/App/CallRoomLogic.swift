@@ -34,6 +34,8 @@ enum CallRoom {
         var avatar: String? = nil
         /// 2.5 handover2: Beitrittsgeneration (ms, steigt mit jedem erneuten Beitritt) - bedingtes /leave {gen}
         var gen: Int? = nil
+        /// 2.5 (L8): Personen dieses Servers - Kennung wie ref in GET /api/chat/contacts ('~x'), zum Ausblenden in der Auswahl
+        var ref: String? = nil
         var companion: Bool { role == "companion" }
         var multi: Bool { caps.contains("multi") }
     }
@@ -56,7 +58,8 @@ enum CallRoom {
                            hp: (d["hp"] as? String).flatMap { $0.isEmpty || $0.count > 64 ? nil : $0 },
                            hpn: (d["hpn"] as? [String: Any] ?? [:]).reduce(into: [String: String]()) { r, x in if let v = x.value as? String, !v.isEmpty, v.count <= 64 { r[x.key] = v } },
                            avatar: (d["avatar"] as? String).flatMap { $0.isEmpty ? nil : $0 },
-                           gen: gen(d["gen"])))
+                           gen: gen(d["gen"]),
+                           ref: (d["ref"] as? String).flatMap { $0.isEmpty || $0.count > 300 ? nil : $0 }))
         }
         return out
     }

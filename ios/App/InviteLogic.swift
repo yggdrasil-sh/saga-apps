@@ -24,6 +24,8 @@ enum Invites {
         var host: String?
         var state: State
         var since: Double?
+        /// 2.5 (L8): Personen dieses Servers - Kennung wie ref in GET /api/chat/contacts (Auswahl "Person hinzufuegen")
+        var ref: String? = nil
         var id: String { who }
     }
 
@@ -34,7 +36,7 @@ enum Invites {
             guard let d = x as? [String: Any], let who = d["who"] as? String, !who.isEmpty else { return nil }
             func s(_ k: String) -> String? { (d[k] as? String).flatMap { $0.isEmpty ? nil : $0 } }
             return Entry(who: who, name: s("name") ?? who, avatar: s("avatar"), handle: s("handle"), host: s("host"),
-                         state: State(raw: d["state"] as? String), since: (d["since"] as? NSNumber)?.doubleValue)
+                         state: State(raw: d["state"] as? String), since: (d["since"] as? NSNumber)?.doubleValue, ref: s("ref"))
         }
     }
 

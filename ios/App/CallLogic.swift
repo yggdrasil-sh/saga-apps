@@ -270,12 +270,25 @@ enum CallLogic {
         var call: String; var media: String; var status: String; var dur: Int?; var from: String; var to: String
         /// 2.4 E5: Gruppenanruf, Zahl der Personen, die dabei waren
         var group = false; var n: Int?
+        /// 2.5 (L9): 1:1 ist in diesen neuen Gruppen-Chat umgezogen ("In Gruppenanruf verschoben", "Zur Gruppe")
+        var moved: Int?
         init?(json d: Data) {
             guard let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any], (j["type"] as? String) == "call" else { return nil }
             call = j["call"] as? String ?? ""; media = (j["media"] as? String) == "video" ? "video" : "audio"
             status = j["status"] as? String ?? "ended"; dur = (j["dur"] as? NSNumber)?.intValue
             from = j["from"] as? String ?? ""; to = j["to"] as? String ?? ""
             group = (j["group"] as? Bool) == true; n = (j["n"] as? NSNumber)?.intValue
+            moved = Entry.chatRef(j["moved"])
+        }
+        /// Chat-ID: positive ganze Zahl (wie Web /^[1-9][0-9]{0,17}$/), kein Bool, kein Bruch
+        static func chatRef(_ v: Any?) -> Int? {
+            if let x = v as? NSNumber {
+                guard CFGetTypeID(x) != CFBooleanGetTypeID(), x.doubleValue.isFinite, x.doubleValue >= 1, x.doubleValue < 1e18,
+                      x.doubleValue == x.doubleValue.rounded() else { return nil }
+                return x.intValue
+            }
+            if let t = v as? String, t.range(of: #"^[1-9][0-9]{0,17}$"#, options: .regularExpression) != nil { return Int(t) }
+            return nil
         }
         enum Kind: Equatable { case ended(String?), missed, declined, busy, failed }
         /// Aus Sicht von `me`: ausgehend/eingehend + Ergebnis

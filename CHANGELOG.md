@@ -9,6 +9,19 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – iOS: Personen im laufenden Anruf hinzufügen und 1:1 → Konferenz (L8/L9)
+
+- Teilnehmerliste mit Knopf „Person hinzufügen“ (nur mit Server-Feature `call_add` und `can_add`): Auswahl aus den
+  Kontakten bzw. der Personensuche wie in der Gruppeninfo, wer im Anruf ist, fehlt, Mitglieder ohne Gerät „im Chat –
+  klingelt erneut“; `POST /api/calls/{id}/add`. Seiten-Chat: Rückfrage „Seite teilen?“ (409 `page_confirm`) und dann
+  „Teilen und anrufen“. Hinweise für voll, Rechte, entfernt, andere Server (Zustimmung ausstehend), Nachrichtenanfrage
+  und „zu oft“; danach geht der Gruppenname für die Neuen erneut verschlüsselt raus (wie in der Gruppeninfo).
+- Im 1:1 über einen Knoten (Feature `call_move`) zieht derselbe Knopf in eine neue Gruppe um: Antwort `moved`/`call`
+  bzw. Ereignis `call.move` (auch verpasst, bei der nächsten Abfrage) – der Anruf läuft **ohne Neuaufbau** als
+  Gruppenanruf weiter (Titel, CallKit-Name, „Nicht dabei“, „Person hinzufügen“); ist das alte 1:1 offen, öffnet sich die
+  neue Gruppe. Direktes und föderiertes 1:1: der Knopf zeigt nur den Hinweis des Servers. Chat-Eintrag im alten 1:1
+  „In Gruppenanruf verschoben · 0:42“ mit „Zur Gruppe“. Ältere Server ohne die Features: unverändert.
+
 ### Neu – iOS/Android: Anrufe über die Saga-Adresse hinter jedem Proxy (Tunnel, A3)
 
 - Gruppenanrufe über den eingebauten Knoten gehen jetzt auch, wenn Saga hinter einem Proxy läuft, der TLS selbst beendet

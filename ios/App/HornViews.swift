@@ -139,10 +139,15 @@ struct HornPeoplePanel: View {
     @ObservedObject var calls: CallManager
     @ObservedObject var horn: HornSession
     var body: some View {
+        if calls.addOpen && calls.addMode != .none { CallAddPanel(calls: calls) }   // 2.5 (L8/L9): Auswahl an Stelle der Liste
+        else { list }
+    }
+    private var list: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Teilnehmende (\(horn.people.count))").font(.headline)
                 Spacer()
+                CallAddButton(calls: calls)                                 // 2.5 (L8/L9): Person hinzufuegen
                 Button { horn.plist = false } label: { Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle()) }
                     .buttonStyle(.plain).accessibilityLabel(Text("Schließen")).padding(-7)
             }

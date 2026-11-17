@@ -2,7 +2,7 @@
 import SwiftUI
 
 // Nur fuer Bilder (Debug-Build, ohne Server, ohne Kamera/Mikrofon): Gruppenanruf ueber einen Knoten mit erfundenem
-// Zustand. Start: -hkHornPreview grid|speaker|share|people|runes|away|meet-away [-hkHornDark YES] [-hkHornPath udp|tcp|turn] [-hkLandscape YES]
+// Zustand. Start: -hkHornPreview grid|speaker|share|people|runes|away|meet-away|dazu-… [-hkHornDark YES] [-hkHornPath udp|tcp|turn] [-hkLandscape YES]
 // (away/meet-away: Teilnehmerliste eines kleinen Gruppenanrufs ueber Knoten bzw. direkt, offen - Bilder "Nicht dabei")
 // (Mac zusammen mit -hkSnapshot <pfad.png>; iPhone/iPad: xcrun simctl io <id> screenshot). Bewegte Bilder sind hier
 // Farbflaechen (kein WebRTC), Namen und Geraete erfunden.
@@ -43,10 +43,12 @@ struct HornPreviewView: View {
                                                   ("Eva", "Safari", "member"), ("Ole", "iPhone", "member"), ("Uma", "Mac mini", "member")]
         var legs: [[String: Any]] = [["device": "me000000000000000000000000000000", "who": "ich", "name": "Max", "dev_name": "Mac", "hp": "p0"]]
         let few: [(String, String, String)] = [("Eva Beispiel", "iPhone", "member"), ("Jonas Beispiel", "Pixel", "member")]
-        for (i, p) in (mode == "away" ? few : people).enumerated() {
+        let small = mode == "away" || mode.hasPrefix("dazu")               // 2.5 (L8/L9): Bilder "Person hinzufuegen"
+        let pick = mode == "dazu-dm" || mode == "dazu-moved" || mode == "dazu-dmpick" ? Array(few.prefix(1)) : few
+        for (i, p) in (small ? pick : people).enumerated() {
             legs.append(["device": String(format: "d%031d", i + 1), "who": p.0.lowercased(), "name": p.0, "dev_name": p.1, "role": p.2, "hp": "p\(i + 1)"])
         }
-        c.mockHorn(title: mode == "away" ? "Projekt Nordlicht" : "Sommerfest", legs: CallRoom.legs(legs), mode: mode, path: UserDefaults.standard.string(forKey: "hkHornPath") ?? "tcp")
+        c.mockHorn(title: small ? "Projekt Nordlicht" : "Sommerfest", legs: CallRoom.legs(legs), mode: mode, path: UserDefaults.standard.string(forKey: "hkHornPath") ?? "tcp")
         #if os(iOS)
         // -hkLandscape YES: quer starten (Bilder vom iPhone-Querformat ohne Simulator-Bedienung)
         if UserDefaults.standard.bool(forKey: "hkLandscape"), let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
@@ -155,6 +157,52 @@ extension CallManager {
         H.rpop = mode == "runes"
         if mode == "path" { Task { try? await Task.sleep(for: .seconds(1.5)); H.ppop = true } }   // Feld erst, wenn die Ansicht steht
         if mode == "remove" { H.rmSure = others.dropFirst().first?.device }      // zweite Stufe "Wirklich entfernen?"
+        if mode.hasPrefix("dazu") { mockAdd(mode, H) }
+    }
+
+    /// nur fuer Bilder (2.5 L8/L9, -hkHornPreview dazu-pick|dazu-page|dazu-full|dazu-dm|dazu-dmpick|dazu-moved):
+    /// Teilnehmerliste mit "Person hinzufuegen", Auswahl mit erfundenen Kontakten, Seiten-Rueckfrage, voll; 1:1 ueber
+    /// Knoten vor und nach dem Umzug (moveIn mit erfundenem Anruf-Objekt - derselbe Weg wie die /add-Antwort)
+    func mockAdd(_ mode: String, _ H: HornSession) {
+        serverFeatures = [CallAdd.feature, CallAdd.featureMove]
+        store?.chat.contacts = [
+            ChatContact(ref: "~jonasbeispiel000", name: "Jonas Beispiel", sub: "jonas"),
+            ChatContact(ref: "~lenabeispiel0000", name: "Lena Beispiel", sub: "lena"),
+            ChatContact(ref: "~oleeispiel000000", name: "Ole Beispiel", sub: "ole", ready: false),
+            ChatContact(ref: "~ugeispiel@peer.example", name: "Uma Beispiel", host: "peer.example", remote: true)]
+        let now = Date().timeIntervalSince1970
+        H.plist = true
+        if mode == "dazu-dm" || mode == "dazu-dmpick" || mode == "dazu-moved" {
+            dmRoom = true; title = ""; peerName = "Eva Beispiel"; callHost = false
+            addCaps = CallAdd.Caps(canMove: true)
+            invites = Invites.List()
+            addOpen = mode == "dazu-dmpick"
+            if mode == "dazu-moved" {
+                H.plist = false
+                Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(2.5))
+                    guard let self else { return }
+                    let legs: [[String: Any]] = [["device": "me000000000000000000000000000000", "who": "ich", "name": "Max", "dev_name": "Mac", "hp": "p0"],
+                                                 ["device": String(format: "d%031d", 1), "who": "eva beispiel", "name": "Eva Beispiel", "dev_name": "iPhone", "hp": "p1"]]
+                    let c: [String: Any] = ["id": self.id ?? "", "chat_id": 37, "kind": "group", "media": "video", "topo": "horn", "limit": 12,
+                                            "legs": legs, "host": true, "can_add": true, "rv": now + 5, "now": now + 5, "ring_s": 45,
+                                            "from": ["chat": "Eva Beispiel, Jonas Beispiel"],
+                                            "invites": [["who": "jonas", "ref": "~jonasbeispiel000", "name": "Jonas Beispiel", "state": "ringing", "since": now + 4]]]
+                    self.moveIn(CallAdd.Moved(from: 12, to: 37), call: c)
+                    try? await Task.sleep(for: .seconds(1))
+                    H.plist = true
+                }
+            }
+            return
+        }
+        addCaps = CallAdd.Caps(canAdd: true, addPage: mode == "dazu-page" ? "Projektplan 2027" : nil)
+        invitesIn(Self.mockInvites())
+        addOpen = mode != "dazu-list"
+        if mode == "dazu-full" { limit = roster.legs.count }
+        if mode == "dazu-page" {
+            addAsk = CallAddAsk(text: "Lena Beispiel bekommt Zugriff auf die Seite „Projektplan 2027“.",
+                                person: CallAdd.Person(ref: "~lenabeispiel0000", name: "Lena Beispiel"))
+        }
     }
 }
 #endif

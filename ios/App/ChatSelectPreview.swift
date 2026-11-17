@@ -2,7 +2,7 @@
 import SwiftUI
 
 // Nur fuer Bilder (Debug-Build, ohne Server): echte Unterhaltung (ConversationView) mit erfundenem Zustand -
-// Mehrfachauswahl, Loeschen-Dialog und der Hinweis "Warum keine Reaktionen?". Start: -hkSelPreview select|delete|hint
+// Mehrfachauswahl, Loeschen-Dialog und der Hinweis "Warum keine Reaktionen?". Start: -hkSelPreview select|delete|hint|moved
 // [-hkX3Dark YES] (iPhone/iPad: xcrun simctl io <id> screenshot).
 
 enum SelectPreview {
@@ -47,6 +47,9 @@ struct SelectPreviewView: View {
         var call = ChatMessage(seq: 0, id: "c1", sender: "tom", senderName: "Tom", ts: (now - 3500) * 1000, created: now - 3500, expiresAt: nil,
                                replyTo: nil, content: nil, verified: true, mine: false)
         call.call = CallLogic.Entry(json: Data(#"{"type":"call","call":"x","media":"audio","status":"ended","dur":312,"from":"tom","to":"max"}"#.utf8))
+        if SelectPreview.mode == "moved" {                                   // 2.5 (L9): "In Gruppenanruf verschoben" + "Zur Gruppe"
+            call.call = CallLogic.Entry(json: Data(#"{"type":"call","call":"x","media":"audio","status":"ended","dur":42,"from":"tom","to":"max","moved":37}"#.utf8))
+        }
         var list = [
             msg("m1", "bea", "Bea", "Wer bringt den Grill mit?", ago: 3600),
             msg("m2", "tom", "Tom", "Ich! Und Kohle für zwei Stunden.", ago: 3400),

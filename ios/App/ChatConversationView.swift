@@ -362,8 +362,9 @@ struct ConversationView: View {
                         }
                         selRow(m) {
                         if let e = m.call {
-                            CallEntryRow(entry: e, mine: m.mine, date: m.date) {
-                                if e.group, let i = conv.info, canGroupCall(i) { store.calls.startGroup(i, video: e.media == "video") }   // 2.4 E5
+                            CallEntryRow(entry: e, mine: m.mine, date: m.date, toGroup: e.moved.map { g in { chat.pendingOpen = g } }) {
+                                if let g = e.moved { chat.pendingOpen = g }                  // 2.5 (L9): "Zur Gruppe"
+                                else if e.group, let i = conv.info, canGroupCall(i) { store.calls.startGroup(i, video: e.media == "video") }   // 2.4 E5
                                 else if let p = conv.info?.peer, canCall { store.calls.start(chatID: chatID, peer: p, video: e.media == "video", fed: conv.info?.fed) }
                             }.id(m.id)
                         } else if m.tomb {
@@ -907,31 +908,51 @@ struct CallEntryRow: View {
     let entry: CallLogic.Entry
     let mine: Bool
     let date: Date
+    /// 2.5 (L9): Anruf ist in eine neue Gruppe umgezogen - Sprung dorthin ("Zur Gruppe")
+    var toGroup: (() -> Void)? = nil
     var callBack: () -> Void
     var body: some View {
-        Button(action: callBack) {
-            HStack(spacing: 8) {
-                Image(systemName: icon).foregroundStyle(missed ? Color.red : Color.secondary).accessibilityHidden(true)
-                Text(verbatim: text).font(.caption.weight(.medium))
-                Text(date, format: .dateTime.hour().minute()).font(.caption2).foregroundStyle(.secondary)
+        if let go = toGroup, entry.moved != nil {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { capsule(hint: false); groupButton(go) }
+                VStack(spacing: 4) { capsule(hint: false); groupButton(go) }
             }
-            .padding(.horizontal, 12).padding(.vertical, 6)
-            .background(Color.secondary.opacity(0.1), in: Capsule())
+            .frame(maxWidth: .infinity).padding(.vertical, 2)
+        } else {
+            Button(action: callBack) { capsule(hint: true) }
+                .buttonStyle(.plain).frame(maxWidth: .infinity).padding(.vertical, 2)
+                .help(Text("Zurückrufen"))
+                .accessibilityHint(Text("Zurückrufen"))
         }
-        .buttonStyle(.plain).frame(maxWidth: .infinity).padding(.vertical, 2)
-        .help(Text("Zurückrufen"))
-        .accessibilityHint(Text("Zurückrufen"))
+    }
+    private func capsule(hint: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon).foregroundStyle(missed ? Color.red : Color.secondary).accessibilityHidden(true)
+            Text(verbatim: text).font(.caption.weight(.medium))
+            Text(date, format: .dateTime.hour().minute()).font(.caption2).foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 6)
+        .background(Color.secondary.opacity(0.1), in: Capsule())
+        .accessibilityElement(children: .combine)
+    }
+    private func groupButton(_ go: @escaping () -> Void) -> some View {
+        Button(String(localized: "Zur Gruppe"), action: go)
+            .buttonStyle(.bordered).controlSize(.small)
+            .frame(minHeight: 44)
     }
     private var video: Bool { entry.media == "video" }
     private var missed: Bool { entry.kind() == .missed && !mine }
     private var icon: String {
         switch entry.kind() {
         case .missed, .declined, .busy, .failed: return video ? "video.slash" : "phone.down"
+        case .ended where entry.moved != nil: return "person.3"
         case .ended: return video ? "video" : (mine ? "phone.arrow.up.right" : "phone.arrow.down.left")
         }
     }
     private var text: String {
         switch entry.kind() {
+        case .ended(let d) where entry.moved != nil:                        // 2.5 (L9): 1:1 in eine Gruppe umgezogen
+            return ([String(localized: "In Gruppenanruf verschoben")] + [d].compactMap { $0 }).joined(separator: " · ")
         case .ended(let d):
             let base = video ? (mine ? String(localized: "Ausgehender Videoanruf") : String(localized: "Eingehender Videoanruf"))
                              : (mine ? String(localized: "Ausgehender Anruf") : String(localized: "Eingehender Anruf"))

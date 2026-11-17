@@ -80677,6 +80677,652 @@
           }
         }
       }
+    },
+    "Dieser Anruf läuft direkt zwischen euren Geräten – jemanden dazuholen geht nur über einen Anruf-Knoten. Legt dafür auf und startet einen Gruppenanruf in einer neuen Gruppe." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Anruf läuft direkt zwischen euren Geräten – jemanden dazuholen geht nur über einen Anruf-Knoten. Legt dafür auf und startet einen Gruppenanruf in einer neuen Gruppe."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This call runs directly between your devices – adding someone only works through a call node. Hang up and start a group call in a new group instead."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta llamada va directamente entre vuestros dispositivos: solo se puede añadir a alguien a través de un nodo de llamadas. Colgad e iniciad una llamada de grupo en un grupo nuevo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот звонок идёт напрямую между вашими устройствами — добавить кого-то можно только через узел звонков. Завершите звонок и начните групповой звонок в новой группе."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สายนี้เชื่อมต่อโดยตรงระหว่างอุปกรณ์ของคุณ – การเพิ่มคนอื่นทำได้ผ่านโหนดการโทรเท่านั้น กรุณาวางสายแล้วเริ่มการโทรกลุ่มในกลุ่มใหม่"
+          }
+        }
+      }
+    },
+    "Hinzufügen hat nicht geklappt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hinzufügen hat nicht geklappt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adding didn't work."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se ha podido añadir."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось добавить."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพิ่มไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "%@ kommt dazu, sobald der andere Server zugestimmt hat." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ kommt dazu, sobald der andere Server zugestimmt hat."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ will join as soon as the other server has confirmed."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ se unirá en cuanto el otro servidor lo confirme."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ присоединится, как только другой сервер подтвердит."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ จะเข้าร่วมเมื่อเซิร์ฟเวอร์อีกฝั่งยืนยันแล้ว"
+          }
+        }
+      }
+    },
+    "%@ ist eingeladen – es klingelt, sobald die Einladung in den Chat angenommen ist." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ist eingeladen – es klingelt, sobald die Einladung in den Chat angenommen ist."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ has been invited – it will ring as soon as the chat invitation is accepted."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ está invitado/a: sonará en cuanto se acepte la invitación al chat."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ приглашён(а) — звонок поступит, как только приглашение в чат будет принято."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เชิญ %@ แล้ว – จะมีสายเรียกเข้าเมื่อตอบรับคำเชิญเข้าแชท"
+          }
+        }
+      }
+    },
+    "%@ ist schon im Anruf oder klingelt gerade." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ist schon im Anruf oder klingelt gerade."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is already in the call or being rung."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ya está en la llamada o está sonando."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ уже в звонке или ему сейчас звонят."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ อยู่ในสายแล้วหรือกำลังได้รับสายเรียก"
+          }
+        }
+      }
+    },
+    "Neue Gruppe – der Anruf läuft dort ohne Unterbrechung weiter." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neue Gruppe – der Anruf läuft dort ohne Unterbrechung weiter."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New group – the call continues there without interruption."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grupo nuevo: la llamada continúa allí sin interrupción."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новая группа — звонок продолжается там без перерыва."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กลุ่มใหม่ – การโทรดำเนินต่อที่นั่นโดยไม่สะดุด"
+          }
+        }
+      }
+    },
+    "Die Seite wird dafür mit Leserecht geteilt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Seite wird dafür mit Leserecht geteilt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The page will be shared with read access for this."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para ello, la página se compartirá con permiso de lectura."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Для этого к странице будет открыт доступ на чтение."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "หน้านี้จะถูกแชร์แบบอ่านอย่างเดียว"
+          }
+        }
+      }
+    },
+    "Person suchen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Person suchen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search for a person"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar persona"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Найти человека"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค้นหาบุคคล"
+          }
+        }
+      }
+    },
+    "Seite teilen?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seite teilen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share page?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Compartir la página?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открыть доступ к странице?"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แชร์หน้านี้หรือไม่"
+          }
+        }
+      }
+    },
+    "Teilen und anrufen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Teilen und anrufen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share and call"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartir y llamar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открыть доступ и позвонить"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แชร์และโทร"
+          }
+        }
+      }
+    },
+    "Der Anruf ist voll – erst wenn jemand auflegt, kann noch jemand dazukommen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Anruf ist voll – erst wenn jemand auflegt, kann noch jemand dazukommen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The call is full – someone can only join once someone else hangs up."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La llamada está llena: solo cuando alguien cuelgue podrá unirse otra persona."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Звонок заполнен — новый участник сможет присоединиться, только когда кто-то положит трубку."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การโทรเต็มแล้ว – จะมีคนเข้าร่วมได้อีกเมื่อมีคนวางสายเท่านั้น"
+          }
+        }
+      }
+    },
+    "Es entsteht eine neue Gruppe mit euch beiden – der Anruf läuft ohne Unterbrechung weiter." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es entsteht eine neue Gruppe mit euch beiden – der Anruf läuft ohne Unterbrechung weiter."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This creates a new group with both of you – the call continues without interruption."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se crea un grupo nuevo con vosotros dos: la llamada continúa sin interrupción."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Будет создана новая группа с вами обоими — звонок продолжится без перерыва."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "จะสร้างกลุ่มใหม่ที่มีคุณทั้งสอง – การโทรดำเนินต่อโดยไม่สะดุด"
+          }
+        }
+      }
+    },
+    "Hinzufügen teilt die Seite „%@“ (Lesen)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hinzufügen teilt die Seite „%@“ (Lesen)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adding shares the page “%@” (read)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir comparte la página «%@» (lectura)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавление открывает доступ к странице «%@» (чтение)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การเพิ่มจะแชร์หน้า „%@“ (อ่านอย่างเดียว)"
+          }
+        }
+      }
+    },
+    "Mitglieder klingeln, andere Personen kommen dazu und klingeln dann." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mitglieder klingeln, andere Personen kommen dazu und klingeln dann."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Members get rung; other people are added to the chat and then rung."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A los miembros se les llama; otras personas se añaden al chat y luego se les llama."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Участникам чата поступит звонок; другие люди будут добавлены в чат, и им тоже позвонят."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สมาชิกจะได้รับสายเรียก ส่วนคนอื่นจะถูกเพิ่มเข้าแชทก่อนแล้วจึงได้รับสาย"
+          }
+        }
+      }
+    },
+    "Noch keine Kontakte – suche nach einem Namen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Kontakte – suche nach einem Namen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No contacts yet – search for a name."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay contactos: busca un nombre."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пока нет контактов — найдите человека по имени."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มีรายชื่อติดต่อ – ค้นหาด้วยชื่อ"
+          }
+        }
+      }
+    },
+    "im Chat – klingelt erneut" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "im Chat – klingelt erneut"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "in the chat – rings again"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "en el chat: vuelve a sonar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "в чате — позвонить снова"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อยู่ในแชท – โทรเรียกอีกครั้ง"
+          }
+        }
+      }
+    },
+    "%@ hinzufügen und anrufen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ hinzufügen und anrufen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add and call %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir y llamar a %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавить и позвонить: %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพิ่มและโทรหา %@"
+          }
+        }
+      }
+    },
+    "In Gruppenanruf verschoben" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Gruppenanruf verschoben"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moved to a group call"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Movida a una llamada de grupo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перенесён в групповой звонок"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ย้ายไปยังการโทรกลุ่มแล้ว"
+          }
+        }
+      }
+    },
+    "Zur Gruppe" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zur Gruppe"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go to group"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ir al grupo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "К группе"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไปที่กลุ่ม"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

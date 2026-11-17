@@ -139,6 +139,17 @@ final class CallManager: NSObject, ObservableObject {
     /// Hinweis im Abschnitt "Nicht dabei" (Fehler beim Klingeln: 403 Text des Servers, 429 "zu oft")
     @Published var invNote: String?
     var invTask: Task<Void, Never>?
+    /// 2.5 (L8/L9): "Person hinzufuegen" - Felder des Anruf-Objekts (can_add/add_page, can_move/move_block/move_hint),
+    /// Auswahl offen, Hinweis in der Auswahl, Rueckfrage im Seiten-Chat, gerade gesendete Kennung (CallAdd.swift)
+    @Published var addCaps = CallAdd.Caps()
+    @Published var addOpen = false
+    @Published var addNote: String?
+    @Published var addAsk: CallAddAsk?
+    @Published var addBusy: String?
+    /// kurzer Hinweis im Anruffenster (Umzug in die neue Gruppe, direktes 1:1) - die App-Hinweise liegen unter dem Vollbild
+    @Published var callNote: String?
+    /// 2.5 (L9): Anruf ist schon in diesen Chat umgezogen (einmal je Ziel)
+    var movedTo = 0
     /// 2.5 (L7): eigenes Klingeln je Anruf schon behandelt (invite_since) - ein erledigter Anruf klingelt nur bei NEUEM Klingeln wieder
     var ringSince: [String: Double] = [:]
     /// Leiste "Anruf laeuft" (GET /api/calls/active): andere eigene Geraete bzw. Gruppenanrufe in eigenen Chats
@@ -1004,6 +1015,10 @@ final class CallManager: NSObject, ObservableObject {
             runSoon()
         case "call.invites":                                                // 2.5 (L7): "Nicht dabei" hat sich geaendert
             if let cid, cid == id, !ending { invitesIn(d) }
+        case "call.move":                                                   // 2.5 (L9): 1:1 ist in eine neue Gruppe umgezogen
+            if let m = CallAdd.moveEvent(d, callID: id), !ending { moveIn(m, call: nil) }
+            else if let m = CallAdd.moveEvent(d, callID: cid) { movedElsewhere(m) }   // eigenes anderes Geraet bzw. nur die Leiste
+            runSoon()
         case "call.horn_move": hornMoveIn(d)                               // 2.5: Knoten wird geleert/aktualisiert/entfernt
         case "call.mod": hornModIn(d)                                       // 2.5: Gastgeber hat stummgeschaltet/entfernt
         case "call.topo": hornTopoIn(d)                                     // Horn-Fix: Server hat auf direkt umgestellt
@@ -1793,6 +1808,7 @@ final class CallManager: NSObject, ObservableObject {
         kind = "dm"; dmRoom = false; mutedBy = nil; companion = false; sound = true; meshView = false; tiles = []; speakerDev = nil; handingOver = false
         limit = CallRoom.videoMax; oldNames = []; inRoom = false
         invites = Invites.List(); invNote = nil; invTask?.cancel(); invTask = nil
+        addCaps = CallAdd.Caps(); addOpen = false; addNote = nil; addAsk = nil; addBusy = nil; callNote = nil; movedTo = 0
         roster.reset(); ho = CallRoom.Handover(); hoTask?.cancel(); hoTask = nil; joinRole = ""; title = ""
         sigPull = CallRoom.Pull(); sigRetry = [:]; stateRetry = false; sigRounds = 0
         diagTask?.cancel(); diagTask = nil; diag = nil                       // Diagnose je Anruf neu (Wiedereintritt nach Uebergabe)
