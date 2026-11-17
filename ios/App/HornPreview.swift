@@ -1,5 +1,6 @@
 #if DEBUG
 import SwiftUI
+import WebRTC
 
 // Nur fuer Bilder (Debug-Build, ohne Server, ohne Kamera/Mikrofon): Gruppenanruf ueber einen Knoten mit erfundenem
 // Zustand. Start: -hkHornPreview grid|speaker|share|people|runes|away|meet-away|dazu-… [-hkHornDark YES] [-hkHornPath udp|tcp|turn] [-hkLandscape YES]
@@ -9,6 +10,19 @@ import SwiftUI
 
 enum HornPreview {
     static var mode: String? { UserDefaults.standard.string(forKey: "hkHornPreview") }
+    /// -hkFakeRemote port|land|flip (mit meet-…): echtes WebRTC-Testbild als Fernbild statt Farbflaeche - port = gedreht
+    /// per CVO wie vom Android hoch (640x360, rotation 90), land = quer, flip = wechselt alle 4 s
+    /// -hkTurnAfter <s>: nach s Sekunden selbst quer drehen (wie das iPhone im Anruf drehen)
+    nonisolated(unsafe) static var fakeRemote: RTCVideoTrack?
+    nonisolated(unsafe) private static var fakeCap: FakeVideoCapturer?
+    @MainActor static func startFakeRemote() {
+        guard fakeRemote == nil, let m = UserDefaults.standard.string(forKey: "hkFakeRemote") else { return }
+        let src = CallRTC.factory.videoSource()
+        let cap = FakeVideoCapturer(delegate: src)
+        cap.border = true; cap.rotation = m == "port" ? ._90 : ._0; cap.flipEvery = m == "flip" ? 60 : 0
+        cap.start(); fakeCap = cap
+        fakeRemote = CallRTC.factory.videoTrack(with: src, trackId: "fakeremote")
+    }
 }
 
 
@@ -29,10 +43,18 @@ struct HornPreviewView: View {
         guard !ready else { return }
         let c = store.calls
         if mode.hasPrefix("meet-") {                                         // Meeting-Ansicht mit Beispiel-Anruf
+            HornPreview.startFakeRemote()
             c.mockMeet(String(mode.dropFirst(5)))
             #if os(iOS)
             if UserDefaults.standard.bool(forKey: "hkLandscape"), let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
                 scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight)) { _ in }
+            }
+            let turn = UserDefaults.standard.double(forKey: "hkTurnAfter")
+            if turn > 0 {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(turn))
+                    (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight)) { _ in }
+                }
             }
             #endif
             ready = true

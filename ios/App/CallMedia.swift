@@ -210,6 +210,13 @@ final class FakeVideoCapturer: RTCVideoCapturer, @unchecked Sendable {
     private var timer: DispatchSourceTimer?
     private var n = 0
     private let w: Int32 = 640, h: Int32 = 360
+    #if DEBUG
+    /// Testhilfe Drehen (nur Bilder): Drehung wie per CVO gesendet (._90 = Android hoch, Rahmen bleibt quer kodiert),
+    /// weisser Rand (zeigt, ob das ganze Bild sichtbar ist) und Marke "oben"; flipEvery > 0: Drehung wechselt alle n Bilder
+    var rotation: RTCVideoRotation = ._0
+    var border = false
+    var flipEvery = 0
+    #endif
     func start() {
         let t = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "saga.fakevideo"))
         t.schedule(deadline: .now(), repeating: .milliseconds(66))
@@ -225,8 +232,21 @@ final class FakeVideoCapturer: RTCVideoCapturer, @unchecked Sendable {
         for r in 0..<H { for c in 0..<W { y[r * W + c] = (abs(c - bar) < 24) ? 235 : UInt8(40 + (c * 160 / W)) } }
         let colors: [(UInt8, UInt8)] = [(90, 240), (54, 34), (240, 110), (128, 128), (200, 60), (60, 200)]
         for r in 0..<ch { for c in 0..<cw { let k = colors[(c * colors.count) / cw]; u[r * cw + c] = k.0; v[r * cw + c] = k.1 } }
+        var rot = RTCVideoRotation._0
+        #if DEBUG
+        if flipEvery > 0 && n % flipEvery == 0 { rotation = rotation == ._0 ? ._90 : ._0 }
+        rot = rotation
+        if border {
+            let b = 10
+            for r in 0..<H { for c in 0..<W where r < b || r >= H - b || c < b || c >= W - b { y[r * W + c] = 255 } }
+            // Marke "oben" (nach Drehung oben in der Mitte): bei ._90 liegt die Oberkante links im Rahmen
+            let (r0, c0) = rot == ._90 ? (H / 2 - 30, 24) : (24, W / 2 - 30)
+            let (rh, cw2) = rot == ._90 ? (60, 40) : (40, 60)
+            for r in r0..<(r0 + rh) { for c in c0..<(c0 + cw2) { y[r * W + c] = 16 } }
+        }
+        #endif
         let buf = RTCI420Buffer(width: w, height: h, dataY: y, dataU: u, dataV: v)
-        let f = RTCVideoFrame(buffer: buf, rotation: ._0, timeStampNs: Int64(DispatchTime.now().uptimeNanoseconds))
+        let f = RTCVideoFrame(buffer: buf, rotation: rot, timeStampNs: Int64(DispatchTime.now().uptimeNanoseconds))
         delegate?.capturer(self, didCapture: f)
     }
 }

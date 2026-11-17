@@ -74,6 +74,9 @@ extension CallManager {
     func camTrack(_ L: CallLink) -> RTCVideoTrack? { L.remote.screen ? L.remoteSide : (L.remote.cam ? L.remoteVideo : nil) }
     /// Bild eines Geraets: Kamera bzw. Bildschirm
     func meetTrack(_ dev: String, screen: Bool) -> RTCVideoTrack? {
+        #if DEBUG
+        if let d = meet.demo { return screen || d.first(where: { $0.device == dev })?.own != false ? nil : HornPreview.fakeRemote }   // Bilder: Testbild als Fernbild
+        #endif
         let here = myDevice ?? horn?.meDevice ?? "here"
         if dev == here { return screen ? nil : (cam ? localVideo : nil) }
         if let H = horn { return screen ? (H.share?.dev == dev ? H.share?.track : nil) : H.vid[dev] }
