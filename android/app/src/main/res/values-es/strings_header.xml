@@ -8,7 +8,7 @@
     <string name="page_icon_add">Añadir icono</string>
     <string name="page_icon">Icono</string>
     <string name="page_icon_image">Imagen</string>
-    <string name="page_icon_random">Aleatorio</string>
+    <string name="page_icon_random">Al azar</string>
     <string name="page_icon_remove">Quitar icono</string>
     <string name="page_header_locked">La página está bloqueada: el icono y la portada solo se pueden cambiar tras desbloquearla.</string>
     <string name="page_tag_add">Etiqueta</string>
