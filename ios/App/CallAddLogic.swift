@@ -206,6 +206,16 @@ enum CallAdd {
     /// Nach dem Umzug: ist das alte 1:1 offen, den neuen Chat oeffnen
     static func openNew(open: Int?, move: Moved) -> Bool { move.from != 0 && open == move.from }
 
+    // MARK: Fokus (VoiceOver/Tastatur)
+
+    /// Wohin nach "Abbrechen" in der Rueckfrage "Seite teilen?": iPad/Mac ins Suchfeld (wie beim Oeffnen); iPhone nicht -
+    /// die Tastatur verdeckte dort die Kontakte -, mit VoiceOver zurueck auf die Zeile der gewaehlten Person
+    enum AskCancelFocus: Equatable { case field, row, keep }
+    static func askCancelFocus(phone: Bool, voiceOver: Bool) -> AskCancelFocus {
+        if !phone { return .field }
+        return voiceOver ? .row : .keep
+    }
+
     // MARK: Nach dem Hinzufuegen (L8)
 
     /// Gruppennamen erneut verschluesselt senden (wie die Gruppeninfo), damit Neue ihn lesen: nur freie Gruppen mit Namen,

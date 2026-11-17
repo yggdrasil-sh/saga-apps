@@ -146,6 +146,8 @@ final class CallManager: NSObject, ObservableObject {
     @Published var addNote: String?
     @Published var addAsk: CallAddAsk?
     @Published var addBusy: String?
+    /// Auswahl wurde geschlossen: der Knopf "Person hinzufuegen" holt sich beim Erscheinen den Fokus zurueck (VoiceOver)
+    var addFocusBack = false
     /// kurzer Hinweis im Anruffenster (Umzug in die neue Gruppe, direktes 1:1) - die App-Hinweise liegen unter dem Vollbild
     @Published var callNote: String?
     /// 2.5 (L9): Anruf ist schon in diesen Chat umgezogen (einmal je Ziel)
@@ -1808,7 +1810,7 @@ final class CallManager: NSObject, ObservableObject {
         kind = "dm"; dmRoom = false; mutedBy = nil; companion = false; sound = true; meshView = false; tiles = []; speakerDev = nil; handingOver = false
         limit = CallRoom.videoMax; oldNames = []; inRoom = false
         invites = Invites.List(); invNote = nil; invTask?.cancel(); invTask = nil
-        addCaps = CallAdd.Caps(); addOpen = false; addNote = nil; addAsk = nil; addBusy = nil; callNote = nil; movedTo = 0
+        addCaps = CallAdd.Caps(); addOpen = false; addNote = nil; addAsk = nil; addBusy = nil; addFocusBack = false; callNote = nil; movedTo = 0
         roster.reset(); ho = CallRoom.Handover(); hoTask?.cancel(); hoTask = nil; joinRole = ""; title = ""
         sigPull = CallRoom.Pull(); sigRetry = [:]; stateRetry = false; sigRounds = 0
         diagTask?.cancel(); diagTask = nil; diag = nil                       // Diagnose je Anruf neu (Wiedereintritt nach Uebergabe)

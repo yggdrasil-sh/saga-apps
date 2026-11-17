@@ -120,6 +120,12 @@ func callAddTests() {
           && !A.resendTitle(added: ["~a"], kind: "free", title: " ", moved: false) && !A.resendTitle(added: ["~a"], kind: "free", title: "T", moved: true),
           "kein Name/keine Neuen/Seiten-Chat/nach Umzug -> nichts senden")
 
+    // Fokus nach "Abbrechen" der Seiten-Rueckfrage (Pruefer F3): iPhone nie ins Suchfeld (Tastatur)
+    check(A.askCancelFocus(phone: false, voiceOver: false) == .field && A.askCancelFocus(phone: false, voiceOver: true) == .field,
+          "iPad/Mac: Abbrechen -> Suchfeld")
+    check(A.askCancelFocus(phone: true, voiceOver: false) == .keep, "iPhone: Abbrechen -> kein Feld-Fokus (keine Tastatur)")
+    check(A.askCancelFocus(phone: true, voiceOver: true) == .row, "iPhone mit VoiceOver: Abbrechen -> Zeile der Person")
+
     // Chat-Eintrag im alten 1:1
     let e = CallLogic.Entry(json: Data(#"{"type":"call","call":"x","media":"audio","status":"ended","dur":42,"from":"max","to":"eva","moved":37}"#.utf8))
     check(e?.moved == 37 && e?.kind() == .ended("0:42"), "Eintrag moved: Gruppe 37, Dauer bis zum Umzug")

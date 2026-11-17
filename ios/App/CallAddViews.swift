@@ -7,8 +7,11 @@ import SwiftUI
 // Zeilen deaktiviert. Seiten-Chat: Rueckfrage "Seite teilen?". Escape/Schliessen -> zurueck zur Liste.
 
 /// Kleiner Knopf im Kopf der Teilnehmerliste (nur mit passendem addMode)
+/// Nach dem Schliessen der Auswahl (die Liste entsteht neu) holt er sich den Fokus zurueck (VoiceOver, Tastatur)
 struct CallAddButton: View {
     @ObservedObject var calls: CallManager
+    @AccessibilityFocusState private var a11y: Bool
+    @FocusState private var kb: Bool
     var body: some View {
         if calls.addMode != .none {
             Button { calls.addTapped() } label: {
@@ -16,6 +19,15 @@ struct CallAddButton: View {
             }
             .buttonStyle(.plain).padding(-7)
             .accessibilityLabel(Text("Person hinzufügen")).help(Text("Person hinzufügen"))
+            .accessibilityFocused($a11y).focused($kb)
+            .onAppear {
+                guard calls.addFocusBack else { return }
+                calls.addFocusBack = false
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(150))     // erst wenn die Liste steht (sonst bleibt VoiceOver oben)
+                    a11y = true; kb = true
+                }
+            }
         }
     }
 }
@@ -71,6 +83,8 @@ struct CallAddPanel: View {
     @State private var hits: [CallAdd.Person] = []
     @State private var searched = ""
     @FocusState private var field: Bool
+    /// VoiceOver nach "Abbrechen" der Seiten-Rueckfrage zurueck auf die Zeile (iPhone)
+    @AccessibilityFocusState private var rowFocus: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -109,6 +123,7 @@ struct CallAddPanel: View {
         .shadow(radius: 12)
         .padding(16)
         .accessibilityAddTraits(.isModal)
+        .accessibilityAction(.escape) { close() }                           // VoiceOver: Zwei-Finger-Z schliesst wie "Schliessen"
         .onAppear { if CallAdd.focusOnOpen { field = true } }
         .task {
             guard let chat = calls.store?.chat else { return }
@@ -118,7 +133,7 @@ struct CallAddPanel: View {
         .onDisappear { calls.addOpen = false; calls.addAsk = nil }
         .task(id: q) { await search() }
         .alert(Text("Seite teilen?"), isPresented: Binding(get: { calls.addAsk != nil }, set: { if !$0 { calls.addAsk = nil } }), presenting: calls.addAsk) { a in
-            Button(String(localized: "Abbrechen"), role: .cancel) { calls.addAsk = nil; field = true }
+            Button(String(localized: "Abbrechen"), role: .cancel) { calls.addAsk = nil; askCancelled(a.person.ref) }
             Button(String(localized: "Teilen und anrufen")) { calls.addPick(a.person, confirm: true) }
         } message: { a in
             Text(verbatim: a.text + "\n\n" + String(localized: "Die Seite wird dafür mit Leserecht geteilt."))
@@ -175,8 +190,27 @@ struct CallAddPanel: View {
         .opacity(on || calls.addBusy == p.ref ? 1 : 0.45)
         .accessibilityLabel(Text("\(p.name) hinzufügen und anrufen"))
         .accessibilityHint(sub.map { Text(verbatim: $0) } ?? Text(verbatim: ""))
+        .accessibilityFocused($rowFocus, equals: p.ref)
     }
-    private func close() { calls.addOpen = false; calls.addNote = nil; calls.addAsk = nil }
+    /// Schliessen (Knopf, Escape, VoiceOver): zurueck zur Liste, Fokus auf "Person hinzufuegen"
+    private func close() { calls.addFocusBack = true; calls.addOpen = false; calls.addNote = nil; calls.addAsk = nil }
+    /// "Abbrechen" der Seiten-Rueckfrage: iPad/Mac ins Suchfeld; iPhone ohne Tastatur, mit VoiceOver auf die Zeile
+    private func askCancelled(_ ref: String) {
+        #if os(iOS)
+        let phone = UIDevice.current.userInterfaceIdiom == .phone, vo = UIAccessibility.isVoiceOverRunning
+        #else
+        let phone = false, vo = false
+        #endif
+        switch CallAdd.askCancelFocus(phone: phone, voiceOver: vo) {
+        case .field: field = true
+        case .row:
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(300))          // nach dem Ausblenden der Rueckfrage
+                rowFocus = ref
+            }
+        case .keep: break
+        }
+    }
     private func search() async {
         let v = q.trimmingCharacters(in: .whitespaces)
         guard !v.isEmpty else { hits = []; searched = ""; return }
