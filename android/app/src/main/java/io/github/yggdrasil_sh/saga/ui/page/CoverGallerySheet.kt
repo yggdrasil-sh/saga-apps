@@ -41,7 +41,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -215,7 +214,7 @@ private fun CoverTile(repo: SagaRepository, c: CoverImage, on: Boolean, big: Boo
 /** "Über dieses Bild" wie im Web: Titel, Nachweis, Quelle; nicht mehr in der Auswahl -> Hinweis */
 @Composable
 internal fun CoverAboutDialog(about: CoverAbout, onDismiss: () -> Unit) {
-    val uri = LocalUriHandler.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.cover_about)) },
@@ -227,7 +226,7 @@ internal fun CoverAboutDialog(about: CoverAbout, onDismiss: () -> Unit) {
                         Text(c.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
                         if (c.credit.isNotEmpty()) Text(c.credit)
                         if (c.source.isNotEmpty()) Text(c.source, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (c.sourceUrl.isNotEmpty()) SagaTextButton(onClick = { runCatching { uri.openUri(c.sourceUrl) } }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        if (c.sourceUrl.isNotEmpty()) SagaTextButton(onClick = { io.github.yggdrasil_sh.saga.ui.common.openUrl(context, c.sourceUrl) }, modifier = Modifier.heightIn(min = 48.dp)) {
                             Text(stringResource(R.string.cover_source_link))
                         }
                     }
