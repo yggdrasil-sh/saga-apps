@@ -362,7 +362,7 @@ struct ConversationView: View {
                         }
                         selRow(m) {
                         if let e = m.call {
-                            CallEntryRow(entry: e, mine: m.mine, date: m.date, toGroup: e.moved.map { g in { chat.pendingOpen = g } }) {
+                            CallEntryRow(entry: e, mine: m.mine, date: m.date, toGroup: e.moved.map { g -> () -> Void in { chat.pendingOpen = g } }) {
                                 if let g = e.moved { chat.pendingOpen = g }                  // 2.5 (L9): "Zur Gruppe"
                                 else if e.group, let i = conv.info, canGroupCall(i) { store.calls.startGroup(i, video: e.media == "video") }   // 2.4 E5
                                 else if let p = conv.info?.peer, canCall { store.calls.start(chatID: chatID, peer: p, video: e.media == "video", fed: conv.info?.fed) }

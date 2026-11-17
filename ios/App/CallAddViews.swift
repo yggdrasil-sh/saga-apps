@@ -106,7 +106,6 @@ struct CallAddPanel: View {
         }
         .onDisappear { calls.addOpen = false; calls.addAsk = nil }
         .task(id: q) { await search() }
-        .onExitCommand { close() }
         .alert(Text("Seite teilen?"), isPresented: Binding(get: { calls.addAsk != nil }, set: { if !$0 { calls.addAsk = nil } }), presenting: calls.addAsk) { a in
             Button(String(localized: "Abbrechen"), role: .cancel) { calls.addAsk = nil; field = true }
             Button(String(localized: "Teilen und anrufen")) { calls.addPick(a.person, confirm: true) }
