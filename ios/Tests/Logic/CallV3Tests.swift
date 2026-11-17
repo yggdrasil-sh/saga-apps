@@ -11,6 +11,7 @@ func callV3Tests() {
     callV3CompatTests()
     callV3WantTests()
     callV3SampleBufferTests()
+    callV3RestartSettleTests()
 }
 
 private func callV3PathTests() {
@@ -281,4 +282,48 @@ private func callV3SampleBufferTests() {
         check(CVPixelBufferGetPixelFormatType(out) == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, "NV12-Format")
     } else { check(false, "I420 -> NV12") }
     check(m.conversions == 1, "Umrechnung gezaehlt (nur Rueckfall)")
+}
+
+// 2.5 Feldfehler D-MKYEV: eigener ICE-Restart, waehrend die Verbindung "connected" bleibt (Restart nach Netz-/SSE-Ereignis,
+// Gegenstelle antwortet in 0,3-0,7 s). Frueher kam kein Ereignis -> nach 3 x 20 s Ende trotz laufender Medien.
+private func callV3RestartSettleTests() {
+    typealias V = CallV3
+    /// Ablauf je Frist: Antwort gesetzt (stable) mit ICE-Zustand iceUp, dann laeuft restartTimeout ab
+    func run(iceUp: Bool, stable: Bool = true) -> (ended: Bool, offers: Int) {
+        var r = V.Restart(); var offers = 0
+        r.begin(); offers += 1
+        for _ in 0...V.maxRestarts {
+            _ = r.settle(stable: stable, iceUp: iceUp)
+            switch r.timeout(canReneg: true) {
+            case .restart: r.begin(); offers += 1
+            case .fail: return (true, offers)
+            default: return (false, offers)
+            }
+        }
+        return (false, offers)
+    }
+    check({ let a = run(iceUp: true); return !a.ended && a.offers == 1 }(), "D-MKYEV: Antwort gesetzt + ICE connected -> Restart erledigt, kein Ende nach 3 x 20 s")
+    check({ let a = run(iceUp: false); return a.ended && a.offers == V.maxRestarts }(), "ICE kommt nicht wieder: nach 3 Angeboten Ende wie bisher")
+    check({ let a = run(iceUp: true, stable: false); return a.ended && a.offers == V.maxRestarts }(), "Antwort fehlt (have-local-offer): nicht vorschnell erledigt")
+
+    var r = V.Restart()
+    check(!r.settle(stable: true, iceUp: true) && r.timeout(canReneg: true) == .none, "ohne Restart: nichts zu erledigen")
+    r.begin()
+    check(r.active && r.count == 1, "Restart offen")
+    check(!r.settle(stable: true, iceUp: false) && r.active, "Antwort da, ICE prueft noch (checking): offen")
+    check(r.settle(stable: true, iceUp: true) && !r.active && r.count == 0, "spaeter ICE connected/completed: erledigt, Versuche zurueck")
+    check(r.timeout(canReneg: true) == .none, "Frist nach Erledigung: nichts")
+    r.begin(); r.begin()
+    check(r.connected() && !r.active && r.count == 0, "Zustandswechsel auf connected: erledigt (wie bisher)")
+    check(!r.connected(), "connected ohne offenen Restart: false")
+    r.begin()
+    check(r.timeout(canReneg: false) == .fail, "Gegenueber ohne reneg: Ende")
+    r.count = V.maxRestarts
+    check(r.timeout(canReneg: true) == .fail, "Hoechstzahl erreicht: Ende")
+
+    // Verdrahtung in Calls.swift: Antwort gesetzt, eigene Antwort gesendet, ICE-Ereignis waehrend des Restarts
+    if let dir = ProcessInfo.processInfo.environment["SAGA_APP_SRC"], let src = try? String(contentsOfFile: dir + "/Calls.swift", encoding: .utf8) {
+        check(src.components(separatedBy: "restartSettled(L)").count - 1 >= 3, "Calls.swift: restartSettled nach Antwort/Angebot/ICE-Ereignis")
+        check(!src.contains("L.reconnecting = "), "Calls.swift: Restart-Zustand nur ueber CallV3.Restart")
+    } else { check(false, "SAGA_APP_SRC fehlt") }
 }

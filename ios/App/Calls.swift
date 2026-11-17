@@ -1172,6 +1172,7 @@ final class CallManager: NSObject, ObservableObject {
                 CallEnv.log("reneg: Antwort n=\(meta.n ?? 0)")
                 let (md, cp, ro) = (media, myCaps, myRoles(L))
                 await sendSignal(L) { d in CallV3.answerBody(sdp: out, media: md, pc: L.pcFor(dev, d), n: meta.n ?? 0, caps: cp, roles: ro) }
+                restartSettled(L)                                           // D-MKYEV: Gegenueber hat (auch) neu angeboten
                 renegLater(L)
             } catch { CallEnv.log("reneg offer: \(error.localizedDescription)") }
         }
@@ -1193,6 +1194,7 @@ final class CallManager: NSObject, ObservableObject {
             applyRemoteIce(L); findRemoteVideo(L)
             L.appliedScreen = nil; applyLimits(L)                          // neue m-Zeile: Sende-Parameter erst jetzt setzbar
             CallEnv.log("reneg: fertig n=\(meta.n ?? 0)")
+            restartSettled(L)                                               // D-MKYEV
             renegLater(L)
         } catch { CallEnv.log("reneg answer: \(error.localizedDescription)") }
     }
@@ -1222,17 +1224,36 @@ final class CallManager: NSObject, ObservableObject {
     // MARK: ICE-Restart (2.4): Verbindung weg bzw. Netzwechsel WLAN <-> Mobilfunk
 
     private func iceRestart(_ L: CallLink) {
-        L.restarts += 1; L.reconnecting = true
+        L.restart.begin()
         status = String(localized: "Verbindung wird neu aufgebaut …")
         syncPrimary()
         Task { await renegotiate(L, iceRestart: true) }
         L.restartTask?.cancel()
         L.restartTask = Task { [weak self, weak L] in                     // kommt die Verbindung nicht zurueck: wie bisher beenden
             try? await Task.sleep(for: .seconds(CallV3.restartTimeout))
-            guard let self, let L, !Task.isCancelled, L.reconnecting, !self.ending, !L.gone else { return }
-            if CallV3.iceAction(state: "failed", everConnected: true, canReneg: L.canReneg(self.myCaps), attempts: L.restarts) == .restart { self.iceRestart(L) }
-            else { self.linkFailed(L) }
+            guard let self, let L, !Task.isCancelled, !self.ending, !L.gone else { return }
+            switch L.restart.timeout(canReneg: L.canReneg(self.myCaps)) {
+            case .restart: self.iceRestart(L)
+            case .fail: self.linkFailed(L)
+            default: break                                                  // inzwischen erledigt
+            }
         }
+    }
+    /// 2.5 (D-MKYEV): Neuverhandlung abgeschlossen bzw. ICE-Zustand gemeldet - steht ICE schon (Restart ohne
+    /// Unterbrechung, Verbindungszustand blieb "connected"), gilt der Neuaufbau als fertig (wie settled() im Web)
+    private func restartSettled(_ L: CallLink) {
+        guard let pc = L.pc, !ending, !L.gone, L.reconnecting else { return }
+        let ice = pc.iceConnectionState
+        guard L.restart.settle(stable: pc.signalingState == .stable, iceUp: ice == .connected || ice == .completed) else { return }
+        CallEnv.log("restart: ICE steht ohne Zustandswechsel")
+        reconnected(L)
+    }
+    /// Nach ICE-Restart wieder da: Hinweis weg, Sende-Parameter neu (Pfad kann sich geaendert haben)
+    private func reconnected(_ L: CallLink) {
+        L.restartTask?.cancel(); status = ""
+        L.appliedVideo = nil; L.appliedAudio = nil; L.appliedScreen = nil
+        CallEnv.log("reconnected")
+        syncPrimary()
     }
     private func netOn() {
         guard net == nil else { return }
@@ -1251,7 +1272,7 @@ final class CallManager: NSObject, ObservableObject {
         guard connected, !ending, CallV3.netChangeNeedsRestart(old: old, new: np) else { return }
         for L in links where L.connected && L.canReneg(myCaps) && !L.gone {
             CallEnv.log("netz gewechselt -> ICE-Restart")
-            L.restarts = 0
+            L.restart.count = 0
             iceRestart(L)
         }
     }
@@ -1437,15 +1458,13 @@ final class CallManager: NSObject, ObservableObject {
                 hoCheck()
                 syncPrimary()
             } else if L.reconnecting || !status.isEmpty {                    // 2.4: nach ICE-Restart wieder da
-                L.reconnecting = false; L.restarts = 0; L.restartTask?.cancel(); status = ""
-                L.appliedVideo = nil; L.appliedAudio = nil; L.appliedScreen = nil   // Pfad kann sich geaendert haben
-                CallEnv.log("reconnected")
-                syncPrimary()
+                L.restart.connected()
+                reconnected(L)
             }
         case .disconnected:
             status = String(localized: "Verbindung unterbrochen – versuche es weiter …")
         case .failed:
-            if CallV3.iceAction(state: "failed", everConnected: L.connected, canReneg: L.canReneg(myCaps), attempts: L.restarts) == .restart {
+            if CallV3.iceAction(state: "failed", everConnected: L.connected, canReneg: L.canReneg(myCaps), attempts: L.restart.count) == .restart {
                 if !L.reconnecting { iceRestart(L) }
             } else { linkFailed(L) }
         default: break
@@ -1453,17 +1472,21 @@ final class CallManager: NSObject, ObservableObject {
     }
     /// 2.4: ICE-Zustand - "disconnected" laenger als 2,5 s bzw. "failed" -> ICE-Restart (nur mit reneg auf beiden Seiten)
     func iceChanged(_ L: CallLink, _ st: RTCIceConnectionState) {
-        guard L.pc != nil, !ending, !L.reconnecting, !L.gone else { return }
+        guard L.pc != nil, !ending, !L.gone else { return }
+        if L.reconnecting {                                                 // D-MKYEV: Restart laeuft - steht ICE, ist er fertig
+            if st == .connected || st == .completed { restartSettled(L) }
+            return
+        }
         switch st {
         case .disconnected:
-            guard CallV3.iceAction(state: "disconnected", everConnected: L.connected, canReneg: L.canReneg(myCaps), attempts: L.restarts) == .wait else { return }
+            guard CallV3.iceAction(state: "disconnected", everConnected: L.connected, canReneg: L.canReneg(myCaps), attempts: L.restart.count) == .wait else { return }
             Task { [weak self, weak L] in
                 try? await Task.sleep(for: .seconds(CallV3.restartDelay))
                 guard let self, let L, !self.ending, !L.reconnecting, !L.gone, L.pc?.iceConnectionState == .disconnected else { return }
                 self.iceRestart(L)
             }
         case .failed:
-            if CallV3.iceAction(state: "failed", everConnected: L.connected, canReneg: L.canReneg(myCaps), attempts: L.restarts) == .restart { iceRestart(L) }
+            if CallV3.iceAction(state: "failed", everConnected: L.connected, canReneg: L.canReneg(myCaps), attempts: L.restart.count) == .restart { iceRestart(L) }
         default: break
         }
     }

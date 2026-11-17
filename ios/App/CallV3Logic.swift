@@ -230,6 +230,33 @@ enum CallV3 {
         }
     }
 
+    /// 2.5 (Feldfehler D-MKYEV): eigener ICE-Restart je Verbindung. Er gilt als erledigt, sobald die Verbindung (wieder)
+    /// steht - per Wechsel des Verbindungszustands auf "connected" ODER (wie settled() im Web, static/calls.js), wenn nach
+    /// der Neuverhandlung die Signalisierung "stable" ist und ICE connected/completed meldet. Bleibt die Verbindung
+    /// waehrend des Restarts "connected" (alter Pfad traegt weiter, Restart nach Netz-/SSE-Ereignis), kommt sonst kein
+    /// Ereignis, und der Anruf endete nach maxRestarts x restartTimeout trotz laufender Medien.
+    struct Restart: Equatable {
+        private(set) var active = false                                  // Restart offen ("Verbindung wird neu aufgebaut")
+        var count = 0                                                    // Versuche seit der letzten stehenden Verbindung
+        mutating func begin() { count += 1; active = true }
+        /// Verbindung steht (wieder): true, wenn dabei ein Restart offen war
+        @discardableResult mutating func connected() -> Bool {
+            let was = active
+            active = false; count = 0
+            return was
+        }
+        /// Neuverhandlung fertig (Antwort gesetzt bzw. gesendet) oder ICE-Zustand gemeldet: true = Restart hiermit erledigt
+        mutating func settle(stable: Bool, iceUp: Bool) -> Bool {
+            guard active, stable, iceUp else { return false }
+            return connected()
+        }
+        /// Frist restartTimeout abgelaufen: nichts (erledigt), erneut oder Ende
+        func timeout(canReneg: Bool) -> IceAction {
+            guard active else { return .none }
+            return iceAction(state: "failed", everConnected: true, canReneg: canReneg, attempts: count) == .restart ? .restart : .fail
+        }
+    }
+
     /// Netz (NWPathMonitor): erreichbar + Art der bevorzugten Schnittstelle (wifi, cellular, wired, other)
     struct NetPath: Equatable { var satisfied: Bool; var primary: String? }
     /// Netzwechsel WLAN <-> LTE bzw. Netz wieder da -> ICE-Restart. Erste Meldung (Start) loest nichts aus.

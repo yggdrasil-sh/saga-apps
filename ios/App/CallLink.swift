@@ -56,8 +56,8 @@ final class CallLink: NSObject {
     var verified = false
     var relay = false
     var path: CallV3.Path?
-    var restarts = 0
-    var reconnecting = false
+    var restart = CallV3.Restart()                                      // 2.4/2.5 D-MKYEV: eigener ICE-Restart (Versuche, offen)
+    var reconnecting: Bool { restart.active }
     var restartTask: Task<Void, Never>?
     var connTask: Task<Void, Never>?
     var remoteVideo: RTCVideoTrack?
