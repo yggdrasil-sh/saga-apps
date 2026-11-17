@@ -42,6 +42,9 @@ final class Store: ObservableObject {
     /// 2.5 Vorlagengalerie: bietet dieser Server sie an? (GalleryViews.swift; aelterer Server 404 -> Eintrag ausgeblendet)
     @Published var galleryOffered = false
     var galleryOrigin: String?                           // Server, fuer den galleryOffered gilt
+    /// 2.5 Titelbild-Galerie (GET /api/covers, CoverGalleryViews.swift): Liste des Servers; nil = unbekannt bzw. aelterer Server
+    @Published var coverGallery: CoverGalleryLogic.Listing?
+    var coverGalleryOrigin: String?                      // Server, fuer den coverGallery gilt
     @Published var minApp: String?                       // aelteste App-Version, die der Server voll unterstuetzt
     var appTooOld: Bool { minApp.map { Store.versionLess(Store.appVersion, $0) } ?? false }
     nonisolated static var appVersion: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0" }
@@ -460,6 +463,7 @@ final class Store: ObservableObject {
             if serverVersion == nil { await checkVersion() }
             ClientLog.shared.ready()                              // 2.5 clientlog1: Absturz-Notiz des letzten Laufs senden
             if galleryOrigin != AppConfig.serverOrigin { Task { await probeGallery() } }   // 2.5: einmal je Server
+            if coverGalleryOrigin != AppConfig.serverOrigin { Task { await loadCoverGallery() } }   // 2.5 Titelbild-Galerie: einmal je Server
             await loadToday()
             await ensureDeviceKey()
             // Konto fuer die Entwuerfe: einmal je Start, und solange es fuer diesen Server noch unbekannt ist

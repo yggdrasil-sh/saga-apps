@@ -21,6 +21,8 @@ struct CoverView: View {
     @State private var picking = false
     @State private var pick: PhotosPickerItem?
     @State private var immich = false
+    @State private var gallery = false                    // 2.5 Titelbild-Galerie
+    @State private var about = false                      // 2.5 "Ueber dieses Bild"
     @State private var showMenu = false
     #if os(macOS)
     private var showHeightOpen: Bool { showHeight }
@@ -96,8 +98,12 @@ struct CoverView: View {
                     } else if (hover || showMenu || showHeightOpen) && !doc.coverBusy {
                         HStack(spacing: 0) {
                             Menu("Ändern") {
+                                CoverGalleryMenuItems(doc: doc) { gallery = true }          // 2.5: wie im Web zuerst
                                 Button { picking = true } label: { Label("Fotos …", systemImage: "photo") }
                                 Button { immich = true } label: { Label("Aus Immich …", systemImage: "photo.on.rectangle.angled") }
+                                if store.coverGalleryOffered && CoverGalleryLogic.isGalleryPath(doc.cover) {
+                                    Button { about = true } label: { Label("Über dieses Bild", systemImage: "info.circle") }
+                                }
                             }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().padding(.horizontal, 10)
                             Divider().frame(height: 14)
                             Button("Neu positionieren") { pos = HeaderLogic.coverPos(doc.page["cover_pos"]); repositioning = true; showMenu = false }.padding(.horizontal, 10)
@@ -141,6 +147,8 @@ struct CoverView: View {
                     ImmichPicker(note: doc.uploadNote) { url in showMenu = false; Task { await doc.setHeader(["cover": url, "cover_pos": 50.0], store) } }
                         .environmentObject(store)
                 }
+                .sheet(isPresented: $gallery, onDismiss: { showMenu = false }) { CoverGallerySheet(doc: doc).environmentObject(store) }
+                .sheet(isPresented: $about) { CoverAboutSheet(about: CoverGalleryLogic.about(store.coverGallery, current: doc.cover)) }
         }
     }
 
@@ -205,6 +213,7 @@ struct IconRow: View {
     @State private var picker = false
     @State private var coverPick: PhotosPickerItem?
     @State private var coverImmich = false
+    @State private var coverGallery = false               // 2.5 Titelbild-Galerie
     @State private var choosingCover = false
     @State private var hover = false
     @State private var hint = false
@@ -248,6 +257,7 @@ struct IconRow: View {
                     if doc.icon?.isEmpty != false { Button { picker = true } label: { Label("Symbol hinzufügen", systemImage: "face.smiling") } }
                     if !doc.hasCover {
                         Menu {
+                            CoverGalleryMenuItems(doc: doc) { coverGallery = true }         // 2.5: wie im Web zuerst
                             Button { choosingCover = true } label: { Label("Fotos …", systemImage: "photo") }
                             Button { coverImmich = true } label: { Label("Aus Immich …", systemImage: "photo.on.rectangle.angled") }
                         } label: { Label("Titelbild hinzufügen", systemImage: "photo") }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
@@ -270,6 +280,7 @@ struct IconRow: View {
         #endif
         .onChange(of: doc.lockHint) { _, _ in showHint() }
         .sheet(isPresented: $picker) { IconPicker(doc: doc) }
+        .sheet(isPresented: $coverGallery) { CoverGallerySheet(doc: doc).environmentObject(store) }
         .sheet(isPresented: $coverImmich) {
             ImmichPicker(note: doc.uploadNote) { url in Task { await doc.setHeader(["cover": url, "cover_pos": 50.0], store) } }
                 .environmentObject(store)
