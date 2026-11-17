@@ -89,7 +89,12 @@ fun AddPersonButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
  * Mitglieder ohne Geraet im Anruf "im Chat – klingelt erneut". Voll: Hinweis, Zeilen deaktiviert. Zurueck schliesst.
  */
 @Composable
-fun AddPersonDialog(add: CallAddUi, onPick: (CallAdd.Pick) -> Unit, onDismiss: () -> Unit) {
+fun AddPersonDialog(
+    add: CallAddUi, onPick: (CallAdd.Pick) -> Unit,
+    /** Zeilen zur Eingabe ("" = Kontakte); Standard: Server (Kontakte bzw. Personensuche) - Bildschirmfotos setzen Beispiele */
+    load: (suspend (String) -> List<CallAdd.Pick>)? = null,
+    onDismiss: () -> Unit,
+) {
     val ctx = LocalContext.current
     val repo = (ctx.applicationContext as? SagaApplication)?.repo
     var q by remember { mutableStateOf("") }
@@ -102,6 +107,7 @@ fun AddPersonDialog(add: CallAddUi, onPick: (CallAdd.Pick) -> Unit, onDismiss: (
         if (v.isNotEmpty()) delay(250)
         items = try {
             when {
+                load != null -> load(v)
                 repo == null -> emptyList()
                 v.isEmpty() -> repo.chat.contacts(CallAdd.CONTACTS).map { CallAdd.fromContact(it) }
                 else -> CallAdd.fromSearch(repo.chat.people(v))

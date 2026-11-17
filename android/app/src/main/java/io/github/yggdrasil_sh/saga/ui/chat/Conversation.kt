@@ -2100,7 +2100,7 @@ private fun AiPendingBubble(persona: AiPersona?, name: String, text: String) {
 
 /** Anruf-Eintrag (2.1): mittig, Richtung, Ergebnis, Uhrzeit; verpasst -> "Zurückrufen", eigener gescheitert -> "Erneut anrufen" */
 @Composable
-private fun CallEntryRow(
+internal fun CallEntryRow(
     m: ChatMessage, e: io.github.yggdrasil_sh.saga.call.CallEntry, me: String, canCall: Boolean,
     onGroup: (Long) -> Unit = {}, onCall: (Boolean) -> Unit,
 ) {
