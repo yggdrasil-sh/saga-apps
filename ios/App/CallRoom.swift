@@ -560,7 +560,7 @@ extension CallManager {
                 guard let store, await ensureChat(), let dev = myDevice else { throw APIError.other(String(localized: "Chats sind auf diesem Gerät noch nicht bereit.")) }
                 guard await loadConfig() else { throw APIError.other(String(localized: "Anrufe sind auf diesem Server abgeschaltet.")) }
                 guard multi else { throw APIError.other(String(localized: "Gruppenanrufe brauchen Saga 2.4 auf diesem Server.")) }
-                if hornMeshHint(members: max(chat.memberCount, chat.members.count), video: video) {   // 2.5: kein Knoten bereit
+                if hornMeshHint(members: max(chat.memberCount, chat.members.count), video: video, fed: chat.isFed) {   // 2.5: kein Knoten bereit
                     toast = String(localized: "Kein Knoten für große Gruppenanrufe bereit – es gilt die Grenze für direkte Anrufe (höchstens 4 Geräte mit Video bzw. 6 nur mit Ton).")
                 }
                 try await prepareMedia(video: video)

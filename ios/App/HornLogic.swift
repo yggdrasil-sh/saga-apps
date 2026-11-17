@@ -285,6 +285,21 @@ enum HornLogic {
     static let wsHeadUDP = 600.0, wsHeadUDPMaybe = 250.0
     /// Weg bei UDP-Verlust im Anruf (Umschalter): ICE-TCP, wenn angeboten (wie bisher), sonst der Tunnel
     static func streamPath(_ c: Candidate) -> String { !c.tcp && c.ws ? "ws" : "tcp" }
+
+    /// Vor dem Start eines Gruppenanrufs (wie Web hornHintNeeded): kein Knoten bereit und die Gruppe ist groesser als die
+    /// Mesh-Grenze -> Hinweis. Wer den Tunnel meldet (caps "ws"), nimmt horn_ready_ws (zaehlt auch Knoten im Tunnel-Betrieb;
+    /// horn_ready zaehlt sie nicht - sonst falscher Hinweis, obwohl der Start einen Tunnel-Knoten bekommt), mit "frames"
+    /// horn_ready_frames, aeltere Server: horn_ready. Foederierte Chats: das Heim entscheidet, der Server meldet horn_mesh.
+    static func meshHint(cfg: [String: Any], features: [String], caps: [String], members n: Int, video: Bool, fed: Bool) -> Bool {
+        guard !fed, features.contains("horn") else { return false }
+        let ready: Bool?
+        if caps.contains("ws"), let r = cfg["horn_ready_ws"] as? Bool { ready = r }
+        else if caps.contains("frames"), let r = cfg["horn_ready_frames"] as? Bool { ready = r }
+        else { ready = cfg["horn_ready"] as? Bool }
+        guard ready == false, let lim = cfg["limits"] as? [String: Any],
+              let l = (video ? lim["endpoints_video"] : lim["endpoints_audio"]) as? Int, l > 0 else { return false }
+        return n > l
+    }
 }
 
 // MARK: - Knoten: Bein-Antwort, Ereigniskanal, Zuordnung

@@ -279,10 +279,9 @@ extension CallManager {
         for s in pending { await handleRaw(s) }
     }
     /// Vor dem Start eines Gruppenanrufs: kein Knoten bereit und die Gruppe ist groesser als die Mesh-Grenze -> Hinweis
-    func hornMeshHint(members n: Int, video: Bool) -> Bool {
-        guard serverFeatures.contains("horn"), (cfg["horn_ready"] as? Bool) == false, let lim = cfg["limits"] as? [String: Any],
-              let l = ShareJSON.int(video ? lim["endpoints_video"] : lim["endpoints_audio"]), l > 0 else { return false }
-        return n > l
+    /// (HornLogic.meshHint: mit Tunnel zaehlt horn_ready_ws, foederierte Chats ohne Hinweis)
+    func hornMeshHint(members n: Int, video: Bool, fed: Bool) -> Bool {
+        HornLogic.meshHint(cfg: cfg, features: serverFeatures, caps: myCaps, members: n, video: video, fed: fed)
     }
     func hornBlockText(_ b: String?) -> String? {
         switch b {

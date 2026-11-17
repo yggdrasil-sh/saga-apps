@@ -99,4 +99,21 @@ func hornTunnelTests() {
     check(HornWire.ackMs >= 10 && HornWire.ackMs <= 20, "Quittungsabstand 10-20 ms (Vertrag 5)")
     check(HornWire.failText(status: 426).contains("Proxy reicht WebSocket nicht durch"), "426: verstaendliche Meldung")
     check(HornWire.failText(status: 0, code: "auth") == "ws abgelehnt auth" && HornWire.failText(status: 502) == "ws HTTP 502", "andere Fehler")
+
+    // Hinweis "kein Knoten bereit" vor dem Gruppenanruf (Merkposten horn_ready_ws, wie Web hornHintNeeded)
+    func hint(_ c: [String: Any], caps: [String] = ["multi", "horn", "ws"], n: Int = 8, video: Bool = true, fed: Bool = false,
+              feat: [String] = ["horn", "multi"]) -> Bool {
+        var x = c; x["limits"] = ["endpoints_video": 4, "endpoints_audio": 6] as [String: Any]
+        return HornLogic.meshHint(cfg: x, features: feat, caps: caps, members: n, video: video, fed: fed)
+    }
+    check(!hint(["horn_ready": false, "horn_ready_ws": true]), "nur Tunnel-Knoten bereit, Geraet mit ws -> kein falscher Hinweis")
+    check(hint(["horn_ready": false, "horn_ready_ws": false]), "kein Knoten bereit -> Hinweis")
+    check(hint(["horn_ready": false]), "aelterer Server ohne horn_ready_ws -> horn_ready")
+    check(hint(["horn_ready": false, "horn_ready_ws": true], caps: ["multi", "horn"]), "Geraet ohne ws -> horn_ready")
+    check(!hint(["horn_ready": false, "horn_ready_frames": true], caps: ["multi", "frames"]) && hint(["horn_ready": true, "horn_ready_frames": false], caps: ["multi", "frames"]),
+          "frames -> horn_ready_frames")
+    check(!hint(["horn_ready": false, "horn_ready_ws": false], fed: true), "foederierter Chat -> kein Hinweis (Heim entscheidet)")
+    check(!hint(["horn_ready": false, "horn_ready_ws": false], n: 4) && hint(["horn_ready": false, "horn_ready_ws": false], n: 5)
+          && !hint(["horn_ready": false, "horn_ready_ws": false], n: 6, video: false), "nur ueber der Mesh-Grenze (Video 4, Ton 6)")
+    check(!hint(["horn_ready": false, "horn_ready_ws": false], feat: ["multi"]) && !hint([:]), "ohne Feature horn bzw. ohne Angabe -> kein Hinweis")
 }
