@@ -226,6 +226,10 @@ object CallAdd {
         return Room(CallRoom.KIND_GROUP, false, t, t, title)
     }
 
+    /** Nach dem Umzug: ist das alte 1:1 (`from`) offen, die neue Gruppe `to` oeffnen (wie Web/iOS openNew) - sonst null */
+    fun openAfterMove(visible: Long?, from: Long?, to: Long): Long? =
+        to.takeIf { from != null && from > 0 && visible == from && to > 0 && to != from }
+
     /** Name der neuen Gruppe: aus dem Anruf-Objekt (`from.chat`), sonst Chatliste, sonst "Gruppenanruf" (leer) */
     fun movedTitle(fromObj: String?, chatList: String?): String = fromObj?.takeIf { it.isNotBlank() } ?: chatList.orEmpty()
 

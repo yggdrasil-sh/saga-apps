@@ -223,6 +223,17 @@ class CallAddTest {
         assertEquals("~c3", k.invites!!.single().ref)
     }
 
+    // ------------------------------------------------------------ call.move ohne eigenen Anruf (Pruefer F5)
+
+    @Test fun openAfterMoveOnlyFromOldChat() {
+        assertEquals(37L, CallAdd.openAfterMove(12L, 12L, 37L))     // altes 1:1 offen -> neue Gruppe
+        assertNull(CallAdd.openAfterMove(5L, 12L, 37L))             // anderer Chat offen
+        assertNull(CallAdd.openAfterMove(null, 12L, 37L))           // kein Chat offen
+        assertNull(CallAdd.openAfterMove(12L, null, 37L))           // from fehlt
+        assertNull(CallAdd.openAfterMove(37L, 37L, 37L))            // schon die neue Gruppe
+        assertNull(CallAdd.openAfterMove(0L, 0L, 37L))
+    }
+
     // ------------------------------------------------------------ TalkBack (Pruefer F4)
 
     @Test fun rowDescriptionReadsSubline() {

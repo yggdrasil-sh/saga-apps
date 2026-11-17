@@ -4273,6 +4273,17 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
     }
 
+    /**
+     * 2.5 (L9, Pruefer F5): `call.move` fuer einen Anruf, in dem dieses Geraet nicht ist (nur die Leiste bzw. ein anderes
+     * eigenes Geraet telefoniert) - wie iOS movedElsewhere: ist das alte 1:1 offen, die neue Gruppe oeffnen; Chatliste und
+     * Leiste (haengt jetzt am neuen Chat) neu holen.
+     */
+    private fun movedElsewhere(from: Long?, to: Long) {
+        CallAdd.openAfterMove(repo.chat.visibleChat, from, to)?.let { repo.openChatRequest.value = it }
+        scope.launch { io.github.yggdrasil_sh.saga.chat.quietly { repo.chat.loadChats() } }
+        refreshRun()
+    }
+
     // ---------------------------------------------------------------- 2.5 Gjallarhorn: Gruppenanruf ueber Knoten
 
     /**
@@ -4842,9 +4853,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             "call.invite" -> onInvite(ev)
             // 2.5 (L9): 1:1 ist in eine neue Gruppe umgezogen - derselbe Anruf, Medien bleiben
             "call.move" -> {
-                val c = cur ?: return
-                if (c.id != ev.str("call_id") || c.done) return
-                moveIn(c, ev.long("from_chat"), ev.long("chat_id") ?: return, null)
+                val id = ev.str("call_id") ?: return
+                val to = ev.long("chat_id") ?: return
+                val c = cur
+                if (c != null && c.id == id) {
+                    if (!c.done) moveIn(c, ev.long("from_chat"), to, null)
+                } else movedElsewhere(ev.long("from_chat"), to)   // F5: Leiste bzw. anderes eigenes Geraet (wie iOS)
             }
             // 2.5 (L7): "Nicht dabei" hat sich geaendert (eigener rv-Zaehler)
             "call.invites" -> {
