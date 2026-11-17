@@ -777,7 +777,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     } else if (sys != null) {
                         SysRow(m, sys, s.summary?.myHandle)
                     } else if (call != null) {
-                        CallEntryRow(m, call, s.me, canCall) { startCall(it) }
+                        CallEntryRow(m, call, s.me, canCall, onGroup = { repo.openChatRequest.value = it }) { startCall(it) }
                     } else {
                         // Design 2: Folgen derselben Person enger und mit passenden Ecken (Liste neueste zuerst)
                         val runOf = { o: io.github.yggdrasil_sh.saga.chat.ChatMessage? ->
@@ -2101,7 +2101,8 @@ private fun AiPendingBubble(persona: AiPersona?, name: String, text: String) {
 /** Anruf-Eintrag (2.1): mittig, Richtung, Ergebnis, Uhrzeit; verpasst -> "Zurückrufen", eigener gescheitert -> "Erneut anrufen" */
 @Composable
 private fun CallEntryRow(
-    m: ChatMessage, e: io.github.yggdrasil_sh.saga.call.CallEntry, me: String, canCall: Boolean, onCall: (Boolean) -> Unit,
+    m: ChatMessage, e: io.github.yggdrasil_sh.saga.call.CallEntry, me: String, canCall: Boolean,
+    onGroup: (Long) -> Unit = {}, onCall: (Boolean) -> Unit,
 ) {
     val logic = io.github.yggdrasil_sh.saga.call.CallLogic
     val missed = logic.missed(e, me)
@@ -2134,6 +2135,13 @@ private fun CallEntryRow(
                     SagaTextButton(onClick = { onCall(e.media == "video") }) { Text(stringResource(R.string.call_back)) }
                 } else if (logic.redial(e, me) && canCall) {
                     SagaTextButton(onClick = { onCall(e.media == "video") }) { Text(stringResource(R.string.r1_call_redial)) }
+                }
+                // 2.5 (L9): Anruf ist in eine neue Gruppe umgezogen - "Zur Gruppe" oeffnet sie
+                io.github.yggdrasil_sh.saga.call.CallAdd.movedChat(e)?.let { g ->
+                    val cd = stringResource(R.string.call_to_group_cd)
+                    SagaTextButton(onClick = { onGroup(g) }, modifier = Modifier.semantics { contentDescription = cd }) {
+                        Text(stringResource(R.string.call_to_group))
+                    }
                 }
             }
         }

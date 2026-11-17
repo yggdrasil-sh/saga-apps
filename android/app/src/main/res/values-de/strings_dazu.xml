@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (L8/L9): Person im laufenden Anruf hinzufuegen, 1:1 -> Gruppenanruf (Umzug) -->
+<resources>
+    <string name="add_person">Person hinzufügen</string>
+    <string name="add_hint">Mitglieder klingeln, andere Personen kommen dazu und klingeln dann.</string>
+    <string name="add_page_hint">Hinzufügen teilt die Seite „%1$s“ (Lesen).</string>
+    <string name="add_full">Der Anruf ist voll – erst wenn jemand auflegt, kann noch jemand dazukommen.</string>
+    <string name="add_move_hint">Es entsteht eine neue Gruppe mit euch beiden – der Anruf läuft ohne Unterbrechung weiter.</string>
+    <string name="add_away">im Chat – klingelt erneut</string>
+    <string name="add_pick_cd">%1$s hinzufügen und anrufen</string>
+    <string name="add_none_found">Niemand gefunden.</string>
+    <string name="add_no_contacts">Noch keine Kontakte – suche nach einem Namen.</string>
+    <string name="add_search">Name suchen</string>
+    <string name="add_search_cd">Person suchen</string>
+    <string name="add_pending">%1$s kommt dazu, sobald der andere Server zugestimmt hat.</string>
+    <string name="add_request">%1$s ist eingeladen – es klingelt, sobald die Einladung in den Chat angenommen ist.</string>
+    <string name="add_already">%1$s ist schon im Anruf oder klingelt gerade.</string>
+    <string name="add_failed">Hinzufügen hat nicht geklappt.</string>
+    <string name="add_page_title">Seite teilen?</string>
+    <string name="add_page_sub">Die Seite wird dafür mit Leserecht geteilt.</string>
+    <string name="add_page_go">Teilen und anrufen</string>
+    <string name="add_moved_note">Neue Gruppe – der Anruf läuft dort ohne Unterbrechung weiter.</string>
+    <string name="add_direct_hint">Dieser Anruf läuft direkt zwischen euren Geräten – jemanden dazuholen geht nur über einen Anruf-Knoten. Legt dafür auf und startet einen Gruppenanruf in einer neuen Gruppe.</string>
+    <string name="call_entry_moved">In Gruppenanruf verschoben · %1$s</string>
+    <string name="call_to_group">Zur Gruppe</string>
+    <string name="call_to_group_cd">Neue Gruppe dieses Anrufs öffnen</string>
+</resources>

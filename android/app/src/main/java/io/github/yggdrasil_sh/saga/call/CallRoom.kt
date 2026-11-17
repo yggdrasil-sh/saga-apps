@@ -39,6 +39,8 @@ data class CallLeg(
     val hpn: Map<String, String> = emptyMap(),
     /** 2.5 (`handover2`): Beitrittsgeneration (ms, steigt mit jedem erneuten Beitritt) - fuer bedingtes /leave */
     val gen: Long? = null,
+    /** 2.5 (L8): Person dieses Servers - Kennung wie `ref` in GET /api/chat/contacts (Auswahl: wer schon im Anruf ist) */
+    val ref: String? = null,
 ) {
     val companion: Boolean get() = role == CallRoom.ROLE_COMPANION
     val multi: Boolean get() = CallRoom.CAP_MULTI in caps

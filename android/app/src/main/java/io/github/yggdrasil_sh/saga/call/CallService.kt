@@ -269,6 +269,12 @@ class CallService : Service() {
             start(context, video)
         }
 
+        /** 2.5 (L9): Mitteilung mit neuem Titel (Umzug in eine Gruppe) - nur, wenn der Dienst schon laeuft */
+        fun refresh(context: Context) {
+            val s = instance ?: return
+            if (foreground) s.promote(lastVideo)
+        }
+
         /** Bildschirm wird geteilt (Typ mediaProjection gehoert dazu) */
         @Volatile private var screen = false
         @Volatile private var lastVideo = false

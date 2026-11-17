@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (L8/L9): Person im laufenden Anruf hinzufuegen, 1:1 -> Gruppenanruf (Umzug) -->
+<resources>
+    <string name="add_person">Добавить человека</string>
+    <string name="add_hint">Участникам чата поступит звонок; другие люди будут добавлены в чат, и им тоже позвонят.</string>
+    <string name="add_page_hint">Добавление открывает доступ к странице «%1$s» (чтение).</string>
+    <string name="add_full">Звонок заполнен — новый участник сможет присоединиться, только когда кто-то положит трубку.</string>
+    <string name="add_move_hint">Будет создана новая группа с вами обоими — звонок продолжится без перерыва.</string>
+    <string name="add_away">в чате — позвонить снова</string>
+    <string name="add_pick_cd">Добавить и позвонить: %1$s</string>
+    <string name="add_none_found">Никто не найден.</string>
+    <string name="add_no_contacts">Пока нет контактов — найдите человека по имени.</string>
+    <string name="add_search">Поиск по имени</string>
+    <string name="add_search_cd">Найти человека</string>
+    <string name="add_pending">%1$s присоединится, как только другой сервер подтвердит.</string>
+    <string name="add_request">%1$s приглашён(а) — звонок поступит, как только приглашение в чат будет принято.</string>
+    <string name="add_already">%1$s уже в звонке или ему сейчас звонят.</string>
+    <string name="add_failed">Не удалось добавить.</string>
+    <string name="add_page_title">Открыть доступ к странице?</string>
+    <string name="add_page_sub">Для этого к странице будет открыт доступ на чтение.</string>
+    <string name="add_page_go">Открыть доступ и позвонить</string>
+    <string name="add_moved_note">Новая группа — звонок продолжается там без перерыва.</string>
+    <string name="add_direct_hint">Этот звонок идёт напрямую между вашими устройствами — добавить кого-то можно только через узел звонков. Завершите звонок и начните групповой звонок в новой группе.</string>
+    <string name="call_entry_moved">Перенесён в групповой звонок · %1$s</string>
+    <string name="call_to_group">К группе</string>
+    <string name="call_to_group_cd">Открыть новую группу этого звонка</string>
+</resources>

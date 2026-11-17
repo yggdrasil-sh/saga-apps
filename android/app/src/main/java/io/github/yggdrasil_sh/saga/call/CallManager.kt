@@ -124,6 +124,10 @@ data class CallUiState(
     val detail: UiText? = null,
     /** CH-02: eigener gescheiterter 1:1-Anruf - der Endbildschirm bietet "Erneut anrufen" */
     val canRedial: Boolean = false,
+    /** 2.5 (L8/L9): "Person hinzufuegen" (Knopf, Auswahl, Rueckfrage); null = geht hier nicht */
+    val add: CallAddUi? = null,
+    /** 2.5 (L9): kurzer Hinweis im Anrufbildschirm ("Neue Gruppe – …"), verschwindet von selbst */
+    val toast: UiText? = null,
 )
 
 /** VideoSink, dessen Ziel (SurfaceViewRenderer der Oberflaeche) wechseln darf */
@@ -221,8 +225,20 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         /** Nachsende-Runden nach 400 seit der letzten Aenderung der Liste (hoechstens [SignalBundle.RETRY_MAX]) */
         var sigRounds = 0
         var myHandle: String? = null
-        /** 2.5: 1:1 ueber einen Knoten (Raum-Anruf mit dm) - Anzeige wie 1:1 */
+        /** 2.5: 1:1 ueber einen Knoten (Raum-Anruf mit dm) - Anzeige wie 1:1; nach dem Umzug (L9) false */
         var dm = false
+        /** 2.5 (L8/L9): was das zuletzt gelesene Anruf-Objekt zum Hinzufuegen sagt */
+        var addFlags = CallAdd.Flags()
+        /** 2.5 (L9): Anruf ist in diesen Gruppen-Chat umgezogen */
+        var movedTo: Long? = null
+        /** 2.5 (L8): /add laeuft; Ergebnis bzw. Fehler; Rueckfrage "Seite teilen?" */
+        var addBusy = false
+        var addNote: UiText? = null
+        var addNoteUntil = 0L
+        var addAsk: CallAddAsk? = null
+        var toast: UiText? = null
+        var toastUntil = 0L
+        var noteJob: Job? = null
         /** 2.5: vom Gastgeber stummgeschaltet (Name) - Hinweis bis zum eigenen Einschalten */
         var mutedBy: String? = null
         var audioSource: AudioSource? = null
@@ -309,7 +325,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val hornKeys = HashMap<String, Call>()
     }
 
-    private inner class Call(id: String?, val chatId: Long, val caller: Boolean, media: String, var peer: CallPeer, val room: Call? = null) {
+    private inner class Call(id: String?, var chatId: Long, val caller: Boolean, media: String, var peer: CallPeer, val room: Call? = null) {
         val rs: RoomShared = room?.rs ?: RoomShared(id, media)
         var id: String? by rs::id
         var media: String by rs::media
@@ -2097,6 +2113,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         c.rs.starter = true
         c.rs.dm = true
         c.rs.title = c.peer.shown
+        c.rs.addFlags = CallAdd.flags(k)             // 2.5 (L9): move_block "ringing" bis angenommen
         c.rs.limit = cfg.endpoints(c.media)
         c.v2 = k.v == 2
         c.ready = true
@@ -3992,7 +4009,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             feedPick(c, horn.levelsNow)
         }
         _ui.value = st.copy(
-            phase = phase, id = c.id, peer = if (group) c.peer else p.peer, video = c.media == "video",
+            phase = phase, id = c.id, video = c.media == "video",
             mic = c.micOn, cam = c.videoTrack != null,
             sharing = c.screen != null, peerSharing = p.rScreen && p.connected, camPaused = ls.any { it.camPaused },
             remoteSmall = p.smallVideo != null && !mesh, bigIsScreen = p.rScreen && v?.bigScreen == true,
@@ -4004,6 +4021,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             remoteMic = p.rMic,
             room = roomUi(c, mesh),
             meet = meetDevs(c), meetMe = myDevId(), meetSpeaker = c.rs.pick.stage,
+            add = addUi(c, anyConn), toast = c.rs.toast?.takeIf { c.rs.toastUntil > System.currentTimeMillis() },
+            peer = if (group && c.rs.movedTo != null) CallPeer(name = c.rs.title.ifEmpty { app.getString(R.string.room_group_audio) }) else if (group) c.peer else p.peer,
         ).let { u ->
             if (horn == null) u else u.copy(
                 remoteVideo = horn.bigOn, path = "", quality = "", bytesIn = horn.bytesIn,
@@ -4048,6 +4067,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     /** invites aus einem Anruf-Objekt (GET, join, start, promote) - gemeinsam mit rv der Antwort */
     private fun invitesIn(c: Call, k: CallInfo) {
+        addFlagsIn(c, k)
         if (k.kind != CallRoom.KIND_GROUP || k.dm || k.invites == null) return
         c.rs.invHost = k.host
         if (c.rs.inv.apply(k.invites, k.invitesMore, k.rv, k.now, k.ringS, System.currentTimeMillis())) update(c)
@@ -4088,6 +4108,167 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             c.rs.invNoteJob = scope.launch {
                 delay(Invites.NOTE_MS + 50)
                 if (live(c)) update(c)
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- 2.5 (L8/L9): Person hinzufuegen, 1:1 -> Gruppe
+
+    /**
+     * Hinzufuegen-Felder aus einem Anruf-Objekt (GET, join, Poll, Antwort von /add). Traegt ein Objekt desselben Anrufs
+     * schon den neuen Chat (Ereignis call.move verpasst, z. B. Live-Verbindung kurz weg), zieht der Anruf hier um.
+     */
+    private fun addFlagsIn(c0: Call, k: CallInfo) {
+        val c = roomOf(c0)
+        if (k.id.isNotEmpty() && k.id != c.id) return
+        c.rs.addFlags = CallAdd.flags(k)
+        CallAdd.moveFromInfo(c.rs.dm, c.chatId, c.rs.movedTo, k)?.let { to -> moveIn(c, c.chatId, to, k) }
+    }
+
+    /** Oberflaeche "Person hinzufuegen"; null = Knopf nicht zeigen (aelterer Server, keine Rechte, Begleitgeraet) */
+    private fun addUi(c: Call, connected: Boolean): CallAddUi? {
+        val rs = c.rs
+        val feats = config?.featureSet ?: return null
+        val mode = CallAdd.mode(feats, rs.kind, rs.dm, rs.addFlags, rs.companion)
+        if (mode == CallAdd.Mode.NONE || c.done || !c.ready) return null
+        if (mode == CallAdd.Mode.HINT && rs.kind != CallRoom.KIND_GROUP && !connected) return null   // direkter 1:1: erst verbunden
+        val now = System.currentTimeMillis()
+        val legs = rs.roster.legs
+        val seats = CallAdd.seats(legs, if (rs.limit > 0) rs.limit else 0)
+        return CallAddUi(
+            mode = mode, seats = seats, page = rs.addFlags.addPage,
+            hint = if (mode == CallAdd.Mode.HINT) CallAdd.hint(rs.addFlags) else CallAdd.fieldHint(mode, seats, rs.addFlags.addPage),
+            inCall = CallAdd.inCall(legs), away = CallAdd.away(rs.inv.list), busy = rs.addBusy,
+            note = rs.addNote?.takeIf { rs.addNoteUntil > now }, ask = rs.addAsk,
+        )
+    }
+
+    /** Hinweis bzw. Ergebnis zeigen und nach Ablauf die Oberflaeche auffrischen */
+    private fun addNote(c: Call, note: UiText?, toast: UiText? = null) {
+        val now = System.currentTimeMillis()
+        if (note != null) {
+            c.rs.addNote = note
+            c.rs.addNoteUntil = now + CallAdd.NOTE_MS
+        }
+        if (toast != null) {
+            c.rs.toast = toast
+            c.rs.toastUntil = now + CallAdd.NOTE_MS
+        }
+        update(c)
+        c.rs.noteJob?.cancel()
+        c.rs.noteJob = scope.launch {
+            delay(CallAdd.NOTE_MS + 50)
+            if (live(c)) update(c)
+        }
+    }
+
+    /**
+     * Oberflaeche: Person waehlen -> POST /api/calls/{id}/add (wie static/calls.js addPick). 409 page_confirm -> Rueckfrage
+     * "Seite teilen?" (addAnswer); Antwort mit `moved` -> Umzug in den neuen Chat; neue Mitglieder -> Gruppenname neu senden.
+     */
+    fun addPerson(p: CallAdd.Pick, confirm: Boolean = false) {
+        val c = cur ?: return
+        val id = c.id ?: return
+        if (c.done || !c.ready || c.rs.addBusy || p.ref.isEmpty()) return
+        c.rs.addBusy = true
+        c.rs.addAsk = null
+        update(c)
+        scope.launch {
+            var note: UiText? = null
+            var added = false
+            try {
+                val r = CallAdd.parse(api.post("api/calls/$id/add", CallAdd.body(p.ref, confirm)))
+                c.rs.addBusy = false
+                if (!live(c)) return@launch
+                r.moved?.let { m -> moveIn(c, m.fromChat, m.chatId, r.call?.takeIf { it.id == id }) }
+                if (c.rs.inv.apply(r.invites, r.invitesMore, r.rv, r.now, null, System.currentTimeMillis())) update(c)
+                note = CallAdd.outcome(r, p.name)
+                added = r.added.isNotEmpty()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: ApiException) {
+                c.rs.addBusy = false
+                when (val err = CallAdd.error(e.code, e.body, confirm, e.text)) {
+                    is CallAdd.Err.PageConfirm -> c.rs.addAsk = CallAddAsk(p, err.text)
+                    is CallAdd.Err.Note -> note = err.text
+                }
+            } catch (e: Exception) {
+                c.rs.addBusy = false
+                note = repo.friendly(e)
+            }
+            if (!live(c)) return@launch
+            addNote(c, note)
+            if (added) addedTitle(c.chatId)
+        }
+    }
+
+    /** Rueckfrage "Seite teilen?": Teilen und anrufen (mit confirm_page wiederholen) bzw. Abbrechen */
+    fun addAnswer(yes: Boolean) {
+        val c = cur ?: return
+        val ask = c.rs.addAsk ?: return
+        c.rs.addAsk = null
+        if (yes) addPerson(ask.pick, confirm = true) else update(c)
+    }
+
+    /**
+     * Neue Mitglieder sollen den Gruppennamen lesen koennen (wie Gruppeninfo und Web callApi.added): freie Gruppe mit
+     * bekanntem Namen -> den Namen erneut verschluesselt senden (`type: "title"`, dann auch fuer die Neuen).
+     */
+    private fun addedTitle(chatId: Long) {
+        scope.launch {
+            io.github.yggdrasil_sh.saga.chat.quietly {
+                val svc = repo.chat
+                svc.loadChats()
+                val sum = svc.chats.value.firstOrNull { it.id == chatId } ?: return@quietly
+                val t = svc.freeTitles.value[chatId]?.takeIf { it.isNotBlank() }
+                if (sum.kind != "free" || t == null) return@quietly
+                val s = io.github.yggdrasil_sh.saga.chat.ChatSession(chatId, svc)
+                s.loadSummary()
+                s.rename(t)
+            }
+        }
+    }
+
+    /**
+     * 2.5 (L9): Der 1:1-Anruf haengt jetzt am neuen Gruppen-Chat `to` (Antwort von /add mit `moved`, Ereignis call.move,
+     * Anruf-Objekt mit neuer chat_id). Derselbe Anruf laeuft weiter - KEIN Neuaufbau der Medien: nur Raum-Zustand (dm aus,
+     * Titel = Gruppe, "Nicht dabei", Chat des Anrufs), Telecom-Name und Mitteilung. Ist das alte 1:1 offen, die Gruppe oeffnen.
+     */
+    private fun moveIn(c0: Call, from: Long?, to: Long, k: CallInfo?) {
+        val c = roomOf(c0)
+        if (!live(c) || c.done) return
+        val next = CallAdd.move(CallAdd.Room(c.rs.kind, c.rs.dm, c.chatId, c.rs.movedTo, c.rs.title), to,
+            CallAdd.movedTitle(k?.from?.let { CallRoom.str(it, "chat") }, chatTitle(to))) ?: return
+        val old = c.chatId
+        val tgt = next.chatId
+        log("call.move $old -> $tgt")
+        c.rs.movedTo = next.movedTo
+        c.rs.dm = next.dm
+        c.rs.kind = next.kind
+        c.chatId = tgt
+        c.rs.links.values.forEach { it.chatId = tgt }
+        c.rs.title = next.title
+        _ui.value = _ui.value?.copy(chatId = tgt, group = true)
+        if (k != null) {
+            k.limit?.let { c.rs.limit = CallRoom.limit(k.media, it) }
+            c.rs.invHost = k.host || c.rs.hornHost
+            invitesIn(c, k)
+        }
+        CallTelecom.rename(c.rs.title.ifEmpty { app.getString(R.string.room_group_audio) })
+        addNote(c, null, UiText.Res(R.string.add_moved_note))
+        CallService.refresh(app)
+        if (repo.chat.visibleChat == (from ?: old)) repo.openChatRequest.value = tgt
+        scope.launch {
+            if (k == null) fetchRoster(c)                       // "Nicht dabei", can_add, Plaetze des neuen Chats
+            io.github.yggdrasil_sh.saga.chat.quietly { repo.chat.loadChats() }
+            if (!live(c) || c.chatId != tgt) return@launch
+            // Name der neuen Gruppe aus der Chatliste, sobald sie geladen ist (freie Gruppe ohne Namen: Mitglieder)
+            val t = chatTitle(tgt)
+            if (t.isNotEmpty() && t != c.rs.title) {
+                c.rs.title = t
+                CallTelecom.rename(t)
+                update(c)
+                CallService.refresh(app)
             }
         }
     }
@@ -4659,6 +4840,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 refreshRun()
             }
             "call.invite" -> onInvite(ev)
+            // 2.5 (L9): 1:1 ist in eine neue Gruppe umgezogen - derselbe Anruf, Medien bleiben
+            "call.move" -> {
+                val c = cur ?: return
+                if (c.id != ev.str("call_id") || c.done) return
+                moveIn(c, ev.long("from_chat"), ev.long("chat_id") ?: return, null)
+            }
             // 2.5 (L7): "Nicht dabei" hat sich geaendert (eigener rv-Zaehler)
             "call.invites" -> {
                 val c = cur ?: return

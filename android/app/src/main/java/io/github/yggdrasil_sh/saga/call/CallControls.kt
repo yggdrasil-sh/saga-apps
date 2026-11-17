@@ -25,7 +25,7 @@ internal object CallControls {
     enum class Btn { MIC, CAM, AUDIO, PLAYBACK, MORE, HANGUP }
 
     /** CH-18: Eintraege im "Mehr"-Blatt */
-    enum class More { SHARE, SWITCH_CAM, LAYOUT, PEOPLE, SELF_SIZE, FULLSCREEN, DETAILS }
+    enum class More { SHARE, SWITCH_CAM, LAYOUT, PEOPLE, ADD, SELF_SIZE, FULLSCREEN, DETAILS }
 
     /**
      * CH-19: mehr als zwei Ausgaben (z. B. Hoerer, Lautsprecher, Bluetooth) -> "Audio" mit Auswahl; ohne Hoerer (Tablet)
@@ -92,12 +92,13 @@ internal object CallControls {
      */
     fun moreItems(
         connected: Boolean, cam: Boolean, layout: Boolean = false, people: Boolean = false, selfSize: Boolean = false,
-        fullscreen: Boolean = false,
+        fullscreen: Boolean = false, addPerson: Boolean = false,
     ): List<More> = buildList {
         if (connected) add(More.SHARE)
         if (cam) add(More.SWITCH_CAM)
         if (layout) add(More.LAYOUT)
         if (people) add(More.PEOPLE)
+        if (addPerson) add(More.ADD)
         if (selfSize) add(More.SELF_SIZE)
         if (fullscreen) add(More.FULLSCREEN)
         add(More.DETAILS)

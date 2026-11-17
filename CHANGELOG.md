@@ -43,6 +43,22 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   `com.apple.security.network.server` (Lauscher in der Sandbox). Braucht Saga-Server 2.5 mit dieser Fähigkeit; ältere
   Server und Browser ohne Hülle: alles wie bisher.
 
+### Neu – Android: Person im Anruf hinzufügen, 1:1 wird zur Konferenz
+
+- **Gruppenanruf:** In der Teilnehmerliste (und unter „Mehr“) steht **„Person hinzufügen“**, wenn man im Chat Personen
+  hinzufügen darf. Die Auswahl zeigt ohne Eingabe die Kontakte, mit Eingabe die Personensuche; wer schon im Anruf ist,
+  fehlt, Mitglieder ohne Gerät im Anruf stehen als „im Chat – klingelt erneut“ da. Mitglieder klingeln, andere werden
+  Mitglied des Chats und klingeln dann. Im Seiten-Chat fragt die App vorher „Seite teilen?“ („Teilen und anrufen“).
+  Hinweise bei vollem Anruf, fehlenden Rechten, wartender Bestätigung eines anderen Servers bzw. offener Einladung und
+  bei zu häufigem Klingeln; danach geht der Gruppenname auch an die Neuen.
+- **1:1 über einen Anruf-Knoten:** „Person hinzufügen“ legt eine neue Gruppe mit euch beiden und den Hinzugefügten an –
+  der Anruf läuft **ohne Neuaufbau** weiter und ist danach ein Gruppenanruf: Titel der Gruppe im Anruf, in der
+  Mitteilung und in der Systemanzeige (Telecom), Teilnehmerliste mit „Nicht dabei“, die Anruf-Knöpfe der neuen Gruppe
+  führen zum Anruf zurück; ist das alte 1:1 offen, öffnet sich die Gruppe. Das gilt auch für das Gegenüber und ohne
+  Live-Ereignis (die Abfrage erkennt den neuen Chat). Im alten 1:1 steht „In Gruppenanruf verschoben · m:ss“ mit
+  **„Zur Gruppe“**. Direkter bzw. föderierter 1:1: der Knopf erklärt, warum es dort nicht geht.
+- Braucht Saga-Server 2.5 mit `call_add` bzw. `call_move`; ältere Server: alles wie bisher.
+
 ### Neu – Android: Gruppenanruf „Nicht dabei“ mit „Erneut klingeln“
 
 - Die Teilnehmerliste eines Gruppenanrufs (direkt und über Knoten) zeigt unter den Teilnehmenden den Abschnitt **„Nicht

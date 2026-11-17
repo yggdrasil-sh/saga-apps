@@ -130,6 +130,18 @@ data class CallInfo(
     /** 2.5 (L7): "Nicht dabei" - Mitglieder ohne Geraet im Anruf; null = aelterer Server (Abschnitt nicht zeigen) */
     val invites: List<CallInvite>? = null,
     @SerialName("invites_more") val invitesMore: Int = 0,
+    /** 2.5 (L8): ich darf Personen ausserhalb des Chats dazuholen (Feature call_add) */
+    @SerialName("can_add") val canAdd: Boolean = false,
+    /** 2.5 (L8): Seiten-Chat - Titel der Seite (Hinweis "Hinzufuegen teilt die Seite") */
+    @SerialName("add_page") val addPage: String? = null,
+    /** 2.5 (L9): 1:1 ueber Knoten - "Person hinzufuegen" zieht in eine neue Gruppe um (Feature call_move) */
+    @SerialName("can_move") val canMove: Boolean = false,
+    /** 2.5 (L9): ohne can_move - ringing | direct | fed | ended */
+    @SerialName("move_block") val moveBlock: String? = null,
+    /** 2.5 (L9): fertiger Hinweis zu move_block in der Sprache des Kontos */
+    @SerialName("move_hint") val moveHint: String? = null,
+    /** Herkunft (u. a. `chat` = Name des Chats, wenn der Server ihn kennt) */
+    val from: kotlinx.serialization.json.JsonObject? = null,
 )
 
 /** 2.5 (L7): Eintrag "Nicht dabei" (Anruf-Objekt `invites`, Ereignis `call.invites`, Antwort von /invite) */
@@ -145,6 +157,8 @@ data class CallInvite(
     val state: String = "none",
     /** Server-Uhr: seit wann der Zustand gilt (ringing: Beginn des Klingelns) */
     val since: Double? = null,
+    /** 2.5 (L8): Person dieses Servers - Kennung wie `ref` in GET /api/chat/contacts (Auswahl: ausblenden) */
+    val ref: String? = null,
 )
 
 /** 2.5 (L7): Antwort auf POST /api/calls/{id}/invite */
@@ -198,6 +212,8 @@ data class CallEntry(
     val dur: Int? = null,
     val from: String = "",
     val to: String = "",
+    /** 2.5 (L9): Anruf ist in diese neue Gruppe umgezogen ("In Gruppenanruf verschoben" + "Zur Gruppe") */
+    val moved: Long? = null,
 )
 
 /** Reine Regeln fuer Anrufe (Unit-Tests) */
@@ -289,7 +305,8 @@ object CallLogic {
         val video = e.media == "video"
         val what = UiText.Res(if (video) R.string.call_video else R.string.call_entry_audio)
         return when (e.status) {
-            "ended" -> UiText.Res(R.string.call_entry_ended, what, duration((e.dur ?: 0).toLong()))
+            "ended" -> if (e.moved != null) UiText.Res(R.string.call_entry_moved, duration((e.dur ?: 0).toLong()))
+            else UiText.Res(R.string.call_entry_ended, what, duration((e.dur ?: 0).toLong()))
             "declined" -> UiText.Res(R.string.call_entry_declined, what)
             "busy" -> if (out) UiText.Res(R.string.call_entry_busy) else UiText.Res(R.string.call_entry_busy_missed)
             "failed" -> UiText.Res(R.string.call_entry_failed, what)

@@ -470,9 +470,19 @@ private fun CallScreen(
         when (hornPanel) {
             "runes" -> HornRunesDialog(h) { hornPanel = "" }
             "people" -> HornPeopleDialog(h, onMute = { calls.moderate(it, "mute") }, onRemove = { calls.moderate(it, "remove") },
-                inv = st.room?.invites, onRing = { calls.ringInvites(it) }) { hornPanel = "" }
+                inv = st.room?.invites, onRing = { calls.ringInvites(it) },
+                onAdd = addOpener(st.add) { hornPanel = it }) { hornPanel = "" }
         }
     }
+    // 2.5 (L8/L9): Person hinzufuegen - Auswahl bzw. Hinweis (direkter 1:1), Rueckfrage "Seite teilen?"
+    val add = st.add
+    when (hornPanel) {
+        "add" -> if (add != null && add.mode != CallAdd.Mode.HINT && st.phase != CallPhase.ENDED) {
+            AddPersonDialog(add, onPick = { calls.addPerson(it) }) { hornPanel = "" }
+        } else hornPanel = ""
+        "addhint" -> AddHintDialog(add?.hint ?: io.github.yggdrasil_sh.saga.util.UiText.Res(R.string.add_direct_hint)) { hornPanel = "" }
+    }
+    add?.ask?.let { a -> AddPageAskDialog(a) { calls.addAnswer(it) } }
     val room = st.room
     // CH-15/CH-18: Blaetter "Verbindungsdetails" und "Mehr"
     var detailsOpen by remember { mutableStateOf(false) }
@@ -480,11 +490,12 @@ private fun CallScreen(
     if (st.phase == CallPhase.ENDED || st.phase == CallPhase.INCOMING) { detailsOpen = false; moreOpen = false }
     if (detailsOpen) CallDetailsSheet(st, calls.hasTurn) { detailsOpen = false }
     if (moreOpen) {
-        val entries = CallControls.moreItems(st.phase == CallPhase.CONNECTED, st.cam, people = room?.horn != null).mapNotNull { m ->
+        val entries = CallControls.moreItems(st.phase == CallPhase.CONNECTED, st.cam, people = room?.horn != null, addPerson = st.add != null).mapNotNull { m ->
             when (m) {
                 CallControls.More.SHARE -> CallMoreEntry(SagaIcons.screenShare, stringResource(if (st.sharing) R.string.call_screen_stop else R.string.call_screen_share), st.sharing) { onShare() }
                 CallControls.More.SWITCH_CAM -> CallMoreEntry(SagaIcons.cameraSwitch, stringResource(R.string.call_switch_camera)) { calls.switchCamera() }
                 CallControls.More.PEOPLE -> CallMoreEntry(SagaIcons.users, stringResource(R.string.r5_call_people)) { hornPanel = "people" }
+                CallControls.More.ADD -> CallMoreEntry(SagaIcons.userPlus, stringResource(R.string.add_person)) { addOpener(st.add) { hornPanel = it }?.invoke() }
                 CallControls.More.DETAILS -> CallMoreEntry(SagaIcons.info, stringResource(R.string.r5_call_details)) { detailsOpen = true }
                 else -> null
             }
@@ -681,6 +692,8 @@ private fun CallScreen(
             }
         }
         }
+        // 2.5 (L9): kurzer Hinweis nach dem Umzug in eine Gruppe (Meldungen der App sieht man hier nicht)
+        if (!pip) st.toast?.let { CallToast(it, Modifier.align(Alignment.TopCenter).safeDrawingPadding().padding(top = 64.dp, start = 16.dp, end = 16.dp)) }
     }
 }
 
@@ -732,13 +745,14 @@ internal fun MeetCall(
     if (moreOpen) {
         val items = CallControls.moreItems(
             connected = st.phase == CallPhase.CONNECTED, cam = st.cam, layout = Meeting.layoutButton(model),
-            people = group || room?.horn != null, selfSize = selfShown, fullscreen = model.screens.isNotEmpty(),
+            people = group || room?.horn != null, selfSize = selfShown, fullscreen = model.screens.isNotEmpty(), addPerson = st.add != null,
         )
         val entries = items.mapNotNull { m ->
             when (m) {
                 CallControls.More.SHARE -> CallMoreEntry(SagaIcons.screenShare, stringResource(if (st.sharing) R.string.call_screen_stop else R.string.call_screen_share), st.sharing) { onShare() }
                 CallControls.More.SWITCH_CAM -> CallMoreEntry(SagaIcons.cameraSwitch, stringResource(R.string.call_switch_camera)) { calls.switchCamera() }
                 CallControls.More.PEOPLE -> CallMoreEntry(SagaIcons.users, stringResource(R.string.r5_call_people)) { openPeople() }
+                CallControls.More.ADD -> CallMoreEntry(SagaIcons.userPlus, stringResource(R.string.add_person)) { addOpener(st.add, onPanel)?.invoke() }
                 CallControls.More.SELF_SIZE -> CallMoreEntry(SagaIcons.zoomIn, stringResource(R.string.meet_self_size)) { ms.selfSize = (ms.selfSize + 1) % 3 }
                 CallControls.More.FULLSCREEN -> CallMoreEntry(SagaIcons.maximize, stringResource(if (ms.fullscreen) R.string.meet_fullscreen_exit else R.string.meet_fullscreen), ms.fullscreen) {
                     ms.fullscreen = !ms.fullscreen
@@ -759,7 +773,10 @@ internal fun MeetCall(
             onDismissRequest = { meshPeople = false; menuOpen = false },
             confirmButton = { SagaTextButton(onClick = { meshPeople = false; menuOpen = false }) { Text(stringResource(R.string.action_close)) } },
             title = { Text(meetPersons(model.persons), modifier = Modifier.semantics { heading() }) },
-            text = { HornPeopleList(ui, {}, {}, inv = room?.invites, onRing = { calls.ringInvites(it) }) },
+            text = {
+                HornPeopleList(ui, {}, {}, inv = room?.invites, onRing = { calls.ringInvites(it) },
+                    onAdd = addOpener(st.add) { meshPeople = false; menuOpen = false; onPanel(it) })
+            },
         )
     }
     val am = remember { context.getSystemService(android.view.accessibility.AccessibilityManager::class.java) }
@@ -1736,4 +1753,11 @@ internal fun CallFlatPreviewContent(onStage: (Int) -> Unit = {}, onControls: (In
             }
         }
     }
+}
+
+/** 2.5 (L8/L9): Knopf "Person hinzufuegen" oeffnet die Auswahl ("add") bzw. den Hinweis ("addhint"); null = kein Knopf */
+internal fun addOpener(add: CallAddUi?, open: (String) -> Unit): (() -> Unit)? = when (add?.mode) {
+    null, CallAdd.Mode.NONE -> null
+    CallAdd.Mode.HINT -> ({ open("addhint") })
+    else -> ({ open("add") })
 }

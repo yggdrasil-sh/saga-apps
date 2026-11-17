@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (L8/L9): Person im laufenden Anruf hinzufuegen, 1:1 -> Gruppenanruf (Umzug) -->
+<resources>
+    <string name="add_person">Add person</string>
+    <string name="add_hint">Members get rung; other people are added to the chat and then rung.</string>
+    <string name="add_page_hint">Adding shares the page “%1$s” (read).</string>
+    <string name="add_full">The call is full – someone can only join once someone else hangs up.</string>
+    <string name="add_move_hint">This creates a new group with both of you – the call continues without interruption.</string>
+    <string name="add_away">in the chat – rings again</string>
+    <string name="add_pick_cd">Add and call %1$s</string>
+    <string name="add_none_found">No one found.</string>
+    <string name="add_no_contacts">No contacts yet – search for a name.</string>
+    <string name="add_search">Search name</string>
+    <string name="add_search_cd">Search for a person</string>
+    <string name="add_pending">%1$s will join as soon as the other server has confirmed.</string>
+    <string name="add_request">%1$s has been invited – it will ring as soon as the chat invitation is accepted.</string>
+    <string name="add_already">%1$s is already in the call or being rung.</string>
+    <string name="add_failed">Adding didn\'t work.</string>
+    <string name="add_page_title">Share page?</string>
+    <string name="add_page_sub">The page will be shared with read access for this.</string>
+    <string name="add_page_go">Share and call</string>
+    <string name="add_moved_note">New group – the call continues there without interruption.</string>
+    <string name="add_direct_hint">This call runs directly between your devices – adding someone only works through a call node. Hang up and start a group call in a new group instead.</string>
+    <string name="call_entry_moved">Moved to a group call · %1$s</string>
+    <string name="call_to_group">Go to group</string>
+    <string name="call_to_group_cd">Open the new group of this call</string>
+</resources>

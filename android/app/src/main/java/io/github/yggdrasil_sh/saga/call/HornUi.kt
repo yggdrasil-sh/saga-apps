@@ -383,13 +383,13 @@ fun HornRunesBody(ui: HornUi) {
 @Composable
 fun HornPeopleDialog(
     ui: HornUi, onMute: (String) -> Unit, onRemove: (String) -> Unit,
-    inv: Invites.Snapshot? = null, onRing: (List<String>) -> Unit = {}, onDismiss: () -> Unit,
+    inv: Invites.Snapshot? = null, onRing: (List<String>) -> Unit = {}, onAdd: (() -> Unit)? = null, onDismiss: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
         title = { Text(stringResource(R.string.horn_people, ui.people.size), modifier = Modifier.semantics { heading() }) },
-        text = { HornPeopleList(ui, onMute, onRemove, inv, onRing) },
+        text = { HornPeopleList(ui, onMute, onRemove, inv, onRing, onAdd) },
     )
 }
 
@@ -401,6 +401,8 @@ fun HornPeopleDialog(
 fun HornPeopleList(
     ui: HornUi, onMute: (String) -> Unit, onRemove: (String) -> Unit,
     inv: Invites.Snapshot? = null, onRing: (List<String>) -> Unit = {},
+    /** 2.5 (L8/L9): "Person hinzufuegen" oben in der Liste; null = kein Knopf (aelterer Server, keine Rechte) */
+    onAdd: (() -> Unit)? = null,
 ) {
     var sure by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(sure) {
@@ -410,6 +412,7 @@ fun HornPeopleList(
         }
     }
     LazyColumn(Modifier.fillMaxWidth()) {
+        if (onAdd != null) item(key = "add-head") { AddPersonButton(onAdd) }
         items(ui.people, key = { it.dev }) { p ->
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(if (p.speaking) Modifier.border(2.dp, SPEAK, CircleShape) else Modifier) { Avatar(p.name, size = 36, avatar = p.avatar) }

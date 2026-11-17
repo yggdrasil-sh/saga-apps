@@ -115,6 +115,16 @@ object CallTelecom {
         }
     }
 
+    /** 2.5 (L9): Anruf ist in eine Gruppe umgezogen - angezeigten Namen (Auto, Uhr, Systemanzeige) aktualisieren */
+    fun rename(name: String) {
+        if (name.isEmpty()) return
+        title = name
+        try {
+            conn?.takeIf { !it.closed }?.setCallerDisplayName(name, TelecomManager.PRESENTATION_ALLOWED)
+        } catch (_: Exception) {
+        }
+    }
+
     /** Anruf vorbei */
     fun end() {
         val c = conn ?: return

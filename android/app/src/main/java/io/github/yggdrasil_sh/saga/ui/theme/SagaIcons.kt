@@ -171,6 +171,7 @@ object SagaIcons {
     @DrawableRes val unlock = R.drawable.si_unlock
     @DrawableRes val upload = R.drawable.si_upload
     @DrawableRes val user = R.drawable.si_user
+    @DrawableRes val userPlus = R.drawable.si_user_plus
     @DrawableRes val users = R.drawable.si_users
     @DrawableRes val video = R.drawable.si_video
     @DrawableRes val videoOff = R.drawable.si_video_off
@@ -331,6 +332,7 @@ object SagaIcons {
         "unlock" to unlock,
         "upload" to upload,
         "user" to user,
+        "user-plus" to userPlus,
         "users" to users,
         "video" to video,
         "video-off" to videoOff,

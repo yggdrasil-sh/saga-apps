@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (L8/L9): Person im laufenden Anruf hinzufuegen, 1:1 -> Gruppenanruf (Umzug) -->
+<resources>
+    <string name="add_person">Añadir persona</string>
+    <string name="add_hint">A los miembros se les llama; otras personas se añaden al chat y luego se les llama.</string>
+    <string name="add_page_hint">Añadir comparte la página «%1$s» (lectura).</string>
+    <string name="add_full">La llamada está llena: solo cuando alguien cuelgue podrá unirse otra persona.</string>
+    <string name="add_move_hint">Se crea un grupo nuevo con vosotros dos: la llamada continúa sin interrupción.</string>
+    <string name="add_away">en el chat: vuelve a sonar</string>
+    <string name="add_pick_cd">Añadir y llamar a %1$s</string>
+    <string name="add_none_found">No se encontró a nadie.</string>
+    <string name="add_no_contacts">Aún no hay contactos: busca un nombre.</string>
+    <string name="add_search">Buscar nombre</string>
+    <string name="add_search_cd">Buscar persona</string>
+    <string name="add_pending">%1$s se unirá en cuanto el otro servidor lo confirme.</string>
+    <string name="add_request">%1$s está invitado/a: sonará en cuanto se acepte la invitación al chat.</string>
+    <string name="add_already">%1$s ya está en la llamada o está sonando.</string>
+    <string name="add_failed">No se ha podido añadir.</string>
+    <string name="add_page_title">¿Compartir la página?</string>
+    <string name="add_page_sub">Para ello, la página se compartirá con permiso de lectura.</string>
+    <string name="add_page_go">Compartir y llamar</string>
+    <string name="add_moved_note">Grupo nuevo: la llamada continúa allí sin interrupción.</string>
+    <string name="add_direct_hint">Esta llamada va directamente entre vuestros dispositivos: solo se puede añadir a alguien a través de un nodo de llamadas. Colgad e iniciad una llamada de grupo en un grupo nuevo.</string>
+    <string name="call_entry_moved">Movida a una llamada de grupo · %1$s</string>
+    <string name="call_to_group">Ir al grupo</string>
+    <string name="call_to_group_cd">Abrir el grupo nuevo de esta llamada</string>
+</resources>

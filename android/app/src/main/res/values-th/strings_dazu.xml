@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (L8/L9): Person im laufenden Anruf hinzufuegen, 1:1 -> Gruppenanruf (Umzug) -->
+<resources>
+    <string name="add_person">เพิ่มบุคคล</string>
+    <string name="add_hint">สมาชิกจะได้รับสายเรียก ส่วนคนอื่นจะถูกเพิ่มเข้าแชทก่อนแล้วจึงได้รับสาย</string>
+    <string name="add_page_hint">การเพิ่มจะแชร์หน้า „%1$s“ (อ่านอย่างเดียว)</string>
+    <string name="add_full">การโทรเต็มแล้ว – จะมีคนเข้าร่วมได้อีกเมื่อมีคนวางสายเท่านั้น</string>
+    <string name="add_move_hint">จะสร้างกลุ่มใหม่ที่มีคุณทั้งสอง – การโทรดำเนินต่อโดยไม่สะดุด</string>
+    <string name="add_away">อยู่ในแชท – โทรเรียกอีกครั้ง</string>
+    <string name="add_pick_cd">เพิ่มและโทรหา %1$s</string>
+    <string name="add_none_found">ไม่พบใคร</string>
+    <string name="add_no_contacts">ยังไม่มีรายชื่อติดต่อ – ค้นหาด้วยชื่อ</string>
+    <string name="add_search">ค้นหาชื่อ</string>
+    <string name="add_search_cd">ค้นหาบุคคล</string>
+    <string name="add_pending">%1$s จะเข้าร่วมเมื่อเซิร์ฟเวอร์อีกฝั่งยืนยันแล้ว</string>
+    <string name="add_request">เชิญ %1$s แล้ว – จะมีสายเรียกเข้าเมื่อตอบรับคำเชิญเข้าแชท</string>
+    <string name="add_already">%1$s อยู่ในสายแล้วหรือกำลังได้รับสายเรียก</string>
+    <string name="add_failed">เพิ่มไม่สำเร็จ</string>
+    <string name="add_page_title">แชร์หน้านี้หรือไม่</string>
+    <string name="add_page_sub">หน้านี้จะถูกแชร์แบบอ่านอย่างเดียว</string>
+    <string name="add_page_go">แชร์และโทร</string>
+    <string name="add_moved_note">กลุ่มใหม่ – การโทรดำเนินต่อที่นั่นโดยไม่สะดุด</string>
+    <string name="add_direct_hint">สายนี้เชื่อมต่อโดยตรงระหว่างอุปกรณ์ของคุณ – การเพิ่มคนอื่นทำได้ผ่านโหนดการโทรเท่านั้น กรุณาวางสายแล้วเริ่มการโทรกลุ่มในกลุ่มใหม่</string>
+    <string name="call_entry_moved">ย้ายไปยังการโทรกลุ่มแล้ว · %1$s</string>
+    <string name="call_to_group">ไปที่กลุ่ม</string>
+    <string name="call_to_group_cd">เปิดกลุ่มใหม่ของการโทรนี้</string>
+</resources>
