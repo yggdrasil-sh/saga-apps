@@ -44,7 +44,7 @@ struct HornPreviewView: View {
         var legs: [[String: Any]] = [["device": "me000000000000000000000000000000", "who": "ich", "name": "Max", "dev_name": "Mac", "hp": "p0"]]
         let few: [(String, String, String)] = [("Eva Beispiel", "iPhone", "member"), ("Jonas Beispiel", "Pixel", "member")]
         let small = mode == "away" || mode.hasPrefix("dazu")               // 2.5 (L8/L9): Bilder "Person hinzufuegen"
-        let pick = mode == "dazu-dm" || mode == "dazu-moved" || mode == "dazu-dmpick" ? Array(few.prefix(1)) : few
+        let pick = ["dazu-dm", "dazu-moved", "dazu-moved-ev", "dazu-dmpick"].contains(mode) ? Array(few.prefix(1)) : few
         for (i, p) in (small ? pick : people).enumerated() {
             legs.append(["device": String(format: "d%031d", i + 1), "who": p.0.lowercased(), "name": p.0, "dev_name": p.1, "role": p.2, "hp": "p\(i + 1)"])
         }
@@ -78,6 +78,11 @@ extension CallManager {
             kind = "dm"; peerName = "Anna"
             list.append(d("a1", "anna", "Anna", "MacBook", cam: true))
             list.append(d("a2", "anna", "Anna", "iPhone", comp: true, mic: false))
+        case "dazu-direct":                                                  // 2.5 (L9): direktes 1:1 - Knopf zeigt nur den Hinweis
+            kind = "dm"; peerName = "Anna"
+            list.append(d("a1", "anna", "Anna", "MacBook", cam: true))
+            serverFeatures = [CallAdd.feature, CallAdd.featureMove]
+            Task { [weak self] in try? await Task.sleep(for: .seconds(2)); self?.addTapped() }
         case "present":
             kind = "dm"; peerName = "Anna"
             list.append(d("a1", "anna", "Anna", "MacBook", cam: true))
@@ -160,7 +165,8 @@ extension CallManager {
         if mode.hasPrefix("dazu") { mockAdd(mode, H) }
     }
 
-    /// nur fuer Bilder (2.5 L8/L9, -hkHornPreview dazu-pick|dazu-page|dazu-full|dazu-dm|dazu-dmpick|dazu-moved):
+    /// nur fuer Bilder (2.5 L8/L9, -hkHornPreview dazu-list|dazu-pick|dazu-page|dazu-full|dazu-dm|dazu-dmpick|dazu-moved|dazu-moved-ev,
+    /// meet-dazu-direct):
     /// Teilnehmerliste mit "Person hinzufuegen", Auswahl mit erfundenen Kontakten, Seiten-Rueckfrage, voll; 1:1 ueber
     /// Knoten vor und nach dem Umzug (moveIn mit erfundenem Anruf-Objekt - derselbe Weg wie die /add-Antwort)
     func mockAdd(_ mode: String, _ H: HornSession) {
@@ -172,11 +178,19 @@ extension CallManager {
             ChatContact(ref: "~ugeispiel@peer.example", name: "Uma Beispiel", host: "peer.example", remote: true)]
         let now = Date().timeIntervalSince1970
         H.plist = true
-        if mode == "dazu-dm" || mode == "dazu-dmpick" || mode == "dazu-moved" {
+        if ["dazu-dm", "dazu-dmpick", "dazu-moved", "dazu-moved-ev"].contains(mode) {
             dmRoom = true; title = ""; peerName = "Eva Beispiel"; callHost = false
             addCaps = CallAdd.Caps(canMove: true)
             invites = Invites.List()
             addOpen = mode == "dazu-dmpick"
+            if mode == "dazu-moved-ev" {                                    // Weg ueber das Ereignis call.move (ohne Server: Abfrage scheitert)
+                H.plist = false
+                Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(2.5))
+                    guard let self, let cid = self.id else { return }
+                    self.live("call.move", ["call_id": cid, "from_chat": 12, "chat_id": 37, "kind": "group", "media": "video", "by": "eva"])
+                }
+            }
             if mode == "dazu-moved" {
                 H.plist = false
                 Task { [weak self] in
