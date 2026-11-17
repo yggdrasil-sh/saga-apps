@@ -9,6 +9,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Linux: 1:1 über Knoten (Grundsatz Y) klingelt wie ein Anruf zu zweit
+
+- Die Linux-App meldet die Fähigkeit `horn_ring` (klingelt bei Anrufen über Knoten, das Gespräch läuft im Browser).
+  Saga-Server 2.5 zählt sie damit als fähig: Anrufe zu zweit an Linux-Nutzer laufen über den Knoten statt direkt mit
+  dem falschen Hinweis „Gegenstelle veraltet“, und reine Linux-Nutzer werden zu Gruppenanrufen über Knoten eingeladen.
+- Ein 1:1 über Knoten zeigt Leiste und Mitteilung wie ein Anruf zu zweit („Anruf von …“, „Ablehnen“/„Annehmen“, nicht
+  „Gruppenanruf“), „Annehmen“ öffnet `#call-<id>-<audio|video>` im Browser (die Web-Oberfläche tritt dem Raum dort bei).
+  Wird auf einem anderen Gerät angenommen, hört das Klingeln sofort auf. Ältere Server: alles wie bisher.
+
 ### Neu – iOS: Personen im laufenden Anruf hinzufügen und 1:1 → Konferenz (L8/L9)
 
 - Teilnehmerliste mit Knopf „Person hinzufügen“ (nur mit Server-Feature `call_add` und `can_add`): Auswahl aus den

@@ -168,11 +168,14 @@ def device_caps(cfg):
     """(2.4, N5) Faehigkeiten dieses Geraets fuer PUT /api/calls/caps (Vertrag: docs/APP-API.md "Mehrgeraete und Gruppen").
     Die Linux-App fuehrt kein WebRTC-Gespraech selbst - sie klingelt und das Gespraech laeuft im Browser, der dort als
     eigener Endpunkt mit seinen eigenen caps beitritt. Daher NUR "multi" (an Gruppenanrufen teilnehmen: Einladung,
-    Klingeln, Beitreten ueber den Browser) und das nur, wenn der eigene Server reneg und multi kann. reneg/want/bye/screen2
-    betreffen die Signalisierung einer eigenen PeerConnection und werden nicht behauptet."""
+    Klingeln, Beitreten ueber den Browser) und (2.5, Grundsatz Y) "horn_ring" (kann einen Anruf ueber Knoten - auch 1:1 -
+    annehmen: klingelt, der Browser tritt bei; der Server zaehlt die Linux-App damit als faehig, ohne Erreichbarkeits-
+    pruefung - sonst liefe jeder 1:1 zu Linux-Nutzern direkt mit dem falschen Hinweis "Gegenstelle veraltet"). Beides
+    nur, wenn der eigene Server reneg und multi kann (aeltere Server ignorieren horn_ring). reneg/want/bye/screen2/horn
+    betreffen die Signalisierung bzw. Medien einer eigenen PeerConnection und werden nicht behauptet."""
     f = (cfg or {}).get("features") if isinstance(cfg, dict) else None
     f = set(x for x in f if isinstance(x, str)) if isinstance(f, list) else set()
-    return ["multi"] if {"reneg", "multi"} <= f and (cfg or {}).get("enabled") else []
+    return ["multi", "horn_ring"] if {"reneg", "multi"} <= f and (cfg or {}).get("enabled") else []
 
 
 def chat_url(chat_id):
@@ -200,7 +203,7 @@ def group_name(call):
 def ring_title(call):
     name = caller_name(call)
     video = (call or {}).get("media") == "video"
-    if is_group(call):
+    if is_group(call) and not (call or {}).get("dm"):     # (2.5) 1:1 ueber Knoten: Titel wie 1:1
         grp = group_name(call)
         if grp:
             return (_("Group video call in {group}") if video else _("Group call in {group}")).format(group=grp)
@@ -461,12 +464,14 @@ class Calls(GObject.Object):
         elif typ == "call.roster" and cid:                  # (2.4) eigenes Geraet ist beigetreten: hier aufhoeren
             me = self._me()
             r = self.ringing
-            if r and r["id"] == cid and r.get("group") and me and \
+            if r and r["id"] == cid and (r.get("group") or r.get("dm")) and me and \
                     any(isinstance(x, dict) and x.get("who") == me for x in d.get("legs") or []):
                 self._done(cid)
         elif typ == "call.state" and cid:
             st = d.get("state")
-            group = d.get("kind") == "group" or bool(self.ringing and self.ringing["id"] == cid and self.ringing.get("group"))
+            # (2.5) 1:1 ueber Knoten (kind group, dm): "active" heisst angenommen - wie 1:1 aufhoeren
+            group = (d.get("kind") == "group" and not d.get("dm")) or \
+                bool(self.ringing and self.ringing["id"] == cid and self.ringing.get("group"))
             if st == "active" and group:
                 return                                      # Gruppe: "zwei sind dabei" - weiter klingeln
             if st in ("active", "ended", "declined"):
@@ -638,8 +643,9 @@ class Calls(GObject.Object):
         if self.ringing:                                     # schon ein anderer Anruf klingelt: der erste bleibt
             return
         left = ring_left(c)
-        group = is_group(c)
-        self.ringing = {"id": cid, "media": c.get("media") or "audio", "chat_id": c.get("chat_id"),
+        dm = is_group(c) and bool(c.get("dm"))             # (2.5) 1:1 ueber Knoten: Leiste/Mitteilung wie 1:1
+        group = is_group(c) and not dm
+        self.ringing = {"id": cid, "media": c.get("media") or "audio", "chat_id": c.get("chat_id"), "dm": dm,
                         "peer": c.get("peer") or (c.get("from") if isinstance(c.get("from"), dict) else {}),
                         "until": time.monotonic() + left, "group": group, "silent": bool(group and c.get("silent")),
                         "from": c.get("from") if isinstance(c.get("from"), dict) else {},
@@ -685,7 +691,9 @@ class Calls(GObject.Object):
             return
         r = self.ringing if self.ringing and self.ringing["id"] == cid else None
         media = media or (r or {}).get("media") or self._push_media.pop(cid, None) or "audio"
-        group = bool((r or {}).get("group")) or cid in self._push_group
+        # Gruppe: #join-<id>-member; 1:1 (auch ueber Knoten, dm): #call-<id>-<media> - die Web-Oberflaeche tritt einem
+        # Raum-Anruf (kind group) dort ebenso bei (static/calls.js route)
+        group = bool((r or {}).get("group")) or (cid in self._push_group and not (r or {}).get("dm"))
         self._push_group.discard(cid)
         self._done(cid)
         self._opened(cid)

@@ -272,7 +272,7 @@ def test_n5_report_caps_multi(srv):
     from hlidskjalf.calls import calls, device_caps
     from hlidskjalf.chat import chat
     full = {"enabled": True, "features": ["reneg", "pip_hint", "screen2", "multi", "group"]}
-    assert device_caps(full) == ["multi"]
+    assert device_caps(full) == ["multi", "horn_ring"]            # 2.5 Grundsatz Y: horn_ring (Browser tritt bei)
     assert device_caps({"enabled": True, "features": ["reneg", "pip_hint"]}) == []         # Server ohne Raum (E0-E3)
     assert device_caps({"enabled": True, "features": ["multi"]}) == []                     # ohne reneg
     assert device_caps({"enabled": False, "features": ["reneg", "multi"]}) == []
@@ -292,7 +292,7 @@ def test_n5_report_caps_multi(srv):
         calls.report_caps()                                   # nur einmal
         pump(lambda: any("api/calls/caps" in u for m, u, b, c in srv.log[n0:]), 3)
         sent = [(m, b) for m, u, b, c in srv.log[n0:] if "api/calls/caps" in u]
-        assert sent == [("PUT", {"device": dev, "caps": ["multi"]})], sent
+        assert sent == [("PUT", {"device": dev, "caps": ["multi", "horn_ring"]})], sent
     finally:
         chat.status, chat.keys = st, keys
         calls.reset()
