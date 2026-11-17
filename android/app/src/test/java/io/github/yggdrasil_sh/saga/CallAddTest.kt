@@ -223,6 +223,15 @@ class CallAddTest {
         assertEquals("~c3", k.invites!!.single().ref)
     }
 
+    // ------------------------------------------------------------ TalkBack (Pruefer F4)
+
+    @Test fun rowDescriptionReadsSubline() {
+        assertEquals("Anna hinzufügen und anrufen, im Chat – klingelt erneut", CallAdd.rowDescription("Anna hinzufügen und anrufen", "im Chat – klingelt erneut"))
+        assertEquals("Add and call Ben, Person on example.org", CallAdd.rowDescription("Add and call Ben", "Person on example.org"))
+        assertEquals("Add and call Ben", CallAdd.rowDescription("Add and call Ben", null))
+        assertEquals("Add and call Ben", CallAdd.rowDescription("Add and call Ben", "  "))
+    }
+
     // ------------------------------------------------------------ Chat-Eintrag
 
     @Test fun movedEntry() {

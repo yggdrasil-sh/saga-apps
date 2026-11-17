@@ -169,12 +169,12 @@ fun AddPersonDialog(
 @Composable
 private fun AddPickRow(p: CallAdd.Pick, enabled: Boolean, onClick: () -> Unit) {
     val name = p.name.ifEmpty { "?" }
-    val cd = stringResource(R.string.add_pick_cd, name)
     val sub = when {
         p.away -> stringResource(R.string.add_away)
         p.remoteHost != null -> stringResource(R.string.ct_person_on, p.remoteHost)
         else -> p.sub
     }
+    val cd = CallAdd.rowDescription(stringResource(R.string.add_pick_cd, name), sub)   // F4: Unterzeile mitlesen
     val col = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
     Row(
         Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable(enabled = enabled, role = Role.Button, onClick = onClick)

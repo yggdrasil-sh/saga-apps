@@ -195,6 +195,13 @@ object CallAdd {
         if (confirm) put("confirm_page", JsonPrimitive(true))
     }
 
+    /**
+     * TalkBack-Text einer Zeile der Auswahl: "{Name} hinzufuegen und anrufen" plus Unterzeile ("im Chat – klingelt erneut",
+     * "Person auf …", Handle) - die Beschreibung der ganzen Zeile ueberdeckte sonst den Text darunter (Pruefer F4)
+     */
+    fun rowDescription(label: String, sub: String?): String =
+        listOfNotNull(label, sub?.trim()?.takeIf { it.isNotEmpty() }).joinToString(", ")
+
     // ------------------------------------------------------------ L9: Umzug in den neuen Chat
 
     /**
