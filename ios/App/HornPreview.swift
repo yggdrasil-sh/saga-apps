@@ -187,7 +187,7 @@ extension CallManager {
         if mode.hasPrefix("dazu") { mockAdd(mode, H) }
     }
 
-    /// nur fuer Bilder (2.5 L8/L9, -hkHornPreview dazu-list|dazu-pick|dazu-page|dazu-full|dazu-dm|dazu-dmpick|dazu-moved|dazu-moved-ev,
+    /// nur fuer Bilder (2.5 L8/L9, -hkHornPreview dazu-list|dazu-pick|dazu-page|dazu-pending|dazu-pending-in|dazu-full|dazu-dm|dazu-dmpick|dazu-moved|dazu-moved-ev,
     /// meet-dazu-direct):
     /// Teilnehmerliste mit "Person hinzufuegen", Auswahl mit erfundenen Kontakten, Seiten-Rueckfrage, voll; 1:1 ueber
     /// Knoten vor und nach dem Umzug (moveIn mit erfundenem Anruf-Objekt - derselbe Weg wie die /add-Antwort)
@@ -233,11 +233,26 @@ extension CallManager {
         }
         addCaps = CallAdd.Caps(canAdd: true, addPage: mode == "dazu-page" ? "Projektplan 2027" : nil)
         invitesIn(Self.mockInvites())
-        addOpen = mode != "dazu-list"
+        addOpen = mode != "dazu-list" && mode != "dazu-pending-in"
         if mode == "dazu-full" { limit = roster.legs.count }
         if mode == "dazu-page" {
             addAsk = CallAddAsk(text: "Lena Beispiel bekommt Zugriff auf die Seite „Projektplan 2027“.",
                                 person: CallAdd.Person(ref: "~lenabeispiel0000", name: "Lena Beispiel"))
+        }
+        if mode == "dazu-pending" {                                         // 2.5 (F2): Person eines anderen Servers im Seiten-Chat
+            let n = "Uma Beispiel"
+            addNote = String(localized: "\(n) kommt dazu, sobald der andere Server zugestimmt hat – danach unter „Nicht dabei“ klingeln lassen.")
+        }
+        if mode == "dazu-pending-in" {                                      // ... nach der Bestaetigung: call.invites (Abgleich), Zustand none
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(2))
+                guard let self, let cid = self.id else { return }
+                var d = Self.mockInvites()
+                let t = Date().timeIntervalSince1970
+                d["call_id"] = cid; d["rv"] = t; d["now"] = t
+                d["invites"] = ((d["invites"] as? [[String: Any]]) ?? []) + [["who": "~ugeispiel@peer.example", "name": "Uma Beispiel", "state": "none"]]
+                self.live("call.invites", d)
+            }
         }
     }
 }
