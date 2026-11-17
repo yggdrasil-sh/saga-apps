@@ -51,7 +51,8 @@ import kotlin.concurrent.thread
  * 2.5 Titelbild-Galerie: Bildschirmfotos vorher (Server ohne Galerie, GET api/covers 404 - Menue wie bisher) und nachher
  * (Menue mit "Galerie …"/"Zufällig"/"Über dieses Bild", Auswahl nach Gruppen, "Über dieses Bild"); hell und dunkel.
  * Winziger HTTP-Server auf dem Geraet (127.0.0.1) mit einem Auszug der mitgelieferten Galerie (covers.json des Servers).
- * Vorschaubilder: getExternalFilesDir()/covers/<id>.jpg, falls vorhanden (per adb push), sonst Farbverlaeufe.
+ * Vorschaubilder: /data/local/tmp/galerie-covers/<id>.jpg (per adb push), sonst Farbverlaeufe. Texte deutsch: App-Sprache
+ * vorher per `cmd locale set-app-locales <paket> --locales de-DE` setzen (Menues/Blaetter nutzen die Ressourcen der Activity).
  * Bedienung ueber die Bedienungshilfen-Knoten (Antippen per UiAutomation). Ablage: getExternalFilesDir()/shots/titelbild-*.png
  */
 @RunWith(AndroidJUnit4::class)
@@ -111,10 +112,22 @@ class CoverShotsTest {
         if (coversOn) put("api/covers", listing)
     }
 
+    private val shellPics = java.util.concurrent.ConcurrentHashMap<String, ByteArray>()
+
+    /** Per adb nach /data/local/tmp/galerie-covers gelegte Datei (lesbar nur fuer die Shell - daher ueber UiAutomation) */
+    private fun shellPicture(name: String): ByteArray? {
+        if (!Regex("[a-z0-9-]+\\.jpg").matches(name)) return null
+        return shellPics.getOrPut(name) {
+            val pfd = ins.uiAutomation.executeShellCommand("cat /data/local/tmp/galerie-covers/$name")
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(pfd).use { it.readBytes() }
+        }.takeIf { it.size > 3 && it[0] == 0xFF.toByte() && it[1] == 0xD8.toByte() }
+    }
+
     /** Vorschaubild: per adb abgelegte Datei, sonst ruhiger Farbverlauf */
     private fun picture(name: String): Pair<ByteArray, String> {
         val f = File(pics, name.substringBefore('?'))
-        if (f.isFile) return f.readBytes() to "image/jpeg"
+        if (f.isFile && f.canRead()) return f.readBytes() to "image/jpeg"
+        shellPicture(name.substringBefore('?'))?.let { return it to "image/jpeg" }
         val hue = (name.hashCode() and 0x7fffffff) % 360
         val b = Bitmap.createBitmap(384, 220, Bitmap.Config.ARGB_8888)
         val p = Paint().apply {
