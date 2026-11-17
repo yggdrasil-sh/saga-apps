@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -110,7 +111,7 @@ class DazuShotsTest {
                 val cfg = Configuration(a.resources.configuration).apply { setLocale(Locale.forLanguageTag(lang)) }
                 val lc = a.createConfigurationContext(cfg)
                 a.setContent {
-                    CompositionLocalProvider(LocalContext provides lc, LocalConfiguration provides cfg) { SagaTheme(dark = dark) { body() } }
+                    CompositionLocalProvider(LocalContext provides lc, LocalConfiguration provides cfg, LocalResources provides lc.resources) { SagaTheme(dark = dark) { body() } }
                 }
             }
             Thread.sleep(1800)

@@ -2129,7 +2129,8 @@ internal fun CallEntryRow(
                 Icon(painterResource(icon), stringResource(dirLabel), Modifier.size(16.dp), tint = color)
                 Text(
                     "$text · $time", style = MaterialTheme.typography.labelMedium, color = color,
-                    modifier = Modifier.padding(start = 6.dp, end = 8.dp),
+                    // 2.5 (L9): langer Text bricht um, Knoepfe ("Zur Gruppe") bleiben einzeilig
+                    modifier = Modifier.padding(start = 6.dp, end = 8.dp).weight(1f, fill = false),
                 )
                 if (missed && canCall) {
                     SagaTextButton(onClick = { onCall(e.media == "video") }) { Text(stringResource(R.string.call_back)) }
