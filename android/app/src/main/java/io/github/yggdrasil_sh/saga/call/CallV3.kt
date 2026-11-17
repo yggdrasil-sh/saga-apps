@@ -101,6 +101,36 @@ object CallV3 {
     /** Hoechstens so viele ICE-Restarts je Abbruch (zurueckgesetzt bei "connected") */
     const val MAX_RESTARTS = 3
 
+    /**
+     * 2.5 (Feldfehler D-MKYEV, wie settled() im Web): ICE-Restarts einer Verbindung. Ein Restart gilt als erledigt, sobald
+     * ICE connected/completed meldet ODER nach der Neuverhandlung (Antwort gesetzt bzw. gesendet, Signalisierung stable)
+     * ICE schon steht. Bleibt die Verbindung waehrend des Restarts verbunden (alter Pfad traegt weiter, Restart nach
+     * Netzwechsel), kommt sonst kein Ereignis: der Hinweis blieb stehen und die Versuche wurden nie zurueckgesetzt.
+     */
+    class Restarts {
+        var tries = 0
+            private set
+        /** Restart offen (Hinweis "wird neu aufgebaut") */
+        var open = false
+            private set
+        /** Neuer Versuch; false = Hoechstzahl je Abbruch erreicht */
+        fun begin(): Boolean {
+            if (tries >= MAX_RESTARTS) return false
+            tries++
+            open = true
+            return true
+        }
+        /** ICE steht (wieder): true, wenn dabei ein Restart offen war */
+        fun up(): Boolean {
+            val was = open
+            open = false
+            tries = 0
+            return was
+        }
+        /** Neuverhandlung fertig: true = offener Restart hiermit erledigt */
+        fun settle(stable: Boolean, iceUp: Boolean): Boolean = if (open && stable && iceUp) up() else false
+    }
+
     /** Nach `failed` so lange auf die Rueckkehr warten, dann wie bisher mit reason "failed" beenden */
     const val FAILED_WAIT_MS = 20_000L
 

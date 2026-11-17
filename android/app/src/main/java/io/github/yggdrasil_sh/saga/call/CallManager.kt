@@ -394,8 +394,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         var applied: String? = null
         var restartJob: Job? = null
         var lastRestart = 0L
-        /** ICE-Restarts seit dem letzten "connected" (hoechstens CallV3.MAX_RESTARTS) */
-        var restartTries = 0
+        /** ICE-Restarts seit dem letzten "connected" (hoechstens CallV3.MAX_RESTARTS); 2.5 D-MKYEV: offen/erledigt */
+        val rst = CallV3.Restarts()
         /** Nach "failed": Frist bis zum Beenden */
         var failJob: Job? = null
         /** Vom Gegenueber gemeldeter Weg (`state.path`) */
@@ -1438,6 +1438,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 put("n", neg(c).remoteN)                    // n des beantworteten Angebots
                 putTracks(c, this)
             })
+            restartSettled(c)                               // D-MKYEV: Gegenueber hat (auch) neu angeboten
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -1451,6 +1452,24 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 if (c.needGen > c.doneGen) offerNow(c)
             }
         }
+    }
+
+    /**
+     * 2.5 (Feldfehler D-MKYEV, wie settled() im Web): Neuverhandlung abgeschlossen - steht ICE schon (Restart ohne
+     * Unterbrechung, Verbindung blieb verbunden), gilt der Neuaufbau als fertig: Versuche zurueck, Hinweis weg
+     */
+    private fun restartSettled(c: Call) {
+        val pc = c.pc ?: return
+        if (!live(c) || c.done) return
+        val ice = pc.iceConnectionState()
+        val up = ice == PeerConnection.IceConnectionState.CONNECTED || ice == PeerConnection.IceConnectionState.COMPLETED
+        if (!c.rst.settle(pc.signalingState() == PeerConnection.SignalingState.STABLE, up)) return
+        log("ice restart settled")
+        c.restartJob?.cancel()
+        c.restartJob = null
+        c.failJob?.cancel()
+        c.failJob = null
+        if (c.connected) update(c, null, reconnecting = false)
     }
 
     private suspend fun renegAnswer(c: Call, b: JsonObject) {
@@ -1468,6 +1487,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             setSdp(pc, false, SessionDescription(SessionDescription.Type.ANSWER, sdp))
             applyRemoteIce(c)
             c.doneGen = maxOf(c.doneGen, c.offerGen)
+            restartSettled(c)                               // D-MKYEV
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -1530,10 +1550,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val ng = neg(c)
         if (ng.makingOffer) return true
         // hoechstens 3 Versuche je Abbruch (zurueckgesetzt bei "connected")
-        if (c.restartTries >= CallV3.MAX_RESTARTS) return true
-        c.restartTries++
+        if (!c.rst.begin()) return true
         c.lastRestart = System.currentTimeMillis()
-        log("ice restart ($why) #${c.restartTries}")
+        log("ice restart ($why) #${c.rst.tries}")
         scope.launch {
             val n = ng.startOffer()
             try {
@@ -3138,11 +3157,13 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (!live(c) || c.pc == null) return
         when (s) {
             PeerConnection.IceConnectionState.CONNECTED, PeerConnection.IceConnectionState.COMPLETED -> {
-                c.restartTries = 0
+                val was = c.rst.up()
                 c.restartJob?.cancel()
                 c.restartJob = null
                 c.failJob?.cancel()
                 c.failJob = null
+                // D-MKYEV: Restart, waehrend die Verbindung verbunden blieb - kein onConn, Hinweis hier zuruecknehmen
+                if (was && c.connected && c.pc?.connectionState() == PeerConnection.PeerConnectionState.CONNECTED) update(c, null, reconnecting = false)
             }
             PeerConnection.IceConnectionState.DISCONNECTED -> {
                 if (c.connected && reneg(c) && c.restartJob?.isActive != true) c.restartJob = scope.launch {

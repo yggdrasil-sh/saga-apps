@@ -296,4 +296,29 @@ class CallV3Test {
         assertTrue(a.none { it and ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA != 0 })
         assertEquals(listOf(0), CallServiceTypes.tries(29, video = true, mic = true, cam = true))
     }
+
+    /** 2.5 Feldfehler D-MKYEV: ICE-Restart nach Netzwechsel, waehrend die Verbindung verbunden bleibt */
+    @Test
+    fun restartOhneZustandswechselGiltNachDerAntwortAlsErledigt() {
+        val r = CallV3.Restarts()
+        assertFalse("ohne Restart nichts zu erledigen", r.settle(stable = true, iceUp = true))
+        // Drei Netzwechsel, Gegenstelle antwortet jeweils, ICE bleibt connected (kein Ereignis)
+        repeat(3) {
+            assertTrue("Restart ${it + 1} moeglich", r.begin())
+            assertTrue(r.open)
+            assertTrue("Antwort gesetzt + ICE steht -> erledigt", r.settle(stable = true, iceUp = true))
+            assertFalse("Hinweis weg", r.open)
+            assertEquals("Versuche zurueck", 0, r.tries)
+        }
+        // Spaeter echter Abbruch: es bleiben alle 3 Versuche (frueher: Hoechstzahl schon verbraucht, kein Restart)
+        assertTrue(r.begin())
+        assertFalse("Antwort da, ICE prueft noch: offen", r.settle(stable = true, iceUp = false))
+        assertFalse("Antwort fehlt (have-local-offer): offen", r.settle(stable = false, iceUp = true))
+        assertTrue(r.begin())
+        assertTrue(r.begin())
+        assertFalse("hoechstens 3 je Abbruch", r.begin())
+        assertTrue("ICE-Ereignis connected: erledigt", r.up())
+        assertFalse(r.up())
+        assertTrue(r.begin())
+    }
 }
