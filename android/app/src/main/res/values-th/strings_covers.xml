@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Titelbild-Galerie (Wortlaut wie im Web) -->
+<resources>
+    <string name="cover_gallery_open">แกลเลอรี …</string>
+    <string name="cover_gallery_title">แกลเลอรีภาพปก</string>
+    <string name="cover_random">สุ่ม</string>
+    <string name="cover_upload">อัปโหลดรูปภาพ …</string>
+    <string name="cover_gallery_other">อื่น ๆ</string>
+    <string name="cover_gallery_empty">ไม่มีรูปในแกลเลอรี</string>
+    <string name="cover_gallery_failed">โหลดแกลเลอรีไม่ได้</string>
+    <string name="cover_gallery_source">งานศิลปะที่มาพร้อมระบบ: สาธารณสมบัติ, %1$s ภาพ Saga สร้างด้วย AI</string>
+    <string name="cover_about">เกี่ยวกับรูปนี้</string>
+    <string name="cover_about_gone">รูปจากแกลเลอรีภาพปก (ไม่มีให้เลือกแล้ว)</string>
+    <string name="cover_source_link">ไปยังแหล่งที่มา ↗</string>
+</resources>

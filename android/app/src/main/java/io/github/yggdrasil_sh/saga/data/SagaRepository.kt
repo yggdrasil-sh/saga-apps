@@ -750,6 +750,31 @@ class SagaRepository(
         return id
     }
 
+    // ---------------------------------------------------------------- 2.5: Titelbild-Galerie (GET api/covers)
+
+    /** Je Server: Titelbild-Galerie angeboten? (404 -> "Galerie …"/"Zufällig" ausblenden) und zuletzt geladene Liste */
+    val coverGallery = CoverGalleryState()
+
+    /** Gemerkte Liste fuer den aktuellen Server (null = unbekannt bzw. aelterer Server) */
+    fun coverGalleryCached(): CoverListing? = coverGallery.cached(settings.server.value, galleryLang())
+
+    /** GET api/covers (Titel und Gruppen in der App-Sprache) - Ergebnis je Server/Sprache gemerkt; wirft nicht */
+    suspend fun coverGalleryList(): CoverListing? {
+        val server = settings.server.value
+        val lang = galleryLang()
+        if (server.isEmpty()) return null
+        try {
+            val body = api.get(CoverGallery.LIST_PATH)
+            coverGallery.record(server, lang, 200, withContext(Dispatchers.Default) { CoverGallery.parse(body) })
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ApiException) {
+            coverGallery.record(server, lang, e.code, null)
+        } catch (_: Exception) {
+        }
+        return coverGallery.cached(server, lang)
+    }
+
     // ---------------------------------------------------------------- 2.5: Vorlagengalerie (einfache Auswahl)
 
     /** Je Server: Galerie angeboten? (404 -> Eintrag "Aus Vorlage ..." ausblenden) und zuletzt geladene Liste */

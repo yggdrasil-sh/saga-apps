@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Titelbild-Galerie (Wortlaut wie im Web) -->
+<resources>
+    <string name="cover_gallery_open">Galerie …</string>
+    <string name="cover_gallery_title">Titelbild-Galerie</string>
+    <string name="cover_random">Zufällig</string>
+    <string name="cover_upload">Bild hochladen …</string>
+    <string name="cover_gallery_other">Weitere</string>
+    <string name="cover_gallery_empty">Keine Bilder in der Galerie.</string>
+    <string name="cover_gallery_failed">Die Galerie konnte nicht geladen werden.</string>
+    <string name="cover_gallery_source">Mitgelieferte Kunstwerke: gemeinfrei, %1$s. Die Saga-Bilder sind KI-generiert.</string>
+    <string name="cover_about">Über dieses Bild</string>
+    <string name="cover_about_gone">Ein Bild aus der Titelbild-Galerie (nicht mehr zur Auswahl).</string>
+    <string name="cover_source_link">Zur Quelle ↗</string>
+</resources>

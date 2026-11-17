@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Titelbild-Galerie (Wortlaut wie im Web) -->
+<resources>
+    <string name="cover_gallery_open">Gallery …</string>
+    <string name="cover_gallery_title">Cover gallery</string>
+    <string name="cover_random">Random</string>
+    <string name="cover_upload">Upload picture …</string>
+    <string name="cover_gallery_other">More</string>
+    <string name="cover_gallery_empty">No images in the gallery.</string>
+    <string name="cover_gallery_failed">The gallery could not be loaded.</string>
+    <string name="cover_gallery_source">Bundled artworks: public domain, %1$s. The Saga images are AI-generated.</string>
+    <string name="cover_about">About this image</string>
+    <string name="cover_about_gone">An image from the cover gallery (no longer offered).</string>
+    <string name="cover_source_link">View source ↗</string>
+</resources>

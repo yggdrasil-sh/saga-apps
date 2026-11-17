@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Titelbild-Galerie (Wortlaut wie im Web) -->
+<resources>
+    <string name="cover_gallery_open">Галерея …</string>
+    <string name="cover_gallery_title">Галерея обложек</string>
+    <string name="cover_random">Случайно</string>
+    <string name="cover_upload">Загрузить изображение …</string>
+    <string name="cover_gallery_other">Другое</string>
+    <string name="cover_gallery_empty">В галерее нет изображений.</string>
+    <string name="cover_gallery_failed">Не удалось загрузить галерею.</string>
+    <string name="cover_gallery_source">Встроенные произведения: общественное достояние, %1$s. Изображения Saga созданы ИИ.</string>
+    <string name="cover_about">Об изображении</string>
+    <string name="cover_about_gone">Изображение из галереи обложек (больше не предлагается).</string>
+    <string name="cover_source_link">К источнику ↗</string>
+</resources>

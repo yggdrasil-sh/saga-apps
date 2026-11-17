@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Titelbild-Galerie (Wortlaut wie im Web) -->
+<resources>
+    <string name="cover_gallery_open">Galería …</string>
+    <string name="cover_gallery_title">Galería de portadas</string>
+    <string name="cover_random">Al azar</string>
+    <string name="cover_upload">Subir imagen …</string>
+    <string name="cover_gallery_other">Más</string>
+    <string name="cover_gallery_empty">No hay imágenes en la galería.</string>
+    <string name="cover_gallery_failed">No se pudo cargar la galería.</string>
+    <string name="cover_gallery_source">Obras incluidas: dominio público, %1$s. Las imágenes de Saga están generadas por IA.</string>
+    <string name="cover_about">Acerca de esta imagen</string>
+    <string name="cover_about_gone">Una imagen de la galería de portadas (ya no disponible).</string>
+    <string name="cover_source_link">Ver fuente ↗</string>
+</resources>

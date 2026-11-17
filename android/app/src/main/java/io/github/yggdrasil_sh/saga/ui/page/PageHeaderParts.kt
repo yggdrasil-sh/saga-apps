@@ -143,6 +143,12 @@ internal fun PageCover(ed: PageEditor, repo: SagaRepository, url: String, pad: D
     val pick = rememberHeaderImagePick(ed, repo, { busy = it }) { u ->
         ed.setHeader(buildJsonObject { put("cover", u); put("cover_pos", 50.0) })
     }
+    // 2.5 Titelbild-Galerie (wie im Web): "Galerie …", "Zufällig", "Über dieses Bild"
+    val galleryOn = rememberCoverGalleryOffered(repo)
+    var gallery by remember { mutableStateOf(false) }
+    var about by remember { mutableStateOf(false) }
+    if (gallery) CoverGallerySheet(ed, repo, onDismiss = { gallery = false })
+    if (about) CoverAboutDialog(io.github.yggdrasil_sh.saga.data.CoverGallery.about(repo.coverGalleryCached(), ed.cover)) { about = false }
     val desc = stringResource(R.string.page_cover)
     val density = androidx.compose.ui.platform.LocalDensity.current
     Box(
@@ -186,12 +192,30 @@ internal fun PageCover(ed: PageEditor, repo: SagaRepository, url: String, pad: D
         }
         Box(Modifier.align(Alignment.TopEnd).padding(end = pad)) {
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                DropdownMenuItem(text = { Text(stringResource(R.string.page_cover_change)) }, onClick = { menu = false; pick() })
+                if (galleryOn) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.cover_gallery_open)) },
+                        onClick = { menu = false; gallery = true },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.cover_random)) },
+                        onClick = { menu = false; randomGalleryCover(ed, repo) },
+                    )
+                }
+                // mit Galerie wie im Web "Bild hochladen …", sonst wie bisher "Ändern"
+                DropdownMenuItem(
+                    text = { Text(stringResource(if (galleryOn) R.string.cover_upload else R.string.page_cover_change)) },
+                    onClick = { menu = false; pick() },
+                )
                 DropdownMenuItem(text = { Text(stringResource(R.string.page_cover_reposition)) }, onClick = { menu = false; pos = ed.coverPos; repositioning = true })
                 DropdownMenuItem(text = { Text(stringResource(R.string.page_cover_remove)) }, onClick = {
                     menu = false
                     repo.launchAction { ed.setHeader(buildJsonObject { put("cover", JsonNull) }) }
                 })
+                if (galleryOn && io.github.yggdrasil_sh.saga.data.CoverGallery.isGalleryPath(ed.cover)) DropdownMenuItem(
+                    text = { Text(stringResource(R.string.cover_about)) },
+                    onClick = { menu = false; about = true },
+                )
             }
         }
     }

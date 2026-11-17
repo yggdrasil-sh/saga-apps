@@ -366,6 +366,11 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     val pickCover = rememberHeaderImagePick(ed, repo, { head.coverBusy = it }) { u ->
         ed.setHeader(kotlinx.serialization.json.buildJsonObject { put("cover", kotlinx.serialization.json.JsonPrimitive(u)); put("cover_pos", kotlinx.serialization.json.JsonPrimitive(50.0)) })
     }
+    // 2.5 Titelbild-Galerie: "Titelbild hinzufuegen" oeffnet die Galerie (mit "Zufällig" und "Bild hochladen …"),
+    // aeltere Server ohne Galerie wie bisher direkt die Bildauswahl
+    val coverOffered = rememberCoverGalleryOffered(repo)
+    val addCover: () -> Unit = { if (coverOffered) head.coverGallery = true else pickCover() }
+    if (head.coverGallery) CoverGallerySheet(ed, repo, onDismiss = { head.coverGallery = false }, onPhoto = pickCover)
     LaunchedEffect(ed.active) { if (ed.active != null) head.tapped = false }     // Schreiben im Inhalt: Kopf wieder ruhig
 
     // R6 (A11Y-24/ED-27): ab 840 dp Breite oeffnen Zeilen (dieser Datenbank bzw. eingebetteter Datenbanken) als Blatt
@@ -459,7 +464,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                         )
                         if (ed.cover == null) DropdownMenuItem(
                             text = { Text(stringResource(R.string.page_cover_add)) }, leadingIcon = { SagaIcon(SagaIcons.image, null) },
-                            enabled = !head.coverBusy, onClick = { menu = false; pickCover() },
+                            enabled = !head.coverBusy, onClick = { menu = false; addCover() },
                         )
                         if (!ed.isDatabase) DropdownMenuItem(
                             text = { Text(stringResource(R.string.page_tag_add_action)) }, leadingIcon = { SagaIcon(SagaIcons.tag, null) },
@@ -669,7 +674,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp)) {
                 item(key = "header") {
                     PageHeader(
-                        ed, repo, head, onCover = pickCover,
+                        ed, repo, head, onCover = addCover,
                         onPublish = if (ed.template || publishHidden || !caps.canPublish || ed.isRemote) null else openPublish,
                         live = liveSt, onVersions = { showVersions = true }, onSettings = { io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, "public", replace = true) },
                     )
@@ -1072,6 +1077,8 @@ internal class HeaderUi {
     var hint by mutableStateOf(false)
     var iconPicker by mutableStateOf(false)
     var coverBusy by mutableStateOf(false)
+    /** 2.5: Titelbild-Galerie offen (aus "Titelbild hinzufuegen" im Kopf oder Seitenmenue) */
+    var coverGallery by mutableStateOf(false)
     /** "Tag hinzufuegen" aus dem Seitenmenue - die Tag-Zeile oeffnet ihr Feld und setzt es zurueck */
     var tagRequest by mutableStateOf(false)
 }
