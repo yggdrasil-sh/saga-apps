@@ -12,7 +12,7 @@
     <string name="add_no_contacts">Aún no hay contactos: busca un nombre.</string>
     <string name="add_search">Buscar nombre</string>
     <string name="add_search_cd">Buscar persona</string>
-    <string name="add_pending">%1$s se unirá en cuanto el otro servidor lo confirme.</string>
+    <string name="add_pending">%1$s se unirá en cuanto el otro servidor lo confirme; después, llámale desde «No están».</string>
     <string name="add_request">%1$s está invitado/a: sonará en cuanto se acepte la invitación al chat.</string>
     <string name="add_already">%1$s ya está en la llamada o está sonando.</string>
     <string name="add_failed">No se ha podido añadir.</string>

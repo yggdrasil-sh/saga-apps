@@ -12,7 +12,7 @@
     <string name="add_no_contacts">Пока нет контактов — найдите человека по имени.</string>
     <string name="add_search">Поиск по имени</string>
     <string name="add_search_cd">Найти человека</string>
-    <string name="add_pending">%1$s присоединится, как только другой сервер подтвердит.</string>
+    <string name="add_pending">%1$s присоединится, как только другой сервер подтвердит, – затем позвоните в разделе «Не в звонке».</string>
     <string name="add_request">%1$s приглашён(а) — звонок поступит, как только приглашение в чат будет принято.</string>
     <string name="add_already">%1$s уже в звонке или ему сейчас звонят.</string>
     <string name="add_failed">Не удалось добавить.</string>

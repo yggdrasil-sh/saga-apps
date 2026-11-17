@@ -80746,36 +80746,36 @@
         }
       }
     },
-    "%@ kommt dazu, sobald der andere Server zugestimmt hat." : {
+    "%@ kommt dazu, sobald der andere Server zugestimmt hat – danach unter „Nicht dabei“ klingeln lassen." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ kommt dazu, sobald der andere Server zugestimmt hat."
+            "value" : "%@ kommt dazu, sobald der andere Server zugestimmt hat – danach unter „Nicht dabei“ klingeln lassen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ will join as soon as the other server has confirmed."
+            "value" : "%@ will join as soon as the other server has confirmed – then ring them under “Not in the call”."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ se unirá en cuanto el otro servidor lo confirme."
+            "value" : "%@ se unirá en cuanto el otro servidor lo confirme; después, llámale desde «No están»."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ присоединится, как только другой сервер подтвердит."
+            "value" : "%@ присоединится, как только другой сервер подтвердит, – затем позвоните в разделе «Не в звонке»."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ จะเข้าร่วมเมื่อเซิร์ฟเวอร์อีกฝั่งยืนยันแล้ว"
+            "value" : "%@ จะเข้าร่วมทันทีที่เซิร์ฟเวอร์อีกฝั่งยืนยัน – จากนั้นโทรหาได้ที่ “ไม่ได้อยู่ในสาย”"
           }
         }
       }

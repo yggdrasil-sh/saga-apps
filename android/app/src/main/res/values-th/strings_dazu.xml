@@ -12,7 +12,7 @@
     <string name="add_no_contacts">ยังไม่มีรายชื่อติดต่อ – ค้นหาด้วยชื่อ</string>
     <string name="add_search">ค้นหาชื่อ</string>
     <string name="add_search_cd">ค้นหาบุคคล</string>
-    <string name="add_pending">%1$s จะเข้าร่วมเมื่อเซิร์ฟเวอร์อีกฝั่งยืนยันแล้ว</string>
+    <string name="add_pending">%1$s จะเข้าร่วมทันทีที่เซิร์ฟเวอร์อีกฝั่งยืนยัน – จากนั้นโทรหาได้ที่ “ไม่ได้อยู่ในสาย”</string>
     <string name="add_request">เชิญ %1$s แล้ว – จะมีสายเรียกเข้าเมื่อตอบรับคำเชิญเข้าแชท</string>
     <string name="add_already">%1$s อยู่ในสายแล้วหรือกำลังได้รับสายเรียก</string>
     <string name="add_failed">เพิ่มไม่สำเร็จ</string>

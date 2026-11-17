@@ -9,6 +9,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – iOS, Android: Anruf endete nach Netzwechsel trotz laufender Verbindung
+
+- iOS: Ein ICE-Neuaufbau, während die Verbindung bestehen bleibt (z. B. nach kurzem Netz- oder Server-Aussetzer),
+  gilt als erledigt, sobald die Gegenstelle geantwortet hat und die Verbindung steht. Bisher endete der Anruf nach
+  drei Versuchen (rund 60 s) mit einer Verbindungs-Fehlermeldung, obwohl Ton und Bild liefen.
+- Android: derselbe Fall beendete den Anruf nicht, aber der Hinweis „Verbindung wird neu aufgebaut“ blieb stehen und
+  ein späterer echter Abbruch bekam keinen neuen Versuch mehr.
+- iOS, Android: Person eines anderen Servers im Seiten-Chat hinzugefügt – der Hinweis sagt jetzt wie im Web, dass sie
+  danach unter „Nicht dabei“ klingeln gelassen wird (es klingelt dann nicht von selbst).
+
 ### Geändert – Linux: 1:1 über Knoten (Grundsatz Y) klingelt wie ein Anruf zu zweit
 
 - Die Linux-App meldet die Fähigkeit `horn_ring` (klingelt bei Anrufen über Knoten, das Gespräch läuft im Browser).

@@ -12,7 +12,7 @@
     <string name="add_no_contacts">No contacts yet – search for a name.</string>
     <string name="add_search">Search name</string>
     <string name="add_search_cd">Search for a person</string>
-    <string name="add_pending">%1$s will join as soon as the other server has confirmed.</string>
+    <string name="add_pending">%1$s will join as soon as the other server has confirmed – then ring them under “Not in the call”.</string>
     <string name="add_request">%1$s has been invited – it will ring as soon as the chat invitation is accepted.</string>
     <string name="add_already">%1$s is already in the call or being rung.</string>
     <string name="add_failed">Adding didn\'t work.</string>

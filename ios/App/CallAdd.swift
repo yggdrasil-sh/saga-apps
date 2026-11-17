@@ -79,7 +79,7 @@ extension CallManager {
                 else if let b = body { self.invitesIn(b) }
                 switch CallAdd.note(d) {
                 case .failed(let t): self.addSay(t)
-                case .pending: self.addSay(String(localized: "\(p.name) kommt dazu, sobald der andere Server zugestimmt hat."))
+                case .pending: self.addSay(String(localized: "\(p.name) kommt dazu, sobald der andere Server zugestimmt hat – danach unter „Nicht dabei“ klingeln lassen."))
                 case .request: self.addSay(String(localized: "\(p.name) ist eingeladen – es klingelt, sobald die Einladung in den Chat angenommen ist."))
                 case .already: self.addSay(String(localized: "\(p.name) ist schon im Anruf oder klingelt gerade."))
                 case .ringing: self.addSay(String(localized: "\(p.name) wird angerufen …"))

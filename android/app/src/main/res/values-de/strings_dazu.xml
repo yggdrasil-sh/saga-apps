@@ -12,7 +12,7 @@
     <string name="add_no_contacts">Noch keine Kontakte – suche nach einem Namen.</string>
     <string name="add_search">Name suchen</string>
     <string name="add_search_cd">Person suchen</string>
-    <string name="add_pending">%1$s kommt dazu, sobald der andere Server zugestimmt hat.</string>
+    <string name="add_pending">%1$s kommt dazu, sobald der andere Server zugestimmt hat – danach unter „Nicht dabei“ klingeln lassen.</string>
     <string name="add_request">%1$s ist eingeladen – es klingelt, sobald die Einladung in den Chat angenommen ist.</string>
     <string name="add_already">%1$s ist schon im Anruf oder klingelt gerade.</string>
     <string name="add_failed">Hinzufügen hat nicht geklappt.</string>
