@@ -50,6 +50,17 @@ struct CallNoteChip: View {
     }
 }
 
+extension CallAdd {
+    /// Suchfeld beim Oeffnen fokussieren (Vertrag); iPhone nicht - die Tastatur verdeckte dort die Kontakte (Bild n2)
+    static var focusOnOpen: Bool {
+        #if os(iOS)
+        return UIDevice.current.userInterfaceIdiom != .phone || UIAccessibility.isVoiceOverRunning
+        #else
+        return true
+        #endif
+    }
+}
+
 /// Auswahl "Person hinzufuegen" (Karte an Stelle der Teilnehmerliste)
 struct CallAddPanel: View {
     @ObservedObject var calls: CallManager
@@ -90,7 +101,7 @@ struct CallAddPanel: View {
             .padding(.horizontal, 14).padding(.vertical, 10)
             ViewThatFits(in: .vertical) {
                 list
-                ScrollView { list }
+                ScrollView { list }.frame(minHeight: 168)                   // mit Tastatur (iPhone): Treffer bleiben sichtbar
             }
         }
         .frame(maxWidth: 440)
@@ -98,7 +109,7 @@ struct CallAddPanel: View {
         .shadow(radius: 12)
         .padding(16)
         .accessibilityAddTraits(.isModal)
-        .onAppear { field = true }
+        .onAppear { if CallAdd.focusOnOpen { field = true } }
         .task {
             guard let chat = calls.store?.chat else { return }
             if chat.contacts.isEmpty { await chat.loadContacts() }
