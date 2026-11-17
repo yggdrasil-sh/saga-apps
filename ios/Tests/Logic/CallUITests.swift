@@ -133,6 +133,10 @@ private func videoFillTests() {
     check(!L.videoFill(video: 1280, 720, box: 820, 1180), "iPad hoch + 16:9 quer: ganz zeigen")
     // 4:3 hoch auf iPhone hoch: 0,61 bleibt -> fuellen
     check(L.videoFill(video: 480, 640, box: 393, 852), "4:3 hoch auf iPhone hoch: fuellen")
+    // Pruefer pruef-apps-abend: Schwelle nach unten festhalten (0,52 bzw. 0,46 -> ganz zeigen)
+    check(!L.videoFill(video: 640, 480, box: 820, 1180), "4:3 quer auf iPad hoch: ganz zeigen")
+    check(!L.videoFill(video: 720, 720, box: 393, 852), "quadratisch auf iPhone hoch: ganz zeigen")
+    check(L.videoFill(video: 720, 720, box: 820, 1180), "quadratisch auf iPad hoch: fuellen")
     // unbekannt (noch kein Bild) bzw. Unsinn: fuellen wie bisher
     check(L.videoFill(video: 0, 0, box: 393, 852), "noch keine Groesse: fuellen")
     check(L.videoFill(video: .nan, 720, box: 393, 852), "NaN: fuellen")

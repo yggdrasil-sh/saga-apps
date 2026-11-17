@@ -321,6 +321,18 @@ private func callV3RestartSettleTests() {
     r.count = V.maxRestarts
     check(r.timeout(canReneg: true) == .fail, "Hoechstzahl erreicht: Ende")
 
+    // Pruefer pruef-apps-abend: settle verdeckt keinen spaeteren echten Abbruch (Antwort da, ICE kommt nicht wieder)
+    var s = V.Restart(); s.begin()
+    check(s.settle(stable: true, iceUp: true), "Netzwechsel ohne Unterbrechung: erledigt")
+    s.begin()
+    var ended = false
+    for _ in 0..<10 {
+        _ = s.settle(stable: true, iceUp: false)
+        let t = s.timeout(canReneg: true)
+        if t == .restart { s.begin() } else { ended = t == .fail; break }
+    }
+    check(ended && s.count == V.maxRestarts, "spaeterer echter Abbruch: Ende nach 3 Versuchen, kein Haengen")
+
     // Verdrahtung in Calls.swift: Antwort gesetzt, eigene Antwort gesendet, ICE-Ereignis waehrend des Restarts
     if let dir = ProcessInfo.processInfo.environment["SAGA_APP_SRC"], let src = try? String(contentsOfFile: dir + "/Calls.swift", encoding: .utf8) {
         check(src.components(separatedBy: "restartSettled(L)").count - 1 >= 3, "Calls.swift: restartSettled nach Antwort/Angebot/ICE-Ereignis")
