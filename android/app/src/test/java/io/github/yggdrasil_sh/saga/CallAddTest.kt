@@ -166,6 +166,10 @@ class CallAddTest {
         assertTrue(ended.ended)
         assertEquals(UiText.Res(R.string.inv_busy), (CallAdd.error(429, """{"error":"x"}""", false) as CallAdd.Err.Note).text)
         assertEquals(UiText.Res(R.string.add_failed), (CallAdd.error(500, "kaputt", false) as CallAdd.Err.Note).text)
+        // 502 mit failed: Text des Servers (z. B. anderer Server nicht erreichbar); 502 ohne JSON (Proxy) -> allgemein
+        assertEquals(UiText.Raw("Der Server peer.example ist nicht erreichbar."),
+            (CallAdd.error(502, """{"error":"Der Server peer.example ist nicht erreichbar.","failed":[{"who":"~x@peer.example","kind":"server"}]}""", false) as CallAdd.Err.Note).text)
+        assertEquals(UiText.Res(R.string.add_failed), (CallAdd.error(502, "<html>Bad Gateway</html>", false, UiText.Raw("Proxy")) as CallAdd.Err.Note).text)
         assertEquals(UiText.Res(R.string.add_failed), (CallAdd.error(null, null, false) as CallAdd.Err.Note).text)
         // ohne JSON: Text aus der ApiException
         assertEquals(UiText.Raw("vom Client"), (CallAdd.error(404, "", false, UiText.Raw("vom Client")) as CallAdd.Err.Note).text)

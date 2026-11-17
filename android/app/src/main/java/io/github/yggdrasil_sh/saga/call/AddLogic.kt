@@ -179,10 +179,13 @@ object CallAdd {
 
     fun error(code: Int?, body: String?, confirmed: Boolean, server: UiText? = null): Err {
         val o = obj(body)
-        val text = (o?.get("error") as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) } ?: server
+        val own = (o?.get("error") as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) }
+        val text = own ?: server
         if (code == 409 && flag(o, "page_confirm") && !confirmed) return Err.PageConfirm(text ?: UiText.Res(R.string.add_failed))
         if (code == 429) return Err.Note(UiText.Res(R.string.inv_busy))
         if (code != null && code in 400..499 && text != null) return Err.Note(text, ended = flag(o, "ended"), full = flag(o, "full"))
+        // 502 mit failed (Vertrag: "alle neuen Personen gescheitert" - Text der ersten, z. B. anderer Server nicht erreichbar)
+        if (code == 502 && own != null) return Err.Note(own)
         return Err.Note(UiText.Res(R.string.add_failed))
     }
 
