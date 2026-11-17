@@ -5,6 +5,7 @@ func callUITests() {
     typealias L = CallLogic
     controlsHideTests()
     selfPipSizeTests()
+    videoFillTests()
     let cid = String(repeating: "ab", count: 16)
 
     // Vollbild: laeuft und nicht verkleinert -> ja; verkleinert -> nein (Anruf laeuft weiter)
@@ -109,4 +110,31 @@ private func selfPipSizeTests() {
     let low = L.selfPipSize(aspect: 9.0 / 16, fallback: 1, width: 393, avail: 200)
     check(low.h <= 96 && abs(r(low) - 9.0 / 16) < 0.03, "wenig Hoehe (quer): kleiner im gleichen Verhaeltnis")
     check(L.videoAspect(width: 1280, height: 720) == 1280.0 / 720 && L.videoAspect(width: 0, height: 720) == nil, "Verhaeltnis aus Videogroesse")
+}
+
+// 2.5 Feldfall Drehen: Fernbild auf der Buehne - gleiche Ausrichtung fuellt, gedrehte Seite zeigt das ganze Bild
+private func videoFillTests() {
+    typealias L = CallLogic
+    // iPhone hoch (393x852), Android hoch per CVO (1280x720 rotation 90 -> gemeldet 720x1280)
+    check(L.videoFill(video: 720, 1280, box: 393, 852), "beide hoch: fuellen (kaum Zuschnitt)")
+    // Android quer gedreht, iPhone hoch: frueher nur ~26 % der Breite sichtbar
+    check(!L.videoFill(video: 1280, 720, box: 393, 852), "Android quer, iPhone hoch: ganz zeigen")
+    // iPhone quer gedreht (852x393), Android hoch
+    check(!L.videoFill(video: 720, 1280, box: 852, 393), "iPhone quer, Android hoch: ganz zeigen")
+    check(L.videoFill(video: 1280, 720, box: 852, 393), "beide quer: fuellen")
+    // Bandbreiten-Stufen (540p, 405p, 360p, 270p, 203p) aendern das Verhaeltnis nicht
+    for h in [540.0, 405, 360, 270, 203] {
+        let w = (h * 16 / 9).rounded()
+        check(L.videoFill(video: h, w, box: 393, 852), "\(Int(h))p hoch auf iPhone hoch: fuellen")
+        check(!L.videoFill(video: w, h, box: 393, 852), "\(Int(h))p quer auf iPhone hoch: ganz zeigen")
+    }
+    // iPad quer (1180x820) mit Mac-Kamera 16:9: fuellen; iPad hoch mit 16:9: ganz zeigen
+    check(L.videoFill(video: 1280, 720, box: 1180, 820), "iPad quer + 16:9: fuellen")
+    check(!L.videoFill(video: 1280, 720, box: 820, 1180), "iPad hoch + 16:9 quer: ganz zeigen")
+    // 4:3 hoch auf iPhone hoch: 0,61 bleibt -> fuellen
+    check(L.videoFill(video: 480, 640, box: 393, 852), "4:3 hoch auf iPhone hoch: fuellen")
+    // unbekannt (noch kein Bild) bzw. Unsinn: fuellen wie bisher
+    check(L.videoFill(video: 0, 0, box: 393, 852), "noch keine Groesse: fuellen")
+    check(L.videoFill(video: .nan, 720, box: 393, 852), "NaN: fuellen")
+    check(L.videoFill(video: 720, 1280, box: 0, 0), "Kachel ohne Groesse: fuellen")
 }

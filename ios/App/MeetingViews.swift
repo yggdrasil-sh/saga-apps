@@ -386,6 +386,8 @@ struct MeetTileView: View {
     @State private var pan = CGSize.zero
     @State private var panBase = CGSize.zero
     @State private var hover = false
+    /// 2.5: gemeldete Groesse des Videos (nach Drehung per CVO) - Buehne: fuellen oder ganz zeigen (CallLogic.videoFill)
+    @State private var videoSize: CGSize = .zero
 
     private var speaking: Bool { calls.meet.speaking.contains(tile.who) && tile.kind != .screen }
     private var pinned: Bool { calls.meet.pin == tile.id }
@@ -395,7 +397,7 @@ struct MeetTileView: View {
         GeometryReader { g in
             ZStack(alignment: .bottomLeading) {
                 (tile.kind == .screen ? Color.black : Color.white.opacity(0.08))
-                content
+                content(g.size)
                     .scaleEffect(screenStage ? calls.meet.zoom : 1)
                     .offset(screenStage ? pan : .zero)
                     .frame(width: g.size.width, height: g.size.height).clipped()
@@ -434,10 +436,17 @@ struct MeetTileView: View {
         .accessibilityAction(named: pinned ? Text("Lösen") : Text("Für mich anheften")) { calls.meetPin(tile.id) }
     }
 
-    @ViewBuilder private var content: some View {
+    /// Bildschirm immer ganz; Person fuellend - auf der Buehne nur bei gleicher Ausrichtung von Video und Flaeche
+    /// (Feldfall: Android quer im 1:1 auf dem iPhone hoch war auf ein Viertel der Breite zugeschnitten)
+    private func fills(_ size: CGSize) -> Bool {
+        tile.kind != .screen && (!stage || CallLogic.videoFill(video: Double(videoSize.width), Double(videoSize.height),
+                                                               box: Double(size.width), Double(size.height)))
+    }
+    @ViewBuilder private func content(_ size: CGSize) -> some View {
         let track = videoOK && tile.video ? calls.meetTrack(tile.dev, screen: tile.kind == .screen) : nil
         if let track {
-            RTCVideoBox(track: track, mirror: tile.me && calls.frontCamera, fill: tile.kind != .screen)
+            RTCVideoBox(track: track, mirror: tile.me && calls.frontCamera, fill: fills(size),
+                        onSize: stage ? { sz in Task { @MainActor in if videoSize != sz { videoSize = sz } } } : nil)
         } else if previewFill && videoOK && tile.video {
             if tile.kind == .screen { HornPreviewScreen().aspectRatio(16.0 / 10, contentMode: .fit) } else { HornPreviewPicture(seed: tile.id) }
         } else if tile.kind == .screen {

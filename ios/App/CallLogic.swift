@@ -227,6 +227,17 @@ enum CallLogic {
         let h = (w / a).rounded(.down)
         return pipSize(w: w.rounded(.down), h: h, avail: avail)
     }
+    /// 2.5 (Feldfall Drehen): Fernbild auf der Buehne fuellen (zuschneiden) oder ganz zeigen (Rand schwarz).
+    /// Fuellen nur, wenn nach dem Zuschnitt mindestens videoFillKeep der Bildflaeche sichtbar bleibt - also bei
+    /// gleicher Ausrichtung (iPhone hoch, Gegenueber hoch). Ist eine Seite gedreht (Android quer, iPhone hoch oder
+    /// umgekehrt), blieben bei 16:9 in 9:19,5 nur ~26 % der Breite: dann ganz zeigen wie Android/Web (contain).
+    /// video = gemeldete Groesse nach Drehung (CVO), box = Groesse der Kachel; unbekannt/0 = fuellen (wie bisher).
+    static let videoFillKeep = 0.6
+    static func videoFill(video vw: Double, _ vh: Double, box bw: Double, _ bh: Double) -> Bool {
+        guard vw > 0, vh > 0, bw > 0, bh > 0, vw.isFinite, vh.isFinite, bw.isFinite, bh.isFinite else { return true }
+        let va = vw / vh, ba = bw / bh
+        return min(va, ba) / max(va, ba) >= videoFillKeep
+    }
     /// Seitenverhaeltnis aus der gemeldeten Videogroesse (nil bei 0)
     static func videoAspect(width: Double, height: Double) -> Double? { width > 0 && height > 0 ? width / height : nil }
 

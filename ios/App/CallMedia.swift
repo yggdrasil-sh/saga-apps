@@ -329,7 +329,7 @@ struct RTCVideoBox: UIViewRepresentable {
     let track: RTCVideoTrack?
     var mirror = false
     var fill = true
-    /// 2.5: gemeldete Videogroesse (nach Drehung) - fuer den Rahmen des eigenen Bilds
+    /// 2.5: gemeldete Videogroesse (nach Drehung) - Rahmen des eigenen Bilds bzw. fuellen/einpassen des Fernbilds
     var onSize: ((CGSize) -> Void)? = nil
     func makeUIView(context: Context) -> RTCMTLVideoView {
         let v = RTCMTLVideoView(frame: .zero)
@@ -340,6 +340,9 @@ struct RTCVideoBox: UIViewRepresentable {
     }
     func updateUIView(_ v: RTCMTLVideoView, context: Context) {
         v.transform = mirror ? CGAffineTransform(scaleX: -1, y: 1) : .identity
+        // 2.5: fill kann sich aendern (Fernbild gedreht, Kachel gedreht) - nicht nur beim Anlegen setzen
+        let mode: UIView.ContentMode = fill ? .scaleAspectFill : .scaleAspectFit
+        if v.videoContentMode != mode { v.videoContentMode = mode }
         context.coordinator.onSize = onSize
         context.coordinator.attach(track, to: v)
     }
