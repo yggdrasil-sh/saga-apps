@@ -269,10 +269,12 @@ class CallService : Service() {
             start(context, video)
         }
 
-        /** 2.5 (L9): Mitteilung mit neuem Titel (Umzug in eine Gruppe) - nur, wenn der Dienst schon laeuft */
+        /** 2.5 (L9): Mitteilung mit neuem Titel (Umzug in eine Gruppe) - nur, wenn der Dienst schon laeuft. Nur die
+         *  Mitteilung erneuern (notify mit derselben ID), KEIN erneutes startForeground: im Hintergrund/gesperrt koennte
+         *  das scheitern bzw. auf einen Typ ohne Mikrofon zurueckfallen (Pruefer pruef-apps-dazu F2). */
         fun refresh(context: Context) {
             val s = instance ?: return
-            if (foreground) s.promote(lastVideo)
+            if (foreground) s.renotify()
         }
 
         /** Bildschirm wird geteilt (Typ mediaProjection gehoert dazu) */
@@ -329,6 +331,18 @@ class CallService : Service() {
     }
 
     /** startForeground mit passenden Typen; Ergebnis = verwendeter Typ, null = gescheitert */
+    /** Laufende Mitteilung mit aktuellem Stand neu setzen, ohne den Dienst-Typ anzufassen */
+    private fun renotify() {
+        val st = (applicationContext as? SagaApplication)?.repo?.calls?.ui?.value
+        val group = st?.room?.takeIf { it.horn != null }?.endpoints ?: 0
+        val n = CallNotify.ongoing(this, st?.peer ?: CallPeer(), lastVideo, st?.connectedAt ?: 0L, screen, group)
+        try {
+            NotificationManagerCompat.from(this).notify(CallNotify.ID_CALL, n)
+        } catch (e: SecurityException) {
+            android.util.Log.w("SagaCall", "notify: ${e.message}")
+        }
+    }
+
     private fun promote(video: Boolean): Int? {
         lastVideo = video
         val st = (applicationContext as? SagaApplication)?.repo?.calls?.ui?.value
