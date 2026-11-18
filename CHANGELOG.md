@@ -27,6 +27,29 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   vollem Anruf gesperrt, „Alle erneut klingeln“ fehlt (Bugs-DB 2154).
 - „/Seite“ und „/Datenbank“ im Editor legen mit `"link": false` an: der Server hängt keinen zweiten Verweis mehr ans
   Ende der Seite (Bug 2151).
+### Neu – Android: Saga-Siegel als Seitensymbol
+
+- Seiten mit einem **Saga-Siegel** (`/siegel/<farbe>/<motiv>.svg`, 36 Motive in Weinrot, Smaragd, Elfenbein) zeigen das
+  Siegel als Bild – im Seitenkopf, im Seitenbaum, in Suche, „Verlinkt von“, Unterseiten-Block, Datenbank-Zeilen, Heute
+  und in der Seiten-Auswahl im Chat. Die App lädt es wie eigene Bilder mit `?w=` (64/128/256 px, PNG vom Server); bei
+  Seiten anderer Saga-Instanzen vom eigenen Server (dieselben Dateien). Bisher stand dort der Pfad als Text.
+- Symbol-Dialog: neben „Emoji“ der Bereich **Saga-Siegel** – Farbwahl (zuletzt gewählte Farbe bleibt, ein gesetztes
+  Siegel bringt seine Farbe mit) und Raster der Motive, Namen in der App-Sprache (`GET /api/siegel`). TalkBack liest
+  „Siegel Rabe (Weinrot)“ und markiert das jetzige Symbol; im Seitenkopf „Seitensymbol: Siegel Rabe (Weinrot)“.
+  Nur mit Server-Feature `siegel1` (Seiten anderer Server: deren `remote.caps` `siegel1`), sonst wie bisher.
+- Pfade erscheinen nirgends mehr als Text (Seitenverweis über „/Seite“, Aufgabenquellen, Widget „Heute“, Sicherung,
+  Vorlagengalerie); unbekannte Pfade zeigen das Standardsymbol.
+
+### Behoben – Android: voller Anruf verständlich (Bugs-DB 2154), „/Seite“ ohne doppelten Verweis, Anruf-Hinweise
+
+- Ist ein Anruf voll, zeigt die App den Text des Servers bzw. „Der Anruf ist voll – alle n Plätze sind belegt (jedes
+  Gerät zählt, auch ein zweites zum Teilen) …“, für ein weiteres eigenes Gerät „… „Hierher übernehmen“ geht trotzdem.“
+  Bisher „Der Anruf ist voll (Gerätegrenze: n)“. Unter „Nicht dabei“ sind Klingeln und Erneut klingeln bei vollem
+  Anruf gesperrt (wie im Web), mit Hinweis.
+- „/Seite“ und „/Datenbank“ im Editor schicken `"link": false` – der Server hängt seit 2.5 sonst einen zweiten Verweis
+  ans Ende der Elternseite.
+- Der Hinweis „Verbindung wird neu aufgebaut“ nach einem Netzwechsel blieb stehen, wenn gar kein Neuaufbau begann;
+  Änderungen am Seitenkopf aus dem Web werden 250 ms gesammelt (wie iOS) statt je Ereignis abgefragt.
 
 ### Neu – Linux: Titelbild-Galerie
 
