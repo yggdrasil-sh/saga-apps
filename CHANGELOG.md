@@ -9,6 +9,19 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – iOS, Android: Symbol, Titelbild und Sperre aus Web/anderem Gerät kommen live an
+
+- Die offene Seite übernimmt Änderungen am Seitenkopf aus dem Web oder von einem anderen Gerät sofort und still:
+  Symbol, Titelbild samt Position, Sperre, Eigenschaften (Datenbank-Eintrag), Schrift. Bisher kamen nur Änderungen an
+  Inhalt und Titel an (Server-Ereignis `note.changed` mit `meta: true` wurde übergangen). Eigene Eingaben und ein
+  gerade hochgeladenes Titelbild bleiben unberührt; ohne Live-Kanal hilft die Anwesenheitsmeldung (alle ~20 s).
+- Wird die Seite anderswo gesperrt, erscheint sofort das Schloss und Bearbeiten endet. Kommt die Sperre erst beim
+  Speichern an (423), zeigen beide Apps sie gleich und behalten die Eingaben als Entwurf; nach dem Entsperren (hier
+  oder anderswo) wird nachgespeichert.
+- Ein fremder Titel überschreibt das Titelfeld nicht, solange man darin steht – er folgt beim Verlassen, sofern
+  man nichts getippt hat.
+- Karten in Galerie/Board laden nach, wenn sich Titelbild, Symbol oder Sperre eines Eintrags ändern.
+
 ### Behoben – iOS, Android: Anruf endete nach Netzwechsel trotz laufender Verbindung
 
 - iOS: Ein ICE-Neuaufbau, während die Verbindung bestehen bleibt (z. B. nach kurzem Netz- oder Server-Aussetzer),
