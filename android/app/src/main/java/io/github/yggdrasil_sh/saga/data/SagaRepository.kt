@@ -740,10 +740,15 @@ class SagaRepository(
         return decode(api.post("api/notes/search", buildJsonObject { put("q", q.trim()) }))
     }
 
-    suspend fun newPage(parent: Long? = null, title: String = ""): Long {
+    /**
+     * Neue Seite. [link] false (2.5, Bug 2151): die App setzt den Verweis in der Elternseite selbst (z. B. "/Seite" an der
+     * Schreibmarke) - sonst haengt der Server einen zweiten ans Ende. Aeltere Server ignorieren das Feld.
+     */
+    suspend fun newPage(parent: Long? = null, title: String = "", link: Boolean = true): Long {
         val b = buildJsonObject {
             put("title", title)
             if (parent != null) put("parent_id", parent)
+            if (parent != null && !link) put("link", false)
         }
         val id = decode<NewId>(api.post("api/notes", b)).id
         pageAdded(id, parent)

@@ -226,7 +226,7 @@ fun rememberBlockInserter(
                     ins.busy++
                     try {
                         if (kind == "page") {
-                            val id = repo.newPage(ed.id)
+                            val id = repo.newPage(ed.id, link = false)      // Verweis kommt an die Schreibmarke (Bug 2151)
                             ins.replace(bid, BlockOps.pageLink(id, untitled, "📄"))
                             ed.flush()
                             onOpenPage(id)

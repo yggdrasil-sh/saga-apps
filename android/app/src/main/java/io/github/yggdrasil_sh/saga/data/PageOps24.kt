@@ -351,6 +351,7 @@ suspend fun SagaRepository.newDatabase(parent: Long, title: String): Long {
         put("title", title)
         put("icon", "🗃️")
         put("parent_id", parent)
+        put("link", false)          // 2.5 (Bug 2151): die App bettet die Datenbank selbst ein - kein zweiter Verweis am Seitenende
     })
     val id = dec<NewId>(r).id
     refresh(join = false)
