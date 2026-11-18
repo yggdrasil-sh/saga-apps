@@ -233,7 +233,7 @@ fun PageTargetDialog(repo: SagaRepository, onDismiss: () -> Unit, onPick: (ChatN
                     items(pages, key = { it.id }) { p ->
                         ListItem(
                             headlineContent = { Text(p.title.ifEmpty { stringResource(R.string.page_untitled) }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            leadingContent = { PageIconOrLine(p.icon) },   // CH-21: ohne eigenes Seitensymbol das Linien-Symbol statt Emoji
+                            leadingContent = { PageIconOrLine(p.icon, repo) },   // CH-21: ohne eigenes Seitensymbol das Linien-Symbol statt Emoji
                             colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
                             modifier = Modifier.clickable { onPick(p) },
                         )

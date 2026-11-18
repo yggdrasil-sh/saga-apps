@@ -54,7 +54,8 @@ object BlockOps {
 
     /** Absatz mit Verweis auf eine Seite (wie "Verweis"/"Seite" im Web) */
     fun pageLink(pageId: Long, title: String, icon: String = "", id: String = BlockDoc.newId()): JsonObject =
-        BlockDoc.newBlock("paragraph", (if (icon.isNotEmpty()) "$icon " else "") + "<a href=\"/notes#$pageId\">" + InlineHtml.escape(title) + "</a>", id = id)
+        // nur ein Text-Symbol (Emoji) vor den Verweis - Bild-/Siegel-Pfade nicht als Text (2.5)
+        BlockDoc.newBlock("paragraph", (io.github.yggdrasil_sh.saga.data.IconPath.text(icon)?.let { "${InlineHtml.escape(it)} " } ?: "") + "<a href=\"/notes#$pageId\">" + InlineHtml.escape(title) + "</a>", id = id)
 
     /** gleicher Block mit anderer ID? (fuer "/": der Absatz wird ersetzt, seine ID bleibt) */
     fun withId(block: JsonObject, id: String): JsonObject = JsonObject(LinkedHashMap(block).apply { put("id", s(id)) })

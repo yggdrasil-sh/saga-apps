@@ -27,6 +27,9 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -96,6 +99,27 @@ internal fun Modifier.pullUp(by: Dp) = layout { m, c ->
 /** Bildadresse in Anzeigebreite (der Server rechnet ?w= beim ersten Abruf) */
 internal fun sizedImage(url: String, w: Int): String =
     if ((url.startsWith("/files/") || url.startsWith("/api/fed/files/")) && !url.contains("?")) "$url?w=$w" else url
+
+/**
+ * TalkBack-Name des Seitensymbols (A11Y-09): "Seitensymbol: <Emoji>", Siegel "Seitensymbol: Siegel Rabe (Weinrot)"
+ * (Namen aus GET api/siegel, bei Bedarf nachgeladen), eigenes Bild bzw. Siegel ohne Liste "Seitensymbol".
+ */
+@Composable
+internal fun pageIconDesc(icon: String, repo: SagaRepository): String {
+    val ic = icon.trim()
+    val seal = io.github.yggdrasil_sh.saga.data.Siegel.isSiegel(ic)
+    val lists by repo.siegel.lists.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(seal) {
+        if (seal && repo.siegelCached() == null && repo.server.value !in repo.siegel.unsupported.value) repo.siegelList()
+    }
+    val name = if (seal) io.github.yggdrasil_sh.saga.data.Siegel.label(lists[repo.siegel.key(repo.server.value, repo.galleryLang())], ic) else null
+    return when {
+        name != null -> stringResource(R.string.page_icon_desc, stringResource(R.string.siegel_name, name))
+        io.github.yggdrasil_sh.saga.data.IconPath.isImage(ic) || io.github.yggdrasil_sh.saga.data.IconPath.text(ic) == null ->
+            stringResource(R.string.page_icon_desc_image)
+        else -> stringResource(R.string.page_icon_desc, ic)
+    }
+}
 
 /** Wie HeaderLogic.tap (iOS): nur Lesen, fremde Instanz, nicht geladen = nichts; gesperrt = Hinweis */
 internal fun headerEditable(ed: PageEditor): Boolean = ed.titleEditable && !ed.isRemote
@@ -254,9 +278,13 @@ internal fun HeaderAddRow(ed: PageEditor, visible: Boolean, busy: Boolean, onIco
     if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
 }
 
-/** Symbol waehlen: Emoji, eigenes Bild, zufaellig, entfernen (wie IconPicker auf iOS) */
+/**
+ * Symbol waehlen: Emoji, eigenes Bild, zufaellig, entfernen (wie IconPicker auf iOS); 2.5: Bereich "Saga-Siegel"
+ * (umschaltbar neben "Emoji"), nur wenn der Server - bei Seiten anderer Server auch deren Server - `siegel1` meldet.
+ * [previewSeals]: nur fuer Bilder (Debug) - Siegel-Bereich mit fester Liste offen.
+ */
 @Composable
-internal fun IconPickerDialog(ed: PageEditor, repo: SagaRepository, onDismiss: () -> Unit) {
+internal fun IconPickerDialog(ed: PageEditor, repo: SagaRepository, previewSeals: io.github.yggdrasil_sh.saga.data.Siegel.Listing? = null, onDismiss: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     val set: (String) -> Unit = { v ->
         onDismiss()
@@ -264,6 +292,14 @@ internal fun IconPickerDialog(ed: PageEditor, repo: SagaRepository, onDismiss: (
     }
     val pick = rememberHeaderImagePick(ed, repo, { busy = it }) { u ->
         ed.setHeader(buildJsonObject { put("icon", u) }); onDismiss()
+    }
+    val feats by repo.serverFeatures.collectAsState()
+    val unsupported by repo.siegel.unsupported.collectAsState()
+    val sealsOn = previewSeals != null ||
+        (io.github.yggdrasil_sh.saga.data.Siegel.offered(feats, ed.isRemote, ed.remoteCaps) && repo.server.value !in unsupported)
+    // Bereich: ist das jetzige Symbol ein Siegel, oeffnet der Dialog bei den Siegeln
+    var seals by androidx.compose.runtime.saveable.rememberSaveable {
+        mutableStateOf(previewSeals != null || io.github.yggdrasil_sh.saga.data.Siegel.isSiegel(ed.icon))
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -277,7 +313,19 @@ internal fun IconPickerDialog(ed: PageEditor, repo: SagaRepository, onDismiss: (
                     SagaTextButton(onClick = { set(RANDOM.random()) }, enabled = !busy) { Text(stringResource(R.string.page_icon_random)) }
                 }
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                AndroidView(
+                if (sealsOn) {
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                        listOf(false to R.string.siegel_tab_emoji, true to R.string.siegel_tab).forEachIndexed { i, (k, res) ->
+                            SegmentedButton(
+                                selected = seals == k, onClick = { seals = k },
+                                shape = SegmentedButtonDefaults.itemShape(i, 2), icon = {},
+                            ) { Text(stringResource(res), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
+                        }
+                    }
+                }
+                if (sealsOn && seals) {
+                    SiegelPicker(repo, ed.icon, onPick = set, modifier = Modifier.fillMaxWidth().height(340.dp), preview = previewSeals)
+                } else AndroidView(
                     factory = { ctx ->
                         androidx.emoji2.emojipicker.EmojiPickerView(ctx).apply {
                             emojiGridColumns = 8

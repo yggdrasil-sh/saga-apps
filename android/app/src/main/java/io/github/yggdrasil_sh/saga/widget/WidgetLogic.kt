@@ -98,7 +98,7 @@ object TodayLogic {
             .filter { t -> t.due.isNullOrBlank() || parseDay(t.due)?.let { !it.isAfter(until) } ?: false }
             .map { e ->
                 val s = e.src?.let { src[it] }
-                WTask(e.id.toInt(), e.text, e.due, e.prio, row = e.isRow, srcIcon = s?.icon?.ifEmpty { null }, srcTitle = s?.title, time = e.time, edit = e.edit)
+                WTask(e.id.toInt(), e.text, e.due, e.prio, row = e.isRow, srcIcon = io.github.yggdrasil_sh.saga.data.IconPath.text(s?.icon), srcTitle = s?.title, time = e.time, edit = e.edit)
             }
             .toList()
     }

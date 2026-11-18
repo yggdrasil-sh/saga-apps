@@ -45,10 +45,10 @@ object Subpages {
         return u.takeIf { it.startsWith("/files/") || it.startsWith("/covers/") || it.startsWith("/api/fed/files/") }
     }
 
-    /** Symbol: Bildpfad nur wie [safeImg] (Titelbild-Galerie nicht), sonst Emoji/Text (kurz); Unbrauchbares -> Standardsymbol */
+    /** Symbol: Bildpfad nur wie [safeImg] (Titelbild-Galerie nicht) bzw. Saga-Siegel (2.5), sonst Emoji/Text (kurz); Unbrauchbares -> Standardsymbol */
     private fun icon(s: String): String {
         val t = s.trim()
-        if (t.startsWith("/")) return safeImg(t)?.takeIf { !it.startsWith("/covers/") } ?: ""
+        if (t.startsWith("/")) return io.github.yggdrasil_sh.saga.data.Siegel.parse(t)?.path ?: safeImg(t)?.takeIf { !it.startsWith("/covers/") } ?: ""
         return if (t.length > 16) "" else t
     }
 

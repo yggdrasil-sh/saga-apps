@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (Bugs-DB 2156): Saga-Siegel als Seitensymbol - Wortlaut wie der Server (saga/i18n) -->
+<resources>
+    <string name="siegel_tab">Saga-Siegel</string>
+    <string name="siegel_tab_emoji">Emoji</string>
+    <string name="siegel_colors">Farbe der Siegel</string>
+    <string name="siegel_name">Siegel %1$s</string>
+    <string name="siegel_failed">Saga-Siegel nicht geladen.</string>
+</resources>

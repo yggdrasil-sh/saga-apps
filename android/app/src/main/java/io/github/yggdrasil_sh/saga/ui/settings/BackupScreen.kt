@@ -390,7 +390,7 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     items(exclude.toList(), key = { "x-$it" }) { id ->
                         val p = byId[id]
                         ListItem(
-                            headlineContent = { Text((p?.icon?.takeIf { it.isNotEmpty() }?.let { "$it " } ?: "") + (p?.title?.ifEmpty { null } ?: if (p == null) "#$id" else stringResource(R.string.page_untitled))) },
+                            headlineContent = { Text((io.github.yggdrasil_sh.saga.data.IconPath.text(p?.icon)?.let { "$it " } ?: "") + (p?.title?.ifEmpty { null } ?: if (p == null) "#$id" else stringResource(R.string.page_untitled))) },
                             supportingContent = { Text(stringResource(R.string.ub_with_subpages)) },
                             trailingContent = { SagaTextButton(onClick = { exclude.remove(id) }) { Text(stringResource(R.string.ub_remove)) } },
                             modifier = w,
@@ -522,7 +522,7 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     items(tree, key = { it.first.id }) { (p, depth) ->
                         val on = p.id in exclude
                         Text(
-                            "  ".repeat(depth) + (p.icon.takeIf { it.isNotEmpty() }?.let { "$it " } ?: "") + p.title.ifEmpty { stringResource(R.string.page_untitled) } + if (on) "  ✓" else "",
+                            "  ".repeat(depth) + (io.github.yggdrasil_sh.saga.data.IconPath.text(p.icon)?.let { "$it " } ?: "") + p.title.ifEmpty { stringResource(R.string.page_untitled) } + if (on) "  ✓" else "",
                             modifier = Modifier.fillMaxWidth().selectable(selected = on, role = Role.Checkbox) {
                                 if (!on) exclude.add(p.id)
                                 pickPage = false

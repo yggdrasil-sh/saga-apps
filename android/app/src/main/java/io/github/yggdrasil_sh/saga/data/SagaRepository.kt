@@ -775,6 +775,30 @@ class SagaRepository(
         return coverGallery.cached(server, lang)
     }
 
+    // ---------------------------------------------------------------- 2.5: Saga-Siegel (GET api/siegel, Feature siegel1)
+
+    /** Je Server/Sprache: Liste der Siegel (Namen in der App-Sprache), Server ohne Liste, zuletzt gewaehlte Farbe */
+    val siegel = SiegelState()
+
+    fun siegelCached(): Siegel.Listing? = siegel.cached(settings.server.value, galleryLang())
+
+    /** GET api/siegel (Accept-Language der App) - Ergebnis je Server/Sprache gemerkt; wirft nicht */
+    suspend fun siegelList(): Siegel.Listing? {
+        val server = settings.server.value
+        val lang = galleryLang()
+        if (server.isEmpty()) return null
+        try {
+            val body = api.get(Siegel.LIST_PATH)
+            siegel.record(server, lang, 200, withContext(Dispatchers.Default) { Siegel.parseListing(body) })
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ApiException) {
+            siegel.record(server, lang, e.code, null)
+        } catch (_: Exception) {
+        }
+        return siegel.cached(server, lang)
+    }
+
     // ---------------------------------------------------------------- 2.5: Vorlagengalerie (einfache Auswahl)
 
     /** Je Server: Galerie angeboten? (404 -> Eintrag "Aus Vorlage ..." ausblenden) und zuletzt geladene Liste */

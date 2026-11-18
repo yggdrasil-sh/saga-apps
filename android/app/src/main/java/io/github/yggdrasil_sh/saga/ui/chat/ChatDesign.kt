@@ -140,9 +140,10 @@ fun ChatAvatar(name: String, size: Dp, modifier: Modifier = Modifier, avatar: St
     }
 }
 
-/** CH-21: eigenes Seitensymbol (Emoji der Seite, vom Nutzer gewaehlt) oder das Linien-Symbol "Datei" */
+/** CH-21: eigenes Seitensymbol (Emoji der Seite, vom Nutzer gewaehlt; 2.5: auch eigenes Bild bzw. Saga-Siegel) oder das Linien-Symbol "Datei" */
 @Composable
-fun PageIconOrLine(icon: String) {
-    val own = icon.takeIf { it.isNotEmpty() && !it.startsWith("/") }
-    if (own != null) androidx.compose.material3.Text(own) else io.github.yggdrasil_sh.saga.ui.theme.SagaIcon(io.github.yggdrasil_sh.saga.ui.theme.SagaIcons.file, null, tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+fun PageIconOrLine(icon: String, repo: io.github.yggdrasil_sh.saga.data.SagaRepository? = null) {
+    val own = io.github.yggdrasil_sh.saga.data.IconPath.text(icon)
+    if (repo != null && io.github.yggdrasil_sh.saga.data.IconPath.isImage(icon)) io.github.yggdrasil_sh.saga.ui.common.PageIcon(icon, repo)
+    else if (own != null) androidx.compose.material3.Text(own) else io.github.yggdrasil_sh.saga.ui.theme.SagaIcon(io.github.yggdrasil_sh.saga.ui.theme.SagaIcons.file, null, tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
 }

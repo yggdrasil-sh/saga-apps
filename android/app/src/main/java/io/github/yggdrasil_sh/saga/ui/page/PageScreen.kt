@@ -968,8 +968,7 @@ private fun PageHeader(
             // R3 (AND-ED-08): Datenbank - kompakter Kopf: Symbol in der Zeile des Titels, Meta einzeilig
             DatabaseHeadRow(ed, repo, head)
         } else if (ed.icon.isNotEmpty() && !ed.noAccess) {
-            val iconImage = ed.icon.trim().let { it.startsWith("/files/") || it.startsWith("/api/fed/files/") }
-            val iconDesc = if (iconImage) stringResource(R.string.page_icon_desc_image) else stringResource(R.string.page_icon_desc, ed.icon.trim())
+            val iconDesc = pageIconDesc(ed.icon, repo)
             Box(
                 Modifier.then(if (cover != null) Modifier.pullUp(36.dp) else Modifier)
                     .clickable(enabled = headerEditable(ed) || ed.locked, onClickLabel = stringResource(R.string.page_icon_change)) {
@@ -1131,8 +1130,7 @@ private fun PageTitleField(ed: PageEditor, repo: SagaRepository, head: HeaderUi,
 private fun DatabaseHeadRow(ed: PageEditor, repo: SagaRepository, head: HeaderUi) {
     Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         if (ed.icon.isNotEmpty()) {
-            val iconImage = ed.icon.trim().let { it.startsWith("/files/") || it.startsWith("/api/fed/files/") }
-            val iconDesc = if (iconImage) stringResource(R.string.page_icon_desc_image) else stringResource(R.string.page_icon_desc, ed.icon.trim())
+            val iconDesc = pageIconDesc(ed.icon, repo)
             Box(
                 Modifier.padding(end = 10.dp).size(48.dp).clip(RoundedCornerShape(SagaRadius.s))
                     .clickable(enabled = headerEditable(ed) || ed.locked, onClickLabel = stringResource(R.string.page_icon_change)) {

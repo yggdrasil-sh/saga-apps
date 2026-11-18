@@ -341,7 +341,7 @@ fun PagePickDialog(repo: SagaRepository, onDismiss: () -> Unit, onPick: (ChatNot
                     items(pages, key = { it.id }) { p ->
                         ListItem(
                             headlineContent = { Text(p.title) },
-                            leadingContent = { PageIconOrLine(p.icon) },   // CH-21: ohne eigenes Seitensymbol das Linien-Symbol statt Emoji
+                            leadingContent = { PageIconOrLine(p.icon, repo) },   // CH-21: ohne eigenes Seitensymbol das Linien-Symbol statt Emoji
                             modifier = Modifier.clickable { onPick(p) },
                         )
                     }

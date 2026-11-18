@@ -176,7 +176,7 @@ private fun GalleryRow(t: GalleryItem, onClick: () -> Unit) {
     ) {
         Surface(shape = RoundedCornerShape(SagaRadius.md), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.size(44.dp)) {
             Box(contentAlignment = Alignment.Center) {
-                Text(t.icon.ifEmpty { "📄" }, fontSize = 22.sp, maxLines = 1)
+                Text(io.github.yggdrasil_sh.saga.data.IconPath.text(t.icon) ?: "📄", fontSize = 22.sp, maxLines = 1)
             }
         }
         Column(Modifier.padding(start = 14.dp).weight(1f)) {
@@ -254,7 +254,7 @@ private fun GalleryConfirm(
 
     AlertDialog(
         onDismissRequest = { if (!busy) onCancel() },
-        icon = { Text(if (placeStep) "🌤️" else t.icon.ifEmpty { "📄" }, fontSize = 28.sp) },
+        icon = { Text(if (placeStep) "🌤️" else io.github.yggdrasil_sh.saga.data.IconPath.text(t.icon) ?: "📄", fontSize = 28.sp) },
         title = { Text(if (placeStep) stringResource(R.string.gal_weather_title) else t.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
         text = {
             if (placeStep) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -289,7 +289,7 @@ private fun GalleryConfirm(
                 if (t.desc.isNotBlank()) Text(t.desc, style = MaterialTheme.typography.bodyMedium)
                 if (t.contents.isNotEmpty()) {
                     Text(
-                        stringResource(R.string.gal_contains, t.contents.joinToString(", ") { (it.icon + " " + it.title).trim() }),
+                        stringResource(R.string.gal_contains, t.contents.joinToString(", ") { ((io.github.yggdrasil_sh.saga.data.IconPath.text(it.icon) ?: "") + " " + it.title).trim() }),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 4, overflow = TextOverflow.Ellipsis,
                     )

@@ -73,7 +73,7 @@ fun SourceTaskRow(e: TaskEntry, source: TaskSource?, people: Map<String, TaskPer
                 )
             }
             val extra = listOfNotNull(
-                source?.let { (it.icon.ifEmpty { "☑️" }) + " " + it.title.ifBlank { stringResource(R.string.page_untitled) } },
+                source?.let { (io.github.yggdrasil_sh.saga.data.IconPath.text(it.icon) ?: "☑️") + " " + it.title.ifBlank { stringResource(R.string.page_untitled) } },
                 dueLabel(e),
                 e.repeat?.let { stringResource(R.string.task_repeats) },
                 if (TaskRowLogic.showPrioText(e.prio, e.done)) stringResource(R.string.task_high_priority) else null,
@@ -111,13 +111,13 @@ fun TargetChip(targets: List<TaskSource>, current: Long?, onPick: (Long?) -> Uni
     androidx.compose.foundation.layout.Box {
         AssistChip(
             onClick = { open = true },
-            label = { Text(cur?.let { (it.icon.ifEmpty { "☑️" }) + " " + it.title } ?: stringResource(R.string.e2_task_inbox), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            label = { Text(cur?.let { (io.github.yggdrasil_sh.saga.data.IconPath.text(it.icon) ?: "☑️") + " " + it.title } ?: stringResource(R.string.e2_task_inbox), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             trailingIcon = { SagaIcon(SagaIcons.caretDown, null) },
         )
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(text = { Text(stringResource(R.string.e2_task_inbox)) }, onClick = { open = false; onPick(null) })
             targets.forEach { s ->
-                DropdownMenuItem(text = { Text((s.icon.ifEmpty { "☑️" }) + " " + s.title.ifBlank { stringResource(R.string.page_untitled) }) }, onClick = { open = false; onPick(s.db) })
+                DropdownMenuItem(text = { Text((io.github.yggdrasil_sh.saga.data.IconPath.text(s.icon) ?: "☑️") + " " + s.title.ifBlank { stringResource(R.string.page_untitled) }) }, onClick = { open = false; onPick(s.db) })
             }
         }
     }
@@ -153,7 +153,7 @@ fun TaskSourcesDialog(repo: SagaRepository, onOpen: (Long) -> Unit, onClose: () 
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    (s.icon.ifEmpty { "☑️" }) + " " + s.title.ifBlank { stringResource(R.string.page_untitled) },
+                                    (io.github.yggdrasil_sh.saga.data.IconPath.text(s.icon) ?: "☑️") + " " + s.title.ifBlank { stringResource(R.string.page_untitled) },
                                     style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.weight(1f).clickable { onClose(); onOpen(s.db) },
                                 )

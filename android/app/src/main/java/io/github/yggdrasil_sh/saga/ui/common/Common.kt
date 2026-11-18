@@ -133,25 +133,31 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** Emoji oder eigenes Bild (/files/...) als Seiten-Symbol */
+/** Emoji, eigenes Bild (/files/...) oder Saga-Siegel (/siegel/<farbe>/<motiv>.svg, 2.5) als Seiten-Symbol */
 @Composable
 fun PageIcon(icon: String?, repo: SagaRepository, isDatabase: Boolean = false, size: Dp = 22.dp) {
     val ic = icon?.trim().orEmpty()
+    // Siegel: PNG in der Stufe fuer die Anzeigegroesse (64/128/256 px) - Apps zeigen kein SVG
+    val px = with(androidx.compose.ui.platform.LocalDensity.current) { size.roundToPx() }
+    val img = io.github.yggdrasil_sh.saga.data.IconPath.imageUrl(ic, px)
     // Mindestgroesse statt fester Groesse: Emoji waechst mit der Schriftgroesse mit und wird nicht abgeschnitten
     Box(Modifier.defaultMinSize(size, size), contentAlignment = Alignment.Center) {
-        if (ic.startsWith("/files/") || ic.startsWith("/api/fed/files/")) {
-            // Grauer Platzhalter nur, solange das Bild laedt (wie iOS) - danach bleiben transparente Symbole transparent
+        if (img != null) {
+            // Grauer Platzhalter nur, solange das Bild laedt (wie iOS) - danach bleiben transparente Symbole transparent;
+            // Siegel sind rund mit durchsichtigen Ecken: ohne Platzhalter-Kachel und ohne Zuschnitt
+            val seal = io.github.yggdrasil_sh.saga.data.Siegel.isSiegel(ic)
             var loaded by remember(ic) { mutableStateOf(false) }
-            val shape = RoundedCornerShape(if (size >= 48.dp) SagaRadius.md else SagaRadius.xs)
+            val shape = if (seal) androidx.compose.foundation.shape.CircleShape else RoundedCornerShape(if (size >= 48.dp) SagaRadius.md else SagaRadius.xs)
             AsyncImage(
-                model = repo.absoluteUrl(if (ic.contains("?")) ic else "$ic?w=160"), contentDescription = null,
-                contentScale = ContentScale.Crop,
+                model = repo.absoluteUrl(img), contentDescription = null,
+                contentScale = if (seal) ContentScale.Fit else ContentScale.Crop,
                 onSuccess = { loaded = true },
                 modifier = Modifier.size(size).clip(shape)
                     .then(if (loaded) Modifier else Modifier.background(MaterialTheme.colorScheme.surfaceVariant)),
             )
         } else {
-            Text(ic.ifEmpty { if (isDatabase) "🗃️" else "📄" }, fontSize = (size.value * (if (size >= 48.dp) 0.82f else 0.72f)).sp, maxLines = 1)   // grosses Symbol (Seitenkopf) etwa so gross wie auf iOS
+            // unbekannter Pfad (z. B. Siegel eines neueren Servers mit anderer Form): Standardsymbol statt des Pfads als Text
+            Text(io.github.yggdrasil_sh.saga.data.IconPath.text(ic) ?: if (isDatabase) "🗃️" else "📄", fontSize = (size.value * (if (size >= 48.dp) 0.82f else 0.72f)).sp, maxLines = 1)   // grosses Symbol (Seitenkopf) etwa so gross wie auf iOS
         }
     }
 }

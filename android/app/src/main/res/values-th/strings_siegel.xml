@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (Bugs-DB 2156): Saga-Siegel als Seitensymbol - Wortlaut wie der Server (saga/i18n) -->
+<resources>
+    <string name="siegel_tab">ตราประทับ Saga</string>
+    <string name="siegel_tab_emoji">อีโมจิ</string>
+    <string name="siegel_colors">สีของตราประทับ</string>
+    <string name="siegel_name">ตราประทับ %1$s</string>
+    <string name="siegel_failed">โหลดตราประทับ Saga ไม่ได้</string>
+</resources>
