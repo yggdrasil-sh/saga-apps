@@ -4,7 +4,8 @@ import Foundation
 // Testvektoren wie Web/Android (ios/Tests/vectors/meeting.json). Gilt fuer 1:1, Mesh-Gruppen und Anrufe ueber den Knoten.
 // - Personen ueber `who` zusammenfassen: eine Personenkachel je Person (beste Kamera, sonst Profilbild), je teilendem Geraet
 //   eine Bildschirmkachel (contain, nie Kamera-Bild-im-Bild), zweite Kamera-Kachel nur fuer ein Begleitgeraet MIT Bild
-// - eigene Begleitgeraete erscheinen nie als Kachel (Chip im Kopf), der eigene Bildschirm nie auf der eigenen Buehne
+// - andere eigene Geraete nie als Personen- oder Kamerakachel (Chip im Kopf); teilt ein anderes eigenes Geraet den
+//   Bildschirm, kommt er als Bildschirmkachel mit Geraetename (§4.2, beide Richtungen); den Bildschirm dieses Geraets nie
 // - Layout Auto/Galerie/Sprecher/Praesentation, Galerie-Raster mit Seiten, Streifen-Lage, Sprecher-Hysterese
 
 enum Meeting {
@@ -65,25 +66,33 @@ enum Meeting {
         var people: Int
     }
 
-    /// Kacheln aus den Geraeten (Reihenfolge der Personen wie im Roster). Eigene Person: nur "Du" (Kamera dieses Geraets)
+    /// Kacheln aus den Geraeten wie meeting.js meetingTiles: Bildschirme (aelteste Freigabe zuerst), Personen in Listenfolge
+    /// (zweite Kamera direkt hinter der Person), die eigene Kachel zuletzt. Eigene Person: nur "Du" (Kamera dieses Geraets)
     static func tiles(_ devs: [Device]) -> Built {
         var order: [String] = [], by: [String: [Device]] = [:]
         for d in devs where !d.who.isEmpty {
             if by[d.who] == nil { order.append(d.who) }
             by[d.who, default: []].append(d)
         }
-        var persons: [Tile] = [], extra: [Tile] = [], screens: [Tile] = [], ownOthers: [Device] = []
+        var persons: [Tile] = [], screens: [Tile] = [], ownOthers: [Device] = [], mine: Tile?
         var selfSharing = false
         for who in order {
             let list = by[who] ?? []
-            let mine = list.contains { $0.own || $0.here }
             let mic = list.contains { $0.mic }
-            if mine {
+            if list.contains(where: { $0.own || $0.here }) {
                 let here = list.first { $0.here } ?? list.first!
-                ownOthers += list.filter { !$0.here }
+                ownOthers += list.filter { $0.device != here.device }
                 selfSharing = here.screen
-                persons.append(Tile(id: who, kind: .person, who: who, dev: here.device, name: here.name, avatar: here.avatar, me: true,
-                                    mic: here.mic, video: here.cam, devices: [here.device]))
+                mine = Tile(id: who, kind: .person, who: who, dev: here.device, name: here.name, avatar: here.avatar, me: true,
+                            mic: here.mic, video: here.cam, devices: [here.device])
+                // §4.2 (Bugs-DB 2160): Bildschirm eines ANDEREN eigenen Geraets als Bildschirmkachel mit Geraetename -
+                // Begleitgeraet -> Hauptgeraet und Hauptgeraet -> Begleitgeraet, im Mesh wie ueber den Knoten. Den
+                // Bildschirm dieses Geraets nie (die eigene Freigabe zeigt die rote Leiste)
+                for s in list where s.screen && s.device != here.device {
+                    screens.append(Tile(id: who + "|" + s.device + ":scr", kind: .screen, who: who, dev: s.device, name: here.name,
+                                        devLabel: s.devName, avatar: here.avatar, mic: false, video: !s.screenMissing,
+                                        screenSince: s.screenSince, screenMissing: s.screenMissing, devices: [s.device]))
+                }
                 continue
             }
             let main = list.first { !$0.companion } ?? list[0]
@@ -93,8 +102,8 @@ enum Meeting {
             persons.append(Tile(id: who, kind: .person, who: who, dev: src.device, name: main.name, avatar: main.avatar ?? list.compactMap(\.avatar).first,
                                 mic: mic, video: src.cam, devices: list.map(\.device)))
             for c in cams.dropFirst() {
-                extra.append(Tile(id: who + "|" + c.device + ":cam", kind: .camera, who: who, dev: c.device, name: main.name,
-                                  devLabel: c.devName, avatar: main.avatar, mic: mic, video: true, devices: list.map(\.device)))
+                persons.append(Tile(id: who + "|" + c.device + ":cam", kind: .camera, who: who, dev: c.device, name: main.name,
+                                    devLabel: c.devName, avatar: main.avatar, mic: mic, video: true, devices: list.map(\.device)))
             }
             for s in list where s.screen {
                 screens.append(Tile(id: who + "|" + s.device + ":scr", kind: .screen, who: who, dev: s.device, name: main.name,
@@ -102,11 +111,13 @@ enum Meeting {
                                     screenSince: s.screenSince, screenMissing: s.screenMissing, devices: list.map(\.device)))
             }
         }
-        // eigene Kachel zuletzt
-        let me = persons.filter(\.me), others = persons.filter { !$0.me }
-        // Bildschirme: zuletzt gestartete zuerst
-        let scr = screens.sorted { $0.screenSince != $1.screenSince ? $0.screenSince > $1.screenSince : $0.id < $1.id }
-        return Built(tiles: scr + others + extra + me, ownOthers: ownOthers, selfSharing: selfSharing, people: order.count)
+        // Bildschirme: aelteste Freigabe zuerst (stabil wie Array.sort im Web)
+        let scr = screens.enumerated().sorted { $0.element.screenSince != $1.element.screenSince ? $0.element.screenSince < $1.element.screenSince : $0.offset < $1.offset }.map(\.element)
+        return Built(tiles: scr + persons + (mine.map { [$0] } ?? []), ownOthers: ownOthers, selfSharing: selfSharing, people: order.count)
+    }
+    /// Neueste Freigabe (Buehne der Praesentation, Hinweis in der Galerie); bei gleicher Zeit die spaetere in der Liste
+    static func newestScreen(_ tiles: [Tile]) -> Tile? {
+        tiles.filter { $0.kind == .screen }.reduce(nil) { a, t in a == nil || t.screenSince >= a!.screenSince ? t : a }
     }
 
     // MARK: Layout
@@ -148,6 +159,12 @@ enum Meeting {
         }
     }
 
+    /// Wie die Ansicht: Praesentation mit Streifen rechts - eigenes Bild nie ueber dem Bildschirm, sondern im Streifen
+    /// (Streifen unten, Handy hochkant: schwebt bis 2 Personen). meeting.js arrange entspricht rightStrip = true
+    static func floats(_ mode: Mode, people: Int, rightStrip: Bool) -> Bool {
+        selfFloats(mode, people: people) && !(mode == .presentation && rightStrip)
+    }
+
     // MARK: Buehne
 
     /// Was auf die Buehne kommt: Pin vor allem; Praesentation: neueste Freigabe; Sprecher: Sprecher bzw. erste andere Person
@@ -155,17 +172,19 @@ enum Meeting {
         if let p = pin, tiles.contains(where: { $0.id == p }) , mode != .gallery { return p }
         switch mode {
         case .presentation:
-            return tiles.first { $0.kind == .screen }?.id ?? stage(.speaker, tiles: tiles, pin: nil, speaker: speaker)
+            return newestScreen(tiles)?.id ?? stage(.speaker, tiles: tiles, pin: nil, speaker: speaker)
         case .speaker, .duo:
             if let s = speaker, let t = tiles.first(where: { $0.kind == .person && $0.who == s && !$0.me }) { return t.id }
             return tiles.first { $0.kind != .screen && !$0.me }?.id ?? tiles.first { $0.kind == .screen }?.id
         case .gallery: return nil
         }
     }
-    /// Streifen: andere Bildschirme vorn, dann Personen, eigene Kachel zuletzt (wenn sie nicht schwebt)
+    /// Streifen: andere Bildschirme vorn (die neueste zuerst), dann Personen, eigene Kachel zuletzt (wenn sie nicht schwebt)
     static func strip(_ tiles: [Tile], stage: String?, selfFloats: Bool) -> [Tile] {
         let rest = tiles.filter { $0.id != stage && !(selfFloats && $0.me) }
-        return rest.filter { $0.kind == .screen } + rest.filter { $0.kind != .screen && !$0.me } + rest.filter(\.me)
+        let scr = rest.enumerated().filter { $0.element.kind == .screen }
+            .sorted { $0.element.screenSince != $1.element.screenSince ? $0.element.screenSince > $1.element.screenSince : $0.offset < $1.offset }.map(\.element)
+        return scr + rest.filter { $0.kind != .screen && !$0.me } + rest.filter(\.me)
     }
 
     // MARK: Galerie
@@ -187,6 +206,8 @@ enum Meeting {
             let maxRows = max(1, Int((h + sp) / (63 + sp)))
             g.perPage = max(1, min(g.perPage, g.cols * maxRows))
         }
+        // wie meeting.js: nie mehr Spalten als Kacheln (nach der Seitengroesse - eine Kachel aendert sie nicht)
+        g.cols = min(g.cols, max(1, n))
         return g
     }
     /// Seitenzahl fuer count Kacheln
@@ -240,13 +261,14 @@ enum Meeting {
 
     enum Side: String, Equatable { case right, bottom }
     struct StripPlace: Equatable { var side: Side; var size: Double }
-    /// Lage und Breite/Hoehe des Streifens (§2.3/§2.4/§8); presentation: ab < 1100 schmaler
+    /// Lage und Breite/Hoehe des Streifens (§2.3/§2.4/§8)
     static func strip(width w: Double, height h: Double, presentation: Bool) -> StripPlace {
         if h < 500 && w > h { return StripPlace(side: .right, size: 120) }       // Handy quer
         // schmal bzw. hochkant (auch iPad hochkant ueber 900 pt): Streifen unten, die Buehne behaelt die volle Breite
         if w < 900 || h > w { return StripPlace(side: .bottom, size: w < 600 ? 84 : 96) }
         if w >= 1920 { return StripPlace(side: .right, size: 240) }
-        if presentation && w < 1100 { return StripPlace(side: .right, size: 160) }
+        // wie meeting.js stripSide: unter 1100 schmal, Praesentation bis 1440 schmal (der Bildschirm bekommt die Breite)
+        if w < 1100 || (presentation && w < 1440) { return StripPlace(side: .right, size: 160) }
         return StripPlace(side: .right, size: 200)
     }
     /// Hoechstzahl Videos im Streifen (Handy 3, sonst 6)

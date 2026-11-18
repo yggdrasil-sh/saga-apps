@@ -82,7 +82,7 @@ struct HornPreviewView: View {
 }
 
 extension CallManager {
-    /// nur fuer Bilder (-hkHornPreview meet-duo|present|present-group|gallery|speaker|pages): Meeting-Ansicht mit
+    /// nur fuer Bilder (-hkHornPreview meet-duo|present|present-group|own-share|own-back|gallery|speaker|pages): Meeting-Ansicht mit
     /// erfundenen Geraeten ohne Netz und ohne Medien (bewegte Bilder als Farbflaechen). present = Labor-Befund: Anna mit
     /// Mac (Kamera), iPhone (Begleitgeraet ohne Bild) und Android (Begleitgeraet teilt den Bildschirm)
     func mockMeet(_ m: String) {
@@ -110,6 +110,13 @@ extension CallManager {
             list.append(d("a1", "anna", "Anna", "MacBook", cam: true))
             list.append(d("a2", "anna", "Anna", "iPhone", comp: true, mic: false))
             list.append(d("a3", "anna", "Anna", "Android", comp: true, mic: false, screen: true))
+        case "own-share", "own-back":                                       // 2.5 §4.2 (Bugs-DB 2160): anderes eigenes Geraet teilt
+            kind = "dm"; peerName = "Ben"
+            let back = m == "own-back"                                       // own-back: dieses Geraet ist das Begleitgeraet
+            list = [Meeting.Device(device: "me-dev", who: "me", name: "Max", devName: "iPhone", companion: back, own: true, here: true, mic: true, cam: true)]
+            list.append(Meeting.Device(device: "me-2", who: "me", name: "Max", devName: back ? "MacBook" : "iPad", companion: !back, own: true,
+                                       mic: false, cam: !back, screen: true, screenSince: 10))
+            list.append(d("b1", "ben", "Ben", "MacBook", cam: true))
         case "present-group":
             kind = "group"; peerName = "Projekt Nordlicht"
             list.append(d("a1", "anna", "Anna", "MacBook", cam: true, screen: true))

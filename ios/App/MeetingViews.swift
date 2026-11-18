@@ -96,7 +96,7 @@ struct MeetingStage: View {
         let place = Meeting.strip(width: Double(size.width), height: Double(size.height), presentation: mode == .presentation)
         let rightStrip = place.side == .right
         // eigenes Bild: schwebt nur bis 2 Personen und nie ueber einem Bildschirm - Streifen rechts: in den Streifen
-        let floats = Meeting.selfFloats(mode, people: built.people) && !(mode == .presentation && rightStrip)
+        let floats = Meeting.floats(mode, people: built.people, rightStrip: rightStrip)
         let stageID = Meeting.stage(mode, tiles: tiles, pin: calls.meet.pin, speaker: calls.meet.stage)
         let rest = Meeting.strip(tiles, stage: stageID, selfFloats: floats)
         let stageTile = tiles.first { $0.id == stageID }
@@ -285,7 +285,7 @@ struct MeetingStage: View {
     }
     /// Galerie: jemand teilt -> einmalig "Anna teilt den Bildschirm - Anzeigen" (schaltet fuer diesen Anruf auf Praesentation)
     @ViewBuilder private var galleryHint: some View {
-        if let t = built.tiles.first(where: { $0.kind == .screen && !calls.meet.hintGone.contains("g:" + $0.id) }) {
+        if let t = Meeting.newestScreen(built.tiles.filter { !calls.meet.hintGone.contains("g:" + $0.id) }) {
             HStack(spacing: 8) {
                 Image(systemName: "rectangle.inset.filled.on.rectangle").accessibilityHidden(true)
                 Text("\(t.name) teilt den Bildschirm").lineLimit(1)

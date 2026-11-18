@@ -9,7 +9,18 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
-### Neu – iOS: Saga-Siegel als Seitensymbol
+### Geändert – iOS, Anrufe: Bildschirm eines anderen eigenen Geräts als Präsentation (Bugs-DB 2160)
+
+- Teilt ein **anderes eigenes Gerät** den Bildschirm, zeigt die Meeting-Ansicht ihn als Bildschirmkachel mit Gerätename
+  („Bildschirm von Max (iPad)“, Auto → Präsentation) – in beiden Richtungen (Begleitgerät teilt → Hauptgerät zeigt ihn,
+  Hauptgerät teilt → Begleitgerät zeigt ihn), im Mesh wie über den Knoten. Unverändert: den Bildschirm dieses Geräts zeigt
+  es nie, eigene Begleitgeräte bekommen keine Personen- oder Kamerakachel, das eigene Hauptgerät erscheint auf dem
+  Begleitgerät nicht als Person (MEETING-SPEC §4.2, wie Web).
+- Die gemeinsamen Testvektoren des Servers (`tests/meeting_vectors.json`) liegen jetzt unverändert als
+  `ios/Tests/vectors/meeting.json` und werden vollständig geprüft; die bisherigen iOS-Fälle stehen in
+  `ios/Tests/vectors/meeting_app.json`. Dabei an das Web angeglichen: Bildschirmkacheln in Startreihenfolge (die neueste
+  auf der Bühne, im Streifen vorn), zweite Kamera-Kachel direkt hinter der Person, Galerie mit einer Kachel einspaltig,
+  Streifen unter 1100 pt und in der Präsentation bis 1440 pt schmal (160 pt).
 
 - Seiten mit einem **Saga-Siegel** (`/siegel/<farbe>/<motiv>.svg`, 36 Motive in Weinrot, Smaragd, Elfenbein) zeigen es
   jetzt überall als Bild – Seitenkopf, Seitenbaum, Suche, Verweise, Datenbank-Zeilen, Verschieben, Unterseiten-Block,
