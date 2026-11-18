@@ -445,6 +445,13 @@ final class PageDoc: ObservableObject {
     @Published var updatedBy: String?
     /// Laeuft noch eine Speicherung oder ist etwas offen? (Beenden abwarten)
     var hasUnsaved: Bool { fetched && (dirty || queue.pending > 0) }
+    /// 2.5 (Bugs-DB 2121): Titelfeld fokussiert - fremder Titel wird dann vorgemerkt statt ins Feld geschrieben
+    var titleFocused = false
+    private var pendingTitle: String?
+    private var pendingTitleKept = ""
+    /// zuletzt bekannter Stand (updated) der Seite - Anwesenheit ohne Live-Kanal erkennt so Kopf-Aenderungen
+    private(set) var knownUpdated: Double?
+    private var headerTask: Task<Void, Never>?
 
     /// Jeder Block braucht eine feste ID (Identitaet beim Einfuegen/Verschieben)
     private func ensureIDs(_ arr: NSMutableArray) {
@@ -508,8 +515,10 @@ final class PageDoc: ObservableObject {
     func previewLoad(_ d: Data, _ store: Store) async { await apply(d, store) }   // nur fuer Bilder (E2Preview)
     #endif
     private func apply(_ d: Data, _ store: Store) async {
-        guard let p = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return }
+        guard var p = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return }
+        keepFocusedTitle(&p)
         page = p; rev = p["rev"] as? Int ?? 0
+        knownUpdated = ShareJSON.num(p["updated"])
         if let pp = p["people"] as? [String: Any] { MentionNames.merge(pp) }      // 2.5: Namen der Erwaehnungen
         let a = PageAccess(page: p, serverVersion: store.serverVersion); if a != access { access = a }
         noAccess = false; lostAccess = false
@@ -607,6 +616,7 @@ final class PageDoc: ObservableObject {
             let j = (try? JSONSerialization.jsonObject(with: r)) as? [String: Any] ?? [:]
             ClientLog.shared.save(j["merged"] != nil ? "merged" : "ok")                  // 2.5 clientlog1
             if let nr = j["rev"] as? Int { rev = nr }
+            if let u = ShareJSON.num(j["updated"]) { knownUpdated = u }        // eigener Stand: Anwesenheit meldet ihn nicht als fremd
             switch MergeLogic.outcome(response: j, editsAtSend: sent, editsNow: tracker.snapshot) {
             case .saved:
                 baseSentNext = false
@@ -673,7 +683,9 @@ final class PageDoc: ObservableObject {
         guard !dirty, rev == known else { return }                      // inzwischen getippt bzw. gespeichert: dabei bleibt es
         if let delta = p["delta"] as? [String: Any], let nb = MergeLogic.applyDelta(delta, local: root) {
             p.removeValue(forKey: "delta")
+            keepFocusedTitle(&p)
             page = p; rev = p["rev"] as? Int ?? rev
+            knownUpdated = ShareJSON.num(p["updated"])
             let a = PageAccess(page: p, serverVersion: store.serverVersion); if a != access { access = a }
             replaceBlocks(nb)
             savedState = serialized().map { SavedPageState(body: $0, title: titleRaw, rev: rev) }
@@ -683,6 +695,45 @@ final class PageDoc: ObservableObject {
         } else {
             await load(store)
         }
+    }
+    /// 2.5 (Bugs-DB 2121): nur der Seitenkopf wurde anderswo geaendert (note.changed meta) - Symbol, Titelbild + Position,
+    /// Sperre, Eigenschaften, Breite/Schrift still uebernehmen; Inhalt, Titel und Eingaben bleiben. Hat der Server
+    /// inzwischen eine neuere Revision, normal nachladen (`content`). Titelbild nicht waehrend eines eigenen Hochladens.
+    func refreshHeader(_ store: Store, content: @escaping () -> Void) {
+        guard fetched, !noAccess, !lostAccess else { return }
+        headerTask?.cancel()
+        headerTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))             // mehrere Ereignisse kurz hintereinander: eine Anfrage
+            guard let self, !Task.isCancelled else { return }
+            let known = self.rev
+            let path = "api/notes/\(self.id)" + (known > 0 && !self.isDatabase ? "?since=\(known)" : "")
+            guard let (d, code) = try? await store.apiResponse(path), code == 200, let fresh = ShareJSON.obj(d),
+                  !Task.isCancelled, self.rev == known else { return }
+            let m = PageMetaLogic.merge(local: self.page, fresh: fresh, ownRev: known, keepCover: self.coverBusy || self.coverPreview != nil)
+            self.knownUpdated = ShareJSON.num(fresh["updated"]) ?? self.knownUpdated
+            if m.newerContent { content(); return }
+            guard !m.changed.isEmpty else { return }
+            if let pp = fresh["people"] as? [String: Any] { MentionNames.merge(pp) }
+            let movedParent = m.changed.contains("parent_id")
+            self.page = m.page
+            let a = PageAccess(page: m.page, serverVersion: store.serverVersion); if a != self.access { self.access = a }
+            if movedParent, !self.dirty { await self.load(store) }       // anderer Ort: Eigenschaften der neuen Elternseite
+        }
+    }
+    /// Server-Titel bei fokussiertem Titelfeld nicht ins Feld schreiben, sondern vormerken
+    private func keepFocusedTitle(_ p: inout [String: Any]) {
+        let t = PageMetaLogic.title(local: titleRaw, server: p["title"] as? String, focused: titleFocused && fetched)
+        if let pt = t.pending { pendingTitle = pt; pendingTitleKept = t.shown; p["title"] = t.shown }
+        else if !titleFocused { pendingTitle = nil }
+    }
+    /// Titelfeld fokussiert/verlassen: beim Verlassen den vorgemerkten Server-Titel nachziehen (wenn nicht getippt)
+    func titleFocusChanged(_ on: Bool) {
+        titleFocused = on
+        guard !on else { return }
+        defer { pendingTitle = nil }
+        guard let t = PageMetaLogic.titleOnBlur(shown: titleRaw, kept: pendingTitleKept, pending: pendingTitle) else { return }
+        page["title"] = t
+        if var s = savedState { s.title = t; savedState = s }
     }
     /// Konfliktblock: eigene bzw. fremde Fassung uebernehmen (Original loeschen, Markierung weg) oder verwerfen
     @discardableResult
@@ -717,6 +768,9 @@ final class PageDoc: ObservableObject {
             retry?.cancel(); retry = nil; retryCount = 0
             writeDraft(conflict: false)                                // neuester Stand (auch spaetere Eingaben) lokal
             self.error = PageDoc.permanentErrorText(c)
+            // 423 (Bugs-DB 2121): Seite inzwischen gesperrt - Schloss und Schreibschutz sofort, Eingaben bleiben im Editor;
+            // nach dem Entsperren (hier oder anderswo) wird nachgespeichert (NativePageScreen)
+            if PageMetaLogic.lockedBySave(code: c), page["locked"] as? Bool != true { page["locked"] = true }
         case .other(let c):
             let msg = APIError.http(c, ShareJSON.obj(data).flatMap { ShareJSON.str($0["error"]) } ?? "").localizedDescription
             self.error = String(localized: "Nicht gespeichert – lokal gesichert, neuer Versuch folgt (\(msg)).")
@@ -826,6 +880,7 @@ struct PageTitleField: View {
                       text: Binding(get: { doc.titleRaw }, set: { v in input(v) }), selection: $selection, axis: .vertical)
                 .font(titleFont).textFieldStyle(.plain).disabled(ed.locked || !doc.fetched)
                 .focused($focused)
+                .onChange(of: focused) { _, f in doc.titleFocusChanged(f) }   // fremder Titel erst nach dem Verlassen (Bugs-DB 2121)
                 .onSubmit { ed.enterFromTitle() }                     // Mac: Return ohne Umbruch
                 .onChange(of: doc.fetched, initial: true) { _, f in    // neuer Datenbank-Eintrag: Titel gleich bearbeiten
                     guard f, nav.focusTitle == doc.id, !ed.locked else { return }
@@ -1106,7 +1161,9 @@ struct NativePageScreen: View {
         if code == 404 || code == 405 { presenceOff = code == 405; return }
         guard !leave, code == 200, let j = ShareJSON.obj(d), !ShareJSON.bool(j["skipped"]) else { return }   // skipped: still ignorieren
         applyPresence(j["users"] as? [Any])
-        pageChanged(rev: ShareJSON.int(j["rev"]), by: SharePerson(j["by"]), gone: false)
+        // ohne Live-Kanal: neuerer Stand bei gleicher Revision = Kopf anderswo geaendert (Symbol, Titelbild, Sperre ...)
+        pageChanged(rev: ShareJSON.int(j["rev"]), by: SharePerson(j["by"]), gone: false,
+                    meta: !store.live.connected && PageMetaLogic.headerNewer(updated: ShareJSON.num(j["updated"]), known: doc.knownUpdated))
     }
     private func applyPresence(_ users: [Any]?) {
         let others = PresenceUser.others(users)
@@ -1128,25 +1185,35 @@ struct NativePageScreen: View {
         }
     }
     /// note.changed / presence-rev: still neu laden oder Hinweis "{name} hat diese Seite geaendert"
-    private func pageChanged(rev: Int?, by: SharePerson?, gone: Bool) {
+    /// `meta` (2.5, Bugs-DB 2121): nur Kopf-Felder geaendert (Symbol, Titelbild, Sperre, Eigenschaften) - still nachziehen
+    private func pageChanged(rev: Int?, by: SharePerson?, gone: Bool, meta: Bool = false) {
         guard doc.fetched else { return }
         let who = by.flatMap { $0.me ? nil : ($0.name.isEmpty ? nil : $0.name) }
         let merge = !doc.isDatabase && MergeLogic.useMerge(remote: doc.access.remote, caps: doc.access.remoteCaps.set)
-        switch LiveLogic.pageChange(eventRev: rev, ownRev: doc.currentRev, dirty: doc.dirty || ed.focus != nil && doc.dirty, gone: gone) {
+        func content() {
+            if doc.dirty {
+                if merge { Task { await ed.flush(); doc.updatedBy = who } } else { doc.changedBy = who ?? String(localized: "Jemand") }
+            } else {
+                Task { if merge { await doc.refreshFromServer(store) } else { await doc.load(store) }; doc.updatedBy = who }
+            }
+        }
+        switch PageMetaLogic.change(eventRev: rev, ownRev: doc.currentRev, dirty: doc.dirty, gone: gone, meta: meta) {
         case .ignore: break
-        case .reloadSilently:
-            // 2.5 (P3): nur geaenderte Bloecke holen und uebernehmen (Fokus/Schreibmarke bleiben)
-            Task { if merge { await doc.refreshFromServer(store) } else { await doc.load(store) }; doc.updatedBy = who }
-        case .ask:
-            // 2.5 (P3): eigene Eingaben sofort mit merge: 1 speichern - der Server bringt die fremden Bloecke mit
-            if merge { Task { await ed.flush(); doc.updatedBy = who } } else { doc.changedBy = who ?? String(localized: "Jemand") }
+        case .reloadSilently, .ask:
+            // 2.5 (P3): ohne Eingaben nur geaenderte Bloecke holen (Fokus/Schreibmarke bleiben); mit eigenen Eingaben
+            // sofort mit merge: 1 speichern - der Server bringt die fremden Bloecke mit
+            content()
+        case .refreshHeader:
+            // Inhalt unveraendert: Kopf still uebernehmen, laufende Eingaben bleiben (neuere Revision -> wie oben)
+            doc.refreshHeader(store) { content() }
         case .gone: Task { doc.loaded = false; await doc.load(store) }
         }
     }
     private func liveEvent(_ e: LiveEvent) {
         switch e.type {
         case "note.changed" where ShareJSON.int(e.data["id"]) == id:
-            pageChanged(rev: ShareJSON.int(e.data["rev"]), by: SharePerson(e.data["by"]), gone: ShareJSON.bool(e.data["gone"]))
+            pageChanged(rev: ShareJSON.int(e.data["rev"]), by: SharePerson(e.data["by"]), gone: ShareJSON.bool(e.data["gone"]),
+                        meta: ShareJSON.bool(e.data["meta"]))
         case "presence" where ShareJSON.int(e.data["note_id"]) == id:
             applyPresence(e.data["users"] as? [Any])
         case "comments.changed" where ShareJSON.int(e.data["note_id"]) == id:
@@ -1513,6 +1580,10 @@ struct NativePageScreen: View {
         .modifier(TaskSourceAsk(db: id, trigger: $taskSrcAsk))
         // gesperrt (Eigentuemer) oder Rolle Lesen/Kommentieren: schreibgeschuetzt, ohne Platzhalter und Griffe
         .onChange(of: pageLocked || doc.access.readOnly, initial: true) { _, v in ed.locked = v; if v { ed.focus = nil } }
+        // 2.5 (Bugs-DB 2121): entsperrt (hier oder anderswo), Eingaben noch offen (z. B. nach 423) -> jetzt speichern
+        .onChange(of: pageLocked) { was, now in
+            if PageMetaLogic.saveAfterUnlock(wasLocked: was, locked: now, dirty: doc.dirty) { Task { await ed.flush() } }
+        }
         .onChange(of: doc.access, initial: true) { _, a in ed.applyAccess(a) }
         .onChange(of: ed.commentBlock) { _, b in if let b { ed.commentBlock = nil; Task { await ed.flush(); commentsTarget = CommentsTarget(block: b) } } }
         .modifier(CommentsPresenter(target: $commentsTarget, inPeek: inPeek, doc: doc, ed: ed, store: store))

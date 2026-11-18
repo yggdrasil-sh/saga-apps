@@ -295,6 +295,8 @@ struct DatabaseView: View {
         // wenn die Datenbank-Seite selbst offen ist), zurueck im Vordergrund bzw. Live-Kanal wieder verbunden -> neu laden
         .onReceive(store.live.events) { e in
             if LiveLogic.dbRowsChanged(e.type, e.data, db: dbID) { m.reloadSoon(store) }
+            // 2.5 (Bugs-DB 2121): Titelbild/Symbol/Sperre einer angezeigten Zeile (Karten) - kommt als notes.tree, nicht db.rows
+            else if e.type == "notes.tree", PageMetaLogic.treeTouches(e.data, rows: Set(m.rows.map(\.id))) { m.reloadSoon(store) }
         }
         .onChange(of: phase) { _, p in if p == .active { m.reloadSoon(store) } }
         .onReceive(store.live.$connected.removeDuplicates().dropFirst()) { c in if c { m.reloadSoon(store) } }   // LiveHub eigenes Objekt

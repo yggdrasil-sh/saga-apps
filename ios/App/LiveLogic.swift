@@ -95,7 +95,8 @@ enum LiveLogic {
         return now.timeIntervalSince(t) < 30
     }
     /// note.changed / presence-rev: was tun mit der offenen Seite?
-    enum PageChange: Equatable { case ignore, reloadSilently, ask, gone }
+    /// refreshHeader (2.5, Bugs-DB 2121): nur Kopf-Felder geaendert (meta) - still nachziehen, Inhalt bleibt (PageMetaLogic)
+    enum PageChange: Equatable { case ignore, reloadSilently, ask, gone, refreshHeader }
     static func pageChange(eventRev: Int?, ownRev: Int, dirty: Bool, gone: Bool) -> PageChange {
         if gone { return .gone }
         guard let r = eventRev, r > ownRev else { return .ignore }
