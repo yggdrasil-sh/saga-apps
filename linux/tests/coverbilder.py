@@ -78,7 +78,8 @@ def menu_shot(g):
     if NEW:
         pop = g["win"].current.cover.bar.get_first_child().get_popover()
         labels = [x.get_label() for x in _walk(pop) if isinstance(x, Gtk.Label)] if pop else []
-        check("Menue mit Galerie", "Galerie …" in labels or "Gallery …" in labels)
+        from hlidskjalf.i18n import _
+        check("Menue mit Galerie", _("Gallery …") in labels)
 
 
 def gallery_open(g):
