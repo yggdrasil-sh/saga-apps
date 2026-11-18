@@ -336,3 +336,62 @@ def test_dialog_404_closes_and_errors(win, srv):
     pump(lambda: win.get_visible_dialog() is None, 4)
     assert win.get_visible_dialog() is None, (win.get_visible_dialog() is d2, d2.stack.get_visible_child_name())
     assert coverdialog.offered() is False
+
+
+# --- Pruefung (pruef-galerie-linux): Randfaelle Lebenszyklus, Sperre, 423 -------------------------------------------
+def test_user_closes_before_404(win, srv, capfd):
+    """Dialog geschlossen, bevor die 404 ankommt: kein GTK-Fehler, kein haengender Dialog, Galerie danach aus"""
+    srv.covers_api = True
+    v = _open(win, 3)
+    assert _probed(srv)
+    from hlidskjalf import coverdialog
+    from hlidskjalf.coverdialog import CoverGalleryDialog
+    srv.covers_api = 404
+    srv.delay["GET api/covers"] = 1.0
+    d = CoverGalleryDialog(v)
+    d.present(win)
+    pump(None, 0.4)
+    d.close()
+    assert pump(lambda: win.get_visible_dialog() is None, 3)
+    capfd.readouterr()
+    pump(None, 2.0)
+    idle()
+    err = capfd.readouterr().err
+    assert win.get_visible_dialog() is None
+    assert coverdialog.offered() is False
+    assert "CRITICAL" not in err and "Traceback" not in err, err
+
+
+def test_locked_while_dialog_open(win, srv):
+    """Sperre kommt an, waehrend der Dialog offen ist: die Auswahl speichert nichts"""
+    srv.covers_api = True
+    v = _open(win, 3)
+    assert _probed(srv)
+    from hlidskjalf.coverdialog import CoverGalleryDialog
+    before = srv.notes[3].get("cover")
+    CoverGalleryDialog(v).present(win)
+    d = _dialog(win)
+    srv.log.clear()
+    v.editor.locked = True
+    d.flows[0].emit("child-activated", d.tiles["saga-fjord"])
+    pump(None, 1.0)
+    idle()
+    assert srv.notes[3].get("cover") == before
+    assert not [x for x in srv.log if x[0] == "PATCH" and "api/notes/3" in x[1]]
+
+
+def test_patch_423_message(win, srv):
+    """Server lehnt das Titelbild ab (gesperrt, Server ab Bug 2124: 423): Meldung des Servers als Hinweis, nicht gespeichert"""
+    srv.covers_api = True
+    v = _open(win, 3)
+    assert _probed(srv)
+    toasts = []
+    win.toast = toasts.append
+    srv.fail["PATCH api/notes/3"] = 423
+    from hlidskjalf.coverdialog import CoverGalleryDialog
+    CoverGalleryDialog(v).present(win)
+    d = _dialog(win)
+    d.flows[0].emit("child-activated", d.tiles["saga-fjord"])
+    assert pump(lambda: toasts, 4)
+    assert toasts == ["mock 423"]
+    assert srv.notes[3].get("cover") != "/covers/saga-fjord.jpg"
