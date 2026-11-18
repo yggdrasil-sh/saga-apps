@@ -69,7 +69,8 @@ struct ChatRichText: View {
             case .text(let t): a = AttributedString(t)
             case .note(let id):
                 let n = conv.notes[id]
-                a = AttributedString((n?.icon.isEmpty == false ? n!.icon + " " : "📄 ") + (n?.title ?? String(localized: "Seite")))
+                // Bild-Symbol (/files/, 2.5 Siegel): nicht als Pfad-Text, dann das Standardsymbol
+                a = AttributedString((SiegelLogic.textSymbol(n?.icon).map { $0 + " " } ?? "📄 ") + (n?.title ?? String(localized: "Seite")))
                 if n?.icon != "🔒" { a.link = URL(string: "hkchatnote://\(id)"); a.foregroundColor = Color.gold; a.underlineStyle = .single }
                 else { a.foregroundColor = .secondary }
             case .url(let u):

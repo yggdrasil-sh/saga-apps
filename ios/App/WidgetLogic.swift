@@ -548,7 +548,8 @@ enum WidgetLogic {
             let title = String((x["title"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))
             var icon = (x["icon"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             // Symbol: Bild vom eigenen Server oder ein Emoji (hoechstens 4 Zeichen); alles andere -> Standardsymbol
-            if icon.hasPrefix("/") { if !subImagePathOK(icon) || isGalleryCover(icon) { icon = "" } } else if icon.count > 4 { icon = "" }
+            // 2.5: auch Saga-Siegel (/siegel/...svg, als PNG geladen)
+            if icon.hasPrefix("/") { if !(subImagePathOK(icon) || SiegelLogic.isDisplayPath(icon)) || isGalleryCover(icon) { icon = "" } } else if icon.count > 4 { icon = "" }
             let img = (x["img"] as? String).flatMap { subImagePathOK($0) ? $0 : nil }
             s.items.append(.init(id: id, title: title, icon: icon, img: img, database: (x["kind"] as? String) == "database"))
         }

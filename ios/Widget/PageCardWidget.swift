@@ -71,10 +71,10 @@ struct PageCardProvider: AppIntentTimelineProvider {
         guard let pages = try? await API.pages() else { return e }                // offline: Namen aus der Auswahl zeigen
         guard let p = pages.first(where: { $0.id == sel.id }) else { e.hint = String(localized: "Seite gelöscht"); return e }
         e.title = p.title.isEmpty ? String(localized: "Unbenannt") : p.title
-        e.emoji = p.emoji ?? (p.icon.hasPrefix("/files/") ? nil : (p.isDatabase ? "🗂" : "📄"))
+        e.emoji = p.emoji ?? (p.imageIcon ? nil : (p.isDatabase ? "🗂" : "📄"))
         e.coverPos = p.cover_pos ?? 50
         async let cov = API.pageImage(p.id, "cover")                                      // ohne Titelbild: erstes Bild im Inhalt
-        async let ico = p.icon.hasPrefix("/files/") ? API.pageImage(p.id, "icon") : nil
+        async let ico = p.imageIcon ? API.pageImage(p.id, "icon") : nil        // 2.5: Siegel liefert der Server als PNG
         e.cover = thumb(await cov, max: 900)
         e.iconImage = thumb(await ico, max: 120)
         return e

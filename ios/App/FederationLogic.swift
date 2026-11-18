@@ -51,8 +51,10 @@ enum FedLogic {
         return Int(href[r].split(separator: "#").last ?? "")
     }
 
-    /// Bild fremder Seiten: /api/fed/files/{id}/{fid} (mit Sitzung, ?w= fuer Vorschaubilder wie bei /files/)
-    static func isImagePath(_ p: String) -> Bool { p.hasPrefix("/files/") || p.hasPrefix("/api/fed/files/") }
+    /// Bild fremder Seiten: /api/fed/files/{id}/{fid} (mit Sitzung, ?w= fuer Vorschaubilder wie bei /files/).
+    /// 2.5: Saga-Siegel (/siegel/...svg) ebenfalls als Bild - mit ?w= liefert der Server PNG; auch bei fremden Seiten vom
+    /// eigenen Server (dieselben Dateien auf jedem Saga-Server, kein Proxy)
+    static func isImagePath(_ p: String) -> Bool { p.hasPrefix("/files/") || p.hasPrefix("/api/fed/files/") || SiegelLogic.isDisplayPath(p) }
 
     /// Verschieben einer geteilten Seite (Rolle Bearbeiten, 2.3): Ziele aus "Mit mir geteilt" desselben Eigentuemers bzw.
     /// desselben Servers, bearbeitbar, keine Datenbank/Zeile, nicht die Seite selbst, ihre Unterseiten oder die jetzige

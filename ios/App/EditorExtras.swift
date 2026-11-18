@@ -95,6 +95,8 @@ struct MentionItem: Identifiable {
     let insert: AttributedString
     /// 2.5: Person ohne Zugriff -> erst "Seite teilen und erwaehnen?"
     var share: MentionPerson? = nil
+    /// 2.5: Bild-Symbol der Seite (/files/, Saga-Siegel) - statt des Ersatz-Emojis als Bild zeigen
+    var image: String? = nil
 }
 
 @MainActor
@@ -146,7 +148,8 @@ func mentionItems(_ t: HKTrigger, store: Store, font: Font, people: [MentionPers
         let pages = store.pages.filter { nq.isEmpty || hkNorm($0.label).contains(nq) }.prefix(q.isEmpty ? 4 : 6)
         for p in pages {
             out.append(MentionItem(icon: (p.icon?.count ?? 0) <= 4 && !(p.icon ?? "").isEmpty ? p.icon! : (p.isDatabase ? "🗃️" : "📄"),
-                                   title: p.label, hint: String(localized: "Seite"), insert: run(p.label, URL(string: "hkpage://\(p.id)"))))
+                                   title: p.label, hint: String(localized: "Seite"), insert: run(p.label, URL(string: "hkpage://\(p.id)")),
+                                   image: p.icon.flatMap { FedLogic.isImagePath($0) ? $0 : nil }))
         }
         return out
     }
@@ -162,7 +165,9 @@ struct MentionMenu: View {
             ForEach(Array(items.enumerated()), id: \.element.id) { i, it in
                 Button { pick(it) } label: {
                     HStack(spacing: 8) {
-                        Text(it.icon).frame(width: 22)
+                        if let img = it.image {
+                            RemoteImage(path: img, fill: true, w: 64).frame(width: 20, height: 20).clipShape(RoundedRectangle(cornerRadius: 4)).frame(width: 22)
+                        } else { Text(it.icon).frame(width: 22) }
                         Text(it.title).lineLimit(1)
                         Spacer(minLength: 8)
                         if !it.hint.isEmpty { Text(it.hint).font(.caption).foregroundStyle(.secondary) }

@@ -1244,7 +1244,8 @@ struct MessageBubble: View {
             case .text(let s): a += AttributedString(s)
             case .note(let id):
                 let n = conv.notes[id]
-                var x = AttributedString((n?.icon.isEmpty == false ? n!.icon + " " : "📄 ") + (n?.title ?? String(localized: "Seite")))
+                // Bild-Symbol (/files/, 2.5 Siegel): nicht als Pfad-Text, dann das Standardsymbol
+                var x = AttributedString((SiegelLogic.textSymbol(n?.icon).map { $0 + " " } ?? "📄 ") + (n?.title ?? String(localized: "Seite")))
                 if n?.icon != "🔒" { x.link = URL(string: "hkchatnote://\(id)"); x.foregroundColor = Color.gold; x.underlineStyle = .single }
                 else { x.foregroundColor = .secondary }
                 a += x
@@ -1776,7 +1777,7 @@ struct PagePickSheet: View {
     var body: some View {
         NavigationStack {
             List(pages, id: \.0) { p in
-                Button { picked(p.0, p.1); dismiss() } label: { Text(verbatim: (p.2.isEmpty ? "📄" : p.2) + " " + p.1) }
+                Button { picked(p.0, p.1); dismiss() } label: { HStack(spacing: 8) { PageIcon(icon: p.2.isEmpty ? nil : p.2, store: store); Text(verbatim: p.1) } }   // 2.5: Bild/Siegel als Bild
             }
             .searchable(text: $q, prompt: Text("Seiten durchsuchen"))
             .navigationTitle("Seite verlinken")

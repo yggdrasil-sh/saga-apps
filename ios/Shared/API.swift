@@ -7,6 +7,8 @@ struct AppPage: Codable, Hashable {
     var isDatabase: Bool { kind == "database" }
     /// Symbol nur, wenn es ein Emoji ist (eigene Bilder koennen Widgets nicht laden)
     var emoji: String? { icon.isEmpty || icon.count > 4 || icon.hasPrefix("/") ? nil : icon }
+    /// Bild-Symbol, das GET /api/app/page-image/{id}/icon als Bild liefert: eigenes Bild bzw. (2.5) Saga-Siegel (PNG)
+    var imageIcon: Bool { icon.hasPrefix("/files/") || icon.hasPrefix("/siegel/") }
 }
 
 enum APIError: LocalizedError {
