@@ -1709,8 +1709,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     if (!live(c) || c.done) return@launch
                     // 2.4: jede Verbindung des Raums neu aufbauen
                     for (l in links(c)) if (CallV3.restartOnNetwork(prev?.toString(), network.toString(), l.connected, reneg(l))) {
+                        val before = _ui.value
                         update(l, UiText.Res(R.string.call_net_restart), reconnecting = true)
                         restartIce(l, "network")
+                        // pruef-apps-abend N1: kein Restart offen (Angebot laeuft schon bzw. Hoechstzahl erreicht) - dann nimmt
+                        // weder settle noch ICE "connected" den Hinweis zurueck: gleich wieder wie vorher
+                        if (!l.rst.open) update(l, before?.message, reconnecting = before?.reconnecting ?: false)
                     }
                 }
             }
