@@ -58,14 +58,46 @@ data class PresenceUser(
 
 /** Reine Regeln fuer fremde Aenderungen an der offenen Seite (Tests) */
 object PageLiveLogic {
-    enum class Action { NONE, RELOAD_SILENT, SHOW_BANNER, GONE }
+    /** REFRESH_HEADER (2.5, Bugs-DB 2121): nur Kopf-Felder anderswo geaendert (meta) - still nachziehen, Inhalt bleibt */
+    enum class Action { NONE, RELOAD_SILENT, SHOW_BANNER, GONE, REFRESH_HEADER }
 
-    /** note.changed: neuere Revision ohne eigene ungespeicherte Aenderungen -> still neu laden; sonst Hinweis */
-    fun onChanged(theirRev: Int?, ownRev: Int?, dirty: Boolean, gone: Boolean): Action = when {
+    /**
+     * note.changed: neuere Revision ohne eigene ungespeicherte Aenderungen -> still neu laden; sonst Hinweis.
+     * meta (Server 2.5: Symbol, Titelbild, Sperre, Eigenschaften ... - rev gleich) bzw. Anwesenheit mit neuerem Stand
+     * bei gleicher Revision -> Kopf nachziehen (eine neuere Revision geht vor, sie bringt den Kopf ohnehin mit)
+     */
+    fun onChanged(theirRev: Int?, ownRev: Int?, dirty: Boolean, gone: Boolean, meta: Boolean = false): Action = when {
         gone -> Action.GONE
-        theirRev == null || ownRev == null || theirRev <= ownRev -> Action.NONE
-        dirty -> Action.SHOW_BANNER
-        else -> Action.RELOAD_SILENT
+        theirRev != null && ownRev != null && theirRev > ownRev -> if (dirty) Action.SHOW_BANNER else Action.RELOAD_SILENT
+        meta && ownRev != null -> Action.REFRESH_HEADER
+        else -> Action.NONE
+    }
+
+    /** Anwesenheit ohne Live-Kanal: Stand (updated, s) neuer als der bekannte -> Kopf geaendert (Rundung nicht als neu) */
+    fun headerNewer(updated: Double?, known: Double?): Boolean {
+        if (updated == null || updated <= 0) return false
+        return known == null || updated > known + 0.0005
+    }
+
+    /** Titelfeld fokussiert: Server-Titel nicht ins Feld schreiben, sondern vormerken -> (angezeigt, vorgemerkt) */
+    fun title(local: String, server: String, focused: Boolean): Pair<String, String?> = when {
+        server == local -> local to null
+        focused -> local to server
+        else -> server to null
+    }
+
+    /** Titelfeld verlassen: vorgemerkten Titel uebernehmen, wenn seitdem nicht getippt wurde (kept = Titel beim Vormerken) */
+    fun titleOnBlur(shown: String, kept: String, pending: String?): String? =
+        if (pending != null && shown == kept && pending != shown) pending else null
+
+    /** Entsperrt (hier oder anderswo) mit offenen Eingaben (z. B. nach 423) -> jetzt speichern */
+    fun saveAfterUnlock(wasLocked: Boolean, locked: Boolean, dirty: Boolean): Boolean = wasLocked && !locked && dirty
+
+    /** notes.tree {ids, full}: betrifft es eine angezeigte Zeile (Titelbild/Symbol/Sperre einer Karte)? */
+    fun treeTouches(data: JsonObject, rows: Set<Long>): Boolean {
+        if ((data["full"] as? JsonPrimitive)?.booleanOrNull == true) return rows.isNotEmpty()
+        val ids = data["ids"] as? JsonArray ?: return false
+        return ids.any { (it as? JsonPrimitive)?.contentOrNull?.toLongOrNull()?.let(rows::contains) == true }
     }
 
     /** editing:true nur in den ersten 30 s nach einer Eingabe und nur mit Rolle owner/edit */
@@ -157,6 +189,17 @@ fun rememberPageLive(id: Long, repo: SagaRepository, ed: PageEditor, comments: C
         if (ed.dirty) st.changedBy = name else reloadSilently(name)
     }
 
+    /** 2.5 (Bugs-DB 2121): nur der Kopf wurde geaendert - still nachziehen; neuere Revision inzwischen -> wie oben */
+    suspend fun refreshHeader(name: String) {
+        try {
+            if (!ed.refreshHeader()) follow(name)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // offline/Fehler: das naechste Ereignis bzw. Oeffnen holt es nach
+        }
+    }
+
     // Block-Anwesenheit: eigene Seiten (Server ab 2.5 kennt "block", aeltere ignorieren es), fremde mit presence2
     val blockPresence = sendPresence && (id > 0 || ed.can("presence2"))
     val throttle = remember(ed) { PresenceThrottle() }
@@ -175,8 +218,12 @@ fun rememberPageLive(id: Long, repo: SagaRepository, ed: PageEditor, comments: C
         if (o != null && (o["skipped"] as? JsonPrimitive)?.booleanOrNull != true) {
             st.users = PageLiveLogic.users(o["users"] as? JsonArray)
             val rev = (o["rev"] as? JsonPrimitive)?.intOrNull
-            when (PageLiveLogic.onChanged(rev, ed.currentRev, ed.dirty, false)) {
+            // ohne Live-Kanal: neuerer Stand bei gleicher Revision = Kopf anderswo geaendert (Symbol, Titelbild, Sperre ...)
+            val meta = !repo.live.connected.value &&
+                PageLiveLogic.headerNewer((o["updated"] as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull(), ed.updatedAt)
+            when (PageLiveLogic.onChanged(rev, ed.currentRev, ed.dirty, false, meta)) {
                 PageLiveLogic.Action.RELOAD_SILENT, PageLiveLogic.Action.SHOW_BANNER -> follow(byName(o))
+                PageLiveLogic.Action.REFRESH_HEADER -> refreshHeader(byName(o))
                 else -> {}
             }
         }
@@ -240,9 +287,10 @@ fun rememberPageLive(id: Long, repo: SagaRepository, ed: PageEditor, comments: C
             when (ev.type) {
                 "note.changed" -> if (ev.long("id") == id) {
                     val name = byName(ev.data)
-                    when (PageLiveLogic.onChanged(ev.int("rev"), ed.currentRev, ed.dirty, ev.bool("gone"))) {
+                    when (PageLiveLogic.onChanged(ev.int("rev"), ed.currentRev, ed.dirty, ev.bool("gone"), ev.bool("meta"))) {
                         PageLiveLogic.Action.GONE -> ed.load()
                         PageLiveLogic.Action.RELOAD_SILENT, PageLiveLogic.Action.SHOW_BANNER -> follow(name)
+                        PageLiveLogic.Action.REFRESH_HEADER -> refreshHeader(name)
                         PageLiveLogic.Action.NONE -> {}
                     }
                 }

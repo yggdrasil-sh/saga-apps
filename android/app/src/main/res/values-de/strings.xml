@@ -154,7 +154,7 @@
     <string name="page_reload_failed">Neu laden fehlgeschlagen: %1$s</string>
     <string name="page_unreadable">Seiteninhalt nicht lesbar</string>
     <string name="save_sign_in">Nicht gespeichert – bitte anmelden.</string>
-    <string name="save_locked">Seite ist gesperrt – Änderung nicht gespeichert.</string>
+    <string name="save_locked">Nicht gespeichert: Die Seite ist gesperrt. Deine Änderungen bleiben auf diesem Gerät als Entwurf erhalten.</string>
     <string name="save_failed">Nicht gespeichert: %1$s</string>
     <string name="save_failed_retry">Nicht gespeichert: %1$s – neuer Versuch gleich.</string>
 

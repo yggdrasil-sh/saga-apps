@@ -155,7 +155,7 @@
     <string name="page_reload_failed">Error al recargar: %1$s</string>
     <string name="page_unreadable">No se puede leer el contenido de la página</string>
     <string name="save_sign_in">No guardado: inicia sesión.</string>
-    <string name="save_locked">La página está bloqueada: cambio no guardado.</string>
+    <string name="save_locked">No se guardó: la página está bloqueada. Tus cambios se conservan en este dispositivo como borrador.</string>
     <string name="save_failed">No guardado: %1$s</string>
     <string name="save_failed_retry">No guardado: %1$s. Se reintentará en breve.</string>
 

@@ -185,6 +185,12 @@ class PageEditor(
         private set
     var locked by mutableStateOf(false)
         private set
+    /** 2.5 (Bugs-DB 2121): eigenes Titelbild wird gerade hochgeladen - Kopf-Auffrischung laesst es dann stehen */
+    var coverBusy = false
+    /** Titelfeld fokussiert (PageScreen): fremder Titel wird dann vorgemerkt statt ins Feld geschrieben */
+    private var titleFocused = false
+    private var pendingTitle: String? = null
+    private var pendingTitleKept = ""
     var pinned by mutableStateOf(false)
     /** Vorlage (nicht veroeffentlichbar) */
     var template by mutableStateOf(false)
@@ -380,7 +386,9 @@ class PageEditor(
     private fun apply(p: JsonObject, parsed: BlockDoc.Parsed) {
         val bodyEl = p["body"] as? JsonPrimitive
         val body = if (bodyEl != null && bodyEl.isString) bodyEl.content else null
-        title = BlockDoc.str(p, "title")
+        val (shown, pend) = PageLiveLogic.title(title, BlockDoc.str(p, "title"), titleFocused && fetched)
+        if (pend != null) { pendingTitle = pend; pendingTitleKept = shown } else if (!titleFocused) pendingTitle = null
+        title = shown
         icon = BlockDoc.str(p, "icon")
         applyHeader(p)
         font = Gestalten.pageFont(p)
@@ -421,6 +429,52 @@ class PageEditor(
         baseSentNext = false
         fetched = true
         error = null
+    }
+
+    /**
+     * 2.5 (Bugs-DB 2121): nur der Seitenkopf wurde anderswo geaendert (note.changed meta) - Symbol, Titelbild + Position,
+     * Sperre, Eigenschaften, Schrift, Tags, Freigabe still uebernehmen; Inhalt, Titel und Eingaben bleiben.
+     * -> false, wenn der Server inzwischen eine neuere Revision hat (dann wie eine Inhaltsaenderung behandeln).
+     */
+    suspend fun refreshHeader(): Boolean {
+        if (!fetched || noAccess || lost != null) return true
+        val known = rev
+        val p = repo.withPageLock(id) { repo.loadPageSince(id, if (known != null && !isDatabase && canMerge) known else null) }
+        if (rev != known) return true                         // inzwischen gespeichert/neu geladen: dabei bleibt es
+        val theirs = BlockDoc.int(p, "rev")
+        if (theirs != null && known != null && theirs > known) return false
+        val wasLocked = locked
+        icon = BlockDoc.str(p, "icon")
+        if (!coverBusy) applyHeader(p)
+        font = Gestalten.pageFont(p)
+        small = Gestalten.pageSmall(p)
+        styleSupported = Gestalten.pageStyleSupported(p)
+        tags = (p["tags"] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf { t -> t.isNotBlank() } }
+        locked = BlockDoc.bool(p, "locked")
+        if (locked) active = null                            // gesperrt: Bearbeiten sofort beenden (Eingaben bleiben)
+        pinned = BlockDoc.bool(p, "pinned")
+        template = BlockDoc.bool(p, "template")
+        publishSupported = Publish.supported(p)
+        published = BlockDoc.bool(p, "published")
+        publicUrl = BlockDoc.str(p, "public_url").ifEmpty { null }
+        publishedVia = Publish.via(p)
+        share = PageShareInfo.of(p)
+        parentId = (p["parent_id"] as? JsonPrimitive)?.content?.toLongOrNull()
+        props = rowProps(p, parentId)
+        rowMeta = RowMeta.of(p)
+        updatedAt = (p["updated"] as? JsonPrimitive)?.content?.toDoubleOrNull() ?: updatedAt
+        if (PageLiveLogic.saveAfterUnlock(wasLocked, locked, dirty)) requestSave()   // z. B. nach 423 hier getippt
+        return true
+    }
+
+    /** Titelfeld fokussiert/verlassen: beim Verlassen den vorgemerkten Server-Titel nachziehen (wenn nicht getippt) */
+    fun titleFocusChanged(on: Boolean) {
+        if (on == titleFocused) return
+        titleFocused = on
+        if (on) return
+        val t = PageLiveLogic.titleOnBlur(title, pendingTitleKept, pendingTitle)
+        pendingTitle = null
+        if (t != null) title = t
     }
 
     /** Neuer Stand aus dem Dialog "Veroeffentlichen" -> Hinweis "Oeffentlich" im Seitenkopf */
@@ -1411,10 +1465,13 @@ class PageEditor(
 
     suspend fun setLocked(on: Boolean) {
         if (on) saveAndWait()                                // erst speichern, dann sperren (wie im Web)
+        val was = locked
         repo.setLocked(id, on)
         locked = on
         if (on) active = null
         error = null
+        // 2.5 (Bugs-DB 2121): nach 423 liegen Eingaben noch offen - mit dem Entsperren speichern
+        if (PageLiveLogic.saveAfterUnlock(was, on, dirty)) requestSave()
     }
 }
 

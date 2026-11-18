@@ -137,7 +137,7 @@
     <string name="page_reload_failed">โหลดซ้ำไม่สำเร็จ: %1$s</string>
     <string name="page_unreadable">อ่านเนื้อหาของหน้าไม่ได้</string>
     <string name="save_sign_in">ไม่ได้บันทึก โปรดเข้าสู่ระบบ</string>
-    <string name="save_locked">หน้านี้ถูกล็อก การเปลี่ยนแปลงไม่ได้บันทึก</string>
+    <string name="save_locked">ไม่ได้บันทึก: หน้าถูกล็อก การเปลี่ยนแปลงของคุณเก็บไว้เป็นฉบับร่างบนอุปกรณ์นี้</string>
     <string name="save_failed">บันทึกไม่ได้: %1$s</string>
     <string name="save_failed_retry">ไม่ได้บันทึก: %1$s จะลองใหม่ในอีกสักครู่</string>
     <string name="block_insert">แทรกบล็อก</string>

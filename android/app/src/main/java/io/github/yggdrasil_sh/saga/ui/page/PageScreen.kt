@@ -363,7 +363,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     // dem Seitenmenue gehen, waehrend der Kopf weggescrollt (nicht komponiert) ist
     val head = remember(ed) { HeaderUi() }
     if (head.iconPicker) IconPickerDialog(ed, repo) { head.iconPicker = false }
-    val pickCover = rememberHeaderImagePick(ed, repo, { head.coverBusy = it }) { u ->
+    val pickCover = rememberHeaderImagePick(ed, repo, { head.coverBusy = it; ed.coverBusy = it }) { u ->
         ed.setHeader(kotlinx.serialization.json.buildJsonObject { put("cover", kotlinx.serialization.json.JsonPrimitive(u)); put("cover_pos", kotlinx.serialization.json.JsonPrimitive(50.0)) })
     }
     // 2.5 Titelbild-Galerie: "Titelbild hinzufuegen" oeffnet die Galerie (mit "Zufällig" und "Bild hochladen …"),
@@ -1110,6 +1110,7 @@ private fun PageTitleField(ed: PageEditor, repo: SagaRepository, head: HeaderUi,
         modifier = modifier.fillMaxWidth().semantics { heading() }   // A11Y-02
             .onFocusChanged { f ->
                 head.titleFocused = f.isFocused
+                ed.titleFocusChanged(f.isFocused)                // fremder Titel erst nach dem Verlassen (Bugs-DB 2121)
                 if (f.isFocused) head.firstTitleFocus = true
             },
         decorationBox = { inner ->

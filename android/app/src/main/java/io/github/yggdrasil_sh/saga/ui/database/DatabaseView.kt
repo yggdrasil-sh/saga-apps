@@ -121,7 +121,7 @@ fun rememberDbViewState(dbId: Long, repo: SagaRepository): DbViewState {
     // Live: Zeile/Datenbank auf einem anderen Geraet oder von einer anderen Person geaendert
     LaunchedEffect(st) {
         repo.live.events.collect { ev ->
-            if (DbLive.rowsChanged(ev.type, ev.long("id"), ev.long("db"), dbId) || ev.type == "reset") st.reload(debounce = 500)
+            if (DbLive.rowsChanged(ev.type, ev.long("id"), ev.long("db"), dbId) || ev.type == "reset" || DbLive.cardsTouched(ev.type, ev.data, st)) st.reload(debounce = 500)
         }
     }
     // 4.11.: Live-Kanal wieder verbunden (Vordergrund, Netzwechsel) - Verpasstes nachholen
@@ -149,7 +149,7 @@ fun rememberEmbeddedDbState(dbId: Long, repo: SagaRepository, data: kotlinx.seri
     LaunchedEffect(st) { repo.dbStore.changes.drop(1).collect { st.onStoreChange(it) } }
     LaunchedEffect(st) {
         repo.live.events.collect { ev ->
-            if (DbLive.rowsChanged(ev.type, ev.long("id"), ev.long("db"), dbId) || ev.type == "reset") st.reload(debounce = 500)
+            if (DbLive.rowsChanged(ev.type, ev.long("id"), ev.long("db"), dbId) || ev.type == "reset" || DbLive.cardsTouched(ev.type, ev.data, st)) st.reload(debounce = 500)
         }
     }
     // 4.11.: Live-Kanal wieder verbunden (Vordergrund, Netzwechsel) - Verpasstes nachholen
@@ -1108,5 +1108,15 @@ object DbLive {
         "db.rows" -> db == dbId
         "note.changed" -> id == dbId
         else -> false
+    }
+
+    /** 2.5 (Bugs-DB 2121): Titelbild/Symbol/Sperre einer angezeigten Zeile (Karten) - kommt als notes.tree, nicht db.rows */
+    fun cardsTouched(type: String, data: kotlinx.serialization.json.JsonObject, st: DbViewState): Boolean {
+        if (type != "notes.tree") return false
+        val ids = HashSet<Long>()
+        st.rows.forEach { ids.add(it.id) }
+        st.monthRows.forEach { ids.add(it.id) }
+        st.columns.values.forEach { c -> c.rows.forEach { ids.add(it.id) } }
+        return io.github.yggdrasil_sh.saga.ui.page.PageLiveLogic.treeTouches(data, ids)
     }
 }

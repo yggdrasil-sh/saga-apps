@@ -140,7 +140,7 @@
     <string name="page_reload_failed">Не удалось перезагрузить: %1$s</string>
     <string name="page_unreadable">Не удаётся прочитать содержимое страницы</string>
     <string name="save_sign_in">Не сохранено – войди в аккаунт.</string>
-    <string name="save_locked">Страница заблокирована – изменение не сохранено.</string>
+    <string name="save_locked">Не сохранено: страница заблокирована. Твои изменения сохранены на этом устройстве как черновик.</string>
     <string name="save_failed">Не сохранено: %1$s</string>
     <string name="save_failed_retry">Не сохранено: %1$s – скоро будет новая попытка.</string>
     <string name="block_insert">Вставить блок</string>

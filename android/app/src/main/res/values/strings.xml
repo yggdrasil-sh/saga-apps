@@ -158,7 +158,7 @@
     <string name="page_reload_failed">Reload failed: %1$s</string>
     <string name="page_unreadable">Page content can\'t be read</string>
     <string name="save_sign_in">Not saved – please sign in.</string>
-    <string name="save_locked">Page is locked – change not saved.</string>
+    <string name="save_locked">Not saved: the page is locked. Your changes are kept on this device as a draft.</string>
     <string name="save_failed">Not saved: %1$s</string>
     <string name="save_failed_retry">Not saved: %1$s – retrying shortly.</string>
 
