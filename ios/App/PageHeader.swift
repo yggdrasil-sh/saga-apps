@@ -323,34 +323,37 @@ struct IconPicker: View {
     static func randomEmoji() -> String { Array(emojis).randomElement().map(String.init) ?? "📄" }
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack {
-                        TextField("Beliebiges Emoji eingeben", text: $custom).textFieldStyle(.roundedBorder)
-                            .onChange(of: custom) { _, v in if let f = v.first, f.unicodeScalars.contains(where: { $0.properties.isEmojiPresentation || $0.properties.isEmoji && $0.value > 0x238C }) { set(String(f)) } }
-                        PhotosPicker(selection: $pick, matching: .images) { Label("Bild", systemImage: "photo") }
-                        Button { immich = true } label: { Label("Immich", systemImage: "photo.on.rectangle.angled") }
-                    }
-                    .disabled(uploading)
-                    if uploading { ProgressView("Wird hochgeladen …").frame(maxWidth: .infinity) }
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 8), spacing: 6) {
-                        ForEach(Array(Self.emojis).map(String.init), id: \.self) { e in
-                            Button { set(e) } label: { Text(e).font(.system(size: 28)).frame(maxWidth: .infinity, minHeight: 40) }.buttonStyle(.plain)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack {
+                            TextField("Beliebiges Emoji eingeben", text: $custom).textFieldStyle(.roundedBorder)
+                                .onChange(of: custom) { _, v in if let f = v.first, f.unicodeScalars.contains(where: { $0.properties.isEmojiPresentation || $0.properties.isEmoji && $0.value > 0x238C }) { set(String(f)) } }
+                            PhotosPicker(selection: $pick, matching: .images) { Label("Bild", systemImage: "photo") }
+                            Button { immich = true } label: { Label("Immich", systemImage: "photo.on.rectangle.angled") }
+                        }
+                        .disabled(uploading)
+                        if uploading { ProgressView("Wird hochgeladen …").frame(maxWidth: .infinity) }
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 8), spacing: 6) {
+                            ForEach(Array(Self.emojis).map(String.init), id: \.self) { e in
+                                Button { set(e) } label: { Text(e).font(.system(size: 28)).frame(maxWidth: .infinity, minHeight: 40) }.buttonStyle(.plain)
+                            }
+                        }
+                        // 2.5 (Bugs-DB 2156): Saga-Siegel - nur mit siegel1 (eigener Server, bei fremden Seiten auch deren Server)
+                        if SiegelLogic.offered(own: store.features.set, remote: doc.access.remote, remoteCaps: doc.access.remoteCaps.set) {
+                            Divider()
+                            SiegelSection(current: doc.icon) { set($0) }.disabled(uploading).id("siegel")
+                            Divider()
+                        }
+                        HStack {
+                            Button { set(Self.randomEmoji()) } label: { Label("Zufällig", systemImage: "shuffle") }
+                            Spacer()
+                            if doc.icon?.isEmpty == false { Button("Symbol entfernen", role: .destructive) { set("") } }
                         }
                     }
-                    // 2.5 (Bugs-DB 2156): Saga-Siegel - nur mit siegel1 (eigener Server, bei fremden Seiten auch deren Server)
-                    if SiegelLogic.offered(own: store.features.set, remote: doc.access.remote, remoteCaps: doc.access.remoteCaps.set) {
-                        Divider()
-                        SiegelSection(current: doc.icon) { set($0) }.disabled(uploading)
-                        Divider()
-                    }
-                    HStack {
-                        Button { set(Self.randomEmoji()) } label: { Label("Zufällig", systemImage: "shuffle") }
-                        Spacer()
-                        if doc.icon?.isEmpty == false { Button("Symbol entfernen", role: .destructive) { set("") } }
-                    }
+                    .padding()
                 }
-                .padding()
+                .onAppear { if preview { Task { try? await Task.sleep(for: .seconds(1)); proxy.scrollTo("siegel", anchor: .top) } } }   // nur Bilder
             }
             .navigationTitle("Symbol")
             .sheet(isPresented: $immich) { ImmichPicker(note: doc.uploadNote) { url in set(url) }.environmentObject(store) }

@@ -35,7 +35,7 @@ struct SiegelSection: View {
     @State private var color = ""
     @State private var listing: SiegelLogic.Listing?
     @State private var failed = false
-    @ScaledMetric(relativeTo: .body) private var cell: CGFloat = 52
+    @ScaledMetric(relativeTo: .body) private var cell: CGFloat = 44
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -46,7 +46,8 @@ struct SiegelSection: View {
                 } label: { Text("Farbe der Siegel") }
                     .pickerStyle(.segmented)
                     .onChange(of: color) { _, c in if !c.isEmpty { remembered = c } }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: max(44, cell), maximum: max(72, cell * 1.4)), spacing: 8)], spacing: 8) {
+                // so dicht wie das Emoji-Raster (iPhone 7-8 je Zeile), mit grosser Schrift weniger und groesser
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: max(44, cell), maximum: max(56, cell * 1.25)), spacing: 6)], spacing: 6) {
                     ForEach(l.motifs) { m in tile(m, l) }
                 }
                 .accessibilityElement(children: .contain)
@@ -75,7 +76,7 @@ struct SiegelSection: View {
                 .overlay { RemoteImage(path: p, fill: true, w: SiegelLogic.gridWidth) }
                 .clipShape(Circle())
                 .padding(3)
-                .overlay { if on { Circle().strokeBorder(Color.accentColor, lineWidth: 3) } }
+                .overlay { if on { Circle().strokeBorder(Color.accentColor, lineWidth: 2.5) } }
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Rectangle())
         }
