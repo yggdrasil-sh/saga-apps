@@ -9694,3 +9694,13 @@ msgstr "Más"
 #, python-brace-format
 msgid "Bundled artworks: public domain, {src}. The Saga images are AI-generated."
 msgstr "Obras incluidas: dominio público, {src}. Las imágenes de Saga están generadas por IA."
+
+#: hlidskjalf/calls.py
+#, python-brace-format
+msgid "The call is full – all {n} places are taken (every device counts, including a second one for sharing). Someone can only join once someone else hangs up."
+msgstr "La llamada está llena: los {n} puestos están ocupados (cuenta cada dispositivo, también un segundo para compartir). Solo cuando alguien cuelgue podrá unirse otra persona."
+
+#: hlidskjalf/calls.py
+#, python-brace-format
+msgid "All {n} places are taken – another device of yours (e.g. for sharing) can only join once someone hangs up. “Move here” still works."
+msgstr "Las {n} plazas están ocupadas: otro dispositivo tuyo (p. ej. para compartir) solo podrá unirse cuando alguien cuelgue. «Pasar aquí» sigue funcionando."

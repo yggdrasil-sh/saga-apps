@@ -49,7 +49,11 @@ def test_run_view_and_urls():
     assert [(a[0], a[2]) for a in v["actions"]] == [("companion", "Add"), ("handover", "Move here")]
     # voller Anruf: nur Hierher uebernehmen (E6), Grund dazu
     v = M.run_view(dict(base, joinable=False, join_block="full", limit=4))
-    assert [a[0] for a in v["actions"]] == ["handover"] and v["note"] == "The call is full (at most 4 devices)."
+    assert [a[0] for a in v["actions"]] == ["handover"] and v["note"].startswith("All 4 places are taken – another device of yours")
+    # Bugs-DB 2154: ohne eigenes Geraet der allgemeine Text (jedes Geraet zaehlt), Text des Servers geht vor
+    assert M.run_view(dict(base, mine=[], kind="group", joinable=False, join_block="full", limit=4))["note"].startswith(
+        "The call is full – all 4 places are taken (every device counts")
+    assert M.run_view(dict(base, joinable=False, join_block="full", limit=4, full_msg="Server sagt voll"))["note"] == "Server sagt voll"
     v = M.run_view(dict(base, joinable=False, join_block="old", takeover=False))
     assert v["actions"] == [] and "2.4" in v["note"]
     # Gruppe ohne eigenes Geraet: Beitreten (Video: zusaetzlich Nur Ton)
@@ -99,7 +103,7 @@ def test_runbar_full_call_and_narrow(win, srv, app, monkeypatch):
     bar = win.runbar
     assert pump(lambda: bar.get_reveal_child() and bar.cid == call, 4)
     assert [b.role for b in bar.buttons] == ["handover"] and bar.sub.get_label() == "Team"
-    assert bar.note.get_label() == "The call is full (at most 4 devices)."
+    assert bar.note.get_label().startswith("All 4 places are taken")
     bar.set_compact(True)
     assert bar.buttons[0].get_child().get_label() == "" and bar.buttons[0].get_tooltip_text()
     assert not bar.note.get_visible()

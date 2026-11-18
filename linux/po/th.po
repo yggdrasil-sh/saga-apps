@@ -9360,3 +9360,13 @@ msgstr "อื่น ๆ"
 #, python-brace-format
 msgid "Bundled artworks: public domain, {src}. The Saga images are AI-generated."
 msgstr "งานศิลปะที่มาพร้อมระบบ: สาธารณสมบัติ, {src} ภาพ Saga สร้างด้วย AI"
+
+#: hlidskjalf/calls.py
+#, python-brace-format
+msgid "The call is full – all {n} places are taken (every device counts, including a second one for sharing). Someone can only join once someone else hangs up."
+msgstr "การโทรเต็มแล้ว – ที่ทั้ง {n} ที่ถูกใช้หมด (นับทุกอุปกรณ์ รวมถึงอุปกรณ์ที่สองสำหรับแชร์หน้าจอ) จะมีคนเข้าร่วมได้อีกเมื่อมีคนวางสายเท่านั้น"
+
+#: hlidskjalf/calls.py
+#, python-brace-format
+msgid "All {n} places are taken – another device of yours (e.g. for sharing) can only join once someone hangs up. “Move here” still works."
+msgstr "ที่ทั้ง {n} ที่เต็มแล้ว – อุปกรณ์อีกเครื่องของคุณ (เช่น สำหรับแชร์หน้าจอ) จะเข้าร่วมได้เมื่อมีคนวางสายแล้วเท่านั้น แต่ยังใช้ “ย้ายมาที่นี่” ได้"

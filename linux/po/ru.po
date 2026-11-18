@@ -9690,3 +9690,13 @@ msgstr "Другое"
 #, python-brace-format
 msgid "Bundled artworks: public domain, {src}. The Saga images are AI-generated."
 msgstr "Встроенные произведения: общественное достояние, {src}. Изображения Saga созданы ИИ."
+
+#: hlidskjalf/calls.py
+#, python-brace-format
+msgid "The call is full – all {n} places are taken (every device counts, including a second one for sharing). Someone can only join once someone else hangs up."
+msgstr "Звонок заполнен — все места ({n}) заняты (считается каждое устройство, в том числе второе для демонстрации). Новый участник сможет присоединиться, только когда кто-то положит трубку."
+
+#: hlidskjalf/calls.py
+#, python-brace-format
+msgid "All {n} places are taken – another device of yours (e.g. for sharing) can only join once someone hangs up. “Move here” still works."
+msgstr "Все {n} мест заняты — ещё одно ваше устройство (например, для показа экрана) сможет подключиться, только когда кто-нибудь положит трубку. «Перенести сюда» всё равно работает."

@@ -46,12 +46,20 @@ def join_url(cid, media, role="member"):
     return f"{config.settings.server.rstrip('/')}/chats#join-{cid}-{role}{video}"
 
 
-def block_text(why, limit=None):
-    """(2.5) Warum Beitreten gerade nicht geht (join_block des Anruf-Objekts) - Wortlaut wie im Web (blockText)"""
+def block_text(why, limit=None, mine=False, msg=None):
+    """(2.5) Warum Beitreten gerade nicht geht (join_block des Anruf-Objekts) - Wortlaut wie im Web (blockText).
+    Voll (Bugs-DB 2154): Text des Servers (msg), sonst wie im Web - jedes Geraet zaehlt, auch ein zweites zum Teilen;
+    mine: ein weiteres eigenes Geraet (Leiste "Anruf laeuft") - "Hierher uebernehmen" geht trotzdem."""
     if why == "old":
         return _("Someone in the call needs Saga 2.4 for that.")
     if why == "full":
-        return _("The call is full (at most {n} devices).").format(n=limit or "?")
+        if isinstance(msg, str) and msg.strip():
+            return msg.strip()[:300]
+        if mine:
+            return _("All {n} places are taken – another device of yours (e.g. for sharing) can only join once someone "
+                     "hangs up. “Move here” still works.").format(n=limit or "?")
+        return _("The call is full – all {n} places are taken (every device counts, including a second one for sharing). "
+                 "Someone can only join once someone else hangs up.").format(n=limit or "?")
     if why == "ended":
         return _("The call has already ended.")
     if why == "none":
@@ -108,7 +116,8 @@ def run_view(c):
             _("Move the call to this computer without interruption – it continues in your browser"), True)
     acts = []
     if not c.get("joinable", True):
-        note = block_text(c.get("join_block"), c.get("limit"))
+        msg = next((c[k] for k in ("full_msg", "msg") if isinstance(c.get(k), str) and c[k].strip()), None)   # Text des Servers
+        note = block_text(c.get("join_block"), c.get("limit"), mine=bool(mine), msg=msg)
         if c.get("takeover") and mine:                     # L4/E6: das ersetzte Geraet zaehlt nicht mit
             acts = [take]
     else:
