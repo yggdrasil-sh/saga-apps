@@ -41,7 +41,7 @@ def test_parse_tolerant():
     assert b["title"] == "b"                                       # ohne Titel: ID
     assert c["pos"] == 50.0 and c["builtin"] is False                # nur echtes true zaehlt
     assert d["pos"] == 0.0 and d["thumb"] == "/covers/d.jpg"
-    assert lst["groups"] == [("g1", "Gruppe 1"), ("", "")]
+    assert lst["groups"] == [("g1", "Gruppe 1"), ("", "ohne")]
     for bad in (None, [], {}, {"covers": None}, {"covers": {"a": 1}}, "x"):
         assert cg.parse(bad) is None
     assert cg.parse({"covers": []}) == {"covers": [], "groups": [], "source": "", "license": ""}
@@ -154,9 +154,12 @@ def _open(win, nid):
 
 
 def _probed(srv):
+    """Das Fenster hat beim Start schon gefragt (Schein-Server Standard 404) - mit der Einstellung des Tests neu fragen"""
     from hlidskjalf import coverdialog
+    coverdialog.cg.state.clear()
+    n = len(srv.covers_log)
     coverdialog.probe()
-    return pump(lambda: srv.covers_log and coverdialog.cg.state.offered(coverdialog._srv(), coverdialog.ui_language()) is not None, 4)
+    return pump(lambda: len(srv.covers_log) > n and coverdialog.cg.state.offered(coverdialog._srv(), coverdialog.ui_language()) is not None, 4)
 
 
 def _labels(entries):
@@ -185,6 +188,7 @@ def test_menu_with_gallery(win, srv):
     srv.covers_api = True
     v = _open(win, 3)
     assert _probed(srv)
+    n0 = len(srv.covers_log)
     assert _labels(cover_menu(v, None)) == ["Gallery …", "Random", "File …", "From Immich …"]
     v.save_fields({"cover": "/covers/met-wave.jpg", "cover_pos": 40})
     idle()
@@ -192,7 +196,7 @@ def test_menu_with_gallery(win, srv):
     assert v.cover is not None
     assert _labels(cover_menu(v, v.doc.page["cover"])) == ["Gallery …", "Random", "File …", "From Immich …", None, "About this image"]
     assert _labels(cover_menu(v, "/files/eigenes")) == ["Gallery …", "Random", "File …", "From Immich …"]
-    assert len(srv.covers_log) == 1                                     # einmal je Server und Sprache
+    assert len(srv.covers_log) == n0                                    # einmal je Server und Sprache
 
 
 @pytest.mark.parametrize("code", [404, 403])
@@ -204,9 +208,10 @@ def test_menu_without_gallery(win, srv, code):
     assert _labels(cover_menu(v, None)) == ["File …", "From Immich …"]
     assert _labels(cover_menu(v, "/covers/met-wave.jpg")) == ["File …", "From Immich …"]
     from hlidskjalf import coverdialog
+    n0 = len(srv.covers_log)
     coverdialog.probe()
     pump(None, 0.3)
-    assert len(srv.covers_log) == 1                                     # nicht immer wieder fragen
+    assert len(srv.covers_log) == n0                                    # nicht immer wieder fragen
 
 
 def test_locked_page_no_gallery(win, srv):
@@ -324,9 +329,10 @@ def test_dialog_404_closes_and_errors(win, srv):
     pump(lambda: d.stack.get_visible_child_name() == "empty", 4)
     assert d.stack.get_visible_child_name() == "empty"
     d.close()
-    idle()
+    assert pump(lambda: win.get_visible_dialog() is None, 3)
     srv.covers_api = 404                                                # Server zurueckgestuft: schliessen, nicht mehr anbieten
-    CoverGalleryDialog(v).present(win)
+    d2 = CoverGalleryDialog(v)
+    d2.present(win)
     pump(lambda: win.get_visible_dialog() is None, 4)
-    assert win.get_visible_dialog() is None
+    assert win.get_visible_dialog() is None, (win.get_visible_dialog() is d2, d2.stack.get_visible_child_name())
     assert coverdialog.offered() is False

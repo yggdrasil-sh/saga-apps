@@ -171,10 +171,16 @@ class CoverGalleryDialog(Adw.Dialog):
         if cg.offered_code(code) is False:            # aelterer Server bzw. abgeschaltet: nichts anbieten
             cg.state.record(self.srv, self.lang, code)
             self.view.win.toast(_("The gallery could not be loaded."))
-            self.close()
+            self._close_now()
             return
         if cg.state.cached(self.srv, self.lang) is None:
             self.stack.set_visible_child_name("failed")
+
+    def _close_now(self, tries=10):
+        """schliessen - waehrend der Einblende-Animation uebergeht libadwaita das Schliessen, dann kurz spaeter nochmal"""
+        self.force_close()
+        if tries > 0 and self.view.win.get_visible_dialog() is self:
+            GLib.timeout_add(100, lambda: self._close_now(tries - 1) and False)
 
     # --- Anzeige ------------------------------------------------------------------------------------------
     def fill(self, listing):
@@ -216,10 +222,6 @@ class CoverGalleryDialog(Adw.Dialog):
         lab = cg.label(c)
         ch.update_property([Gtk.AccessibleProperty.LABEL], [lab])
         ch.set_tooltip_text(lab)
-        try:
-            ch.update_state([Gtk.AccessibleState.SELECTED], [on])
-        except (TypeError, AttributeError):
-            pass
         v = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         ov = Gtk.Overlay()
         img = images.ImageView(c["thumb"], mode="cover", valign=c["pos"], radius=8)
