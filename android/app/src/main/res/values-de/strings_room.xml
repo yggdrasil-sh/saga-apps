@@ -2,7 +2,7 @@
 <!-- 2.4 E4/E5: Geraet hinzufuegen/uebergeben, Gruppenanrufe (Mesh) -->
 <resources>
     <string name="room_block_old">Dafür braucht jemand im Anruf Saga 2.4.</string>
-    <string name="room_block_full">Der Anruf ist voll (Gerätegrenze: %1$d).</string>
+    <string name="room_block_full">Der Anruf ist voll – alle %1$d Plätze sind belegt (jedes Gerät zählt, auch ein zweites zum Teilen). Erst wenn jemand auflegt, kann noch jemand dazukommen.</string>
     <string name="room_block_none">Der Anruf ist noch nicht angenommen.</string>
     <string name="room_block_other">Beitreten geht gerade nicht.</string>
     <string name="room_unknown_device">Unbekanntes Gerät von %1$s abgelehnt.</string>

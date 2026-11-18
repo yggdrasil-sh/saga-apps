@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (Bugs-DB 2154): voller Anruf - jedes Geraet zaehlt (Wortlaut wie der Server, saga/i18n) -->
+<resources>
+    <string name="room_block_full_mine">Все %1$d мест заняты — ещё одно ваше устройство (например, для показа экрана) сможет подключиться, только когда кто-нибудь положит трубку. «Перенести сюда» всё равно работает.</string>
+    <string name="inv_full">Звонок заполнен — новый участник сможет присоединиться, только когда кто-то положит трубку.</string>
+</resources>

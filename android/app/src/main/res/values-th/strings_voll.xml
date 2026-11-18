@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (Bugs-DB 2154): voller Anruf - jedes Geraet zaehlt (Wortlaut wie der Server, saga/i18n) -->
+<resources>
+    <string name="room_block_full_mine">ที่ทั้ง %1$d ที่เต็มแล้ว – อุปกรณ์อีกเครื่องของคุณ (เช่น สำหรับแชร์หน้าจอ) จะเข้าร่วมได้เมื่อมีคนวางสายแล้วเท่านั้น แต่ยังใช้ „ย้ายสายมาที่นี่“ ได้</string>
+    <string name="inv_full">การโทรเต็มแล้ว – จะมีคนเข้าร่วมได้อีกเมื่อมีคนวางสายเท่านั้น</string>
+</resources>

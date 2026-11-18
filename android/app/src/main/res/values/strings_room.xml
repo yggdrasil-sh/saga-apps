@@ -2,7 +2,7 @@
 <!-- 2.4 E4/E5: Geraet hinzufuegen/uebergeben, Gruppenanrufe (Mesh) -->
 <resources>
     <string name="room_block_old">Someone in the call needs Saga 2.4 for this.</string>
-    <string name="room_block_full">The call is full (device limit: %1$d).</string>
+    <string name="room_block_full">The call is full – all %1$d places are taken (every device counts, including a second one for sharing). Someone can only join once someone else hangs up.</string>
     <string name="room_block_none">The call has not been answered yet.</string>
     <string name="room_block_other">Joining is not possible right now.</string>
     <string name="room_unknown_device">Unknown device of %1$s rejected.</string>

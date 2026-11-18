@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (Bugs-DB 2154): voller Anruf - jedes Geraet zaehlt (Wortlaut wie der Server, saga/i18n) -->
+<resources>
+    <string name="room_block_full_mine">All %1$d places are taken – another device of yours (e.g. for sharing) can only join once someone hangs up. “Take over here” still works.</string>
+    <string name="inv_full">The call is full – someone can only join once someone else hangs up.</string>
+</resources>

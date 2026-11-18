@@ -27,8 +27,8 @@ object Invites {
     /** Zustaende in der Reihenfolge der Liste */
     enum class St(val key: String) { RINGING("ringing"), DECLINED("declined"), MISSED("missed"), LEFT("left"), NONE("none"), REMOVED("removed"), OLD("old") }
 
-    /** Knopf je Zeile */
-    enum class Btn { NONE, RING, RING_AGAIN, OLD }
+    /** Knopf je Zeile; FULL = Klingeln bzw. Erneut klingeln gesperrt, weil der Anruf voll ist */
+    enum class Btn { NONE, RING, RING_AGAIN, OLD, FULL }
 
     /** Unbekannte Zustaende wie `none` */
     fun st(s: String?): St = St.entries.firstOrNull { it.key == s } ?: St.NONE
@@ -45,6 +45,8 @@ object Invites {
         val pend: Map<String, Long> = emptyMap(),
         val host: Boolean = false,
         val note: UiText? = null,
+        /** 2.5 (Bugs-DB 2154): alle Plaetze belegt - Klingeln hilft niemandem (Beitritt ginge nicht), Knoepfe gesperrt wie im Web */
+        val full: Boolean = false,
     )
 
     data class Row(val x: CallInvite, val st: St, val btn: Btn)
@@ -62,17 +64,16 @@ object Invites {
     }
 
     /** Knopf: klingelt schon -> keiner; entfernt -> nur beim Gastgeber; App zu alt -> deaktiviert; nie geklingelt -> "Klingeln" */
-    fun button(st: St, host: Boolean): Btn = when (st) {
+    fun button(st: St, host: Boolean, full: Boolean = false): Btn = when (st) {
         St.RINGING -> Btn.NONE
-        St.REMOVED -> if (host) Btn.RING_AGAIN else Btn.NONE
+        St.REMOVED -> if (!host) Btn.NONE else if (full) Btn.FULL else Btn.RING_AGAIN
         St.OLD -> Btn.OLD
-        St.NONE -> Btn.RING
-        else -> Btn.RING_AGAIN
+        else -> if (full) Btn.FULL else if (st == St.NONE) Btn.RING else Btn.RING_AGAIN
     }
 
     /** Zeilen in der Reihenfolge der Zustaende, darin nach Name (wie der Server) */
     fun rows(s: Snapshot, nowMs: Long): List<Row> = s.list.filter { it.who.isNotEmpty() }.take(MAX)
-        .map { x -> state(x, s, nowMs).let { st -> Row(x, st, button(st, s.host)) } }
+        .map { x -> state(x, s, nowMs).let { st -> Row(x, st, button(st, s.host, s.full)) } }
         .sortedWith(compareBy<Row>({ it.st.ordinal }, { it.x.name.lowercase() }, { it.x.who }))
 
     /** Abschnitt zeigen? (aelterer Server: keine Liste; alle dabei: leer) */
@@ -83,6 +84,7 @@ object Invites {
 
     /** "Alle erneut klingeln": nur, wenn mehr als eine Person missed/declined/none hat - genau diese (hoechstens 50) */
     fun ringAll(rows: List<Row>): List<String> {
+        if (rows.any { it.btn == Btn.FULL }) return emptyList()        // voller Anruf: kein "Alle erneut klingeln" (wie Web)
         val w = rows.filter { it.st == St.MISSED || it.st == St.DECLINED || it.st == St.NONE }.map { it.x.who }
         return if (w.size > 1) w.take(MAX) else emptyList()
     }
@@ -148,10 +150,10 @@ object Invites {
             for (w in who) if (pend[w] == until) pend.remove(w)
         }
 
-        fun snapshot(host: Boolean, deviceMs: Long): Snapshot? {
+        fun snapshot(host: Boolean, deviceMs: Long, full: Boolean = false): Snapshot? {
             val l = list ?: return null
             pend.entries.removeAll { it.value <= deviceMs }
-            return Snapshot(l, more, skewMs, ringS, HashMap(pend), host, note?.takeIf { noteUntil > deviceMs })
+            return Snapshot(l, more, skewMs, ringS, HashMap(pend), host, note?.takeIf { noteUntil > deviceMs }, full)
         }
     }
 

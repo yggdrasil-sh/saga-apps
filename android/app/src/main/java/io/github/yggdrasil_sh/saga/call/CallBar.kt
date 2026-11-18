@@ -147,7 +147,7 @@ fun RunningCallBar(calls: CallManager, own: CallUiState?, modifier: Modifier = M
                 )
             }
             if (!b.joinable) {
-                Text(CallRoom.blockText(b.block, b.limit).resolve(), style = MaterialTheme.typography.labelMedium)
+                Text(CallRoom.blockText(b.block, b.limit, mine = b.mineRunning).resolve(), style = MaterialTheme.typography.labelMedium)
                 // 2.5 (handover2, E6): voller Anruf - Hinzufuegen nicht, Hierher uebernehmen schon (das ersetzte Geraet zaehlt nicht)
                 if (b.takeover) Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                     SagaTextButton(onClick = { go(CallRoom.ROLE_HANDOVER) }) { Text(stringResource(R.string.room_take_over)) }

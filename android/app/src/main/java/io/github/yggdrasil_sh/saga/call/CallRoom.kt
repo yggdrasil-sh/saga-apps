@@ -304,10 +304,15 @@ object CallRoom {
         else -> Wait.WAITING
     }
 
-    /** Hinweis, warum (noch) kein Beitritt geht */
-    fun blockText(block: String?, limit: Int): UiText = when (block) {
+    /**
+     * Hinweis, warum (noch) kein Beitritt geht. 2.5 (Bugs-DB 2154): bei "full" der Text des Servers (409 `error` bzw. `msg`
+     * des Beitritts), sonst wie im Web "jedes Geraet zaehlt, auch ein zweites zum Teilen"; [mine] = ein weiteres eigenes
+     * Geraet (Leiste "Anruf laeuft") - "Hierher uebernehmen" geht trotzdem.
+     */
+    fun blockText(block: String?, limit: Int, server: String? = null, mine: Boolean = false): UiText = when (block) {
         "old" -> UiText.Res(R.string.room_block_old)
-        "full" -> UiText.Res(R.string.room_block_full, limit)
+        "full" -> serverText(server)?.let { UiText.Raw(it) }
+            ?: UiText.Res(if (mine) R.string.room_block_full_mine else R.string.room_block_full, limit)
         "ended" -> UiText.Res(R.string.call_already_ended)
         "none" -> UiText.Res(R.string.room_block_none)
         "node" -> UiText.Res(R.string.horn_block_node)
@@ -315,6 +320,12 @@ object CallRoom {
         Handover.BUSY -> UiText.Res(R.string.ho_busy)
         else -> UiText.Res(R.string.room_block_other)
     }
+
+    /** Text des Servers zu einer Ablehnung: getrimmt, hoechstens 400 Zeichen; leer -> null */
+    fun serverText(s: String?): String? = s?.trim()?.take(400)?.takeIf { it.isNotEmpty() }
+
+    /** Text einer 409-Antwort des Beitritts (`error`, aeltere Fassungen `msg`) */
+    fun joinError(o: kotlinx.serialization.json.JsonObject?): String? = serverText(str(o, "error")) ?: serverText(str(o, "msg"))
 
     /**
      * Leiste fuer dieses Geraet aus GET /api/calls/active: eigenes anderes Geraet im Anruf -> "Anruf laeuft auf <Geraet>";

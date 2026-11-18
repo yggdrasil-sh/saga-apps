@@ -2,7 +2,7 @@
 <!-- 2.4 E4/E5: Geraet hinzufuegen/uebergeben, Gruppenanrufe (Mesh) -->
 <resources>
     <string name="room_block_old">Для этого кому-то в звонке нужна Saga 2.4.</string>
-    <string name="room_block_full">Звонок заполнен (лимит устройств: %1$d).</string>
+    <string name="room_block_full">Звонок заполнен — все места (%1$d) заняты (считается каждое устройство, в том числе второе для демонстрации). Новый участник сможет присоединиться, только когда кто-то положит трубку.</string>
     <string name="room_block_none">На звонок ещё не ответили.</string>
     <string name="room_block_other">Сейчас присоединиться нельзя.</string>
     <string name="room_unknown_device">Неизвестное устройство %1$s отклонено.</string>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 (Bugs-DB 2154): voller Anruf - jedes Geraet zaehlt (Wortlaut wie der Server, saga/i18n) -->
+<resources>
+    <string name="room_block_full_mine">Las %1$d plazas están ocupadas: otro dispositivo tuyo (p. ej. para compartir) solo podrá unirse cuando alguien cuelgue. «Continuar aquí» sigue funcionando.</string>
+    <string name="inv_full">La llamada está llena: solo cuando alguien cuelgue podrá unirse otra persona.</string>
+</resources>

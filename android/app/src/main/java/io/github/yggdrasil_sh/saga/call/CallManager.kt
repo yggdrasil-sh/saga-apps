@@ -2317,7 +2317,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 // 2.5 (handover2, E6): "Hierher uebernehmen" geht auch bei vollem Anruf (takeover)
                 if (!Handover.joinAllowed(k.joinable, k.takeover && Handover.on(cfg.featureSet), role)) {
                     if (k.joinBlock == "ended") markEnded(callId)
-                    throw UiTextException(CallRoom.blockText(k.joinBlock, c.rs.limit))
+                    throw UiTextException(CallRoom.blockText(k.joinBlock, c.rs.limit, mine = role != CallRoom.ROLE_MEMBER))   // wie Web: weiteres eigenes Geraet
                 }
                 c.rs.roster.apply(k.legs)
                 var rl = role
@@ -2417,7 +2417,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             }
             if (e.code == 409 && block != null) {
                 val lim = (o?.get("limit") as? JsonPrimitive)?.intOrNull ?: c.rs.limit
-                throw UiTextException(CallRoom.blockText(block, lim))
+                throw UiTextException(CallRoom.blockText(block, lim, CallRoom.joinError(o)))
             }
             if (e.code == 429) throw UiTextException(UiText.Res(R.string.call_rate))
             throw e
@@ -4080,7 +4080,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 ?: rs.speaker?.let { sp -> ls.firstOrNull { it.peerDevice == sp } }?.let { io.github.yggdrasil_sh.saga.util.PersonName.shown(legOf(it)?.name ?: it.peer.name, it.peer.handle ?: it.peer.username, it.peer.host) }.orEmpty(),
             horn = rs.horn?.let { hornUi(c, it) },
             dm = rs.dm, title = rs.title, mutedBy = rs.mutedBy,
-            invites = if (rs.kind == CallRoom.KIND_GROUP && !rs.dm) rs.inv.snapshot(rs.invHost, System.currentTimeMillis()) else null,
+            // 2.5 (Bugs-DB 2154): voller Anruf (jedes Geraet zaehlt) - Klingeln gesperrt wie im Web
+            invites = if (rs.kind == CallRoom.KIND_GROUP && !rs.dm) rs.inv.snapshot(
+                rs.invHost, System.currentTimeMillis(), full = CallAdd.seats(rs.roster.legs, if (rs.limit > 0) rs.limit else 0).full,
+            ) else null,
         )
     }
 
@@ -4338,7 +4341,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             val block = CallRoom.str(o, "join_block")
             if (e.code == 409 && block != null) {
                 val lim = (o?.get("limit") as? JsonPrimitive)?.intOrNull ?: c.rs.limit
-                throw UiTextException(CallRoom.blockText(block, lim))
+                throw UiTextException(CallRoom.blockText(block, lim, CallRoom.joinError(o)))
             }
             if (e.code == 429) throw UiTextException(UiText.Res(R.string.call_rate))
             throw e

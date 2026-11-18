@@ -113,6 +113,11 @@ private fun NotThereHead(inv: Invites.Snapshot, onRing: (List<String>) -> Unit) 
                 title(Modifier.weight(1f))
                 allBtn()
             }
+            // 2.5 (Bugs-DB 2154): voll - warum die Knoepfe gesperrt sind (im Web als Tooltip)
+            if (inv.full && rows.any { it.btn == Invites.Btn.FULL }) Text(
+                stringResource(R.string.inv_full), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp),
+            )
             for (r in rows) InviteRow(r, stacked, ring)
             if (inv.more > 0) Text(
                 stringResource(R.string.inv_more, inv.more), style = MaterialTheme.typography.labelMedium,
@@ -168,6 +173,14 @@ private fun InviteButton(r: Invites.Row, name: String, onRing: (List<String>) ->
             val cd = stringResource(R.string.inv_old_cd, name)
             SagaOutlinedButton(onClick = {}, enabled = false, modifier = Modifier.semantics { contentDescription = cd }) {
                 Text(stringResource(R.string.inv_ring_again), maxLines = 2)
+            }
+        }
+        Invites.Btn.FULL -> {
+            // gesperrt; TalkBack: "<Name> erneut klingeln lassen – Der Anruf ist voll …"
+            val again = r.st != Invites.St.NONE
+            val cd = stringResource(if (again) R.string.inv_ring_again_cd else R.string.inv_ring_cd, name) + " – " + stringResource(R.string.inv_full)
+            SagaOutlinedButton(onClick = {}, enabled = false, modifier = Modifier.semantics { contentDescription = cd }) {
+                Text(stringResource(if (again) R.string.inv_ring_again else R.string.inv_ring), maxLines = 2)
             }
         }
         else -> {

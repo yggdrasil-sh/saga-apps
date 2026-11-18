@@ -2,7 +2,7 @@
 <!-- 2.4 E4/E5: Geraet hinzufuegen/uebergeben, Gruppenanrufe (Mesh) -->
 <resources>
     <string name="room_block_old">Para esto, alguien en la llamada necesita Saga 2.4.</string>
-    <string name="room_block_full">La llamada está llena (límite de dispositivos: %1$d).</string>
+    <string name="room_block_full">La llamada está llena: los %1$d puestos están ocupados (cuenta cada dispositivo, también un segundo para compartir). Solo cuando alguien cuelgue podrá unirse otra persona.</string>
     <string name="room_block_none">La llamada aún no se ha respondido.</string>
     <string name="room_block_other">Ahora no es posible unirse.</string>
     <string name="room_unknown_device">Dispositivo desconocido de %1$s rechazado.</string>

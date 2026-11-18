@@ -2,7 +2,7 @@
 <!-- 2.4 E4/E5: Geraet hinzufuegen/uebergeben, Gruppenanrufe (Mesh) -->
 <resources>
     <string name="room_block_old">ต้องมีคนในสายที่ใช้ Saga 2.4 จึงจะทำได้</string>
-    <string name="room_block_full">สายเต็มแล้ว (จำกัดอุปกรณ์: %1$d)</string>
+    <string name="room_block_full">การโทรเต็มแล้ว – ที่ทั้ง %1$d ที่ถูกใช้หมด (นับทุกอุปกรณ์ รวมถึงอุปกรณ์ที่สองสำหรับแชร์หน้าจอ) จะมีคนเข้าร่วมได้อีกเมื่อมีคนวางสายเท่านั้น</string>
     <string name="room_block_none">ยังไม่มีผู้รับสาย</string>
     <string name="room_block_other">ยังเข้าร่วมไม่ได้ในขณะนี้</string>
     <string name="room_unknown_device">ปฏิเสธอุปกรณ์ที่ไม่รู้จักของ %1$s แล้ว</string>
