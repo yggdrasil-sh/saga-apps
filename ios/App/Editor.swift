@@ -881,7 +881,7 @@ extension PageEditor {
             Task { @MainActor in
                 guard let store = self.store else { return }
                 struct R: Decodable { let id: Int; let updated: Double? }
-                let body: [String: Any] = type == "db_new" ? ["kind": "database", "title": String(localized: "Neue Datenbank"), "icon": "🗃️", "parent_id": self.doc.id] : ["title": "", "parent_id": self.doc.id]
+                let body = SlashCreate.body(database: type == "db_new", parent: self.doc.id, dbTitle: String(localized: "Neue Datenbank"))   // 2.5: "link": false
                 guard let d = try? await store.api("api/notes", method: "POST", body: body), let r = try? JSONDecoder().decode(R.self, from: d),
                       let (a, j) = self.locate(id) else { self.doc.error = String(localized: "Konnte nicht angelegt werden"); return }
                 if type == "db_new" {

@@ -131,6 +131,16 @@ enum EditorFlow {
 }
 
 /// "/"-Menue: Treffer filtern (gemeinsam fuer Menue und Return = erster Treffer, F3)
+/// 2.5 (Bug 2151): "/Seite" bzw. "/Datenbank" im Editor - POST /api/notes mit "link": false, denn den Verweis bzw. den
+/// Datenbank-Block setzt der Editor selbst an der Schreibmarke (sonst haengt der Server zusaetzlich einen Verweis ans Ende
+/// der Seite; aeltere Server ignorieren den Schluessel)
+enum SlashCreate {
+    static func body(database: Bool, parent: Int, dbTitle: String) -> [String: Any] {
+        database ? ["kind": "database", "title": dbTitle, "icon": "🗃️", "parent_id": parent, "link": false]
+                 : ["title": "", "parent_id": parent, "link": false]
+    }
+}
+
 enum SlashFilter {
     /// Suchtext eines Absatzes ("/seite" -> "seite"), nil wenn kein "/"-Befehl
     static func query(_ s: String) -> String? {
