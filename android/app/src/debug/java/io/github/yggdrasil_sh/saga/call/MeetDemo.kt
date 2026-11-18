@@ -40,7 +40,9 @@ import io.github.yggdrasil_sh.saga.ui.theme.SagaRadius
  * geteilte Bildschirm ein 16:10-Testbild mit Farbbalken.
  *
  * scenario: "presentation" (4 Personen, Anna teilt vom Android-Begleitgeraet), "gallery" (7 Personen), "speaker"
- * (8 Personen, Cem spricht), "duo" (1:1, eigenes Bild schwebend).
+ * (8 Personen, Cem spricht), "duo" (1:1, eigenes Bild schwebend), "eigen" (§4.2: auf dem Hauptgeraet teilt das eigene
+ * Begleitgeraet "Tablet" den Bildschirm), "eigen-gegen" (§4.2 Gegenrichtung: auf dem Begleitgeraet teilt das eigene
+ * Hauptgeraet "Laptop").
  */
 object MeetDemo {
     fun devs(scenario: String): List<Meeting.Dev> {
@@ -57,6 +59,15 @@ object MeetDemo {
             )
             "gallery", "novideo" -> listOf(p(0), p(1, speaking = true), p(2, cam = false), p(3, mic = false), p(4), p(5, cam = false), p(6), me)
             "speaker" -> listOf(p(0), p(1), p(2, speaking = true), p(3, cam = false), p(4), p(5, mic = false), p(6), me)
+            "eigen" -> listOf(
+                Meeting.Dev("anna", "Anna", "a-mac", "MacBook", mic = true, cam = true),
+                me, Meeting.Dev("erik", "Erik", "e-tab", "Tablet", companion = true, me = true, screen = true, sharedAt = 1),
+            )
+            "eigen-gegen" -> listOf(
+                Meeting.Dev("anna", "Anna", "a-mac", "MacBook", mic = true, cam = true),
+                Meeting.Dev("erik", "Erik", "e-lap", "Laptop", me = true, mic = true, cam = true, screen = true, sharedAt = 1),
+                Meeting.Dev("erik", "Erik", "me", "Pixel", companion = true, me = true),
+            )
             else -> listOf(Meeting.Dev("anna", "Anna", "a-mac", "MacBook", mic = true, cam = true), me)
         }
     }
@@ -110,14 +121,14 @@ fun MeetDemoContent(scenario: String, hidden: Boolean = false) {
             header = {
                 if (flat) {
                     Box(Modifier.fillMaxWidth().safeDrawingPadding().padding(6.dp), contentAlignment = Alignment.Center) {
-                        val title = if (scenario == "duo" || scenario == "presentation") "Anna" else "Projekt Nordlicht"
+                        val title = if (scenario == "duo" || scenario == "presentation" || scenario.startsWith("eigen")) "Anna" else "Projekt Nordlicht"
                         MeetPill(title, "12:34" + if (model.persons > 2) " · " + meetPersons(model.persons) else "", stringResource(R.string.call_e2e),
                             Modifier.padding(horizontal = 56.dp))
                     }
                     return@MeetingLayer
                 }
                 Column(Modifier.fillMaxWidth().safeDrawingPadding().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(if (scenario == "duo" || scenario == "presentation") "Anna" else "Projekt Nordlicht", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                    Text(if (scenario == "duo" || scenario == "presentation" || scenario.startsWith("eigen")) "Anna" else "Projekt Nordlicht", color = Color.White, style = MaterialTheme.typography.titleMedium)
                     Text("12:34 · " + stringResource(R.string.call_e2e), color = Color.White, style = MaterialTheme.typography.labelMedium)
                     if (model.persons > 2) Text(meetPersons(model.persons), color = Color.White, style = MaterialTheme.typography.labelMedium)
                 }

@@ -70,6 +70,13 @@ class MeetShotsTest {
         shot("sprecher-quer", "speaker", true)
     }
 
+    /** §4.2 (Bugs-DB 2160): Bildschirm eines anderen eigenen Geraets als Praesentation, beide Richtungen */
+    @Test
+    fun ownDevice() {
+        shot("eigen-hoch", "eigen", false)
+        shot("eigen-gegen-hoch", "eigen-gegen", false)
+    }
+
     @Test
     fun duo() {
         shot("duo-hoch", "duo", false)

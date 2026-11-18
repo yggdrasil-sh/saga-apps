@@ -63,6 +63,18 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Der Hinweis „Verbindung wird neu aufgebaut“ nach einem Netzwechsel blieb stehen, wenn gar kein Neuaufbau begann;
   Änderungen am Seitenkopf aus dem Web werden 250 ms gesammelt (wie iOS) statt je Ereignis abgefragt.
 
+### Geändert – Android: Bildschirm eines anderen eigenen Geräts als Präsentation (§4.2, Bugs-DB 2160)
+
+- Teilt ein **anderes eigenes Gerät** den Bildschirm, erscheint er jetzt als Bildschirmkachel mit Gerätename („Erik
+  (Tablet)“, Auto → Präsentation) – in beiden Richtungen: auf dem Hauptgerät der Bildschirm des Begleitgeräts, auf dem
+  Begleitgerät der des Hauptgeräts; im Mesh wie über den Knoten. Eigene Geräte erscheinen weiterhin nie als Personen-
+  oder Kamerakachel, den Bildschirm dieses Geräts zeigt die App nie (eigene Freigabe: rote Leiste). Bisher fehlte der
+  Bildschirm eigener Geräte ganz.
+- Tests lesen jetzt die gemeinsamen Meeting-Vektoren des Servers unverändert (`meeting_vectors.json`, bisher eine
+  eigene Android-Fassung); Kachel-Kennungen wie Web/iOS (`wer|gerät:scr`). Wo die App bewusst anders rechnet (Raster
+  mit einer Kachel, Streifenbreite 1100–1440 dp in der Präsentation, Größe des eigenen Bilds, Sprecher-Ansicht allein),
+  benennt der Test die Abweichung mit dem App-Wert. Sichtbar unverändert: das eigene Bild schwebt nur im 1:1.
+
 ### Neu – Linux: Saga-Siegel als Seitensymbol
 
 - Seitensymbole `/siegel/<farbe>/<motiv>.svg` (36 Motive in Weinrot, Smaragd, Elfenbein) erscheinen als Bild statt
