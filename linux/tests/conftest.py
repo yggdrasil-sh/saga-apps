@@ -72,6 +72,8 @@ def srv():
     forget_immich()
     from hlidskjalf.galerie import state as gallery_state
     gallery_state.set(None, None)                 # Vorlagengalerie (2.5): je Test neu fragen
+    from hlidskjalf.covergallery import state as cover_state
+    cover_state.clear()                           # Titelbild-Galerie (2.5): je Test neu fragen
     client.set_cookies("", {})
     s = mockserver.install()
     yield s

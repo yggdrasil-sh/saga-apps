@@ -9318,3 +9318,45 @@ msgstr "สร้างหน้าย่อย"
 #: hlidskjalf/pwsubpages.py
 msgid "Pages placed below this page appear here."
 msgstr "หน้าที่อยู่ใต้หน้านี้จะแสดงที่นี่"
+
+#: hlidskjalf/coverdialog.py
+msgid "Gallery …"
+msgstr "แกลเลอรี …"
+
+#: hlidskjalf/coverdialog.py
+msgid "Random"
+msgstr "สุ่ม"
+
+#: hlidskjalf/coverdialog.py
+msgid "About this image"
+msgstr "เกี่ยวกับรูปนี้"
+
+#: hlidskjalf/coverdialog.py
+msgid "Cover gallery"
+msgstr "แกลเลอรีภาพปก"
+
+#: hlidskjalf/coverdialog.py
+msgid "No images in the gallery."
+msgstr "ไม่มีรูปในแกลเลอรี"
+
+#: hlidskjalf/coverdialog.py
+msgid "The gallery could not be loaded."
+msgstr "โหลดแกลเลอรีไม่ได้"
+
+#: hlidskjalf/coverdialog.py
+msgid "An image from the cover gallery (no longer offered)."
+msgstr "รูปจากแกลเลอรีภาพปก (ไม่มีให้เลือกแล้ว)"
+
+#: hlidskjalf/coverdialog.py
+msgid "View source ↗"
+msgstr "ไปยังแหล่งที่มา ↗"
+
+#: hlidskjalf/coverdialog.py
+msgctxt "cover gallery"
+msgid "More"
+msgstr "อื่น ๆ"
+
+#: hlidskjalf/coverdialog.py
+#, python-brace-format
+msgid "Bundled artworks: public domain, {src}. The Saga images are AI-generated."
+msgstr "งานศิลปะที่มาพร้อมระบบ: สาธารณสมบัติ, {src} ภาพ Saga สร้างด้วย AI"

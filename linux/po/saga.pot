@@ -9227,3 +9227,45 @@ msgstr ""
 #: hlidskjalf/pwsubpages.py
 msgid "Pages placed below this page appear here."
 msgstr ""
+
+#: hlidskjalf/coverdialog.py
+msgid "Gallery …"
+msgstr ""
+
+#: hlidskjalf/coverdialog.py
+msgid "Random"
+msgstr ""
+
+#: hlidskjalf/coverdialog.py
+msgid "About this image"
+msgstr ""
+
+#: hlidskjalf/coverdialog.py
+msgid "Cover gallery"
+msgstr ""
+
+#: hlidskjalf/coverdialog.py
+msgid "No images in the gallery."
+msgstr ""
+
+#: hlidskjalf/coverdialog.py
+msgid "The gallery could not be loaded."
+msgstr ""
+
+#: hlidskjalf/coverdialog.py
+msgid "An image from the cover gallery (no longer offered)."
+msgstr ""
+
+#: hlidskjalf/coverdialog.py
+msgid "View source ↗"
+msgstr ""
+
+#: hlidskjalf/coverdialog.py
+msgctxt "cover gallery"
+msgid "More"
+msgstr ""
+
+#: hlidskjalf/coverdialog.py
+#, python-brace-format
+msgid "Bundled artworks: public domain, {src}. The Saga images are AI-generated."
+msgstr ""

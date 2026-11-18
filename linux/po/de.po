@@ -9673,3 +9673,45 @@ msgstr "Unterseite anlegen"
 #: hlidskjalf/pwsubpages.py
 msgid "Pages placed below this page appear here."
 msgstr "Hier erscheinen die Seiten, die unter dieser Seite liegen."
+
+#: hlidskjalf/coverdialog.py
+msgid "Gallery …"
+msgstr "Galerie …"
+
+#: hlidskjalf/coverdialog.py
+msgid "Random"
+msgstr "Zufällig"
+
+#: hlidskjalf/coverdialog.py
+msgid "About this image"
+msgstr "Über dieses Bild"
+
+#: hlidskjalf/coverdialog.py
+msgid "Cover gallery"
+msgstr "Titelbild-Galerie"
+
+#: hlidskjalf/coverdialog.py
+msgid "No images in the gallery."
+msgstr "Keine Bilder in der Galerie."
+
+#: hlidskjalf/coverdialog.py
+msgid "The gallery could not be loaded."
+msgstr "Die Galerie konnte nicht geladen werden."
+
+#: hlidskjalf/coverdialog.py
+msgid "An image from the cover gallery (no longer offered)."
+msgstr "Ein Bild aus der Titelbild-Galerie (nicht mehr zur Auswahl)."
+
+#: hlidskjalf/coverdialog.py
+msgid "View source ↗"
+msgstr "Zur Quelle ↗"
+
+#: hlidskjalf/coverdialog.py
+msgctxt "cover gallery"
+msgid "More"
+msgstr "Weitere"
+
+#: hlidskjalf/coverdialog.py
+#, python-brace-format
+msgid "Bundled artworks: public domain, {src}. The Saga images are AI-generated."
+msgstr "Mitgelieferte Kunstwerke: gemeinfrei, {src}. Die Saga-Bilder sind KI-generiert."

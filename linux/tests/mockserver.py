@@ -15,6 +15,7 @@ import urllib.parse
 import mockv2
 import mockv21
 import mockstd
+import mockcovers
 import mockv25
 import mockki
 
@@ -167,6 +168,7 @@ class MockServer:
         mockv21.init(self)                   # Saga 2.1: Profilbilder, 2FA-Stand, Anrufe
         mockki.init(self)                    # Saga 2.1: KI-Persona, KI im Chat
         mockv25.init(self)                   # Saga 2.5: Etappe 1 der Apps (Formeln, Personen, Diagramme ...)
+        mockcovers.init(self)                # Saga 2.5: Titelbild-Galerie (api/covers, Standard 404)
         mockstd.init(self)                   # Saga 2.5: Chat-Standard
 
     def _graph(self):
@@ -444,6 +446,9 @@ class MockServer:
 
     def _api(self, method, path, q, body):
         parts = path.split("/")
+        r = mockcovers.handle(self, method, path, q)
+        if r is not None:
+            return r
         r = mockv25.handle(self, method, path, parts, q, body if isinstance(body, dict) else {})
         if r is not None:
             return r
@@ -626,6 +631,8 @@ class MockServer:
         if path.startswith(("files/", "covers/", "api/fed/files/")):
             self.file_log.append(path + ("?w=" + q["w"] if q.get("w") else ""))
             up = getattr(self, "uploads", {}).get("/" + path.split("?")[0])
+            if not up and path.startswith("covers/") and any(c.get("url") == "/" + path for c in self.covers if isinstance(c, dict)):
+                up = mockcovers.image(path[7:-4], q.get("w"))           # Galerie-Bild: farbige Flaeche
             return self._reply(200, up if up else b"x" * 300000)
         return self._reply(200, {})
 

@@ -9,6 +9,17 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – Linux: Titelbild-Galerie
+
+- Das Titelbild-Menü („Ändern“) und „Titelbild hinzufügen“ bieten wie Web, iOS und Android **Galerie …** und
+  **Zufällig** (nie das jetzige Bild) an, dazu **Über dieses Bild** bei Galerie-Bildern (Titel, Künstler, Datum,
+  Nachweis, „Zur Quelle ↗“; ausgeblendete Bilder: Hinweis „nicht mehr zur Auswahl“).
+- Dialog „Titelbild-Galerie“: „Zufällig“ oben, je Gruppe ein Abschnitt mit Vorschaubildern (Ausschnitt nach der
+  empfohlenen Position), Screenreader-Name „Titel – Künstler, Datum“, Herkunftshinweis unten. Die Auswahl setzt Bild
+  und empfohlene Position.
+- Seiten anderer Saga-Instanzen: nur mitgelieferte Bilder; gesperrte Seiten: keine Galerie. Ältere Server ohne
+  `GET /api/covers` (404/403): Menü wie bisher.
+
 ### Behoben – iOS, Android: Symbol, Titelbild und Sperre aus Web/anderem Gerät kommen live an
 
 - Die offene Seite übernimmt Änderungen am Seitenkopf aus dem Web oder von einem anderen Gerät sofort und still:

@@ -9648,3 +9648,45 @@ msgstr "Создать подстраницу"
 #: hlidskjalf/pwsubpages.py
 msgid "Pages placed below this page appear here."
 msgstr "Здесь появятся страницы, вложенные в эту страницу."
+
+#: hlidskjalf/coverdialog.py
+msgid "Gallery …"
+msgstr "Галерея …"
+
+#: hlidskjalf/coverdialog.py
+msgid "Random"
+msgstr "Случайно"
+
+#: hlidskjalf/coverdialog.py
+msgid "About this image"
+msgstr "Об изображении"
+
+#: hlidskjalf/coverdialog.py
+msgid "Cover gallery"
+msgstr "Галерея обложек"
+
+#: hlidskjalf/coverdialog.py
+msgid "No images in the gallery."
+msgstr "В галерее нет изображений."
+
+#: hlidskjalf/coverdialog.py
+msgid "The gallery could not be loaded."
+msgstr "Не удалось загрузить галерею."
+
+#: hlidskjalf/coverdialog.py
+msgid "An image from the cover gallery (no longer offered)."
+msgstr "Изображение из галереи обложек (больше не предлагается)."
+
+#: hlidskjalf/coverdialog.py
+msgid "View source ↗"
+msgstr "К источнику ↗"
+
+#: hlidskjalf/coverdialog.py
+msgctxt "cover gallery"
+msgid "More"
+msgstr "Другое"
+
+#: hlidskjalf/coverdialog.py
+#, python-brace-format
+msgid "Bundled artworks: public domain, {src}. The Saga images are AI-generated."
+msgstr "Встроенные произведения: общественное достояние, {src}. Изображения Saga созданы ИИ."
