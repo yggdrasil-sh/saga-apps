@@ -50,6 +50,12 @@ enum Invites {
         case again
         /// deaktiviert: "App zu alt"
         case old
+        /// 2.5 (Bugs-DB 2154): deaktiviert, der Anruf ist voll (Klingeln hilft niemandem, Beitreten ginge nicht) - wie im Web
+        case full
+    }
+    static func action(_ s: State, host: Bool, full: Bool = false) -> Action {
+        let a = action(s, host: host)
+        return full && (a == .ring || a == .again) ? .full : a
     }
     static func action(_ s: State, host: Bool) -> Action {
         switch s {
@@ -147,6 +153,7 @@ enum Invites {
     static let ringMax = 50
 
     /// "Alle erneut klingeln": nur, wenn mehr als eine Person missed/declined/none hat - genau diese (hoechstens 50)
+    static func ringAll(_ rows: [Row], full: Bool) -> [String] { full ? [] : ringAll(rows) }    // 2.5: voll -> nicht anbieten
     static func ringAll(_ rows: [Row]) -> [String] {
         let w = rows.filter { [.missed, .declined, .none].contains($0.state) }.map(\.entry.who)
         return w.count > 1 ? Array(w.prefix(ringMax)) : []

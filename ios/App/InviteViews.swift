@@ -16,7 +16,8 @@ struct InviteSection: View {
     var body: some View {
         let _ = calls.invTick                                               // Ablauf "klingelt …" zeichnet neu
         let rows = calls.invites.rows(device: Date().timeIntervalSince1970)
-        let all = Invites.ringAll(rows)
+        let full = calls.addSeats.full                                      // 2.5 (Bugs-DB 2154): voll - Klingeln gesperrt wie im Web
+        let all = Invites.ringAll(rows, full: full)
         VStack(alignment: .leading, spacing: 0) {
             Divider()
             header(all: all, rows: rows)
@@ -26,7 +27,7 @@ struct InviteSection: View {
                     .padding(.horizontal, 14).padding(.bottom, 6)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            ForEach(rows) { r in row(r); Divider().padding(.leading, 56) }
+            ForEach(rows) { r in row(r, full: full); Divider().padding(.leading, 56) }
             if calls.invites.more > 0 {
                 Text("und \(calls.invites.more) weitere").font(.caption).foregroundStyle(.secondary)
                     .padding(.horizontal, 14).padding(.vertical, 8)
@@ -67,9 +68,9 @@ struct InviteSection: View {
         }
     }
 
-    private func row(_ r: Invites.Row) -> some View {
+    private func row(_ r: Invites.Row, full: Bool) -> some View {
         let e = r.entry
-        let act = Invites.action(r.state, host: host)
+        let act = Invites.action(r.state, host: host, full: full)
         let lay = dts.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6)) : AnyLayout(HStackLayout(spacing: 10))
         return lay {
             HStack(spacing: 10) {
@@ -97,6 +98,12 @@ struct InviteSection: View {
                     .opacity(0.45)                                          // Liste setzt die Schriftfarbe fest - deaktiviert sichtbar machen
                     .accessibilityLabel(Text("\(e.name): App zu alt – braucht eine neuere Saga-Version"))
                     .help(Text("App zu alt – braucht eine neuere Saga-Version"))
+            case .full:
+                Button(r.state == .none ? String(localized: "Klingeln") : String(localized: "Erneut klingeln")) {}
+                    .buttonStyle(.bordered).controlSize(.small).disabled(true)
+                    .opacity(0.45)
+                    .accessibilityLabel(Text(verbatim: e.name + ": " + String(localized: "Der Anruf ist voll – erst wenn jemand auflegt, kann noch jemand dazukommen.")))
+                    .help(Text("Der Anruf ist voll – erst wenn jemand auflegt, kann noch jemand dazukommen."))
             }
         }
         .padding(.horizontal, 14).padding(.vertical, 8).frame(minHeight: 52, alignment: .leading)

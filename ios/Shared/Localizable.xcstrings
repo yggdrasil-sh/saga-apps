@@ -8047,98 +8047,6 @@
         }
       }
     },
-    "Der Anruf ist voll" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Anruf ist voll"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The call is full"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La llamada está llena"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "สายเต็มแล้ว"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Звонок заполнен"
-          }
-        }
-      }
-    },
-    "Der Anruf ist voll (höchstens %lld Geräte)." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Der Anruf ist voll (höchstens %lld Geräte)."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The call is full (at most %lld devices)."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La llamada está llena (máximo %lld dispositivos)."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "สายเต็มแล้ว (สูงสุด %lld อุปกรณ์)"
-          }
-        },
-        "ru" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Звонок заполнен (не больше %lld устройства)."
-                }
-              },
-              "few" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Звонок заполнен (не больше %lld устройств)."
-                }
-              },
-              "many" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Звонок заполнен (не больше %lld устройств)."
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Звонок заполнен (не больше %lld устройства)."
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "Der Server des Gegenübers kann große Videos noch nicht (höchstens %lld MB)." : {
       "localizations" : {
         "de" : {
@@ -81728,6 +81636,108 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ไอคอน: ตราประทับ %@"
+          }
+        }
+      }
+    },
+    "Alle %lld Plätze sind belegt – ein weiteres eigenes Gerät (z. B. zum Teilen) kann erst dazukommen, wenn jemand auflegt. „Hierher übernehmen“ geht trotzdem." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle %lld Plätze sind belegt – ein weiteres eigenes Gerät (z. B. zum Teilen) kann erst dazukommen, wenn jemand auflegt. „Hierher übernehmen“ geht trotzdem."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All %lld places are taken – another device of yours (e.g. for sharing) can only join once someone hangs up. “Move here” still works."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las %lld plazas están ocupadas: otro dispositivo tuyo (p. ej. para compartir) solo podrá unirse cuando alguien cuelgue. «Pasar aquí» sigue funcionando."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Все места (%lld) заняты — ещё одно ваше устройство (например, для показа экрана) сможет подключиться, только когда кто-нибудь положит трубку. «Перенести сюда» всё равно работает."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ที่ทั้ง %lld ที่เต็มแล้ว – อุปกรณ์อีกเครื่องของคุณ (เช่น สำหรับแชร์หน้าจอ) จะเข้าร่วมได้เมื่อมีคนวางสายแล้วเท่านั้น แต่ยังใช้ “ย้ายมาที่นี่” ได้"
+          }
+        }
+      }
+    },
+    "Der Anruf ist voll – alle %lld Plätze sind belegt (jedes Gerät zählt, auch ein zweites zum Teilen). Erst wenn jemand auflegt, kann noch jemand dazukommen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Anruf ist voll – alle %lld Plätze sind belegt (jedes Gerät zählt, auch ein zweites zum Teilen). Erst wenn jemand auflegt, kann noch jemand dazukommen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The call is full – all %lld places are taken (every device counts, including a second one for sharing). Someone can only join once someone else hangs up."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La llamada está llena: los %lld puestos están ocupados (cuenta cada dispositivo, también un segundo para compartir). Solo cuando alguien cuelgue podrá unirse otra persona."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Звонок заполнен — все места (%lld) заняты (считается каждое устройство, в том числе второе для демонстрации). Новый участник сможет присоединиться, только когда кто-то положит трубку."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การโทรเต็มแล้ว – ที่ทั้ง %lld ที่ถูกใช้หมด (นับทุกอุปกรณ์ รวมถึงอุปกรณ์ที่สองสำหรับแชร์หน้าจอ) จะมีคนเข้าร่วมได้อีกเมื่อมีคนวางสายเท่านั้น"
+          }
+        }
+      }
+    },
+    "Der Anruf ist voll – jedes Gerät zählt, auch ein zweites zum Teilen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Anruf ist voll – jedes Gerät zählt, auch ein zweites zum Teilen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The call is full – every device counts, including a second one for sharing."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La llamada está llena: cuenta cada dispositivo, también un segundo para compartir."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Звонок заполнен — считается каждое устройство, в том числе второе для демонстрации."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การโทรเต็มแล้ว – นับทุกอุปกรณ์ รวมถึงอุปกรณ์ที่สองสำหรับแชร์หน้าจอ"
           }
         }
       }

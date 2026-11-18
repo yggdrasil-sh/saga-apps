@@ -67,11 +67,11 @@ extension CallManager {
             CallEnv.log("leave \((body["device"] as? String)?.prefix(6) ?? "-") \(res)")
         }
     }
-    func blockText(_ b: CallRoom.Block?, limit n: Int) -> String {
+    func blockText(_ b: CallRoom.Block?, limit n: Int, server: String? = nil) -> String {
         switch b {
         case .handoverBusy: return String(localized: "Ein anderes eigenes Gerät übernimmt den Anruf gerade – bitte kurz warten.")
         case .old: return String(localized: "Dafür braucht jemand im Anruf Saga 2.4.")
-        case .full: return String(localized: "Der Anruf ist voll (höchstens \(n) Geräte).")
+        case .full: return CallRoom.fullText(server: server, limit: n)          // 2.5 (Bugs-DB 2154): Text des Servers
         case .ended: return String(localized: "Der Anruf ist schon beendet.")
         case .none?: return String(localized: "Der Anruf ist noch nicht angenommen.")
         default: return String(localized: "Beitreten geht gerade nicht.")
@@ -169,7 +169,8 @@ extension CallManager {
                 adoptCall(c)
                 await adoptV2(c)
                 if !CallRoom.joinAllowed(role: r, joinable: c["joinable"] as? Bool, takeover: c["takeover"] as? Bool) {   // L4: voll - uebernehmen geht
-                    throw APIError.other(blockText(CallRoom.block(c["join_block"] as? String), limit: limit))
+                    throw APIError.other(blockText(CallRoom.block(c["join_block"] as? String), limit: ShareJSON.int(c["limit"]) ?? limit,
+                                                   server: CallRoom.serverText(c)))
                 }
                 roster.apply(CallRoom.legs(c["legs"]), rv: asked)
                 var rep: String?
@@ -267,7 +268,8 @@ extension CallManager {
     func joinThrow(code: Int, _ j: [String: Any]?) throws -> Never {
         switch CallRoom.joinOutcome(code: code, body: j) {
         case .busy(let e): throw CallHint(text: e ?? blockText(.handoverBusy, limit: limit))
-        case .blocked(let b, let e): throw APIError.other(e ?? hornBlockText(j?["join_block"] as? String) ?? blockText(b, limit: ShareJSON.int(j?["limit"]) ?? limit))
+        case .blocked(let b, let e):                                        // 2.5 (Bugs-DB 2154): Text des Servers zuerst
+            throw APIError.other(e ?? CallRoom.serverText(j) ?? hornBlockText(j?["join_block"] as? String) ?? blockText(b, limit: ShareJSON.int(j?["limit"]) ?? limit))
         case .failed(let c, let e): throw APIError.http(c, e ?? "")
         default: throw APIError.http(code, ShareJSON.str(j?["error"]) ?? "")
         }

@@ -950,7 +950,9 @@ struct CallRunBar: View {
     private func blocked(_ x: CallRoom.Running) -> String {
         switch x.block {
         case .old: return String(localized: "Braucht Saga 2.4")
-        case .full: return String(localized: "Der Anruf ist voll")
+        case .full:                                                         // 2.5 (Bugs-DB 2154): wie im Web, eigenes Geraet dabei: Uebernehmen geht
+            if case .elsewhere = calls.bar(x) { return CallRoom.fullText(server: nil, limit: x.limit, mine: true) }
+            return CallRoom.fullText(server: nil, limit: x.limit)
         default: return calls.blockText(x.block, limit: x.limit)
         }
     }

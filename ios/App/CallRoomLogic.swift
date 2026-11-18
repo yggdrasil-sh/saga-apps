@@ -240,6 +240,25 @@ enum CallRoom {
     static func joinAllowed(role: String, joinable: Bool?, takeover: Bool?) -> Bool {
         joinable != false || (role == "handover" && takeover == true)
     }
+    /// 2.5 (Bugs-DB 2154): Text des Servers zu einem gesperrten Beitritt (error, full_msg, msg - der erste nicht leere)
+    static func serverText(_ j: [String: Any]?) -> String? {
+        for k in ["error", "full_msg", "msg"] {
+            if let t = (j?[k] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty { return t }
+        }
+        return nil
+    }
+    /// 2.5 (Bugs-DB 2154): voller Anruf - Text des Servers, sonst wie im Web (calls.js blockText): mit Zahl der Plaetze,
+    /// ohne bekannte Zahl kurz. mine = ein eigenes Geraet ist schon dabei (Leiste "Anruf laeuft"): Uebernehmen geht trotzdem.
+    static func fullText(server: String?, limit n: Int, mine: Bool = false) -> String {
+        if let t = server?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty { return t }
+        if mine && n > 0 {
+            return String(localized: "Alle \(n) Plätze sind belegt – ein weiteres eigenes Gerät (z. B. zum Teilen) kann erst dazukommen, wenn jemand auflegt. „Hierher übernehmen“ geht trotzdem.")
+        }
+        if n > 0 {
+            return String(localized: "Der Anruf ist voll – alle \(n) Plätze sind belegt (jedes Gerät zählt, auch ein zweites zum Teilen). Erst wenn jemand auflegt, kann noch jemand dazukommen.")
+        }
+        return String(localized: "Der Anruf ist voll – jedes Gerät zählt, auch ein zweites zum Teilen.")
+    }
     /// Antwort auf POST /join
     enum JoinOutcome: Equatable {
         case ok(gen: Int?)
