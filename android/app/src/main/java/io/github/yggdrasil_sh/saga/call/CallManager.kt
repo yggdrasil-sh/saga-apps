@@ -2321,7 +2321,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 // 2.5 (handover2, E6): "Hierher uebernehmen" geht auch bei vollem Anruf (takeover)
                 if (!Handover.joinAllowed(k.joinable, k.takeover && Handover.on(cfg.featureSet), role)) {
                     if (k.joinBlock == "ended") markEnded(callId)
-                    throw UiTextException(CallRoom.blockText(k.joinBlock, c.rs.limit, mine = role != CallRoom.ROLE_MEMBER))   // wie Web: weiteres eigenes Geraet
+                    throw UiTextException(CallRoom.blockText(k.joinBlock, c.rs.limit, mine = role == CallRoom.ROLE_COMPANION))   // wie Web: weiteres eigenes Geraet (gescheitertes Uebernehmen nicht: "geht trotzdem" stimmt dann nicht)
                 }
                 c.rs.roster.apply(k.legs)
                 var rl = role
