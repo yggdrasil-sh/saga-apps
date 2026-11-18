@@ -40,6 +40,11 @@ for _cls, _name in ((BannerBox, "banner"), (BannerRow, "widget")):
         pass
 
 
+def cover_menu(view, current):
+    from .coverdialog import menu_entries
+    return menu_entries(view, current)
+
+
 class CoverView(Gtk.Overlay):
     """Titelbild volle Breite: Aendern / Neu positionieren (ziehen) / Hoehe / Entfernen"""
 
@@ -60,6 +65,9 @@ class CoverView(Gtk.Overlay):
         self._normal_bar()
         ro = view.editor.locked or not view.rcan("db")   # gesperrt, nur lesen, anderer Server ohne 'db' (2.3): nicht aendern
         self.bar.set_visible(not ro)
+        if not ro:
+            from .coverdialog import probe
+            probe()                                      # 2.5: Titelbild-Galerie einmal je Server fragen
         dr = Gtk.GestureDrag()
         dr.connect("drag-begin", lambda g, x, y: setattr(self, "_start", self.pos))
         dr.connect("drag-update", self._drag)
@@ -91,9 +99,8 @@ class CoverView(Gtk.Overlay):
         self._clear_bar()
         ch = Gtk.MenuButton(label=_("Change"))
         ch.add_css_class("flat")
-        ch.set_create_popup_func(lambda mb: mb.set_popover(menu_popover(None, [
-            (_("File …"), lambda: self.view.pick_cover())] + ([] if self.view.remote else [      # anderer Server: kein Immich
-            (_("From Immich …"), lambda: self.view.pick_cover_immich())]))))
+        # 2.5: Galerie … / Zufaellig / Datei … / Aus Immich … / Ueber dieses Bild (coverdialog.py; anderer Server: kein Immich)
+        ch.set_create_popup_func(lambda mb: mb.set_popover(menu_popover(None, cover_menu(self.view, self.doc.page.get("cover")))))
         self.bar.append(ch)
         self.bar.append(flat_button(label=_("Reposition"), cb=self._start_repos))
         hb = Gtk.MenuButton(label=_("Height"))
@@ -1402,12 +1409,15 @@ class PageView(Gtk.Box):
                 row.append(flat_button(icon="face-smile-symbolic", label=_("Add icon"), css="dim-label",
                                        cb=lambda: IconPicker(self).present(self.win)))
             if not doc.page.get("cover"):
+                if not (self.editor.locked or not self.rcan("db")):
+                    from .coverdialog import probe
+                    probe()                                  # 2.5: Titelbild-Galerie einmal je Server fragen
                 mb = Gtk.MenuButton()
                 mb.set_child(Gtk.Label(label="🖼  " + _("Add cover image")))
                 mb.add_css_class("flat")
                 mb.add_css_class("dim-label")
-                mb.set_create_popup_func(lambda m: m.set_popover(menu_popover(None, [(_("File …"), self.pick_cover)] + (
-                    [] if self.remote else [(_("From Immich …"), self.pick_cover_immich)]))))    # anderer Server: nur Dateien
+                # 2.5: mit Titelbild-Galerie zuerst Galerie … / Zufaellig, dann Datei … (anderer Server: kein Immich)
+                mb.set_create_popup_func(lambda m: m.set_popover(menu_popover(None, cover_menu(self, None))))
                 row.append(mb)
             row.add_css_class("hk-reveal")
             box.add_css_class("hk-reveal-zone")

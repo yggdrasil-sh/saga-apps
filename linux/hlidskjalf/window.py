@@ -1697,6 +1697,8 @@ class MainWindow(Adw.ApplicationWindow):
         from .galeriedialog import probe
         probe(self)
         self.gallery_changed()
+        from .coverdialog import probe as cover_probe                  # 2.5: Titelbild-Galerie (Menue baut sich beim Oeffnen)
+        cover_probe()
 
     def gallery_changed(self):
         """Neu-Knopf mit/ohne Menue "Aus Vorlage ..." (404/403 bzw. aelterer Server: ausgeblendet)"""
