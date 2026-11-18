@@ -131,25 +131,29 @@ struct SiegelPreviewView: View {
                                             ("/siegel/smaragd/server.svg", "Homelab")]
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if before { Text(verbatim: doc.icon ?? "").font(.system(size: 64)).lineLimit(2).minimumScaleFactor(0.3) }
-                        else { IconRow(doc: doc) }
-                        Text(verbatim: "Reisetagebuch Nord").font(.largeTitle.bold())
-                    }
-                    .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
-                }
-                Section {
-                    ForEach(rows, id: \.1) { r in
-                        Label {
-                            Text(verbatim: r.1)
-                        } icon: {
-                            if before && r.0.hasPrefix("/") { Text(verbatim: r.0).font(.caption2).lineLimit(1) }
-                            else { PageIcon(icon: r.0, store: store) }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Seitenkopf wie in der App (IconRow nicht in einer List-Zeile: dort streckt das Menue die Zeile)
+                    if before { Text(verbatim: doc.icon ?? "").font(.system(size: 64)).lineLimit(2).minimumScaleFactor(0.3).padding(.top, 10) }
+                    else { IconRow(doc: doc) }
+                    Text(verbatim: "Reisetagebuch Nord").font(.largeTitle.bold())
+                    Text(verbatim: "Seiten").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).padding(.top, 24)
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(rows, id: \.1) { r in
+                            HStack(spacing: 10) {
+                                if before && r.0.hasPrefix("/") { Text(verbatim: r.0).font(.caption2).lineLimit(1).frame(width: 22) }
+                                else { PageIcon(icon: r.0, store: store) }
+                                Text(verbatim: r.1)
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.vertical, 10)
+                            Divider()
                         }
                     }
-                } header: { Text(verbatim: "Seiten") }
+                }
+                .padding(.horizontal, 20)
+                .frame(maxWidth: 700, alignment: .leading)
+                .frame(maxWidth: .infinity)
             }
             .navigationTitle(Text(verbatim: before ? "Vorher" : "Nachher"))
             .navigationBarTitleDisplayMode(.inline)
