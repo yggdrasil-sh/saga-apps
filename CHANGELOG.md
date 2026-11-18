@@ -9,6 +9,25 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – iOS: Saga-Siegel als Seitensymbol
+
+- Seiten mit einem **Saga-Siegel** (`/siegel/<farbe>/<motiv>.svg`, 36 Motive in Weinrot, Smaragd, Elfenbein) zeigen es
+  jetzt überall als Bild – Seitenkopf, Seitenbaum, Suche, Verweise, Datenbank-Zeilen, Verschieben, Unterseiten-Block,
+  @-Liste im Editor und das Widget „Seitenkarte“ – statt den Pfad als Text. Geladen wird wie bei eigenen Bildern mit
+  `?w=`, der Server liefert dann PNG. Chat-Verweise auf Seiten mit Bild-Symbol zeigen das Standardsymbol statt des Pfads.
+- Die Symbol-Auswahl hat einen Bereich **Saga-Siegel**: Farbe wählen (gemerkt; bei einem Siegel dessen Farbe) und ein
+  Motiv antippen – Namen vom Server in der App-Sprache, VoiceOver „Siegel Rabe (Weinrot)“, Raster wächst mit der Schrift.
+  Nur mit Server-Fähigkeit `siegel1` (bei Seiten anderer Instanzen auch deren Server); ältere Server: wie bisher.
+
+### Behoben – iOS: „Anruf voll“ verständlich, kein doppelter Verweis bei „/Seite“
+
+- Ist ein Gruppenanruf voll, zeigt die App den Text des Servers bzw. wie im Web „Der Anruf ist voll – alle {n} Plätze
+  sind belegt (jedes Gerät zählt, auch ein zweites zum Teilen) …“ statt „höchstens n Geräte“; in der Leiste „Anruf läuft“
+  mit eigenem Gerät im Anruf den Hinweis, dass „Hierher übernehmen“ trotzdem geht. „Klingeln“/„Erneut klingeln“ sind bei
+  vollem Anruf gesperrt, „Alle erneut klingeln“ fehlt (Bugs-DB 2154).
+- „/Seite“ und „/Datenbank“ im Editor legen mit `"link": false` an: der Server hängt keinen zweiten Verweis mehr ans
+  Ende der Seite (Bug 2151).
+
 ### Neu – Linux: Titelbild-Galerie
 
 - Das Titelbild-Menü („Ändern“) und „Titelbild hinzufügen“ bieten wie Web, iOS und Android **Galerie …** und
