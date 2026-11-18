@@ -3,10 +3,9 @@ package io.github.yggdrasil_sh.saga
 import io.github.yggdrasil_sh.saga.call.Meeting
 import io.github.yggdrasil_sh.saga.call.SpeakerPick
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.double
@@ -24,8 +23,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Meeting-Ansicht (MEETING-SPEC.md §12): gemeinsame Vektoren meeting_vectors.json - Personen/Kacheln (S2, S3, S9 …),
- * Layoutwahl, Galerie-Raster, Streifen, Groesse des eigenen Bilds, Leisten-Ausblenden und Sprecher-Hysterese (S5).
+ * Meeting-Ansicht (MEETING-SPEC.md §12): gemeinsame Vektoren des Servers (`tests/meeting_vectors.json`, unveraendert als
+ * meeting_vectors.json uebernommen) - Kacheln (S1-S9, §4.1, §4.2 beide Richtungen), Layoutwahl, Buehne/Streifen/Raster,
+ * Galerie-Raster, Seiten, Streifen, Sprecher-Hysterese, Leisten-Ausblenden und Groesse des eigenen Bilds.
+ *
+ * Wo Android (wie iOS) bewusst anders rechnet als das Web, steht der Fall unten in einer benannten Abweichung mit dem
+ * Wert der App: der Test prueft dann den App-Wert UND dass der Server dort wirklich etwas anderes erwartet (faellt eine
+ * Abweichung weg, schlaegt der Test an - Eintrag streichen).
  */
 class MeetingVectorsTest {
     private val root: JsonObject = Json.parseToJsonElement(
@@ -35,96 +39,246 @@ class MeetingVectorsTest {
     private fun JsonObject.s(k: String) = this[k]?.jsonPrimitive?.contentOrNull.orEmpty()
     private fun JsonObject.b(k: String) = this[k]?.jsonPrimitive?.booleanOrNull == true
     private fun JsonObject.sn(k: String) = (this[k] as? JsonNull)?.let { null } ?: this[k]?.jsonPrimitive?.contentOrNull
+    private fun JsonObject.strs(k: String) = this[k]!!.jsonArray.map { it.jsonPrimitive.content }
+    private fun list(k: String) = root[k]!!.jsonArray.map { it.jsonObject }
 
-    private fun devs(a: JsonArray) = a.map { it.jsonObject }.map { o ->
-        Meeting.Dev(
-            who = o.s("who"), name = o.s("name"), device = o.s("device"), devName = o.s("dev_name"),
-            companion = o.s("role") == "companion", me = o.b("me"), mic = o.b("mic"), cam = o.b("cam"), screen = o.b("screen"),
-            sharedAt = o["shared_at"]?.jsonPrimitive?.longOrNull ?: 0,
-        )
+    // ---------------------------------------------------------------- bekannte Abweichungen der App (nicht Bugs-DB 2160)
+
+    /** pickLayout: Fallname -> Layout der App ("nur ich": die App bleibt bei der gewaehlten Ansicht, das Web zeigt "one") */
+    private val appPickLayout = mapOf("nur ich (Warten)" to "speaker")
+
+    /** galleryGrid "w x h n" -> Spalten der App (eine Kachel: die App rechnet die Spalten nicht auf n herunter) */
+    private val appGridCols = mapOf("1280x720 1" to 2)
+
+    /** stripSide "w x h layout" -> Groesse der App (die App unterscheidet Praesentation/Sprecher erst unter 1100 dp nicht) */
+    private val appStripSize = mapOf("1280x720 presentation" to 200f)
+
+    /**
+     * selfPipSize "w x h ar size" -> [breite, hoehe] der App: Breitenregel nach dem Seitenverhaeltnis der Kamera (wie iOS
+     * CallLogic.selfPipSize), das Web nach der Lage der Buehne; abgerundet statt gerundet.
+     */
+    private val appPip = mapOf(
+        "1280x720 0.5625 M" to listOf(160f, 284f),
+        "390x844 0.5625 M" to listOf(101f, 179f),
+        "390x844 0.5625 L" to listOf(141f, 250f),
+        "400x300 0.5625 M" to listOf(82f, 146f),
+        "1280x720 0 M" to listOf(280f, 157f),
+    )
+
+    // ---------------------------------------------------------------- Kacheln
+
+    /** roster (wie GET /api/calls/{id}) + media je Geraet -> Geraete der App */
+    private fun devs(v: JsonObject): List<Meeting.Dev> {
+        val media = v["media"]?.jsonObject
+        return v["roster"]!!.jsonArray.map { it.jsonObject }.map { o ->
+            val dev = o.s("device")
+            val m = media?.get(dev)?.jsonObject ?: JsonObject(emptyMap())
+            Meeting.Dev(
+                who = o.s("who").ifEmpty { dev }, name = o.s("name"), device = dev, devName = o.s("dev_name"),
+                companion = o.s("role") == "companion", me = o.b("me"), mic = m.b("mic"), cam = m.b("cam"), screen = m.b("screen"),
+                level = m["level"]?.jsonPrimitive?.doubleOrNull ?: 0.0, sharedAt = m["screenAt"]?.jsonPrimitive?.longOrNull ?: 0,
+            )
+        }
     }
 
-    private fun fmt(t: Meeting.Tile) = "${t.id}|${t.kind.key}|${t.device}|${if (t.video) 1 else 0}" + if (t.devName.isNotEmpty()) "|${t.devName}" else ""
+    private fun fmt(id: String, kind: String, dev: String, video: Boolean, devName: String) = "$id|$kind|$dev|${if (video) 1 else 0}|$devName"
+    private fun fmt(t: Meeting.Tile) = fmt(t.id, t.kind.key, t.device, t.video, t.devName)
+    private fun fmtE(e: JsonElement) = e.jsonObject.let { fmt(it.s("id"), it.s("kind"), it.s("dev"), it.b("video"), it.s("devName")) }
+
+    /** Modell wie meetingTiles im Web; prefs.showNoVideo = false blendet wie MeetingLayer aus (Meeting.keepNoVideo) */
+    private fun model(v: JsonObject): Meeting.Model {
+        val prefs = v["prefs"]?.jsonObject ?: JsonObject(emptyMap())
+        val m = Meeting.tiles(devs(v), prefs.s("self"))
+        if (prefs["showNoVideo"]?.jsonPrimitive?.booleanOrNull != false) return m
+        val spoke = prefs["spokeAt"]?.jsonObject?.mapValues { it.value.jsonPrimitive.long }.orEmpty()
+        val now = prefs["now"]?.jsonPrimitive?.longOrNull ?: 0
+        return m.copy(people = m.people.filter { Meeting.keepNoVideo(it, spoke, now) })
+    }
 
     @Test
     fun meetingTiles() {
-        val list = root["meetingTiles"]!!.jsonArray
-        assertTrue(list.size >= 8)
-        for (v in list.map { it.jsonObject }) {
+        val cases = list("meetingTiles")
+        assertTrue(cases.size >= 17)
+        for (v in cases) {
             val n = v.s("name")
-            val e = v["expect"]!!.jsonObject
-            val m = Meeting.tiles(devs(v["legs"]!!.jsonArray), v.s("my_device"))
-            assertEquals(n, e["people"]!!.jsonArray.map { it.jsonPrimitive.content }, m.people.map(::fmt))
-            assertEquals(n, e["screens"]!!.jsonArray.map { it.jsonPrimitive.content }, m.screens.map(::fmt))
-            assertEquals(n, e["companions"]!!.jsonArray.map { it.jsonPrimitive.content }, m.companions)
-            assertEquals(n, e["persons"]!!.jsonPrimitive.int, m.persons)
-            assertEquals(n, e.b("self_sharing"), m.selfSharing)
+            val m = model(v)
+            // Web-Reihenfolge: Bildschirme (aelteste zuerst), Personen in Listenfolge, eigene Person zuletzt; die App haelt
+            // die Bildschirme neueste zuerst (Buehne) - gleiche Zeit bleibt in Listenfolge
+            val screensOldest = m.screens.withIndex().sortedWith(compareBy<IndexedValue<Meeting.Tile>> { it.value.sharedAt }.thenBy { it.index }).map { it.value }
+            assertEquals(n, v["expect"]!!.jsonArray.map(::fmtE), (screensOldest + m.people).map(::fmt))
+            assertEquals(n, v["roster"]!!.jsonArray.map { it.jsonObject.s("who") }.distinct().size, m.persons)
+            v["hidden"]?.let { h ->
+                val all = Meeting.tiles(devs(v), v["prefs"]!!.jsonObject.s("self")).people.map { it.who }.distinct()
+                assertEquals(n, h.jsonArray.map { it.jsonPrimitive.content }, all.filter { w -> m.people.none { it.who == w } })
+            }
             val view = Meeting.pickLayout(Meeting.Pref.AUTO, m)
-            assertEquals(n, e.s("layout"), view.key)
-            e.sn("layout_reduced")?.let { assertEquals(n, it, Meeting.pickLayout(Meeting.Pref.AUTO, m, reducedMotion = true).key) }
-            assertEquals(n, e.b("layout_button"), Meeting.layoutButton(m))
-            assertEquals(n, e.b("self_floats"), Meeting.selfFloats(view, m))
-            val st = Meeting.stage(view, m, v.sn("pin"), v.sn("speaker"))
-            assertEquals(n, e.sn("stage"), st.stage?.id)
-            if (view != Meeting.View.GALLERY) assertEquals(n, e["strip"]!!.jsonArray.map { it.jsonPrimitive.content }, st.strip.map { it.id })
+            assertEquals(n, v.s("layout"), view.key)
+            val a = v["arrange"]!!.jsonObject
+            val pin = v.sn("pin")
+            if (view == Meeting.View.GALLERY) {
+                val prefs = v["prefs"]?.jsonObject
+                val spoke = prefs?.get("spokeAt")?.jsonObject?.mapValues { it.value.jsonPrimitive.long }.orEmpty()
+                assertEquals(n, a.strs("grid"), Meeting.galleryOrder(m, pin, spoke, prefs?.get("now")?.jsonPrimitive?.longOrNull ?: 0).map { it.id })
+                assertEquals(n, null, a.sn("stage"))
+                assertFalse(n, Meeting.selfFloats(view, m))
+                continue
+            }
+            val st = Meeting.stage(view, m, pin, v.sn("speaker"))
+            assertEquals(n, a.sn("stage"), st.stage?.id)
+            assertEquals(n, a.strs("strip"), st.strip.map { it.id })
+            assertEquals(n, a.b("float"), Meeting.selfFloats(view, m))
         }
     }
+
+    // ---------------------------------------------------------------- Layout, Raster, Seiten, Streifen
+
+    private fun countModel(people: Int, screens: Int) = Meeting.Model(
+        people = (1..people).map { Meeting.Tile("p$it", Meeting.Kind.PERSON, "p$it", "d$it", "P$it", me = it == people, video = true) },
+        screens = (1..screens).map { Meeting.Tile("s$it|d$it:scr", Meeting.Kind.SCREEN, "s$it", "d$it", "S$it", video = true, sharedAt = it.toLong()) },
+        companions = emptyList(), selfSharing = false, persons = people,
+    )
+
+    @Test
+    fun pickLayout() {
+        val cases = list("pickLayout")
+        assertTrue(cases.size >= 8)
+        for (v in cases) {
+            val n = v.s("name")
+            // unbekannte Einstellung = Auto (Pref.of liest dagegen gespeicherte Altwerte, "grid" -> Galerie)
+            val pref = Meeting.Pref.entries.firstOrNull { it.key == v.s("choice") } ?: Meeting.Pref.AUTO
+            val got = Meeting.pickLayout(pref, countModel(v["people"]!!.jsonPrimitive.int, v["screens"]!!.jsonPrimitive.int), v.b("reduced")).key
+            val app = appPickLayout[n]
+            if (app != null) assertTrue("$n: Abweichung entfallen?", app != v.s("expect"))
+            assertEquals(n, app ?: v.s("expect"), got)
+        }
+    }
+
+    @Test
+    fun galleryGridAndPages() {
+        for (v in list("galleryGrid")) {
+            val w = v["w"]!!.jsonPrimitive.float
+            val h = v["h"]!!.jsonPrimitive.float
+            val cnt = v["n"]!!.jsonPrimitive.int
+            val key = "${w.toInt()}x${h.toInt()} $cnt"
+            val g = Meeting.grid(w, h, cnt)
+            val app = appGridCols[key]
+            if (app != null) assertTrue("$key: Abweichung entfallen?", app != v["cols"]!!.jsonPrimitive.int)
+            assertEquals("grid $key", listOf(app ?: v["cols"]!!.jsonPrimitive.int, v["perPage"]!!.jsonPrimitive.int, v["video"]!!.jsonPrimitive.int), listOf(g.cols, g.perPage, g.videos))
+        }
+        for (v in list("pages")) {
+            val pp = Meeting.pages(List(v["n"]!!.jsonPrimitive.int) { it }, v["perPage"]!!.jsonPrimitive.int)
+            val page = v["page"]!!.jsonPrimitive.int.coerceIn(0, pp.size - 1)          // Seite wird begrenzt (MeetingLayer)
+            assertEquals("pages $v", v["pages"]!!.jsonPrimitive.int, pp.size)
+            assertEquals("pages $v", v["items"]!!.jsonPrimitive.int, pp[page].size)
+            v["clamped"]?.let { assertEquals("pages $v", it.jsonPrimitive.int, page) }
+        }
+    }
+
+    @Test
+    fun stripSide() {
+        for (v in list("stripSide")) {
+            val w = v["w"]!!.jsonPrimitive.float
+            val h = v["h"]!!.jsonPrimitive.float
+            val key = "${w.toInt()}x${h.toInt()} ${v.s("layout")}"
+            val r = Meeting.strip(w, h)
+            val app = appStripSize[key]
+            if (app != null) assertTrue("$key: Abweichung entfallen?", app != v["size"]!!.jsonPrimitive.float)
+            assertEquals("strip $key", v.s("side"), r.side.name.lowercase())
+            assertEquals("strip $key", app ?: v["size"]!!.jsonPrimitive.float, r.size, 0.01f)
+        }
+    }
+
+    // ---------------------------------------------------------------- Sprecher, Leisten, eigenes Bild
 
     @Test
     fun speakerHysteresis() {
-        val list = root["speakerHysteresis"]!!.jsonArray
-        assertTrue(list.size >= 4)
-        for (v in list.map { it.jsonObject }) {
-            val p = SpeakerPick(v.s("self"))
-            for (s in v["steps"]!!.jsonArray.map { it.jsonObject }) {
-                val t = s["t"]!!.jsonPrimitive.long
-                val lv = s["levels"]!!.jsonObject.mapValues { it.value.jsonPrimitive.double }
-                val got = p.feed(lv, t)
-                assertEquals("${v.s("name")} t=$t", s.sn("stage"), got)
+        val cases = list("speakerHysteresis")
+        assertTrue(cases.size >= 5)
+        for (v in cases) {
+            val n = v.s("name")
+            val p = SpeakerPick(v.s("me"))
+            val tones = v["tones"]!!.jsonArray.map { it.jsonObject }
+            val step = v["step"]!!.jsonPrimitive.long
+            val at = HashMap<Long, String?>()
+            var prev: String? = null
+            var changes = 0
+            var t = 0L
+            while (t <= v["until"]!!.jsonPrimitive.long) {
+                // Ton = level zwischen from und to (ohne to), sonst kein Eintrag
+                val lv = HashMap<String, Double>()
+                for (x in tones) if (t >= x["from"]!!.jsonPrimitive.long && t < x["to"]!!.jsonPrimitive.long) {
+                    lv[x.s("who")] = maxOf(lv[x.s("who")] ?: 0.0, x["level"]!!.jsonPrimitive.double)
+                }
+                val s = p.feed(lv, t)
+                if (s != prev) { changes++; prev = s }
+                at[t] = s
+                t += step
             }
-        }
-    }
-
-    @Test
-    fun gridAndStrip() {
-        for (g in root["grid"]!!.jsonArray.map { it.jsonArray }) {
-            val r = Meeting.grid(g[0].jsonPrimitive.float, g[1].jsonPrimitive.float, g[2].jsonPrimitive.int)
-            val e = g[3].jsonArray.map { it.jsonPrimitive.int }
-            assertEquals("grid $g", e, listOf(r.cols, r.perPage, r.videos))
-        }
-        for (g in root["strip"]!!.jsonArray.map { it.jsonArray }) {
-            val r = Meeting.strip(g[0].jsonPrimitive.float, g[1].jsonPrimitive.float)
-            val e = g[2].jsonArray
-            assertEquals("strip $g", e[0].jsonPrimitive.content, r.side.name.lowercase())
-            assertEquals("strip $g", e[1].jsonPrimitive.float, r.size, 0.01f)
-            assertEquals("strip $g", e[2].jsonPrimitive.int, r.videos)
-        }
-    }
-
-    @Test
-    fun selfPipSize() {
-        for (v in root["selfPipSize"]!!.jsonArray.map { it.jsonObject }) {
-            val (w, h) = Meeting.selfPipSize(
-                v["aspect"]?.jsonPrimitive?.doubleOrNull?.toFloat(), v["fallback"]!!.jsonPrimitive.float, v["width"]!!.jsonPrimitive.float,
-                v["avail"]!!.jsonPrimitive.float, v["factor"]!!.jsonPrimitive.float,
-            )
-            val e = v["expect"]!!.jsonArray.map { it.jsonPrimitive.float }
-            assertEquals("pip $v", e[0], w, 0.01f)
-            assertEquals("pip $v", e[1], h, 0.01f)
+            for (e in v["expect"]!!.jsonArray.map { it.jsonObject }) {
+                val et = e["t"]!!.jsonPrimitive.long
+                assertEquals("$n t=$et", e.sn("stage"), at[et])
+            }
+            assertEquals("$n Wechsel", v["changes"]!!.jsonPrimitive.int, changes)
         }
     }
 
     @Test
     fun hideControls() {
-        for (v in root["hideControls"]!!.jsonArray.map { it.jsonObject }) {
+        for (v in list("hideControls")) {
             assertEquals(
-                "hide $v", v["hide"]!!.jsonPrimitive.boolean,
-                Meeting.hideControls(v["idle"]!!.jsonPrimitive.long, v.b("connected"), v.b("video"), v.b("sr"), v.b("menu"), v.b("notice"), v.b("over")),
+                "hide $v", v.b("expect"),
+                Meeting.hideControls(if (v.b("idle")) Meeting.IDLE_MS else 0, v.s("phase") == "connected", v.b("video"), v.b("sr"), v.b("menu"), v.b("notice"), v.b("over")),
             )
         }
     }
 
+    @Test
+    fun selfPipSize() {
+        for (v in list("selfPipSize")) {
+            val w = v["w"]!!.jsonPrimitive.float
+            val h = v["h"]!!.jsonPrimitive.float
+            val ar = v["ar"]!!.jsonPrimitive.doubleOrNull ?: 0.0
+            val size = v.s("size")
+            val key = "${w.toInt()}x${h.toInt()} ${v["ar"]!!.jsonPrimitive.content} $size"
+            val factor = Meeting.SIZE_FACTORS["SML".indexOf(size).let { if (it < 0) 1 else it }]
+            // Ersatz-Seitenverhaeltnis wie im Web nach der Lage der Buehne; avail = Hoehe der Buehne
+            val (pw, ph) = Meeting.selfPipSize(ar.toFloat(), if (w >= h) 16f / 9f else 9f / 16f, w, h, factor)
+            val web = v["expect"]!!.jsonArray.map { it.jsonPrimitive.float }
+            val app = appPip[key]
+            if (app != null) assertTrue("$key: Abweichung entfallen?", app != web)
+            val e = app ?: web
+            assertEquals("pip $key", e[0], pw, 0.01f)
+            assertEquals("pip $key", e[1], ph, 0.01f)
+        }
+    }
+
     // ---------------------------------------------------------------- weitere Regeln (nur Android)
+
+    /** §4.2 auf dem Hauptgeraet: Begleitgeraet im Chip, teilt es, kommt sein Bildschirm; eigene Freigabe = rote Leiste */
+    @Test
+    fun eigeneGeraeteChipUndLeiste() {
+        val v = list("meetingTiles").first { it.s("name").startsWith("§4.2 auf dem eigenen Hauptgeraet") }
+        val m = model(v)
+        assertEquals(listOf("iPhone"), m.companions)
+        assertFalse(m.selfSharing)
+        assertEquals("iPhone", m.screens.single().devName)
+        assertFalse(m.screens.single().me)                                           // Bild kommt vom Begleitgeraet
+        assertTrue(Meeting.layoutButton(m))
+        val own = list("meetingTiles").first { it.s("name").startsWith("§4.2 eigene Freigabe auf dem Begleitgeraet") }
+        val mo = model(own)
+        assertTrue(mo.selfSharing)
+        assertTrue(mo.screens.isEmpty())
+        assertEquals(listOf("MacBook"), mo.companions)
+        // Bildschirm ueber den Knoten nicht abonnierbar: Kachel mit Hinweis statt Bild
+        val na = Meeting.tiles(
+            listOf(
+                Meeting.Dev("a", "Anna", "a1", "Mac", me = true), Meeting.Dev("a", "Anna", "a2", "Pixel", companion = true, me = true, screen = true, screenNa = true),
+                Meeting.Dev("b", "Ben", "b1"),
+            ),
+            "a1",
+        )
+        assertEquals(listOf("a|a2:scr|screen|a2|0|Pixel"), na.screens.map(::fmt))
+    }
 
     @Test
     fun galerieReihenfolgeUndSeiten() {

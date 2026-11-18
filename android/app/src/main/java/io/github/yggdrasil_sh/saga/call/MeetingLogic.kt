@@ -22,8 +22,8 @@ object Meeting {
         }
     }
 
-    /** Tatsaechlich gezeigtes Layout; DUO = Buehne + eigenes Bild schwebend (1:1) */
-    enum class View(val key: String) { DUO("duo"), GALLERY("gallery"), SPEAKER("speaker"), PRESENTATION("presentation") }
+    /** Tatsaechlich gezeigtes Layout; DUO = Buehne + eigenes Bild schwebend (1:1, im Web und in den Vektoren "one") */
+    enum class View(val key: String) { DUO("one"), GALLERY("gallery"), SPEAKER("speaker"), PRESENTATION("presentation") }
 
     enum class Kind(val key: String) { PERSON("person"), CAM2("cam"), SCREEN("screen") }
 
@@ -74,7 +74,7 @@ object Meeting {
     data class Model(
         /** Personenkacheln (eigene zuletzt), zweite Kamera-Kacheln direkt hinter ihrer Person */
         val people: List<Tile>,
-        /** Bildschirmkacheln anderer, zuletzt gestartete zuerst */
+        /** Bildschirmkacheln anderer und anderer eigener Geraete (§4.2), zuletzt gestartete zuerst */
         val screens: List<Tile>,
         /** Namen der eigenen anderen Geraete (Chip im Kopf "iPhone, Galaxy verbunden") */
         val companions: List<String>,
@@ -90,7 +90,10 @@ object Meeting {
 
     /**
      * Kacheln aus den Geraeten. myDevice = dieses Geraet: von der eigenen Person zaehlt nur es (Personenkachel "Du");
-     * eigene andere Geraete erscheinen nie als Kachel (auch nicht mit Kamera/Bildschirm), sondern im Chip.
+     * eigene andere Geraete erscheinen nie als Personen- oder Kamerakachel, sondern im Chip. Teilt ein anderes eigenes
+     * Geraet den Bildschirm, kommt dieser als Bildschirmkachel mit Geraetename (§4.2, Bugs-DB 2160) - in beiden Richtungen
+     * (Begleitgeraet -> Hauptgeraet und Hauptgeraet -> Begleitgeraet), im Mesh wie ueber den Knoten. Den Bildschirm dieses
+     * Geraets nie (die eigene Freigabe zeigt die rote Leiste). Kennungen wie Web/iOS: `who`, `who|geraet:cam`, `who|geraet:scr`.
      */
     fun tiles(devs: List<Dev>, myDevice: String): Model {
         val order = LinkedHashMap<String, MutableList<Dev>>()
@@ -110,6 +113,12 @@ object Meeting {
                     who, Kind.PERSON, who, mine.device, mine.name, me = true, video = mine.cam, mic = mine.mic,
                     speaking = mine.speaking, level = mine.level, avatar = mine.avatar, devices = list.size,
                 )
+                // §4.2: Bildschirm eines ANDEREN eigenen Geraets als Bildschirmkachel (immer mit Geraetename), nie eine
+                // Personen- oder Kamerakachel; me = false - das Bild kommt von dort (Mesh-Verbindung bzw. Knoten-Platz)
+                for (d in list) if (d.screen && d.device != mine.device) screens.add(
+                    Tile("$who|${d.device}:scr", Kind.SCREEN, who, d.device, mine.name.ifEmpty { list.firstNotNullOfOrNull { it.name.ifEmpty { null } } ?: who },
+                        devName = d.devName, video = !d.screenNa, sharedAt = d.sharedAt, screenNa = d.screenNa, avatar = mine.avatar, devices = list.size),
+                )
                 continue
             }
             val main = list.firstOrNull { !it.companion } ?: list.first()
@@ -125,11 +134,11 @@ object Meeting {
             )
             // zweite Kamera: Begleitgeraet mit eigener Kamera (nur dann)
             for (d in list) if (d.cam && d.device != src.device) people.add(
-                Tile("$who${d.device}:cam", Kind.CAM2, who, d.device, name, devName = d.devName, video = true, mic = d.mic,
+                Tile("$who|${d.device}:cam", Kind.CAM2, who, d.device, name, devName = d.devName, video = true, mic = d.mic,
                     speaking = d.speaking, level = d.level, avatar = main.avatar, devices = list.size),
             )
             for (d in list) if (d.screen) screens.add(
-                Tile("$who${d.device}:scr", Kind.SCREEN, who, d.device, name, devName = if (list.size > 1) d.devName else "",
+                Tile("$who|${d.device}:scr", Kind.SCREEN, who, d.device, name, devName = if (list.size > 1) d.devName else "",
                     video = !d.screenNa, sharedAt = d.sharedAt, screenNa = d.screenNa, devices = list.size),
             )
         }
@@ -138,6 +147,16 @@ object Meeting {
         val sortedScreens = screens.withIndex().sortedWith(compareByDescending<IndexedValue<Tile>> { it.value.sharedAt }.thenBy { it.index }).map { it.value }
         return Model(people, sortedScreens, companions, selfSharing, order.size)
     }
+
+    /** §3 Kacheln ohne Video ausgeblendet: Nachlauf, solange eine Person nach dem Sprechen sichtbar bleibt */
+    const val NOVIDEO_TAIL = 5000L
+
+    /**
+     * §3 "Kacheln ohne Video ausblenden": bleibt diese Kachel? Mit Video, die eigene, wer spricht und wer vor weniger als
+     * 5 s gesprochen hat (spokeAt = who -> letzter Sprechzeitpunkt, ms).
+     */
+    fun keepNoVideo(t: Tile, spokeAt: Map<String, Long>, now: Long): Boolean =
+        t.video || t.me || t.speaking || (spokeAt[t.who]?.let { now - it < NOVIDEO_TAIL } == true)
 
     /** Sichtbare Kacheln (Personen + zweite Kameras, ohne Bildschirme) - Grundlage der Auto-Grenzen */
     fun visible(m: Model): Int = m.people.size
@@ -166,12 +185,13 @@ object Meeting {
     /** Layout-Knopf: im 1:1 ohne Teilen und ohne zweite Kachel ausgeblendet */
     fun layoutButton(m: Model): Boolean = m.screens.isNotEmpty() || visible(m) > 2
 
-    /** Eigenes Bild schwebend (sonst Kachel im Raster bzw. letzte im Streifen) - §7 */
-    fun selfFloats(view: View, m: Model): Boolean = when (view) {
-        View.DUO -> true
-        View.PRESENTATION -> m.persons <= 2
-        else -> false
-    }
+    /**
+     * Eigenes Bild schwebend (sonst Kachel im Raster bzw. letzte im Streifen) - §7: nur im 1:1 (DUO); in der Praesentation
+     * nie ueber dem geteilten Bildschirm, sondern zuletzt im Streifen (wie Web, gemeinsame Vektoren). So zeichnet es
+     * MeetingLayer schon immer; bisher lieferte diese Funktion fuer die Praesentation zu zweit "schwebt".
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun selfFloats(view: View, m: Model): Boolean = view == View.DUO
 
     // ------------------------------------------------------------ Galerie
 

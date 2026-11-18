@@ -446,7 +446,7 @@ internal fun MeetingStage(
     val now = System.currentTimeMillis().also { @Suppress("UNUSED_EXPRESSION") tick }
     model.people.filter { it.speaking }.forEach { spokeAt[it.who] = now }
     LaunchedEffect(spokeAt.values.maxOrNull()) { delay(5100); tick++ }
-    val keep: (Meeting.Tile) -> Boolean = { it.video || it.me || it.speaking || (spokeAt[it.who]?.let { t -> now - t < 5000 } == true) }
+    val keep: (Meeting.Tile) -> Boolean = { Meeting.keepNoVideo(it, spokeAt, now) }
     val m = if (ms.showNoVideo) model else model.copy(people = model.people.filter(keep))
     val noVideo = if (ms.showNoVideo) 0 else model.people.count { !keep(it) }
     val view = Meeting.pickLayout(ms.effPref, m, reducedMotion)
@@ -473,7 +473,7 @@ internal fun MeetingStage(
                 val st = Meeting.stage(view, m, ms.pin, speaker)
                 // Android: eigenes Bild schwebt nur im 1:1 (DUO); in Praesentation/Sprecher steht es im Streifen und
                 // ueberdeckt so nie den geteilten Bildschirm (§7 letzter Punkt)
-                val floats = view == Meeting.View.DUO
+                val floats = Meeting.selfFloats(view, m)
                 val strip = st.strip.filter { !(it.me && floats) } + (if (!floats && st.strip.none { it.me }) listOfNotNull(m.self) else emptyList())
                 val sp = Meeting.strip(w, h)
                 val showStrip = view != Meeting.View.DUO && strip.isNotEmpty() && !ms.fullscreen
