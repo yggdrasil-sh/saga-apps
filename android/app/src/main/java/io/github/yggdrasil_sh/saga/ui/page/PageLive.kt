@@ -61,6 +61,9 @@ object PageLiveLogic {
     /** REFRESH_HEADER (2.5, Bugs-DB 2121): nur Kopf-Felder anderswo geaendert (meta) - still nachziehen, Inhalt bleibt */
     enum class Action { NONE, RELOAD_SILENT, SHOW_BANNER, GONE, REFRESH_HEADER }
 
+    /** Kopf nachziehen entprellt (wie iOS): mehrere meta-Ereignisse kurz hintereinander -> eine Anfrage (pruef-apps-meta F-c) */
+    const val HEADER_DEBOUNCE_MS = 250L
+
     /**
      * note.changed: neuere Revision ohne eigene ungespeicherte Aenderungen -> still neu laden; sonst Hinweis.
      * meta (Server 2.5: Symbol, Titelbild, Sperre, Eigenschaften ... - rev gleich) bzw. Anwesenheit mit neuerem Stand
@@ -200,6 +203,20 @@ fun rememberPageLive(id: Long, repo: SagaRepository, ed: PageEditor, comments: C
         }
     }
 
+    // Kopf-Ereignisse entprellen (HEADER_DEBOUNCE_MS, wie iOS headerTask): jedes neue Ereignis startet die Wartezeit neu,
+    // danach eine Anfrage mit dem Namen des letzten; seriell (keine zwei Kopf-Abfragen gleichzeitig)
+    val headerReq = remember(ed) { kotlinx.coroutines.channels.Channel<String>(kotlinx.coroutines.channels.Channel.CONFLATED) }
+    LaunchedEffect(ed) {
+        for (first in headerReq) {
+            var name = first
+            while (true) {
+                delay(PageLiveLogic.HEADER_DEBOUNCE_MS)
+                name = headerReq.tryReceive().getOrNull() ?: break
+            }
+            refreshHeader(name)
+        }
+    }
+
     // Block-Anwesenheit: eigene Seiten (Server ab 2.5 kennt "block", aeltere ignorieren es), fremde mit presence2
     val blockPresence = sendPresence && (id > 0 || ed.can("presence2"))
     val throttle = remember(ed) { PresenceThrottle() }
@@ -223,7 +240,7 @@ fun rememberPageLive(id: Long, repo: SagaRepository, ed: PageEditor, comments: C
                 PageLiveLogic.headerNewer((o["updated"] as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull(), ed.updatedAt)
             when (PageLiveLogic.onChanged(rev, ed.currentRev, ed.dirty, false, meta)) {
                 PageLiveLogic.Action.RELOAD_SILENT, PageLiveLogic.Action.SHOW_BANNER -> follow(byName(o))
-                PageLiveLogic.Action.REFRESH_HEADER -> refreshHeader(byName(o))
+                PageLiveLogic.Action.REFRESH_HEADER -> headerReq.trySend(byName(o))
                 else -> {}
             }
         }
@@ -290,7 +307,7 @@ fun rememberPageLive(id: Long, repo: SagaRepository, ed: PageEditor, comments: C
                     when (PageLiveLogic.onChanged(ev.int("rev"), ed.currentRev, ed.dirty, ev.bool("gone"), ev.bool("meta"))) {
                         PageLiveLogic.Action.GONE -> ed.load()
                         PageLiveLogic.Action.RELOAD_SILENT, PageLiveLogic.Action.SHOW_BANNER -> follow(name)
-                        PageLiveLogic.Action.REFRESH_HEADER -> refreshHeader(name)
+                        PageLiveLogic.Action.REFRESH_HEADER -> headerReq.trySend(name)
                         PageLiveLogic.Action.NONE -> {}
                     }
                 }
