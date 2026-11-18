@@ -9700,3 +9700,28 @@ msgstr "Звонок заполнен — все места ({n}) заняты (
 #, python-brace-format
 msgid "All {n} places are taken – another device of yours (e.g. for sharing) can only join once someone hangs up. “Move here” still works."
 msgstr "Все {n} мест заняты — ещё одно ваше устройство (например, для показа экрана) сможет подключиться, только когда кто-нибудь положит трубку. «Перенести сюда» всё равно работает."
+
+#: hlidskjalf/siegel.py
+msgid "Saga seals"
+msgstr "Печати Saga"
+
+#: hlidskjalf/siegel.py
+msgid "Seal color"
+msgstr "Цвет печатей"
+
+#: hlidskjalf/siegel.py
+msgid "Search seals …"
+msgstr "Найти печать …"
+
+#: hlidskjalf/siegel.py
+msgid "No seal found."
+msgstr "Печать не найдена."
+
+#: hlidskjalf/siegel.py
+#, python-brace-format
+msgid "Seal {name}"
+msgstr "Печать {name}"
+
+#: hlidskjalf/siegel.py
+msgid "Saga seals could not be loaded."
+msgstr "Не удалось загрузить печати Saga."

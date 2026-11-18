@@ -9279,3 +9279,28 @@ msgstr ""
 #, python-brace-format
 msgid "All {n} places are taken – another device of yours (e.g. for sharing) can only join once someone hangs up. “Move here” still works."
 msgstr ""
+
+#: hlidskjalf/siegel.py
+msgid "Saga seals"
+msgstr ""
+
+#: hlidskjalf/siegel.py
+msgid "Seal color"
+msgstr ""
+
+#: hlidskjalf/siegel.py
+msgid "Search seals …"
+msgstr ""
+
+#: hlidskjalf/siegel.py
+msgid "No seal found."
+msgstr ""
+
+#: hlidskjalf/siegel.py
+#, python-brace-format
+msgid "Seal {name}"
+msgstr ""
+
+#: hlidskjalf/siegel.py
+msgid "Saga seals could not be loaded."
+msgstr ""

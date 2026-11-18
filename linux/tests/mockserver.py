@@ -16,6 +16,7 @@ import mockv2
 import mockv21
 import mockstd
 import mockcovers
+import mocksiegel
 import mockv25
 import mockki
 
@@ -169,6 +170,7 @@ class MockServer:
         mockki.init(self)                    # Saga 2.1: KI-Persona, KI im Chat
         mockv25.init(self)                   # Saga 2.5: Etappe 1 der Apps (Formeln, Personen, Diagramme ...)
         mockcovers.init(self)                # Saga 2.5: Titelbild-Galerie (api/covers, Standard 404)
+        mocksiegel.init(self)                # Saga 2.5: Saga-Siegel (api/siegel, /siegel/...; Feature siegel1 setzt der Test)
         mockstd.init(self)                   # Saga 2.5: Chat-Standard
 
     def _graph(self):
@@ -446,6 +448,9 @@ class MockServer:
 
     def _api(self, method, path, q, body):
         parts = path.split("/")
+        r = mocksiegel.handle(self, method, path, q)
+        if r is not None:
+            return r
         r = mockcovers.handle(self, method, path, q)
         if r is not None:
             return r

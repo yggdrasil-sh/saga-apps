@@ -2867,8 +2867,12 @@ class Conversation(Gtk.Box):
                 r.connect("activated", lambda *_: (pop.popdown(), self._insert_ai()))
                 lst.append(r)
             for p in pages[:10]:
-                r = Adw.ActionRow(title=GLib.markup_escape_text((p.get("icon") + " " if p.get("icon") and not p["icon"].startswith("/") else "📄 ")
+                ic = p.get("icon") if isinstance(p.get("icon"), str) else ""
+                img = images.is_file_url(ic)                 # 2.5: eigenes Bild oder Saga-Siegel als Bild davor
+                r = Adw.ActionRow(title=GLib.markup_escape_text(("" if img else ic + " " if ic and not ic.startswith("/") else "📄 ")
                                                                + (p.get("title") or _("Untitled"))), activatable=True)
+                if img:
+                    r.add_prefix(images.page_icon(ic, size=20))
                 r.connect("activated", lambda *_, p=p: (pop.popdown(), self._insert_page(p)))
                 lst.append(r)
             lst.set_visible(bool(pages) or self._ai_on())

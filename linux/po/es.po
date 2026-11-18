@@ -9704,3 +9704,28 @@ msgstr "La llamada está llena: los {n} puestos están ocupados (cuenta cada dis
 #, python-brace-format
 msgid "All {n} places are taken – another device of yours (e.g. for sharing) can only join once someone hangs up. “Move here” still works."
 msgstr "Las {n} plazas están ocupadas: otro dispositivo tuyo (p. ej. para compartir) solo podrá unirse cuando alguien cuelgue. «Pasar aquí» sigue funcionando."
+
+#: hlidskjalf/siegel.py
+msgid "Saga seals"
+msgstr "Sellos de Saga"
+
+#: hlidskjalf/siegel.py
+msgid "Seal color"
+msgstr "Color de los sellos"
+
+#: hlidskjalf/siegel.py
+msgid "Search seals …"
+msgstr "Buscar sellos …"
+
+#: hlidskjalf/siegel.py
+msgid "No seal found."
+msgstr "No se encontró ningún sello."
+
+#: hlidskjalf/siegel.py
+#, python-brace-format
+msgid "Seal {name}"
+msgstr "Sello {name}"
+
+#: hlidskjalf/siegel.py
+msgid "Saga seals could not be loaded."
+msgstr "No se pudieron cargar los sellos de Saga."

@@ -149,12 +149,17 @@ class CoverView(Gtk.Overlay):
 
 
 class IconPicker(Adw.Dialog):
+    """Symbol waehlen: Emoji / eigenes Bild / Immich; (2.5) zweiter Bereich "Saga-Siegel", wenn der Server (und bei Seiten
+    anderer Instanzen deren Server) siegel1 kann"""
     def __init__(self, view):
-        super().__init__(title=_("Icon"), content_width=420, content_height=480)
+        from . import siegel
+        super().__init__(title=_("Icon"), content_width=440, content_height=520)
         self.view = view
         tv = Adw.ToolbarView()
-        tv.add_top_bar(Adw.HeaderBar())
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
+        hb = Adw.HeaderBar()
+        tv.add_top_bar(hb)
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, vexpand=True)
         row = Gtk.Box(spacing=8)
         ch = Gtk.MenuButton(label="😀 " + _("Choose emoji …"))
         em = Gtk.EmojiChooser()
@@ -177,12 +182,25 @@ class IconPicker(Adw.Dialog):
         sw = Gtk.ScrolledWindow(vexpand=True)
         sw.set_child(fb)
         box.append(sw)
-        if view.doc.page.get("icon"):
+        cur = view.doc.page.get("icon") or ""
+        self.stack = None
+        if siegel.offered(store, view.rcan if view.remote else None):
+            # zwei Bereiche: Emoji | Saga-Siegel (Umschalter in der Kopfzeile); aktuelles Symbol ein Siegel -> dort beginnen
+            self.stack = Adw.ViewStack(vexpand=True)
+            self.stack.add_titled_with_icon(box, "emoji", _("Emoji"), "face-smile-symbolic")
+            self.stack.add_titled_with_icon(siegel.SiegelPane(cur, self._set), "siegel", _("Saga seals"), "saga-page-symbolic")
+            if images.is_siegel(cur):
+                self.stack.set_visible_child_name("siegel")
+            hb.set_title_widget(Adw.ViewSwitcher(stack=self.stack, policy=Adw.ViewSwitcherPolicy.WIDE))
+            outer.append(self.stack)
+        else:
+            outer.append(box)
+        if cur:
             rm = Gtk.Button(label=_("Remove icon"))
             rm.add_css_class("destructive-action")
             rm.connect("clicked", lambda *_: self._set(""))
-            box.append(rm)
-        tv.set_content(box)
+            outer.append(rm)
+        tv.set_content(outer)
         self.set_child(tv)
 
     def _set(self, v):

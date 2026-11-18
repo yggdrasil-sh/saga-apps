@@ -67,12 +67,37 @@ class Decoded:
         return len(self.textures) > 1
 
 
+# 2.5 (Saga-Siegel, docs/APP-API.md): mitgelieferte Seitensymbole /siegel/<farbe>/<motiv>.svg - auf jedem Saga-Server
+# dieselben Dateien (auch fuer Seiten anderer Instanzen vom eigenen Server). Mit ?w= liefert der Server PNG (64/128/256).
+SIEGEL_RE = re.compile(r"/siegel/(weinrot|smaragd|elfenbein)/([a-z]{2,20})\.svg")
+SIEGEL_SIZES = (64, 128, 256)
+
+
+def is_siegel(path):
+    """Genau der gespeicherte Pfad eines Saga-Siegels (ohne ?w=, ohne Leerzeichen)"""
+    return isinstance(path, str) and SIEGEL_RE.fullmatch(path) is not None
+
+
+def siegel_parts(path):
+    """'/siegel/<farbe>/<motiv>.svg' -> (farbe, motiv), sonst None"""
+    m = SIEGEL_RE.fullmatch(path) if isinstance(path, str) else None
+    return (m.group(1), m.group(2)) if m else None
+
+
 def is_file_url(path):
-    """eigene Datei (/files/...) oder Datei einer Seite anderer Saga-Instanzen (/api/fed/files/...)"""
-    return isinstance(path, str) and path.startswith(("/files/", "/api/fed/files/"))
+    """Bild vom Server: eigene Datei (/files/...), Datei einer Seite anderer Saga-Instanzen (/api/fed/files/...) oder
+    (2.5) Saga-Siegel (/siegel/...svg - immer als PNG mit ?w= geladen, siehe sized)"""
+    return isinstance(path, str) and (path.startswith(("/files/", "/api/fed/files/")) or is_siegel(path))
+
+
+def siegel_px(w):
+    """naechstgroessere Stufe des Servers (64/128/256, darueber 256) - feste Stufen = wenige Eintraege im Zwischenspeicher"""
+    return next((s for s in SIEGEL_SIZES if w and w <= s), SIEGEL_SIZES[-1])
 
 
 def sized(path, w):
+    if is_siegel(path):                               # ohne ?w= kaeme SVG (nur fuer das Web) - Pillow kann das nicht
+        return f"{path}?w={siegel_px(w)}"
     if w and is_file_url(path) and "?" not in path:
         return f"{path}?w={w}"
     return path
@@ -405,13 +430,24 @@ class ImageView(Gtk.Widget):
 
 
 def page_icon(icon, size=22, fallback="📄"):
-    """Seiten-Symbol: Emoji oder eigenes Bild (/files/...)"""
+    """Seiten-Symbol: Emoji, eigenes Bild (/files/...) oder (2.5) Saga-Siegel (/siegel/...). Andere Pfade (z. B. ein von
+    einem aelteren Server auf "/siegel/" gekuerztes Siegel) nie als Text, sondern das Ersatzsymbol."""
+    if icon and is_siegel(icon):
+        # PNG mit durchsichtigen Ecken: nicht zuschneiden, doppelte Pixeldichte (HiDPI) aus der naechsten Stufe
+        v = ImageView(icon, mode="cover", w=siegel_px(size * 2))
+        v.set_size_request(size, size)
+        v.set_valign(Gtk.Align.CENTER)
+        v.set_halign(Gtk.Align.CENTER)
+        v.add_css_class("hk-siegel")
+        return v
     if icon and is_file_url(icon):
         v = ImageView(icon, mode="cover", w=160 if size <= 40 else 320, radius=4 if size < 40 else 10)
         v.set_size_request(size, size)
         v.set_valign(Gtk.Align.CENTER)
         v.set_halign(Gtk.Align.CENTER)
         return v
+    if isinstance(icon, str) and icon.startswith("/"):
+        icon = ""
     text = icon or fallback
     if not glyphs_ok(text):
         # keine Schrift kennt das Zeichen (z. B. Farb-Emoji-Schrift fehlt): einfarbiges Ersatzsymbol statt Kaestchen

@@ -458,7 +458,8 @@ class BackupPage(Adw.PreferencesPage):
         walk(0, 0)
 
         def title(p):
-            return ((p.get("icon") + " ") if p.get("icon") else "") + (p.get("title") or _("Untitled"))
+            ic = p.get("icon") if isinstance(p.get("icon"), str) and not p["icon"].startswith("/") else ""   # Bild/Siegel: kein Pfad als Text
+            return ((ic + " ") if ic else "") + (p.get("title") or _("Untitled"))
         ex = Adw.ExpanderRow(title=_("Don’t back up these pages"))
         holder = []
 

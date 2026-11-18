@@ -50,6 +50,24 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   ans Ende der Elternseite.
 - Der Hinweis „Verbindung wird neu aufgebaut“ nach einem Netzwechsel blieb stehen, wenn gar kein Neuaufbau begann;
   Änderungen am Seitenkopf aus dem Web werden 250 ms gesammelt (wie iOS) statt je Ereignis abgefragt.
+### Neu – Linux: Saga-Siegel als Seitensymbol
+
+- Seitensymbole `/siegel/<farbe>/<motiv>.svg` (36 Motive in Weinrot, Smaragd, Elfenbein) erscheinen als Bild statt
+  als Pfad: Seitenkopf, Seitenbaum, Favoriten/Zuletzt, Suche, Datenbank-Zeilen, Unterseiten-Widget, Seitenauswahl im
+  Chat. Geladen wird immer das PNG des Servers (`?w=64|128|256`), nie das SVG; auch für Seiten anderer Instanzen
+  vom eigenen Server. Andere Pfade (z. B. ein von älteren Servern gekürztes „/siegel/“) zeigen das Ersatzsymbol.
+- Symbol-Dialog: zweiter Bereich **Saga-Siegel** (Umschalter Emoji | Saga-Siegel) mit Farbwahl, Suche nach Namen und
+  Raster der Motive (Namen aus `GET /api/siegel` in der Sprache der App, Screenreader „Siegel Rabe (Weinrot)“,
+  aktuelles Siegel markiert, zuletzt gewählte Farbe gemerkt). Nur wenn der Server `siegel1` meldet – bei Seiten
+  anderer Instanzen auch deren Server.
+
+### Behoben – Linux: „Anruf voll“ verständlich, „/Seite“ ohne doppelten Verweis
+
+- Leiste „Anruf läuft“ bei vollem Anruf: Text des Servers, sonst wie im Web „alle {n} Plätze sind belegt (jedes Gerät
+  zählt, auch ein zweites zum Teilen)“; mit eigenem Gerät im Anruf der Hinweis, dass „Hierher übernehmen“ trotzdem
+  geht (Bugs-DB 2154).
+- „/Seite“ und „/Datenbank“ im Editor legen die Seite mit `"link": false` an – der Server hängt seit Bug 2151 sonst
+  selbst einen zweiten Verweis an.
 
 ### Neu – Linux: Titelbild-Galerie
 

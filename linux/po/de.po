@@ -9725,3 +9725,28 @@ msgstr "Der Anruf ist voll – alle {n} Plätze sind belegt (jedes Gerät zählt
 #, python-brace-format
 msgid "All {n} places are taken – another device of yours (e.g. for sharing) can only join once someone hangs up. “Move here” still works."
 msgstr "Alle {n} Plätze sind belegt – ein weiteres eigenes Gerät (z. B. zum Teilen) kann erst dazukommen, wenn jemand auflegt. „Hierher übernehmen“ geht trotzdem."
+
+#: hlidskjalf/siegel.py
+msgid "Saga seals"
+msgstr "Saga-Siegel"
+
+#: hlidskjalf/siegel.py
+msgid "Seal color"
+msgstr "Farbe der Siegel"
+
+#: hlidskjalf/siegel.py
+msgid "Search seals …"
+msgstr "Siegel suchen …"
+
+#: hlidskjalf/siegel.py
+msgid "No seal found."
+msgstr "Kein Siegel gefunden."
+
+#: hlidskjalf/siegel.py
+#, python-brace-format
+msgid "Seal {name}"
+msgstr "Siegel {name}"
+
+#: hlidskjalf/siegel.py
+msgid "Saga seals could not be loaded."
+msgstr "Die Saga-Siegel konnten nicht geladen werden."

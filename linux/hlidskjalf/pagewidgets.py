@@ -387,7 +387,8 @@ SUB_WIDTH = {"cover": {"s": 160, "m": 216, "l": 288}, "content": {"s": 116, "m":
 SUB_RATIO = {"cover": 16 / 9, "content": 2 / 3}                 # Breite / Hoehe der Bildflaeche
 SUB_THUMB_W = {"cover": 640, "content": 400}                    # ?w= fuer Vorschaubilder
 _SUB_IMG = re.compile(r"/(?:files/[A-Za-z0-9._-]{1,80}|covers/[A-Za-z0-9._-]{1,80}\.jpg|"
-                      r"api/fed/files/-?[0-9]{1,18}/[A-Za-z0-9._-]{1,80})")
+                      r"api/fed/files/-?[0-9]{1,18}/[A-Za-z0-9._-]{1,80}|"
+                      r"siegel/(?:weinrot|smaragd|elfenbein)/[a-z]{2,20}\.svg)")      # 2.5: Saga-Siegel als Symbol
 
 
 def subpages_cfg(cfg):
