@@ -57,6 +57,7 @@ struct HlidskjalfApp: App {
             else if DB25Preview.mode != nil { DB25PreviewView(store: store) }                          // 2.5 E1: Datenbanken/Widgets (ohne Server)
             else if E2Preview.mode != nil { E2PreviewView(store: store) }                              // 2.5 E2: Konflikt, Markierung, Farben, Aufgaben
             else if CoverPreview.mode != nil { CoverPreviewView(store: store) }                        // 2.5: Titelbild-Galerie (ohne Server)
+            else if SiegelPreview.mode != nil { SiegelPreviewView(store: store) }                      // 2.5: Saga-Siegel (ohne Server)
             else { RootView(store: store).environment(\.calendar, SagaDate.calendar) }
             #else
             RootView(store: store).environment(\.calendar, SagaDate.calendar)     // Datumswahl gregorianisch

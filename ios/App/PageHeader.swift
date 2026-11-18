@@ -231,7 +231,7 @@ struct IconRow: View {
                 }
                 .buttonStyle(.plain)
                 .allowsHitTesting(!readOnly || locked)      // nur lesen: nicht abblenden, nur nichts tun
-                .accessibilityLabel(Text("Symbol"))
+                .accessibilityLabel(SiegelLogic.name(of: ic, in: SiegelCache.current).map { Text("Symbol: Siegel \($0)") } ?? Text("Symbol"))   // 2.5
                 .contextMenu {
                     if !readOnly {
                         Button { picker = true } label: { Label("Ändern", systemImage: "face.smiling") }
@@ -317,6 +317,8 @@ struct IconPicker: View {
     @State private var pick: PhotosPickerItem?
     @State private var immich = false
     @State private var uploading = false
+    /// nur Bilder (Debug-Vorschau): nichts speichern, nur die Seite vor Ort aendern
+    var preview = false
     static let emojis = "📄📝📚📖✅☑️🗓️📅⏰💡⭐️🔥🎯📌📎🗂️🗃️📥📤📦🧾📊📈💰🛒🏠🏡💼🧠🛠️🔧🔒🔑🧪🎨✏️🖊️🎮👾🕹️🎵🎬📷🎧✈️🚗🚀🏋️⚽️❤️💜💙💚😀😎🤓🤖👻🐱🐶🦊🐉🌙☀️🌈🍀⚡️❄️🌍🍕☕️🍺🎁🏁🧩💻🖥️📱⌚️🗝️🧭⚙️"
     static func randomEmoji() -> String { Array(emojis).randomElement().map(String.init) ?? "📄" }
     var body: some View {
@@ -335,6 +337,12 @@ struct IconPicker: View {
                         ForEach(Array(Self.emojis).map(String.init), id: \.self) { e in
                             Button { set(e) } label: { Text(e).font(.system(size: 28)).frame(maxWidth: .infinity, minHeight: 40) }.buttonStyle(.plain)
                         }
+                    }
+                    // 2.5 (Bugs-DB 2156): Saga-Siegel - nur mit siegel1 (eigener Server, bei fremden Seiten auch deren Server)
+                    if SiegelLogic.offered(own: store.features.set, remote: doc.access.remote, remoteCaps: doc.access.remoteCaps.set) {
+                        Divider()
+                        SiegelSection(current: doc.icon) { set($0) }.disabled(uploading)
+                        Divider()
                     }
                     HStack {
                         Button { set(Self.randomEmoji()) } label: { Label("Zufällig", systemImage: "shuffle") }
@@ -361,6 +369,7 @@ struct IconPicker: View {
     /// Sofort uebernehmen und schliessen; gespeichert wird dahinter (Fehler: alter Stand + Meldung auf der Seite)
     private func set(_ v: String) {
         dismiss()
+        if preview { doc.page["icon"] = v; doc.objectWillChange.send(); return }
         Task { await doc.setHeader(["icon": v], store) }
     }
 }

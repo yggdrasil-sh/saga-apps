@@ -879,6 +879,9 @@ final class Store: ObservableObject {
     func imageData(_ path: String) async -> Data? {
         // Dateien aendern sich nie (eigene Adresse je Upload) -> Speicher + Platte
         if let m = images.object(forKey: path as NSString) { return m as Data }
+        #if DEBUG && os(iOS)
+        if let d = SiegelPreview.data(path) { return d }                     // nur Bilder ohne Server (-hkSiegelPreview)
+        #endif
         let disk = cacheDir.appendingPathComponent("files").appendingPathComponent(path.replacingOccurrences(of: "/", with: "_"))
         if let d = try? Data(contentsOf: disk) { images.setObject(d as NSData, forKey: path as NSString); return d }
         // Bilder duerfen dauern (Original ohne Vorschau bis 10 MB, Mobilfunk): 20 s reichten sonst nie - das Titelbild
