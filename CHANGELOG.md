@@ -27,6 +27,7 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   vollem Anruf gesperrt, „Alle erneut klingeln“ fehlt (Bugs-DB 2154).
 - „/Seite“ und „/Datenbank“ im Editor legen mit `"link": false` an: der Server hängt keinen zweiten Verweis mehr ans
   Ende der Seite (Bug 2151).
+
 ### Neu – Android: Saga-Siegel als Seitensymbol
 
 - Seiten mit einem **Saga-Siegel** (`/siegel/<farbe>/<motiv>.svg`, 36 Motive in Weinrot, Smaragd, Elfenbein) zeigen das
@@ -50,6 +51,7 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   ans Ende der Elternseite.
 - Der Hinweis „Verbindung wird neu aufgebaut“ nach einem Netzwechsel blieb stehen, wenn gar kein Neuaufbau begann;
   Änderungen am Seitenkopf aus dem Web werden 250 ms gesammelt (wie iOS) statt je Ereignis abgefragt.
+
 ### Neu – Linux: Saga-Siegel als Seitensymbol
 
 - Seitensymbole `/siegel/<farbe>/<motiv>.svg` (36 Motive in Weinrot, Smaragd, Elfenbein) erscheinen als Bild statt
@@ -1228,6 +1230,7 @@ Alles nur mit Saga-Server 2.5 (`/api/version` → `features`); ältere Server: w
   Umwandeln behält die Farbe.
 - **Unbekannte Blöcke** sind nicht mehr unsichtbar: Hinweis-Karte mit „Im Web öffnen“ (springt zum Block).
 - Speichern behält unbekannte Felder in Blöcken und Block-Tunes unverändert (mit Rundreise-Test).
+
 ### Neu – iOS/Mac: Widgets in Seiten (Saga-Server 2.5)
 - **Anzeige** der im Web eingerichteten Widget-Blöcke als Karte (Titel, Größe S/M/L, Karte oder schlicht, Akzentfarbe
   aus der Palette), auch in Spalten und Toggles: **Uhr** (lokal tickend, Zeitzone, 12/24 h, Sekunden, Zeigeruhr),
@@ -1238,6 +1241,7 @@ Alles nur mit Saga-Server 2.5 (`/api/version` → `features`); ältere Server: w
   gelöschter Quelle, unvollständiger Einrichtung, zu vielen Einträgen, älterem Server und fremden Servern ohne Widgets.
   Unbekannte Widget-Arten: „Widget – neuere Version nötig“.
 - **Block-Menü:** „Im Web bearbeiten“ (springt zum Block). Die App speichert Widget-Blöcke unverändert (mit Rundreise-Test).
+
 ### Neu – iOS/Mac: Vorlagengalerie, einfache Auswahl (Saga-Server 2.5)
 - **„Neue Seite“ → „Aus Vorlage …“** (iPhone/iPad: langes Drücken auf den Knopf; Mac: Pfeil am Knopf, Menü „Ablage“
   und Befehlspalette) sowie **„Unterseite aus Vorlage …“** im Seitenmenü eigener Seiten: Liste der Galerie-Vorlagen des
@@ -1246,6 +1250,7 @@ Alles nur mit Saga-Server 2.5 (`/api/version` → `features`); ältere Server: w
   Vorlage an, lädt die Seitenliste neu und öffnet die Startseite der Vorlage.
 - Server ohne Galerie (älter, 404) oder abgeschaltet: Einträge bleiben ausgeblendet. Fehler (keine Rechte, zu viele
   Versuche, Meldung des Servers) als freundlicher Hinweis; Logik mit Logic-Tests.
+
 ### Neu – Linux: Seite gestalten (Darstellung, Farbe, Schrift) und Rückfall-Karte
 - **Darstellung:** Spaltenbreiten ab 700 px Seitenbreite (schmaler untereinander), Breite und Ausrichtung von Bildern und
   YouTube-Playern, Text- und Hintergrundfarbe von Blöcken (hell/dunkel), Toggle-Überschriften, Schrift Serif/Mono und
@@ -1264,6 +1269,7 @@ Alles nur mit Saga-Server 2.5 (`/api/version` → `features`); ältere Server: w
 - Älterer Server (404): Eintrag ausgeblendet. Freundliche Meldungen bei zu vielen Vorlagen in kurzer Zeit (429),
   fehlender Berechtigung (403), nicht möglicher Elternseite (400, Meldung des Servers) und verschwundener Vorlage.
 - Unit-Tests für tolerantes Parsing, Gruppen, Anfrage und Fehlerfälle; Texte in de/en/es/ru/th.
+
 ### Neu – Android: Widgets in Seiten anzeigen (Saga-Server 2.5)
 - Block **Widget** als Karte mit Titel, Größe (S/M/L), Stil (Karte/schlicht) und Akzentfarbe aus der Palette: **Uhr**
   (tickt lokal, Zeitzone, 12/24 h, Sekunden, analoge Zeigeruhr), **Countdown** (bis/seit, Tage oder Std./Min.),
@@ -1273,6 +1279,7 @@ Alles nur mit Saga-Server 2.5 (`/api/version` → `features`); ältere Server: w
   Zugriff, gelöschter Quelle, falscher Einrichtung, zu großer Datenbank, älterem Server und Seiten anderer Server.
 - Unbekannte Widget-Arten: „Widget – neuere Version nötig“. Einstellungen nur im Web („Im Web bearbeiten“ im Block-Menü);
   Widget-Blöcke werden unverändert gespeichert (mit Rundreise-Test).
+
 ### Neu – Linux: Widgets in Seiten (Anzeige, Saga-Server 2.5)
 - Block `widget` als native Karte (Titel, Größe S/M/L, Karte/schlicht, Akzentfarbe): **Uhr** (Zeitzone, 12/24 h,
   Sekunden, Zeigeruhr; tickt nur, solange sichtbar), **Countdown** (bis/seit, Tage oder Std./Min.), **Fortschritt**,
