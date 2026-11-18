@@ -22,6 +22,8 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   auf der Bühne, im Streifen vorn), zweite Kamera-Kachel direkt hinter der Person, Galerie mit einer Kachel einspaltig,
   Streifen unter 1100 pt und in der Präsentation bis 1440 pt schmal (160 pt).
 
+### Neu – iOS: Saga-Siegel als Seitensymbol
+
 - Seiten mit einem **Saga-Siegel** (`/siegel/<farbe>/<motiv>.svg`, 36 Motive in Weinrot, Smaragd, Elfenbein) zeigen es
   jetzt überall als Bild – Seitenkopf, Seitenbaum, Suche, Verweise, Datenbank-Zeilen, Verschieben, Unterseiten-Block,
   @-Liste im Editor und das Widget „Seitenkarte“ – statt den Pfad als Text. Geladen wird wie bei eigenen Bildern mit
