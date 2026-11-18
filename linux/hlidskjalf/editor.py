@@ -1559,6 +1559,7 @@ class PageEditor:
             self.set_focus(bid, "start")                      # bis der Server antwortet: im (leeren) Absatz bleiben
             body = ({"kind": "database", "title": _("New database"), "icon": "🗃️", "parent_id": self.doc.id} if btype == "db_new"
                     else {"title": "", "parent_id": self.doc.id})
+            body["link"] = False      # Bug 2151: Verweis/Block setzt die App selbst - sonst haengt der Server einen zweiten an
 
             def fin(res):
                 rr = self.locate(bid)
