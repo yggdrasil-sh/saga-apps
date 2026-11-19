@@ -35,6 +35,18 @@ final class PageWidgetValues: ObservableObject {
         busy = false
     }
 
+    /// 2186: Live-Ereignis einer Quelle - kurz sammeln, dann einmal neu holen (laeuft gerade einer: danach noch einmal)
+    private var soonGen = 0
+    func refreshSoon(note: Int, blocks: NSArray, store: Store) {
+        soonGen += 1
+        let g = soonGen
+        Task { [weak self] in
+            try? await Task.sleep(for: WidgetLogic.liveDelay)
+            guard let self, g == self.soonGen else { return }
+            await self.refresh(note: note, blocks: blocks, store: store)
+        }
+    }
+
     private func fetch(note: Int, store: Store) async {
         let tz = TimeZone.autoupdatingCurrent.identifier.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let next: WidgetLogic.Load

@@ -24,6 +24,13 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Tests: `MeetingTests.swift` (auch `selfPipSize`), `MeetingVectorsTest.kt` ohne Abweichungen; neue Bilder-Beispiele
   `-hkHornPreview meet-gallery2|speaker2|gallery-screen|novideo-speaker`.
 
+### Behoben – iPhone/iPad: Widgets in Seiten aktualisierten sich nicht in der offenen Seite (Bugs-DB 2186)
+
+- Wetter, Lesen, Kennzahlen, Gewohnheiten, Anstehendes und Diagramme holten ihre Werte nur beim Öffnen, wenn sich die
+  Seite selbst änderte, und beim Zurückkehren in die App. **Ziehen zum Neuladen** holt sie jetzt immer neu, und wie im
+  Web laden sie nach, sobald sich Einträge ihrer Quell-Datenbank ändern – auch auf anderen Geräten (Live, ohne
+  ständiges Abfragen).
+
 ### Behoben – iPhone/iPad: Widgets auf dem Home-Bildschirm blieben auf altem Stand (Bugs-DB 2185)
 
 - Das Widget **Seite oder Datenbank** holte bisher alle Einträge der Datenbank und filterte selbst – bei großen

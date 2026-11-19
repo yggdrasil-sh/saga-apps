@@ -1210,6 +1210,10 @@ struct NativePageScreen: View {
         }
     }
     private func liveEvent(_ e: LiveEvent) {
+        // 2186: Zeilen/Schema einer Widget-Quelle geaendert (auch von anderen Geraeten) -> Werte neu, ohne Seite verlassen
+        if doc.fetched && !doc.noAccess && !doc.isDatabase && WidgetLogic.liveRefresh(e.type, e.data, blocks: doc.root) {
+            widgets.refreshSoon(note: id, blocks: doc.root, store: store)
+        }
         switch e.type {
         case "note.changed" where ShareJSON.int(e.data["id"]) == id:
             pageChanged(rev: ShareJSON.int(e.data["rev"]), by: SharePerson(e.data["by"]), gone: ShareJSON.bool(e.data["gone"]),
@@ -1565,6 +1569,9 @@ struct NativePageScreen: View {
         // 2.5: Widget-Werte beim Oeffnen, nach neuem Stand der Seite und beim Zurueckkehren in den Vordergrund
         .onChange(of: doc.fetched ? doc.currentRev : -1, initial: true) { _, r in if r >= 0 { refreshWidgets() } }
         .onChange(of: phase) { _, p in if p == .active { refreshWidgets() } }
+        // 2186: Ziehen zum Neuladen (dataChanged) bzw. Daten in der App geaendert - auch wenn die Seite selbst gleich blieb
+        // (vorher nur bei neuer Revision der Seite: Wetter, Lesen, Kennzahlen blieben stehen)
+        .onChange(of: store.dataTick) { _, _ in refreshWidgets() }
         // Unterseiten-Block (subpages1): auch, wenn die Seite wieder sichtbar wird (zurueck aus einer Unterseite) und wenn
         // sich ihre Unterseiten im Seitenbaum aendern (angelegt, umbenannt, Symbol, verschoben, geloescht)
         .onAppear { if widgets.hasSubpages { refreshWidgets() } }

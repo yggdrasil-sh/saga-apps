@@ -66,6 +66,43 @@ enum WidgetLogic {
         return found
     }
 
+    // MARK: Nachladen in der offenen Seite (Bugs-DB 2186)
+
+    /// Quell-Datenbanken der Server-Widgets einer Seite: cfg.db (Fortschritt/Kennzahl/Zitat/Gewohnheiten/Diagramm),
+    /// Anstehendes: cfg.dbs[].db - wie im Web (pages.js, hk-db-rows)
+    static func sourceDBs(_ blocks: NSArray) -> Set<Int> {
+        var out = Set<Int>()
+        walk(blocks) { b in
+            guard b["type"] as? String == "widget" else { return }
+            let w = block(b["data"] as? NSDictionary)
+            guard needsServer(w) else { return }
+            if let id = dbID(w.cfg["db"]) { out.insert(id) }
+            for case let x as [String: Any] in (w.cfg["dbs"] as? [Any] ?? []) { if let id = dbID(x["db"]) { out.insert(id) } }
+        }
+        return out
+    }
+    private static func dbID(_ v: Any?) -> Int? {
+        guard let n = v as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID() else { return nil }
+        let d = n.doubleValue
+        return d.isFinite && d > 0 && d.rounded() == d && d < 9e15 ? Int(d) : nil
+    }
+
+    /// Live-Ereignis, nach dem die Widget-Werte der Seite neu zu holen sind: db.rows {db} einer Quelle (an alle mit
+    /// Zugriff, Server 2.5) bzw. note.changed {id} einer Quelle (Zeilen oder Schema/Ansichten - nur wer sie offen hat).
+    /// Die Seite selbst (note.changed mit ihrer ID) laedt ueber ihre Revision nach.
+    static func liveRefresh(_ type: String, _ d: [String: Any], blocks: NSArray) -> Bool {
+        let db: Int?
+        switch type {
+        case "db.rows": db = dbID(d["db"])
+        case "note.changed": db = (d["gone"] as? Bool) == true ? nil : dbID(d["id"])
+        default: return false
+        }
+        guard let db else { return false }
+        return sourceDBs(blocks).contains(db)
+    }
+    /// Verzoegerung fuer Live-Ereignisse (mehrere Zeilen kurz hintereinander -> ein Abruf), wie wgSoon im Web
+    static let liveDelay: Duration = .milliseconds(300)
+
     /// Alle Bloecke einer Seite, auch in Spalten (data.cols[].blocks) und Toggles (data.blocks)
     static func walk(_ blocks: NSArray, _ f: (NSDictionary) -> Void) {
         for case let b as NSDictionary in blocks {
