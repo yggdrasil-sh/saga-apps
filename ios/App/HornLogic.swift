@@ -444,15 +444,16 @@ extension HornLogic {
     /// (Geraet + Spur), Kamerabild je Geraet, state (mic/cam/screen). Die Ansicht beobachtet nur den CallManager, nicht die
     /// HornSession: aendert sich dieser Stand, muss hornDraw den CallManager neu zeichnen lassen (wie Android
     /// HornSession.bind -> host.changed()). Sonst blieb ein mitten im Anruf begonnenes Teilen unsichtbar, bis zufaellig
-    /// etwas anderes neu zeichnete (Beitritt, Sprecherwechsel). Spuren als ObjectIdentifier (welche Spur, nicht ihr Inhalt).
+    /// etwas anderes neu zeichnete (Beitritt, Sprecherwechsel). Spuren als trackId (welche Spur, nicht ihr Inhalt): nicht
+    /// per ObjectIdentifier - RTCRtpReceiver.track legt bei jedem Aufruf eine neue Huelle an (Pruefung 19.11.), der Schluessel
+    /// waere sonst in jedem Takt neu, und eine freigegebene Huelle kann dieselbe Adresse wiederbekommen.
     struct ViewKey: Equatable {
         var share: String?
-        var shareTrack: ObjectIdentifier?
-        var vid: [String: ObjectIdentifier] = [:]
+        var shareTrack: String?
+        var vid: [String: String] = [:]
         var st: [String: PeerState] = [:]
-        init(share: String?, shareTrack: AnyObject?, vid: [String: AnyObject], st: [String: PeerState]) {
-            self.share = share; self.shareTrack = shareTrack.map(ObjectIdentifier.init)
-            self.vid = vid.mapValues(ObjectIdentifier.init); self.st = st
+        init(share: String?, shareTrack: String?, vid: [String: String], st: [String: PeerState]) {
+            self.share = share; self.shareTrack = shareTrack; self.vid = vid; self.st = st
         }
     }
     /// neu zeichnen, wenn sich der Stand fuer die Ansicht geaendert hat (erster Stand: immer)

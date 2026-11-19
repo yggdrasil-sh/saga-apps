@@ -1223,7 +1223,7 @@ extension CallManager {
         let fn = fd.flatMap { roster.leg($0)?.name } ?? title
         if H.focusTrack !== ft || H.focusName != fn { H.focusTrack = ft; H.focusName = fn; pipRefresh() }
         // Bugs-DB 2193: CallScreen beobachtet nur den CallManager - Bildschirm/Bilder/state geaendert -> neu zeichnen
-        let vk = HornLogic.ViewKey(share: sh?.dev, shareTrack: sh?.track, vid: vid, st: H.st)
+        let vk = HornLogic.ViewKey(share: sh?.dev, shareTrack: sh?.track?.trackId, vid: vid.mapValues(\.trackId), st: H.st)
         if HornLogic.viewChanged(H.viewKey, vk) { H.viewKey = vk; objectWillChange.send() }
         hornPeople()
     }

@@ -4,13 +4,15 @@ import Foundation
 // hornDraw meldet ihm jede Aenderung des Stands, den die Ansicht aus der HornSession liest (HornLogic.ViewKey). Modell:
 // die "Ansicht" uebernimmt den Stand nur, wenn neu gezeichnet wird.
 func hornViewTests() {
-    final class Spur {}
-    let camA = Spur(), camB = Spur(), scrB = Spur(), camB2 = Spur()
+    // Spur-Huelle wie RTCRtpReceiver.track: bei jeder Abfrage ein neues Objekt, die trackId bleibt (Pruefung 19.11.)
+    final class Spur { let trackId: String; init(_ t: String) { trackId = t } }
+    let camA = "camA", camB = "camB", scrB = "scrB", camB2 = "camB2"
     var last: HornLogic.ViewKey?
-    var shownShare: String?, shownMissing = false, shownVid: [String: ObjectIdentifier] = [:], draws = 0
+    var shownShare: String?, shownMissing = false, shownVid: [String: String] = [:], draws = 0
     // ein hornDraw: Stand berechnen, bei Aenderung neu zeichnen (die Ansicht liest dann share/st/vid neu)
-    func draw(share: String?, track: Spur?, vid: [String: Spur], st: [String: HornLogic.PeerState]) {
-        let k = HornLogic.ViewKey(share: share, shareTrack: track, vid: vid, st: st)
+    func draw(share: String?, track: String?, vid: [String: String], st: [String: HornLogic.PeerState]) {
+        let hs = track.map(Spur.init), hv = vid.mapValues(Spur.init)               // jedes hornDraw: frische Huellen
+        let k = HornLogic.ViewKey(share: share, shareTrack: hs?.trackId, vid: hv.mapValues(\.trackId), st: st)
         guard HornLogic.viewChanged(last, k) else { return }
         last = k; draws += 1
         shownShare = share
@@ -43,9 +45,9 @@ func hornViewTests() {
     // Kamerabild der Teilenden kommt spaeter (anderer Platz bzw. neue Spur): Kachel bekommt das Bild
     draw(share: nil, track: nil, vid: ["a": camA], st: st0)
     draw(share: nil, track: nil, vid: ["a": camA, "b": camB2], st: st0)
-    check(shownVid["b"] == ObjectIdentifier(camB2), "Kamerabild kommt nach: Kachel neu gezeichnet")
+    check(shownVid["b"] == camB2, "Kamerabild kommt nach: Kachel neu gezeichnet")
     // neue Spur auf dem Bildschirmplatz (anderes Bein nach Wechsel): neu zeichnen
-    let scrB2 = Spur(); let n = draws
+    let scrB2 = "scrB2"; let n = draws
     draw(share: "b", track: scrB, vid: ["a": camA, "b": camB2], st: st1)
     draw(share: "b", track: scrB2, vid: ["a": camA, "b": camB2], st: st1)
     check(draws == n + 2, "andere Bildschirm-Spur: neu zeichnen")
