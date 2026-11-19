@@ -1,5 +1,5 @@
 """Dokumentmodell fuer Live (2.5, P3 Stufe 2) - unveraenderte Kopie von saga/collab_model.py aus dem Server-Repo (Stand
-testing 1b852e7, Schema saga-pm v2). Nicht von Hand aendern: bei einer neuen Schema-Version neu uebernehmen und
+testing ba7ac40, Schema saga-pm v2). Nicht von Hand aendern: bei einer neuen Schema-Version neu uebernehmen und
 tests/test_live.py (Vektoren tests/vectors/pm_schema.json) laufen lassen. Braucht pycrdt - nur ueber collab.py laden."""
 
 """Dokumentmodell fuer das gleichzeitige Bearbeiten (2.5, P3 Stufe 2): Saga-Block-JSON <-> Y.Doc (pycrdt).
@@ -1023,11 +1023,13 @@ def _sync_inline(el, cur, tgt):
         if tag == "equal":
             continue
         p1 = len(sa[:i1].encode("utf-8"))
-        if tag in ("delete", "replace"):
-            del t[p1:p1 + len(sa[i1:i2].encode("utf-8"))]
+        pos = p1
         if tag in ("insert", "replace"):
-            # Einfuegen mit den Marken des Ziels, je Lauf gleicher Marken
-            pos, k = p1, j1
+            # Einfuegen mit den Marken des Ziels, je Lauf gleicher Marken. Bug 2173: VOR dem Loeschen des Alten - so haengt
+            # das Neue vor dem ersetzten Text (rechter Nachbar = dessen erstes Zeichen). Danach geloescht, landete es
+            # hinter den geloeschten Eintraegen und gleichzeitiges Tippen am Ende des Alten mischte sich je nach
+            # client_id hinein ("Start fre|r fuenf|md")
+            k = j1
             while k < j2:
                 m = b[k][1]
                 e = k
@@ -1037,6 +1039,8 @@ def _sync_inline(el, cur, tgt):
                 t.insert(pos, s, {kk: vv for kk, vv in json.loads(m).items()} or {})
                 pos += len(s.encode("utf-8"))
                 k = e
+        if tag in ("delete", "replace"):
+            del t[pos:pos + len(sa[i1:i2].encode("utf-8"))]
     # Marken angleichen
     now = _chars(_y_inline(t))
     off, k = 0, 0
@@ -1063,7 +1067,8 @@ def _sync_plain(t, cur, new):
         if tag == "equal":
             continue
         p1 = len(cur[:i1].encode("utf-8"))
+        if tag in ("insert", "replace"):              # vor dem Loeschen einfuegen (wie _sync_inline, Bug 2173)
+            t.insert(p1, new[j1:j2])
+            p1 += len(new[j1:j2].encode("utf-8"))
         if tag in ("delete", "replace"):
             del t[p1:p1 + len(cur[i1:i2].encode("utf-8"))]
-        if tag in ("insert", "replace"):
-            t.insert(p1, new[j1:j2])

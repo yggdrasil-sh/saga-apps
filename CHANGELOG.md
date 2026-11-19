@@ -9,6 +9,12 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – Linux, Live mitschreiben: ersetzter Text mischte sich mit gleichzeitigem Tippen (Bugs-DB 2178)
+
+- Ersetzte die App den Text eines Blocks oder den Titel, während jemand anderes am Ende des alten Textes weitertippte,
+  konnte das Getippte je nach Gerät mitten im neuen Text landen („Start fre|r f|md“). Das Dokumentmodell fügt jetzt
+  wie der Server (2.5) erst den neuen Text ein und löscht danach den alten; das Getippte steht dahinter.
+
 ### Behoben – Linux: Blockmenü „Farbe“ öffnete gleich die Textfarben
 
 - Im Blockmenü sprang **Farbe** direkt in die Liste der Textfarben; **Standard** (Farbe entfernen) und **Hintergrund**

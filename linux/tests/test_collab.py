@@ -229,6 +229,115 @@ def test_pending_changes_detects_rewrite():
     assert "title" in collab.pending_changes(d, [P("a", "eins")], collab.Resolver(), "X")
 
 
+def _sync2(a, b):
+    a.apply_update(b.get_update(a.get_state()))
+    b.apply_update(a.get_update(b.get_state()))
+
+
+@pytest.mark.parametrize("via", ["write", "write_local"])
+def test_write_replace_with_concurrent_typing_at_end(via):
+    # Bug 2178 (wie Server 2173): Text eines Blocks ersetzen, waehrend ein anderer Client am Ende des alten Textes
+    # weitertippt -> das Getippte steht hinter dem neuen Text, nie mitten darin (egal welche client_id kleiner ist)
+    mix = []
+    for sc, cc in ((5, 900000), (900000, 5), (77, 78), (78, 77)):
+        s = M.Doc(client_id=sc)
+        s.apply_update(M.build({"blocks": [P("t1", "Start eins zwei drei vie")]}))
+        c = M.Doc(client_id=cc)
+        c.apply_update(s.get_update())
+        new = P("t1", "Start fremd")
+        if via == "write":
+            M.write(s, {"blocks": [new]})
+        else:
+            collab.write_local(s, [new], None, hint=new, caret=len("Start fremd"))
+        ct = list(c.get(M.FRAGMENT, type=M.XmlFragment).children[0].children)[0]
+        ct.insert(len(str(ct).encode()), "r f")
+        _sync2(s, c)
+        mix.append((M.read(s)[0]["blocks"][0]["data"]["text"], M.read(c)[0]["blocks"][0]["data"]["text"]))
+    assert all(x == ("Start fremdr f", "Start fremdr f") for x in mix), mix
+
+
+@pytest.mark.parametrize("via", ["write", "write_local"])
+def test_write_title_replace_with_concurrent_typing_at_end(via):
+    for sc, cc in ((5, 900000), (900000, 5)):
+        t = M.Doc(client_id=sc)
+        t.apply_update(M.build({"blocks": []}, "Alter Titel"))
+        u = M.Doc(client_id=cc)
+        u.apply_update(t.get_update())
+        if via == "write":
+            M.write(t, {"blocks": []}, "Neuer Name")
+        else:
+            collab.write_local(t, [], "Neuer Name", hint="title")
+        ut = u.get("title", type=M.Text)
+        ut.insert(len(str(ut).encode()), "!")
+        _sync2(t, u)
+        assert M.read(t)[1] == M.read(u)[1] == "Neuer Name!"
+
+
+_FZ_ALPH = list("ab c.") + ["ä", "ß", "€", "\U0001F600", "\U0001D11E", "é", "<", "&"]
+
+
+def _fz_html(r):
+    from html import escape
+    out = []
+    for _ in range(r.randint(0, 5)):
+        txt = escape("".join(r.choice(_FZ_ALPH) for _ in range(r.randint(1, 6))), quote=False)
+        for tag in [m for m in "bisu" if r.random() < 0.3]:
+            txt = f"<{tag}>{txt}</{tag}>"
+        out.append(txt)
+    return "".join(out)
+
+
+def _fz_plain(h):
+    import re
+    from html import unescape
+    return unescape(re.sub(r"<[^>]*>", "", h))
+
+
+def test_write_fuzz_multibyte_marks_concurrent_typing():
+    # Pruefung 2178 wie Server ba7ac40: Zufallspaare mit Mehrbyte-Zeichen (Umlaute, Emoji, Astralzeichen, kombinierend,
+    # < &) und Marken. write_local(cur -> tgt) ergibt genau die Normalform von tgt; ein zweiter Client tippt gleichzeitig
+    # an zufaelliger Stelle in Text und Titel -> beide Docs gleich, Eingabe vollstaendig
+    import random
+    r = random.Random(2178)
+    R = collab.Resolver()
+    n, bad = 400, []
+    for k in range(n):
+        c0 = [M.canon_block(P("z1", _fz_html(r)))]
+        t0 = [M.canon_block(P("z1", _fz_html(r)))]
+        s = M.Doc(client_id=r.randint(2, 2 ** 31))
+        s.apply_update(M.build({"blocks": c0}, "T" + _fz_plain(c0[0]["data"]["text"])[:20]))
+        cl = M.Doc(client_id=r.randint(2, 2 ** 31))
+        cl.apply_update(s.get_update())
+        tt = "T" + _fz_plain(t0[0]["data"]["text"])[:20]
+        if k % 2:
+            M.write(s, {"blocks": t0}, tt)
+        else:
+            collab.write_local(s, t0, tt, hint=t0[0])
+        rd = M.Doc()
+        rd.apply_update(M.build({"blocks": t0}))
+        if not (st(M.read(s, R)[0]["blocks"]) == st(M.read(rd, R)[0]["blocks"]) and M.read(s)[1] == tt):
+            bad.append(("exakt", c0, t0))
+        ct = list(cl.get(M.FRAGMENT, type=M.XmlFragment).children[0].children)
+        ins = "Xü"
+        cp = _fz_plain(c0[0]["data"]["text"])
+        at = r.randint(0, len(cp))
+        if ct and isinstance(ct[0], M.XmlText):
+            ct[0].insert(len(cp[:at].encode("utf-8")), ins)
+        else:
+            ins = ""
+        ut = cl.get("title", type=M.Text)
+        ttl0 = str(ut)
+        ta = r.randint(0, len(ttl0))
+        ut.insert(len(ttl0[:ta].encode("utf-8")), "!")
+        _sync2(s, cl)
+        a, b = M.read(s, R), M.read(cl, R)
+        if not (a == b and ins in _fz_plain(a[0]["blocks"][0]["data"]["text"] if a[0]["blocks"] else "")):
+            bad.append(("konv", cp, at, a, b))
+        if not (a[1] == b[1] and a[1].count("!") == tt.count("!") + 1 and len(a[1]) == len(tt) + 1):
+            bad.append(("titel", ttl0, tt, a[1], b[1]))
+    assert not bad, (len(bad), bad[:3])
+
+
 def test_resolver_like_server():
     r = collab.Resolver(titles=lambda pid: {3: "Seite drei"}.get(pid), names=lambda u: {"~a": "Anna"}.get(u), no_access="Ohne")
     r.learn([P("p", 'x <a href="/notes#9">Alt</a> <span class="hk-mention" data-u="~b">Bert</span>')])
