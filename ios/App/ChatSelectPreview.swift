@@ -4,6 +4,9 @@ import SwiftUI
 // Nur fuer Bilder (Debug-Build, ohne Server): echte Unterhaltung (ConversationView) mit erfundenem Zustand -
 // Mehrfachauswahl, Loeschen-Dialog und der Hinweis "Warum keine Reaktionen?". Start: -hkSelPreview select|delete|hint|moved
 // [-hkX3Dark YES] (iPhone/iPad: xcrun simctl io <id> screenshot).
+// Bugs-DB 2199: -hkSelPreview gruppe|gruppe-bild -hkChatGroupInfo YES [-hkGroupPick YES]: eigene Gruppe (Admin, groupinfo2),
+// Gruppeninfo offen; hkGroupPick tippt nach 2 s "Gruppenbild waehlen" (gruppe-bild: mit Bild -> "Neues Bild waehlen");
+// [-hkGroupReload s]: Chat neu laden wie nach POST …/read.
 
 enum SelectPreview {
     static var mode: String? { UserDefaults.standard.string(forKey: "hkSelPreview") }
@@ -30,6 +33,7 @@ struct SelectPreviewView: View {
         if let d = try? JSONSerialization.data(withJSONObject: ["uid": "max", "identity": ["ident_pub": "x"]]), let m = ChatMe(data: d) { chat.me = m }
         let c = ConversationModel(chatID: 1, model: chat)
         if SelectPreview.mode == "blank" { blankSetUp(c); return }
+        if SelectPreview.mode?.hasPrefix("gruppe") == true { groupSetUp(c); return }
         let summary: [String: Any] = [
             "id": 1, "kind": "free", "name": "Sommerfest", "member_count": 3, "role": "admin",
             "members": [["username": "max", "name": "Max", "me": true], ["username": "bea", "name": "Bea"], ["username": "tom", "name": "Tom"]],
@@ -61,6 +65,33 @@ struct SelectPreviewView: View {
         for i in list.indices { list[i].seq = i + 1 }
         c.messages = list
         conv = c
+    }
+
+    /// Bugs-DB 2199: eigene Gruppe mit 4 Mitgliedern, ich Admin, Server mit groupinfo2 (Bild, Beschreibung, Rechte)
+    private func groupSetUp(_ c: ConversationModel) {
+        store.features = ServerFeatures(["groupinfo2"])
+        c.info = ChatSummary(["id": 1, "kind": "free", "name": "Gruppe", "member_count": 4, "role": "admin",
+                              "can_info2": true, "can_perms": true, "can_edit_info": true,
+                              "members": [["username": "max", "name": "Max", "me": true, "admin": true], ["username": "bea", "name": "Bea"],
+                                          ["username": "tom", "name": "Tom"], ["username": "ida", "name": "Ida"]]])
+        c.info?.decryptedTitle = "Gruppe"
+        if SelectPreview.mode == "gruppe-bild" {
+            c.info?.avatarFile = ChatFileRef(id: "av1", key: "k", name: "gruppe.jpg", mime: "image/jpeg", size: 30_000, w: 512, h: 512)
+        }
+        conv = c
+        // erst nach dem (leeren) load() der Ansicht: conv.std liest store.chatStd ueber chat.store
+        Task { @MainActor in try? await Task.sleep(for: .milliseconds(800)); chat.store = store; c.objectWillChange.send() }
+        // -hkGroupReload n: nach n s Chat-Liste und Chat-Objekt neu setzen wie loadList()/load() nach POST …/read (Diagnose D-8G5X3)
+        let reload = UserDefaults.standard.double(forKey: "hkGroupReload")
+        if reload > 0, let base = c.info {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(reload))
+                var s = base; s.decryptedTitle = "Gruppe"
+                chat.chats = [s]; c.info = s
+                try? await Task.sleep(for: .milliseconds(300))
+                chat.chats = [s]; c.info = s
+            }
+        }
     }
 
     /// 2.5 (leerchat): Direkt-Chat wie im Fehlerbild - leer geoeffnet, dann wie load() auf einmal ~73 Eintraege (67 Anrufe,

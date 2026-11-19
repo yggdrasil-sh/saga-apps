@@ -495,6 +495,9 @@ struct GroupInfo2Section: View {
                             Button(role: .destructive) { busy = true; Task { _ = await conv.setGroupAvatar(nil); busy = false } } label: { Label("Bild entfernen", systemImage: "xmark") }.buttonStyle(.borderless)
                         }
                     }.disabled(busy)
+                    #if DEBUG
+                    .task { if UserDefaults.standard.bool(forKey: "hkGroupPick") { try? await Task.sleep(for: .seconds(2)); pickPhoto = true } }   // nur fuer Bilder (2199)
+                    #endif
                 }
                 if editDesc {
                     TextField("Worum geht es in dieser Gruppe?", text: $desc, axis: .vertical).lineLimit(3...6)
