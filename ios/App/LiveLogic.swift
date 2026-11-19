@@ -171,7 +171,7 @@ struct NotifItem: Identifiable, Equatable {
     /// Systemmeldung ohne Person/Seite (2.3: backup.failed, userbackup.failed)
     var system = false
     /// antippbar: Seite mit Zugriff oder Chat, Systemmeldung mit Ziel (Einstellungen, Admin-Bereich)
-    var openable: Bool { access && (noteID != nil || chatID != nil || (system && NotifLogic.target(url: url, kind: kind) != .none)) }
+    var openable: Bool { access && (noteID != nil || chatID != nil || kind == NotifLogic.tasksKind || (system && NotifLogic.target(url: url, kind: kind) != .none)) }
 }
 
 /// Ziel beim Antippen einer Benachrichtigung bzw. Mitteilung (url relativ zu BASE_URL)
@@ -182,10 +182,14 @@ enum NotifTarget: Equatable {
     case settings(String)
     /// Adresse ausserhalb der App (2.3: Admin-Bereich "Backups" auf eigenem Port)
     case web(String)
+    /// Aufgaben (Bugs-DB 2187: Erinnerung "task.due" - der Server schickt nur "/")
+    case tasks
     case none
 }
 
 enum NotifLogic {
+    /// Erinnerung an faellige Aufgaben (saga/tasksrc.py DIGEST_KIND)
+    static let tasksKind = "task.due"
     /// "/chats#c12" oder "/chats#12" -> 12
     static func chatID(fromURL u: String?) -> Int? {
         guard let u, let r = u.range(of: "/chats#") else { return nil }
@@ -201,6 +205,7 @@ enum NotifLogic {
     /// "/notes#12", "/notes#-2049:block", "/chats#c3", "/" -> Ziel
     /// `kind`: Art der Meldung - absolute Adressen (Admin-Bereich auf eigenem Port) nur bei `backup.failed` (2.3)
     static func target(url: String?, kind: String? = nil) -> NotifTarget {
+        if kind == tasksKind { return .tasks }
         guard let u = url else { return .none }
         if let c = chatID(fromURL: u) { return .chat(id: c) }
         if let s = settingsSection(u) { return .settings(s) }

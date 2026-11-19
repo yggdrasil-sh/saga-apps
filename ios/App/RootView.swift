@@ -411,6 +411,9 @@ extension RootView {
                 UIApplication.shared.open(u)
                 #endif
             }
+        case .tasks:                                                    // Bugs-DB 2187: Erinnerung an faellige Aufgaben
+            nav.peek = nil; nav.path = []; showNotifs = false
+            selection = -1
         case .none: break
         }
     }

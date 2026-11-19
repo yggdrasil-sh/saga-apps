@@ -187,18 +187,24 @@ final class PushModel: ObservableObject {
         await load()
     }
 
+    nonisolated static func plain(_ info: [AnyHashable: Any]) -> [AnyHashable: Any] { PushLogic.plainInfo(info) }
+    /// Auf dem Haupt-Faden ausfuehren - sofort, wenn schon dort (Mitteilungs-Delegat: das System erwartet Main)
+    nonisolated static func onMain(_ f: @escaping @MainActor () -> Void) {
+        if Thread.isMainThread { MainActor.assumeIsolated { f() } } else { DispatchQueue.main.async { MainActor.assumeIsolated { f() } } }
+    }
+
     /// Mitteilung angetippt: `url` relativ zu BASE_URL -> Ziel oeffnen, Benachrichtigung als gelesen markieren
     nonisolated static func handleTap(_ userInfo: [AnyHashable: Any], action: String = UNNotificationDefaultActionIdentifier) {
         // Anruf (2.1): klingeln/annehmen. Alles andere (z. B. Chat-Nachricht WAEHREND eines Anrufs) oeffnet nur das Ziel;
         // RootView verkleinert dafuer zuerst die Anruf-Oberflaeche (2.3.1) - der Anruf selbst bleibt unberuehrt.
         if case .call = CallLogic.tapRoute(kind: userInfo["kind"] as? String, url: userInfo["url"] as? String, call: userInfo["call"] as? String,
                                            phase: "idle", minimized: false, callKit: false) {
-            let info = userInfo.reduce(into: [AnyHashable: Any]()) { r, kv in if kv.value is String || kv.value is NSNumber { r[kv.key] = kv.value } }
+            let info = plain(userInfo)
             let a = action
             Task { @MainActor in CallSystem.shared.notificationAction(a, info: info) }
             return
         }
-        let t = NotifLogic.target(url: userInfo["url"] as? String, kind: userInfo["kind"] as? String)
+        let t = PushLogic.tapTarget(userInfo)
         Task { @MainActor in
             PushModel.pending = t                                   // Kaltstart: RootView holt es beim Erscheinen ab
             NotificationCenter.default.post(name: .hkOpenTarget, object: t)
@@ -208,32 +214,43 @@ final class PushModel: ObservableObject {
 }
 
 /// Mitteilungen: Anzeige im Vordergrund und Antippen
+/// Bugs-DB 2187: bewusst die Varianten mit completionHandler, nicht `async`. Bei der async-Variante ruft Swift den
+/// completionHandler des Systems nach dem Ende der Funktion auf einem Hintergrund-Faden (cooperative pool) auf; UIKit
+/// prueft dort den Haupt-Faden (-[UIApplication _performBlockAfterCATransactionCommitSynchronizes:]) und beendet die App
+/// (SIGABRT) - Antippen schloss nur die Mitteilung, Saga oeffnete das Ziel nie. Der Handler laeuft hier immer auf Main.
 final class PushCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
     static let shared = PushCenterDelegate()
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler done: @escaping (UNNotificationPresentationOptions) -> Void) {
         let info = notification.request.content.userInfo
+        let remote = notification.request.trigger is UNPushNotificationTrigger
+        let plain = PushModel.plain(info)
+        PushModel.onMain { done(PushCenterDelegate.presentation(plain, remote: remote)) }
+    }
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
+                                withCompletionHandler done: @escaping () -> Void) {
+        let info = PushModel.plain(response.notification.request.content.userInfo), action = response.actionIdentifier
+        PushModel.onMain {
+            PushModel.handleTap(info, action: action)
+            done()
+        }
+    }
+    @MainActor private static func presentation(_ info: [AnyHashable: Any], remote: Bool) -> UNNotificationPresentationOptions {
         // Anruf-Mitteilung vom Server, waehrend die App vorne ist: die App klingelt selbst (CallKit bzw. Klingelton und
         // Fenster) - nicht zusaetzlich Banner und Ton; Klingeln anstossen, falls der Live-Kanal es verpasst hat
-        if CallLogic.hideWhileRunning(kind: info["kind"] as? String, remote: notification.request.trigger is UNPushNotificationTrigger) {
-            let plain = info.reduce(into: [AnyHashable: Any]()) { r, kv in if kv.value is String || kv.value is NSNumber { r[kv.key] = kv.value } }
-            await MainActor.run { CallSystem.shared.ringFromNotice(plain) }
+        if CallLogic.hideWhileRunning(kind: info["kind"] as? String, remote: remote) {
+            CallSystem.shared.ringFromNotice(info)
             return []
         }
         // 4.11.: Nachricht aus dem Chat, der gerade offen und sichtbar ist - kein Banner/Ton (die Nachricht steht ja schon da)
-        let url = info["url"] as? String, kind = info["kind"] as? String
-        let openID: Int? = await MainActor.run {
-            #if os(iOS)
-            guard UIApplication.shared.applicationState == .active else { return nil }
-            #else
-            guard NSApplication.shared.isActive else { return nil }
-            #endif
-            return PushModel.current?.store?.chat.open?.chatID
-        }
-        if NotifLogic.hideWhileOpen(kind: kind, url: url, openChat: openID) { return [] }
+        #if os(iOS)
+        let active = UIApplication.shared.applicationState == .active
+        #else
+        let active = NSApplication.shared.isActive
+        #endif
+        let openID = active ? PushModel.current?.store?.chat.open?.chatID : nil
+        if NotifLogic.hideWhileOpen(kind: info["kind"] as? String, url: info["url"] as? String, openChat: openID) { return [] }
         return [.banner, .list, .sound]
-    }
-    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        PushModel.handleTap(response.notification.request.content.userInfo, action: response.actionIdentifier)
     }
 }
 

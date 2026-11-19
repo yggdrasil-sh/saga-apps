@@ -41,6 +41,14 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   den Hintergrund geht. Klappt ein Abruf nicht oder lädt das System länger nicht nach, zeigen sie den letzten Stand mit
   **„Stand: 14:05“** statt stumm alter Daten.
 
+### Behoben – iOS: Mitteilung antippen öffnete Saga nicht am Ziel (Bugs-DB 2187)
+
+- Lag Saga im Hintergrund, beendete das Antippen einer Mitteilung die App sofort – die Mitteilung verschwand, Chat
+  bzw. Seite gingen nie auf. Ursache war die Rückmeldung an das System auf einem Hintergrund-Faden, die iOS mit einem
+  Absturz quittiert. Antippen öffnet jetzt immer den Chat, die Seite (mit Kommentar bzw. Block) oder – neu – bei der
+  Erinnerung an fällige Aufgaben die Aufgaben, aus dem Hintergrund, im Vordergrund und beim Kaltstart. Anruf-Mitteilungen
+  unverändert; die Mac-Hülle meldet ebenso auf dem Haupt-Faden zurück.
+
 ### Behoben – Linux: App fror beim Stoppen des Klingeltons ohne Tondienst ein (Bugs-DB 2175)
 
 - Lief weder PulseAudio noch PipeWire, konnte das Stoppen des Klingeltons die App dauerhaft einfrieren: GStreamer

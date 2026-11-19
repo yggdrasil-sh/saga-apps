@@ -102,5 +102,6 @@ callFullTests()
 slashCreateTests()
 widgetFeedTests()
 widgetLiveTests()
+notifTapTests()                  // Bugs-DB 2187: Mitteilung antippen -> Ziel
 print("Logik-Tests 2.0: \(passed) ok, \(failed) fehlgeschlagen")
 exit(failed == 0 ? 0 : 1)

@@ -127,16 +127,25 @@ final class ShellPush: NSObject, ObservableObject {
 final class ShellNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     static let shared = ShellNotificationDelegate()
 
-    func userNotificationCenter(_ c: UNUserNotificationCenter, willPresent n: UNNotification) async -> UNNotificationPresentationOptions {
+    // Bugs-DB 2187: completionHandler-Varianten (wie App/Push.swift) - die async-Variante ruft den Handler des Systems
+    // auf einem Hintergrund-Faden auf (unter iOS ein Absturz beim Antippen); hier immer auf Main
+    func userNotificationCenter(_ c: UNUserNotificationCenter, willPresent n: UNNotification,
+                                withCompletionHandler done: @escaping (UNNotificationPresentationOptions) -> Void) {
         let kind = n.request.content.userInfo["kind"] as? String
-        // Fenster vorn: das Web klingelt bzw. zeigt die Glocke selbst - Anrufe und Chat nicht doppelt
-        let active = await MainActor.run { NSApp.isActive && ShellModel.shared.phase == .web && !ShellModel.shared.offline }
-        if active, ShellLogic.isRinging(kind: kind) || kind == "chat.message" || kind == "chat.mention" { return [.list] }
-        return [.banner, .list, .sound]
+        Self.onMain {
+            // Fenster vorn: das Web klingelt bzw. zeigt die Glocke selbst - Anrufe und Chat nicht doppelt
+            let active = NSApp.isActive && ShellModel.shared.phase == .web && !ShellModel.shared.offline
+            done(active && (ShellLogic.isRinging(kind: kind) || kind == "chat.message" || kind == "chat.mention") ? [.list] : [.banner, .list, .sound])
+        }
     }
 
-    func userNotificationCenter(_ c: UNUserNotificationCenter, didReceive r: UNNotificationResponse) async {
+    func userNotificationCenter(_ c: UNUserNotificationCenter, didReceive r: UNNotificationResponse,
+                                withCompletionHandler done: @escaping () -> Void) {
         let url = r.notification.request.content.userInfo["url"] as? String
-        await MainActor.run { ShellModel.shared.notificationClicked(url) }
+        Self.onMain { ShellModel.shared.notificationClicked(url); done() }
+    }
+
+    private static func onMain(_ f: @escaping @MainActor () -> Void) {
+        if Thread.isMainThread { MainActor.assumeIsolated { f() } } else { DispatchQueue.main.async { MainActor.assumeIsolated { f() } } }
     }
 }

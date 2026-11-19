@@ -54,6 +54,14 @@ struct PushState: Equatable {
 }
 
 enum PushLogic {
+    /// Bugs-DB 2187: nur einfache Werte (Text, Zahl) aus userInfo einer Mitteilung - sicher ueber Faeden weiterzugeben
+    static func plainInfo(_ info: [AnyHashable: Any]) -> [AnyHashable: Any] {
+        info.reduce(into: [AnyHashable: Any]()) { r, kv in if kv.value is String || kv.value is NSNumber { r[kv.key] = kv.value } }
+    }
+    /// Ziel einer angetippten Mitteilung (url relativ zu BASE_URL, kind wie im Server-Format saga/push.py)
+    static func tapTarget(_ info: [AnyHashable: Any]) -> NotifTarget {
+        NotifLogic.target(url: info["url"] as? String, kind: info["kind"] as? String)
+    }
     /// Reihenfolge der Kategorien ("Worueber?") wie im Web
     static let order = ["share", "comment", "chat", "publish"]
 
