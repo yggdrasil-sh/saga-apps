@@ -150,6 +150,7 @@ enum AppConfig {
             // Rueckfall (Schluesselbund-Gruppe nicht verfuegbar, z. B. unsignierter Build): wie bisher in der App-Gruppe
             if v.isEmpty || r == .shared { store.removeObject(forKey: "token") } else { store.set(v, forKey: "token") }
             setKeyOrigin(device: false, v.isEmpty ? nil : serverOrigin)
+            if v.isEmpty { WidgetFeed.clearSnapshots(store, cardsDir: WidgetFeed.cardsDir(group: appGroup)) }   // 2185: Abmelden
         }
     }
     static var hasToken: Bool { token.hasPrefix("hk_") }

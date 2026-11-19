@@ -2,22 +2,30 @@ import SwiftUI
 import WidgetKit
 import AppIntents
 
-/// Eine Zeile im Widget: Datenbank-Eintrag oder Unterseite
-struct PItem: Hashable {
+/// Eine Zeile im Widget: Datenbank-Eintrag oder Unterseite (Codable: letzter guter Stand, Bugs-DB 2185)
+struct PItem: Hashable, Codable {
+    struct Check: Hashable, Codable { var pid: String; var on: Bool }
     let id: Int; let title: String; let emoji: String
     var chip: String? = nil; var chipColor: String? = nil
-    var check: (pid: String, on: Bool)? = nil
+    var check: Check? = nil
     static func == (a: PItem, b: PItem) -> Bool { a.id == b.id }
     func hash(into h: inout Hasher) { h.combine(id) }
 }
 
 struct PageEntry: TimelineEntry {
-    let date: Date
+    var date: Date
     var name = String(localized: "Seite oder Datenbank"); var emoji = "📄"
     var targetID: Int? = nil; var dbID: Int? = nil; var viewID: String? = nil
     var items: [PItem] = []
+    /// alle passenden Zeilen (Server: matched) - fuer "+ N weitere"
+    var total: Int? = nil
     var message: String? = nil
+    /// 2185: "Stand: 14:05", wenn das Gezeigte nicht frisch ist (Abruf fehlgeschlagen bzw. lange nicht neu geladen)
+    var stamp: String? = nil
 }
+
+/// Letzter guter Inhalt eines Seiten-/Datenbank-Widgets
+struct PageSnap: Codable { var name: String; var emoji: String; var items: [PItem]; var total: Int?; var message: String? }
 
 struct PageProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> PageEntry {
@@ -27,27 +35,51 @@ struct PageProvider: AppIntentTimelineProvider {
         configuration.target == nil ? placeholder(in: context) : await load(configuration.target)
     }
     func timeline(for configuration: PageWidgetIntent, in context: Context) async -> Timeline<PageEntry> {
-        Timeline(entries: [await load(configuration.target)], policy: .after(.now.addingTimeInterval(30 * 60)))
+        let now = Date()
+        let (e, ok, snapAt) = await fetch(configuration.target)
+        // 2185: 15 min; dazu ein spaeterer Eintrag mit "Stand", falls WidgetKit nicht rechtzeitig neu laedt
+        let entries = WidgetFeed.entryPlan(ok: ok, hasCached: snapAt != nil, fetchedAt: snapAt, now: now).map { p -> PageEntry in
+            var x = e; x.date = p.date
+            if p.stamp, let at = ok ? now : snapAt { x.stamp = WidgetFeed.stamp(at, now: p.date) }
+            return x
+        }
+        return Timeline(entries: entries, policy: .after(WidgetFeed.nextReload(ok: ok, now: now)))
     }
 
     private func load(_ t: TargetEntity?) async -> PageEntry {
+        let (e, ok, snapAt) = await fetch(t)
+        var x = e
+        if !ok, let at = snapAt { x.stamp = WidgetFeed.stamp(at, now: .now) }
+        return x
+    }
+
+    private static func snapKey(_ t: TargetEntity) -> String? {
+        WidgetFeed.snapshotKey(widget: "page", target: t.id, server: AppConfig.serverOrigin ?? "", token: AppConfig.token)
+    }
+
+    /// -> (Eintrag, frisch geladen?, Zeitpunkt des gezeigten gemerkten Stands bei Fehler)
+    private func fetch(_ t: TargetEntity?) async -> (PageEntry, Bool, Date?) {
         var e = PageEntry(date: .now)
-        guard let t, let id = t.pageID else { e.message = String(localized: "Widget gedrückt halten → „Widget bearbeiten“ → Seite oder Datenbank wählen"); return e }
+        guard let t, let id = t.pageID else { e.message = String(localized: "Widget gedrückt halten → „Widget bearbeiten“ → Seite oder Datenbank wählen"); return (e, true, nil) }
         e.name = t.name; e.emoji = t.icon ?? "📄"; e.targetID = id
+        if t.isDatabase { e.dbID = id; e.viewID = t.viewID }
         do {
             if t.isDatabase {
-                e.dbID = id; e.viewID = t.viewID
-                guard let q = DBQuery.parse(try await API.rows(id)) else { e.message = String(localized: "Datenbank nicht lesbar"); return e }
-                let view = q.view(t.viewID)
+                // 2185: Ansicht/Filter/Sortierung rechnet der Server, nur die ersten Zeilen kommen (aeltere Server: alle -> lokal)
+                let raw = try await API.rows(id, view: t.viewID)
+                guard let q = DBQuery.parse(raw) else { throw APIError.other(String(localized: "Datenbank nicht lesbar")) }
+                let matched = WidgetFeed.serverMatched(raw)
+                let rows = matched != nil ? q.rows : q.rows(for: q.view(t.viewID))
                 // Chip: "Status" (sonst erste Auswahl); Haekchen: erstes Haekchen-Feld - wie in der Liste der App
                 let chipP = q.props.first { $0.type == "select" && $0.name.lowercased() == "status" } ?? q.props.first { $0.type == "select" }
                 let checkP = q.props.first { $0.type == "checkbox" }
-                e.items = q.rows(for: view).map { r in
+                e.items = rows.prefix(WidgetFeed.rowLimit).map { r in
                     var it = PItem(id: r.id, title: r.title.isEmpty ? String(localized: "Unbenannt") : r.title, emoji: emoji(r.icon) ?? "📄")
                     if let p = chipP, let o = p.option(q.value(p, r) as? String) { it.chip = o.name; it.chipColor = o.color }
-                    if let p = checkP { it.check = (p.id, (q.value(p, r) as? Bool) ?? false) }
+                    if let p = checkP { it.check = PItem.Check(pid: p.id, on: (q.value(p, r) as? Bool) ?? false) }
                     return it
                 }
+                e.total = WidgetFeed.total(matched: matched, shown: rows.count)
                 if e.items.isEmpty { e.message = String(localized: "Keine Einträge") }
             } else {
                 let pages = try await API.pages()
@@ -56,8 +88,18 @@ struct PageProvider: AppIntentTimelineProvider {
                 }
                 if e.items.isEmpty { e.message = String(localized: "Keine Unterseiten") }
             }
-        } catch { e.message = error.localizedDescription }
-        return e
+            WidgetSnapshot.save(PageSnap(name: e.name, emoji: e.emoji, items: e.items, total: e.total, message: e.message),
+                                at: .now, key: Self.snapKey(t), to: AppConfig.store)
+            return (e, true, nil)
+        } catch {
+            // 2185: nicht stumm alt und nicht leer - letzter guter Stand mit "Stand: ..." (sonst die Fehlermeldung)
+            if let s = WidgetSnapshot<PageSnap>.load(Self.snapKey(t), from: AppConfig.store) {
+                e.items = s.value.items; e.total = s.value.total; e.message = s.value.message
+                return (e, false, s.at)
+            }
+            e.message = error.localizedDescription
+            return (e, false, nil)
+        }
     }
     private func emoji(_ s: String?) -> String? { guard let s, !s.isEmpty, s.count <= 4, !s.hasPrefix("/") else { return nil }; return s }
 }
@@ -91,10 +133,14 @@ struct PageWidgetView: View {
                 Text(m).font(.caption).foregroundStyle(.secondary)
             }
             ForEach(entry.items.prefix(limit), id: \.self) { it in Row(item: it, small: family == .systemSmall) }
-            if entry.items.count > limit {
-                Text("+ \(entry.items.count - limit) weitere").font(.caption2).foregroundStyle(.secondary)
+            let rest = (entry.total ?? entry.items.count) - min(limit, entry.items.count)
+            if rest > 0 {
+                Text("+ \(rest) weitere").font(.caption2).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
+            if let st = entry.stamp {                                   // 2185: nicht frisch -> sichtbar mit Zeitpunkt
+                Label(st, systemImage: "clock.arrow.circlepath").font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            }
         }
         .containerBackground(for: .widget) { Color(red: 0.07, green: 0.09, blue: 0.13) }
         .environment(\.colorScheme, .dark)

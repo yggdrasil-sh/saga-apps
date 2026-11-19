@@ -38,7 +38,7 @@ struct PageCardIntent: WidgetConfigurationIntent {
 }
 
 struct PageCardEntry: TimelineEntry {
-    let date: Date
+    var date: Date
     var id: Int? = nil
     var title = String(localized: "Seite wählen")
     var emoji: String? = nil
@@ -46,6 +46,27 @@ struct PageCardEntry: TimelineEntry {
     var coverPos: Double = 50
     var iconImage: CGImage? = nil
     var hint: String? = nil
+    /// 2185: "Stand: 14:05", wenn das Gezeigte nicht frisch ist
+    var stamp: String? = nil
+}
+
+/// Letzter guter Stand der Seiten-Karte (Bilder als Dateien in der App-Gruppe, siehe PageCardStore)
+struct PageCardSnap: Codable { var title: String; var emoji: String?; var coverPos: Double; var cover: Bool; var icon: Bool }
+
+/// Bilder des letzten guten Stands (Titelbild/Symbol, wie vom Server geliefert) - Library/Caches der App-Gruppe
+enum PageCardStore {
+    private static var dir: URL? { WidgetFeed.cardsDir(group: AppConfig.appGroup) }
+    static func read(_ key: String?, _ which: String) -> Data? {
+        guard let key, let d = dir else { return nil }
+        return try? Data(contentsOf: d.appendingPathComponent(WidgetFeed.imageFile(key: key, which: which)))
+    }
+    static func write(_ data: Data?, _ key: String?, _ which: String) {
+        guard let key, let d = dir else { return }
+        let f = d.appendingPathComponent(WidgetFeed.imageFile(key: key, which: which))
+        guard let data else { try? FileManager.default.removeItem(at: f); return }
+        try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
+        try? data.write(to: f, options: .atomic)
+    }
 }
 
 /// Bild auf Widget-Groesse verkleinern (Widgets haben wenig Speicher; GIF -> erstes Bild)
@@ -62,22 +83,58 @@ struct PageCardProvider: AppIntentTimelineProvider {
         configuration.page == nil ? placeholder(in: context) : await load(configuration.page)
     }
     func timeline(for configuration: PageCardIntent, in context: Context) async -> Timeline<PageCardEntry> {
-        Timeline(entries: [await load(configuration.page)], policy: .after(.now.addingTimeInterval(2 * 3600)))   // die App stoesst zusaetzlich an
+        // 2185: 15 min statt 2 h (die App stoesst zusaetzlich an); spaeterer Eintrag mit "Stand", falls nicht neu geladen wird
+        let now = Date()
+        let (e, ok, snapAt) = await fetch(configuration.page)
+        let entries = WidgetFeed.entryPlan(ok: ok, hasCached: snapAt != nil, fetchedAt: snapAt, now: now).map { p -> PageCardEntry in
+            var x = e; x.date = p.date
+            if p.stamp, let at = ok ? now : snapAt { x.stamp = WidgetFeed.stamp(at, now: p.date) }
+            return x
+        }
+        return Timeline(entries: entries, policy: .after(WidgetFeed.nextReload(ok: ok, now: now)))
     }
     private func load(_ sel: PageCardEntity?) async -> PageCardEntry {
+        let (e, ok, snapAt) = await fetch(sel)
+        var x = e
+        if !ok, let at = snapAt { x.stamp = WidgetFeed.stamp(at, now: .now) }
+        return x
+    }
+    private static func snapKey(_ id: Int) -> String? {
+        WidgetFeed.snapshotKey(widget: "card", target: String(id), server: AppConfig.serverOrigin ?? "", token: AppConfig.token)
+    }
+    /// -> (Eintrag, frisch geladen?, Zeitpunkt des gemerkten Stands bei Fehler)
+    private func fetch(_ sel: PageCardEntity?) async -> (PageCardEntry, Bool, Date?) {
         var e = PageCardEntry(date: .now)
-        guard let sel else { e.hint = String(localized: "Gedrückt halten → Widget bearbeiten"); return e }
+        guard let sel else { e.hint = String(localized: "Gedrückt halten → Widget bearbeiten"); return (e, true, nil) }
         e.id = sel.id; e.title = sel.name; e.emoji = sel.icon
-        guard let pages = try? await API.pages() else { return e }                // offline: Namen aus der Auswahl zeigen
-        guard let p = pages.first(where: { $0.id == sel.id }) else { e.hint = String(localized: "Seite gelöscht"); return e }
+        let key = Self.snapKey(sel.id)
+        guard let pages = try? await API.pages() else {
+            // offline/Fehler: letzter guter Stand mit Bildern und "Stand: ...", sonst Namen aus der Auswahl
+            guard let s = WidgetSnapshot<PageCardSnap>.load(key, from: AppConfig.store) else { return (e, false, nil) }
+            e.title = s.value.title; e.emoji = s.value.emoji; e.coverPos = s.value.coverPos
+            e.cover = s.value.cover ? thumb(PageCardStore.read(key, "cover"), max: 900) : nil
+            e.iconImage = s.value.icon ? thumb(PageCardStore.read(key, "icon"), max: 120) : nil
+            return (e, false, s.at)
+        }
+        guard let p = pages.first(where: { $0.id == sel.id }) else { e.hint = String(localized: "Seite gelöscht"); return (e, true, nil) }
         e.title = p.title.isEmpty ? String(localized: "Unbenannt") : p.title
         e.emoji = p.emoji ?? (p.imageIcon ? nil : (p.isDatabase ? "🗂" : "📄"))
         e.coverPos = p.cover_pos ?? 50
-        async let cov = API.pageImage(p.id, "cover")                                      // ohne Titelbild: erstes Bild im Inhalt
-        async let ico = p.imageIcon ? API.pageImage(p.id, "icon") : nil        // 2.5: Siegel liefert der Server als PNG
-        e.cover = thumb(await cov, max: 900)
-        e.iconImage = thumb(await ico, max: 120)
-        return e
+        // 2185: Bilder immer frisch (gleiche Adresse fuer neues Titelbild); Netzfehler -> gemerktes Bild statt keins
+        async let cov = API.pageImageResult(p.id, "cover")                              // ohne Titelbild: erstes Bild im Inhalt
+        async let ico = p.imageIcon ? API.pageImageResult(p.id, "icon") : WidgetImage.none   // 2.5: Siegel als PNG
+        let (rc, ri) = (await cov, await ico)
+        let cd = rc.resolved(cached: PageCardStore.read(key, "cover")), icd = ri.resolved(cached: PageCardStore.read(key, "icon"))
+        e.cover = thumb(cd, max: 900)
+        e.iconImage = thumb(icd, max: 120)
+        if rc != .failed { PageCardStore.write(cd, key, "cover") }
+        if ri != .failed { PageCardStore.write(icd, key, "icon") }
+        // Bild nicht abrufbar: gemerktes Bild mit dem Stand, aus dem es stammt
+        let ok = rc != .failed && ri != .failed
+        let prev = ok ? nil : WidgetSnapshot<PageCardSnap>.load(key, from: AppConfig.store)?.at
+        WidgetSnapshot.save(PageCardSnap(title: e.title, emoji: e.emoji, coverPos: e.coverPos, cover: cd != nil, icon: icd != nil),
+                            at: prev ?? .now, key: key, to: AppConfig.store)
+        return (e, ok, prev)
     }
 }
 
@@ -99,6 +156,9 @@ struct PageCardView: View {
                         .foregroundStyle(.white).lineLimit(2).minimumScaleFactor(0.8)
                         .fixedSize(horizontal: false, vertical: true)
                     if let h = entry.hint { Text(h).font(.caption2).foregroundStyle(.secondary).lineLimit(2) }
+                    if let st = entry.stamp {                  // 2185: nicht frisch -> sichtbar mit Zeitpunkt
+                        Label(st, systemImage: "clock.arrow.circlepath").font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    }
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, coverH - (hasIcon ? iconSize / 2 : -10))

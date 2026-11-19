@@ -25,12 +25,21 @@ enum APIError: LocalizedError {
 
 /// Zugriff auf die eng begrenzten App-Endpunkte (/api/app/*) mit dem App-Schluessel.
 enum API {
-    private static func request(_ path: String, method: String = "GET", body: [String: Any]? = nil) async throws -> Data {
+    private static func request(_ path: String, method: String = "GET", body: [String: Any]? = nil, fresh: Bool = false) async throws -> Data {
+        let (data, code) = try await response(path, method: method, body: body, fresh: fresh)
+        guard (200..<300).contains(code) else {
+            let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String ?? ""
+            throw APIError.http(code, msg)
+        }
+        return data
+    }
+    /// fresh: nie aus dem URL-Zwischenspeicher (Bilder kommen mit max-age=3600 unter gleicher Adresse - Bugs-DB 2185)
+    private static func response(_ path: String, method: String = "GET", body: [String: Any]? = nil, fresh: Bool = false) async throws -> (Data, Int) {
         // Schluessel nur an den Server, der ihn ausgestellt hat (AppConfig.token prueft das), und nur verschluesselt
         guard AppConfig.hasServer, AppConfig.isAllowedServer(AppConfig.server), AppConfig.hasToken else { throw APIError.noToken }
         // NICHT appendingPathComponent: das kodiert "?" als %3F (Abfrage-Parameter wie ?w= wuerden zum Pfad)
         guard let url = URL(string: AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/" + path) else { throw APIError.noToken }
-        var req = URLRequest(url: url, timeoutInterval: 20)
+        var req = URLRequest(url: url, cachePolicy: fresh ? .reloadIgnoringLocalCacheData : .useProtocolCachePolicy, timeoutInterval: 20)
         req.httpMethod = method
         req.setValue("Bearer \(AppConfig.token)", forHTTPHeaderField: "Authorization")
         req.setValue(AppConfig.appLanguage, forHTTPHeaderField: "Accept-Language")       // Fehlertexte in der App-Sprache
@@ -39,12 +48,7 @@ enum API {
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
         }
         let (data, resp) = try await URLSession.shared.data(for: req)
-        let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
-        guard (200..<300).contains(code) else {
-            let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String ?? ""
-            throw APIError.http(code, msg)
-        }
-        return data
+        return (data, (resp as? HTTPURLResponse)?.statusCode ?? 0)
     }
 
     static func today() async throws -> TodayData {
@@ -52,12 +56,25 @@ enum API {
     }
 
     // --- Widgets ---
+    /// Seitenliste; mehrere Widgets im selben Prozess teilen sich einen Abruf (30 s) - weniger Speicher und Netz
     static func pages() async throws -> [AppPage] {
-        try JSONDecoder().decode([AppPage].self, from: try await request("api/app/pages"))
+        try await PagesMemo.shared.get { try JSONDecoder().decode([AppPage].self, from: try await request("api/app/pages")) }
     }
     static func rows(_ db: Int) async throws -> Data { try await request("api/app/rows/\(db)") }
+    /// 2185: Ansicht rechnet der Server (nur die ersten Zeilen + matched) - nicht mehr die ganze Datenbank ins Widget
+    static func rows(_ db: Int, view: String?) async throws -> Data {
+        try await request(WidgetFeed.rowsPath(db: db, view: view, tz: TimeZone.current.identifier))
+    }
     /// Titelbild ("cover", sonst erstes Bild im Inhalt) bzw. Symbol-Bild ("icon") einer eigenen Seite - nil, wenn keins
-    static func pageImage(_ id: Int, _ which: String) async -> Data? { try? await request("api/app/page-image/\(id)/\(which)?w=\(which == "icon" ? 160 : 640)") }
+    static func pageImage(_ id: Int, _ which: String) async -> Data? {
+        if case .image(let d) = await pageImageResult(id, which) { return d }
+        return nil
+    }
+    /// 2185: immer frisch (kein Versionsschluessel in der Adresse) und Fehler von "kein Bild" unterscheidbar
+    static func pageImageResult(_ id: Int, _ which: String) async -> WidgetImage {
+        let r = try? await response("api/app/page-image/\(id)/\(which)?w=\(which == "icon" ? 160 : 640)", fresh: true)
+        return WidgetImage.from(status: r?.1, data: r?.0)
+    }
     static func taskDone(_ id: Int, done: Bool) async throws {
         let f = DateFormatter.isoDay()
         _ = try await request("api/app/tasks/\(id)/done", method: "POST", body: ["done": done, "today": f.string(from: .now)])
@@ -103,5 +120,23 @@ enum API {
         if let url, !url.isEmpty { b["url"] = url }
         if let due { let f = DateFormatter.isoDay(); b["due"] = f.string(from: due) }
         _ = try await request("api/app/capture", method: "POST", body: b)
+    }
+}
+
+/// Gemeinsamer Abruf der Seitenliste: laeuft einer, warten die anderen darauf; Ergebnis 30 s gueltig (nur im Speicher)
+actor PagesMemo {
+    static let shared = PagesMemo()
+    private var cached: (at: Date, key: String, pages: [AppPage])?
+    private var running: (key: String, task: Task<[AppPage], Error>)?
+    func get(_ load: @escaping @Sendable () async throws -> [AppPage]) async throws -> [AppPage] {
+        let key = WidgetFeed.fnv((AppConfig.serverOrigin ?? "") + "|" + AppConfig.token)   // anderer Server/Konto: nicht teilen
+        if let c = cached, c.key == key, Date().timeIntervalSince(c.at) < 30 { return c.pages }
+        if let r = running, r.key == key { return try await r.task.value }
+        let t = Task { try await load() }
+        running = (key, t)
+        defer { if running?.key == key { running = nil } }
+        let p = try await t.value
+        cached = (Date(), key, p)
+        return p
     }
 }

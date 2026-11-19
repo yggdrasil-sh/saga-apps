@@ -94,7 +94,7 @@ targets:
   HlidskjalfWidget:
     type: app-extension
     supportedDestinations: [iOS]                         # Mac: SagaShellWidget (gleiche Quellen)
-    sources: [Widget, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/TaskSourceLogic.swift, Shared/ColorHex.swift, Shared/DBQuery.swift, Shared/DBDates.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
+    sources: [Widget, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/WidgetFeedLogic.swift, Shared/TaskSourceLogic.swift, Shared/ColorHex.swift, Shared/DBQuery.swift, Shared/DBDates.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
     info:
       path: Widget/Info.plist
       properties:
@@ -117,7 +117,7 @@ targets:
   HlidskjalfShare:
     type: app-extension
     platform: iOS
-    sources: [Share, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/TaskSourceLogic.swift, Shared/ShareView.swift, Shared/ShareBookmarkLogic.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
+    sources: [Share, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/WidgetFeedLogic.swift, Shared/TaskSourceLogic.swift, Shared/ShareView.swift, Shared/ShareBookmarkLogic.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
     info:
       path: Share/Info.plist
       properties:
@@ -168,7 +168,7 @@ targets:
   HlidskjalfShareMac:
     type: app-extension
     platform: macOS
-    sources: [ShareMac, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/TaskSourceLogic.swift, Shared/ShareView.swift, Shared/ShareBookmarkLogic.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
+    sources: [ShareMac, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/WidgetFeedLogic.swift, Shared/TaskSourceLogic.swift, Shared/ShareView.swift, Shared/ShareBookmarkLogic.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
     info:
       path: ShareMac/Info.plist
       properties:
@@ -208,6 +208,7 @@ targets:
       - Shared/PrivateNet.swift
       - Shared/Keychain.swift
       - Shared/API.swift                                   # Etappe 2: Erfassung, Spotlight, neuer Datenbank-Eintrag (App-Schluessel)
+      - Shared/WidgetFeedLogic.swift                       # 2185: von API.swift benutzt (Abfrage, Bild-Abruf)
       - Shared/TaskSourceLogic.swift
       - Shared/DateFormats.swift
       - App/UpdateLogic.swift                              # Sparkle nur, wenn das Bauskript den Appcast eintraegt
@@ -254,7 +255,7 @@ targets:
   SagaShellWidget:
     type: app-extension
     platform: macOS
-    sources: [Widget, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/TaskSourceLogic.swift, Shared/ColorHex.swift, Shared/DBQuery.swift, Shared/DBDates.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
+    sources: [Widget, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/WidgetFeedLogic.swift, Shared/TaskSourceLogic.swift, Shared/ColorHex.swift, Shared/DBQuery.swift, Shared/DBDates.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
     info:
       path: Shell/Widget-Info.plist
       properties:
@@ -276,7 +277,7 @@ targets:
   SagaShellShareMac:
     type: app-extension
     platform: macOS
-    sources: [ShareMac, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/TaskSourceLogic.swift, Shared/ShareView.swift, Shared/ShareBookmarkLogic.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
+    sources: [ShareMac, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/WidgetFeedLogic.swift, Shared/TaskSourceLogic.swift, Shared/ShareView.swift, Shared/ShareBookmarkLogic.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
     info:
       path: Shell/ShareMac-Info.plist
       properties:

@@ -24,6 +24,16 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Tests: `MeetingTests.swift` (auch `selfPipSize`), `MeetingVectorsTest.kt` ohne Abweichungen; neue Bilder-Beispiele
   `-hkHornPreview meet-gallery2|speaker2|gallery-screen|novideo-speaker`.
 
+### Behoben – iPhone/iPad: Widgets auf dem Home-Bildschirm blieben auf altem Stand (Bugs-DB 2185)
+
+- Das Widget **Seite oder Datenbank** holte bisher alle Einträge der Datenbank und filterte selbst – bei großen
+  Datenbanken zu viel für das Widget, WidgetKit zeigte dann stumm den alten Stand (auch die Seiten-Karte daneben). Jetzt
+  rechnet der Server Ansicht, Filter und Sortierung und schickt nur die ersten Einträge samt Anzahl (ältere Server wie
+  bisher). Titelbild und Symbol der Seiten-Karte kommen immer frisch (vorher bis zu einer Stunde aus dem Zwischenspeicher).
+- Alle Widgets laden alle 15 Minuten neu (vorher 30 Minuten bzw. 2 Stunden) und wie bisher sofort, wenn die App in
+  den Hintergrund geht. Klappt ein Abruf nicht oder lädt das System länger nicht nach, zeigen sie den letzten Stand mit
+  **„Stand: 14:05“** statt stumm alter Daten.
+
 ### Behoben – Linux: App fror beim Stoppen des Klingeltons ohne Tondienst ein (Bugs-DB 2175)
 
 - Lief weder PulseAudio noch PipeWire, konnte das Stoppen des Klingeltons die App dauerhaft einfrieren: GStreamer

@@ -2,28 +2,56 @@ import SwiftUI
 import WidgetKit
 import AppIntents
 
-struct TodayEntry: TimelineEntry { let date: Date; let data: TodayData?; let error: String? }
+struct TodayEntry: TimelineEntry {
+    var date: Date; var data: TodayData?; var error: String?
+    /// 2185: "Stand: 14:05", wenn das Gezeigte nicht frisch ist
+    var stamp: String? = nil
+}
 
 struct TodayProvider: TimelineProvider {
     func placeholder(in context: Context) -> TodayEntry {
         TodayEntry(date: .now, data: TodayData(date: "", events: [TodayEvent(summary: String(localized: "Termin"), start: "", end: "", allday: false)],
                                                tasks: [TodayTask(id: 1, text: String(localized: "Aufgabe"))], errors: nil), error: nil)
     }
-    func getSnapshot(in context: Context, completion: @escaping (TodayEntry) -> Void) { load(completion) }
-    func getTimeline(in context: Context, completion: @escaping (Timeline<TodayEntry>) -> Void) {
-        load { entry in completion(Timeline(entries: [entry], policy: .after(.now.addingTimeInterval(30 * 60)))) }   // alle 30 Min.
+    func getSnapshot(in context: Context, completion: @escaping (TodayEntry) -> Void) {
+        Task { let (e, _, _) = await fetch(); completion(e) }
     }
-    private func load(_ done: @escaping (TodayEntry) -> Void) {
+    func getTimeline(in context: Context, completion: @escaping (Timeline<TodayEntry>) -> Void) {
         Task {
-            do {
-                var d = try await API.today()
-                let hidden = WidgetState.tasks()                         // gerade abgehakt: nicht mehr zeigen
-                d.tasks.removeAll { hidden[String($0.id)] != nil }
-                let hk = WidgetState.keys()                               // 2.5: Liste mit Quellen
-                d.items?.removeAll { hk[$0.key] != nil || ($0.kind == "task" && hidden[String($0.id)] != nil) }
-                done(TodayEntry(date: .now, data: d, error: nil))
-            } catch { done(TodayEntry(date: .now, data: nil, error: error.localizedDescription)) }
+            // 2185: alle 15 Min.; spaeterer Eintrag mit "Stand", falls WidgetKit nicht rechtzeitig neu laedt
+            let now = Date()
+            let (e, ok, snapAt) = await fetch()
+            let entries = WidgetFeed.entryPlan(ok: ok, hasCached: snapAt != nil, fetchedAt: snapAt, now: now).map { p -> TodayEntry in
+                var x = e; x.date = p.date
+                if p.stamp, let at = ok ? now : snapAt { x.stamp = WidgetFeed.stamp(at, now: p.date) }
+                return x
+            }
+            completion(Timeline(entries: entries, policy: .after(WidgetFeed.nextReload(ok: ok, now: now))))
         }
+    }
+    private static var snapKey: String? {
+        WidgetFeed.snapshotKey(widget: "today", target: "today", server: AppConfig.serverOrigin ?? "", token: AppConfig.token)
+    }
+    /// -> (Eintrag, frisch?, Zeitpunkt des gemerkten Stands bei Fehler)
+    private func fetch() async -> (TodayEntry, Bool, Date?) {
+        var d: TodayData, ok = true, at: Date? = nil
+        do {
+            d = try await API.today()
+            WidgetSnapshot.save(d, at: .now, key: Self.snapKey, to: AppConfig.store)
+        } catch {
+            // 2185: letzter guter Stand mit "Stand: ..." statt nur der Fehlermeldung
+            guard let s = WidgetSnapshot<TodayData>.load(Self.snapKey, from: AppConfig.store) else {
+                return (TodayEntry(date: .now, data: nil, error: error.localizedDescription), false, nil)
+            }
+            d = s.value; ok = false; at = s.at
+        }
+        let hidden = WidgetState.tasks()                         // gerade abgehakt: nicht mehr zeigen
+        d.tasks.removeAll { hidden[String($0.id)] != nil }
+        let hk = WidgetState.keys()                               // 2.5: Liste mit Quellen
+        d.items?.removeAll { hk[$0.key] != nil || ($0.kind == "task" && hidden[String($0.id)] != nil) }
+        var e = TodayEntry(date: .now, data: d, error: nil)
+        if let at { e.stamp = WidgetFeed.stamp(at, now: .now) }
+        return (e, ok, at)
     }
 }
 
@@ -88,6 +116,13 @@ struct TodayWidgetView: View {
                 Link(destination: WLink.today) { Text("Heute").font(.headline) }
                 Text(entry.date, format: SagaDate.dateTime().weekday(.abbreviated).day().month(.abbreviated)).font(.caption).foregroundStyle(.secondary)
                 Spacer()
+                if let st = entry.stamp {                                 // 2185: nicht frisch -> sichtbar mit Zeitpunkt
+                    if family == .systemSmall {
+                        Image(systemName: "clock.arrow.circlepath").font(.caption2).foregroundStyle(.secondary).accessibilityLabel(st)
+                    } else {
+                        Label(st, systemImage: "clock.arrow.circlepath").font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                }
                 if family != .systemSmall {
                     Link(destination: WLink.newTask) {
                         Image(systemName: "plus").font(.caption.weight(.bold)).frame(width: 22, height: 22).background(.white.opacity(0.12), in: Circle())
