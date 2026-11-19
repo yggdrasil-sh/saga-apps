@@ -3,7 +3,7 @@ import Foundation
 // Meeting-Ansicht (MEETING-SPEC): MeetingLogic gegen
 // - die GEMEINSAMEN Vektoren ios/Tests/vectors/meeting.json (unveraenderte Kopie von Server tests/meeting_vectors.json,
 //   Web tests/meeting_logik.js und Android pruefen dieselben Faelle): meetingTiles + Layout + Buehne/Streifen/Raster,
-//   pickLayout, galleryGrid, pages, stripSide, speakerHysteresis, hideControls (selfPipSize: bekannte iOS-Abweichung)
+//   pickLayout, galleryGrid, pages, stripSide, speakerHysteresis, hideControls, selfPipSize - ohne Abweichungen (Bugs-DB 2161)
 // - iOS-eigene Zusatzfaelle ios/Tests/vectors/meeting_app.json (ownOthers, selfSharing, Layout-Knopf, eigenes Bild)
 // plus Einzelfaelle.
 
@@ -35,12 +35,15 @@ func meetingSharedTests() {
                             mic: m["mic"] as? Bool == true, cam: m["cam"] as? Bool ?? false, screen: m["screen"] as? Bool ?? false,
                             screenSince: num(m["screenAt"]))
         }
-        var tiles = M.tiles(devs).tiles
-        // Kacheln ohne Video aus (prefs.showNoVideo false): iOS blendet in der Ansicht aus (MeetingViews.tiles, nur Galerie,
-        // Sprechring statt 5 s Nachlauf) - hier pruefen, dass die Ausgeblendeten Personenkacheln ohne Video sind
+        let all = M.tiles(devs).tiles
+        // Kacheln ohne Video aus (prefs.showNoVideo false): wie die Ansicht (CallViews.meetBuilt) in allen Layouts, wer in
+        // den letzten 5 s gesprochen hat, bleibt (prefs.spokeAt/now in ms)
+        let pnow = num(prefs["now"]), pspoke = prefs["spokeAt"] as? [String: Any] ?? [:]
+        let talked = Set(pspoke.filter { pnow - num($0.value) <= M.noVideoTail * 1000 }.map(\.key))
+        let tiles = M.visible(all, show: prefs["showNoVideo"] as? Bool != false, talked: talked)
         if let hid = c["hidden"] as? [String] {
-            check(hid.allSatisfy { w in tiles.contains { $0.who == w && $0.kind == .person && !$0.video && !$0.me } }, "\(name): ausgeblendet = Personen ohne Video")
-            tiles = tiles.filter { !hid.contains($0.who) }
+            let gone = all.filter { t in !tiles.contains { $0.id == t.id } }.map(\.who)
+            check(gone == hid, "\(name): ausgeblendet \(gone)")
         }
         let want = c["expect"] as? [[String: Any]] ?? []
         let got = tiles.map { [$0.id, kind($0.kind), $0.dev, $0.video ? "1" : "0", $0.devLabel].joined(separator: "/") }
@@ -48,7 +51,7 @@ func meetingSharedTests() {
                                    w["devName"] as? String ?? ""].joined(separator: "/") }
         check(got == exp, "gemeinsam \(name): Kacheln \(got)")
         let ns = tiles.filter { $0.kind != .screen }.count, sc = tiles.filter { $0.kind == .screen }.count
-        let mode = M.mode(.auto, tiles: ns, screens: sc)
+        let mode = M.mode(M.Layout(rawValue: c["choice"] as? String ?? "auto") ?? .auto, tiles: ns, screens: sc)
         check(layout(mode) == c["layout"] as? String, "gemeinsam \(name): Layout \(layout(mode))")
         let a = c["arrange"] as? [String: Any] ?? [:]
         let pin = c["pin"] as? String, speaker = c["speaker"] as? String
@@ -59,7 +62,7 @@ func meetingSharedTests() {
             grid = M.galleryOrder(tiles, pin: pin, recent: recent).map(\.id)
         } else {
             // meeting.js arrange: eigenes Bild nie ueber dem Bildschirm = iOS mit Streifen rechts
-            float = M.floats(mode, people: M.tiles(devs).people, rightStrip: true)
+            float = M.floats(mode, people: tiles.filter { $0.kind == .person }.count, rightStrip: true)
             stage = M.stage(mode, tiles: tiles, pin: pin, speaker: speaker)
             strip = M.strip(tiles, stage: stage, selfFloats: float).map(\.id)
         }
@@ -109,10 +112,15 @@ func meetingSharedTests() {
                                        voiceOver: b("sr"), menuOpen: b("menu"), notice: b("notice"), pointerOverBar: b("over"))
         check(h == b("expect"), "gemeinsam hideControls #\(i + 1)")
     }
-    // selfPipSize: iOS richtet das eigene Bild nach dem Seitenverhaeltnis der Kamera aus (CallLogic.selfPipSize, Feldfall
-    // Drehen) statt nach der Buehne - bekannte Abweichung, nur gezaehlt (Bericht teilen-ios)
+    // selfPipSize (Bugs-DB 2161): Breitenregel nach der Kamera auf allen Plattformen; ar 0 = unbekannt (Lage der Buehne)
     let pip = j["selfPipSize"] as? [[String: Any]] ?? []
-    check(!pip.isEmpty, "gemeinsam selfPipSize vorhanden (\(pip.count), bekannte iOS-Abweichung, nicht geprueft)")
+    check(pip.count >= 13, "gemeinsam selfPipSize: alle Faelle gelesen (\(pip.count))")
+    for c in pip {
+        let size = (c["size"] as? String ?? "M").lowercased(), ar = num(c["ar"]), e = c["expect"] as? [NSNumber] ?? []
+        let r = CallLogic.selfPipSize(aspect: ar > 0 ? ar : nil, fallback: 0, width: num(c["w"]), height: num(c["h"]),
+                                      factor: (M.SelfSize(rawValue: size) ?? .m).factor)
+        check(e.count == 2 && r.w == e[0].doubleValue && r.h == e[1].doubleValue, "gemeinsam selfPipSize \(c["w"] ?? 0)x\(c["h"] ?? 0) ar \(ar) \(size): \(r)")
+    }
 }
 
 func meetingTests() {

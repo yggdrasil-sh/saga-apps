@@ -31,7 +31,10 @@ func meetTitle(_ t: Meeting.Tile) -> String {
 
 struct MeetingStage: View {
     @ObservedObject var calls: CallManager
+    /// Kacheln nach "Kacheln ohne Video zeigen" (CallViews.shown, alle Layouts)
     let built: Meeting.Built
+    /// so viele Personen ohne Video sind ausgeblendet ("+ 3 ohne Video")
+    var noVideoHidden = 0
     let mode: Meeting.Mode
     var chromeHidden: Bool
     /// freier Rand bei sichtbaren Leisten (Kopf oben, Knoepfe unten)
@@ -41,24 +44,14 @@ struct MeetingStage: View {
     var trailing: CGFloat = 0
     /// Seitenleiste "Teilnehmende" (ab 900 pt): schiebt die Buehne zusammen, blendet nicht aus
     var sidebar: CGFloat = 0
-    @AppStorage("call.showNoVideo") private var showNoVideo = true
     @AppStorage("call.strip") private var stripCollapsed = false
     @AppStorage("hkCallSelfHidden") private var selfHidden = false
     @Environment(\.hornPreviewFill) private var previewFill
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var tiles: [Meeting.Tile] {
-        // eigenes Bild ausgeblendet: auch keine eigene Kachel; Kacheln ohne Video aus: nur Sprechende bleiben
-        built.tiles.filter { t in
-            if t.me { return !selfHidden }
-            if !showNoVideo && mode == .gallery && t.kind == .person && !t.video && !calls.meet.speaking.contains(t.who) && calls.meet.pin != t.id { return false }
-            return true
-        }
-    }
-    /// Kacheln ohne Video aus: so viele Personen stehen nicht im Raster ("+ 3 ohne Video")
-    private var noVideoHidden: Int {
-        func n(_ l: [Meeting.Tile]) -> Int { l.filter { $0.kind == .person && !$0.me && !$0.video }.count }
-        return showNoVideo || mode != .gallery ? 0 : n(built.tiles) - n(tiles)
+        // eigenes Bild ausgeblendet: auch keine eigene Kachel (Kacheln ohne Video filtert schon CallViews.shown)
+        built.tiles.filter { t in !t.me || !selfHidden }
     }
 
     var body: some View {
@@ -74,6 +67,11 @@ struct MeetingStage: View {
             .frame(width: size.width, height: size.height)
         }
         .overlay(alignment: .topTrailing) { hornButton }
+        .overlay(alignment: .topLeading) {
+            // "+ 3 ohne Video" auch ausserhalb der Galerie (dort steht er unter dem Raster), wie im Web; oben links in der
+            // Buehne, damit er weder den Streifen (unten/rechts) noch die Namensleiste der Buehne verdeckt
+            if mode != .gallery && noVideoHidden > 0 { noVideoChip.padding(.leading, 16).padding(.top, (chromeHidden ? 6 : top) + 8) }
+        }
         .padding(.trailing, (chromeHidden || mode == .duo ? 0 : trailing) + sidebar)
         .onChange(of: built.tiles.map(\.id)) { _, _ in calls.meetCheckPin(built.tiles) }
     }
@@ -96,7 +94,7 @@ struct MeetingStage: View {
         let place = Meeting.strip(width: Double(size.width), height: Double(size.height), presentation: mode == .presentation)
         let rightStrip = place.side == .right
         // eigenes Bild: schwebt nur bis 2 Personen und nie ueber einem Bildschirm - Streifen rechts: in den Streifen
-        let floats = Meeting.floats(mode, people: built.people, rightStrip: rightStrip)
+        let floats = Meeting.floats(mode, people: built.tiles.filter { $0.kind == .person }.count, rightStrip: rightStrip)
         let stageID = Meeting.stage(mode, tiles: tiles, pin: calls.meet.pin, speaker: calls.meet.stage)
         let rest = Meeting.strip(tiles, stage: stageID, selfFloats: floats)
         let stageTile = tiles.first { $0.id == stageID }

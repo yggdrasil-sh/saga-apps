@@ -217,15 +217,22 @@ enum CallLogic {
     }
     /// 2.5: Rahmen des eigenen Bilds im Seitenverhaeltnis des eigenen Videos (Breite/Hoehe nach Drehung), damit das
     /// Video ihn ganz fuellt (kein leerer Rand oben/unten, Mac-Kamera quer = breiter Rahmen, iPhone hoch = hoher).
-    /// Breite ca. 22 % (quer) bzw. 26 % (hoch) der Flaeche mit Unter-/Obergrenze; aspect nil = fallback (noch kein Bild).
-    /// Danach wie V5: passt es nicht zweimal uebereinander in avail, im gleichen Verhaeltnis kleiner.
-    static func selfPipSize(aspect: Double?, fallback: Double, width cw: Double, avail: Double) -> (w: Double, h: Double) {
-        var a = aspect ?? fallback
-        if !(a.isFinite && a > 0) { a = fallback > 0 ? fallback : 9.0 / 16 }
+    /// Eine Rechnung fuer Web, iOS und Android (meeting.js selfPipSize, Vektoren meeting.json, Bugs-DB 2161): Breite 22 %
+    /// (Kamera quer, 120-280) bzw. 26 % (Kamera hochkant, 90-160) der Flaeche, mal factor (S/M/L), Verhaeltnis 0,5-2,0;
+    /// passt es nicht zweimal uebereinander in height, im gleichen Verhaeltnis kleiner (hoechstens bis zur Haelfte); gerundet.
+    /// aspect nil/ungueltig (noch kein Bild): die Lage der Flaeche entscheidet die Breitenregel, Verhaeltnis = fallback.
+    static func selfPipSize(aspect: Double?, fallback: Double, width cw: Double, height ch: Double, factor: Double = 1) -> (w: Double, h: Double) {
+        var a = aspect ?? 0
+        let known = a.isFinite && a > 0
+        let land = known ? a >= 1 : cw >= ch
+        if !known { a = fallback.isFinite && fallback > 0 ? fallback : (land ? 16.0 / 9 : 9.0 / 16) }
         a = min(2.0, max(0.5, a))
-        let w = a >= 1 ? min(280, max(120, 0.22 * cw)) : min(160, max(90, 0.26 * cw))
-        let h = (w / a).rounded(.down)
-        return pipSize(w: w.rounded(.down), h: h, avail: avail)
+        var w = (land ? min(280, max(120, 0.22 * cw)) : min(160, max(90, 0.26 * cw))) * factor
+        var h = w / a
+        if ch > 0 && 2 * h > ch {
+            w = min(w, max(w / 2, ch / 2 * a)); h = w / a
+        }
+        return (w.rounded(), h.rounded())
     }
     /// 2.5 (Feldfall Drehen): Fernbild auf der Buehne fuellen (zuschneiden) oder ganz zeigen (Rand schwarz).
     /// Fuellen nur, wenn nach dem Zuschnitt mindestens videoFillKeep der Bildflaeche sichtbar bleibt - also bei

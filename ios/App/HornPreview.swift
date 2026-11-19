@@ -151,7 +151,7 @@ extension CallManager {
         case "novideo-speaker":                                              // Kacheln ohne Video aus, Sprecher-Layout
             kind = "group"; peerName = "Projekt Nordlicht"
             for (i, n) in names.prefix(5).enumerated() { list.append(d("p\(i)", n.lowercased(), n, "Mac", cam: i != 1 && i != 2)) }
-            meet.speaking = ["ben"]
+            meet.speaking = ["ben"]; meet.talked = ["ben"]
         default:                                                             // gallery
             kind = "group"; peerName = "Projekt Nordlicht"
             for (i, n) in names.prefix(4).enumerated() { list.append(d("p\(i)", n.lowercased(), n, i == 1 ? "Pixel" : "Mac", mic: i != 3, cam: i != 2)) }

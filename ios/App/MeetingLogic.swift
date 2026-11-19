@@ -127,14 +127,16 @@ enum Meeting {
 
     /// Gewaehltes Layout -> angezeigtes. tiles = sichtbare Kacheln (Personen, zweite Kameras, eigene) ohne Bildschirme,
     /// screens = fremde Bildschirme. reduceMotion: Auto bleibt bis 8 Kacheln Galerie (kein Buehnenwechsel durch Sprecher)
+    /// Wie meeting.js pickLayout (Bugs-DB 2161): gewaehlte Galerie/Sprecher gilt ab zwei Kacheln (1:1 mit Galerie = Galerie
+    /// mit zwei Kacheln), 1:1 (duo) nur in Auto bzw. wenn ausser dem eigenen Bild nichts da ist
     static func mode(_ pref: Layout, tiles n: Int, screens: Int, reduceMotion: Bool = false) -> Mode {
-        if screens == 0 && n <= 2 { return .duo }
         switch pref {
-        case .gallery: return .gallery
-        case .speaker: return .speaker
-        case .presentation: return screens > 0 ? .presentation : .speaker
+        case .gallery: return n + screens <= 1 ? .duo : .gallery
+        case .speaker: return n + screens <= 1 ? .duo : .speaker
+        case .presentation: return screens > 0 ? .presentation : n <= 1 ? .duo : .speaker
         case .auto:
             if screens > 0 { return .presentation }
+            if n <= 2 { return .duo }
             if n <= 4 { return .gallery }
             if reduceMotion && n <= 8 { return .gallery }
             return .speaker
@@ -150,12 +152,13 @@ enum Meeting {
         return .auto
     }
 
-    /// Eigenes Bild schwebend (sonst eigene Kachel im Raster bzw. zuletzt im Streifen)
+    /// Eigenes Bild schwebend (sonst eigene Kachel im Raster bzw. zuletzt im Streifen). people = Personenkacheln (mit der
+    /// eigenen). Sprecher mit hoechstens zwei Personen schwebt wie im Web (meeting.js arrange, Bugs-DB 2161)
     static func selfFloats(_ mode: Mode, people: Int) -> Bool {
         switch mode {
         case .duo: return true
-        case .presentation: return people <= 2
-        case .gallery, .speaker: return false
+        case .presentation, .speaker: return people <= 2
+        case .gallery: return false
         }
     }
 
@@ -217,16 +220,34 @@ enum Meeting {
         let n = pages(list.count, perPage: perPage), q = min(max(0, p), n - 1), k = max(1, perPage)
         return Array(list.dropFirst(q * k).prefix(k))
     }
-    /// Reihenfolge der Galerie: Pin -> Personen mit Video -> Sprecher der letzten 30 s -> Rest alphabetisch; eigene zuletzt
+    /// Reihenfolge der Galerie wie meeting.js galleryOrder: Pin -> Bildschirme -> Personen mit Video -> Sprecher der letzten
+    /// 30 s -> Rest alphabetisch; sonst Listenfolge; eigene zuletzt (Bugs-DB 2161: Bildschirme vor den Video-Kacheln)
     static func galleryOrder(_ tiles: [Tile], pin: String?, recent: Set<String>) -> [Tile] {
-        func key(_ t: Tile) -> Int { t.id == pin ? 0 : t.video ? 1 : recent.contains(t.who) ? 2 : 3 }
-        let others = tiles.filter { !$0.me }.sorted {
-            let a = key($0), b = key($1)
+        func key(_ t: Tile) -> Int { t.id == pin ? 0 : t.kind == .screen ? 1 : t.video ? 2 : recent.contains(t.who) ? 3 : 4 }
+        let others = tiles.filter { !$0.me }.enumerated().sorted {
+            let a = key($0.element), b = key($1.element)
             if a != b { return a < b }
-            let c = $0.name.localizedCaseInsensitiveCompare($1.name)
-            return c != .orderedSame ? c == .orderedAscending : $0.id < $1.id
-        }
+            if a == 4 {
+                let c = $0.element.name.localizedCaseInsensitiveCompare($1.element.name)
+                if c != .orderedSame { return c == .orderedAscending }
+            }
+            return $0.offset < $1.offset
+        }.map(\.element)
         return others + tiles.filter(\.me)
+    }
+
+    // MARK: Kacheln ohne Video (Einstellung aus)
+
+    /// Nachlauf: eine Person ohne Video bleibt waehrend des Sprechens und bis 5 s danach sichtbar (wie meeting.js NOVIDEO_TAIL)
+    static let noVideoTail = 5.0
+    /// Bleibt diese Kachel, wenn "Kacheln ohne Video zeigen" aus ist? Mit Video, die eigene, Bildschirme/zweite Kameras
+    /// und wer in den letzten 5 s gesprochen hat (talked) - in allen Layouts, nicht nur in der Galerie (Bugs-DB 2161)
+    static func keepNoVideo(_ t: Tile, talked: Set<String>) -> Bool {
+        t.video || t.me || t.kind != .person || talked.contains(t.who)
+    }
+    /// Kacheln nach der Einstellung; show = Kacheln ohne Video zeigen
+    static func visible(_ tiles: [Tile], show: Bool, talked: Set<String>) -> [Tile] {
+        show ? tiles : tiles.filter { keepNoVideo($0, talked: talked) }
     }
     /// Stabile Galerie-Reihenfolge: neu sortieren nur, wenn sich Kacheln, Video oder Pin aendern - ein Sprecherwechsel
     /// allein laesst das Raster stehen (sonst springt es)
@@ -288,6 +309,10 @@ enum Meeting {
         private var lastTalk: [String: Double] = [:]
         private var leadSince: [String: Double] = [:]
         private var switchedAt = -1e9
+        /// Wer in den letzten s Sekunden gesprochen hat (Kacheln ohne Video: 5 s Nachlauf)
+        func talked(within s: Double, now: Double) -> Set<String> {
+            Set(lastTalk.filter { now - $0.value <= s + 1e-9 }.map(\.key))
+        }
         /// Sprecher der letzten 30 s (neueste zuerst)
         func recent(now: Double) -> [String] {
             lastTalk.filter { now - $0.value <= Self.recentFor }.sorted { $0.value > $1.value }.map(\.key)

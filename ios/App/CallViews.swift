@@ -50,6 +50,7 @@ struct CallScreen: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// MEETING-SPEC §2.6: Layout je Geraet fuer alle Anrufe
     @AppStorage("call.layout") private var layoutRaw = ""
+    @AppStorage("call.showNoVideo") private var showNoVideo = true
     /// Echo-Rueckfrage (Begleitgeraet)
     @State private var echoAsk: EchoWhat?
     @State private var echoDevice = ""
@@ -98,6 +99,16 @@ struct CallScreen: View {
     private var stageVideo: Bool { meetOn && built.tiles.contains { !$0.me && $0.video } }
     /// MEETING-SPEC: Personen und Kacheln aus den Geraeten (alle Wege: 1:1, Mesh, Knoten)
     private var built: Meeting.Built { Meeting.tiles(calls.meetingDevices()) }
+    /// Bugs-DB 2161: Kacheln ohne Video aus -> wie im Web in ALLEN Layouts ausblenden (wer in den letzten 5 s sprach, bleibt;
+    /// die angeheftete Kachel auch), und zwar vor der Layoutwahl (meeting.js meetingTiles -> pickLayout)
+    private func shown(_ b: Meeting.Built) -> Meeting.Built {
+        var v = b
+        v.tiles = Meeting.visible(b.tiles, show: showNoVideo, talked: calls.meet.talked)
+        if !showNoVideo, let p = calls.meet.pin, !v.tiles.contains(where: { $0.id == p }), let t = b.tiles.first(where: { $0.id == p }) {
+            v.tiles = b.tiles.filter { x in x.id == t.id || v.tiles.contains { $0.id == x.id } }
+        }
+        return v
+    }
     /// Meeting-Ansicht statt Profilbild-Block: Gruppe/Knoten immer, 1:1 sobald das Gegenueber Bild sendet
     private var meetOn: Bool {
         guard calls.phase == .active || calls.phase == .connecting || (calls.horn != nil && calls.phase == .ringingOut) else { return false }
@@ -147,8 +158,8 @@ struct CallScreen: View {
                 .ignoresSafeArea()
             if meetOn {
                 // MEETING-SPEC: eine Buehne fuer 1:1, Mesh und Knoten - Personen zusammengefasst, Bildschirm ganz sichtbar
-                let b = built
-                MeetingStage(calls: calls, built: b, mode: meetMode(b), chromeHidden: chromeHidden, top: topInset, bottom: bottomInset,
+                let all = built, b = shown(all)
+                MeetingStage(calls: calls, built: b, noVideoHidden: all.tiles.count - b.tiles.count, mode: meetMode(b), chromeHidden: chromeHidden, top: topInset, bottom: bottomInset,
                              trailing: sideBar ? 64 : 0, sidebar: peopleSidebar ? 336 : 0)
             }
             VStack(spacing: flat ? 6 : 14) {
@@ -983,8 +994,7 @@ struct SelfPip<Content: View>: View {
         GeometryReader { g in
             // V5: quer (wenig Hoehe) kleiner, damit oben und unten zwei getrennte Ecken bleiben - sonst wirkten die unteren nicht
             let k = forceSmall ? Meeting.SelfSize.s.factor : (Meeting.SelfSize(rawValue: sizeRaw) ?? .m).factor
-            let base = CallLogic.selfPipSize(aspect: aspect, fallback: fallback, width: Double(g.size.width), avail: Double(g.size.height - top - bottom))
-            let fit = CallLogic.pipSize(w: (base.w * k).rounded(.down), h: (base.h * k).rounded(.down), avail: Double(g.size.height - top - bottom))
+            let fit = CallLogic.selfPipSize(aspect: aspect, fallback: fallback, width: Double(g.size.width), height: Double(g.size.height - top - bottom), factor: k)
             let w = hidden ? 44 : CGFloat(fit.w), h = hidden ? 44 : CGFloat(fit.h)
             let c = forceCorner ?? corner
             let x = c % 2 == 0 ? side : g.size.width - w - side

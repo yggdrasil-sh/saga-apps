@@ -16,6 +16,8 @@ struct MeetState: Equatable {
     var stage: String?
     var speaking = Set<String>()
     var recent: [String] = []
+    /// in den letzten 5 s gesprochen (Kacheln ohne Video: Nachlauf, Meeting.noVideoTail)
+    var talked = Set<String>()
     var zoom = 1.0
     /// iPad/iPhone: Leisten aus und System-Overlays verborgen (Doppeltippen auf den Bildschirm)
     var immersive = false
@@ -97,6 +99,7 @@ extension CallManager {
         meetSpk.update(lv, me: myWho, now: now)
         var s = meet
         s.stage = meetSpk.stage; s.speaking = meetSpk.speaking; s.recent = meetSpk.recent(now: now)
+        s.talked = meetSpk.talked(within: Meeting.noVideoTail, now: now)
         if s != meet { meet = s }
     }
 

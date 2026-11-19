@@ -93,22 +93,28 @@ private func controlsHideTests() {
 private func selfPipSizeTests() {
     typealias L = CallLogic
     func r(_ x: (w: Double, h: Double)) -> Double { x.w / x.h }
-    let mac = L.selfPipSize(aspect: 16.0 / 9, fallback: 16.0 / 9, width: 900, avail: 700)
+    let mac = L.selfPipSize(aspect: 16.0 / 9, fallback: 16.0 / 9, width: 900, height: 700)
     check(mac.w > mac.h && abs(r(mac) - 16.0 / 9) < 0.02, "Mac-Kamera quer: breiter Rahmen im Verhaeltnis 16:9")
     check(mac.w == 198, "Mac 900 breit: 22 % = 198")
-    check(L.selfPipSize(aspect: 16.0 / 9, fallback: 1, width: 3000, avail: 2000).w == 280, "sehr breites Fenster: hoechstens 280")
-    check(L.selfPipSize(aspect: 16.0 / 9, fallback: 1, width: 300, avail: 2000).w == 120, "schmales Fenster: mindestens 120")
-    let phone = L.selfPipSize(aspect: 9.0 / 16, fallback: 9.0 / 16, width: 393, avail: 600)
+    check(L.selfPipSize(aspect: 16.0 / 9, fallback: 1, width: 3000, height: 2000).w == 280, "sehr breites Fenster: hoechstens 280")
+    check(L.selfPipSize(aspect: 16.0 / 9, fallback: 1, width: 300, height: 2000).w == 120, "schmales Fenster: mindestens 120")
+    let phone = L.selfPipSize(aspect: 9.0 / 16, fallback: 9.0 / 16, width: 393, height: 600)
     check(phone.h > phone.w && abs(r(phone) - 9.0 / 16) < 0.02, "iPhone hoch: hoher Rahmen 9:16")
     check(phone.w >= 90 && phone.w <= 160, "iPhone: Breite in den Grenzen")
-    let pad = L.selfPipSize(aspect: 4.0 / 3, fallback: 3.0 / 4, width: 1180, avail: 700)
+    let pad = L.selfPipSize(aspect: 4.0 / 3, fallback: 3.0 / 4, width: 1180, height: 700)
     check(pad.w > pad.h, "iPad quer gedreht: Rahmen wird breit")
-    let none = L.selfPipSize(aspect: nil, fallback: 16.0 / 9, width: 900, avail: 700)
+    let none = L.selfPipSize(aspect: nil, fallback: 16.0 / 9, width: 900, height: 700)
     check(none == mac, "noch kein Bild (Kamera aus/startet): Rueckfall-Verhaeltnis")
-    check(r(L.selfPipSize(aspect: 10, fallback: 1, width: 900, avail: 700)) <= 2.01, "unsinniges Verhaeltnis begrenzt")
-    check(r(L.selfPipSize(aspect: .nan, fallback: 16.0 / 9, width: 900, avail: 700)) > 1.7, "NaN: Rueckfall")
-    let low = L.selfPipSize(aspect: 9.0 / 16, fallback: 1, width: 393, avail: 200)
-    check(low.h <= 96 && abs(r(low) - 9.0 / 16) < 0.03, "wenig Hoehe (quer): kleiner im gleichen Verhaeltnis")
+    check(r(L.selfPipSize(aspect: 10, fallback: 1, width: 900, height: 700)) <= 2.01, "unsinniges Verhaeltnis begrenzt")
+    check(r(L.selfPipSize(aspect: .nan, fallback: 16.0 / 9, width: 900, height: 700)) > 1.7, "NaN: Rueckfall")
+    let low = L.selfPipSize(aspect: 9.0 / 16, fallback: 1, width: 393, height: 200)
+    check(low.h <= 100 && abs(r(low) - 9.0 / 16) < 0.03, "wenig Hoehe (quer): kleiner im gleichen Verhaeltnis (halbe Hoehe)")
+    // Bugs-DB 2161: Breitenregel nach der Kamera, nicht nach der Flaeche
+    let turned = L.selfPipSize(aspect: 4.0 / 3, fallback: 9.0 / 16, width: 390, height: 844)
+    check(turned.w == 120 && turned.h == 90, "iPhone hochkant, Kamera quer (gedreht): Regel quer 120x90 statt 101x76")
+    let portraitCam = L.selfPipSize(aspect: 9.0 / 16, fallback: 16.0 / 9, width: 1280, height: 720)
+    check(portraitCam.w == 160 && portraitCam.h == 284, "Mac-Fenster, Kamera hochkant: Regel hochkant 160x284")
+    check(L.selfPipSize(aspect: 16.0 / 9, fallback: 1, width: 900, height: 700, factor: 1.4).w == 277, "Faktor L vor dem Einpassen")
     check(L.videoAspect(width: 1280, height: 720) == 1280.0 / 720 && L.videoAspect(width: 0, height: 720) == nil, "Verhaeltnis aus Videogroesse")
 }
 
