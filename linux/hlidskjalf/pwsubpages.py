@@ -13,6 +13,31 @@ THUMB_MIN = 72                      # kleinste Kartenbreite (schmales Fenster: t
 PH_ICON = {"s": 40, "m": 52, "l": 64}
 
 
+def _unparent_children(w):
+    c = w.get_first_child()
+    while c is not None:
+        nxt = c.get_next_sibling()
+        c.unparent()
+        c = nxt
+
+
+# "destroy" bewusst ohne Lambda, das self festhaelt: raeumt Pythons Speicherbereinigung ein unverbundenes Widget samt
+# so einem Lambda ab (Kreis Widget -> Rueckruf -> self), leert sie zuerst das Lambda und gibt dann das Widget frei -
+# gtk_widget_dispose sendet "destroy" genau in das schon geleerte Lambda: Speicherzugriffsfehler (Fedora 45: Python 3.15,
+# PyGObject 3.58; test_unterseiten). Modulfunktionen haengen an keinem Kreis. Python-Felder nur am lebenden Wrapper
+# zuruecksetzen (ein frisch erzeugter Wrapper im Abbau hat keine).
+def _thumb_destroy(t, *_):
+    _unparent_children(t)
+    if getattr(t, "child", None) is not None:
+        t.child = None
+
+
+def _grid_destroy(g, *_):
+    _unparent_children(g)
+    if getattr(g, "items", None):
+        g.items = []
+
+
 class Thumb(Gtk.Widget):
     """Bildflaeche mit festem Seitenverhaeltnis (Hoehe aus der Breite). Bild fuellt die Flaeche; ohne Bild (oder wenn es
     sich nicht laden laesst) ruhige Flaeche mit grossem Seitensymbol."""
@@ -30,7 +55,7 @@ class Thumb(Gtk.Widget):
         self.set_accessible_role(Gtk.AccessibleRole.PRESENTATION) if hasattr(self, "set_accessible_role") else None
         if not img:
             self._placeholder()
-        self.connect("destroy", lambda *_: self._set_child(None))
+        self.connect("destroy", _thumb_destroy)
 
     def _set_child(self, c):
         if self.child is not None:
@@ -111,12 +136,7 @@ class Grid(Gtk.Widget):
         self.natw, self.min_cols, self.col_gap, self.row_gap = natw, min_cols, col_gap, row_gap
         self.items = []
         self.set_hexpand(True)
-        self.connect("destroy", lambda *_: self._drop())
-
-    def _drop(self):
-        for c in self.items:
-            c.unparent()
-        self.items = []
+        self.connect("destroy", _grid_destroy)
 
     def add(self, child):
         self.items.append(child)
