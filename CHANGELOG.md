@@ -9,6 +9,11 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – Mac: nach der Übernahme iPhone → Mac kein Ton (Bugs-DB 2198)
+- Die Desktop-Hülle meldet die Fähigkeit `mic`: schickt das Web `mic.active` (beim Einschalten bzw. wenn die Aufnahme
+  stumm hängt), gibt sie eine von WebKit stummgeschaltete Aufnahme nativ frei (`setMicrophoneCaptureState(.active)`,
+  nur aus „stumm“) – die Übernahme hat so auch ohne Klick Ton. Braucht den Web-Teil aus Saga-Server 2.5 (`static/calls.js`).
+
 ### Behoben – Android: Anruf-Fähigkeiten gleich nach Koppeln bzw. Start melden (Bugs-DB 2194)
 
 - Die Android-App meldete ihre Anruf-Fähigkeiten (`PUT /api/calls/caps`) erst beim ersten Anruf, beim Öffnen eines

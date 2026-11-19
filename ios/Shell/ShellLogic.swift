@@ -6,7 +6,13 @@ import Foundation
 enum ShellLogic {
     /// Fähigkeiten, die die Mac-Huelle meldet. Kein `notify`: Mitteilungen kommen am Mac ueber APNs (sonst doppelt).
     /// 2.5 A3: `tunnel` = Medien-Tunnel fuer Web-Anrufe (Bruecke hkTunnel, ShellTunnelLogic)
-    static let caps = ["badge", "widgets", "openExternal", "settings", "token", "tunnel"]
+    /// 2.5 (Bugs-DB 2198): `mic` = Web schickt `mic.active`, die Huelle gibt eine von WebKit stummgeschaltete Aufnahme frei
+    static let caps = ["badge", "widgets", "openExternal", "settings", "token", "tunnel", "mic"]
+
+    /// 2.5 (Bugs-DB 2198): nach `mic.active` nur eine stumme Aufnahme freigeben - nie eine neue starten (Zustand none/active:
+    /// nichts tun). WebKit schaltet sie z. B. nach Media Session setMicrophoneActive(false) stumm und laesst das Web sie
+    /// ohne Nutzergeste nicht wieder einschalten (Uebernahme iPhone -> Mac per Timer).
+    static func micShouldActivate(muted: Bool) -> Bool { muted }
 
     /// Link-Schemata, die die Huelle annimmt (registriert: SAGA_SHELL_URL_SCHEME/_ALT = saga, hlidskjalf).
     /// `saga-test` nur fuer eine Test-Huelle mit eigener App-ID (Config/Base.xcconfig); Inhalt wie `saga://`.

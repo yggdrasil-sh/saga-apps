@@ -60,6 +60,8 @@ func shellTests() {
     check(js.contains("kind: 'mac'") && js.contains("version: '2.5.0alert1'") && !js.contains("notify")
           && js.contains("'badge'") && js.contains("'widgets'") && js.contains("'token'"), "Faehigkeiten ohne notify, Version gesaeubert")
     check(ShellLogic.userAgent(version: "2.5.0") == "SagaApp/2.5.0 (mac-shell)", "User-Agent")
+    check(ShellLogic.caps.contains("mic") && js.contains("'mic'") && ShellLogic.micShouldActivate(muted: true)
+          && !ShellLogic.micShouldActivate(muted: false), "Mikrofon (2198): Faehigkeit mic, nur stumme Aufnahme freigeben")
     check(ShellLogic.eventJS(["type": "open", "path": "/notes#1"])?.hasPrefix("window.sagaHost && window.sagaHost.receive({") == true, "Ereignis")
     check(ShellLogic.pathOf(URL(string: "https://saga.example.org/notes?v=tasks#3")!) == "/notes?v=tasks#3", "Pfad einer Adresse")
     shellTests2(srv)

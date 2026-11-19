@@ -416,6 +416,11 @@ final class ShellModel: NSObject, ObservableObject {
             if let u = ShellLogic.externalURL(body["url"], server: server) { NSWorkspace.shared.open(u) }
         case "settings":
             showSettings = true
+        case "mic.active":
+            // 2.5 (Bugs-DB 2198): stumme Aufnahme der Seite nativ freigeben (WKWebView, ohne Nutzergeste)
+            if ShellLogic.micShouldActivate(muted: webView.microphoneCaptureState == .muted) {
+                webView.setMicrophoneCaptureState(.active, completionHandler: nil)
+            }
         case "token":
             if let k = ShellLogic.appKey(body["token"]) {
                 AppConfig.token = k; reloadWidgets(force: true)
