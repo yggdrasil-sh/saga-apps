@@ -146,11 +146,13 @@ enum AppConfig {
         get { keyMatchesServer(device: false) ? storedToken : "" }
         set {
             let v = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            let old = Keychain.read(service: tokenService, account: "app_key") ?? store.string(forKey: "token") ?? ""
             let r = Keychain.write(v.isEmpty ? nil : v, service: tokenService, account: "app_key", group: keychainGroup)
             // Rueckfall (Schluesselbund-Gruppe nicht verfuegbar, z. B. unsignierter Build): wie bisher in der App-Gruppe
             if v.isEmpty || r == .shared { store.removeObject(forKey: "token") } else { store.set(v, forKey: "token") }
             setKeyOrigin(device: false, v.isEmpty ? nil : serverOrigin)
-            if v.isEmpty { WidgetFeed.clearSnapshots(store, cardsDir: WidgetFeed.cardsDir(group: appGroup)) }   // 2185: Abmelden
+            // 2185: Abmelden und Kontowechsel (neuer Schluessel ohne Abmelden dazwischen) - Staende des alten Kontos weg
+            if WidgetFeed.dropSnapshots(oldToken: old, newToken: v) { WidgetFeed.clearSnapshots(store, cardsDir: WidgetFeed.cardsDir(group: appGroup)) }
         }
     }
     static var hasToken: Bool { token.hasPrefix("hk_") }

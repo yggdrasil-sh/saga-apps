@@ -64,6 +64,9 @@ func widgetFeedTests() {
     F.clearSnapshots(d, cardsDir: nil)
     check(WidgetSnapshot<S>.load(k1, from: d) == nil && d.object(forKey: "w.tasks") != nil, "Feed: Abmelden loescht nur die Staende")
     d.removePersistentDomain(forName: suite)
+    check(F.dropSnapshots(oldToken: "hk_1", newToken: "") && F.dropSnapshots(oldToken: "hk_1", newToken: "hk_2")
+          && F.dropSnapshots(oldToken: "", newToken: "hk_2") && !F.dropSnapshots(oldToken: "hk_1", newToken: "hk_1"),
+          "Feed: Abmelden und Kontowechsel verwerfen die Staende, gleicher Schluessel nicht")
 
     // MARK: Bild-Abruf der Seiten-Karte
     let img = Data([1, 2, 3])

@@ -70,6 +70,9 @@ enum WidgetFeed {
     static func imageFile(key: String, which: String) -> String {
         "\(fnv(key))-\(which == "icon" ? "icon" : "cover").img"
     }
+    /// Staende verwerfen, wenn der App-Schluessel geleert (Abmelden) oder durch einen anderen ersetzt wird (Kontowechsel,
+    /// neuer Schluessel): die Schluessel der Staende haengen am alten App-Schluessel und waeren sonst verwaist liegen geblieben
+    static func dropSnapshots(oldToken: String, newToken: String) -> Bool { newToken.isEmpty || newToken != oldToken }
     /// Abmelden: gemerkte Widget-Staende (auch Titelbilder) verwerfen
     static func clearSnapshots(_ d: UserDefaults, cardsDir: URL?) {
         for k in d.dictionaryRepresentation().keys where k.hasPrefix("w.snap.") { d.removeObject(forKey: k) }
