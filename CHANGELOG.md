@@ -9,6 +9,12 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – iPhone/iPad: „Gruppenbild wählen …“ schloss die Gruppeninfo (Bugs-DB 2199)
+
+- In der Gruppeninfo einer eigenen Gruppe schloss „Gruppenbild wählen …“ bzw. „Neues Bild wählen …“ das ganze Blatt,
+  statt die Fotoauswahl zu zeigen: die Auswahl hing am Abschnitt „Beschreibung“, SwiftUI hängte sie dadurch an jede
+  Zeile (vier Fotoauswahlen auf einen Tipp). Auswahl und Hochladen hängen jetzt einmal am Blatt.
+
 ### Behoben – Mac: nach der Übernahme iPhone → Mac kein Ton (Bugs-DB 2198)
 - Die Desktop-Hülle meldet die Fähigkeit `mic`: schickt das Web `mic.active` (beim Einschalten bzw. wenn die Aufnahme
   stumm hängt), gibt sie eine von WebKit stummgeschaltete Aufnahme nativ frei (`setMicrophoneCaptureState(.active)`,

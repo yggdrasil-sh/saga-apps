@@ -145,4 +145,18 @@ func groupInfoTests() {
     let ppl = (gi("gi_people")["users"] as? [Any] ?? []).compactMap { $0 as? [String: Any] }
     check(!ppl.isEmpty && ppl.allSatisfy { ShareJSON.bool($0["contact"]) && ($0["username"] as? String ?? "").hasPrefix("~") }, "people: Kontakte mit contact:true, Handle")
     check(ContactsLogic.listPath == "api/chat/contacts?limit=30", "Liste ~30")
+    groupPickerSourceTests()
+}
+
+/// Bugs-DB 2199: die Bildauswahl haengt einmal an der Form des Blatts, nicht am Section von GroupInfo2Section
+/// (SwiftUI verteilte sie dort auf jede Zeile: vier Picker auf einen Tipp, das Blatt schloss sich)
+func groupPickerSourceTests() {
+    guard let dir = ProcessInfo.processInfo.environment["SAGA_APP_SRC"],
+          let views = try? String(contentsOfFile: dir + "/ChatStdViews.swift", encoding: .utf8),
+          let sheet = try? String(contentsOfFile: dir + "/GroupInfo.swift", encoding: .utf8) else { check(false, "SAGA_APP_SRC fehlt"); return }
+    let sec = views.components(separatedBy: "struct GroupInfo2Section: View").dropFirst().first?.components(separatedBy: "\n}\n").first ?? ""
+    check(!sec.isEmpty && !sec.contains(".photosPicker(") && !sec.contains("onChange(of: photo)") && sec.contains("@Binding var pickPhoto"),
+          "2199: GroupInfo2Section ohne eigene Bildauswahl (nur Schalter)")
+    check(sheet.components(separatedBy: ".photosPicker(isPresented: $pickPhoto").count == 2 && sheet.contains("pickPhoto: $pickPhoto"),
+          "2199: Gruppeninfo-Blatt traegt die Bildauswahl genau einmal")
 }
