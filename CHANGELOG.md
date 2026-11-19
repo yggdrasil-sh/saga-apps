@@ -57,6 +57,7 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Starten und Stoppen laufen in einem eigenen Faden – die Oberfläche wartet nie darauf.
 
 ### Behoben – Linux, Live mitschreiben: fremde Schreibmarke bleibt nicht an einem Zufallsbuchstaben hängen (Bugs-DB 2183)
+
 - `linux/hlidskjalf/collabmodel.py` wieder gleich dem Server (testing 7d8fb42, Bugs-DB 2180): kurze gleiche Inseln (unter
   3 Zeichen) zwischen zwei Ersetzungen werden mit ersetzt („world“ → „there“ behält nicht das „r“). Ersetzt man in der
   Linux-App Text, während jemand anderes die Schreibmarke darin hat, steht sie danach hinter dem neuen Text.
