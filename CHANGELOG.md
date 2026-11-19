@@ -16,6 +16,7 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Zeile (vier Fotoauswahlen auf einen Tipp). Auswahl und Hochladen hängen jetzt einmal am Blatt.
 
 ### Behoben – Mac: nach der Übernahme iPhone → Mac kein Ton (Bugs-DB 2198)
+
 - Die Desktop-Hülle meldet die Fähigkeit `mic`: schickt das Web `mic.active` (beim Einschalten bzw. wenn die Aufnahme
   stumm hängt), gibt sie eine von WebKit stummgeschaltete Aufnahme nativ frei (`setMicrophoneCaptureState(.active)`,
   nur aus „stumm“) – die Übernahme hat so auch ohne Klick Ton. Braucht den Web-Teil aus Saga-Server 2.5 (`static/calls.js`).
