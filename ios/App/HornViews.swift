@@ -98,11 +98,12 @@ struct HornPathCard: View {
                 }
             }
             .font(.callout)
-            Text(HornExperimental.hint).font(.footnote).foregroundStyle(.secondary)   // 2.5: experimentell (ein Satz)
-                .fixedSize(horizontal: false, vertical: true)
+            // 2.5: experimentell (ein Satz); feste Breite, damit das Feld (Popover) die Hoehe des Umbruchs kennt
+            Text(HornExperimental.hint).font(.footnote).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true).frame(width: 250, alignment: .leading)
         }
         .padding(16)
-        .frame(minWidth: 240, maxWidth: 340, alignment: .leading)
+        .frame(minWidth: 240, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
     }
 }
