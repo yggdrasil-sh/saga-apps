@@ -55,6 +55,7 @@ struct HlidskjalfApp: App {
             else if SharePreview.on { SharePreviewView() }                                             // Teilen-Blatt (ohne Server)
             else if SettingsPreview.mode != nil { SettingsPreviewView(store: store) }                  // 2.5: Einstellungen (ohne Server)
             else if DB25Preview.mode != nil { DB25PreviewView(store: store) }                          // 2.5 E1: Datenbanken/Widgets (ohne Server)
+            else if E2Preview.mode == "heute" { E2TodayPreviewView(store: store) }                       // Bugs-DB 2200: Heute (ohne Server)
             else if E2Preview.mode != nil { E2PreviewView(store: store) }                              // 2.5 E2: Konflikt, Markierung, Farben, Aufgaben
             else if CoverPreview.mode != nil { CoverPreviewView(store: store) }                        // 2.5: Titelbild-Galerie (ohne Server)
             else if SiegelPreview.mode != nil { SiegelPreviewView(store: store) }                      // 2.5: Saga-Siegel (ohne Server)

@@ -3,6 +3,8 @@ import SwiftUI
 #if DEBUG
 // Nur fuer Bilder (2.5 App-Runde E2, ohne Server): Konfliktblock, Block-Markierung, Inline-Farben, Aufgabenliste mit
 // Quellen. Daten: Antworten eines Testservers (Wegwerf-Konten), Namen ersetzt.   -hkE2Preview seite|aufgaben
+// Bugs-DB 2200: -hkE2Preview heute [-hkTodayTap YES]: Ansicht "Heute" mit denselben Aufgaben; hkTodayTap tippt nach 2 s
+// die erste Aufgabe an (Editor-Blatt; Bild ~3 s danach zeigt, ob es offen bleibt)
 enum E2Preview {
     static var mode: String? { UserDefaults.standard.string(forKey: "hkE2Preview") }
     static let page = #"""
@@ -74,6 +76,23 @@ struct E2PreviewView: View {
             }
             ready = true
         }
+    }
+}
+
+/// nur fuer Bilder (Bugs-DB 2200): Ansicht "Heute" ohne Server
+struct E2TodayPreviewView: View {
+    @ObservedObject var store: Store
+    @StateObject private var nav = NavModel()
+    @State private var ready = false
+    var body: some View {
+        NavigationStack { if ready { TodayScreen(store: store) } }
+            .environmentObject(store).environmentObject(nav)
+            .task {
+                store.features = ServerFeatures(["tasksrc1", "taskdue1", "mention1", "synced1", "move1"])
+                store.previewTasks(Data(E2Preview.tasks.utf8))
+                store.taskUndo = nil
+                ready = true
+            }
     }
 }
 

@@ -806,6 +806,9 @@ struct TodaySection: View {
                     SourceTaskRow(item: it) {
                         if it.isRow { nav.open(it.id, mode: "side") } else if let t = store.tasks.first(where: { $0.id == it.id }) { editingTask = t }
                     }
+                    #if DEBUG
+                    .task { await previewTap(it) }
+                    #endif
                 }
             } else {
                 ForEach(todayTasks) { t in TaskRow(task: t) { editingTask = t } }
@@ -826,6 +829,15 @@ struct TodaySection: View {
         return Array(store.tasks.filter { t -> Bool in let d = t.due ?? ""; return d.isEmpty || d <= today }.prefix(5))
     }
     private func isoToday() -> String { let f = DateFormatter.isoDay(); return f.string(from: .now) }
+    #if DEBUG
+    /// nur fuer Bilder (Bugs-DB 2200, -hkTodayTap YES): nach 2 s die erste Aufgabe antippen wie mit dem Finger
+    private func previewTap(_ it: TaskItem) async {
+        guard UserDefaults.standard.bool(forKey: "hkTodayTap"), it.key == todayItems.first(where: { !$0.isRow })?.key,
+              let t = store.tasks.first(where: { $0.id == it.id }) else { return }
+        try? await Task.sleep(for: .seconds(2))
+        if !Task.isCancelled { editingTask = t }
+    }
+    #endif
 }
 
 /// Eine Seite: Editor als Web-Ansicht im schlanken Einbettungsmodus (ohne Web-Kopfzeile/-Seitenleiste)
