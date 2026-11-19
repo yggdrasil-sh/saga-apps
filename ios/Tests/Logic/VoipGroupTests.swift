@@ -36,6 +36,13 @@ func voipGroupTests() {
     check(CallLogic.ringName(who: "Anna", chat: "Familie", dm: false, body: nil) == "Anna · Familie", "Klingeln Gruppe: Person · Chat")
     check(CallLogic.ringName(who: "Anna", chat: nil, dm: false, body: "Gruppenanruf von Anna") == "Gruppenanruf von Anna", "Gruppe ohne Chatnamen: Text")
     check(CallLogic.ringName(who: "", chat: "Familie", dm: false, body: nil) == "Familie", "ohne Person: Chat")
+    // lab45: Gruppe ohne Namen (Chatname = Mitgliederliste mit der anrufenden Person) - Person nicht doppelt
+    check(CallLogic.ringName(who: "Anna", chat: "Anna, Ben", dm: false, body: nil) == "Anna, Ben", "Mitgliederliste mit Person: nur die Liste")
+    check(CallLogic.ringName(who: "Ben", chat: "Anna, Ben, Cora", dm: false, body: nil) == "Anna, Ben, Cora", "Person mitten in der Liste")
+    check(CallLogic.ringName(who: "Unbekannte Person (b7i5)", chat: "Unbekannte Person (b7i5), Unbekannte Person (ncn6)", dm: false, body: nil)
+          == "Unbekannte Person (b7i5), Unbekannte Person (ncn6)", "ohne Anzeigenamen: nicht doppelt")
+    check(CallLogic.ringName(who: "Ann", chat: "Anna, Ben", dm: false, body: nil) == "Ann · Anna, Ben", "nur ganze Namen zaehlen")
+    check(CallLogic.ringName(who: "Anna", chat: "Anna Fanclub", dm: false, body: nil) == "Anna · Anna Fanclub", "echter Gruppenname mit dem Namen: Person · Chat")
 
     // Klingeln beobachten (Abfrage /api/calls/<id>)
     check(CallLogic.ringPoll(group: true, state: "ringing", mine: 0, invite: "ringing", age: 3, ringS: 45) == .keep, "Gruppe klingelt weiter")

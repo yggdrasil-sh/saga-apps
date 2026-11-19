@@ -351,9 +351,14 @@ enum CallLogic {
     }
     /// Name eines klingelnden Raum-Anrufs (App und CallKit): 1:1 ueber Knoten = Person; Gruppe = "Person · Chat",
     /// ohne bekannten Chatnamen der Mitteilungstext (enthaelt "Gruppenanruf"), sonst die Person
+    /// Gruppe ohne eigenen Namen: der Chatname ist die Liste der Mitglieder ("Anna, Ben") - steht die anrufende Person
+    /// schon darin, nur die Liste (lab45: "Anna · Anna, Ben")
     static func ringName(who: String, chat: String?, dm: Bool, body: String?) -> String {
         if dm { return who }
-        if let c = chat?.trimmingCharacters(in: .whitespaces), !c.isEmpty { return who.isEmpty ? c : "\(who) · \(c)" }
+        if let c = chat?.trimmingCharacters(in: .whitespaces), !c.isEmpty {
+            if who.isEmpty || c.components(separatedBy: ", ").contains(who) { return c }
+            return "\(who) · \(c)"
+        }
         if let b = body, !b.isEmpty { return b }
         return who
     }

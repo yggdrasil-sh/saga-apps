@@ -39,6 +39,8 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Knoten-Sitzung). Jetzt meldet die Knoten-Sitzung jede Änderung von Bildschirm, Kamerabildern und Zustand
   (Mikrofon/Kamera/Teilen) an die Ansicht – wie Android. Dasselbe behebt das nach „Teilen beenden“ einige Sekunden
   eingefrorene Bildschirmbild und Kacheln, die ein später ankommendes Kamerabild nicht zeigten.
+- Klingeln einer Gruppe ohne eigenen Namen: die anrufende Person stand doppelt da („Anna · Anna, Ben“) – jetzt nur die
+  Liste der Mitglieder.
 
 ### Behoben – iPhone/iPad: Widgets in Seiten aktualisierten sich nicht in der offenen Seite (Bugs-DB 2186)
 
