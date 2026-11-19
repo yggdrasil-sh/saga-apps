@@ -12,6 +12,9 @@ import WebRTC
 struct HornInfoLine: View {
     @ObservedObject var calls: CallManager
     @ObservedObject var horn: HornSession
+    /// Farbschema des Systems (Bugs-DB 2197): das Anruf-Fenster ist immer dunkel und schreibt weiss, das Popover
+    /// "Verbindung" folgt aber hell/dunkel - sein Inhalt bekommt deshalb wieder das System-Schema und passende Schrift
+    var scheme: ColorScheme = .dark
     var body: some View {
         HStack(spacing: 8) {
             if !horn.path.isEmpty {
@@ -29,6 +32,7 @@ struct HornInfoLine: View {
                 .help(Text(verbatim: pathText))
                 .popover(isPresented: $horn.ppop) {
                     HornPathCard(horn: horn, way: way, qualityText: qualityText, dot: dot)
+                        .environment(\.colorScheme, scheme).foregroundStyle(scheme == .dark ? Color.white : Color.black)
                         #if os(iOS)
                         .presentationCompactAdaptation(.popover)
                         #endif

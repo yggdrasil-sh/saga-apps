@@ -16,6 +16,12 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Zeile. Sie hängen jetzt einmal an der Liste; im übrigen App-Code hängt kein Blatt, Popover oder Foto-Auswahl mehr an
   einem Abschnitt (Logik-Prüfung).
 
+### Behoben – iPhone/iPad: Feld „Verbindung“ im Anruf im hellen Modus unlesbar (Bugs-DB 2197)
+
+- Das Feld „Verbindung“ (Weg zum Knoten) übernahm aus dem immer dunklen Anruf-Fenster weiße Schrift, das Popover selbst
+  ist im hellen Modus aber hell. Sein Inhalt folgt jetzt dem Farbschema des Systems (wie Teilnehmerliste und
+  Runensiegel) – hell und dunkel lesbar, auch bei großer Schrift.
+
 ### Behoben – iPhone/iPad: „Gruppenbild wählen …“ schloss die Gruppeninfo (Bugs-DB 2199)
 
 - In der Gruppeninfo einer eigenen Gruppe schloss „Gruppenbild wählen …“ bzw. „Neues Bild wählen …“ das ganze Blatt,

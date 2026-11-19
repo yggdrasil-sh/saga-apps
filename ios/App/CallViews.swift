@@ -324,7 +324,7 @@ struct CallScreen: View {
             if meetOn { Text(verbatim: calls.peerName).font(.headline).lineLimit(1).truncationMode(.middle).shadow(radius: 3) }
             if meetOn { statusLine }                                         // Dauer direkt unter dem Titel (Anruf-UI-Regeln)
             if calls.phase != .ended { roomInfo }
-            if let H = calls.horn, calls.phase != .ended { HornInfoLine(calls: calls, horn: H) }    // 2.5: Weg, Runensiegel, Schloss
+            if let H = calls.horn, calls.phase != .ended { HornInfoLine(calls: calls, horn: H, scheme: systemScheme) }    // 2.5: Weg, Runensiegel, Schloss
             if meetOn, calls.horn == nil, !calls.directNote.isEmpty, calls.phase != .ended {          // Horn-Fix: direkt statt Knoten
                 Text(verbatim: calls.directNote).font(.caption).foregroundStyle(.white.opacity(0.85)).shadow(radius: 2)
             }

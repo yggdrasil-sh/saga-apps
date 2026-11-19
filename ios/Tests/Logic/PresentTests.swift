@@ -3,7 +3,7 @@ import Foundation
 // Bugs-DB 2200: Praesentations-Modifikatoren (.sheet, .popover, .fullScreenCover, .photosPicker) direkt an einem
 // Section verteilt SwiftUI in Form/List auf jede Zeile (Lehre 2199: mehrere Blaetter auf einen Tipp, das Blatt schliesst
 // sich wieder). Quelltext-Pruefung: "Heute" haengt die Editoren an der Liste, und im ganzen App-Ordner steht keiner
-// dieser Modifikatoren an einem Section-Block.
+// dieser Modifikatoren an einem Section-Block. Bugs-DB 2197: Feld "Verbindung" folgt dem System-Farbschema.
 
 /// Index der schliessenden Klammer zu s[i] (o/c), Zeichenketten und //-Kommentare uebersprungen; nil ohne Treffer
 private func closing(_ s: [Character], _ i: Int, _ o: Character, _ c: Character) -> Int? {
@@ -146,4 +146,11 @@ func presentTests() {
     }
     check(hits.isEmpty, "2200: kein .sheet/.popover/.fullScreenCover/.photosPicker an einem Section: \(hits)")
 
+    // 2197: Feld "Verbindung" im Popover mit System-Schema und passender Schrift (Anruf-Fenster ist immer dunkel/weiss)
+    guard let horn = try? String(contentsOfFile: dir + "/HornViews.swift", encoding: .utf8),
+          let call = try? String(contentsOfFile: dir + "/CallViews.swift", encoding: .utf8) else { check(false, "HornViews/CallViews fehlt"); return }
+    let pop = horn.components(separatedBy: ".popover(isPresented: $horn.ppop)").dropFirst().first?.components(separatedBy: "\n                }\n").first ?? ""
+    check(pop.contains("HornPathCard(") && pop.contains(".environment(\\.colorScheme, scheme)")
+          && pop.contains(".foregroundStyle(scheme == .dark ? Color.white : Color.black)"), "2197: Popover Verbindung folgt dem System-Schema")
+    check(call.contains("HornInfoLine(calls: calls, horn: H, scheme: systemScheme)"), "2197: Anruf reicht das System-Schema an die Kopfzeile")
 }
