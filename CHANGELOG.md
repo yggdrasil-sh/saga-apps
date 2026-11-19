@@ -9,6 +9,12 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – Linux: Blockmenü „Farbe“ öffnete gleich die Textfarben
+
+- Im Blockmenü sprang **Farbe** direkt in die Liste der Textfarben; **Standard** (Farbe entfernen) und **Hintergrund**
+  waren so nicht erreichbar. Ursache: Untermenüs in einem Untermenü bekamen denselben internen Namen. Jetzt öffnet
+  „Farbe“ wieder die Auswahl Standard / Textfarbe / Hintergrund.
+
 ### Behoben – Linux: graue Tabellenzellen im hellen Modus ohne Farbe
 
 - Tabellenzeilen, -spalten und -zellen mit der Farbe **Grau** hatten im hellen Modus keinen Hintergrund: ein Kommentar

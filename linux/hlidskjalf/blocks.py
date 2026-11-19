@@ -175,6 +175,8 @@ def menu_popover(parent, entries):
     pop.connect("closed", closed)
     pop.add_css_class("menu")
     stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.SLIDE_LEFT_RIGHT, vhomogeneous=False, hhomogeneous=False, interpolate_size=True)
+    subs = []                                 # vergebene Namen der Unterseiten (eine Unterseite kommt erst nach ihren eigenen
+                                              # Unterseiten in den Stack - die Seitenzahl taugt nicht als Name)
 
     def page(items, name, back=False):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -188,7 +190,8 @@ def menu_popover(parent, entries):
                 continue
             text, act = e[0], e[1]
             if isinstance(act, list):
-                sub = f"sub{len(stack.get_pages())}"
+                sub = f"sub{len(subs)}"
+                subs.append(sub)
                 page(act, sub, back=True)
                 bx = Gtk.Box(spacing=6)
                 bx.append(Gtk.Label(label=text, xalign=0, hexpand=True))
