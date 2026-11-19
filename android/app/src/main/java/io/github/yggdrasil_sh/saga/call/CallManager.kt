@@ -16,6 +16,7 @@ import io.github.yggdrasil_sh.saga.BuildConfig
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.chat.ChatFormat
 import io.github.yggdrasil_sh.saga.chat.ChatFormat.unb64
+import io.github.yggdrasil_sh.saga.chat.ChatSetup
 import io.github.yggdrasil_sh.saga.chat.LocalChatKeys
 import io.github.yggdrasil_sh.saga.chat.TofuResult
 import io.github.yggdrasil_sh.saga.data.ApiException
@@ -554,6 +555,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         scope.launch { repo.live.events.collect { onEvent(it) } }
         // Live-Kanal (wieder) verbunden: klingelt gerade etwas fuer mich? (App aus dem Hintergrund, nach Neustart)
         scope.launch { repo.live.connected.collect { if (it) pending() } }
+        // Bugs-DB 2194: Faehigkeiten melden, sobald die Chat-Schluessel bereit sind (App-Start, gleich nach dem Koppeln) -
+        // nicht erst beim ersten Anruf bzw. Oeffnen eines Chats; sonst laeuft der erste 1:1 an dieses Geraet direkt
+        scope.launch { repo.chat.state.collect { if (it == ChatSetup.READY) checkEnabled() } }
     }
 
     private fun log(msg: String) {
@@ -2818,7 +2822,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             try {
                 val r = json.decodeFromString(CallsActive.serializer(), api.get("api/calls/active"))
                 for (x in r.calls) if (x.role == "callee" && x.state == "ringing" || x.kind == CallRoom.KIND_GROUP && x.invite == "ringing") checkRing(x.id)
-                config?.let { reportCaps(it) }
+                reportCaps(config ?: loadConfig())            // Bugs-DB 2194: beim ersten Verbinden ist config noch leer
                 refreshRun()
             } catch (e: CancellationException) {
                 throw e

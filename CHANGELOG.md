@@ -9,6 +9,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – Android: Anruf-Fähigkeiten gleich nach Koppeln bzw. Start melden (Bugs-DB 2194)
+
+- Die Android-App meldete ihre Anruf-Fähigkeiten (`PUT /api/calls/caps`) erst beim ersten Anruf, beim Öffnen eines
+  Chats oder der Einstellungen – der erste 1:1 an ein frisch gekoppeltes Android-Gerät lief deshalb direkt statt über
+  den Knoten („Gegenstelle veraltet“). Jetzt meldet sie, sobald die Chat-Schlüssel bereit sind, und auch beim ersten
+  Verbinden des Live-Kanals. iOS und Linux meldeten schon früh; der Server 2.5 behandelt frische Geräte zusätzlich
+  als aktuelle App.
+
 ### Geändert – Alle Apps: Gjallarhorn als „Experimentell“ gekennzeichnet
 
 - Anrufe über den Anruf-Knoten sind in 2.5 experimentell – ruhig gekennzeichnet, ohne Warnung bei jedem Anruf:
