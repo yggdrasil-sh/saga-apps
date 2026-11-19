@@ -82,7 +82,8 @@ struct HornPreviewView: View {
 }
 
 extension CallManager {
-    /// nur fuer Bilder (-hkHornPreview meet-duo|present|present-group|own-share|own-back|gallery|speaker|pages): Meeting-Ansicht mit
+    /// nur fuer Bilder (-hkHornPreview meet-duo|present|present-group|own-share|own-back|gallery|speaker|pages|gallery2|speaker2|
+    /// gallery-screen|novideo-speaker): Meeting-Ansicht mit
     /// erfundenen Geraeten ohne Netz und ohne Medien (bewegte Bilder als Farbflaechen). present = Labor-Befund: Anna mit
     /// Mac (Kamera), iPhone (Begleitgeraet ohne Bild) und Android (Begleitgeraet teilt den Bildschirm)
     func mockMeet(_ m: String) {
@@ -135,12 +136,29 @@ extension CallManager {
             list.append(d("e1", "eva", "Eva Beispiel", "MacBook"))
             meet.people = true
             invitesIn(Self.mockInvites())
+        case "gallery2":                                                     // Bugs-DB 2161: Galerie gewaehlt im 1:1
+            kind = "dm"; peerName = "Anna"
+            list.append(d("a1", "anna", "Anna", "MacBook", cam: true))
+        case "speaker2":                                                     // Sprecher gewaehlt, zwei Personen + zweite Kamera
+            kind = "dm"; peerName = "Anna"
+            list.append(d("a1", "anna", "Anna", "MacBook", cam: true))
+            list.append(d("a2", "anna", "Anna", "iPad", comp: true, mic: false, cam: true))
+        case "gallery-screen":                                               // Galerie gewaehlt, Ben teilt (ohne Kamera)
+            kind = "group"; peerName = "Projekt Nordlicht"
+            list.append(d("a1", "anna", "Anna", "Mac", cam: true))
+            list.append(d("b1", "ben", "Ben", "Mac", screen: true))
+            list.append(d("d1", "dora", "Dora", "iPhone"))
+        case "novideo-speaker":                                              // Kacheln ohne Video aus, Sprecher-Layout
+            kind = "group"; peerName = "Projekt Nordlicht"
+            for (i, n) in names.prefix(5).enumerated() { list.append(d("p\(i)", n.lowercased(), n, "Mac", cam: i != 1 && i != 2)) }
+            meet.speaking = ["ben"]
         default:                                                             // gallery
             kind = "group"; peerName = "Projekt Nordlicht"
             for (i, n) in names.prefix(4).enumerated() { list.append(d("p\(i)", n.lowercased(), n, i == 1 ? "Pixel" : "Mac", mic: i != 3, cam: i != 2)) }
             meet.speaking = ["ben"]
         }
-        UserDefaults.standard.set(m == "gallery" || m == "pages" ? "gallery" : "auto", forKey: "call.layout")
+        UserDefaults.standard.set(["gallery", "pages", "gallery2", "gallery-screen"].contains(m) ? "gallery" : m == "speaker2" ? "speaker" : "auto", forKey: "call.layout")
+        UserDefaults.standard.set(m != "novideo-speaker", forKey: "call.showNoVideo")
         meet.demo = list
     }
 
