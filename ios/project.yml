@@ -367,3 +367,19 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TARGETED_DEVICE_FAMILY: "1,2"
         "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "$(inherited) @loader_path/../Frameworks"
+  # Bugs-DB 2187: Mitteilung antippen oeffnet Saga am Ziel - echter Weg ueber SpringBoard (Banner antippen) im eigenen
+  # Simulator, Mitteilungen per `xcrun simctl push` im Server-Format. Nur ueber Tests/NotifTap/run.sh (Server noetig),
+  # sonst uebersprungen.
+  NotifTapUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - Tests/NotifTap/NotifTapUITests.swift
+    dependencies:
+      - target: Hlidskjalf
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).notiftap
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+        TEST_TARGET_NAME: Hlidskjalf

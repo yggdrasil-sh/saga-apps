@@ -3,6 +3,7 @@ import WebKit
 import AuthenticationServices
 import WidgetKit
 import CoreSpotlight
+import UserNotifications
 
 /// Nativer App-Rahmen wie bei Notion: Seitenliste/Suche/Heute nativ, die Seite selbst als Editor (Web, eingebettet).
 struct RootView: View {
@@ -312,6 +313,11 @@ func HlidskjalfApp_copyPageLink(_ id: Int) {
 extension RootView {
     /// Startablauf (ausgelagert: ein grosser .task-Block sprengt sonst die Typpruefung im CI-Xcode)
     @MainActor func startup() async {
+        #if DEBUG
+        if UserDefaults.standard.bool(forKey: "hkAskNotif") {                  // nur fuer Tests (Tests/NotifTap): Mitteilungen erlauben
+            _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
+        }
+        #endif
         let startHome = store.homePage
         if selection == nil, let home = startHome { selection = home }        // Startseite sofort (aus dem Zwischenspeicher)
         await store.refresh()

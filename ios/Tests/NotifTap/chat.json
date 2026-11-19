@@ -1,0 +1,2 @@
+{"aps": {"alert": {"title": "Saga", "body": "Neue Nachricht von hk-test-b"}, "sound": "default", "thread-id": "chat-1"},
+ "url": "/chats#c1", "kind": "chat.message", "chat": 1, "v": 2, "lang": "de", "actor": "hk-test-b", "n": 1, "group_key": "chat:1"}
