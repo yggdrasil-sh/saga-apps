@@ -17,6 +17,13 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Anruf, Probleme über „Diagnose senden“ melden. Linux (Anrufe laufen im Browser): eine Zeile unter Einstellungen →
   Info → Hilfe. Mac: die Hülle zeigt die Web-Oberfläche, die Kennzeichnung kommt vom Server. Texte in allen fünf Sprachen.
 
+### Behoben – iPhone/iPad: Feld „Verbindung“ im Anruf bei sehr großer Schrift abgeschnitten (Bugs-DB 2191)
+
+- Bei den Bedienungshilfen-Größen rollt das Feld „Verbindung“ (Weg zum Knoten), wenn es nicht auf den Bildschirm
+  passt; Knoten, Weg, RTT und Empfangsqualität stehen untereinander statt in zwei Spalten, die Marke „Experimentell“
+  steht unter dem Titel, und der Hinweis-Satz wird mit der Schrift breiter statt fest 250 pt. Bei Standardschrift
+  unverändert.
+
 ### Geändert – iOS und Android: Meeting-Ansicht rechnet wie das Web (Bugs-DB 2161)
 
 - Eine Wahrheit: iOS und Android lesen die Meeting-Vektoren des Servers (`tests/meeting_vectors.json`) unverändert und
