@@ -1,5 +1,5 @@
 """Dokumentmodell fuer Live (2.5, P3 Stufe 2) - unveraenderte Kopie von saga/collab_model.py aus dem Server-Repo (Stand
-testing ba7ac40, Schema saga-pm v2). Nicht von Hand aendern: bei einer neuen Schema-Version neu uebernehmen und
+testing 7d8fb42, Schema saga-pm v2). Nicht von Hand aendern: bei einer neuen Schema-Version neu uebernehmen und
 tests/test_live.py (Vektoren tests/vectors/pm_schema.json) laufen lassen. Braucht pycrdt - nur ueber collab.py laden."""
 
 """Dokumentmodell fuer das gleichzeitige Bearbeiten (2.5, P3 Stufe 2): Saga-Block-JSON <-> Y.Doc (pycrdt).
@@ -1004,6 +1004,27 @@ def _chars(content):
     return out
 
 
+ISLAND_MIN = 3                      # Bugs-DB 2180: wie ANCHOR_MIN in static/pages.js mapOffset
+
+
+def _opcodes(a, b):
+    """SequenceMatcher-Opcodes fuer den Textabgleich. Bugs-DB 2180: eine kurze gleiche Insel (weniger als ISLAND_MIN
+    Zeichen) zwischen zwei Ersetzungen/Loeschungen ist meist Zufall ("world" -> "there": das "r") - sie wird mit
+    ersetzt; sonst bliebe eine Schreibmarke (Yjs-Position) an ihr haengen ("the|re" statt am Ende der Aenderung).
+    Inseln neben reinen Einfuegungen (z. B. "ab" -> "xaby") bleiben."""
+    ops = SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
+    out = []
+    for k, (tag, i1, i2, j1, j2) in enumerate(ops):
+        if tag == "equal" and i2 - i1 < ISLAND_MIN and 0 < k < len(ops) - 1 \
+                and ops[k - 1][0] in ("replace", "delete") and ops[k + 1][0] in ("replace", "delete"):
+            tag = "replace"
+        if out and tag != "equal" and out[-1][0] != "equal":
+            out[-1] = ("replace", out[-1][1], i2, out[-1][3], j2)
+        else:
+            out.append((tag, i1, i2, j1, j2))
+    return out
+
+
 def _sync_inline(el, cur, tgt):
     if _same(cur, tgt):
         return
@@ -1018,7 +1039,7 @@ def _sync_inline(el, cur, tgt):
     t = kids[0] if kids else el.children.append(XmlText())
     a, b = _chars(cur), _chars(tgt)
     sa, sb = "".join(c for c, _ in a), "".join(c for c, _ in b)
-    ops = SequenceMatcher(None, sa, sb, autojunk=False).get_opcodes()
+    ops = _opcodes(sa, sb)
     for tag, i1, i2, j1, j2 in reversed(ops):
         if tag == "equal":
             continue
@@ -1062,7 +1083,7 @@ def _sync_inline(el, cur, tgt):
 
 
 def _sync_plain(t, cur, new):
-    ops = SequenceMatcher(None, cur, new, autojunk=False).get_opcodes()
+    ops = _opcodes(cur, new)
     for tag, i1, i2, j1, j2 in reversed(ops):
         if tag == "equal":
             continue

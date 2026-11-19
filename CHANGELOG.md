@@ -48,6 +48,11 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Klingelton jetzt still (Leiste und Mitteilung wie bisher), die Ausgabe geht direkt an PulseAudio bzw. PipeWire, und
   Starten und Stoppen laufen in einem eigenen Faden – die Oberfläche wartet nie darauf.
 
+### Behoben – Linux, Live mitschreiben: fremde Schreibmarke bleibt nicht an einem Zufallsbuchstaben hängen (Bugs-DB 2183)
+- `linux/hlidskjalf/collabmodel.py` wieder gleich dem Server (testing 7d8fb42, Bugs-DB 2180): kurze gleiche Inseln (unter
+  3 Zeichen) zwischen zwei Ersetzungen werden mit ersetzt („world“ → „there“ behält nicht das „r“). Ersetzt man in der
+  Linux-App Text, während jemand anderes die Schreibmarke darin hat, steht sie danach hinter dem neuen Text.
+
 ### Behoben – Linux, Live mitschreiben: ersetzter Text mischte sich mit gleichzeitigem Tippen (Bugs-DB 2178)
 
 - Ersetzte die App den Text eines Blocks oder den Titel, während jemand anderes am Ende des alten Textes weitertippte,
