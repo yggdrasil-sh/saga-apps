@@ -271,7 +271,9 @@ def test_sys_row_decline_block_and_blocklist(win, srv):
     pump(lambda: any(x.get_title() == "Connected Saga servers" and x.get_visible() for x in page.groups), 5)   # eigene Anfrage
     assert any(x.get_title() == "Connected Saga servers" and x.get_visible() for x in page.groups)
     _buttons(g)["Unblock"].emit("clicked")
-    pump(lambda: not srv.fed["blocks"], 5)
+    # der Schein-Server aendert seinen Zustand im Hintergrundfaden, die Rueckmeldung (Toast) kommt danach ueber die
+    # Hauptschleife - auf beides warten (sonst Wettlauf: Zustand schon leer, Toast noch nicht da)
+    pump(lambda: not srv.fed["blocks"] and "Unblocked." in dlg.toasts, 5)
     assert not srv.fed["blocks"] and "Unblocked." in dlg.toasts
     sw = next(x for x in _walk(next(x for x in page.groups if x.get_title() == "Connected Saga servers")) if isinstance(x, Adw.SwitchRow))
     sw.set_active(False)

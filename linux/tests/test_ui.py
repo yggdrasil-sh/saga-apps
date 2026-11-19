@@ -95,6 +95,10 @@ def test_incremental_rebuild_keeps_untouched_blocks(win, srv):
     pump(None, 1.0)
     dbv = [w for w in walk(v) if isinstance(w, DatabaseView)]
     assert len(dbv) == 1
+    # erst die erste Ladung der eingebetteten Datenbank abwarten (bei vollen Hintergrund-Faeden kann sie spaeter als 1 s kommen)
+    assert pump(lambda: any(x[1].endswith("/rows") for x in srv.log), 5)
+    idle()
+    pump(None, 0.3)
     head = v.kit.by_key["h1"]
     srv.log.clear()
     v.editor.insert({"id": "neu1", "type": "paragraph", "data": {"text": "neu"}}, after="p1")
