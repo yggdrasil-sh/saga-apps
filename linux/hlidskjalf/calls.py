@@ -9,8 +9,12 @@ angenommen) klingeln nie wieder - auch nicht nach nachgeholten Ereignissen (Last
 GET /api/calls/<id>: nur bei state == "ringing" und Rolle "callee"."""
 import math
 import os
+import queue
 import re
+import socket
+import stat
 import struct
+import threading
 import time
 import wave
 
@@ -306,21 +310,100 @@ def _quiet():
     return False
 
 
+def _sock_ok(path):
+    """Unix-Socket da und jemand nimmt an (auch Socket-Aktivierung von systemd)? Verwaiste Sockets zaehlen nicht."""
+    try:
+        if not stat.S_ISSOCK(os.stat(path).st_mode):
+            return False
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            s.settimeout(0.3)
+            s.connect(path)
+            return True
+        finally:
+            s.close()
+    except OSError:
+        return False
+
+
+def _audio_service():
+    """Welcher Tondienst laeuft: "pulse" (PulseAudio oder pipewire-pulse), "pipewire" oder None. Ohne Dienst nimmt
+    GStreamers autoaudiosink die ALSA-Ausgabe, und die fuehrt auf Fedora ueber pipewire-alsa - dessen Oeffnen kann ohne
+    laufendes PipeWire im Streaming-Faden haengen bleiben (Bugs-DB 2175). Dann also kein Klingelton."""
+    ps = os.environ.get("PULSE_SERVER") or ""
+    if ps:                                              # ausdruecklich gesetzt: nur pruefbar, wenn es ein Socket-Pfad ist
+        path = ps[5:] if ps.startswith("unix:") else ps
+        return "pulse" if not path.startswith("/") or _sock_ok(path) else None
+    run = os.environ.get("XDG_RUNTIME_DIR") or ""
+    if not run:
+        return None
+    if _sock_ok(os.path.join(run, "pulse", "native")):
+        return "pulse"
+    rem = os.environ.get("PIPEWIRE_REMOTE") or "pipewire-0"
+    if _sock_ok(rem if rem.startswith("/") else os.path.join(run, rem)):
+        return "pipewire"
+    return None
+
+
+def _gst():
+    import gi
+    gi.require_version("Gst", "1.0")
+    from gi.repository import Gst
+    return Gst
+
+
+def _set_states(q):
+    """Arbeitsfaden des Klingeltons: Zustandswechsel der Reihe nach, nie im UI-Faden (set_state kann auf eine Sperre
+    von GStreamer warten, solange der Streaming-Faden die Tonausgabe oeffnet - Bugs-DB 2175)."""
+    while True:
+        pipe, state, failed = q.get()
+        try:
+            if pipe.set_state(state) == failed and failed is not None:
+                pipe.set_state(type(state).NULL)
+        except Exception:  # noqa: BLE001 - Klingelton ist Beiwerk, der Faden darf nicht sterben
+            pass
+        finally:
+            q.task_done()
+
+
 class Ringer:
     """Klingelton direkt mit GStreamer (playbin, nur Ton, Videoausgang fakesink, Schleife ueber EOS -> an den Anfang).
     Bewusst nicht Gtk.MediaFile: dessen GStreamer-Backend baut einen GL-Videopfad auf und bricht ohne GLES ab.
-    Fehlt GStreamer bzw. wavparse (gstreamer1-plugins-good) oder ein Audio-Ausgang: still - Leiste und Mitteilung bleiben."""
+    Fehlt GStreamer bzw. wavparse (gstreamer1-plugins-good), ein Tondienst (PulseAudio/PipeWire) oder ein Audio-Ausgang:
+    still - Leiste und Mitteilung bleiben. Zustandswechsel (Starten/Stoppen) laufen in einem eigenen Faden: Stoppen
+    blockiert den UI-Faden nie (Bugs-DB 2175)."""
+
+    STUCK = 2                                           # so viele offene Zustandswechsel: Ausgabe haengt, nicht klingeln
 
     def __init__(self):
         self.pipe = None
+        self._q = None
+
+    def _queue(self):
+        if self._q is None:
+            self._q = queue.Queue()
+            threading.Thread(target=_set_states, args=(self._q,), name="hk-ring", daemon=True).start()
+        return self._q
+
+    def idle(self, timeout=5.0):
+        """Fuer Tests: warten, bis alle Zustandswechsel durch sind -> True"""
+        if self._q is None:
+            return True
+        end = time.monotonic() + timeout
+        while self._q.unfinished_tasks and time.monotonic() < end:
+            time.sleep(0.02)
+        return not self._q.unfinished_tasks
 
     def start(self):
         if self.pipe is not None or os.environ.get("HK_NO_RING") or _quiet():
             return
+        if self._q is not None and self._q.unfinished_tasks >= self.STUCK:
+            return
+        svc = _audio_service()
+        if svc is None:
+            return
         try:
-            import gi
-            gi.require_version("Gst", "1.0")
-            from gi.repository import Gst
+            Gst = _gst()
             Gst.init(None)
             pipe = Gst.ElementFactory.make("playbin", "hk-ring")
             if pipe is None:
@@ -330,26 +413,28 @@ class Ringer:
             fake = Gst.ElementFactory.make("fakesink")                 # nie ein Videopfad (WAV hat keinen, sicher ist sicher)
             if fake is not None:
                 pipe.set_property("video-sink", fake)
+            # Ausgabe zum gefundenen Dienst; kein Rueckfall auf ALSA (autoaudiosink), der ohne Dienst haengen kann
+            sink = Gst.ElementFactory.make("pulsesink" if svc == "pulse" else "pipewiresink")
+            if sink is not None:
+                pipe.set_property("audio-sink", sink)
             bus = pipe.get_bus()
             bus.add_signal_watch()
             bus.connect("message::eos", lambda _b, _m: pipe.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH, 0))
-            bus.connect("message::error", lambda _b, _m: self.stop())
-            if pipe.set_state(Gst.State.PLAYING) == Gst.StateChangeReturn.FAILURE:
-                pipe.set_state(Gst.State.NULL)
-                return
+            bus.connect("message::error", lambda _b, _m: self.stop() if self.pipe is pipe else None)
             self.pipe = pipe
+            self._queue().put((pipe, Gst.State.PLAYING, Gst.StateChangeReturn.FAILURE))
         except (ImportError, ValueError, GLib.Error, OSError, TypeError, AttributeError):
             self.pipe = None
 
     def stop(self):
         p, self.pipe = self.pipe, None
-        if p is not None:
-            try:
-                from gi.repository import Gst
-                p.get_bus().remove_signal_watch()
-                p.set_state(Gst.State.NULL)
-            except (ImportError, GLib.Error, TypeError, AttributeError):
-                pass
+        if p is None:
+            return
+        try:
+            p.get_bus().remove_signal_watch()
+            self._queue().put((p, _gst().State.NULL, None))
+        except (ImportError, ValueError, GLib.Error, TypeError, AttributeError):
+            pass
 
 
 # --- Zustand -------------------------------------------------------------------------------------------------------------

@@ -9,6 +9,13 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – Linux: App fror beim Stoppen des Klingeltons ohne Tondienst ein (Bugs-DB 2175)
+
+- Lief weder PulseAudio noch PipeWire, konnte das Stoppen des Klingeltons die App dauerhaft einfrieren: GStreamer
+  öffnete die Tonausgabe über pipewire-alsa, und das blieb ohne laufendes PipeWire hängen. Ohne Tondienst bleibt der
+  Klingelton jetzt still (Leiste und Mitteilung wie bisher), die Ausgabe geht direkt an PulseAudio bzw. PipeWire, und
+  Starten und Stoppen laufen in einem eigenen Faden – die Oberfläche wartet nie darauf.
+
 ### Behoben – Linux, Live mitschreiben: ersetzter Text mischte sich mit gleichzeitigem Tippen (Bugs-DB 2178)
 
 - Ersetzte die App den Text eines Blocks oder den Titel, während jemand anderes am Ende des alten Textes weitertippte,

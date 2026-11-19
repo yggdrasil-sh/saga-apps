@@ -412,15 +412,98 @@ def test_spec_recommends_ringtone_and_ships_modules():
 
 
 def test_ringer_starts_and_stops_without_crash(monkeypatch):
-    """Klingelton ueber GStreamer (playbin, nur Ton): startet ohne Absturz (auch ohne Audio-Geraet) und laesst sich stoppen"""
+    """Klingelton ueber GStreamer (playbin, nur Ton): startet ohne Absturz (mit und ohne Tondienst) und laesst sich
+    stoppen, ohne den UI-Faden aufzuhalten (Bugs-DB 2175)"""
+    import time
     from hlidskjalf import calls as M
     monkeypatch.delenv("HK_NO_RING", raising=False)
     monkeypatch.setattr(M, "_quiet", lambda: False)
+    svc = M._audio_service()
     r = M.Ringer()
     r.start()
+    if svc is None:
+        assert r.pipe is None                           # ohne Tondienst: gar keine Pipeline
     pump(None, 0.5)
+    if os.environ.get("HK_AUDIO") == "1":               # Lauf mit eigenem Tondienst (fluechtige PipeWire-Instanz)
+        from gi.repository import Gst
+        assert svc == "pulse" and r.pipe is not None
+        assert r.pipe.get_state(3 * Gst.SECOND)[1] == Gst.State.PLAYING
+    t0 = time.monotonic()
     r.stop()
-    assert r.pipe is None
+    assert r.pipe is None and time.monotonic() - t0 < 0.3
+    assert r.idle(10)                                   # der Zustandswechsel nach NULL kommt auch durch
+    r.start()                                           # wieder klingeln und gleich stoppen
+    r.stop()
+    assert r.pipe is None and r.idle(10)
     import wave
     with wave.open(M._tone_file()) as w:
         assert w.getnchannels() == 1 and w.getframerate() == 22050 and w.getnframes() > 22050
+
+
+def test_ringer_silent_without_audio_service(monkeypatch, tmp_path):
+    """Bugs-DB 2175: ohne PulseAudio/PipeWire (kein bzw. verwaister Socket) keine Pipeline - sonst oeffnet autoaudiosink
+    die ALSA-Ausgabe ueber pipewire-alsa, und das kann haengen"""
+    import socket
+    from hlidskjalf import calls as M
+    monkeypatch.delenv("HK_NO_RING", raising=False)
+    monkeypatch.delenv("PULSE_SERVER", raising=False)
+    monkeypatch.delenv("PIPEWIRE_REMOTE", raising=False)
+    monkeypatch.setattr(M, "_quiet", lambda: False)
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    r = M.Ringer()
+    r.start()
+    assert r.pipe is None and M._audio_service() is None
+    (tmp_path / "pulse").mkdir()
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)  # verwaister Socket: gebunden, aber niemand nimmt an
+    s.bind(str(tmp_path / "pulse" / "native"))
+    s.close()
+    assert M._audio_service() is None
+    monkeypatch.delenv("XDG_RUNTIME_DIR")
+    assert M._audio_service() is None
+    srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)  # Dienst da (lauscht) -> "pulse"
+    (tmp_path / "pulse" / "native").unlink()
+    srv.bind(str(tmp_path / "pulse" / "native"))
+    srv.listen(1)
+    try:
+        monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+        assert M._audio_service() == "pulse"
+        monkeypatch.setenv("PULSE_SERVER", "unix:" + str(tmp_path / "fehlt"))
+        assert M._audio_service() is None
+    finally:
+        srv.close()
+
+
+def test_ringer_stop_never_blocks_ui_thread(monkeypatch):
+    """Bugs-DB 2175: haengt der Wechsel nach NULL (GStreamer wartet auf den Streaming-Faden, der die Tonausgabe oeffnet),
+    kehrt stop() trotzdem sofort zurueck; der Wechsel kommt nach, die Reihenfolge bleibt"""
+    import threading
+    import time
+    from hlidskjalf import calls as M
+    gate, seen = threading.Event(), []
+
+    class Bus:
+        def remove_signal_watch(self):
+            seen.append("unwatch")
+
+    class Pipe:
+        def get_bus(self):
+            return Bus()
+
+        def set_state(self, st):
+            gate.wait(5)
+            seen.append(st.value_nick)
+
+    r = M.Ringer()
+    r.pipe = Pipe()
+    t0 = time.monotonic()
+    r.stop()
+    assert time.monotonic() - t0 < 0.3 and r.pipe is None and seen == ["unwatch"]
+    assert not r.idle(0.2)                              # haengt noch
+    monkeypatch.delenv("HK_NO_RING", raising=False)
+    monkeypatch.setattr(M, "_quiet", lambda: False)
+    monkeypatch.setattr(M, "_audio_service", lambda: "pulse")
+    r.STUCK = 1
+    r.start()                                           # Ausgabe haengt: nicht noch eine Pipeline anlegen
+    assert r.pipe is None
+    gate.set()
+    assert r.idle(5) and seen == ["unwatch", "null"]
