@@ -103,5 +103,6 @@ slashCreateTests()
 widgetFeedTests()
 widgetLiveTests()
 notifTapTests()                  // Bugs-DB 2187: Mitteilung antippen -> Ziel
+hornViewTests()                  // Bugs-DB 2193: Teilen mitten im Knoten-Anruf -> Ansicht neu
 print("Logik-Tests 2.0: \(passed) ok, \(failed) fehlgeschlagen")
 exit(failed == 0 ? 0 : 1)

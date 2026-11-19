@@ -440,6 +440,23 @@ extension HornLogic {
         return Ack(n: n, s: s, ok: ok)
     }
     struct PeerState: Equatable { var mic = true; var cam = false; var screen = false }
+    /// Bugs-DB 2193: was die Anrufansicht (CallScreen -> meetingDevices/meetTrack) aus der Knoten-Sitzung liest - Bildschirm
+    /// (Geraet + Spur), Kamerabild je Geraet, state (mic/cam/screen). Die Ansicht beobachtet nur den CallManager, nicht die
+    /// HornSession: aendert sich dieser Stand, muss hornDraw den CallManager neu zeichnen lassen (wie Android
+    /// HornSession.bind -> host.changed()). Sonst blieb ein mitten im Anruf begonnenes Teilen unsichtbar, bis zufaellig
+    /// etwas anderes neu zeichnete (Beitritt, Sprecherwechsel). Spuren als ObjectIdentifier (welche Spur, nicht ihr Inhalt).
+    struct ViewKey: Equatable {
+        var share: String?
+        var shareTrack: ObjectIdentifier?
+        var vid: [String: ObjectIdentifier] = [:]
+        var st: [String: PeerState] = [:]
+        init(share: String?, shareTrack: AnyObject?, vid: [String: AnyObject], st: [String: PeerState]) {
+            self.share = share; self.shareTrack = shareTrack.map(ObjectIdentifier.init)
+            self.vid = vid.mapValues(ObjectIdentifier.init); self.st = st
+        }
+    }
+    /// neu zeichnen, wenn sich der Stand fuer die Ansicht geaendert hat (erster Stand: immer)
+    static func viewChanged(_ old: ViewKey?, _ new: ViewKey) -> Bool { old != new }
     /// hp (P9/P10): eigene Kennungen an den Knoten, mit denen das Geraet gerade verbunden ist (hoechstens 4, alle
     /// Verbindungen waehrend eines Wechsels) - so ordnen Geraete an anderen Knoten (Kaskade, andere Server) CSRC -> Geraet zu
     /// replaces: "Hierher uebernehmen" fertig - ready + bisheriges eigenes Geraet (nur an dieses; wie state im Mesh)

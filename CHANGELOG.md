@@ -32,6 +32,14 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Tests: `MeetingTests.swift` (auch `selfPipSize`), `MeetingVectorsTest.kt` ohne Abweichungen; neue Bilder-Beispiele
   `-hkHornPreview meet-gallery2|speaker2|gallery-screen|novideo-speaker`.
 
+### Behoben – iOS/iPadOS: Bildschirm, den jemand mitten im Knoten-Anruf teilt, wurde nicht gezeigt (Bugs-DB 2193)
+
+- Begann jemand zu teilen, während die App schon im Anruf über den Knoten war, blieb die Kamera zu sehen – das Bild kam
+  an und wurde dekodiert, aber die Anrufansicht zeichnete nicht neu (sie beobachtet nur den Anruf, nicht die
+  Knoten-Sitzung). Jetzt meldet die Knoten-Sitzung jede Änderung von Bildschirm, Kamerabildern und Zustand
+  (Mikrofon/Kamera/Teilen) an die Ansicht – wie Android. Dasselbe behebt das nach „Teilen beenden“ einige Sekunden
+  eingefrorene Bildschirmbild und Kacheln, die ein später ankommendes Kamerabild nicht zeigten.
+
 ### Behoben – iPhone/iPad: Widgets in Seiten aktualisierten sich nicht in der offenen Seite (Bugs-DB 2186)
 
 - Wetter, Lesen, Kennzahlen, Gewohnheiten, Anstehendes und Diagramme holten ihre Werte nur beim Öffnen, wenn sich die

@@ -185,6 +185,8 @@ final class HornSession: ObservableObject {
     var levels: [String: Double] = [:]
     /// Meeting-Ansicht: Kamerabild je Geraet (hornDraw)
     var vid: [String: RTCVideoTrack] = [:]
+    /// Bugs-DB 2193: zuletzt an die Anrufansicht gemeldeter Stand (HornLogic.ViewKey)
+    var viewKey: HornLogic.ViewKey?
     var speaking = Set<String>()
     var speakAt: [String: Double] = [:]
     var spk: String?
@@ -1220,6 +1222,9 @@ extension CallManager {
         let ft = sh?.track ?? fd.flatMap { vid[$0] }
         let fn = fd.flatMap { roster.leg($0)?.name } ?? title
         if H.focusTrack !== ft || H.focusName != fn { H.focusTrack = ft; H.focusName = fn; pipRefresh() }
+        // Bugs-DB 2193: CallScreen beobachtet nur den CallManager - Bildschirm/Bilder/state geaendert -> neu zeichnen
+        let vk = HornLogic.ViewKey(share: sh?.dev, shareTrack: sh?.track, vid: vid, st: H.st)
+        if HornLogic.viewChanged(H.viewKey, vk) { H.viewKey = vk; objectWillChange.send() }
         hornPeople()
     }
     func hornSetView(_ v: String) {
