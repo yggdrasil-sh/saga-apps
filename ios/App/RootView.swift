@@ -529,6 +529,8 @@ struct Sidebar: View {
     @AppStorage("hk.sidebarToolsOpen") private var moreOpen = false
     @State private var moveID: MoveTarget?
     @State private var showTrash = false
+    @State private var todayTask: OpenTask?                              // Bugs-DB 2200: Editor-Blaetter aus "Heute" an der Liste
+    @State private var todayEvent: CalEvent?
 
     private func sharedTree(_ parent: Int?) -> [TreeNode] {
         store.sharedChildren(of: parent).map { p in
@@ -570,6 +572,7 @@ struct Sidebar: View {
         .overlay { if store.loading && store.pages.isEmpty { ProgressView() } }
         .sheet(isPresented: $showTrash) { TrashSheet().environmentObject(store) }
         .sheet(item: $moveID) { m in MoveSheet(id: m.id) }
+        .modifier(TodayEditors(store: store, task: $todayTask, event: $todayEvent))
         .onChange(of: sharedJump) { _, _ in
             Task { await store.refresh(quiet: true); try? await Task.sleep(for: .milliseconds(350)); withAnimation { proxy.scrollTo(Self.sharedAnchor, anchor: .top) } }
         }
@@ -595,7 +598,7 @@ extension Sidebar {
     @ViewBuilder func part(_ p: SidebarLayout.Part) -> some View {
         switch p {
         case .tools: toolsSection
-        case .today: TodaySection(store: store)
+        case .today: TodaySection(store: store, editingTask: $todayTask, editingEvent: $todayEvent)
         case .deskTop:
             Section { ForEach(SidebarLayout.deskTopRows, id: \.self) { deskRow($0) } }
         case .favorites: favoritesSection
@@ -793,8 +796,10 @@ struct TodaySection: View {
     @ObservedObject var store: Store
     /// Abschnittskopf "Heute" (Seitenleiste); in der Ansicht "Heute" steht er schon als Titel darueber
     var header = true
-    @State private var editingTask: OpenTask?
-    @State private var editingEvent: CalEvent?
+    /// Bugs-DB 2200: die Editor-Blaetter haengen einmal an der umgebenden Liste (TodayEditors), nicht an diesem Section -
+    /// SwiftUI verteilte sie dort auf jede Zeile (mehrere Blaetter auf einen Tipp, der Editor schloss sich nach ~1 s)
+    @Binding var editingTask: OpenTask?
+    @Binding var editingEvent: CalEvent?
     var body: some View {
         Section {
             let src = store.features.has("tasksrc1")              // 2.5: Zeilen aus Aufgabenquellen (Server-Reihenfolge)
@@ -814,8 +819,6 @@ struct TodaySection: View {
                 ForEach(todayTasks) { t in TaskRow(task: t) { editingTask = t } }
             }
         } header: { if header { Text("Heute") } }
-        .sheet(item: $editingTask) { t in TaskEditor(task: t).environmentObject(store) }
-        .sheet(item: $editingEvent) { e in EventEditor(event: e).environmentObject(store) }
     }
     @EnvironmentObject private var nav: NavModel
     /// 2.5: heute/ueberfaellig + ohne Datum (hoechstens 5) aus der gemeinsamen Liste
@@ -838,6 +841,18 @@ struct TodaySection: View {
         if !Task.isCancelled { editingTask = t }
     }
     #endif
+}
+
+/// Bugs-DB 2200: Aufgaben- und Termin-Editor aus "Heute" - einmal an der Liste, die TodaySection enthaelt
+struct TodayEditors: ViewModifier {
+    @ObservedObject var store: Store
+    @Binding var task: OpenTask?
+    @Binding var event: CalEvent?
+    func body(content: Content) -> some View {
+        content
+            .sheet(item: $task) { t in TaskEditor(task: t).environmentObject(store) }
+            .sheet(item: $event) { e in EventEditor(event: e).environmentObject(store) }
+    }
 }
 
 /// Eine Seite: Editor als Web-Ansicht im schlanken Einbettungsmodus (ohne Web-Kopfzeile/-Seitenleiste)
@@ -875,11 +890,14 @@ struct PageScreen: View {
 struct TodayScreen: View {
     @ObservedObject var store: Store
     @State private var reading: BookOrbitLogic.Reading?   // 2.5 bookorbit1: Karte "Lesen"
+    @State private var editingTask: OpenTask?             // Bugs-DB 2200: Blaetter an der Liste
+    @State private var editingEvent: CalEvent?
     var body: some View {
         List {
-            TodaySection(store: store, header: false)
+            TodaySection(store: store, header: false, editingTask: $editingTask, editingEvent: $editingEvent)
             ReadingTodaySection(store: store, reading: reading)   // nur mit Verbindung
         }
+            .modifier(TodayEditors(store: store, task: $editingTask, event: $editingEvent))
             .task(id: store.features.has(BookOrbitLogic.feature)) { reading = await ReadingTodaySection.load(store, keeping: reading) }
             .navigationTitle("Heute")
     }

@@ -9,6 +9,13 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – iPhone/iPad: Aufgabe unter „Heute“ antippen öffnete den Editor nur kurz (Bugs-DB 2200)
+
+- Unter „Heute“ (Seitenleiste und Ansicht „Heute“) erschien der Aufgaben- bzw. Termin-Editor beim Antippen mehrfach
+  und schloss sich nach etwa einer Sekunde wieder: die Blätter hingen am Abschnitt, SwiftUI hängte sie dadurch an jede
+  Zeile. Sie hängen jetzt einmal an der Liste; im übrigen App-Code hängt kein Blatt, Popover oder Foto-Auswahl mehr an
+  einem Abschnitt (Logik-Prüfung).
+
 ### Behoben – iPhone/iPad: „Gruppenbild wählen …“ schloss die Gruppeninfo (Bugs-DB 2199)
 
 - In der Gruppeninfo einer eigenen Gruppe schloss „Gruppenbild wählen …“ bzw. „Neues Bild wählen …“ das ganze Blatt,
