@@ -168,11 +168,16 @@ struct HornPeoplePanel: View {
         if calls.addOpen && calls.addMode != .none { CallAddPanel(calls: calls) }   // 2.5 (L8/L9): Auswahl an Stelle der Liste
         else { list }
     }
+    private var peopleTitle: some View { Text("Teilnehmende (\(horn.people.count))").font(.headline) }
     private var list: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Teilnehmende (\(horn.people.count))").font(.headline)
-                HornExperimentalBadge()
+                // Marke neben dem Titel; passt das nicht (kleines iPhone, grosse Schrift), steht sie darunter -
+                // sonst nimmt die feste Marke dem Titel den ganzen Platz ("Tei…" bzw. gar nicht sichtbar)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { peopleTitle; HornExperimentalBadge() }
+                    VStack(alignment: .leading, spacing: 4) { peopleTitle; HornExperimentalBadge() }
+                }
                 Spacer()
                 CallAddButton(calls: calls)                                 // 2.5 (L8/L9): Person hinzufuegen
                 Button { horn.plist = false } label: { Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle()) }
