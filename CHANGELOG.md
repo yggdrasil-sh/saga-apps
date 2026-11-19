@@ -17,6 +17,23 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Verbinden des Live-Kanals. iOS und Linux meldeten schon früh; der Server 2.5 behandelt frische Geräte zusätzlich
   als aktuelle App.
 
+### Behoben – iPhone/iPad: Feld „Verbindung“ im Anruf bei sehr großer Schrift abgeschnitten (Bugs-DB 2191)
+
+- Bei den Bedienungshilfen-Größen rollt das Feld „Verbindung“ (Weg zum Knoten), wenn es nicht auf den Bildschirm
+  passt; Knoten, Weg, RTT und Empfangsqualität stehen untereinander statt in zwei Spalten, die Marke „Experimentell“
+  steht unter dem Titel, und der Hinweis-Satz wird mit der Schrift breiter statt fest 250 pt. Bei Standardschrift
+  unverändert.
+
+### Behoben – iOS/iPadOS: Bildschirm, den jemand mitten im Knoten-Anruf teilt, wurde nicht gezeigt (Bugs-DB 2193)
+
+- Begann jemand zu teilen, während die App schon im Anruf über den Knoten war, blieb die Kamera zu sehen – das Bild kam
+  an und wurde dekodiert, aber die Anrufansicht zeichnete nicht neu (sie beobachtet nur den Anruf, nicht die
+  Knoten-Sitzung). Jetzt meldet die Knoten-Sitzung jede Änderung von Bildschirm, Kamerabildern und Zustand
+  (Mikrofon/Kamera/Teilen) an die Ansicht – wie Android. Dasselbe behebt das nach „Teilen beenden“ einige Sekunden
+  eingefrorene Bildschirmbild und Kacheln, die ein später ankommendes Kamerabild nicht zeigten.
+- Klingeln einer Gruppe ohne eigenen Namen: die anrufende Person stand doppelt da („Anna · Anna, Ben“) – jetzt nur die
+  Liste der Mitglieder.
+
 ### Geändert – Alle Apps: Gjallarhorn als „Experimentell“ gekennzeichnet
 
 - Anrufe über den Anruf-Knoten sind in 2.5 experimentell – ruhig gekennzeichnet, ohne Warnung bei jedem Anruf:
@@ -24,13 +41,6 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   und an der Teilnehmerliste, dazu ein Satz in der Verbindungs-Info: getestet mit bis zu 4 Personen bzw. Geräten je
   Anruf, Probleme über „Diagnose senden“ melden. Linux (Anrufe laufen im Browser): eine Zeile unter Einstellungen →
   Info → Hilfe. Mac: die Hülle zeigt die Web-Oberfläche, die Kennzeichnung kommt vom Server. Texte in allen fünf Sprachen.
-
-### Behoben – iPhone/iPad: Feld „Verbindung“ im Anruf bei sehr großer Schrift abgeschnitten (Bugs-DB 2191)
-
-- Bei den Bedienungshilfen-Größen rollt das Feld „Verbindung“ (Weg zum Knoten), wenn es nicht auf den Bildschirm
-  passt; Knoten, Weg, RTT und Empfangsqualität stehen untereinander statt in zwei Spalten, die Marke „Experimentell“
-  steht unter dem Titel, und der Hinweis-Satz wird mit der Schrift breiter statt fest 250 pt. Bei Standardschrift
-  unverändert.
 
 ### Geändert – iOS und Android: Meeting-Ansicht rechnet wie das Web (Bugs-DB 2161)
 
@@ -46,16 +56,6 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Android: Streifen in der Präsentation bis 1440 dp 160 breit (bisher 200).
 - Tests: `MeetingTests.swift` (auch `selfPipSize`), `MeetingVectorsTest.kt` ohne Abweichungen; neue Bilder-Beispiele
   `-hkHornPreview meet-gallery2|speaker2|gallery-screen|novideo-speaker`.
-
-### Behoben – iOS/iPadOS: Bildschirm, den jemand mitten im Knoten-Anruf teilt, wurde nicht gezeigt (Bugs-DB 2193)
-
-- Begann jemand zu teilen, während die App schon im Anruf über den Knoten war, blieb die Kamera zu sehen – das Bild kam
-  an und wurde dekodiert, aber die Anrufansicht zeichnete nicht neu (sie beobachtet nur den Anruf, nicht die
-  Knoten-Sitzung). Jetzt meldet die Knoten-Sitzung jede Änderung von Bildschirm, Kamerabildern und Zustand
-  (Mikrofon/Kamera/Teilen) an die Ansicht – wie Android. Dasselbe behebt das nach „Teilen beenden“ einige Sekunden
-  eingefrorene Bildschirmbild und Kacheln, die ein später ankommendes Kamerabild nicht zeigten.
-- Klingeln einer Gruppe ohne eigenen Namen: die anrufende Person stand doppelt da („Anna · Anna, Ben“) – jetzt nur die
-  Liste der Mitglieder.
 
 ### Behoben – iPhone/iPad: Widgets in Seiten aktualisierten sich nicht in der offenen Seite (Bugs-DB 2186)
 
