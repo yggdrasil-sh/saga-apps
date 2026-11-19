@@ -95,8 +95,11 @@ def test_incremental_rebuild_keeps_untouched_blocks(win, srv):
     pump(None, 1.0)
     dbv = [w for w in walk(v) if isinstance(w, DatabaseView)]
     assert len(dbv) == 1
-    # erst die erste Ladung der eingebetteten Datenbank abwarten (bei vollen Hintergrund-Faeden kann sie spaeter als 1 s kommen)
+    # erst die erste Ladung der eingebetteten Datenbank und das "hello" des Live-Kanals abwarten - "hello" laedt alle
+    # Datenbank-Ansichten frisch (window._live_event, 4.11.) und kam auf saga-test gelegentlich erst nach 1 s
+    from hlidskjalf.live import live
     assert pump(lambda: any(x[1].endswith("/rows") for x in srv.log), 5)
+    assert pump(lambda: live.connected, 5)
     idle()
     pump(None, 0.3)
     head = v.kit.by_key["h1"]
