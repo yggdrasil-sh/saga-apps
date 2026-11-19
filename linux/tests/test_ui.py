@@ -97,11 +97,15 @@ def test_incremental_rebuild_keeps_untouched_blocks(win, srv):
     assert len(dbv) == 1
     # erst die erste Ladung der eingebetteten Datenbank und das "hello" des Live-Kanals abwarten - "hello" laedt alle
     # Datenbank-Ansichten frisch (window._live_event, 4.11.) und kam auf saga-test gelegentlich erst nach 1 s
+    # Das Neuladen nach "hello" laeuft ueber store.changed_data (Debounce 350 ms): erst warten, bis nichts mehr ansteht
+    # (0,3 s Pause allein war kuerzer als der Debounce - unter Last kam das GET .../rows erst nach dem Leeren)
     from hlidskjalf.live import live
+    from hlidskjalf.store import store
     assert pump(lambda: any(x[1].endswith("/rows") for x in srv.log), 5)
     assert pump(lambda: live.connected, 5)
+    assert pump(lambda: not store.changed_data.src, 5)
     idle()
-    pump(None, 0.3)
+    pump(None, 0.5)
     head = v.kit.by_key["h1"]
     srv.log.clear()
     v.editor.insert({"id": "neu1", "type": "paragraph", "data": {"text": "neu"}}, after="p1")
