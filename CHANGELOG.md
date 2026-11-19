@@ -9,6 +9,21 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – iOS und Android: Meeting-Ansicht rechnet wie das Web (Bugs-DB 2161)
+
+- Eine Wahrheit: iOS und Android lesen die Meeting-Vektoren des Servers (`tests/meeting_vectors.json`) unverändert und
+  ohne Ausnahmelisten; alle Fälle sind auf beiden Plattformen grün.
+- Eigenes Bild: Größe auf allen Plattformen gleich gerechnet – Breite nach der Ausrichtung der Kamera (quer 22 %,
+  120–280; hochkant 26 %, 90–160), Faktor S/M/L, bei wenig Höhe bis zur Hälfte kleiner. Im Sprecher-Layout mit
+  höchstens zwei Personen schwebt es (bisher Kachel im Streifen).
+- Galerie: gewählt im 1:1 ohne Teilen gibt es die Galerie mit zwei Kacheln (bisher 1:1); geteilte Bildschirme stehen
+  vor den Video-Kacheln (iOS sortierte sie zwischen die Personen); Android: eine Kachel nimmt die volle Breite.
+- „Kacheln ohne Video zeigen“ aus: wer in den letzten 5 s gesprochen hat, bleibt sichtbar – jetzt auch außerhalb der
+  Galerie (iOS bisher nur in der Galerie und nur während des Sprechens); Hinweis „+ n ohne Video“ in allen Layouts.
+- Android: Streifen in der Präsentation bis 1440 dp 160 breit (bisher 200).
+- Tests: `MeetingTests.swift` (auch `selfPipSize`), `MeetingVectorsTest.kt` ohne Abweichungen; neue Bilder-Beispiele
+  `-hkHornPreview meet-gallery2|speaker2|gallery-screen|novideo-speaker`.
+
 ### Behoben – Linux: App fror beim Stoppen des Klingeltons ohne Tondienst ein (Bugs-DB 2175)
 
 - Lief weder PulseAudio noch PipeWire, konnte das Stoppen des Klingeltons die App dauerhaft einfrieren: GStreamer
