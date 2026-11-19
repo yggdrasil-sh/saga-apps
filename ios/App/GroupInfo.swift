@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 // Saga 2.5 Gruppeninfo (chatadm1) und Kontakte (contacts1) - Server docs/APP-API-CHAT.md Abschnitt 6 und 7, Web
 // static/chat.js groupInfo()/addSearch()/drawContacts(). Logik in GroupInfoLogic.swift (Tests/Logic/GroupInfoTests.swift).
@@ -118,6 +119,9 @@ struct GroupInfoSheet: View {
     @State private var pageRole: ShareRole = .view                     // 2.5 (pagechatmembers1): Rolle der Freigabe
     @State private var askBlock: ChatMember?
     @State private var showMedia = false                           // 2.5 (block2)
+    @State private var pickPhoto = false                           // 2.5 (groupinfo2, Bugs-DB 2199): Gruppenbild waehlen
+    @State private var photo: PhotosPickerItem?
+    @State private var avatarBusy = false
 
     private var feature: Bool { store.features.has(GroupInfoLogic.feature) }
     private var contactsOn: Bool { store.features.has(ContactsLogic.feature) }
@@ -128,7 +132,7 @@ struct GroupInfoSheet: View {
                 if let i = conv.info {
                     let r = i.rights(feature: feature)
                     head(i, r)
-                    GroupInfo2Section(i: i, conv: conv)                       // 2.5 (groupinfo2): Beschreibung, Rechte
+                    GroupInfo2Section(i: i, conv: conv, pickPhoto: $pickPhoto, avatarBusy: avatarBusy)   // 2.5 (groupinfo2): Bild, Beschreibung, Rechte
                     membersSection(i, r)
                     if ChatStd.canAdd(kind: i.kind, rights: r, canManage: i.canManage, f: store.chatStd) && adding { addSection(i) }
                     if let e = conv.sendError { Text(verbatim: e).font(.footnote).foregroundStyle(.red) }
@@ -139,6 +143,13 @@ struct GroupInfoSheet: View {
                 }
             }
             .formStyle(.grouped)
+            // Bugs-DB 2199: Bildauswahl einmal an der Form (nicht am Section der Zeilen) - sonst schloss iOS das Blatt
+            .photosPicker(isPresented: $pickPhoto, selection: $photo, matching: .images)
+            .onChange(of: photo) { _, it in
+                guard let it else { return }
+                avatarBusy = true
+                Task { if let d = try? await it.loadTransferable(type: Data.self) { _ = await conv.setGroupAvatar(d) }; photo = nil; avatarBusy = false }
+            }
             .navigationTitle("Gruppeninfo")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

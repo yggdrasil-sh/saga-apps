@@ -474,13 +474,16 @@ struct ListGroupAvatar: View {
     }
 }
 
+/// Bugs-DB 2199: die Bildauswahl haengt NICHT hier (am Section in der Form verteilt SwiftUI `.photosPicker`/`.onChange` auf
+/// jede Zeile - mehrere Praesentationen am selben Schalter, iOS schloss dabei das ganze Blatt), sondern einmal an der Form
+/// von GroupInfoSheet; hier nur der Schalter.
 struct GroupInfo2Section: View {
     let i: ChatSummary
     @ObservedObject var conv: ConversationModel
+    @Binding var pickPhoto: Bool
+    var avatarBusy = false
     @State private var editDesc = false
     @State private var desc = ""
-    @State private var photo: PhotosPickerItem?
-    @State private var pickPhoto = false
     @State private var busy = false
     var body: some View {
         let f = conv.std
@@ -494,7 +497,7 @@ struct GroupInfo2Section: View {
                             Spacer()
                             Button(role: .destructive) { busy = true; Task { _ = await conv.setGroupAvatar(nil); busy = false } } label: { Label("Bild entfernen", systemImage: "xmark") }.buttonStyle(.borderless)
                         }
-                    }.disabled(busy)
+                    }.disabled(busy || avatarBusy)
                     #if DEBUG
                     .task { if UserDefaults.standard.bool(forKey: "hkGroupPick") { try? await Task.sleep(for: .seconds(2)); pickPhoto = true } }   // nur fuer Bilder (2199)
                     #endif
@@ -517,12 +520,6 @@ struct GroupInfo2Section: View {
                     }
                 }
             } header: { Text("Beschreibung") }
-            .photosPicker(isPresented: $pickPhoto, selection: $photo, matching: .images)
-            .onChange(of: photo) { _, it in
-                guard let it else { return }
-                busy = true
-                Task { if let d = try? await it.loadTransferable(type: Data.self) { _ = await conv.setGroupAvatar(d) }; photo = nil; busy = false }
-            }
             if ChatStd.showPerms(kind: i.kind, info: i.std, f: f) {
                 Section {
                     Toggle("Nur Admins dürfen Nachrichten senden", isOn: Binding(get: { i.std.permSend == "admins" }, set: { v in Task { await conv.setPerm("perm_send", admins: v) } }))
