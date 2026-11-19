@@ -9,6 +9,12 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – Linux: graue Tabellenzellen im hellen Modus ohne Farbe
+
+- Tabellenzeilen, -spalten und -zellen mit der Farbe **Grau** hatten im hellen Modus keinen Hintergrund: ein Kommentar
+  in `style.css` endete vorzeitig, GTK verwarf die Regel danach („Expected a valid selector“). Die übrigen Farben und
+  der dunkle Modus waren nicht betroffen.
+
 ### Behoben – Linux: Absturz beim Schließen von Seiten mit dem Widget „Unterseiten“ (Fedora 45)
 
 - Unter Python 3.15 (Fedora 45) konnte die App mit einem Speicherzugriffsfehler abstürzen, wenn Pythons

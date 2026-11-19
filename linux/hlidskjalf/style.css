@@ -419,7 +419,7 @@ window.hk-dark .hk-widget-card.hk-wacc-red { border-left-color: #ff7369; backgro
 window.hk-dark .hk-wacc-red .hk-w-main { color: #ff7369; } window.hk-dark .hk-wacc-red progressbar.hk-w-bar > trough > progress { background: #ff7369; }
 
 /* Saga 2.5: Tabellen-Block-Farben (tableopts1), Kartenfarben (view.colors), Formelfehler, Personen, Mathe/Mermaid,
-   synchronisierte Bloecke, Wochenkalender, Zeitleiste, Diagramme - Palette wie das Web (--tc-*/--bc-*) */
+   synchronisierte Bloecke, Wochenkalender, Zeitleiste, Diagramme - Palette wie das Web (--tc-* und --bc-*) */
 textview.hk-tbg-gray { background: alpha(#9b9a97, 0.20); }
 window.hk-dark textview.hk-tbg-gray { background: alpha(#9b9a97, 0.30); }
 textview.hk-tbg-brown { background: alpha(#9f6b53, 0.20); }
