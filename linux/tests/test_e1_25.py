@@ -600,3 +600,37 @@ def test_shots_e1(win, srv):
         shot(win, os.path.join(out, f"e1-seite-unten-{name}.png"))
     Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.DEFAULT)
     del dv_
+
+
+def test_style_css_ohne_parserfehler():
+    """style.css laedt ohne Parserfehler: ein "*/" mitten in einem Kommentar ("--tc-*/--bc-*") schloss ihn vorzeitig,
+    GTK verwarf dann die naechste Regel - graue Tabellenzellen (hk-tbg-gray) blieben im hellen Modus ohne Hintergrund"""
+    from hlidskjalf import main
+    errs = []
+    prov = Gtk.CssProvider()
+    prov.connect("parsing-error", lambda p, sec, err: errs.append((sec.to_string(), err.message)))
+    prov.load_from_path(os.path.join(os.path.dirname(main.__file__), "style.css"))
+    assert errs == []
+
+
+def test_shots_tabellenfarben(win, srv):
+    """Bildschirmfoto zur Sichtpruefung (HK_TBG_SHOTS=<ordner>): Tabelle mit allen Zeilenfarben der Palette, hell und dunkel"""
+    out = os.environ.get("HK_TBG_SHOTS")
+    if not out:
+        return
+    from gi.repository import Adw
+    from hlidskjalf.gestalten import PALETTE
+    from hlidskjalf.testing import shot
+    os.makedirs(out, exist_ok=True)
+    srv.v25 = True
+    rows = [["Farbe", "Text"]] + [[c, "Zelle"] for c in PALETTE]
+    srv.notes[3].update(body=json.dumps({"blocks": [{"id": "t1", "type": "table", "data": {
+        "withHeadings": True, "colors": {"r": {str(i + 1): c for i, c in enumerate(PALETTE)}}, "content": rows}}]}),
+        format="blocks")
+    win.set_default_size(760, 760)
+    for scheme, name in ((Adw.ColorScheme.FORCE_LIGHT, "hell"), (Adw.ColorScheme.FORCE_DARK, "dunkel")):
+        Adw.StyleManager.get_default().set_color_scheme(scheme)
+        _open_page(win)
+        pump(None, 1.0)
+        shot(win, os.path.join(out, f"{os.environ.get('HK_TBG_PREFIX', '')}tabellenfarben-{name}.png"))
+    Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.DEFAULT)
