@@ -206,3 +206,65 @@ def test_login_page_has_headerbar(win, srv):
     login = win.stack.get_child_by_name("login")
     assert isinstance(login, Adw.ToolbarView)
     assert any(isinstance(w, Adw.HeaderBar) for w in walk(login))
+
+
+def _labels(w):
+    return [x.get_label() for x in walk(w) if isinstance(x, Gtk.Label)]
+
+
+def _click(page, text):
+    btn = next(b for b in walk(page) if isinstance(b, Gtk.Button) and text in _labels(b))
+    btn.emit("clicked")
+
+
+def _menu_names(stack):
+    pages = stack.get_pages()
+    return [pages.get_item(i).get_name() for i in range(pages.get_n_items())]
+
+
+def test_menu_nested_submenus_open_their_own_page():
+    """Untermenue im Untermenue (Blockmenue -> Farbe -> Textfarbe/Hintergrund): jede Seite hat einen eigenen Namen und
+    "Farbe" oeffnet die Farbseite. Vorher hiessen "Farbe" und "Textfarbe" beide "sub1" (GTK: duplicate child name in
+    GtkStack) - "Farbe" sprang gleich in die Textfarben, "Standard" und "Hintergrund" waren nicht erreichbar"""
+    from hlidskjalf.blocks import menu_popover
+
+    def f():
+        return None
+    pop = menu_popover(None, [("Umwandeln", [("Absatz", f)]),
+                              ("Farbe", [("Standard", f), None, ("Textfarbe", [("Rot", f)]), ("Hintergrund", [("Blau", f)])]),
+                              ("Loeschen", f, True)])
+    stack = pop.get_child()
+    names = _menu_names(stack)
+    assert len(names) == len(set(names)) == 5, names
+    _click(stack.get_child_by_name("main"), "Farbe")
+    page = stack.get_visible_child()
+    assert "Standard" in _labels(page) and "Hintergrund" in _labels(page)
+    _click(page, "Hintergrund")
+    assert "Blau" in _labels(stack.get_visible_child())
+
+
+def test_block_menu_color_page(win, srv, monkeypatch):
+    """echtes Blockmenue eines Absatzes: eindeutige Seitennamen, "Color" zeigt Default/Text color/Background"""
+    import os
+    from hlidskjalf import blocks
+    v = _open_page(win)
+    made = []
+    orig = blocks.menu_popover
+    monkeypatch.setattr(blocks, "menu_popover", lambda parent, ents: made.append(orig(parent, ents)) or made[-1])
+    v.kit.block_menu(v.kit.by_key["p1"], "p1")
+    pump(None, 0.4)
+    pop = made[-1]
+    stack = pop.get_child()
+    _click(stack.get_child_by_name("main"), "Color")
+    pump(None, 0.6)
+    page = stack.get_visible_child()
+    out = os.environ.get("HK_MENU_SHOTS")             # Bildschirmfoto zur Sichtpruefung (HK_MENU_SHOTS=<ordner>)
+    if out:
+        from hlidskjalf.testing import shot
+        os.makedirs(out, exist_ok=True)
+        shot(win, os.path.join(out, f"{os.environ.get('HK_MENU_PREFIX', '')}blockmenue-farbe.png"), widget=pop)
+    names = _menu_names(stack)
+    assert len(names) == len(set(names)), names
+    assert "Text color" in _labels(page) and "Background" in _labels(page), _labels(page)
+    pop.popdown()
+    pump(None, 0.3)
