@@ -9,6 +9,13 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – Linux: Absturz beim Schließen von Seiten mit dem Widget „Unterseiten“ (Fedora 45)
+
+- Unter Python 3.15 (Fedora 45) konnte die App mit einem Speicherzugriffsfehler abstürzen, wenn Pythons
+  Speicherbereinigung die Karten des Widgets „Unterseiten“ einer nicht mehr angezeigten Seite abräumte (in den
+  Linux-Tests reproduzierbar). Die Karten hängen ihre Aufräumfunktion jetzt so an, dass die Speicherbereinigung sie
+  nicht vorher leeren kann.
+
 ### Geändert – iOS, Anrufe: Bildschirm eines anderen eigenen Geräts als Präsentation (Bugs-DB 2160)
 
 - Teilt ein **anderes eigenes Gerät** den Bildschirm, zeigt die Meeting-Ansicht ihn als Bildschirmkachel mit Gerätename
