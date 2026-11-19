@@ -3,6 +3,8 @@ import os
 import shutil
 import subprocess
 
+import pytest
+
 import hlidskjalf
 from hlidskjalf import VERSION, version_tuple
 
@@ -66,9 +68,12 @@ ROOT = os.path.dirname(LINUX)
 
 
 def _repo(tmp_path, version):
+    src = os.path.join(ROOT, "tools", "version-label.sh")
+    if not os.path.exists(src):                  # tests/run-container.sh kopiert bzw. bindet nur den Linux-Ordner ein
+        pytest.skip("tools/version-label.sh fehlt (nur linux/ vorhanden)")
     r = tmp_path / "repo"
     (r / "tools").mkdir(parents=True)
-    shutil.copy(os.path.join(ROOT, "tools", "version-label.sh"), r / "tools" / "version-label.sh")
+    shutil.copy(src, r / "tools" / "version-label.sh")
     (r / "VERSION").write_text(version + "\n")
     env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
     for k in ("SAGA_VERSION_LABEL", "SAGA_RELEASE"):
