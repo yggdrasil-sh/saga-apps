@@ -80,7 +80,10 @@ struct HornPathCard: View {
     let dot: Color
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Verbindung", systemImage: "point.3.connected.trianglepath.dotted").font(.headline)
+            HStack(spacing: 8) {
+                Label("Verbindung", systemImage: "point.3.connected.trianglepath.dotted").font(.headline)
+                HornExperimentalBadge()
+            }
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
                 GridRow { Text("Knoten").foregroundStyle(.secondary); Text(verbatim: horn.node.isEmpty ? "–" : horn.node).textSelection(.enabled) }
                 GridRow { Text("Weg").foregroundStyle(.secondary); Text(verbatim: way) }
@@ -95,10 +98,32 @@ struct HornPathCard: View {
                 }
             }
             .font(.callout)
+            Text(HornExperimental.hint).font(.footnote).foregroundStyle(.secondary)   // 2.5: experimentell (ein Satz)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(16)
-        .frame(minWidth: 240, alignment: .leading)
+        .frame(minWidth: 240, maxWidth: 340, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// 2.5: Gjallarhorn ist experimentell - ruhige Marke an der Verbindungs-Info und der Teilnehmerliste, der Hinweis-Satz
+/// nur in der Verbindungs-Info (kein Banner ueber dem laufenden Anruf; gleiche Texte wie Web und Admin)
+enum HornExperimental {
+    static var label: String { String(localized: "Experimentell") }
+    static var hint: String {
+        String(localized: "Gjallarhorn ist in Saga 2.5 experimentell – getestet mit bis zu 4 Personen bzw. Geräten je Anruf. Probleme bitte über „Diagnose senden“ melden.")
+    }
+}
+
+struct HornExperimentalBadge: View {
+    var body: some View {
+        Text(verbatim: HornExperimental.label).font(.caption2.weight(.semibold)).foregroundStyle(.secondary).lineLimit(1)
+            .padding(.horizontal, 6).padding(.vertical, 2)
+            .overlay(Capsule().strokeBorder(Color.secondary.opacity(0.5), lineWidth: 1))
+            .fixedSize()
+            .help(Text(verbatim: HornExperimental.hint))
+            .accessibilityLabel(Text(verbatim: HornExperimental.label))
     }
 }
 
@@ -146,6 +171,7 @@ struct HornPeoplePanel: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("Teilnehmende (\(horn.people.count))").font(.headline)
+                HornExperimentalBadge()
                 Spacer()
                 CallAddButton(calls: calls)                                 // 2.5 (L8/L9): Person hinzufuegen
                 Button { horn.plist = false } label: { Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle()) }

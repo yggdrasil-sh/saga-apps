@@ -1004,6 +1004,7 @@ internal fun CallDetailsSheet(st: CallUiState, hasTurn: Boolean?, onDismiss: () 
                 st.path == "direct" -> stringResource(R.string.call_direct)
                 else -> unknown
             })
+            if (horn) HornExperimentalNote(Modifier.padding(bottom = 8.dp))   // 2.5: Gjallarhorn experimentell
             DetailRow(stringResource(R.string.r5_call_d_quality), when (st.quality) {
                 // Werte ohne Wiederholung der Zeile ("Qualitaet: gut", nicht "Qualitaet: gute Verbindung")
                 "good" -> stringResource(R.string.r5_call_q_good_v)

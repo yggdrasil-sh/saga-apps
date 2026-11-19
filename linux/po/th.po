@@ -9395,3 +9395,15 @@ msgstr "ตราประทับ {name}"
 #: hlidskjalf/siegel.py
 msgid "Saga seals could not be loaded."
 msgstr "โหลดตราประทับ Saga ไม่ได้"
+
+#: hlidskjalf/settings.py
+msgid "Calls via the call node"
+msgstr "การโทรผ่านโหนดการโทร"
+
+#: hlidskjalf/settings.py
+msgid "Gjallarhorn is experimental in Saga 2.5 – tested with up to 4 people or devices per call. Please report problems via “Send diagnostics”."
+msgstr "Gjallarhorn ใน Saga 2.5 ยังเป็นรุ่นทดลอง – ทดสอบกับผู้ร่วมสายหรืออุปกรณ์ไม่เกิน 4 รายต่อการโทร หากพบปัญหาโปรดแจ้งผ่าน “ส่งข้อมูลวินิจฉัย”"
+
+#: hlidskjalf/settings.py
+msgid "Experimental"
+msgstr "ทดลอง"

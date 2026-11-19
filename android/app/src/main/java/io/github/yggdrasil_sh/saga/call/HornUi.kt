@@ -379,6 +379,31 @@ fun HornRunesBody(ui: HornUi) {
     }
 }
 
+/**
+ * 2.5: Gjallarhorn ist experimentell - ruhige Marke (Teilnehmerliste, Verbindungsdetails), kein Banner ueber dem Anruf.
+ * Der Hinweis-Satz steht nur in den Verbindungsdetails (HornExperimentalNote).
+ */
+@Composable
+fun HornExperimentalBadge(modifier: Modifier = Modifier) {
+    val c = MaterialTheme.colorScheme.onSurfaceVariant
+    Text(
+        stringResource(R.string.horn_experimental), color = c, style = MaterialTheme.typography.labelSmall, maxLines = 1,
+        modifier = modifier.border(1.dp, c.copy(alpha = 0.5f), RoundedCornerShape(SagaRadius.pill)).padding(horizontal = 6.dp, vertical = 1.dp),
+    )
+}
+
+/** 2.5: Marke und ein Satz (Verbindungsdetails eines Anrufs ueber den Knoten) */
+@Composable
+fun HornExperimentalNote(modifier: Modifier = Modifier) {
+    Column(modifier.semantics(mergeDescendants = true) {}) {
+        HornExperimentalBadge()
+        Text(
+            stringResource(R.string.horn_experimental_hint), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
+
 /** Teilnehmerliste; Gastgeber: Stummschalten, Entfernen (zwei Schritte: "Wirklich entfernen?", 4 s) */
 @Composable
 fun HornPeopleDialog(
@@ -388,7 +413,12 @@ fun HornPeopleDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
-        title = { Text(stringResource(R.string.horn_people, ui.people.size), modifier = Modifier.semantics { heading() }) },
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.horn_people, ui.people.size), modifier = Modifier.weight(1f, fill = false).semantics { heading() })
+                HornExperimentalBadge(Modifier.padding(start = 8.dp))
+            }
+        },
         text = { HornPeopleList(ui, onMute, onRemove, inv, onRing, onAdd) },
     )
 }
@@ -501,7 +531,10 @@ internal fun HornPreviewContent(view: String = "grid", panel: String = "", scree
             when (panel) {
                 "people" -> Surface(shape = RoundedCornerShape(SagaRadius.xl), color = sc.surfaceContainerHigh, modifier = Modifier.padding(top = 12.dp).weight(1f)) {
                     Column(Modifier.padding(16.dp)) {
-                        Text(stringResource(R.string.horn_people, ui.people.size), style = MaterialTheme.typography.titleLarge)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(R.string.horn_people, ui.people.size), style = MaterialTheme.typography.titleLarge)
+                            HornExperimentalBadge(Modifier.padding(start = 8.dp))
+                        }
                         Spacer(Modifier.height(8.dp))
                         HornPeopleList(ui, {}, {})
                     }

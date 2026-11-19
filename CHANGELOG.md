@@ -9,6 +9,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Alle Apps: Gjallarhorn als „Experimentell“ gekennzeichnet
+
+- Anrufe über den Anruf-Knoten sind in 2.5 experimentell – ruhig gekennzeichnet, ohne Warnung bei jedem Anruf:
+  kleine Marke „Experimentell“ an der Verbindungs-Info (iOS/iPadOS: Feld „Verbindung“; Android: „Verbindungsdetails“)
+  und an der Teilnehmerliste, dazu ein Satz in der Verbindungs-Info: getestet mit bis zu 4 Personen bzw. Geräten je
+  Anruf, Probleme über „Diagnose senden“ melden. Linux (Anrufe laufen im Browser): eine Zeile unter Einstellungen →
+  Info → Hilfe. Mac: die Hülle zeigt die Web-Oberfläche, die Kennzeichnung kommt vom Server. Texte in allen fünf Sprachen.
+
 ### Geändert – iOS und Android: Meeting-Ansicht rechnet wie das Web (Bugs-DB 2161)
 
 - Eine Wahrheit: iOS und Android lesen die Meeting-Vektoren des Servers (`tests/meeting_vectors.json`) unverändert und

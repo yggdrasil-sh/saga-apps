@@ -9729,3 +9729,15 @@ msgstr "Sello {name}"
 #: hlidskjalf/siegel.py
 msgid "Saga seals could not be loaded."
 msgstr "No se pudieron cargar los sellos de Saga."
+
+#: hlidskjalf/settings.py
+msgid "Calls via the call node"
+msgstr "Llamadas a través del nodo de llamadas"
+
+#: hlidskjalf/settings.py
+msgid "Gjallarhorn is experimental in Saga 2.5 – tested with up to 4 people or devices per call. Please report problems via “Send diagnostics”."
+msgstr "Gjallarhorn es experimental en Saga 2.5: probado con hasta 4 personas o dispositivos por llamada. Informa de los problemas con «Enviar diagnóstico»."
+
+#: hlidskjalf/settings.py
+msgid "Experimental"
+msgstr "Experimental"

@@ -478,11 +478,13 @@ def test_settings_diag(srv, fresh_log):
             self.toasts.append(t)
     g = DiagnoseGroup(Dlg())
     assert not g.btn.get_sensitive()                              # ohne Feature ausgegraut
+    assert not g.horn.get_visible()                               # 2.5: Gjallarhorn-Hinweis nur mit Diagnose
     _with_clientlog(srv)
     store.check_version()
     pump(lambda: store.has("clientlog1"))
     g.refresh()
     assert g.btn.get_sensitive()
+    assert g.horn.get_visible() and g.horn_badge.get_label() and "2.5" in g.horn.get_subtitle()
     fresh_log.view(("page", 12))
     g.note.set_text("Beim Speichern hing es. a@b.de")
     g.send()
