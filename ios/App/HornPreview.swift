@@ -3,7 +3,7 @@ import SwiftUI
 import WebRTC
 
 // Nur fuer Bilder (Debug-Build, ohne Server, ohne Kamera/Mikrofon): Gruppenanruf ueber einen Knoten mit erfundenem
-// Zustand. Start: -hkHornPreview grid|speaker|share|people|runes|away|meet-away|dazu-… [-hkHornDark YES] [-hkHornPath udp|tcp|turn] [-hkLandscape YES]
+// Zustand. Start: -hkHornPreview grid|speaker|share|share-late|people|runes|away|meet-away|dazu-… [-hkHornDark YES] [-hkHornPath udp|tcp|turn] [-hkLandscape YES]
 // (away/meet-away: Teilnehmerliste eines kleinen Gruppenanrufs ueber Knoten bzw. direkt, offen - Bilder "Nicht dabei")
 // (Mac zusammen mit -hkSnapshot <pfad.png>; iPhone/iPad: xcrun simctl io <id> screenshot). Bewegte Bilder sind hier
 // Farbflaechen (kein WebRTC), Namen und Geraete erfunden.
@@ -65,7 +65,7 @@ struct HornPreviewView: View {
                                                   ("Eva", "Safari", "member"), ("Ole", "iPhone", "member"), ("Uma", "Mac mini", "member")]
         var legs: [[String: Any]] = [["device": "me000000000000000000000000000000", "who": "ich", "name": "Max", "dev_name": "Mac", "hp": "p0"]]
         let few: [(String, String, String)] = [("Eva Beispiel", "iPhone", "member"), ("Jonas Beispiel", "Pixel", "member")]
-        let small = mode == "away" || mode.hasPrefix("dazu")               // 2.5 (L8/L9): Bilder "Person hinzufuegen"
+        let small = mode == "away" || mode.hasPrefix("dazu") || mode == "share-late"   // 2.5 (L8/L9): Bilder "Person hinzufuegen"; 2193: 3er
         let pick = ["dazu-dm", "dazu-moved", "dazu-moved-ev", "dazu-dmpick"].contains(mode) ? Array(few.prefix(1)) : few
         for (i, p) in (small ? pick : people).enumerated() {
             legs.append(["device": String(format: "d%031d", i + 1), "who": p.0.lowercased(), "name": p.0, "dev_name": p.1, "role": p.2, "hp": "p\(i + 1)"])
@@ -210,6 +210,21 @@ extension CallManager {
         if mode == "path" { Task { try? await Task.sleep(for: .seconds(1.5)); H.ppop = true } }   // Feld erst, wenn die Ansicht steht
         if mode == "remove" { H.rmSure = others.dropFirst().first?.device }      // zweite Stufe "Wirklich entfernen?"
         if mode.hasPrefix("dazu") { mockAdd(mode, H) }
+        if mode == "share-late", let d = others.dropFirst().first?.device { mockShareLate(H, d) }
+    }
+
+    /// nur fuer Bilder (Bugs-DB 2193, -hkHornPreview share-late [-hkShareAt s] [-hkShareFor s]): Teilen beginnt mitten im
+    /// Anruf und endet wieder - derselbe Weg wie ein state-Signal (hornSig: H.st setzen, hornDraw), ohne anderes Neuzeichnen
+    func mockShareLate(_ H: HornSession, _ d: String) {
+        let at = UserDefaults.standard.double(forKey: "hkShareAt"), dur = UserDefaults.standard.double(forKey: "hkShareFor")
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(at > 0 ? at : 4))
+            guard let self, self.horn === H else { return }
+            var s = H.st[d] ?? HornLogic.PeerState(); s.screen = true; H.st[d] = s; self.hornDraw()
+            try? await Task.sleep(for: .seconds(dur > 0 ? dur : 10))
+            guard self.horn === H else { return }
+            s.screen = false; H.st[d] = s; self.hornDraw()
+        }
     }
 
     /// nur fuer Bilder (2.5 L8/L9, -hkHornPreview dazu-list|dazu-pick|dazu-page|dazu-pending|dazu-pending-in|dazu-full|dazu-full-list|dazu-dm|dazu-dmpick|dazu-moved|dazu-moved-ev,
