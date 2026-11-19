@@ -471,11 +471,11 @@ internal fun MeetingStage(
             }
             else -> {
                 val st = Meeting.stage(view, m, ms.pin, speaker)
-                // Android: eigenes Bild schwebt nur im 1:1 (DUO); in Praesentation/Sprecher steht es im Streifen und
-                // ueberdeckt so nie den geteilten Bildschirm (§7 letzter Punkt)
+                // eigenes Bild schwebt im 1:1 (DUO) und im Sprecher-Layout bis zwei Personen (wie Web); in der Praesentation
+                // steht es im Streifen und ueberdeckt so nie den geteilten Bildschirm (§7 letzter Punkt)
                 val floats = Meeting.selfFloats(view, m)
                 val strip = st.strip.filter { !(it.me && floats) } + (if (!floats && st.strip.none { it.me }) listOfNotNull(m.self) else emptyList())
-                val sp = Meeting.strip(w, h)
+                val sp = Meeting.strip(w, h, view == Meeting.View.PRESENTATION)
                 val showStrip = view != Meeting.View.DUO && strip.isNotEmpty() && !ms.fullscreen
                 val right = sp.side == Meeting.Side.RIGHT
                 val shown = (listOfNotNull(st.stage?.takeIf { !it.screen }?.device) +

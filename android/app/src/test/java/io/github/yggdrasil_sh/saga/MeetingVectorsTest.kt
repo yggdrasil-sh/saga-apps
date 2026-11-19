@@ -27,9 +27,8 @@ import org.junit.Test
  * meeting_vectors.json uebernommen) - Kacheln (S1-S9, §4.1, §4.2 beide Richtungen), Layoutwahl, Buehne/Streifen/Raster,
  * Galerie-Raster, Seiten, Streifen, Sprecher-Hysterese, Leisten-Ausblenden und Groesse des eigenen Bilds.
  *
- * Wo Android (wie iOS) bewusst anders rechnet als das Web, steht der Fall unten in einer benannten Abweichung mit dem
- * Wert der App: der Test prueft dann den App-Wert UND dass der Server dort wirklich etwas anderes erwartet (faellt eine
- * Abweichung weg, schlaegt der Test an - Eintrag streichen).
+ * Seit Bugs-DB 2161 ohne Abweichungen: die Datei ist die eine Wahrheit fuer Web, iOS und Android (auch Layoutwahl je
+ * Kachelfall `choice`, eigenes Bild nach der Kamera, Streifen 160 in der Praesentation bis 1440 dp).
  */
 class MeetingVectorsTest {
     private val root: JsonObject = Json.parseToJsonElement(
@@ -41,29 +40,6 @@ class MeetingVectorsTest {
     private fun JsonObject.sn(k: String) = (this[k] as? JsonNull)?.let { null } ?: this[k]?.jsonPrimitive?.contentOrNull
     private fun JsonObject.strs(k: String) = this[k]!!.jsonArray.map { it.jsonPrimitive.content }
     private fun list(k: String) = root[k]!!.jsonArray.map { it.jsonObject }
-
-    // ---------------------------------------------------------------- bekannte Abweichungen der App (nicht Bugs-DB 2160)
-
-    /** pickLayout: Fallname -> Layout der App ("nur ich": die App bleibt bei der gewaehlten Ansicht, das Web zeigt "one") */
-    private val appPickLayout = mapOf("nur ich (Warten)" to "speaker")
-
-    /** galleryGrid "w x h n" -> Spalten der App (eine Kachel: die App rechnet die Spalten nicht auf n herunter) */
-    private val appGridCols = mapOf("1280x720 1" to 2)
-
-    /** stripSide "w x h layout" -> Groesse der App (die App unterscheidet Praesentation/Sprecher erst unter 1100 dp nicht) */
-    private val appStripSize = mapOf("1280x720 presentation" to 200f)
-
-    /**
-     * selfPipSize "w x h ar size" -> [breite, hoehe] der App: Breitenregel nach dem Seitenverhaeltnis der Kamera (wie iOS
-     * CallLogic.selfPipSize), das Web nach der Lage der Buehne; abgerundet statt gerundet.
-     */
-    private val appPip = mapOf(
-        "1280x720 0.5625 M" to listOf(160f, 284f),
-        "390x844 0.5625 M" to listOf(101f, 179f),
-        "390x844 0.5625 L" to listOf(141f, 250f),
-        "400x300 0.5625 M" to listOf(82f, 146f),
-        "1280x720 0 M" to listOf(280f, 157f),
-    )
 
     // ---------------------------------------------------------------- Kacheln
 
@@ -111,7 +87,7 @@ class MeetingVectorsTest {
                 val all = Meeting.tiles(devs(v), v["prefs"]!!.jsonObject.s("self")).people.map { it.who }.distinct()
                 assertEquals(n, h.jsonArray.map { it.jsonPrimitive.content }, all.filter { w -> m.people.none { it.who == w } })
             }
-            val view = Meeting.pickLayout(Meeting.Pref.AUTO, m)
+            val view = Meeting.pickLayout(Meeting.Pref.entries.firstOrNull { it.key == v.s("choice") } ?: Meeting.Pref.AUTO, m)
             assertEquals(n, v.s("layout"), view.key)
             val a = v["arrange"]!!.jsonObject
             val pin = v.sn("pin")
@@ -147,9 +123,7 @@ class MeetingVectorsTest {
             // unbekannte Einstellung = Auto (Pref.of liest dagegen gespeicherte Altwerte, "grid" -> Galerie)
             val pref = Meeting.Pref.entries.firstOrNull { it.key == v.s("choice") } ?: Meeting.Pref.AUTO
             val got = Meeting.pickLayout(pref, countModel(v["people"]!!.jsonPrimitive.int, v["screens"]!!.jsonPrimitive.int), v.b("reduced")).key
-            val app = appPickLayout[n]
-            if (app != null) assertTrue("$n: Abweichung entfallen?", app != v.s("expect"))
-            assertEquals(n, app ?: v.s("expect"), got)
+            assertEquals(n, v.s("expect"), got)
         }
     }
 
@@ -161,9 +135,7 @@ class MeetingVectorsTest {
             val cnt = v["n"]!!.jsonPrimitive.int
             val key = "${w.toInt()}x${h.toInt()} $cnt"
             val g = Meeting.grid(w, h, cnt)
-            val app = appGridCols[key]
-            if (app != null) assertTrue("$key: Abweichung entfallen?", app != v["cols"]!!.jsonPrimitive.int)
-            assertEquals("grid $key", listOf(app ?: v["cols"]!!.jsonPrimitive.int, v["perPage"]!!.jsonPrimitive.int, v["video"]!!.jsonPrimitive.int), listOf(g.cols, g.perPage, g.videos))
+            assertEquals("grid $key", listOf(v["cols"]!!.jsonPrimitive.int, v["perPage"]!!.jsonPrimitive.int, v["video"]!!.jsonPrimitive.int), listOf(g.cols, g.perPage, g.videos))
         }
         for (v in list("pages")) {
             val pp = Meeting.pages(List(v["n"]!!.jsonPrimitive.int) { it }, v["perPage"]!!.jsonPrimitive.int)
@@ -180,11 +152,9 @@ class MeetingVectorsTest {
             val w = v["w"]!!.jsonPrimitive.float
             val h = v["h"]!!.jsonPrimitive.float
             val key = "${w.toInt()}x${h.toInt()} ${v.s("layout")}"
-            val r = Meeting.strip(w, h)
-            val app = appStripSize[key]
-            if (app != null) assertTrue("$key: Abweichung entfallen?", app != v["size"]!!.jsonPrimitive.float)
+            val r = Meeting.strip(w, h, v.s("layout") == "presentation")
             assertEquals("strip $key", v.s("side"), r.side.name.lowercase())
-            assertEquals("strip $key", app ?: v["size"]!!.jsonPrimitive.float, r.size, 0.01f)
+            assertEquals("strip $key", v["size"]!!.jsonPrimitive.float, r.size, 0.01f)
         }
     }
 
@@ -234,22 +204,23 @@ class MeetingVectorsTest {
 
     @Test
     fun selfPipSize() {
-        for (v in list("selfPipSize")) {
-            val w = v["w"]!!.jsonPrimitive.float
-            val h = v["h"]!!.jsonPrimitive.float
-            val ar = v["ar"]!!.jsonPrimitive.doubleOrNull ?: 0.0
+        val cases = list("selfPipSize")
+        assertTrue(cases.size >= 13)
+        for (v in cases) {
+            val w = v["w"]!!.jsonPrimitive.double
+            val h = v["h"]!!.jsonPrimitive.double
+            val ar = v["ar"]!!.jsonPrimitive.double
             val size = v.s("size")
             val key = "${w.toInt()}x${h.toInt()} ${v["ar"]!!.jsonPrimitive.content} $size"
-            val factor = Meeting.SIZE_FACTORS["SML".indexOf(size).let { if (it < 0) 1 else it }]
-            // Ersatz-Seitenverhaeltnis wie im Web nach der Lage der Buehne; avail = Hoehe der Buehne
-            val (pw, ph) = Meeting.selfPipSize(ar.toFloat(), if (w >= h) 16f / 9f else 9f / 16f, w, h, factor)
-            val web = v["expect"]!!.jsonArray.map { it.jsonPrimitive.float }
-            val app = appPip[key]
-            if (app != null) assertTrue("$key: Abweichung entfallen?", app != web)
-            val e = app ?: web
-            assertEquals("pip $key", e[0], pw, 0.01f)
-            assertEquals("pip $key", e[1], ph, 0.01f)
+            val factor = Meeting.SIZE_FACTORS["SML".indexOf(size).let { if (it < 0) 1 else it }].toDouble()
+            // ar 0 = unbekannt: Lage der Buehne, Verhaeltnis 16:9 bzw. 9:16 (fallback 0); avail = Hoehe der Buehne
+            val (pw, ph) = Meeting.selfPipSizeD(ar.takeIf { it > 0 }, 0.0, w, h, factor)
+            val e = v["expect"]!!.jsonArray.map { it.jsonPrimitive.double }
+            assertEquals("pip $key", e[0], pw, 0.01)
+            assertEquals("pip $key", e[1], ph, 0.01)
         }
+        // Float-Huelle (MeetingUi) rechnet gleich
+        assertEquals(120f to 90f, Meeting.selfPipSize(4f / 3f, 9f / 16f, 390f, 844f))
     }
 
     // ---------------------------------------------------------------- weitere Regeln (nur Android)

@@ -1,8 +1,8 @@
 package io.github.yggdrasil_sh.saga.call
 
-import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * Meeting-Ansicht (MEETING-SPEC.md) - reine Regeln ohne Android/WebRTC, gleiche Testvektoren wie Web und iOS
@@ -156,22 +156,24 @@ object Meeting {
      * 5 s gesprochen hat (spokeAt = who -> letzter Sprechzeitpunkt, ms).
      */
     fun keepNoVideo(t: Tile, spokeAt: Map<String, Long>, now: Long): Boolean =
-        t.video || t.me || t.speaking || (spokeAt[t.who]?.let { now - it < NOVIDEO_TAIL } == true)
+        t.video || t.me || t.speaking || (spokeAt[t.who]?.let { now - it <= NOVIDEO_TAIL } == true)
 
     /** Sichtbare Kacheln (Personen + zweite Kameras, ohne Bildschirme) - Grundlage der Auto-Grenzen */
     fun visible(m: Model): Int = m.people.size
 
     /**
-     * Layout aus Einstellung und Lage (§2.1). reducedMotion: kein Auto-Sprecher bis 8 Kacheln (§10).
-     * Praesentation ohne Freigabe verhaelt sich wie Sprecher.
+     * Layout aus Einstellung und Lage (§2.1), wie meeting.js pickLayout (Bugs-DB 2161): gewaehlte Galerie/Sprecher ab zwei
+     * Kacheln (Galerie im 1:1 = Galerie mit zwei Kacheln), sonst 1:1 (DUO). reducedMotion: kein Auto-Sprecher bis 8
+     * Kacheln (§10). Praesentation ohne Freigabe verhaelt sich wie Sprecher.
      */
     fun pickLayout(pref: Pref, m: Model, reducedMotion: Boolean = false): View {
         val n = visible(m)
         val share = m.screens.isNotEmpty()
+        val all = n + m.screens.size
         return when (pref) {
-            Pref.GALLERY -> View.GALLERY
-            Pref.SPEAKER -> View.SPEAKER
-            Pref.PRESENTATION -> if (share) View.PRESENTATION else View.SPEAKER
+            Pref.GALLERY -> if (all <= 1) View.DUO else View.GALLERY
+            Pref.SPEAKER -> if (all <= 1) View.DUO else View.SPEAKER
+            Pref.PRESENTATION -> if (share) View.PRESENTATION else if (n <= 1) View.DUO else View.SPEAKER
             Pref.AUTO -> when {
                 share -> View.PRESENTATION
                 n <= 2 -> View.DUO
@@ -186,12 +188,12 @@ object Meeting {
     fun layoutButton(m: Model): Boolean = m.screens.isNotEmpty() || visible(m) > 2
 
     /**
-     * Eigenes Bild schwebend (sonst Kachel im Raster bzw. letzte im Streifen) - §7: nur im 1:1 (DUO); in der Praesentation
-     * nie ueber dem geteilten Bildschirm, sondern zuletzt im Streifen (wie Web, gemeinsame Vektoren). So zeichnet es
-     * MeetingLayer schon immer; bisher lieferte diese Funktion fuer die Praesentation zu zweit "schwebt".
+     * Eigenes Bild schwebend (sonst Kachel im Raster bzw. letzte im Streifen) - §7 wie meeting.js arrange: im 1:1 (DUO) und
+     * im Sprecher-Layout mit hoechstens zwei Personen (Bugs-DB 2161); in der Praesentation nie ueber dem geteilten
+     * Bildschirm, sondern zuletzt im Streifen.
      */
-    @Suppress("UNUSED_PARAMETER")
-    fun selfFloats(view: View, m: Model): Boolean = view == View.DUO
+    fun selfFloats(view: View, m: Model): Boolean =
+        view == View.DUO || (view == View.SPEAKER && m.self != null && m.people.count { it.kind == Kind.PERSON } <= 2)
 
     // ------------------------------------------------------------ Galerie
 
@@ -204,21 +206,23 @@ object Meeting {
         widthDp < 1024 -> Grid(if (n <= 4) 2 else 3, 9, 6)
         widthDp < 1920 -> Grid(if (n <= 4) 2 else if (n <= 9) 3 else 4, 16, 9)
         else -> Grid(if (n <= 4) 2 else if (n <= 9) 3 else if (n <= 16) 4 else 5, 25, 16)
-    }
+    }.let { it.copy(cols = min(it.cols, max(1, n))) }                                 // wie meeting.js: nie mehr Spalten als Kacheln
 
     /**
      * Reihenfolge der Galerie: Pin -> Bildschirme -> Personen mit Video -> Sprecher der letzten 30 s -> Rest alphabetisch;
      * eigene Kachel zuletzt. spokeAt = who -> letzter Sprechzeitpunkt (ms).
      */
     fun galleryOrder(m: Model, pin: String?, spokeAt: Map<String, Long>, now: Long): List<Tile> {
-        val all = m.screens + m.people.filter { !it.me }
+        // Bildschirme wie meeting.js meetingTiles: aelteste Freigabe zuerst (das Modell haelt die neueste vorn, Buehne)
+        val screens = m.screens.withIndex().sortedWith(compareBy<IndexedValue<Tile>> { it.value.sharedAt }.thenBy { it.index }).map { it.value }
+        val all = screens + m.people.filter { !it.me }
         val pinned = all.filter { it.id == pin }
         val rest = all.filter { it.id != pin }
         val scr = rest.filter { it.screen }
         val ppl = rest.filter { !it.screen }
         val vid = ppl.filter { it.video }
+        // Sprecher der letzten 30 s in Listenfolge (wie das Web), der Rest alphabetisch (gleiche Namen: Listenfolge)
         val recent = ppl.filter { !it.video && (spokeAt[it.who]?.let { now - it <= 30_000 } == true) }
-            .sortedByDescending { spokeAt[it.who] ?: 0 }
         val others = (ppl - vid.toSet() - recent.toSet()).sortedBy { it.name.lowercase() }
         return pinned + scr + vid + recent + others + listOfNotNull(m.self)
     }
@@ -253,11 +257,12 @@ object Meeting {
     /** Lage und Groesse des Streifens (§2.3/§2.4/§8) in dp: size = Breite (rechts) bzw. Hoehe (unten) */
     data class Strip(val side: Side, val size: Float, val videos: Int)
 
-    fun strip(widthDp: Float, heightDp: Float): Strip = when {
+    /** presentation: Bildschirm auf der Buehne - der Streifen bleibt bis 1440 dp schmal (160, wie Web/iOS, Bugs-DB 2161) */
+    fun strip(widthDp: Float, heightDp: Float, presentation: Boolean = false): Strip = when {
         widthDp > heightDp && heightDp < 500 -> Strip(Side.RIGHT, 120f, 3)             // Handy quer
         widthDp < 600 -> Strip(Side.BOTTOM, 84f, 3)                                     // Handy hochkant
         widthDp < 900 -> Strip(Side.BOTTOM, 96f, 6)
-        widthDp < 1100 -> Strip(Side.RIGHT, 160f, 6)
+        widthDp < 1100 || (presentation && widthDp < 1440) -> Strip(Side.RIGHT, 160f, 6)
         widthDp < 1920 -> Strip(Side.RIGHT, 200f, 6)
         else -> Strip(Side.RIGHT, 240f, 6)
     }
@@ -299,20 +304,30 @@ object Meeting {
     val SIZE_FACTORS = floatArrayOf(0.7f, 1.0f, 1.4f)
 
     /**
-     * Rahmen des eigenen Bilds im Seitenverhaeltnis der Kamera (wie iOS CallLogic.selfPipSize): Breite 22 % (quer,
-     * 120..280) bzw. 26 % (hoch, 90..160) der Buehnenbreite, Verhaeltnis 0,5..2,0; passt es nicht zweimal uebereinander
-     * in avail, kleiner bis hoechstens zur Haelfte. factor = S/M/L.
+     * Rahmen des eigenen Bilds im Seitenverhaeltnis der Kamera - eine Rechnung fuer Web, iOS und Android (meeting.js
+     * selfPipSize, Vektoren meeting_vectors.json, Bugs-DB 2161): Breite 22 % (Kamera quer, 120..280) bzw. 26 % (Kamera
+     * hochkant, 90..160) der Buehnenbreite, mal factor (S/M/L), Verhaeltnis 0,5..2,0; passt es nicht zweimal uebereinander
+     * in avail (Hoehe), kleiner bis hoechstens zur Haelfte; gerundet. aspect null/ungueltig (noch kein Bild): die Lage der
+     * Buehne waehlt die Breitenregel, Verhaeltnis = fallback. Gerechnet in Double (wie JS), damit .5-Grenzen gleich runden.
      */
     fun selfPipSize(aspect: Float?, fallback: Float, width: Float, avail: Float, factor: Float = 1f): Pair<Float, Float> {
-        var a = aspect ?: fallback
-        if (!(a.isFinite() && a > 0f)) a = if (fallback > 0f) fallback else 9f / 16f
-        a = min(2f, max(0.5f, a))
-        val w0 = if (a >= 1f) min(280f, max(120f, 0.22f * width)) else min(160f, max(90f, 0.26f * width))
-        val w = floor(w0 * factor)
-        val h = floor(w / a)
-        if (avail <= 0f) return w to h
-        val nh = min(h, max(h / 2f, floor((avail - 8f) / 2f)))
-        return floor(w * nh / h) to nh
+        val r = selfPipSizeD(aspect?.toDouble(), fallback.toDouble(), width.toDouble(), avail.toDouble(), factor.toDouble())
+        return r.first.toFloat() to r.second.toFloat()
+    }
+
+    fun selfPipSizeD(aspect: Double?, fallback: Double, width: Double, avail: Double, factor: Double = 1.0): Pair<Double, Double> {
+        var a = aspect ?: 0.0
+        val known = a.isFinite() && a > 0.0
+        val land = if (known) a >= 1.0 else width >= avail
+        if (!known) a = if (fallback.isFinite() && fallback > 0.0) fallback else if (land) 16.0 / 9.0 else 9.0 / 16.0
+        a = min(2.0, max(0.5, a))
+        var w = (if (land) min(280.0, max(120.0, 0.22 * width)) else min(160.0, max(90.0, 0.26 * width))) * factor
+        var h = w / a
+        if (avail > 0.0 && 2 * h > avail) {
+            w = min(w, max(w / 2, avail / 2 * a))
+            h = w / a
+        }
+        return w.roundToInt().toDouble() to h.roundToInt().toDouble()
     }
 
     /** Ecke nach dem Loslassen (0 o.l., 1 o.r., 2 u.l., 3 u.r.) */
