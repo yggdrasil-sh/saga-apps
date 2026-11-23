@@ -43,6 +43,11 @@
     <display_length compare="ge">360</display_length>
   </requires>
   <releases>
+    <release version="2.5.0" date="2026-11-23">
+      <description>
+        <p>For Saga server 2.5: live co-editing of pages, chats with groups and contacts, group calls via nodes (experimental), a template gallery, page design and widgets in pages, a page graph, a cover gallery and many fixes.</p>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-10-11">
       <description>
         <p>First native Linux version.</p>

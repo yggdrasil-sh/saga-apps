@@ -1,13 +1,17 @@
 #!/bin/sh
 # Version der Apps setzen bzw. pruefen (eine Quelle: VERSION in der Wurzel).
 # Gespiegelt nach iOS/macOS (MARKETING_VERSION in ios/project.yml) und Linux (linux/hlidskjalf/__init__.py);
-# Android liest VERSION direkt.
+# Android liest VERSION direkt. Linux-Metainfo: neuer <release>-Eintrag oben in <releases> (Datum = heute; beim
+# Release-Bau setzt linux/stamp-version.sh den Bautag ein) - Beschreibung danach von Hand ergaenzen.
 #   tools/set-version.sh 1.1.0     -> setzt die Version ueberall
 #   tools/set-version.sh --check   -> prueft, ob alles uebereinstimmt (gibt die Version aus; fuer CI)
 set -eu
 cd "$(dirname "$0")/.."
 ios() { sed -n 's/^ *MARKETING_VERSION: *"\([^"]*\)".*/\1/p' ios/project.yml | head -1; }
 lin() { sed -n 's/^VERSION = "\([^"]*\)".*/\1/p' linux/hlidskjalf/__init__.py; }
+META=linux/data/io.github.yggdrasil_sh.Saga.metainfo.xml
+# erster (neuester) Eintrag in <releases>
+meta() { sed -n 's/^ *<release version="\([^"]*\)".*/\1/p' "$META" | head -1; }
 
 if [ "${1:-}" = "--check" ]; then
   V=$(tr -d ' \t\r\n' < VERSION)
@@ -15,6 +19,7 @@ if [ "${1:-}" = "--check" ]; then
   echo "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "VERSION ist kein SemVer: $V" >&2; ok=0; }
   [ "$(ios)" = "$V" ] || { echo "ios/project.yml hat $(ios), VERSION sagt $V" >&2; ok=0; }
   [ "$(lin)" = "$V" ] || { echo "linux/hlidskjalf/__init__.py hat $(lin), VERSION sagt $V" >&2; ok=0; }
+  [ "$(meta)" = "$V" ] || { echo "$META: neuester <release> ist $(meta), VERSION sagt $V" >&2; ok=0; }
   [ $ok = 1 ] || { echo "Versionen passen nicht zusammen - tools/set-version.sh $V" >&2; exit 1; }
   echo "$V"
   exit 0
@@ -27,6 +32,19 @@ echo "$V" > VERSION
 sed -i.bak -E "s/^( *MARKETING_VERSION: ).*/\1\"$V\"/" ios/project.yml
 sed -i.bak -E "s/^VERSION = .*/VERSION = \"$V\"/" linux/hlidskjalf/__init__.py
 rm -f ios/project.yml.bak linux/hlidskjalf/__init__.py.bak
+if ! grep -q "<release version=\"$V\"" "$META"; then
+  awk -v v="$V" -v d="$(date -u +%Y-%m-%d)" '
+    { print }
+    /<releases>/ && !done {
+      print "    <release version=\"" v "\" date=\"" d "\">"
+      print "      <description>"
+      print "        <p>Saga " v ".</p>"
+      print "      </description>"
+      print "    </release>"
+      done = 1
+    }' "$META" > "$META.tmp"
+  mv "$META.tmp" "$META"
+fi
 command -v xcodegen >/dev/null 2>&1 && (cd ios && xcodegen generate >/dev/null) || true
 sh "$0" --check >/dev/null
-echo "Version $V gesetzt (iOS/macOS, Linux, Android). CHANGELOG.md nicht vergessen."
+echo "Version $V gesetzt (iOS/macOS, Linux, Android). CHANGELOG.md und die Beschreibung in $META nicht vergessen."

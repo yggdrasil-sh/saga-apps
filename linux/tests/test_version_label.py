@@ -1,4 +1,5 @@
 """Angezeigte Version (Release Candidate): stamp-version.sh schreibt _buildinfo.py + Metainfo, version_tuple ignoriert Zusaetze."""
+import datetime
 import os
 import shutil
 import subprocess
@@ -39,14 +40,24 @@ def test_stamp_rc(tmp_path):
     assert f'VERSION_LABEL = "{lbl}"' in (d / "hlidskjalf" / "_buildinfo.py").read_text()
     meta = (d / "data" / "io.github.yggdrasil_sh.Saga.metainfo.xml").read_text()
     assert f'<release version="{VERSION}~rc7"' in meta and 'type="development"' in meta
+    # der Eintrag der noch unveroeffentlichten VERSION faellt weg (Reihenfolge, appstreamcli releases-not-in-order)
+    assert f'<release version="{VERSION}"' not in meta and meta.count("<release ") == meta.count("</release>")
 
 
-def test_stamp_release_ohne_metainfo_eintrag(tmp_path):
+def test_stamp_release_setzt_bautag(tmp_path):
+    # Release: kein zusaetzlicher Eintrag, nur der Eintrag von VERSION bekommt den Bautag
     d = _kopie(tmp_path)
-    before = (d / "data" / "io.github.yggdrasil_sh.Saga.metainfo.xml").read_text()
+    mp = d / "data" / "io.github.yggdrasil_sh.Saga.metainfo.xml"
+    head = f'<release version="{VERSION}" date="'
+    meta = mp.read_text()
+    assert head in meta                                          # tools/set-version.sh legt ihn an (--check prueft das)
+    i = meta.index(head) + len(head)
+    before = meta[:i] + "2000-01-01" + meta[i + 10:]
+    mp.write_text(before)
     assert _stamp(d, VERSION, VERSION).returncode == 0
     assert f'VERSION_LABEL = "{VERSION}"' in (d / "hlidskjalf" / "_buildinfo.py").read_text()
-    assert (d / "data" / "io.github.yggdrasil_sh.Saga.metainfo.xml").read_text() == before
+    today = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+    assert mp.read_text() == before.replace(head + "2000-01-01", head + today, 1)
 
 
 def test_stamp_falsches_label(tmp_path):
@@ -150,3 +161,28 @@ def test_label_release_noch_nicht_zurueckgefuehrt(tmp_path):
     git("checkout", "-q", "-")
     git("commit", "-q", "--allow-empty", "-m", "weiter")
     assert _label(r, env) == (0, "2.2.1-rc.2")
+
+
+def test_set_version_pflegt_metainfo(tmp_path):
+    # tools/set-version.sh legt den <release>-Eintrag an (einmal), --check verlangt ihn als neuesten
+    src = os.path.join(ROOT, "tools", "set-version.sh")
+    if not os.path.exists(src):
+        pytest.skip("tools/set-version.sh fehlt (nur linux/ vorhanden)")
+    r = tmp_path / "repo"
+    for rel in ("VERSION", "tools/set-version.sh", "ios/project.yml", "linux/hlidskjalf/__init__.py",
+                "linux/data/io.github.yggdrasil_sh.Saga.metainfo.xml"):
+        (r / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(os.path.join(ROOT, rel), r / rel)
+    env = dict(os.environ, PATH="/usr/bin:/bin")                 # ohne xcodegen
+    sv = ["sh", str(r / "tools" / "set-version.sh")]
+    assert subprocess.run(sv + ["--check"], capture_output=True, text=True, env=env).stdout.strip() == VERSION
+    mp = r / "linux" / "data" / "io.github.yggdrasil_sh.Saga.metainfo.xml"
+    for _ in range(2):
+        assert subprocess.run(sv + ["9.8.7"], capture_output=True, text=True, env=env).returncode == 0
+    meta = mp.read_text()
+    assert meta.count('<release version="9.8.7"') == 1
+    assert meta.index('<release version="9.8.7"') < meta.index(f'<release version="{VERSION}"')
+    assert subprocess.run(sv + ["--check"], capture_output=True, text=True, env=env).stdout.strip() == "9.8.7"
+    mp.write_text(meta.replace('<release version="9.8.7"', '<release version="9.8.6"'))
+    p = subprocess.run(sv + ["--check"], capture_output=True, text=True, env=env)
+    assert p.returncode == 1 and "metainfo" in p.stderr
