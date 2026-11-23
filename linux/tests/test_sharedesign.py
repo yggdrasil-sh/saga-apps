@@ -80,7 +80,8 @@ def test_locked_page_hides_database_block_actions(win, srv):
     v = _open(win, 3)
 
     def dbview():
-        return next(w for w in _walk(v.scroll.get_child()) if isinstance(w, DatabaseView))
+        # None, solange die Seite den Datenbank-Block noch nicht gebaut hat (laedt asynchron - unter Last wackelte pump sonst)
+        return next((w for w in _walk(v.scroll.get_child()) if isinstance(w, DatabaseView)), None)
 
     def state():
         dv = dbview()
@@ -90,7 +91,7 @@ def test_locked_page_hides_database_block_actions(win, srv):
         adds = [w for w in ws if isinstance(w, Gtk.MenuButton) and w.get_tooltip_text() == "Add view"]
         return dv, bool(news), bool(adds), dv.bar.settings.get_visible()
 
-    assert pump(lambda: dbview().m.loaded, 5)
+    assert pump(lambda: dbview() is not None and dbview().m.loaded, 5)
     idle()
     dv, new, add, settings = state()
     assert v.editor.locked and dv.m.host_locked and not dv.m.can_add
@@ -100,7 +101,7 @@ def test_locked_page_hides_database_block_actions(win, srv):
     pump(None, 0.3)
     assert len(srv.notes) == rows
     v.set_locked(False)
-    assert pump(lambda: not v.editor.locked and dbview().m.loaded and not dbview().m.host_locked, 5)
+    assert pump(lambda: not v.editor.locked and dbview() is not None and dbview().m.loaded and not dbview().m.host_locked, 5)
     idle()
     dv, new, add, settings = state()
     assert new and add and settings
