@@ -105,6 +105,13 @@ def win(app, srv):
     w._session_started = lambda *a, **k: None
     w._session_ended = lambda *a, **k: None
     w._session_catch_up = lambda *a, **k: None
+    # Bugs-DB 2239: auch die dauerhaften store-Verbindungen ("version-changed", "server-changed", Rueckgaengig) laufen sonst
+    # in jedem alten Fenster weiter - nach ~50 Dateien Hunderte Seitenleisten-Neuaufbauten und Galerie-/Titelbild-/
+    # Live-Proben je Test, und ein spaeter Test (test_sharedesign: Datenbank-Block in 5 s) wartet dahinter
+    for n in ("_version_banner", "_gallery_probe", "_live_probe", "_server_changed", "_undo_toast", "_task_undo_toast"):
+        setattr(w, n, lambda *a, **k: None)
+    if hasattr(w, "sidebar"):
+        w.sidebar.fill = lambda *a, **k: None
     d = w.get_visible_dialog() if hasattr(w, "get_visible_dialog") else None
     if d is not None:
         d.force_close()
