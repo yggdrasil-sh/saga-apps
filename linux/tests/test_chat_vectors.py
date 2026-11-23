@@ -152,3 +152,48 @@ def test_roundtrip_fresh_keys():
     api = dict(m, sender={"username": "test"}, key=m["keys"][d["id"]])
     assert C.decrypt(5, api, d["enc_pk"], d["enc_sk"])["text"] == "Hallo 👋"
     assert C.sig_ok(5, api, C.b64(d["sign_pk"]))
+
+
+# --- Abschnitt "image" (2.1-c, Chat-Bild mit Vorschaubild): dieselben Punkte wie ios/Tests/ChatVectors ----------------
+IM = V.get("image")
+need_image = pytest.mark.skipif(IM is None, reason="chat_vectors.json ohne Abschnitt image")
+
+
+@need_image
+def test_image_message_encrypt_and_sig():
+    assert IM["device"] == D["id"]
+    enc = C.encrypt(IM["chat_id"], IM["sender"], dev(), None, {}, mid=IM["id"], ts=IM["ts"],
+                    key=C.unb64(IM["key"]), nonce=C.unb64(IM["nonce"]), plain=IM["body_json"])
+    assert enc["body_ct"] == IM["body_ct"] and enc["sig"] == IM["sig"]
+    api = {"id": IM["id"], "ts": IM["ts"], "sender": {"username": IM["sender"]}, "sender_device": IM["device"],
+           "body_ct": IM["body_ct"], "reply_to": None, "sig": IM["sig"]}
+    assert C.sig_ok(IM["chat_id"], api, D["sign_pk"])
+
+
+def _image_file():
+    return json.loads(IM["body_json"])["files"][0]
+
+
+@need_image
+def test_image_file_entry():
+    f = _image_file()
+    th = f["th"]
+    assert f["w"] > 0 and f["h"] > 0 and th["m"] == "image/jpeg" and max(th["w"], th["h"]) <= 320
+    # Kennungen beim Senden: Original, dann Vorschaubild (wie chat.py beim erneuten Senden)
+    assert [f["id"], th["id"]] == IM["send_files"]
+
+
+@need_image
+@pytest.mark.parametrize("part", ["orig", "thumb"])
+def test_image_blobs(part):
+    x, f = IM[part], _image_file()
+    assert x["key"] == (f["k"] if part == "orig" else f["th"]["k"])
+    blob, _k = C.encrypt_file(IM["chat_id"], C.unb64(x["plain_b64"]), C.unb64(x["key"]), C.unb64(x["nonce"]))
+    assert C.b64(blob) == x["blob"]
+    assert C.decrypt_file(IM["chat_id"], C.unb64(x["blob"]), C.unb64(x["key"])) == C.unb64(x["plain_b64"])
+
+
+@need_image
+def test_image_thumb_jpeg():
+    tp = C.unb64(IM["thumb"]["plain_b64"])
+    assert tp[:3] == b"\xff\xd8\xff" and len(tp) == _image_file()["th"]["s"]
