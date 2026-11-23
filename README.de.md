@@ -82,7 +82,7 @@ Menüpunkt.
   zweitem Faktor läuft im Browserfenster.
 - **Schnelle Chat-Bilder** mit Vorschaubildern, **Immich im Chat**, Bilder einfügen und Bildblöcke kopieren.
 - **KI mit Namen und Profilbild:** Gibt der Admin der KI einen Namen und ein Bild (z. B. „Marin“), zeigen die Apps sie
-  überall; in Chats, in denen sie erlaubt ist, fragst du sie mit **@Marin** – nur diese Nachrichten (und bis zu 12
+  überall; in Chats, in denen sie erlaubt ist, fragst du sie mit **`@Marin`** – nur diese Nachrichten (und bis zu 12
   davor) gehen an die KI, alles andere bleibt Ende-zu-Ende-verschlüsselt.
 - **Chats archivieren und löschen:** Archivierte Chats wandern in einen aufklappbaren Bereich „Archiviert“;
   **Chat löschen …** nur für dich oder – wenn der Server es erlaubt – für alle, samt Zwischenspeicher auf allen

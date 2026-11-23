@@ -80,7 +80,7 @@ or **Stop publishing**. Public pages show **Public** in the page header; you can
   browser window.
 - **Fast chat images** with previews, **Immich in chats**, pasting images and copying image blocks.
 - **AI with a name and picture:** if the admin gives the AI a name and picture (e.g. "Marin"), the apps show it
-  everywhere; in chats where it is allowed you ask it with **@Marin** – only those messages (plus up to 12 before
+  everywhere; in chats where it is allowed you ask it with **`@Marin`** – only those messages (plus up to 12 before
   them) go to the AI, everything else stays end-to-end encrypted.
 - **Archive and delete chats:** archived chats move to a collapsible "Archived" section; **Delete chat …** for
   yourself or – if the server allows it – for everyone, including the local cache on all your devices.

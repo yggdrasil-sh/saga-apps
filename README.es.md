@@ -83,7 +83,7 @@ aparece la opción del menú.
   sesión con segundo factor se hace en la ventana del navegador.
 - **Imágenes de chat rápidas** con miniaturas, **Immich en el chat**, pegar imágenes y copiar bloques de imagen.
 - **IA con nombre y foto:** si el administrador le da a la IA un nombre y una foto (p. ej. «Marin»), las apps la
-  muestran en todas partes; en los chats donde está permitida le preguntas con **@Marin**: solo esos mensajes (y hasta
+  muestran en todas partes; en los chats donde está permitida le preguntas con **`@Marin`**: solo esos mensajes (y hasta
   12 anteriores) van a la IA, todo lo demás sigue cifrado de extremo a extremo.
 - **Archivar y eliminar chats:** los chats archivados pasan a una sección plegable «Archivados»; **Eliminar chat…**
   solo para ti o, si el servidor lo permite, para todos, incluida la caché local de todos tus dispositivos.
