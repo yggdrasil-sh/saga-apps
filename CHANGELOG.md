@@ -9,6 +9,25 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Linux: Release-Eintrag 2.5.0 in der AppStream-Metainfo (Bugs-DB 2242)
+
+- GNOME Software zeigte als neueste Version noch die Notiz von 1.0.0. Die Metainfo nennt jetzt 2.5.0;
+  `tools/set-version.sh` legt den Eintrag einer neuen Version künftig selbst an (`--check` verlangt ihn als neuesten),
+  beim Release-Bau setzt `stamp-version.sh` den Bautag ein. Testversionen (RC) ersetzen den noch unveröffentlichten
+  Eintrag durch ihren eigenen (sonst `releases-not-in-order` in `appstreamcli validate`).
+
+### Behoben – Linux-Tests: Wackler im vollen pytest-Lauf (Bugs-DB 2239)
+
+- Die Test-Fenster bleiben nach dem Test als Objekte leben; ihre dauerhaften Verbindungen an den Speicher liefen
+  weiter. Nach ~50 Dateien kostete jeder Versionswechsel des Schein-Servers knapp 1 s Hauptschleife (Seitenleisten
+  und Galerie-Proben von rund 240 alten Fenstern), unter Last riss so z. B.
+  `test_locked_page_hides_database_block_actions` sein 5-s-Limit. Alte Fenster sind jetzt still (nur Testcode, die App hat ein Fenster).
+
+### Geändert – Linux, Android: Testvektoren wie der Server (Bugs-DB 2240, 2241)
+
+- `pm_schema.json` (Live mitschreiben) mit allen 284 Fällen des Servers, `chat_vectors.json` mit dem Abschnitt `image`
+  (Linux prüft ihn jetzt mit: Bildnachricht, Vorschaubild, Datei-Kennungen; Android über `chat_image_vectors.json`).
+
 ### Behoben – iPhone/iPad: Aufgabe unter „Heute“ antippen öffnete den Editor nur kurz (Bugs-DB 2200)
 
 - Unter „Heute“ (Seitenleiste und Ansicht „Heute“) erschien der Aufgaben- bzw. Termin-Editor beim Antippen mehrfach
