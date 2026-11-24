@@ -7,8 +7,9 @@
 # Release: ein Push auf main, bei dem CHANGELOG.md fuer die Version aus VERSION einen Abschnitt mit echtem Datum hat
 # ("## [x.y.z] – JJJJ-MM-TT", nicht 2026-XX-XX) und es den Tag v<x.y.z> noch nicht gibt -> Tag v<x.y.z> + Release.
 # VERSION darf also schon auf der naechsten geplanten Version stehen (Abschnitt dann noch ohne Datum bzw. nur
-# [Unveroeffentlicht]); erst das Datum loest aus. Ein abgebrochener Lauf holt den Release beim naechsten Push nach.
-# "[release]" in der Commit-Nachricht erzwingt den Release auch ohne Datum (wie bisher).
+# [Unveroeffentlicht]); erst das Datum loest aus. Ein abgebrochener Lauf holt den Release beim naechsten Push nach
+# (der Tag entsteht erst mit "gh release create"). "[release]" in der Commit-Nachricht wirkt seit 2328 NICHT mehr -
+# es haette sonst bei vorauslaufender VERSION vorzeitig veroeffentlicht; von Hand: Run workflow mit "release".
 # Jeder andere Push auf main baut alle Pakete und ersetzt die Vorabversion "v<Version>-rc.<N>" (Pre-release,
 # nie "Latest"; N = Commits seit dem letzten Release-Tag).
 # Angezeigte Version: nur das offizielle Release zeigt "<Version>", alle anderen Builds "<Version>-rc.<N>"
@@ -49,7 +50,7 @@ permissions:
 concurrency:
   group: release-${{ github.ref }}
   # main wird nie mitten im Lauf abgebrochen (ein halbes Release waere schlimmer als eine Wartezeit); ein neuer Push
-  # ersetzt nur einen noch wartenden Lauf - harmlos, weil der Release am Datum haengt, nicht an diesem einen Push.
+  # ersetzt nur einen noch wartenden Lauf - harmlos, weil der Release am CHANGELOG-Datum haengt, nicht an diesem Push.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
@@ -69,13 +70,12 @@ jobs:
           WANT: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.release == true }}
           EVENT: ${{ github.event_name }}
           REF: ${{ github.ref }}
-          MSG: ${{ github.event.head_commit.message }}
         run: |
           V=$(sh tools/set-version.sh --check)
           echo "version=$V" >> "$GITHUB_OUTPUT"
-          # Push auf main loest nur aus, wenn CHANGELOG.md fuer $V einen Abschnitt mit echtem Datum hat
-          # (oder die Commit-Nachricht [release] enthaelt) - sonst ist es eine Vorabversion
-          if [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ] && ! printf '%s' "$MSG" | grep -qF '[release]'; then
+          # Push auf main loest nur aus, wenn CHANGELOG.md fuer $V einen Abschnitt mit echtem Datum hat - sonst
+          # Vorabversion ("[release]" in der Commit-Nachricht zaehlt seit 2328 nicht mehr, siehe oben)
+          if [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ]; then
             if ! grep -Eq "^## \[$(printf '%s' "$V" | sed 's/\./\\./g')\] – [0-9]{4}-[0-9]{2}-[0-9]{2}" CHANGELOG.md; then
               echo "::notice::CHANGELOG.md hat fuer $V noch kein Release-Datum - Vorabversion"
               WANT=false
