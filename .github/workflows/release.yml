@@ -3,10 +3,14 @@
 #   - Linux:   saga-<v>-1.noarch.rpm, saga-<v>-<arch>.flatpak
 #   - Android: Saga-<v>.apk                  (signiert)
 #   Vorabversionen: <v> = <Version>-rc.<N> (RPM: saga-<Version>-0.rc<N>.noarch.rpm)
-# Ausloeser: Aenderung an VERSION auf main (tools/set-version.sh x.y.z) -> Tag v<x.y.z> + Release.
-# Ebenso ein Push auf main, dessen Commit-Nachricht "[release]" enthaelt (z. B. fuer eine Version ohne Sprung).
-# Jeder Push auf testing baut alle Pakete und ersetzt die Vorabversion "v<Version>-rc.<N>" (Release Candidate,
-# Pre-release, nie "Latest"; N = Commits seit dem letzten Release-Tag).
+# Bis 3.0 gibt es nur EINE Linie: main (Bugs-DB 2328; testing ist eingefroren).
+# Release: ein Push auf main, bei dem CHANGELOG.md fuer die Version aus VERSION einen Abschnitt mit echtem Datum hat
+# ("## [x.y.z] – JJJJ-MM-TT", nicht 2026-XX-XX) und es den Tag v<x.y.z> noch nicht gibt -> Tag v<x.y.z> + Release.
+# VERSION darf also schon auf der naechsten geplanten Version stehen (Abschnitt dann noch ohne Datum bzw. nur
+# [Unveroeffentlicht]); erst das Datum loest aus. Ein abgebrochener Lauf holt den Release beim naechsten Push nach.
+# "[release]" in der Commit-Nachricht erzwingt den Release auch ohne Datum (wie bisher).
+# Jeder andere Push auf main baut alle Pakete und ersetzt die Vorabversion "v<Version>-rc.<N>" (Pre-release,
+# nie "Latest"; N = Commits seit dem letzten Release-Tag).
 # Angezeigte Version: nur das offizielle Release zeigt "<Version>", alle anderen Builds "<Version>-rc.<N>"
 # (tools/version-label.sh; der Job "version" legt das Label einmal fest, alle Bau-Jobs uebernehmen es).
 # Von Hand (Actions -> Release -> Run workflow): nur bauen (Downloads als Workflow-Artefakte)
@@ -26,7 +30,7 @@ name: Release
 
 on:
   push:
-    branches: [main, testing]
+    branches: [main]
   workflow_dispatch:
     inputs:
       release:
@@ -44,7 +48,8 @@ permissions:
 
 concurrency:
   group: release-${{ github.ref }}
-  # Probelaeufe auf testing: aelteren Lauf abbrechen, wenn ein neuer Push kommt
+  # main wird nie mitten im Lauf abgebrochen (ein halbes Release waere schlimmer als eine Wartezeit); ein neuer Push
+  # ersetzt nur einen noch wartenden Lauf - harmlos, weil der Release am Datum haengt, nicht an diesem einen Push.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
@@ -64,17 +69,15 @@ jobs:
           WANT: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.release == true }}
           EVENT: ${{ github.event_name }}
           REF: ${{ github.ref }}
-          BEFORE: ${{ github.event.before }}
           MSG: ${{ github.event.head_commit.message }}
         run: |
           V=$(sh tools/set-version.sh --check)
           echo "version=$V" >> "$GITHUB_OUTPUT"
-          # Push auf main loest nur aus, wenn sich VERSION geaendert hat oder die Commit-Nachricht [release] enthaelt
+          # Push auf main loest nur aus, wenn CHANGELOG.md fuer $V einen Abschnitt mit echtem Datum hat
+          # (oder die Commit-Nachricht [release] enthaelt) - sonst ist es eine Vorabversion
           if [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ] && ! printf '%s' "$MSG" | grep -qF '[release]'; then
-            # volle Historie ist da (fetch-depth 0); nicht mit --depth nachladen, das machte den Clone flach (Label rc.0)
-            git cat-file -e "$BEFORE" 2>/dev/null || git fetch -q origin "$BEFORE" 2>/dev/null || true
-            if git cat-file -e "$BEFORE" 2>/dev/null && git diff --quiet "$BEFORE" HEAD -- VERSION; then
-              echo "::notice::VERSION unveraendert - es wird nur gebaut"
+            if ! grep -Eq "^## \[$(printf '%s' "$V" | sed 's/\./\\./g')\] – [0-9]{4}-[0-9]{2}-[0-9]{2}" CHANGELOG.md; then
+              echo "::notice::CHANGELOG.md hat fuer $V noch kein Release-Datum - Vorabversion"
               WANT=false
             fi
           fi
@@ -340,6 +343,7 @@ jobs:
           V: ${{ needs.version.outputs.version }}
         run: |
           mkdir -p appcast-out && find dist -maxdepth 1 -name 'appcast*.xml' -exec mv {} appcast-out/ \;   # kein Release-Asset
+          rm -f dist/mapping.txt   # R8-Zuordnung bleibt Workflow-Artefakt "android-mapping", kein Release-Anhang (Bugs-DB 2332)
           ls -l dist
           # Abschnitt "## [x.y.z] – Datum" aus CHANGELOG.md; fehlt er, lieber abbrechen als ohne Notizen veroeffentlichen
           N=$(awk -v v="[$V]" '/^## \[/ { p = index($0, v) > 0; next } p' CHANGELOG.md)
@@ -395,12 +399,12 @@ jobs:
           python3 tools/update-info.py --label "$V" --repo "$GITHUB_REPOSITORY" --dist dist --commit "$GITHUB_SHA" --out-dir update-out
           sh tools/publish-appcast.sh update-out stable.json "$V"
 
-  # Jeder Push auf testing aktualisiert EINE Vorabversion "v<Version>-rc.<N>" (Release Candidate, Pre-release, nie "Latest").
+  # Jeder Push auf main ohne Release aktualisiert EINE Vorabversion "v<Version>-rc.<N>" (Release Candidate, Pre-release, nie "Latest").
   # Aeltere Vorabversionen (*-rc.N, *+dev.N und die frueheren *-testing) werden dabei entfernt; echte Releases bleiben.
   testing:
     name: Vorabversion (Release Candidate)
     needs: [version, android, rpm, flatpak, macos]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/testing' && !cancelled() && needs.android.result == 'success' && needs.rpm.result == 'success' && needs.macos.result == 'success'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.version.outputs.release != 'true' && !cancelled() && needs.android.result == 'success' && needs.rpm.result == 'success' && needs.macos.result == 'success'
     runs-on: ubuntu-latest
     concurrency:
       group: testing-prerelease
@@ -418,6 +422,7 @@ jobs:
           L: ${{ needs.version.outputs.label }}
         run: |
           mkdir -p appcast-out && find dist -maxdepth 1 -name 'appcast*.xml' -exec mv {} appcast-out/ \;   # kein Release-Asset
+          rm -f dist/mapping.txt   # R8-Zuordnung bleibt Workflow-Artefakt "android-mapping", kein Release-Anhang (Bugs-DB 2332)
           ls -l dist
           (cd dist && sha256sum * > SHA256SUMS)
           # Abschnitt [Unveröffentlicht]; direkt nach einem Release ist er leer -> kurzer Satz statt leerer Notizen
@@ -427,8 +432,8 @@ jobs:
             N="Noch keine Änderungen seit der letzten Version."
           fi
           {
-            echo "**Testversion $L – nicht für den Alltag gedacht.** Stand von \`testing\`, Commit ${GITHUB_SHA::7}, gebaut $(date -u '+%Y-%m-%d %H:%M') UTC."
-            echo "Wird bei jeder Änderung auf \`testing\` ersetzt. Stabile Version: siehe „Latest“."
+            echo "**Testversion $L – nicht für den Alltag gedacht.** Stand von \`main\`, Commit ${GITHUB_SHA::7}, gebaut $(date -u '+%Y-%m-%d %H:%M') UTC."
+            echo "Wird bei jeder Änderung auf \`main\` ersetzt. Letztes Release: siehe „Latest“."
             echo
             printf '%s\n' "$N"
             echo
@@ -440,7 +445,7 @@ jobs:
           L: ${{ needs.version.outputs.label }}
         run: |
           # Sicherung: eine Vorabversion traegt immer -rc.N - nie einen echten Release-Tag v<x.y.z> anlegen/belegen
-          # (z. B. steht testing genau auf dem Release-Commit: Label = x.y.z -> keine Vorabversion, nichts aufraeumen)
+          # (z. B. steht main genau auf dem Release-Commit: Label = x.y.z -> keine Vorabversion, nichts aufraeumen)
           if ! printf '%s' "$L" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$'; then
             echo "::notice::Label '$L' ist keine Vorabversion (x.y.z-rc.N) - es wird keine Vorabversion angelegt"
             exit 0
