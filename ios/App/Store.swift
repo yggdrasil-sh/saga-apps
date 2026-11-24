@@ -740,6 +740,14 @@ final class Store: ObservableObject {
         if homePage != nil, HomeOwner.mustForget(stored: UserDefaults.standard.string(forKey: "hk.homeOwner"), origin: origin, account: account) { setHome(nil) }
         else if homePage != nil, UserDefaults.standard.string(forKey: "hk.homeOwner") == nil { setHome(homePage) }   // alte Fassung: Besitzer nachtragen
     }
+    /// 2031: mindestens ein Kalender-Konto verbunden? nil = unbekannt (offline, aelterer Server) - dann kein Hinweis
+    func calendarConnected() async -> Bool? {
+        #if DEBUG
+        if let v = EmptyPreview.calendar { return v }                    // nur fuer Bilder (ohne Server)
+        #endif
+        guard AppConfig.hasServer, let (d, code) = try? await apiResponse("api/settings/calendars") else { return nil }
+        return EmptyStateLogic.calendarConnected(status: code, data: d)
+    }
     func calTargets() async -> [CalTarget] {
         guard let d = try? await api("api/settings/calendars"), let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return [] }
         return (j["accounts"] as? [[String: Any]] ?? []).flatMap { a in

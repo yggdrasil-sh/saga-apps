@@ -67,7 +67,7 @@ struct SettingsView: View {
         switch a {
         case .konto: KontoSettings(scroll: $scroll, close: { dismiss() }, logout: macLogout)
         case .einstellungen: GeneralSettings(scroll: $scroll)
-        case .info: InfoSettings()
+        case .info: InfoSettings(close: { dismiss() })
         }
     }
 
@@ -349,6 +349,8 @@ private struct ChatGroupHeading: View {
 
 /// Versionen, Kanal, Update-Hinweis, Lizenzhinweise
 struct InfoSettings: View {
+    /// Einstellungen schliessen (2031: "Erste Schritte oeffnen" zeigt danach die Seite)
+    var close: (() -> Void)? = nil
     @EnvironmentObject private var store: Store
     var body: some View {
         Form {
@@ -367,6 +369,7 @@ struct InfoSettings: View {
                 }
             }
             UpdateHintSection()
+            FirstStepsSection(close: close)                    // 2.6 (2031): Erste Schritte wieder abrufen (direkt ueber "Hilfe")
             DiagnoseSection()                                  // 2.5 clientlog1: "Diagnose senden"
             Section("Lizenzen") {
                 Text("Anrufe nutzen WebRTC (libwebrtc, © The WebRTC project authors, BSD-Lizenz) und libsodium (ISC-Lizenz).")
@@ -377,5 +380,6 @@ struct InfoSettings: View {
         .formStyle(.grouped)
         #endif
         .navigationTitle("Info")
+        .task { await FirstStepsModel.shared.check(store) }    // gedrosselt; ohne Server-Unterstuetzung bleibt der Abschnitt weg
     }
 }

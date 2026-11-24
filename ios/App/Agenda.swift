@@ -49,7 +49,7 @@ struct TaskListView: View {
             .padding(.vertical, 6)
             if let u = store.taskUndo { TaskUndoBar(undo: u) }
             if withSources {
-                if store.taskItems.isEmpty { Text("Alles erledigt 🎉").foregroundStyle(.secondary).padding(.vertical, 4) }
+                emptyTasks(open: store.taskItems.count)
                 ForEach(compact ? Array(store.taskItems.prefix(12)) : store.taskItems) { it in
                     SourceTaskRow(item: it) {
                         if it.isRow { nav.open(it.id, mode: "side") } else if let t = store.tasks.first(where: { $0.id == it.id }) { editing = t }
@@ -59,7 +59,7 @@ struct TaskListView: View {
                     Button { managing = true } label: { Label("Aufgabenquellen …", systemImage: "tray.2") }.font(.caption).buttonStyle(.borderless).padding(.top, 6)
                 }
             } else {
-            if store.tasks.isEmpty { Text("Alles erledigt 🎉").foregroundStyle(.secondary).padding(.vertical, 4) }
+            emptyTasks(open: store.tasks.count)
             }
             if !withSources { ForEach(groups, id: \.0) { g in
                 if !compact || groups.count > 1 { Text(g.0).font(.caption.weight(.semibold)).foregroundStyle(g.0 == String(localized: "Überfällig") ? .red : .secondary).padding(.top, 6) }
@@ -74,6 +74,17 @@ struct TaskListView: View {
         }
         .sheet(item: $editing) { t in TaskEditor(task: t) }
         .sheet(isPresented: $managing) { TaskSourcesSheet().environmentObject(store).environmentObject(nav) }
+    }
+
+    /// 2031: noch nie eine Aufgabe -> was hier erscheint + "Aufgabe notieren" (ins Eingabefeld); sonst "Alles erledigt"
+    @ViewBuilder private func emptyTasks(open: Int) -> some View {
+        switch EmptyStateLogic.tasks(open: open, done: store.doneTasks.count) {
+        case .open: EmptyView()
+        case .allDone: Text("Alles erledigt 🎉").foregroundStyle(.secondary).padding(.vertical, 4)
+        case .never:
+            EmptyHint(text: Text("Hier stehen deine Aufgaben – mit Fälligkeit, Priorität und Wiederholung."),
+                      action: Text("Aufgabe notieren")) { adding = true }
+        }
     }
 }
 
@@ -269,6 +280,7 @@ struct EventList: View {
     @State private var editing: CalEvent?
     @State private var creating = false
     @State private var loaded = false
+    @State private var calConnected: Bool?                     // 2031: nil = unbekannt (dann kein Hinweis)
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -276,7 +288,13 @@ struct EventList: View {
                 Spacer()
                 Button { creating = true } label: { Label("Termin", systemImage: "plus") }.font(.subheadline)
             }
-            if loaded && events.isEmpty { Text("Keine Termine").foregroundStyle(.secondary) }
+            if loaded && events.isEmpty {
+                if calConnected == false {                    // 2031: kein Kalender verbunden - Voraussetzung statt "Keine Termine"
+                    EmptyHint(text: Text("Termine aus deinen verbundenen Kalendern erscheinen hier."), action: Text("Kalender verbinden")) {
+                        NotificationCenter.default.post(name: .hkOpenSettings, object: "kalender")
+                    }
+                } else { Text("Keine Termine").foregroundStyle(.secondary) }
+            }
             ForEach(events) { e in Button { editing = e } label: { EventRow(e: e, showDay: true) }.buttonStyle(.plain).padding(.vertical, 2) }
         }
         .task { await reload() }
@@ -288,6 +306,7 @@ struct EventList: View {
         if !loaded, let c = store.cachedEvents(days: days) { events = c; loaded = true }    // sofort aus dem Zwischenspeicher
         if let e = await store.events(days: days, fresh: fresh) { events = e }              // Fehler: Stand behalten
         loaded = true
+        if events.isEmpty { calConnected = await store.calendarConnected() } else { calConnected = true }
     }
 }
 

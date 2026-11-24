@@ -390,7 +390,27 @@ struct RowList: View {
                 }
                 Divider().opacity(0.5)
             }
-            if rows.isEmpty { Text("Keine Einträge").foregroundStyle(.secondary).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading) }
+            if rows.isEmpty { DBEmptyHint(m: m, view: view).padding(.vertical, 2) }                 // 2031
+        }
+    }
+}
+
+/// 2031: leere Ansicht einer Datenbank - noch keine Eintraege (+ "+ Neuer Eintrag") bzw. keiner passt zu den Filtern
+struct DBEmptyHint: View {
+    @ObservedObject var m: DBModel
+    let view: [String: Any]?
+    @EnvironmentObject var store: Store
+    @EnvironmentObject var nav: NavModel
+    var body: some View {
+        if EmptyStateLogic.rows(total: m.rows.count, shown: m.rows(for: view).count) == .filtered {
+            EmptyHint(text: Text("Kein Eintrag passt zu den Filtern dieser Ansicht."))
+        } else if m.canAdd {
+            EmptyHint(text: Text("Noch keine Einträge. Jeder Eintrag ist eine eigene Seite mit den Eigenschaften dieser Spalten."),
+                      action: Text("+ Neuer Eintrag")) {
+                Task { if let id = await m.add(store, props: m.defaults(for: view)) { nav.focusTitle = id; nav.open(id, mode: view?["open"] as? String ?? "side") } }
+            }
+        } else {
+            EmptyHint(text: Text("Noch keine Einträge. Jeder Eintrag ist eine eigene Seite mit den Eigenschaften dieser Spalten."))
         }
     }
 }
@@ -472,7 +492,11 @@ struct TableGrid: View {
                     Divider()
                 }
                 CalcRow(m: m, view: view, cols: cols, widths: w, rows: rows)
-                if m.canAdd {
+                let empty = EmptyStateLogic.rows(total: m.rows.count, shown: rows.count)
+                if empty != .shown {                                                     // 2031: leer - was hier erscheint + naechster Schritt
+                    DBEmptyHint(m: m, view: view).padding(.horizontal, 8).frame(width: min(max(avail - 16, 240), 520), alignment: .leading)   // feste Breite: im waagrechten Scrollen sonst eine endlose Zeile
+                }
+                if m.canAdd && empty != .empty {                                        // leer: der Knopf steht im Hinweis
                     Button { Task { if let id = await m.add(store, props: m.defaults(for: view)) { nav.open(id, mode: view?["open"] as? String ?? "side") } } } label: {
                         Label("Neu", systemImage: "plus").font(.subheadline).foregroundStyle(.secondary).padding(8)
                     }.buttonStyle(.plain)

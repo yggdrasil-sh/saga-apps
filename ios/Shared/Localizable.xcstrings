@@ -81823,6 +81823,686 @@
           }
         }
       }
+    },
+    "Möchtest du eine kurze Einführung?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Möchtest du eine kurze Einführung?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Would you like a short introduction?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Quieres una breve introducción?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Хотите короткое введение?"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ต้องการคำแนะนำสั้น ๆ ไหม?"
+          }
+        }
+      }
+    },
+    "Ja, gern" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ja, gern"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yes, please"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sí, por favor"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Да, давайте"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช่ ขอบคุณ"
+          }
+        }
+      }
+    },
+    "Nein, danke" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nein, danke"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No, thanks"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No, gracias"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет, спасибо"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่ ขอบคุณ"
+          }
+        }
+      }
+    },
+    "Saga legt dir eine Seite „Erste Schritte“ mit ein paar Häkchen an: Profilbild, Chats, App, erste Seite und Aufgabe. Was du erledigt hast, hakt Saga selbst ab – und die Seite kannst du jederzeit löschen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga legt dir eine Seite „Erste Schritte“ mit ein paar Häkchen an: Profilbild, Chats, App, erste Seite und Aufgabe. Was du erledigt hast, hakt Saga selbst ab – und die Seite kannst du jederzeit löschen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga creates a “First steps” page with a short checklist: profile picture, chats, app, first page and task. Saga ticks off whatever you have done – and you can delete the page at any time."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga te crea una página «Primeros pasos» con una pequeña lista: foto de perfil, chats, app, primera página y tarea. Saga marca por sí sola lo que hayas hecho, y puedes borrar la página cuando quieras."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga создаст страницу «Первые шаги» с небольшим списком: фото профиля, чаты, приложение, первая страница и задача. Выполненное Saga отмечает сама, а страницу можно удалить в любой момент."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga จะสร้างหน้า “ก้าวแรก” พร้อมรายการสั้น ๆ: รูปโปรไฟล์ แชท แอป หน้าแรกและงาน สิ่งที่คุณทำแล้ว Saga จะติ๊กให้เอง – และคุณลบหน้านี้ได้ทุกเมื่อ"
+          }
+        }
+      }
+    },
+    "Die Einführung ist auf diesem Server abgeschaltet." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Einführung ist auf diesem Server abgeschaltet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The introduction is turned off on this server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La introducción está desactivada en este servidor."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Введение на этом сервере отключено."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การแนะนำถูกปิดบนเซิร์ฟเวอร์นี้"
+          }
+        }
+      }
+    },
+    "Eine Seite mit ein paar Häkchen für den Anfang – Saga hakt Erledigtes selbst ab." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine Seite mit ein paar Häkchen für den Anfang – Saga hakt Erledigtes selbst ab."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A page with a short checklist to get started – Saga ticks off what you have done."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Una página con una pequeña lista para empezar: Saga marca por sí sola lo que hayas hecho."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Страница с небольшим списком для начала — выполненное Saga отмечает сама."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "หน้าที่มีรายการสั้น ๆ สำหรับเริ่มต้น – Saga ติ๊กสิ่งที่ทำแล้วให้เอง"
+          }
+        }
+      }
+    },
+    "Erste Schritte anlegen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erste Schritte anlegen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create first steps"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crear primeros pasos"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Создать «Первые шаги»"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สร้างก้าวแรก"
+          }
+        }
+      }
+    },
+    "Erste Schritte öffnen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erste Schritte öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open first steps"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir primeros pasos"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открыть «Первые шаги»"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดก้าวแรก"
+          }
+        }
+      }
+    },
+    "Erste Schritte" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erste Schritte"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "First steps"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primeros pasos"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Первые шаги"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ก้าวแรก"
+          }
+        }
+      }
+    },
+    "Hier stehen deine Aufgaben – mit Fälligkeit, Priorität und Wiederholung." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hier stehen deine Aufgaben – mit Fälligkeit, Priorität und Wiederholung."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your tasks appear here – with due date, priority and repetition."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aquí aparecen tus tareas, con fecha, prioridad y repetición."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Здесь появляются ваши задачи — со сроком, приоритетом и повторением."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "งานของคุณจะแสดงที่นี่ – พร้อมวันครบกำหนด ลำดับความสำคัญ และการทำซ้ำ"
+          }
+        }
+      }
+    },
+    "Aufgabe notieren" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aufgabe notieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Write down a task"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anotar una tarea"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Записать задачу"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "จดงาน"
+          }
+        }
+      }
+    },
+    "Kalender verbinden" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kalender verbinden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect a calendar"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar un calendario"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключить календарь"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เชื่อมต่อปฏิทิน"
+          }
+        }
+      }
+    },
+    "Noch keine Seiten. Seiten können Überschriften, Listen, Checklisten, Zitate und Code enthalten – und beliebig viele Unterseiten." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Seiten. Seiten können Überschriften, Listen, Checklisten, Zitate und Code enthalten – und beliebig viele Unterseiten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pages yet. Pages can contain headings, lists, checklists, quotes and code – and any number of subpages."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay páginas. Las páginas pueden contener títulos, listas, listas de comprobación, citas y código, y tantas subpáginas como quieras."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Страниц пока нет. Страницы могут содержать заголовки, списки, чек-листы, цитаты и код – и сколько угодно подстраниц."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มีหน้า หน้าสามารถมีหัวข้อ รายการ เช็กลิสต์ คำพูดอ้างอิง และโค้ด – และหน้าย่อยกี่หน้าก็ได้"
+          }
+        }
+      }
+    },
+    "Erste Seite anlegen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erste Seite anlegen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create first page"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crear la primera página"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Создать первую страницу"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สร้างหน้าแรก"
+          }
+        }
+      }
+    },
+    "Zurzeit ist nichts mit dir geteilt. Gibt dir jemand eine Seite frei, erscheint sie hier." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zurzeit ist nichts mit dir geteilt. Gibt dir jemand eine Seite frei, erscheint sie hier."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing is shared with you right now. When someone shares a page with you, it appears here."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ahora mismo no hay nada compartido contigo. Cuando alguien te comparta una página, aparecerá aquí."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сейчас с вами ничем не поделились. Когда кто-то откроет вам страницу, она появится здесь."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตอนนี้ยังไม่มีอะไรแชร์กับคุณ เมื่อมีคนแชร์หน้าให้คุณ หน้านั้นจะแสดงที่นี่"
+          }
+        }
+      }
+    },
+    "Kein Eintrag passt zu den Filtern dieser Ansicht." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Eintrag passt zu den Filtern dieser Ansicht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No entry matches the filters of this view."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ninguna entrada coincide con los filtros de esta vista."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ни одна запись не подходит под фильтры этого вида."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่มีรายการที่ตรงกับตัวกรองของมุมมองนี้"
+          }
+        }
+      }
+    },
+    "Noch keine Einträge. Jeder Eintrag ist eine eigene Seite mit den Eigenschaften dieser Spalten." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Einträge. Jeder Eintrag ist eine eigene Seite mit den Eigenschaften dieser Spalten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No entries yet. Each entry is a page of its own with the properties of these columns."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todavía no hay entradas. Cada entrada es una página propia con las propiedades de estas columnas."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Записей пока нет. Каждая запись — отдельная страница со свойствами из этих столбцов."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มีรายการ แต่ละรายการเป็นหน้าของตัวเองพร้อมคุณสมบัติของคอลัมน์เหล่านี้"
+          }
+        }
+      }
+    },
+    "+ Neuer Eintrag" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+ Neuer Eintrag"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+ New entry"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+ Nueva entrada"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+ Новая запись"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+ รายการใหม่"
+          }
+        }
+      }
+    },
+    "Deine Seite „Erste Schritte“: %lld von %lld erledigt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deine Seite „Erste Schritte“: %1$lld von %2$lld erledigt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your “First steps” page: %1$lld of %2$lld done."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu página «Primeros pasos»: %1$lld de %2$lld hechos."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ваша страница «Первые шаги»: выполнено %1$lld из %2$lld."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "หน้า “ก้าวแรก” ของคุณ: เสร็จแล้ว %1$lld จาก %2$lld"
+          }
+        }
+      }
+    },
+    "Termine aus deinen verbundenen Kalendern erscheinen hier." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Termine aus deinen verbundenen Kalendern erscheinen hier."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Events from your connected calendars appear here."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aquí aparecen las citas de tus calendarios conectados."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Здесь появляются события из ваших подключённых календарей."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นัดหมายจากปฏิทินที่เชื่อมต่อของคุณจะแสดงที่นี่"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

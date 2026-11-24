@@ -218,11 +218,12 @@ struct RootView: View {
         }
         .onChange(of: phase) { _, p in
             if p == .active || p == .background { ClientLog.shared.life(p == .active ? "visible" : "hidden") }   // 2.5 clientlog1
-            if p == .active { Task { await store.refresh(); store.live.start(); await store.calls.checkActive() }; store.push.languageCheck() }   // 2.5: Push-Sprache       // im Web angelegte Seiten; Live nur im Vordergrund
+            if p == .active { Task { await store.refresh(); store.live.start(); await store.calls.checkActive(); await FirstStepsModel.shared.check(store) }; store.push.languageCheck() }   // 2.5: Push-Sprache       // im Web angelegte Seiten; Live nur im Vordergrund; 2031: Erste Schritte (gedrosselt)
             if p == .background { WidgetCenter.shared.reloadAllTimelines(); store.live.stop() }   // Widgets zeigen sofort den neuen Stand
         }
         .onChange(of: store.needsLogin) { _, v in
-            if v { store.live.stop() } else { store.live.start(); store.push.appStarted(); Task { await store.chat.load() } }
+            if v { store.live.stop(); FirstStepsModel.shared.reset() }
+            else { store.live.start(); store.push.appStarted(); Task { await store.chat.load(); await FirstStepsModel.shared.check(store, force: true) } }   // 2031
         }
         .onReceive(NotificationCenter.default.publisher(for: .hkOpenTarget)) { n in if let t = n.object as? NotifTarget { PushModel.pending = nil; openAfterCallUI { openTarget(t) } } }
         .onReceive(NotificationCenter.default.publisher(for: .hkOpenSettings)) { n in
@@ -270,6 +271,20 @@ struct RootView: View {
         }
     }
 
+    /// 2031: Frage "Erste Schritte" nicht ueber Blaettern/Dialogen, nicht waehrend Anmeldung, Kopplung, Chat-Einrichtung, Anruf
+    private var firstStepsBlockers: FirstStepsLogic.Blockers {
+        var call = false
+        #if os(iOS)
+        call = store.calls.showsFullScreen
+        #endif
+        return FirstStepsLogic.Blockers(
+            login: store.needsLogin || store.loginPostponed, pairing: store.pendingPair != nil,
+            sheet: showSettings || showNotifs || showAssistant || showPalette || showTrash || newAsk != nil || gallery != nil
+                || nav.peek != nil || store.chat.approval != nil,
+            chatSetup: selection == FedLogic.chatsTag && [.setup, .newDevice].contains(store.chat.state),
+            call: call)
+    }
+
     var body: some View {
         withEvents
         .overlay(alignment: .topLeading) { LiveLamp(live: store.live, store: store).padding(.leading, 2) }   // 3.11.: gruen live, rot gespeicherter Stand
@@ -277,6 +292,10 @@ struct RootView: View {
         // Kopplungslink: Rueckfrage hier - oder im Anmeldebildschirm, solange der vorne liegt
         // (nur hier zuruecksetzen, solange die Rueckfrage hier liegt: sonst loescht das Ausblenden beim Wechsel zum
         // Anmeldebildschirm den Link - Kaltstart per QR-Code im abgemeldeten Zustand zeigte dann gar nichts)
+        .modifier(FirstStepsAsk(model: FirstStepsModel.shared, store: store, blockers: firstStepsBlockers) { id in   // 2031
+            nav.peek = nil; nav.path = []
+            Task { await store.refresh(quiet: true); selection = id }
+        })
         .modifier(PairConfirm(ask: Binding(get: { store.needsLogin ? nil : store.pendingPair }, set: { if !store.needsLogin { store.pendingPair = $0 } }), store: store))
         .confirmationDialog("Neuen Eintrag anlegen?", isPresented: Binding(get: { newAsk != nil }, set: { if !$0 { newAsk = nil } }), titleVisibility: .visible) {
             Button("Anlegen") { if let u = newAsk { newAsk = nil; createFromLink(u) } }
@@ -325,6 +344,7 @@ extension RootView {
         // noch nichts anderes geoeffnet ist
         if case .some(let s) = StartPageLogic.reselect(selection: selection, before: startHome, after: store.homePage) { selection = s }
         if !store.needsLogin { store.live.start(); store.push.appStarted(); Task { await store.chat.load() } }
+        Task { await FirstStepsModel.shared.check(store) }                    // 2031: Erste Schritte - fragt ggf. einmal
         UpdateHintModel.shared.appStarted()                                    // Update-Hinweis: hoechstens alle 12 h
         if let t = PushModel.pending { PushModel.pending = nil; openAfterCallUI { openTarget(t) } }   // Kaltstart per Mitteilung
         if !store.startPageSupported, let home = store.homePage, !store.pages.isEmpty, store.page(home) == nil { store.setHome(nil); if selection == home { selection = nil } }   // geloescht -> vergessen (Konto-Startseite: prueft der Server)
@@ -676,7 +696,11 @@ extension Sidebar {
                             .draggable(String(n.page.id))                                    // ziehen: auf eine Seite = darunter einsortieren
                             .dropDestination(for: String.self) { ids, _ in dropPages(ids, into: n.page.id) }
                     }
-                    if top.isEmpty && !store.loading { Text("Noch keine Seiten").foregroundStyle(.secondary) }   // statt leerer Ueberschrift
+                    if top.isEmpty && !store.loading {                                  // statt leerer Ueberschrift
+                        // 2031: was hier erscheint + "Erste Seite anlegen"
+                        EmptyHint(text: Text("Noch keine Seiten. Seiten können Überschriften, Listen, Checklisten, Zitate und Code enthalten – und beliebig viele Unterseiten."),
+                                  action: Text("Erste Seite anlegen")) { Task { if let id = await store.newPage() { selection = id } } }
+                    }
                 } header: {
                     Text("Seiten").frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                         .dropDestination(for: String.self) { ids, _ in dropPages(ids, into: nil) }        // auf "Seiten" = oberste Ebene
@@ -688,7 +712,7 @@ extension Sidebar {
                         if store.shareOffHint {
                             Text("Teilen ist auf diesem Server zurzeit abgeschaltet – mit dir geteilte Seiten sind nicht erreichbar.").font(.caption).foregroundStyle(.secondary)
                         } else if store.shared.isEmpty && store.fedShared.isEmpty {
-                            Text("Zurzeit ist nichts mit dir geteilt.").foregroundStyle(.secondary)
+                            Text("Zurzeit ist nichts mit dir geteilt. Gibt dir jemand eine Seite frei, erscheint sie hier.").foregroundStyle(.secondary)   // 2031
                         }
                         ForEach(store.fedUnreachable, id: \.self) { h in                  // dezent, kein Fehler
                             Label("\(h) gerade nicht erreichbar", systemImage: "wifi.exclamationmark").font(.caption).foregroundStyle(.secondary)
@@ -803,7 +827,15 @@ struct TodaySection: View {
     var body: some View {
         Section {
             let src = store.features.has("tasksrc1")              // 2.5: Zeilen aus Aufgabenquellen (Server-Reihenfolge)
-            if store.events.isEmpty && (src ? todayItems.isEmpty : store.tasks.isEmpty) { Text("Nichts geplant 🎉").foregroundStyle(.secondary) }
+            if store.events.isEmpty && (src ? todayItems.isEmpty : store.tasks.isEmpty) {
+                // 2031: noch nie eine Aufgabe -> was hier erscheint + "Aufgabe notieren" (Aufgaben mit Eingabe bereit)
+                if EmptyStateLogic.tasks(open: src ? store.taskItems.count : store.tasks.count, done: store.doneTasks.count) == .never {
+                    EmptyHint(text: Text("Hier stehen deine Aufgaben – mit Fälligkeit, Priorität und Wiederholung."), action: Text("Aufgabe notieren")) {
+                        NotificationCenter.default.post(name: .hkOpenTarget, object: NotifTarget.tasks)
+                        nav.wantQuickAdd = true
+                    }
+                } else { Text("Nichts geplant 🎉").foregroundStyle(.secondary) }
+            }
             ForEach(store.events.prefix(4)) { e in Button { editingEvent = e } label: { EventRow(e: e) }.buttonStyle(.plain) }
             if src {
                 if let u = store.taskUndo { TaskUndoBar(undo: u) }

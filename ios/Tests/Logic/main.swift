@@ -107,5 +107,6 @@ widgetLiveTests()
 notifTapTests()                  // Bugs-DB 2187: Mitteilung antippen -> Ziel
 hornViewTests()                  // Bugs-DB 2193: Teilen mitten im Knoten-Anruf -> Ansicht neu
 presentTests()                   // Bugs-DB 2200/2197: keine Blaetter am Section, Feld "Verbindung" hell/dunkel
+firstStepsTests()                // Bugs-DB 2031: Erste Schritte, leere Zustaende
 print("Logik-Tests 2.0: \(passed) ok, \(failed) fehlgeschlagen")
 exit(failed == 0 ? 0 : 1)
