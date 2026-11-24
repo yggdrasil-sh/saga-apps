@@ -82,7 +82,10 @@ fun EventsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     Scaffold(
         topBar = { SagaTopBar(stringResource(R.string.nav_events), nav, chrome, contentMaxWidth = io.github.yggdrasil_sh.saga.ui.common.TopBarAlign.CONTENT) },
         floatingActionButton = {
-            io.github.yggdrasil_sh.saga.ui.common.LabeledFab(stringResource(R.string.ev_add), { edit = null to java.time.LocalDate.now() })
+            // 2031: ohne Kalender EIN Knopf ("Kalender verbinden" im leeren Zustand) - kein "Neuer Termin" daneben
+            if (!(events?.isEmpty() == true && io.github.yggdrasil_sh.saga.ui.common.EmptyStates.events(calConnected) ==
+                    io.github.yggdrasil_sh.saga.ui.common.EmptyStates.Events.NO_CALENDAR)
+            ) io.github.yggdrasil_sh.saga.ui.common.LabeledFab(stringResource(R.string.ev_add), { edit = null to java.time.LocalDate.now() })
         },
     ) { pad ->
         PullToRefreshBox(

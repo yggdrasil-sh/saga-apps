@@ -15,7 +15,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -32,9 +31,7 @@ import io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaSpace
 import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.ui.theme.sagaSegment
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * 2.6 (Bugs-DB 2031): "Erste Schritte" - GET beim Start und bei jedem Wechsel in den Vordergrund (gedrosselt im Modell),
@@ -62,31 +59,10 @@ fun FirstStepsPrompt(repo: SagaRepository, accountKey: String, current: Dest, bl
         delay(600)
         show = true
     }
+    val busy by model.busy.collectAsState()
     if (!show || asked || !want) return               // inzwischen beantwortet/anderer Dialog: weg (kommt ggf. wieder)
-    val scope = rememberCoroutineScope()
-    var busy by remember { mutableStateOf(false) }
-    fun answer(yes: Boolean) {
-        if (busy) return
-        busy = true
-        scope.launch {
-            try {
-                val page = model.answer(yes)
-                show = false
-                if (yes && page != null) {
-                    repo.openPageRequest.value = page
-                    launch { runCatching { repo.refresh() } }       // neue Seite auch in der Seitenleiste
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                model.markAsked()
-                show = false
-                repo.notify(repo.friendly(e))
-            } finally {
-                busy = false
-            }
-        }
-    }
+    // Antwort im Repository-Scope (POST, Seite oeffnen, Auffrischen laufen weiter, auch wenn der Dialog verschwindet)
+    fun answer(yes: Boolean) = repo.answerFirstSteps(yes)
     AlertDialog(
         onDismissRequest = { model.markAsked(); show = false },
         properties = DialogProperties(dismissOnClickOutside = false),
@@ -107,10 +83,9 @@ fun FirstStepsSection(repo: SagaRepository, modifier: Modifier, onOpened: () -> 
     val model = repo.firstSteps
     LaunchedEffect(Unit) { model.check(force = true) }
     val st by model.status.collectAsState()
+    val busy by model.busy.collectAsState()
     val s = st ?: return
     if (!s.enabled) return
-    val scope = rememberCoroutineScope()
-    var busy by remember { mutableStateOf(false) }
     Column(modifier) {
         SagaWrapSectionTitle(stringResource(R.string.fs_title), Modifier.padding(top = 12.dp))
         Column(
@@ -124,24 +99,7 @@ fun FirstStepsSection(repo: SagaRepository, modifier: Modifier, onOpened: () -> 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 SagaFilledTonalButton(
                     enabled = !busy, modifier = Modifier.heightIn(min = SagaSpace.touch),
-                    onClick = {
-                        busy = true
-                        scope.launch {
-                            try {
-                                model.answer(true)?.let { id ->
-                                    onOpened()
-                                    repo.openPageRequest.value = id
-                                    launch { runCatching { repo.refresh() } }
-                                }
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (e: Exception) {
-                                repo.notify(repo.friendly(e))
-                            } finally {
-                                busy = false
-                            }
-                        }
-                    },
+                    onClick = { onOpened(); repo.answerFirstSteps(true) },   // POST yes, dann die Seite oeffnen
                 ) { Text(stringResource(if (s.page != null) R.string.fs_open else R.string.fs_create)) }
             }
         }
@@ -170,8 +128,8 @@ fun openCalendarSettings(context: android.content.Context, repo: SagaRepository)
 
 /** 2031: Regeln der leeren Zustaende (testbar ohne Oberflaeche) */
 object EmptyStates {
-    /** Web: ?settings=calendar oeffnet die Einstellungen auf dem Reiter Kalender */
-    const val CALENDAR_SETTINGS = "/?settings=calendar"
+    /** Web: ?settings=calendar oeffnet die Einstellungen auf dem Reiter Kalender - auf /notes (wie static/host.js; "/" leitet bei eigener Startseite um und verliert die Query) */
+    const val CALENDAR_SETTINGS = "/notes?settings=calendar"
 
     enum class Tasks { NONE_EVER, ALL_DONE, NOT_EMPTY }
 

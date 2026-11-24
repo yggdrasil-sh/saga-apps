@@ -812,6 +812,31 @@ class SagaRepository(
     /** 2.6 (Bugs-DB 2031): "Erste Schritte" - Frage beim ersten Anmelden, Abschnitt in Einstellungen > Info */
     val firstSteps = FirstStepsModel(get = { api.get(it) }, post = { p, b -> api.post(p, b) })
 
+    /**
+     * Antwort auf "Erste Schritte" im Repository-Scope (ueberlebt den Dialog, z. B. bei einem eingehenden Anruf):
+     * POST, bei Ja die Seite oeffnen und die Seitenliste auffrischen; Fehler als normale Meldung.
+     */
+    fun answerFirstSteps(yes: Boolean) {
+        if (firstSteps.busy.value) return
+        firstSteps.busy.value = true
+        scope.launch {
+            try {
+                val page = firstSteps.answer(yes)
+                if (yes && page != null) {
+                    openPageRequest.value = page
+                    refresh()                                   // neue Seite auch in der Seitenleiste
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                firstSteps.markAsked()
+                notify(friendly(e))
+            } finally {
+                firstSteps.busy.value = false
+            }
+        }
+    }
+
     /** 2031: leerer Zustand der Termine - ist ein Kalender verbunden? null = unbekannt (offline, Fehler) */
     suspend fun calendarConnected(): Boolean? = try {
         calendarAccounts().isNotEmpty()

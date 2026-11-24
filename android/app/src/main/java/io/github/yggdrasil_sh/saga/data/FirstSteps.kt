@@ -125,17 +125,24 @@ class FirstStepsModel(
     /** In dieser Sitzung schon gefragt (bzw. Frage ohne Antwort geschlossen) */
     val asked = MutableStateFlow(false)
 
-    private var lastAt: Long? = null
-    private var key: String? = null
+    /** POST laeuft (Knoepfe der Frage und des Info-Abschnitts gesperrt) */
+    val busy = MutableStateFlow(false)
+
+    @Volatile private var lastAt: Long? = null
+    @Volatile private var key: String? = null
+    /** Zaehlt jeden Konto-/Serverwechsel: Antworten einer Anfrage von vorher werden verworfen */
+    @Volatile private var gen = 0
     private val lock = Mutex()
 
     /** Anderes Konto/anderer Server: alles vergessen */
     fun resetFor(k: String) {
         if (k == key) return
         key = k
+        gen++
         lastAt = null
         unsupported = false
         asked.value = false
+        busy.value = false
         _status.value = null
     }
 
@@ -145,11 +152,15 @@ class FirstStepsModel(
         val now = clock()
         if (!FirstSteps.shouldFetch(lastAt, now, force)) return@withLock _status.value
         lastAt = now
+        val g = gen
         try {
-            FirstSteps.parse(get(FirstSteps.PATH))?.let { _status.value = it }
+            val st = FirstSteps.parse(get(FirstSteps.PATH))
+            if (g != gen) return@withLock null                 // inzwischen anderes Konto: Antwort gehoert zum alten
+            st?.let { _status.value = it }
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
+            if (g != gen) return@withLock null
             if (e.code == 404) {
                 unsupported = true
                 _status.value = null
@@ -162,7 +173,9 @@ class FirstStepsModel(
 
     /** POST yes/no -> Seiten-ID (bei yes). Fehler (403, offline) werden geworfen - die Oberflaeche zeigt sie. */
     suspend fun answer(yes: Boolean): Long? {
+        val g = gen
         val r = post(FirstSteps.PATH, FirstSteps.body(yes))
+        if (g != gen) return null                              // Kontowechsel waehrend des POST: nichts uebernehmen/oeffnen
         val page = FirstSteps.parsePage(r)
         asked.value = true
         _status.value = FirstSteps.afterAnswer(_status.value, yes, page)

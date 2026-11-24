@@ -256,6 +256,7 @@ fun LazyListScope.databaseItems(st: DbViewState, repo: SagaRepository, onOpen: (
 internal fun DbEmptyRows(st: DbViewState, v: DbView, onOpen: (Long) -> Unit, modifier: Modifier = Modifier) {
     val kind = io.github.yggdrasil_sh.saga.ui.common.EmptyStates.db(st.total, v.filters.isNotEmpty(), st.search)
     val scope = rememberCoroutineScope()
+    var creating by remember { mutableStateOf(false) }                 // gegen Doppeltippen (zwei leere Eintraege)
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (kind == io.github.yggdrasil_sh.saga.ui.common.EmptyStates.Db.FILTERED) {
             Text(stringResource(R.string.es2031_db_filtered), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -266,9 +267,18 @@ internal fun DbEmptyRows(st: DbViewState, v: DbView, onOpen: (Long) -> Unit, mod
         if (st.canAdd) {
             io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton(
                 onClick = {
+                    if (creating) return@SagaFilledTonalButton
+                    creating = true
                     val t = st.defaultTemplate
-                    scope.launch { (if (t != null) st.createFrom(t) else st.create())?.let(onOpen) }
+                    scope.launch {
+                        try {
+                            (if (t != null) st.createFrom(t) else st.create())?.let(onOpen)
+                        } finally {
+                            creating = false
+                        }
+                    }
                 },
+                enabled = !creating,
                 modifier = Modifier.heightIn(min = 48.dp),
             ) {
                 SagaIcon(SagaIcons.plus, null, Modifier.size(18.dp))

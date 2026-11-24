@@ -176,6 +176,27 @@ class FirstSteps2031Test {
         assertEquals("""{"answer":"no"}""", f.posts.last().toString())
     }
 
+    /** Kontowechsel waehrend eines laufenden GET/POST: die Antwort gehoert zum alten Konto und wird verworfen */
+    @Test fun modelAccountSwitchRace() = runBlocking {
+        lateinit var f: FakeApi
+        f = FakeApi().apply { getAnswer = { f.model.resetFor("kim"); askJson } }
+        f.model.resetFor("alex")
+        assertNull(f.model.check())
+        assertNull("Stand von alex nicht bei kim", f.model.status.value)
+        // 404 des alten Servers sperrt den neuen nicht
+        f.getAnswer = { f.model.resetFor("neu"); throw ApiException(404, UiText.Raw("not found")) }
+        f.model.check(force = true)
+        assertFalse(f.model.unsupported)
+        // danach normal: neues Konto fragt
+        f.getAnswer = { askJson }
+        assertTrue(f.model.check(force = true)!!.ask)
+        // POST waehrend Kontowechsel: keine Seite oeffnen, nichts uebernehmen
+        f.postAnswer = { f.model.resetFor("anders"); """{"ok":true,"page":5}""" }
+        assertNull(f.model.answer(true))
+        assertNull(f.model.status.value)
+        assertFalse(f.model.asked.value)
+    }
+
     @Test fun emptyStates() {
         assertEquals(EmptyStates.Tasks.NONE_EVER, EmptyStates.tasks(0, 0))
         assertEquals(EmptyStates.Tasks.ALL_DONE, EmptyStates.tasks(0, 3))
@@ -188,7 +209,7 @@ class FirstSteps2031Test {
         assertEquals(EmptyStates.Events.NO_CALENDAR, EmptyStates.events(false))
         assertEquals(EmptyStates.Events.EMPTY, EmptyStates.events(true))
         assertEquals("unbekannt (offline): wie bisher", EmptyStates.Events.EMPTY, EmptyStates.events(null))
-        assertEquals("/?settings=calendar", EmptyStates.CALENDAR_SETTINGS)
+        assertEquals("auf /notes (\"/\" leitet bei eigener Startseite um)", "/notes?settings=calendar", EmptyStates.CALENDAR_SETTINGS)
     }
 
     /** Alle Sprachen haben dieselben Schluessel, Platzhalter unveraendert */
