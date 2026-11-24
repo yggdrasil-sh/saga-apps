@@ -20,7 +20,10 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 - **Anrufe über Knoten wechseln unter Last seltener hin und her** (Bugs-DB 2202, iOS/Android, wie das Web): Der aktuelle
   Knoten wird beim Vergleich mit derselben frischen Probe gemessen wie die anderen – vorher zählten die eigenen Pings,
-  die unter Last aufgebläht sind.
+  die unter Last aufgebläht sind. Meldet die Kamera bzw. der Kodierer eine CPU-Grenze (`qualityLimitationReason` „cpu“
+  oder gemessene CPU-Grenze der Kamera), gibt es bis 30 s danach keinen Wechsel wegen „besser“; erlaubt bleibt nur der
+  Rückweg vom Tunnel-Knoten auf einen Knoten mit UDP. Abbruch und Leeren eines Knotens wirken weiter sofort. Die Apps
+  halten dadurch etwas öfter als das Web, weil sie auch kurze CPU-Grenzen zwischen zwei Messungen sehen.
 - **KI-Antworten im Assistenten formatiert** (Bugs-DB 2248, iOS/Mac, Android, Linux): Absätze, Listen (• bzw. 1.),
   Überschriften, **fett** und `code` erscheinen wie im Web statt als rohe Zeichen; Quellen `[n]` bleiben antippbar.
   Es gilt dieselbe feste Teilmenge wie auf dem Server (`docs/ki-markdown-vektoren.json` aus dem Repo saga, in allen

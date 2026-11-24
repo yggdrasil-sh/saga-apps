@@ -121,6 +121,11 @@ object HornLogic {
      *  der letzten Meldung (cpuAt/now in ms, 0 = nie gemeldet) */
     fun cpuHold(cpuAt: Long, now: Long): Boolean = cpuAt > 0 && now - cpuAt < CPU_HOLD
 
+    /** Bugs-DB 2202 (wie static/horn.js back): Rueckweg auf UDP - nur vom Knoten ohne UDP fuer dieses Geraet (Tunnel-/TCP-Knoten)
+     *  zu einem Knoten mit UDP-Antwort; bleibt unter cpuHold erlaubt, weil der Tunnel-/Rahmen-Weg oft selbst die CPU-Last erzeugt */
+    fun back(curPath: String, curCand: Cand?, c: Cand?, m: Measure?): Boolean =
+        curPath != "udp" && curCand?.udp != true && c != null && c.udp && m != null && m.ok && m.udp != null
+
     fun median(a: List<Double>): Double {
         if (a.isEmpty()) return Double.NaN
         val s = a.sorted()

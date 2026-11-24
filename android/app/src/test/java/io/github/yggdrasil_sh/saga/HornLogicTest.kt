@@ -472,4 +472,18 @@ class HornLogicTest {
         assertNull(sw.observe(150_000, 100.0, o))
         assertNotNull(sw.observe(160_000, 100.0, o))
     }
+
+    // Rueckweg auf UDP (wie static/horn.js back) bleibt unter cpuHold erlaubt
+    @org.junit.Test fun cpuHoldBackPath() {
+        val tun = Cand("t", udp = false)
+        val u1 = Cand("h", udp = true)
+        val okU = Measure(true, listOf(20.0), udp = 15.0)
+        val okNoU = Measure(true, listOf(20.0))
+        assertTrue(H.back("ws", tun, u1, okU))
+        assertFalse(H.back("udp", u1, u1, okU))
+        assertFalse(H.back("tcp", u1, u1, okU))
+        assertFalse(H.back("ws", tun, u1, okNoU))
+        assertFalse(H.back("ws", tun, tun, okU))
+        assertFalse(H.back("ws", tun, u1, null))
+    }
 }

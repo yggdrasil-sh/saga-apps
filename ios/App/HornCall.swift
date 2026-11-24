@@ -980,10 +980,12 @@ extension CallManager {
                 let m = await hornMeasure(list)
                 let curScore = HornLogic.score(HornLogic.Measure(ok: true, rtts: HornLogic.curRtts(m[cur.node], own: cur.rtts), udp: cur.path == "udp" ? 1 : nil),
                                                HornLogic.Candidate(node: cur.node, udp: cur.path == "udp", here: true, load: list.first { $0.node == cur.node }?.load ?? 0))
-                // Bugs-DB 2202: unter CPU-Grenze des Kodierers (hornStats setzt cpuAt) keine Wechsel wegen "besser" - leere Liste
-                // setzt wie im Web den Anwaerter zurueck; Abbruch, Leeren und die UDP-Regeln laufen getrennt weiter
+                // Bugs-DB 2202: unter CPU-Grenze des Kodierers (hornStats setzt cpuAt) keine Wechsel wegen "besser" - nur der
+                // Rueckweg auf UDP (HornLogic.back, wie Web) bleibt; leere Liste setzt wie im Web den Anwaerter zurueck.
+                // Abbruch, Leeren und die UDP-Regeln laufen getrennt weiter
                 let t = Self.hornNow(), hold = HornLogic.cpuHold(cur.cpuAt, now: t)
-                if let x = H.sw?.observe(t, cur: curScore, others: hold ? [] : others.map { ($0.node, HornLogic.score(m[$0.node], $0)) }) {
+                let pick = others.filter { !hold || HornLogic.back(curPath: cur.path, curCand: cur.cand, $0, m[$0.node]) }
+                if let x = H.sw?.observe(t, cur: curScore, others: pick.map { ($0.node, HornLogic.score(m[$0.node], $0)) }) {
                     hornSwitch(.better, to: x.to)
                 }
             }

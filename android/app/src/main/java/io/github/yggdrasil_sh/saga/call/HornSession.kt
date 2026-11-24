@@ -1514,11 +1514,13 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                         HornLogic.Measure(true, HornLogic.curRtts(m[c.node], c.rtts), udp = if (c.path == "udp") 1.0 else null),
                         HornLogic.Cand(c.node, here = true, udp = c.path == "udp", load = load),
                     )
-                    // Bugs-DB 2202: unter CPU-Grenze des Kodierers (quality setzt cpuAt) keine Wechsel wegen "besser" - leere Liste
-                    // setzt wie im Web den Anwaerter zurueck; Abbruch, Leeren und die UDP-Regeln laufen getrennt weiter
+                    // Bugs-DB 2202: unter CPU-Grenze des Kodierers (quality setzt cpuAt) keine Wechsel wegen "besser" - nur der
+                    // Rueckweg auf UDP (HornLogic.back, wie Web) bleibt; leere Liste setzt wie im Web den Anwaerter zurueck.
+                    // Abbruch, Leeren und die UDP-Regeln laufen getrennt weiter
                     val t = System.currentTimeMillis()
                     val hold = HornLogic.cpuHold(c.cpuAt, t)
-                    sw?.observe(t, curScore, if (hold) emptyList() else others.map { HornLogic.Other(it.node, HornLogic.score(m[it.node], it)) })
+                    sw?.observe(t, curScore, others.filter { !hold || HornLogic.back(c.path, c.cand, it, m[it.node]) }
+                        .map { HornLogic.Other(it.node, HornLogic.score(m[it.node], it)) })
                         ?.let { switch("better", to = it.to) }
                 } catch (e: CancellationException) {
                     throw e

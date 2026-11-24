@@ -53,6 +53,12 @@ enum HornLogic {
     /// Bugs-DB 2202 (wie static/horn.js cpuHold): kein "besser"-Wechsel, solange die CPU-Grenze gilt bzw. bis cpuHoldMs
     /// nach der letzten Meldung (cpuAt/now in ms, 0 = nie gemeldet)
     static func cpuHold(_ cpuAt: Double, now: Double) -> Bool { cpuAt > 0 && now - cpuAt < cpuHoldMs }
+    /// Bugs-DB 2202 (wie static/horn.js back): Rueckweg auf UDP - nur vom Knoten ohne UDP fuer dieses Geraet (Tunnel-/TCP-Knoten)
+    /// zu einem Knoten mit UDP-Antwort; bleibt unter cpuHold erlaubt, weil der Tunnel-/Rahmen-Weg oft selbst die CPU-Last erzeugt
+    static func back(curPath: String, curCand: Candidate?, _ c: Candidate?, _ m: Measure?) -> Bool {
+        guard curPath != "udp", curCand?.udp != true, let c, c.udp, let m, m.ok, m.udp != nil else { return false }
+        return true
+    }
 
     static func median(_ a: [Double]) -> Double {
         let s = a.sorted(), n = s.count
