@@ -793,6 +793,7 @@ class InfoPage(Adw.PreferencesPage):
 
     def _mapped(self):
         self.diag.refresh()
+        self.first.attach()
         self.first.load()
         if not self._h:
             self._h = self.hint.connect("changed", lambda *_: self.refresh())
@@ -800,6 +801,7 @@ class InfoPage(Adw.PreferencesPage):
         self.hint.info_opened()
 
     def _unmapped(self):
+        self.first.detach()
         if self._h:
             self.hint.disconnect(self._h)
             self._h = 0
@@ -863,10 +865,22 @@ class FirstStepsGroup(Adw.PreferencesGroup):
         self.row.set_activatable_widget(self.btn)
         self.add(self.row)
         self.busy = False
-        h = first_steps.connect("changed", lambda *_: self.fill())
-        self.connect("destroy", lambda *_: first_steps.disconnect(h))
+        # Stand nur verfolgen, solange die Seite Info sichtbar ist (InfoPage map/unmap; die Gruppe selbst ist ohne Stand
+        # unsichtbar und bekaeme kein map) - eine dauerhafte Verbindung am globalen first_steps hielte den
+        # Einstellungsdialog nach dem Schliessen fest (wie store.watch)
+        self._h = None
         self.fill()
         self.load()
+
+    def attach(self):
+        if self._h is None:
+            self._h = self.fs.connect("changed", lambda *_: self.fill())
+        self.fill()
+
+    def detach(self):
+        if self._h is not None:
+            self.fs.disconnect(self._h)
+            self._h = None
 
     def load(self):
         """beim Oeffnen: vorhandenen Stand zeigen, sonst bzw. nach einer Minute neu abrufen (gedrosselt)"""

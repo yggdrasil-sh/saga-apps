@@ -4,8 +4,8 @@ from gi.repository import Gtk
 
 
 def empty_state(text, label=None, cb=None, need=False):
-    """Box mit Satz (umbrechend, gedaempft) und optional einem Knopf (hervorgehoben, >= 44 px hoch).
-    need=True: der Knopf fuehrt zu einer fehlenden Voraussetzung (nur CSS-Klasse, fuer Tests/Stil)."""
+    """Box mit Satz (umbrechend, gedaempft) und optional einem Knopf (Pille, >= 44 px hoch, hervorgehoben).
+    need=True: der Knopf fuehrt zu einer fehlenden Voraussetzung (Klasse hk-empty-need, nicht hervorgehoben)."""
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_top=6, margin_bottom=6)
     box.add_css_class("hk-emptystate")
     lb = Gtk.Label(label=text, xalign=0, wrap=True, natural_wrap_mode=Gtk.NaturalWrapMode.WORD)
@@ -15,7 +15,8 @@ def empty_state(text, label=None, cb=None, need=False):
     box.button = None
     if label and cb:
         b = Gtk.Button(label=label, halign=Gtk.Align.START)
-        b.add_css_class("suggested-action")
+        if not need:                                   # GNOME HIG: eine hervorgehobene Aktion je Ansicht - die Voraussetzung
+            b.add_css_class("suggested-action")        # (z. B. "Kalender verbinden") steht daneben ruhiger
         b.add_css_class("pill")
         b.add_css_class("hk-empty-go")
         if need:

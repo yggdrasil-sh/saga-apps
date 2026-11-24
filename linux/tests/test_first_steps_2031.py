@@ -61,15 +61,19 @@ def test_throttle_404_and_force(srv):
     assert not fs.check()
     now[0] += 2
     srv.first_steps = {"state": None}
-    assert fs.check(done=got.append)                       # nach einer Minute wieder
+    assert not fs.check()                                  # aelterer Server (404): ohne force nicht wieder fragen
+    assert fs.check(force=True, done=got.append)           # naechster Start: wieder
     assert pump(lambda: len(got) == 2, 3)
     assert fs.supported is True and fs.st["ask"] is True and fs.st["page"] is None
     assert [k["key"] for k in fs.st["items"]] == ["avatar", "chat", "app", "page", "task"]
     assert not fs.check()
+    now[0] += MIN_GAP + 1
+    assert fs.check()                                      # Server kennt es jetzt: nach einer Minute wieder
+    pump(lambda: not fs.busy, 3)
     assert fs.check(force=True)                            # Start: immer
     assert not fs.check(force=True)                        # laeuft noch: nicht doppelt
     pump(lambda: not fs.busy, 3)
-    assert len(_fs_reqs(srv, "GET")) == 3
+    assert len(_fs_reqs(srv, "GET")) == 4
     # anderer Server/anderes Konto: Antwort eines alten Abrufs wird verworfen
     now[0] += MIN_GAP + 1
     fs.check()
@@ -249,6 +253,7 @@ def test_settings_section_error_is_shown(win, srv):
     first_steps.reset()
     d = SettingsDialog(win)
     d.present(win)
+    d.show_page("info")
     g = next(w for w in _walk(d.pages["info"]) if isinstance(w, FirstStepsGroup))
     assert pump(lambda: g.get_visible(), 3)
     srv.fail["POST api/first-steps"] = 500
@@ -287,6 +292,9 @@ def test_today_empty_states(win, srv):
     tasks_e, cal_e = _empties(v)
     assert tasks_e.button.get_label() == "Write down a task"
     assert cal_e.button.get_label() == "Connect a calendar" and cal_e.button.has_css_class("hk-empty-need")
+    # GNOME HIG: nur eine hervorgehobene Aktion je Ansicht - die Voraussetzung ist eine ruhige Pille
+    assert tasks_e.button.has_css_class("suggested-action") and not cal_e.button.has_css_class("suggested-action")
+    assert cal_e.button.has_css_class("pill") and cal_e.button.measure(Gtk.Orientation.VERTICAL, -1)[0] >= 44
     assert "Nothing planned 🎉" not in _texts(v)
     tasks_e.button.emit("clicked")                          # zu Aufgaben, mit Zurueck nach Heute
     assert pump(lambda: win.route == ("tasks",), 2) and len(win.history) == 2
@@ -382,3 +390,75 @@ def test_mock_body_is_json(srv):
     assert pump(lambda: res, 3)
     blocks = json.loads(srv.notes[res[0]["page"]]["body"])["blocks"]
     assert blocks[1]["data"]["style"] == "checklist" and len(blocks[1]["data"]["items"]) == 5
+
+
+# --- Pruefer-Auflagen (Leck, veraltete Antworten) -----------------------------------------------------------------------
+def test_settings_group_not_held_by_first_steps(win, srv, monkeypatch):
+    """Die Gruppe "Erste Schritte" haengt nur waehrend die Seite Info sichtbar ist am globalen first_steps - danach
+    haelt first_steps weder Gruppe noch Dialog fest und ruft kein fill() mehr auf.
+    (Dass der geschlossene SettingsDialog insgesamt nicht freigegeben wird, war schon vor 2031 so - andere Gruppen,
+    Signal-Kreise in PyGObject - und ist hier nicht Thema.)"""
+    from gi.repository import GObject
+    from hlidskjalf.firststeps import FirstSteps, first_steps
+    from hlidskjalf.settings import FirstStepsGroup, SettingsDialog
+    sig = GObject.signal_lookup("changed", FirstSteps)
+
+    def pending():
+        return GObject.signal_has_handler_pending(first_steps, sig, 0, False)
+    srv.first_steps = {"state": "no"}
+    first_steps.reset()
+    assert not pending()
+    d = SettingsDialog(win)
+    d.present(win)
+    assert not pending()                                   # Info noch nicht gezeigt: keine Verbindung
+    d.show_page("info")
+    g = next(w for w in _walk(d.pages["info"]) if isinstance(w, FirstStepsGroup))
+    assert pump(lambda: g.get_visible() and g._h is not None and pending(), 3)
+    d.show_page("account")                                 # Info nicht mehr sichtbar: Verbindung weg
+    assert pump(lambda: g._h is None and not pending(), 2)
+    d.show_page("info")
+    assert pump(lambda: g._h is not None and pending(), 2)
+    d.force_close()
+    assert pump(lambda: g._h is None and not pending(), 2)
+    calls = []
+    monkeypatch.setattr(FirstStepsGroup, "fill", lambda self: calls.append(self))
+    first_steps.emit("changed")
+    assert not calls                                       # alte Gruppe bekommt nichts mehr
+
+
+def test_answer_after_account_switch_is_dropped(win, srv):
+    from hlidskjalf.firststeps import first_steps
+    srv.first_steps = {"state": None}
+    first_steps.reset()
+    srv.delay["POST api/first-steps"] = 0.4
+    done, errs = [], []
+    first_steps.answer(True, done=done.append, error=errs.append)
+    first_steps.reset()                                    # Kontowechsel, waehrend die Antwort unterwegs ist
+    pump(None, 1.0)
+    assert not done and not errs and first_steps.st is None     # keine Seite des alten Kontos oeffnen
+    srv.first_steps["enabled"] = False
+    first_steps.answer(True, done=done.append, error=errs.append)
+    first_steps.reset()
+    pump(None, 1.0)
+    assert not errs                                        # auch kein Fehler des alten Kontos
+    opened = []
+    win.open_first_steps_page = opened.append
+    srv.first_steps = {"state": None}
+    win._first_steps_answer(True)
+    first_steps.reset()
+    pump(None, 1.0)
+    assert not opened
+
+
+def test_cal_accounts_stale_answer_dropped(win, srv):
+    from hlidskjalf.store import store
+    srv.cal_accounts = []
+    srv.delay["GET api/settings/calendars"] = 0.4
+    store.cal_accounts = None
+    store.load_cal_accounts()
+    store.forget_account_data()                            # anderes Konto am selben Server
+    pump(None, 1.0)
+    assert store.cal_accounts is None
+    del srv.delay["GET api/settings/calendars"]
+    store.load_cal_accounts()
+    assert pump(lambda: store.cal_accounts == 0, 3)

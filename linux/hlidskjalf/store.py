@@ -63,6 +63,7 @@ class Store(GObject.Object):
         self.events = []
         self.tasks_known = False          # 2031: Aufgabenliste schon einmal geladen (leerer Zustand erst danach)
         self.cal_accounts = None          # 2031: Zahl verbundener Kalender (None = unbekannt) - "Kalender verbinden"
+        self._cal_gen = 0                 # 2031: Generation gegen veraltete Antworten nach Konto-/Serverwechsel
         self.loading = False
         self.needs_login = False
         self._refreshing = False
@@ -186,6 +187,7 @@ class Store(GObject.Object):
         self.tasks, self.done_tasks, self.events = [], [], []
         self.task_items, self.task_sources, self.task_people, self._tqueue = None, [], {}, None
         self.tasks_known, self.cal_accounts = False, None
+        self._cal_gen += 1                                  # laufende Kalender-Abfrage gehoert zum alten Konto
         from .firststeps import first_steps
         first_steps.reset()                                 # 2031: Stand gehoert zu Server und Konto
         self.fed_shared, self.fed_unreachable = [], []
@@ -255,6 +257,7 @@ class Store(GObject.Object):
         self.tasks, self.done_tasks, self.events = [], [], []
         self.task_items, self.task_sources, self.task_people, self._tqueue = None, [], {}, None
         self.tasks_known, self.cal_accounts = False, None
+        self._cal_gen += 1                                  # laufende Kalender-Abfrage gehoert zum alten Konto
         from .firststeps import first_steps
         first_steps.reset()                                 # 2031: Stand gehoert zu Server und Konto
         self.fed_shared, self.fed_unreachable = [], []
@@ -1312,10 +1315,10 @@ class Store(GObject.Object):
     def load_cal_accounts(self, done=None):
         """2031: verbundene Kalender zaehlen (GET api/settings/calendars) - ohne Kalender zeigen Heute und Termine
         "Kalender verbinden" statt einer leeren Liste. Fehler: unbekannt lassen (kein Hinweis)."""
-        srv = config.settings.server
+        srv, gen = config.settings.server, self._cal_gen
 
         def fin(j):
-            if srv != config.settings.server:
+            if srv != config.settings.server or gen != self._cal_gen:
                 return
             accs = j.get("accounts") if isinstance(j, dict) else None
             if isinstance(accs, list):

@@ -69,6 +69,8 @@ class FirstSteps(GObject.Object):
         st None bei Fehler/aelterem Server. -> True, wenn abgefragt wird"""
         if self.busy or not (force or self.due()):
             return False
+        if self.supported is False and not force:      # aelterer Server (404): erst beim naechsten Start wieder fragen
+            return False
         self.busy, self.last, gen = True, self.clock(), self.gen
 
         def fin(j):
@@ -98,18 +100,23 @@ class FirstSteps(GObject.Object):
         gen = self.gen
 
         def fin(r):
+            if gen != self.gen:                        # inzwischen anderes Konto/anderer Server: Antwort gehoert zum alten
+                return
             r = r if isinstance(r, dict) else {}
-            if gen == self.gen:
-                st = dict(self.st or {"enabled": True, "items": []})
-                was = st.get("state")
-                st.update(ask=False, state="yes" if was == "yes" or yes else "no")
-                if yes:
-                    st["page"] = _pid(r.get("page"))
-                self.st = st
-                self.emit("changed")
+            st = dict(self.st or {"enabled": True, "items": []})
+            was = st.get("state")
+            st.update(ask=False, state="yes" if was == "yes" or yes else "no")
+            if yes:
+                st["page"] = _pid(r.get("page"))
+            self.st = st
+            self.emit("changed")
             if done:
                 done(r)
-        bg(client.json, "POST", PATH, {"answer": "yes" if yes else "no"}, done=fin, error=error or (lambda e: None))
+
+        def err(e):
+            if gen == self.gen and error:
+                error(e)
+        bg(client.json, "POST", PATH, {"answer": "yes" if yes else "no"}, done=fin, error=err)
 
 
 first_steps = FirstSteps()
