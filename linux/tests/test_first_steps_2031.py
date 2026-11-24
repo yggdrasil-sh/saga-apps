@@ -116,7 +116,7 @@ def test_ask_yes_opens_page(win, srv):
     d = _dialog(win)
     assert d.get_heading() == "Would you like a short introduction?"
     assert d.get_response_label("yes") == "Yes, please" and d.get_response_label("no") == "No, thanks"
-    assert d.get_default_response() == "yes" and d.get_close_response() == "no"
+    assert d.get_default_response() == "yes" and d.get_close_response() == "close"
     d.emit("response", "yes")
     d.force_close()
     assert pump(lambda: srv.first_steps.get("page") and win.route == ("page", srv.first_steps["page"]), 5)
@@ -138,6 +138,18 @@ def test_ask_no_posts_no(win, srv):
     assert pump(lambda: srv.first_steps.get("state") == "no", 3)
     assert not srv.first_steps.get("page") and _fs_reqs(srv, "POST")[-1][1] == {"answer": "no"}
     assert win.route[0] != "page" or win.route[1] in (1, 2, 3, 10, 11, 12)
+
+
+def test_escape_saves_nothing(win, srv):
+    """Escape/Schliessen ist keine Antwort: kein POST, Zustand bleibt offen (wie Web, iOS, Android)"""
+    _ask_ready(win, srv)
+    assert pump(lambda: _dialog(win) is not None, 4)
+    d = _dialog(win)
+    n = len(_fs_reqs(srv, "POST"))
+    d.emit("response", "close")
+    d.force_close()
+    pump(None, 0.8)
+    assert len(_fs_reqs(srv, "POST")) == n and srv.first_steps.get("state") in (None, "")
 
 
 def test_no_ask_when_disabled_older_or_answered(win, srv):

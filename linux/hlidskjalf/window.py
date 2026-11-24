@@ -1306,8 +1306,8 @@ class MainWindow(Adw.ApplicationWindow):
         d.add_response("yes", _("Yes, please"))
         d.set_response_appearance("yes", Adw.ResponseAppearance.SUGGESTED)
         d.set_default_response("yes")
-        d.set_close_response("no")                     # Escape/Schliessen = "Nein, danke" (wie im Web)
-        d.connect("response", lambda dd, r: self._first_steps_answer(r == "yes"))
+        d.set_close_response("close")                  # Escape/Schliessen: nichts speichern, naechste Sitzung fragt wieder (wie Web/iOS/Android)
+        d.connect("response", lambda dd, r: r in ("yes", "no") and self._first_steps_answer(r == "yes"))
         self.first_steps_dialog = d
         d.present(self)
         return False
