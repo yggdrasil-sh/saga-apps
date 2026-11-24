@@ -1,3 +1,7 @@
+> [!WARNING]
+> **This branch is frozen (since 24 Nov 2026) and receives no more changes.** Until Saga 3.0 there is only the
+> [`main`](https://github.com/yggdrasil-sh/saga-apps/tree/main) branch – please clone and contribute there.
+
 <p align="center">
   <img src="linux/data/icons/hicolor/scalable/apps/io.github.yggdrasil_sh.Saga.svg" width="96" height="96" alt="Saga">
 </p>

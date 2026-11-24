@@ -1,3 +1,7 @@
+> [!WARNING]
+> **Dieser Branch ist eingefroren (seit 24.11.2026) und bekommt keine Änderungen mehr.** Bis Saga 3.0 gibt es nur
+> den Branch [`main`](https://github.com/yggdrasil-sh/saga-apps/tree/main) – bitte dort klonen und beitragen.
+
 <p align="center">
   <img src="linux/data/icons/hicolor/scalable/apps/io.github.yggdrasil_sh.Saga.svg" width="96" height="96" alt="Saga">
 </p>

@@ -1,3 +1,7 @@
+> [!WARNING]
+> **Esta rama está congelada (desde el 24/11/2026) y ya no recibe cambios.** Hasta Saga 3.0 solo existe la rama
+> [`main`](https://github.com/yggdrasil-sh/saga-apps/tree/main): clona y contribuye allí.
+
 <p align="center">
   <img src="linux/data/icons/hicolor/scalable/apps/io.github.yggdrasil_sh.Saga.svg" width="96" height="96" alt="Saga">
 </p>
