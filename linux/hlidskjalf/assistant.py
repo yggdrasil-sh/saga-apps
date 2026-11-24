@@ -145,6 +145,31 @@ def ai_head(size=20, extra=None):
     return box
 
 
+def answer_markup(text, sources):
+    """Antwort in der KI-Darstellung (Bugs-DB 2248, aimd.py) -> Pango-Markup: Listen (• bzw. 1.), Ueberschrift fett,
+    **fett** -> <b>, `code` -> <tt>, [n] -> Verweis (nur Quellen mit Seite). Alles andere bleibt Text (escaped)."""
+    from . import aimd
+    n_ok = {int(s.get("n")) for s in sources or [] if isinstance(s, dict) and str(s.get("n", "")).isdigit() and s.get("id") is not None}
+    n_all = {int(s.get("n")) for s in sources or [] if isinstance(s, dict) and str(s.get("n", "")).isdigit()}
+    out = []
+    for ln in aimd.lines(text, n_all):
+        # Nummer aus dem Text (wie das Web: "1. Schritt / Erklaerung / 2. Schritt")
+        pre = f"{ln['n']}.\u2002" if ln["k"] == "ol" else "•\u2002" if ln["k"] == "ul" else ""
+        parts = []
+        for k, v in ln["s"]:
+            if k == "b":
+                parts.append(f"<b>{esc(v)}</b>")
+            elif k == "c":
+                parts.append(f"<tt>{esc(v)}</tt>")
+            elif k == "n":
+                parts.append(f'<a href="src:{v}">[{v}]</a>' if v in n_ok else f"[{v}]")
+            else:
+                parts.append(esc(v))
+        body = "".join(parts)
+        out.append(pre + (f"<b>{body}</b>" if ln["k"] == "h" else body))
+    return "\n".join(out)
+
+
 def cite_markup(text, sources):
     """Klartext -> Markup; [n] wird zum Verweis, wenn es die Quelle n gibt"""
     n_ok = {int(s.get("n")) for s in sources or [] if isinstance(s, dict) and str(s.get("n", "")).isdigit() and s.get("id") is not None}
@@ -635,7 +660,7 @@ class AnswerBox(Gtk.Box):
         if not self.text:
             self.answer.remove_css_class("dim-label")
         self.text += t
-        self.answer.set_markup(cite_markup(self.text, self.srcs))
+        self.answer.set_markup(answer_markup(self.text, self.srcs))
         self._scroll()
 
     def _scroll(self):

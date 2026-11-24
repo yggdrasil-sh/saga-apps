@@ -128,6 +128,66 @@ object AiLogic {
         return out
     }
 
+    // ---------------------------------------------------------------- KI-Darstellung (Bugs-DB 2248)
+    // Feste Markdown-Teilmenge wie Server saga/ai_md.py und Web static/ai.js: Zeilen (p, h, ul, ol) mit Stuecken
+    // (Text, fett, Code, Quelle). Vektoren: src/test/resources/vectors/ki_md.json
+    sealed interface Span {
+        data class T(val t: String) : Span
+        data class B(val t: String) : Span
+        data class C(val t: String) : Span
+        data class N(val n: Int) : Span
+    }
+
+    data class Line(val kind: String, val spans: List<Span>, val n: Int? = null)   // n: Nummer aus dem Text (ol)
+
+    private val LI = Regex("(?U)^\\s*(?:[-*•]|([0-9]{1,2})[.)])\\s+(.*)$")
+    private val HEAD = Regex("(?U)^\\s*#{1,6}\\s+(.*)$")
+    private val INL = Regex("(?U)(\\*\\*[^*\\n]+\\*\\*|__[^_\\n]+__|`[^`\\n]+`|\\[[0-9]{1,2}(?:\\s*[,;]\\s*[0-9]{1,2})*])")
+    private val SEP = Regex("(?U)\\s*[,;]\\s*")
+
+    /** Eine Zeile -> Stuecke; [n] nur als Quelle, wenn n in cites (sonst Text "[n]"); benachbarter Text zusammengefasst */
+    fun spans(s: String, cites: Set<Int>): List<Span> {
+        val out = ArrayList<Span>()
+        fun add(x: Span) {
+            val last = out.lastOrNull()
+            if (x is Span.T && last is Span.T) out[out.size - 1] = Span.T(last.t + x.t) else out.add(x)
+        }
+        var pos = 0
+        for (m in INL.findAll(s)) {
+            if (m.range.first > pos) add(Span.T(s.substring(pos, m.range.first)))
+            val x = m.value
+            when {
+                x.startsWith("[") -> x.substring(1, x.length - 1).split(SEP).forEachIndexed { k, p ->
+                    if (k > 0) add(Span.T(" "))
+                    val n = p.toIntOrNull()
+                    add(if (n != null && n in cites) Span.N(n) else Span.T("[$p]"))
+                }
+                x.startsWith("`") -> add(Span.C(x.substring(1, x.length - 1)))
+                else -> add(Span.B(x.substring(2, x.length - 2)))
+            }
+            pos = m.range.last + 1
+        }
+        if (pos < s.length) add(Span.T(s.substring(pos)))
+        return out
+    }
+
+    /** Antwort -> Zeilen; leere Zeilen fallen weg */
+    fun lines(text: String, cites: Set<Int>): List<Line> {
+        val out = ArrayList<Line>()
+        for (ln in text.split("\n")) {
+            val m = LI.find(ln)
+            if (m != null) {
+                val nr = m.groups[1]?.value?.toIntOrNull()
+                out.add(Line(if (nr != null) "ol" else "ul", spans(m.groupValues[2], cites), nr))
+                continue
+            }
+            if (ln.isBlank()) continue
+            val h = HEAD.find(ln)
+            out.add(if (h != null) Line("h", spans(h.groupValues[1], cites)) else Line("p", spans(ln, cites)))
+        }
+        return out
+    }
+
     /** Ein Ereignis des Stroms lesen */
     fun chunk(event: String, data: String, json: Json): AiChunk? {
         val o = try {

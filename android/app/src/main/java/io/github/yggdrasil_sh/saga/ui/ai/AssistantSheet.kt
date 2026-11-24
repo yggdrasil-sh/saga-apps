@@ -68,6 +68,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.ai.AiChunk
@@ -161,27 +162,31 @@ private fun Footer(st: AiStatus?) {
     }
 }
 
-/** Antworttext mit antippbaren Verweisen [n] */
+/** Antworttext in der KI-Darstellung (Bugs-DB 2248: Absaetze, Listen, Ueberschrift, **fett**, `code`) mit antippbaren
+ *  Verweisen [n] */
 @Composable
 private fun AnswerText(text: String, sources: List<AiSource>, onOpenPage: (Long) -> Unit) {
     val link = MaterialTheme.colorScheme.primary
-    val context = androidx.compose.ui.platform.LocalContext.current
     val s = buildAnnotatedString {
-        for (seg in AiLogic.segments(text, sources)) {
-            when (seg) {
-                // http(s)-Links in der Antwort: ueber openUrl (Standard-Browser)
-                is AiLogic.Seg.Text -> for (p in io.github.yggdrasil_sh.saga.util.Links.split(seg.t)) {
-                    val u = p.url
-                    if (u == null) append(p.text)
-                    else withLink(LinkAnnotation.Clickable("url-$length", TextLinkStyles(SpanStyle(color = link, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline))) {
-                        io.github.yggdrasil_sh.saga.ui.common.openUrl(context, u)
-                    }) { append(p.text) }
-                }
-                is AiLogic.Seg.Ref -> {
-                    val id = sources.firstOrNull { it.n == seg.n }?.id
-                    if (id != null) withLink(LinkAnnotation.Clickable("src-${seg.n}", TextLinkStyles(SpanStyle(color = link, fontWeight = FontWeight.SemiBold))) { onOpenPage(id) }) {
-                        append("[${seg.n}]")
-                    } else append("[${seg.n}]")
+        AiLogic.lines(text, sources.map { it.n }.toSet()).forEachIndexed { i, line ->
+            if (i > 0) append("\n")
+            when (line.kind) {
+                "ul" -> append("•\u2002")
+                "ol" -> append("${line.n ?: 1}.\u2002")          // Nummer aus dem Text (wie das Web)
+            }
+            val head = line.kind == "h"
+            for (sp in line.spans) {
+                when (sp) {
+                    // 2248/RT-03: Adressen im Modelltext nie verlinken (wie Web, iOS, Linux) - Links nur ueber die Quellen
+                    is AiLogic.Span.T -> if (head) withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(sp.t) } else append(sp.t)
+                    is AiLogic.Span.B -> withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(sp.t) }
+                    is AiLogic.Span.C -> withStyle(SpanStyle(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)) { append(sp.t) }
+                    is AiLogic.Span.N -> {
+                        val id = sources.firstOrNull { it.n == sp.n }?.id
+                        if (id != null) withLink(LinkAnnotation.Clickable("src-${sp.n}", TextLinkStyles(SpanStyle(color = link, fontWeight = FontWeight.SemiBold))) { onOpenPage(id) }) {
+                            append("[${sp.n}]")
+                        } else append("[${sp.n}]")
+                    }
                 }
             }
         }

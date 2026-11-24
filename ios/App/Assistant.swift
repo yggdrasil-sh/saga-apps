@@ -462,20 +462,34 @@ struct AssistantSheet: View {
     }
 }
 
-/// Antwort als Klartext; [n] -> antippbarer Verweis auf die Quelle
+/// Antwort in der KI-Darstellung (Bugs-DB 2248: Absaetze, Listen, Ueberschrift, **fett**, `code`); [n] -> antippbarer
+/// Verweis auf die Quelle. Nie Links oder HTML aus dem Modell.
 struct AnswerText: View {
     let text: String
     let sources: [AISource]
     var openPage: (Int) -> Void
     var body: some View {
         var a = AttributedString()
-        for p in AILogic.pieces(text, sources: sources) {
-            switch p {
-            case .text(let s): a += AttributedString(s)
-            case .cite(let n, let id):
-                var x = AttributedString("[\(n)]")
-                if let id { x.link = URL(string: "hkaisrc://\(id)") }
-                x.foregroundColor = Color.gold
+        let byN = Dictionary(sources.map { ($0.n, $0) }, uniquingKeysWith: { x, _ in x })
+        for (i, line) in AILogic.lines(text, cites: Set(byN.keys)).enumerated() {
+            if i > 0 { a += AttributedString("\n") }
+            switch line.kind {
+            case .ul: a += AttributedString("•\u{2002}")
+            case .ol: a += AttributedString("\(line.n ?? 1).\u{2002}")   // Nummer aus dem Text (wie das Web)
+            default: break
+            }
+            for sp in line.spans {
+                var x: AttributedString
+                switch sp {
+                case .text(let s): x = AttributedString(s)
+                case .bold(let s): x = AttributedString(s); x.inlinePresentationIntent = .stronglyEmphasized
+                case .code(let s): x = AttributedString(s); x.font = .system(.body, design: .monospaced)
+                case .cite(let n):
+                    x = AttributedString("[\(n)]")
+                    if let id = byN[n]?.pageID { x.link = URL(string: "hkaisrc://\(id)") }
+                    x.foregroundColor = Color.gold
+                }
+                if line.kind == .h, case .cite = sp {} else if line.kind == .h { x.inlinePresentationIntent = .stronglyEmphasized }
                 a += x
             }
         }

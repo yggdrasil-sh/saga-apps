@@ -242,6 +242,62 @@ enum AILogic {
         if pos < text.endIndex { out.append(.text(String(text[pos...]))) }
         return out
     }
+    // MARK: KI-Darstellung (Bugs-DB 2248): feste Markdown-Teilmenge wie Server saga/ai_md.py und Web static/ai.js -
+    // Zeilen (Absatz, Ueberschrift, Liste, Nummer) mit Stuecken (Text, fett, Code, Quelle). Vektoren: Tests/vectors/ki_md.json
+    enum MDKind: String { case p, h, ul, ol }
+    enum Span: Equatable { case text(String), bold(String), code(String), cite(Int) }
+    struct MDLine: Equatable { let kind: MDKind; var n: Int? = nil; let spans: [Span] }   // n: Nummer aus dem Text (ol)
+    private static let mdLI = try? NSRegularExpression(pattern: #"^\s*(?:[-*•]|([0-9]{1,2})[.)])\s+(.*)$"#)
+    private static let mdH = try? NSRegularExpression(pattern: #"^\s*#{1,6}\s+(.*)$"#)
+    private static let mdINL = try? NSRegularExpression(pattern: #"(\*\*[^*\n]+\*\*|__[^_\n]+__|`[^`\n]+`|\[[0-9]{1,2}(?:\s*[,;]\s*[0-9]{1,2})*\])"#)
+    private static let mdSEP = try? NSRegularExpression(pattern: #"\s*[,;]\s*"#)
+
+    /// Eine Zeile -> Stuecke; [n] nur als Quelle, wenn n in cites (sonst Text "[n]"); benachbarter Text zusammengefasst
+    static func spans(_ s: String, cites: Set<Int>) -> [Span] {
+        guard let re = mdINL else { return s.isEmpty ? [] : [.text(s)] }
+        var out: [Span] = [], pos = s.startIndex
+        func add(_ x: Span) {
+            if case .text(let t) = x, case .text(let p)? = out.last { out[out.count - 1] = .text(p + t) } else { out.append(x) }
+        }
+        for m in re.matches(in: s, range: NSRange(s.startIndex..., in: s)) {
+            guard let r = Range(m.range, in: s) else { continue }
+            if pos < r.lowerBound { add(.text(String(s[pos..<r.lowerBound]))) }
+            let x = String(s[r])
+            if x.hasPrefix("[") {
+                let inner = String(x.dropFirst().dropLast())
+                let parts = mdSEP.map { sep in
+                    sep.stringByReplacingMatches(in: inner, range: NSRange(inner.startIndex..., in: inner), withTemplate: ",")
+                }?.split(separator: ",").map(String.init) ?? [inner]
+                for (k, p) in parts.enumerated() {
+                    if k > 0 { add(.text(" ")) }
+                    if let n = Int(p), cites.contains(n) { add(.cite(n)) } else { add(.text("[\(p)]")) }
+                }
+            } else if x.hasPrefix("`") { add(.code(String(x.dropFirst().dropLast())))
+            } else { add(.bold(String(x.dropFirst(2).dropLast(2)))) }
+            pos = r.upperBound
+        }
+        if pos < s.endIndex { add(.text(String(s[pos...]))) }
+        return out
+    }
+
+    /// Antwort -> Zeilen; leere Zeilen fallen weg
+    static func lines(_ text: String, cites: Set<Int>) -> [MDLine] {
+        var out: [MDLine] = []
+        for ln in text.components(separatedBy: "\n") {
+            let ns = NSRange(ln.startIndex..., in: ln)
+            if let m = mdLI?.firstMatch(in: ln, range: ns), let br = Range(m.range(at: 2), in: ln) {
+                let nr = Range(m.range(at: 1), in: ln).flatMap { Int(ln[$0]) }
+                out.append(MDLine(kind: nr != nil ? .ol : .ul, n: nr, spans: spans(String(ln[br]), cites: cites)))
+                continue
+            }
+            if ln.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { continue }
+            if let m = mdH?.firstMatch(in: ln, range: ns), let br = Range(m.range(at: 1), in: ln) {
+                out.append(MDLine(kind: .h, spans: spans(String(ln[br]), cites: cites)))
+            } else { out.append(MDLine(kind: .p, spans: spans(ln, cites: cites))) }
+        }
+        return out
+    }
+
     /// "Ersetzen": nur Rolle owner/edit, Seite nicht gesperrt, Segmente da und alle Bloecke ersetzbar (gleiche Anzahl)
     static func canReplace(canEdit: Bool, locked: Bool, done: AIDone?) -> Bool {
         guard canEdit, !locked, let d = done, let seg = d.segments, !d.blocks.isEmpty, seg.count == d.blocks.count else { return false }
