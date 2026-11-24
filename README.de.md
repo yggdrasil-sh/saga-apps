@@ -143,8 +143,9 @@ Release). Ein Release entsteht auf `main`, sobald `CHANGELOG.md` für die Versio
 Abschnitt hat (`## [x.y.z] – JJJJ-MM-TT`) und der Tag noch fehlt (`.github/workflows/release.yml`). Nur das
 offizielle Release zeigt die reine Version (z. B. `2.2.0`); alle anderen Builds – Vorabversionen von `main`,
 Ad-hoc-Builds fürs MDM, lokale Builds – zeigen in den Einstellungen `2.2.0-rc.<N>`, damit Testversionen immer
-erkennbar neuer sind als das Release (`tools/version-label.sh`). Die Apps prüfen noch zwei Update-Feeds (Releases /
-Testversionen); ein Kanal auch für die Apps ist geplant.
+erkennbar neuer sind als das Release (`tools/version-label.sh`). Auch die Apps haben einen Update-Kanal: Ab Version 2.5.1
+erfahren sie von jeder neuen Version aus `main`, Testversion oder Release (Feed `testing.json`, Selbst-Update am Mac
+`appcast.xml`). Apps von vor dieser Änderung (bis 2.5.0 bzw. Testversionen bis 2.5.1-rc.3) lesen noch nach Kanal.
 
 ## Versionen
 

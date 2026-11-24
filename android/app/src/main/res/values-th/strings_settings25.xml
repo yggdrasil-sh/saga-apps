@@ -22,7 +22,6 @@
     <string name="update_checking">กำลังตรวจสอบ …</string>
     <string name="update_check">ตรวจหาอัปเดต</string>
     <string name="update_button">อัปเดต</string>
-    <string name="update_footer_testing">เวอร์ชันทดสอบนี้จะได้รับเฉพาะเวอร์ชันทดสอบใหม่เท่านั้น</string>
-    <string name="update_footer_stable">เวอร์ชันนี้จะได้รับเฉพาะเวอร์ชันเสถียรเท่านั้น</string>
+    <string name="update_footer_all">คุณจะได้รับแจ้งทุกเวอร์ชันใหม่ ทั้งเวอร์ชันทดสอบและรุ่นเผยแพร่ จนกว่าจะมีสายเวอร์ชันเสถียรจะมีเพียงช่องทางเดียว</string>
     <string name="update_footer_custom">บิลด์ของคุณเอง: ไม่ตรวจหาอัปเดต</string>
 </resources>

@@ -28,13 +28,13 @@ def _hint(monkeypatch, label="2.5.0-rc.130", result=None, fail=False, gate=None)
     h.label_fn = lambda: label
     calls = []
 
-    def fetch(url, ch):
-        calls.append((url, ch, threading.current_thread() is threading.main_thread()))
+    def fetch(url):
+        calls.append((url, None, threading.current_thread() is threading.main_thread()))
         if gate is not None:
             gate.wait(5)
         if fail:
             raise OSError("offline")
-        return U.parse(json.dumps(result or {"format": 1, "channel": "testing", "version": "2.5.0-rc.140", "page": PAGE, "assets": {}}), ch)
+        return U.parse(json.dumps(result or {"format": 1, "channel": "testing", "version": "2.5.0-rc.140", "page": PAGE, "assets": {}}))
     h.fetch = fetch
     monkeypatch.setattr(uc, "hint", h)
     return h, calls
@@ -84,7 +84,7 @@ def test_info_versions_and_manual_check(win, srv, monkeypatch):
     assert info.srv_row.get_subtitle() == "Saga 2.5.0" and info.ch_row.get_subtitle() == "Test version"
     # Oeffnen von Info: automatische Pruefung (nie geprueft) - im Hintergrund, Schaltflaeche "Pruefe …"
     assert pump(lambda: calls, 3)
-    assert calls[0][0].endswith("/appcast/testing.json") and calls[0][1] == "testing" and calls[0][2] is False
+    assert calls[0][0].endswith("/appcast/testing.json") and calls[0][2] is False
     assert pump(lambda: info.btn.get_label() == "Checking …" and not info.btn.get_sensitive(), 3)
     gate.set()
     assert pump(lambda: info.btn_state == "update", 5)
@@ -118,7 +118,7 @@ def test_up_to_date_and_failed_only_after_manual(win, srv, monkeypatch):
     assert pump(lambda: info.st_row.get_title() == "You have the latest version." and info.btn_state == "check", 5)
     assert info.btn.get_label() == "Check for updates" and info.ch_row.get_subtitle() == "Stable"
     # automatisch fehlgeschlagen: still
-    h.fetch = lambda url, ch: (_ for _ in ()).throw(OSError("offline"))
+    h.fetch = lambda url: (_ for _ in ()).throw(OSError("offline"))
     h.checked = None
     h._auto(0)
     pump(lambda: not h.checking, 3)

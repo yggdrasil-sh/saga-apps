@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # Erzeugt den Sparkle-Appcast (Selbst-Update der Mac-App) fuer EINE DMG - nur Standardbibliothek.
-# Ein Kanal = eine Datei mit genau einem Eintrag (der neuesten Version):
-#   appcast.xml     stabile Releases (Label x.y.z)        - gelesen von stabilen Builds
-#   appcast-rc.xml  Vorabversionen (Label x.y.z-rc.N)    - gelesen von Testversionen
+# EIN Kanal bis zur stabilen Linie (Bugs-DB 2333): eine Datei appcast.xml mit genau einem Eintrag - der neuesten
+# Version von main, Testversion (x.y.z-rc.N) oder Release (x.y.z). Alle DMGs lesen sie; Sparkle vergleicht
+# sparkle:version (Build-Nummer JJJJMMTTHHMM, waechst mit jedem Bau). appcast-rc.xml wird nicht mehr geschrieben.
 # Die Datei liegt im Zweig "appcast" (raw.githubusercontent.com/<repo>/appcast/<datei>); die CI ersetzt sie bei
 # jeder Veroeffentlichung. Signiert wird danach mit Sparkles sign_update (DMG: --ed-key-file - -p, Appcast: Datei).
 #
@@ -22,7 +22,7 @@ MAX_NOTES = 12000              # Zeichen; laengere Notizen werden gekuerzt (Link
 
 
 def feed_name(label):
-    return "appcast-rc.xml" if "-rc." in label else "appcast.xml"
+    return "appcast.xml"
 
 
 def notes(changelog, label):
@@ -61,7 +61,7 @@ def build(label, build_no, url, length, signature, page, notes_md, pub_date):
         '<?xml version="1.0" encoding="utf-8"?>',
         '<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">',
         "  <channel>",
-        "    <title>%s</title>" % escape("Saga für macOS" + (" – Testversionen" if rc else "")),
+        "    <title>%s</title>" % escape("Saga für macOS"),
         "    <link>%s</link>" % escape(page),
         "    <language>de</language>",
         "    <item>",

@@ -1,8 +1,9 @@
 """Update-Hinweis (Einstellungen -> Info) - reine Logik ohne GTK, wie ios/App/UpdateHintLogic.swift.
 
-Quelle: https://raw.githubusercontent.com/<repo>/appcast/<kanal>.json (CI, Zweig appcast, tools/update-info.py). Verglichen
-wird nur im eigenen Kanal: Vorabversion x.y.z-rc.N -> testing.json, sonst stable.json. Entwickler-Labels (kein
-x.y.z(-rc.N)?) -> keine Pruefung. Tests: tests/test_updatehint.py
+Quelle: https://raw.githubusercontent.com/<repo>/appcast/testing.json (CI, Zweig appcast, tools/update-info.py). EIN Kanal
+bis zur stabilen Linie (Bugs-DB 2333): jede App liest testing.json (neueste Version von main, Testversion oder Release)
+und vergleicht nach SemVer (2.5.0 < 2.5.1-rc.1 < 2.5.1). stable.json schreibt die CI nur noch fuer Apps bis 2.5.0.
+Entwickler-Labels (kein x.y.z(-rc.N)?) -> keine Pruefung. Tests: tests/test_updatehint.py
 """
 import json
 import re
@@ -13,6 +14,7 @@ START_INTERVAL = 12 * 3600          # automatische Pruefung beim App-Start hoech
 INFO_INTERVAL = 15 * 60             # beim Oeffnen von Info nicht oefter als so
 MAX_BYTES = 64 * 1024               # groesste angenommene Antwort (die Datei hat wenige hundert Byte)
 TIMEOUT = 10                        # Sekunden
+FEED = "testing"                    # der eine Feed bis zur stabilen Linie (Bugs-DB 2333)
 
 _VER = re.compile(r"^([0-9]{1,9})\.([0-9]{1,9})\.([0-9]{1,9})(?:-rc\.([0-9]{1,9}))?$")
 
@@ -32,7 +34,8 @@ def _key(v):
 
 
 def channel(label):
-    """Kanal der eigenen Version ('testing' / 'stable'); None: Entwickler-Label -> keine Pruefung"""
+    """Art der Version fuer die Anzeige ('testing' = Testversion, 'stable' = Release); None: Entwickler-Label -> keine
+    Pruefung. Bestimmt NICHT mehr den Feed - es gibt nur einen (FEED)."""
     v = parse_version(label)
     if v is None:
         return None
@@ -48,10 +51,10 @@ def is_newer(remote, local):
 
 
 def feed_url(label, repo=REPO):
-    ch = channel(label)
-    if ch is None or not re.match(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", repo or "") or ".." in repo:
+    """Feed fuer jede gueltige Version derselbe; Entwickler-Labels -> None (keine Pruefung)"""
+    if channel(label) is None or not re.match(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", repo or "") or ".." in repo:
         return None
-    return f"https://raw.githubusercontent.com/{repo}/appcast/{ch}.json"
+    return f"https://raw.githubusercontent.com/{repo}/appcast/{FEED}.json"
 
 
 # --- Datei (format 1) --------------------------------------------------------------------------------------------------
@@ -71,9 +74,9 @@ def safe_link(v):
     return v
 
 
-def parse(data, expected):
-    """Antwort lesen: format 1, passender Kanal, gueltige Version im selben Kanal; unsichere Links fallen weg.
-    -> {"version", "page", "assets"} oder None"""
+def parse(data):
+    """Antwort lesen: format 1, gueltige Version (Testversion oder Release); steht "channel" drin, muss es zur Version
+    passen (testing <-> x.y.z-rc.N, stable <-> x.y.z); unsichere Links fallen weg. -> {"version", "page", "assets"} oder None"""
     if isinstance(data, (bytes, bytearray)):
         if len(data) > MAX_BYTES:
             return None
@@ -88,9 +91,10 @@ def parse(data, expected):
     if not isinstance(j, dict) or j.get("format") != 1 or isinstance(j.get("format"), bool):
         return None
     v = j.get("version")
-    if not isinstance(v, str) or channel(v.strip()) != expected:
+    kind = channel(v.strip()) if isinstance(v, str) else None
+    if kind is None:
         return None
-    if "channel" in j and j.get("channel") != expected:
+    if "channel" in j and j.get("channel") != kind:
         return None
     assets = {}
     raw = j.get("assets") if isinstance(j.get("assets"), dict) else {}
@@ -127,9 +131,8 @@ def status(available, failed, checked):
 
 
 def available(release, label):
-    """Bekanntes Update aus dem Zwischenspeicher: nur neuer und nur im eigenen Kanal"""
-    ch = channel(label)
-    if not isinstance(release, dict) or ch is None or channel(release.get("version")) != ch:
+    """Bekanntes Update aus dem Zwischenspeicher: nur neuer (SemVer, Testversion wie Release)"""
+    if not isinstance(release, dict):
         return None
     return release if is_newer(release.get("version"), label) else None
 
@@ -156,9 +159,8 @@ def decode(d):
         return None, None
     r = d.get("release")
     if r is not None:
-        ch = channel(r.get("version")) if isinstance(r, dict) else None
         r = parse(json.dumps({"format": 1, "version": r.get("version"), "page": r.get("page"),
-                              "assets": r.get("assets")}), ch) if ch else None
+                              "assets": r.get("assets")})) if isinstance(r, dict) else None
     return float(c), r
 
 
@@ -168,7 +170,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None                                   # keine Weiterleitung: dann ist die Antwort kein 200 -> Fehler
 
 
-def fetch(url, expected, opener=None):
+def fetch(url, opener=None):
     """Datei holen: nur die Datei - keine Cookies, keine Kennungen, kein Konto, 10 s Zeitlimit. -> Release (parse) oder
     Ausnahme. Eigener Opener ohne Cookie-Verarbeitung (der Saga-Client mit Sitzung wird hier nie benutzt)."""
     if not url or not url.startswith("https://raw.githubusercontent.com/"):
@@ -179,7 +181,7 @@ def fetch(url, expected, opener=None):
         if getattr(res, "status", 200) != 200:
             raise ValueError(f"HTTP {res.status}")
         data = res.read(MAX_BYTES + 1)
-    r = parse(data, expected)
+    r = parse(data)
     if r is None:
         raise ValueError("unexpected update info")
     return r

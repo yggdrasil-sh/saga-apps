@@ -44,33 +44,34 @@ def test_channel_and_url():
     assert U.channel("2.5.0-rc.3") == "testing"
     assert U.channel("2.5.0+dev") is None and U.channel("") is None
     assert U.feed_url("2.5.0-rc.3") == "https://raw.githubusercontent.com/yggdrasil-sh/saga-apps/appcast/testing.json"
-    assert U.feed_url("2.5.0") == "https://raw.githubusercontent.com/yggdrasil-sh/saga-apps/appcast/stable.json"
+    assert U.feed_url("2.5.0") == "https://raw.githubusercontent.com/yggdrasil-sh/saga-apps/appcast/testing.json"   # 2333: ein Feed
     assert U.feed_url("dev") is None
     assert U.feed_url("2.5.0", repo="a/../b") is None and U.feed_url("2.5.0", repo="nur-ein-name") is None
 
 
 # --- Datei -------------------------------------------------------------------------------------------------------------
 def test_parse_format1():
-    r = U.parse(_file(), "stable")
+    r = U.parse(_file())
     assert r == {"version": "2.5.1", "page": PAGE, "assets": {"rpm": json.loads(_file())["assets"]["rpm"]}}
 
 
 def test_parse_rejects():
-    assert U.parse(_file(format=2), "stable") is None                    # unbekanntes Format
-    assert U.parse(_file(format=True), "stable") is None
-    assert U.parse(_file(), "testing") is None                           # anderer Kanal
-    assert U.parse(_file(channel="testing"), "stable") is None
-    assert U.parse(_file(version="2.5.1-rc.2"), "stable") is None        # Version passt nicht zum Kanal
-    assert U.parse(_file(version="kaputt"), "stable") is None
-    assert U.parse(b"{", "stable") is None and U.parse(b"[]", "stable") is None and U.parse(b"\xff", "stable") is None
-    assert U.parse(b" " * (U.MAX_BYTES + 1), "stable") is None
+    assert U.parse(_file(format=2)) is None                    # unbekanntes Format
+    assert U.parse(_file(format=True)) is None
+    assert U.parse(_file(channel="testing")) is None                     # channel passt nicht zur Version
+    assert U.parse(_file(version="2.5.1-rc.2")) is None                  # ... und umgekehrt
+    assert U.parse(_file(channel=7)) is None and U.parse(_file(channel=None)) is None
+    assert U.parse(_file(version="2.5.1-dirty")) is None                 # Entwickler-Version im Feed
+    assert U.parse(_file(version="kaputt")) is None
+    assert U.parse(b"{") is None and U.parse(b"[]") is None and U.parse(b"\xff") is None
+    assert U.parse(b" " * (U.MAX_BYTES + 1)) is None
 
 
 def test_parse_without_channel_key_and_assets():
     d = json.loads(_file())
     del d["channel"]
     del d["assets"]
-    r = U.parse(json.dumps(d), "stable")
+    r = U.parse(json.dumps(d))
     assert r["version"] == "2.5.1" and r["assets"] == {}
 
 
@@ -95,22 +96,36 @@ def test_safe_link(url, ok):
 
 
 def test_unsafe_links_dropped():
-    r = U.parse(_file(page="https://evil.example/x", assets={"rpm": "http://github.com/x", "android": PAGE}), "stable")
+    r = U.parse(_file(page="https://evil.example/x", assets={"rpm": "http://github.com/x", "android": PAGE}))
     assert r["page"] is None and r["assets"] == {"android": PAGE}
     assert U.action(r) is None and U.button(False, r) == "check"         # ohne Release-Seite: nur Hinweis
 
 
 # --- Zustand -----------------------------------------------------------------------------------------------------------
-def test_available_only_own_channel_and_newer():
-    st = U.parse(_file(), "stable")
+def test_parse_rc_and_release_from_one_feed():
+    # 2333: im einen Feed steht mal eine Testversion, mal ein Release
+    assert U.parse(_file(channel="testing", version="2.5.2-rc.1"))["version"] == "2.5.2-rc.1"
+    assert U.parse(_file())["version"] == "2.5.1"
+
+
+def test_semver_chain():
+    assert U.is_newer("2.5.1-rc.1", "2.5.0") and U.is_newer("2.5.1", "2.5.1-rc.1") and U.is_newer("2.5.2-rc.1", "2.5.1")
+
+
+def test_available_newer_across_kinds():
+    st = U.parse(_file())
     assert U.available(st, "2.5.0") is st
     assert U.available(st, "2.5.1") is None
-    assert U.available(st, "2.5.0-rc.4") is None                         # Testversion vergleicht nur mit testing
+    assert U.available(st, "2.5.0-rc.4") is st                           # 2333: Release auch fuer Testversionen
+    assert U.available(st, "2.5.1-rc.4") is st
+    rc = U.parse(_file(channel="testing", version="2.5.2-rc.1"))
+    assert U.available(rc, "2.5.1") is rc                                # 2333: Testversion auch fuer Releases
+    assert U.available(rc, "2.5.2") is None
     assert U.available(st, "dev") is None and U.available(None, "2.5.0") is None
 
 
 def test_button_and_status():
-    st = U.parse(_file(), "stable")
+    st = U.parse(_file())
     assert U.button(True, st) == "checking" and U.button(True, None) == "checking"
     assert U.button(False, st) == "update" and U.button(False, None) == "check"
     assert U.action(st) == PAGE                                          # Linux: immer die Release-Seite
@@ -130,7 +145,7 @@ def test_due():
 
 
 def test_cache_roundtrip_and_garbage():
-    st = U.parse(_file(), "stable")
+    st = U.parse(_file())
     assert U.decode(json.loads(json.dumps(U.encode(1234.5, st)))) == (1234.5, st)
     assert U.decode(U.encode(7, None)) == (7.0, None)
     assert U.decode(None) == (None, None) and U.decode({"checked": "x"}) == (None, None) and U.decode({"checked": True}) == (None, None)
@@ -164,22 +179,22 @@ class _Opener:
 
 def test_fetch_sends_only_the_file():
     op = _Opener(_file())
-    r = U.fetch(U.feed_url("2.5.0"), "stable", opener=op)
+    r = U.fetch(U.feed_url("2.5.0"), opener=op)
     assert r["version"] == "2.5.1"
     req, timeout = op.reqs[0]
     assert timeout == 10 and req.get_method() == "GET" and req.data is None
     names = {k.lower() for k, _v in req.header_items()}
     assert not {"cookie", "authorization"} & names
-    assert req.full_url == "https://raw.githubusercontent.com/yggdrasil-sh/saga-apps/appcast/stable.json"
+    assert req.full_url == "https://raw.githubusercontent.com/yggdrasil-sh/saga-apps/appcast/testing.json"
 
 
 def test_fetch_errors():
     with pytest.raises(ValueError):
-        U.fetch("https://evil.example/stable.json", "stable", opener=_Opener(_file()))
+        U.fetch("https://evil.example/stable.json", opener=_Opener(_file()))
     with pytest.raises(ValueError):
-        U.fetch(U.feed_url("2.5.0"), "stable", opener=_Opener(_file(), status=404))
+        U.fetch(U.feed_url("2.5.0"), opener=_Opener(_file(), status=404))
     with pytest.raises(ValueError):
-        U.fetch(U.feed_url("2.5.0"), "stable", opener=_Opener(b"<html>"))
+        U.fetch(U.feed_url("2.5.0"), opener=_Opener(b"<html>"))
 
 
 def test_default_opener_has_no_cookie_handler():

@@ -22,7 +22,6 @@
     <string name="update_checking">Checking …</string>
     <string name="update_check">Check for updates</string>
     <string name="update_button">Update</string>
-    <string name="update_footer_testing">This test version only receives new test versions.</string>
-    <string name="update_footer_stable">This version only receives stable versions.</string>
+    <string name="update_footer_all">You\'ll be notified of every new version – test version or release. Until the stable line there is only one channel.</string>
     <string name="update_footer_custom">Custom build: no update check.</string>
 </resources>

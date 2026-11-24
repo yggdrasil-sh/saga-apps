@@ -12,9 +12,11 @@ import java.net.URI
 
 /**
  * Update-Hinweis in Einstellungen -> Info (alle Apps gleich, wie ios/App/UpdateHintLogic.swift) - reine Logik ohne
- * Netz/Android. Quelle: https://raw.githubusercontent.com/<repo>/appcast/<kanal>.json (CI, Zweig appcast,
- * tools/update-info.py). Verglichen wird nur im eigenen Kanal: x.y.z-rc.N -> testing.json, sonst stable.json.
- * Entwickler-Labels (kein x.y.z(-rc.N)?, z. B. "-debug") -> keine Pruefung. Tests: UpdateHintTest.
+ * Netz/Android. Quelle: https://raw.githubusercontent.com/<repo>/appcast/testing.json (CI, Zweig appcast,
+ * tools/update-info.py). EIN Kanal bis zur stabilen Linie (Bugs-DB 2333): jede App liest testing.json (neueste Version
+ * von main, Testversion oder Release) und vergleicht nach SemVer (2.5.0 < 2.5.1-rc.1 < 2.5.1). stable.json schreibt die
+ * CI nur noch fuer Apps bis 2.5.0. Entwickler-Labels (kein x.y.z(-rc.N)?, z. B. "-debug") -> keine Pruefung.
+ * Tests: UpdateHintTest.
  */
 object UpdateHint {
     const val REPO = "yggdrasil-sh/saga-apps"
@@ -25,6 +27,8 @@ object UpdateHint {
     /** Groesste angenommene Antwort (die Datei hat wenige hundert Byte) */
     const val MAX_BYTES = 64 * 1024
     const val TIMEOUT_MS = 10_000L
+    /** Der eine Feed bis zur stabilen Linie (Bugs-DB 2333) */
+    const val FEED = "testing"
 
     private val VERSION_RE = Regex("^([0-9]{1,9})\\.([0-9]{1,9})\\.([0-9]{1,9})(?:-rc\\.([0-9]{1,9}))?$")
     private val json = Json { ignoreUnknownKeys = true }
@@ -56,7 +60,8 @@ object UpdateHint {
         }
     }
 
-    /** Kanal der eigenen Version ("testing" / "stable"); null: Entwickler-Label -> keine Pruefung */
+    /** Art der Version fuer die Anzeige ("testing" = Testversion, "stable" = Release); null: Entwickler-Label -> keine
+     *  Pruefung. Bestimmt NICHT mehr den Feed - es gibt nur einen (FEED). */
     fun channel(label: String?): String? = Version.parse(label)?.let { if (it.prerelease) "testing" else "stable" }
 
     /** Neuer als die eigene Version (beide gueltig, sonst false) */
@@ -66,8 +71,9 @@ object UpdateHint {
         return l < r
     }
 
+    /** Feed fuer jede gueltige Version derselbe; Entwickler-Labels -> null (keine Pruefung) */
     fun feedUrl(label: String?, repo: String = REPO): String? =
-        channel(label)?.let { "https://raw.githubusercontent.com/$repo/appcast/$it.json" }
+        channel(label)?.let { "https://raw.githubusercontent.com/$repo/appcast/$FEED.json" }
 
     // ------------------------------------------------------------------ Datei (format 1)
 
@@ -89,8 +95,9 @@ object UpdateHint {
 
     private fun str(o: JsonObject?, k: String): String? = (o?.get(k) as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
 
-    /** Datei lesen: format 1, passender Kanal, gueltige Version im selben Kanal; unsichere Links fallen weg */
-    fun parse(bytes: ByteArray, expected: String): Release? {
+    /** Datei lesen: format 1, gueltige Version (Testversion oder Release); steht "channel" drin, muss es zur Version
+     *  passen (testing <-> x.y.z-rc.N, stable <-> x.y.z); unsichere Links fallen weg */
+    fun parse(bytes: ByteArray): Release? {
         if (bytes.size > MAX_BYTES) return null
         val o = try {
             json.parseToJsonElement(bytes.toString(Charsets.UTF_8)) as? JsonObject
@@ -100,9 +107,8 @@ object UpdateHint {
         val format = (o["format"] as? JsonPrimitive)?.takeIf { !it.isString }?.intOrNull
         if (format != 1) return null
         val v = str(o, "version")?.trim() ?: return null
-        if (channel(v) != expected) return null
-        val ch = str(o, "channel")
-        if (ch != null && ch != expected) return null
+        val kind = channel(v) ?: return null
+        if (o.containsKey("channel") && str(o, "channel") != kind) return null
         val assets = LinkedHashMap<String, String>()
         (o["assets"] as? JsonObject)?.forEach { (k, x) -> safeLink((x as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull)?.let { assets[k] = it } }
         return Release(v, safeLink(str(o, "page")), assets)
@@ -137,12 +143,8 @@ object UpdateHint {
         else -> Status.UpToDate
     }
 
-    /** Bekanntes Update aus dem Zwischenspeicher: nur neuer und nur im eigenen Kanal */
-    fun available(r: Release?, label: String?): Release? {
-        if (r == null) return null
-        val ch = channel(label) ?: return null
-        return r.takeIf { channel(it.version) == ch && isNewer(it.version, label) }
-    }
+    /** Bekanntes Update aus dem Zwischenspeicher: nur neuer (SemVer, Testversion wie Release) */
+    fun available(r: Release?, label: String?): Release? = r?.takeIf { isNewer(it.version, label) }
 
     /** Faellig: nie geprueft, Uhr zurueckgestellt oder aelter als das Intervall */
     fun due(last: Long?, now: Long, interval: Long): Boolean {

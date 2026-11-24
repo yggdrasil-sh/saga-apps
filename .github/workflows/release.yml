@@ -25,7 +25,7 @@
 # ein Release bricht dann ab.
 # Optional: SPARKLE_ED_PRIVATE_KEY (Selbst-Update der Mac-App ueber Sparkle; Export von Sparkles generate_keys -x).
 #   Mit ihm traegt die DMG Appcast-Adresse und oeffentlichen Schluessel ein, und jede Veroeffentlichung ersetzt den
-#   signierten Appcast im Zweig "appcast" (appcast.xml = Releases, appcast-rc.xml = Vorabversionen).
+#   signierten Appcast im Zweig "appcast" (appcast.xml = neueste Version von main, Testversion oder Release; Bugs-DB 2333).
 #   Ohne ihn: DMG ohne Selbst-Update, kein Appcast, nur ein Hinweis.
 name: Release
 
@@ -397,7 +397,10 @@ jobs:
           V: ${{ needs.version.outputs.version }}
         run: |
           python3 tools/update-info.py --label "$V" --repo "$GITHUB_REPOSITORY" --dist dist --commit "$GITHUB_SHA" --out-dir update-out
-          sh tools/publish-appcast.sh update-out stable.json "$V"
+          sh tools/publish-appcast.sh update-out stable.json "$V"        # Apps bis 2.5.0 (lesen noch nach Kanal)
+          # ein Kanal (Bugs-DB 2333): neuere Apps lesen nur testing.json - dort steht auch das Release
+          cp update-out/stable.json update-out/testing.json
+          sh tools/publish-appcast.sh update-out testing.json "$V"
 
   # Jeder Push auf main ohne Release aktualisiert EINE Vorabversion "v<Version>-rc.<N>" (Release Candidate, Pre-release, nie "Latest").
   # Aeltere Vorabversionen (*-rc.N, *+dev.N und die frueheren *-testing) werden dabei entfernt; echte Releases bleiben.
@@ -472,7 +475,7 @@ jobs:
         run: |
           # wie oben: nur fuer echte Vorabversionen (x.y.z-rc.N)
           printf '%s' "$L" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$' || exit 0
-          sh tools/publish-appcast.sh appcast-out appcast-rc.xml "$L"
+          sh tools/publish-appcast.sh appcast-out appcast.xml "$L"   # ein Appcast fuer alle (Bugs-DB 2333)
       - name: Update-Info (Update-Hinweis der Apps)
         env:
           L: ${{ needs.version.outputs.label }}

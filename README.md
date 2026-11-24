@@ -140,8 +140,9 @@ happens on `main` once `CHANGELOG.md` has a dated section for the version in `VE
 and the tag does not exist yet (`.github/workflows/release.yml`). Only the official release shows its plain version
 (e.g. `2.2.0`); every other build – pre-releases from `main`, ad-hoc/MDM builds, local builds – shows
 `2.2.0-rc.<N>` in its settings, so test versions are always recognisably newer than the release
-(`tools/version-label.sh`). The apps still check two update feeds (releases / test versions); a single channel for
-the apps as well is planned.
+(`tools/version-label.sh`). The apps have a single update channel as well: from version 2.5.1 on they hear about every
+new version from `main`, test version or release (feed `testing.json`, Mac self-update `appcast.xml`). Apps from before this change
+(up to 2.5.0 and test versions up to 2.5.1-rc.3) still read by channel.
 
 ## Versions
 

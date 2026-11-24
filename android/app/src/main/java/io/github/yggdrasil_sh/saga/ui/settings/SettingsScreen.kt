@@ -748,11 +748,8 @@ private fun UpdateHintSection(modifier: Modifier) {
             }
         }
         Text(
-            stringResource(when (UpdateHint.channel(UpdateHintModel.label)) {
-                "testing" -> R.string.update_footer_testing
-                "stable" -> R.string.update_footer_stable
-                else -> R.string.update_footer_custom
-            }),
+            stringResource(if (UpdateHint.channel(UpdateHintModel.label) != null) R.string.update_footer_all
+                           else R.string.update_footer_custom),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp),
         )

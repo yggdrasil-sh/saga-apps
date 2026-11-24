@@ -36,8 +36,10 @@ class UpdateHintTest {
         assertEquals("stable", UpdateHint.channel("2.5.0"))
         assertNull("Debug-Build: keine Pruefung", UpdateHint.channel("2.5.0-rc.3-debug"))
         assertEquals("https://raw.githubusercontent.com/yggdrasil-sh/saga-apps/appcast/testing.json", UpdateHint.feedUrl("2.5.0-rc.1"))
-        assertTrue(UpdateHint.feedUrl("2.5.0")!!.endsWith("/appcast/stable.json"))
+        assertTrue("2333: Release liest denselben Feed", UpdateHint.feedUrl("2.5.0")!!.endsWith("/appcast/testing.json"))
         assertNull(UpdateHint.feedUrl("local"))
+        // 2333: SemVer ueber beide Arten
+        assertTrue(v("2.5.0") < v("2.5.1-rc.1") && v("2.5.1-rc.1") < v("2.5.1") && v("2.5.1") < v("2.5.2-rc.1"))
     }
 
     @Test fun links() {
@@ -56,19 +58,23 @@ class UpdateHintTest {
         """"assets":{"android":"https://github.com/o/r/releases/download/v2.5.0-rc.141/Saga.apk","macos":"https://evil.example/Saga-macOS.dmg","rpm":7}}"""
 
     @Test fun parseFile() {
-        val r = UpdateHint.parse(good.toByteArray(), "testing")!!
+        val r = UpdateHint.parse(good.toByteArray())!!
         assertEquals("2.5.0-rc.141", r.version)
         assertNotNull(r.assets["android"])
         assertNull("unsicherer Link faellt weg", r.assets["macos"])
         assertNull("kein Text", r.assets["rpm"])
         assertTrue(r.page!!.startsWith("https://github.com/"))
-        assertNull("fremder Kanal", UpdateHint.parse(good.toByteArray(), "stable"))
-        assertNull("unbekanntes format", UpdateHint.parse(good.replace("\"format\":1", "\"format\":2").toByteArray(), "testing"))
-        assertNull("format als Text", UpdateHint.parse(good.replace("\"format\":1", "\"format\":\"1\"").toByteArray(), "testing"))
-        assertNull("Version passt nicht zum Kanal", UpdateHint.parse("""{"format":1,"version":"2.5.0"}""".toByteArray(), "testing"))
-        assertTrue("ohne Assets", UpdateHint.parse("""{"format":1,"version":"2.5.0"}""".toByteArray(), "stable")!!.assets.isEmpty())
-        assertNull("kein JSON", UpdateHint.parse("kaputt".toByteArray(), "stable"))
-        assertNull("zu gross", UpdateHint.parse(ByteArray(UpdateHint.MAX_BYTES + 1) { 32 }, "stable"))
+        assertNull("unbekanntes format", UpdateHint.parse(good.replace("\"format\":1", "\"format\":2").toByteArray()))
+        assertNull("format als Text", UpdateHint.parse(good.replace("\"format\":1", "\"format\":\"1\"").toByteArray()))
+        assertEquals("2333: Release im Feed", "2.5.1", UpdateHint.parse("""{"format":1,"channel":"stable","version":"2.5.1"}""".toByteArray())?.version)
+        assertNull("channel passt nicht zur Version", UpdateHint.parse("""{"format":1,"channel":"testing","version":"2.5.1"}""".toByteArray()))
+        assertNull("channel passt nicht zur rc", UpdateHint.parse("""{"format":1,"channel":"stable","version":"2.5.1-rc.1"}""".toByteArray()))
+        assertNull("channel kein Text", UpdateHint.parse("""{"format":1,"channel":7,"version":"2.5.1"}""".toByteArray()))
+        assertNull("channel null", UpdateHint.parse("""{"format":1,"channel":null,"version":"2.5.1"}""".toByteArray()))
+        assertNull("Entwickler-Version im Feed", UpdateHint.parse("""{"format":1,"version":"2.5.1-debug"}""".toByteArray()))
+        assertTrue("ohne Assets", UpdateHint.parse("""{"format":1,"version":"2.5.0"}""".toByteArray())!!.assets.isEmpty())
+        assertNull("kein JSON", UpdateHint.parse("kaputt".toByteArray()))
+        assertNull("zu gross", UpdateHint.parse(ByteArray(UpdateHint.MAX_BYTES + 1) { 32 }))
     }
 
     @Test fun buttonStatusAvailable() {
@@ -87,7 +93,10 @@ class UpdateHintTest {
         assertEquals(UpdateHint.Status.Failed, UpdateHint.status(null, true, now))
         assertEquals(UpdateHint.Status.UpToDate, UpdateHint.status(null, false, now))
         assertEquals(UpdateHint.Status.None, UpdateHint.status(null, false, null))
-        assertNull("Release nicht fuer den testing-Kanal", UpdateHint.available(apk, "2.5.0-rc.9"))
+        assertEquals("2333: Release auch fuer Testversionen", apk, UpdateHint.available(apk, "2.5.0-rc.9"))
+        val rc = UpdateHint.Release("2.5.1-rc.1", null, emptyMap())
+        assertEquals("2333: Testversion auch fuer 2.5.0-Installationen", rc, UpdateHint.available(rc, "2.5.0"))
+        assertNull("Testversion aelter als Release", UpdateHint.available(rc, "2.5.1"))
         assertEquals(apk, UpdateHint.available(apk, "2.4.1"))
         assertNull(UpdateHint.available(apk, "2.5.0"))
         assertNull(UpdateHint.available(apk, "2.4.1-debug"))

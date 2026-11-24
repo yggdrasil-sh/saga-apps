@@ -32,8 +32,8 @@ def start(g):
     from hlidskjalf import updatecheck, updatehint as U
     h = updatecheck.hint
     h.label_fn = lambda: "2.5.0-rc.130"                       # wie ein Paket aus dem testing-Kanal
-    h.fetch = lambda url, ch: (time.sleep(0.3), U.parse(json.dumps({"format": 1, "channel": "testing", "version": "2.5.0-rc.140",
-                                                                     "page": PAGE, "assets": {}}), ch))[1]
+    h.fetch = lambda url: (time.sleep(0.3), U.parse(json.dumps({"format": 1, "channel": "testing", "version": "2.5.0-rc.140",
+                                                                 "page": PAGE, "assets": {}})))[1]
     g["win"].show_root(("today",))
     g["win"].set_default_size(1100, 820)
 
@@ -85,7 +85,7 @@ def shot_info(g):
 def uptodate(g):
     from hlidskjalf import updatecheck, updatehint as U
     h = updatecheck.hint
-    h.release = U.parse(json.dumps({"format": 1, "version": "2.5.0-rc.130", "page": PAGE}), "testing")
+    h.release = U.parse(json.dumps({"format": 1, "version": "2.5.0-rc.130", "page": PAGE}))
     h.emit("changed")
 
 

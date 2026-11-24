@@ -24,9 +24,8 @@ final class UpdateHintModel: ObservableObject {
         if let c = UpdateHint.decode(UserDefaults.standard.data(forKey: Self.cacheKey)) { checked = c.checked; release = c.release }
     }
 
-    /// Bekanntes Update im eigenen Kanal (nil: keins bzw. Hinweis aus)
+    /// Bekanntes Update (nil: keins bzw. Hinweis aus)
     var available: UpdateHint.Release? { enabled ? UpdateHint.available(release, label: label) : nil }
-    var channel: String? { UpdateHint.channel(label) }
     var status: UpdateHint.Status { UpdateHint.status(available: available, failed: failed, checked: checked) }
 
     /// App-Start: hoechstens alle 12 h
@@ -42,12 +41,13 @@ final class UpdateHintModel: ObservableObject {
     /// "Nach Updates suchen": sofort, ohne Zwischenspeicher
     func check(manual: Bool) async {
         guard enabled, !checking else { return }
-        guard let url = UpdateHint.feedURL(label: label, repo: UpdateHint.repo(Bundle.main.infoDictionary ?? [:])),
-              let ch = channel else { if manual { failed = true }; return }
+        guard let url = UpdateHint.feedURL(label: label, repo: UpdateHint.repo(Bundle.main.infoDictionary ?? [:])) else {
+            if manual { failed = true }; return
+        }
         checking = true; defer { checking = false }
         if manual { failed = false }
         do {
-            let r = try await Self.fetch(url, channel: ch)
+            let r = try await Self.fetch(url)
             release = r; checked = Date(); failed = false
             if let d = UpdateHint.encode(.init(checked: checked!, release: r)) { UserDefaults.standard.set(d, forKey: Self.cacheKey) }
         } catch {
@@ -57,7 +57,7 @@ final class UpdateHintModel: ObservableObject {
 
     private struct Bad: Error {}
 
-    nonisolated private static func fetch(_ url: URL, channel: String) async throws -> UpdateHint.Release {
+    nonisolated private static func fetch(_ url: URL) async throws -> UpdateHint.Release {
         let cfg = URLSessionConfiguration.ephemeral
         cfg.timeoutIntervalForRequest = 10; cfg.timeoutIntervalForResource = 10
         cfg.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
@@ -66,7 +66,7 @@ final class UpdateHintModel: ObservableObject {
         defer { session.finishTasksAndInvalidate() }
         var req = URLRequest(url: url); req.httpMethod = "GET"
         let (data, res) = try await session.data(for: req)
-        guard (res as? HTTPURLResponse)?.statusCode == 200, let r = UpdateHint.parse(data, channel: channel) else { throw Bad() }
+        guard (res as? HTTPURLResponse)?.statusCode == 200, let r = UpdateHint.parse(data) else { throw Bad() }
         return r
     }
 }
@@ -100,10 +100,10 @@ struct UpdateHintSection: View {
             }
             #endif
         } header: { Text("Updates") } footer: {
-            switch UpdateHint.channel(model.label) {
-            case "testing": Text("Diese Testversion erhält nur neue Testversionen.")
-            case "stable": Text("Diese Version erhält nur stabile Versionen.")
-            default: Text("Eigener Build: keine Update-Prüfung.")
+            if UpdateHint.channel(model.label) != nil {
+                Text("Du erfährst von jeder neuen Version – Testversion oder Release. Bis zur stabilen Linie gibt es nur einen Kanal.")
+            } else {
+                Text("Eigener Build: keine Update-Prüfung.")
             }
         }
         .task { model.infoOpened() }

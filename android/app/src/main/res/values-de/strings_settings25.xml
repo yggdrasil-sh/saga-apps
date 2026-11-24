@@ -22,7 +22,6 @@
     <string name="update_checking">Prüfe …</string>
     <string name="update_check">Nach Updates suchen</string>
     <string name="update_button">Update</string>
-    <string name="update_footer_testing">Diese Testversion erhält nur neue Testversionen.</string>
-    <string name="update_footer_stable">Diese Version erhält nur stabile Versionen.</string>
+    <string name="update_footer_all">Du erfährst von jeder neuen Version – Testversion oder Release. Bis zur stabilen Linie gibt es nur einen Kanal.</string>
     <string name="update_footer_custom">Eigener Build: keine Update-Prüfung.</string>
 </resources>

@@ -6,6 +6,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Geändert
+
+- **Ein Update-Kanal bis zur stabilen Linie** (Bugs-DB 2333): Der Update-Hinweis unter „Info“ (iOS, Android, Linux,
+  Mac) liest nur noch `testing.json` und meldet jede neue Version aus `main` – Testversion wie Release, verglichen nach
+  SemVer (2.5.0 < 2.5.1-rc.1 < 2.5.1). Das Selbst-Update der Mac-App (Sparkle) liest für alle DMGs `appcast.xml`. Die
+  CI schreibt beim Release zusätzlich `testing.json`; `stable.json` (nur Releases) bleibt für Apps von vor dieser Änderung (bis 2.5.0
+  bzw. Testversionen bis 2.5.1-rc.3), die noch nach Kanal lesen. `appcast-rc.xml` wird nicht mehr geschrieben.
+
 ## [2.5.0] – 2026-11-24
 
 > **Beta:** Saga ist im Alltag nutzbar, aber noch jung – mach regelmäßig Backups; einige Funktionen (vor allem Anrufe

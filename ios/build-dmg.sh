@@ -25,7 +25,8 @@
 #                        Info.plist SagaSelfUpdate, SUFeedURL, SUPublicEDKey usw. ein und in die Entitlements die
 #                        mach-lookup-Ausnahmen fuer Sparkles Installer-Dienst (nur hier - eigene/MDM-Builds bleiben ohne)
 #   SAGA_SPARKLE_FEED_BASE   Ort der Appcasts (Vorgabe: https://raw.githubusercontent.com/<SAGA_REPO>/appcast);
-#                        Vorabversionen (x.y.z-rc.N) lesen appcast-rc.xml, Releases appcast.xml
+#                        alle DMGs lesen appcast.xml - ein Kanal bis zur stabilen Linie (Bugs-DB 2333): dort steht die
+#                        neueste Version von main, Testversion oder Release (Sparkle vergleicht die Build-Nummer)
 #   SAGA_REPO            GitHub-Repo der Downloads (Vorgabe: yggdrasil-sh/saga-apps)
 # Config/local.env wird absichtlich nicht gelesen.
 # Zusaetzlich: dist/sparkle-bin/ (Sparkles sign_update fuer die Appcast-Signatur in der CI) und, mit Selbst-Update,
@@ -59,7 +60,7 @@ BN=${SAGA_BUILD_NUMBER:-$(date +%Y%m%d%H%M)}
 KC=${SAGA_KEYCHAIN:-}
 SPK=$(printf '%s' "${SAGA_SPARKLE_PUBLIC_KEY:-}" | tr -d ' \t\r\n')
 REPO=${SAGA_REPO:-yggdrasil-sh/saga-apps}
-case "$LABEL" in *-rc.*) FEEDFILE=appcast-rc.xml ;; *) FEEDFILE=appcast.xml ;; esac
+FEEDFILE=appcast.xml   # ein Kanal (Bugs-DB 2333)
 FEED=${SAGA_SPARKLE_FEED_BASE:-https://raw.githubusercontent.com/$REPO/appcast}/$FEEDFILE
 if [ -n "$SPK" ]; then
   [ "$(printf '%s' "$SPK" | base64 -D 2>/dev/null | wc -c | tr -d ' ')" = 32 ] || die "SAGA_SPARKLE_PUBLIC_KEY ist kein EdDSA-Schluessel (base64, 32 Byte)"

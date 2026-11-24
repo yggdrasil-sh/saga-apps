@@ -3,7 +3,7 @@ import Foundation
 // Selbst-Update der Mac-App (Sparkle 2) - reine Logik, ohne Sparkle (Tests: Tests/Logic/UpdateTests.swift).
 // Aktiv nur in DMG-Builds: ios/build-dmg.sh traegt SagaSelfUpdate, SUFeedURL und SUPublicEDKey in die Info.plist ein.
 // Eigene Builds (build-install.sh, MDM) und iOS haben die Schluessel nicht und bleiben unveraendert.
-// Kanal: steckt in SUFeedURL (appcast.xml bzw. appcast-rc.xml), nicht in sparkle:channel - siehe build-dmg.sh.
+// Kanal: steckt in SUFeedURL - bis zur stabilen Linie ein Appcast fuer alle (appcast.xml, Bugs-DB 2333), siehe build-dmg.sh.
 enum UpdateLogic {
     /// Selbst-Update eingeschaltet: Merker gesetzt, https-Appcast und oeffentlicher EdDSA-Schluessel vorhanden
     static func isEnabled(_ info: [String: Any]) -> Bool {
@@ -13,8 +13,7 @@ enum UpdateLogic {
         return true
     }
 
-    /// Vorabversion ("2.5.0-rc.74"): build-dmg.sh traegt dann den Appcast der Vorabversionen ein (appcast-rc.xml),
-    /// stabile Builds lesen appcast.xml - Testversionen bleiben so bei Testversionen
+    /// Vorabversion ("2.5.0-rc.74") - nur noch fuer Anzeige/Titel; den Appcast bestimmt sie seit 2333 nicht mehr
     static func isPrerelease(_ label: String) -> Bool {
         label.trimmingCharacters(in: .whitespaces).range(of: #"^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$"#, options: .regularExpression) != nil
     }

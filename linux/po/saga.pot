@@ -7695,15 +7695,13 @@ msgid "Updates"
 msgstr ""
 
 #: hlidskjalf/settings.py:741
-msgid "This test version only receives new test versions."
+msgid ""
+"You'll be notified of every new version – test version or release. Until the "
+"stable line there is only one channel."
 msgstr ""
 
 #: hlidskjalf/settings.py:742
 msgid "Own build: no update check."
-msgstr ""
-
-#: hlidskjalf/settings.py:742
-msgid "This version only receives stable versions."
 msgstr ""
 
 #: hlidskjalf/settings.py:743

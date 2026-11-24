@@ -62972,40 +62972,6 @@
         }
       }
     },
-    "Diese Version erhält nur stabile Versionen." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Diese Version erhält nur stabile Versionen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This version only receives stable versions."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Esta versión solo recibe versiones estables."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Эта версия получает только стабильные версии."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "เวอร์ชันนี้จะได้รับเฉพาะเวอร์ชันเสถียรเท่านั้น"
-          }
-        }
-      }
-    },
     "Jetzt suchen" : {
       "localizations" : {
         "de" : {
@@ -63314,36 +63280,36 @@
         }
       }
     },
-    "Diese Testversion erhält nur neue Testversionen." : {
+    "Du erfährst von jeder neuen Version – Testversion oder Release. Bis zur stabilen Linie gibt es nur einen Kanal." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Diese Testversion erhält nur neue Testversionen."
+            "value" : "Du erfährst von jeder neuen Version – Testversion oder Release. Bis zur stabilen Linie gibt es nur einen Kanal."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This test version only receives new test versions."
+            "value" : "You'll be notified of every new version – test version or release. Until the stable line there is only one channel."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Esta versión de prueba solo recibe nuevas versiones de prueba."
+            "value" : "Te enteras de cada nueva versión, de prueba o publicada. Hasta la línea estable hay un solo canal."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Эта тестовая версия получает только новые тестовые версии."
+            "value" : "Вы узнаёте о каждой новой версии — будь то тестовая версия или выпуск. До стабильной линии есть только один канал."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "เวอร์ชันทดสอบนี้จะได้รับเฉพาะเวอร์ชันทดสอบใหม่เท่านั้น"
+            "value" : "คุณจะได้รับแจ้งทุกเวอร์ชันใหม่ ทั้งเวอร์ชันทดสอบและรุ่นเผยแพร่ จนกว่าจะมีสายเวอร์ชันเสถียรจะมีเพียงช่องทางเดียว"
           }
         }
       }

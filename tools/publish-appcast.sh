@@ -1,14 +1,15 @@
 #!/bin/sh
 # Legt einen Appcast (Selbst-Update der Mac-App, tools/appcast.py) oder eine Update-Info (Update-Hinweis aller Apps,
 # tools/update-info.py) in den Zweig "appcast" - von dort lesen die Apps ueber
-# https://raw.githubusercontent.com/<repo>/appcast/<datei>. Der Zweig hat genau einen Commit (wird ersetzt) mit
-# appcast.xml/stable.json (Releases) und appcast-rc.xml/testing.json (Vorabversionen); die anderen Dateien bleiben.
+# https://raw.githubusercontent.com/<repo>/appcast/<datei>. Der Zweig hat genau einen Commit (wird ersetzt); die anderen
+# Dateien bleiben. Ein Kanal bis zur stabilen Linie (Bugs-DB 2333): appcast.xml und testing.json tragen die neueste
+# Version von main (Testversion oder Release); stable.json nur Releases - fuer Apps bis 2.5.0, die noch nach Kanal lesen.
 # Aufruf in der CI nach dem Anlegen des Releases (Rechte: contents: write):
-#   sh tools/publish-appcast.sh <ordner> appcast-rc.xml "<Label>"
+#   sh tools/publish-appcast.sh <ordner> appcast.xml "<Label>"
 # Fehlt die Datei (kein Secret SPARKLE_ED_PRIVATE_KEY), nur ein Hinweis - kein Fehler.
 set -eu
 DIR=$1; FILE=$2; L=${3:-}
-case "$FILE" in appcast.xml|appcast-rc.xml|stable.json|testing.json) ;; *) echo "::error::unerwartete Datei $FILE"; exit 1 ;; esac
+case "$FILE" in appcast.xml|stable.json|testing.json) ;; *) echo "::error::unerwartete Datei $FILE"; exit 1 ;; esac
 case "$FILE" in
   *.json)
     [ -s "$DIR/$FILE" ] || { echo "::error::$FILE fehlt"; exit 1; }
@@ -35,8 +36,10 @@ while :; do
   fi
   cp "$DIR/$FILE" "$W/t/$FILE"
   printf '%s\n' "Update-Daten der Apps - automatisch von .github/workflows/release.yml erzeugt. Nicht von Hand aendern." "" \
-    "- appcast.xml / appcast-rc.xml: Selbst-Update der Mac-App (Sparkle, EdDSA-signiert), Releases / Vorabversionen" \
-    "- stable.json / testing.json: Update-Hinweis aller Apps (tools/update-info.py), Releases / Vorabversionen" > "$W/t/README.md"
+    "- appcast.xml: Selbst-Update der Mac-App (Sparkle, EdDSA-signiert), neueste Version von main" \
+    "- testing.json: Update-Hinweis aller Apps (tools/update-info.py), neueste Version von main (Testversion oder Release)" \
+    "- stable.json: nur Releases - fuer Apps bis 2.5.0, die noch nach Kanal lesen" \
+    "- appcast-rc.xml: nicht mehr benutzt (ein Kanal, Bugs-DB 2333)" > "$W/t/README.md"
   T=$(for f in "$W"/t/*; do printf '100644 blob %s\t%s\n' "$(git hash-object -w "$f")" "$(basename "$f")"; done | git mktree)
   C=$(git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
         commit-tree "$T" -m "${FILE}: ${L:-?}")

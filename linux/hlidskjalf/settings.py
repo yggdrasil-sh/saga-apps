@@ -738,8 +738,8 @@ class InfoPage(Adw.PreferencesPage):
         self.add(g)
         # Updates: Schalter, Statuszeile, eine Schaltflaeche
         gu = Adw.PreferencesGroup(title=_("Updates"))
-        gu.set_description({"testing": _("This test version only receives new test versions."),
-                            "stable": _("This version only receives stable versions.")}.get(ch, _("Own build: no update check.")))
+        gu.set_description(_("You'll be notified of every new version – test version or release. Until the stable line there is only one channel.")
+                           if ch else _("Own build: no update check."))
         self.sw = Adw.SwitchRow(title=_("Notify about new versions"), active=hint.enabled)
         self.sw.connect("notify::active", lambda r, _p: hint.set_enabled(r.get_active()))
         gu.add(self.sw)

@@ -137,7 +137,7 @@ struct ShellCaptureView: View {
 }
 
 // MARK: - Selbst-Update ueber Sparkle (wie App/AppUpdater.swift; aktiv nur, wenn das Bauskript Appcast und Schluessel
-// in die Info.plist eingetragen hat - UpdateLogic.isEnabled; Kanal wie die DMG: appcast.xml bzw. appcast-rc.xml)
+// in die Info.plist eingetragen hat - UpdateLogic.isEnabled; ein Appcast wie die DMG: appcast.xml, Bugs-DB 2333)
 
 @MainActor
 final class ShellUpdater: NSObject, ObservableObject, SPUUpdaterDelegate {

@@ -2,9 +2,11 @@
 """Update-Info fuer den Update-Hinweis in den Apps (Einstellungen -> Info).
 
 Schreibt <out-dir>/<kanal>.json (stable.json bzw. testing.json) mit der neuesten Version des Kanals und den
-Download-Links. Die CI legt die Datei nach dem Release in den Zweig "appcast" (tools/publish-appcast.sh); die Apps lesen
-https://raw.githubusercontent.com/<repo>/appcast/<kanal>.json und vergleichen mit der eigenen Version - nur im eigenen
-Kanal (Vorabversion x.y.z-rc.N -> testing, sonst stable).
+Download-Links. Die CI legt die Datei nach dem Release in den Zweig "appcast" (tools/publish-appcast.sh). Ein Kanal bis
+zur stabilen Linie (Bugs-DB 2333): die Apps lesen nur https://raw.githubusercontent.com/<repo>/appcast/testing.json -
+dort steht die neueste Version von main, Testversion oder Release (der Release-Job kopiert stable.json dorthin) - und
+vergleichen nach SemVer. stable.json (nur Releases) bleibt fuer Apps bis 2.5.0, die noch nach Kanal lesen.
+"channel" in der Datei nennt die Art der Version (testing = x.y.z-rc.N, stable = x.y.z).
 
   python3 tools/update-info.py --label 2.5.0-rc.136 --repo owner/saga-apps --dist dist --commit <sha> --out-dir out
 

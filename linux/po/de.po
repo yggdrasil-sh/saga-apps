@@ -8046,16 +8046,16 @@ msgid "Updates"
 msgstr "Updates"
 
 #: hlidskjalf/settings.py:741
-msgid "This test version only receives new test versions."
-msgstr "Diese Testversion erhält nur neue Testversionen."
+msgid ""
+"You'll be notified of every new version – test version or release. Until the "
+"stable line there is only one channel."
+msgstr ""
+"Du erfährst von jeder neuen Version – Testversion oder Release. Bis zur "
+"stabilen Linie gibt es nur einen Kanal."
 
 #: hlidskjalf/settings.py:742
 msgid "Own build: no update check."
 msgstr "Eigener Build: keine Update-Prüfung."
-
-#: hlidskjalf/settings.py:742
-msgid "This version only receives stable versions."
-msgstr "Diese Version erhält nur stabile Versionen."
 
 #: hlidskjalf/settings.py:743
 msgid "Notify about new versions"

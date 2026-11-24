@@ -7750,16 +7750,16 @@ msgid "Updates"
 msgstr "อัปเดต"
 
 #: hlidskjalf/settings.py:741
-msgid "This test version only receives new test versions."
-msgstr "เวอร์ชันทดสอบนี้จะได้รับเฉพาะเวอร์ชันทดสอบใหม่เท่านั้น"
+msgid ""
+"You'll be notified of every new version – test version or release. Until the "
+"stable line there is only one channel."
+msgstr ""
+"คุณจะได้รับแจ้งทุกเวอร์ชันใหม่ ทั้งเวอร์ชันทดสอบและรุ่นเผยแพร่ "
+"จนกว่าจะมีสายเวอร์ชันเสถียรจะมีเพียงช่องทางเดียว"
 
 #: hlidskjalf/settings.py:742
 msgid "Own build: no update check."
 msgstr "บิลด์เอง: ไม่มีการตรวจสอบอัปเดต"
-
-#: hlidskjalf/settings.py:742
-msgid "This version only receives stable versions."
-msgstr "เวอร์ชันนี้จะได้รับเฉพาะเวอร์ชันเสถียรเท่านั้น"
 
 #: hlidskjalf/settings.py:743
 msgid "Notify about new versions"

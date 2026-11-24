@@ -22,7 +22,6 @@
     <string name="update_checking">Comprobando …</string>
     <string name="update_check">Buscar actualizaciones</string>
     <string name="update_button">Actualizar</string>
-    <string name="update_footer_testing">Esta versión de prueba solo recibe nuevas versiones de prueba.</string>
-    <string name="update_footer_stable">Esta versión solo recibe versiones estables.</string>
+    <string name="update_footer_all">Te enteras de cada nueva versión, de prueba o publicada. Hasta la línea estable hay un solo canal.</string>
     <string name="update_footer_custom">Compilación propia: sin comprobación de actualizaciones.</string>
 </resources>

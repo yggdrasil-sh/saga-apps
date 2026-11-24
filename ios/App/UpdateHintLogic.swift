@@ -1,8 +1,10 @@
 import Foundation
 
 // Update-Hinweis in Einstellungen -> Info (alle Apps gleich, docs: tools/update-info.py) - reine Logik ohne Netz/SwiftUI.
-// Quelle: https://raw.githubusercontent.com/<repo>/appcast/<kanal>.json (CI, Zweig appcast). Verglichen wird nur im eigenen
-// Kanal: Vorabversion x.y.z-rc.N -> testing.json, sonst stable.json. Entwickler-Labels (kein x.y.z(-rc.N)?) -> keine Pruefung.
+// Quelle: https://raw.githubusercontent.com/<repo>/appcast/testing.json (CI, Zweig appcast). EIN Kanal bis zur stabilen
+// Linie (Bugs-DB 2333): jede App liest testing.json - dort steht die neueste Version von main, Testversion (x.y.z-rc.N)
+// oder Release (x.y.z) - und vergleicht nach SemVer (2.5.0 < 2.5.1-rc.1 < 2.5.1). stable.json schreibt die CI nur noch
+// fuer aeltere Apps (bis 2.5.0). Entwickler-Labels (kein x.y.z(-rc.N)?) -> keine Pruefung.
 // Tests: Tests/Logic/UpdateHintTests.swift
 enum UpdateHint {
     /// Repo der Downloads (DMG-Builds koennen es per Info.plist SagaUpdateRepo aus SAGA_REPO ueberschreiben)
@@ -13,6 +15,8 @@ enum UpdateHint {
     static let infoInterval: TimeInterval = 15 * 60
     /// Groesste angenommene Antwort (die Datei hat wenige hundert Byte)
     static let maxBytes = 64 * 1024
+    /// Der eine Feed bis zur stabilen Linie (Bugs-DB 2333)
+    static let feed = "testing"
 
     // MARK: Versionen
 
@@ -46,7 +50,8 @@ enum UpdateHint {
         }
     }
 
-    /// Kanal der eigenen Version ("testing" / "stable"); nil: Entwickler-Label -> keine Pruefung
+    /// Art der Version fuer die Anzeige ("testing" = Testversion, "stable" = Release); nil: Entwickler-Label -> keine Pruefung.
+    /// Bestimmt NICHT mehr den Feed - es gibt nur einen (feed).
     static func channel(_ label: String) -> String? {
         Version(label).map { $0.prerelease ? "testing" : "stable" }
     }
@@ -67,9 +72,10 @@ enum UpdateHint {
         return s
     }
 
+    /// Feed fuer jede gueltige Version derselbe; Entwickler-Labels -> nil (keine Pruefung)
     static func feedURL(label: String, repo: String = defaultRepo) -> URL? {
-        guard let ch = channel(label) else { return nil }
-        return URL(string: "https://raw.githubusercontent.com/\(repo)/appcast/\(ch).json")
+        guard channel(label) != nil else { return nil }
+        return URL(string: "https://raw.githubusercontent.com/\(repo)/appcast/\(feed).json")
     }
 
     // MARK: Datei (format 1)
@@ -87,14 +93,15 @@ enum UpdateHint {
         return u
     }
 
-    /// Datei lesen: format 1, passender Kanal, gueltige Version im selben Kanal; unsichere Links fallen weg
-    static func parse(_ data: Data, channel expected: String) -> Release? {
+    /// Datei lesen: format 1, gueltige Version (Testversion oder Release); steht "channel" drin, muss es zur Version
+    /// passen (testing <-> x.y.z-rc.N, stable <-> x.y.z); unsichere Links fallen weg
+    static func parse(_ data: Data) -> Release? {
         guard data.count <= maxBytes,
               let j = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
               (j["format"] as? Int) == 1,
               let v = (j["version"] as? String)?.trimmingCharacters(in: .whitespaces),
-              channel(v) == expected else { return nil }
-        if let ch = j["channel"] as? String, ch != expected { return nil }
+              let kind = channel(v) else { return nil }
+        if let ch = j["channel"], (ch as? String) != kind { return nil }
         var assets: [String: URL] = [:]
         for (k, x) in j["assets"] as? [String: Any] ?? [:] { if let u = safeLink(x) { assets[k] = u } }
         return Release(version: v, page: safeLink(j["page"]), assets: assets)
@@ -134,9 +141,9 @@ enum UpdateHint {
         return checked == nil ? .none : .upToDate
     }
 
-    /// Bekanntes Update aus dem Zwischenspeicher: nur neuer und nur im eigenen Kanal
+    /// Bekanntes Update aus dem Zwischenspeicher: nur neuer (SemVer, Testversion wie Release)
     static func available(_ r: Release?, label: String) -> Release? {
-        guard let r, let ch = channel(label), channel(r.version) == ch, isNewer(r.version, than: label) else { return nil }
+        guard let r, isNewer(r.version, than: label) else { return nil }
         return r
     }
 

@@ -148,8 +148,10 @@ Una versión se publica en `main` en cuanto `CHANGELOG.md` tiene una sección co
 (`## [x.y.z] – AAAA-MM-DD`) y la etiqueta aún no existe (`.github/workflows/release.yml`). Solo la versión oficial
 muestra su número sin más (p. ej. `2.2.0`); todas las demás compilaciones – versiones preliminares de `main`,
 compilaciones ad hoc para MDM, compilaciones locales – muestran `2.2.0-rc.<N>` en sus ajustes, así las versiones de
-prueba siempre se reconocen como más nuevas que la publicada (`tools/version-label.sh`). Las apps aún consultan dos
-fuentes de actualización (versiones publicadas / de prueba); está previsto un solo canal también para las apps.
+prueba siempre se reconocen como más nuevas que la publicada (`tools/version-label.sh`). Las apps también tienen un solo
+canal de actualización: desde la versión 2.5.1 se enteran de cada nueva versión de `main`, de prueba o publicada
+(fuente `testing.json`, autoactualización del Mac `appcast.xml`). Las apps anteriores a este cambio (hasta la 2.5.0 y
+las versiones de prueba hasta la 2.5.1-rc.3) aún leen por canal.
 
 ## Versiones
 

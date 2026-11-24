@@ -94,16 +94,15 @@ object UpdateHintModel {
 
     private suspend fun check(manual: Boolean) {
         if (!_enabled.value || _checking.value) return
-        val ch = UpdateHint.channel(label)
         val url = UpdateHint.feedUrl(label)
-        if (ch == null || url == null) {
+        if (url == null) {
             if (manual) _failed.value = true
             return
         }
         _checking.value = true
         if (manual) _failed.value = false
         try {
-            val r = withContext(Dispatchers.IO) { fetch(url, ch) }
+            val r = withContext(Dispatchers.IO) { fetch(url) }
             val now = System.currentTimeMillis()
             _release.value = r
             _checked.value = now
@@ -120,13 +119,13 @@ object UpdateHintModel {
 
     private class Bad : Exception()
 
-    private fun fetch(url: String, channel: String): UpdateHint.Release {
+    private fun fetch(url: String): UpdateHint.Release {
         val req = Request.Builder().url(url).get().cacheControl(CacheControl.FORCE_NETWORK).build()
         http.newCall(req).execute().use { res ->
             if (res.code != 200) throw Bad()
             val src = res.body.source()
             if (src.request(UpdateHint.MAX_BYTES + 1L)) throw Bad()   // groesser als erlaubt
-            return UpdateHint.parse(src.readByteArray(), channel) ?: throw Bad()
+            return UpdateHint.parse(src.readByteArray()) ?: throw Bad()
         }
     }
 

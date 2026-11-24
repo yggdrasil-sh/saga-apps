@@ -206,8 +206,9 @@ TestFlight und Ad-hoc signieren über einen **App-Store-Connect-API-Schlüssel**
   und ohne vorbelegten Server.
 - **Selbst-Update der DMG (Sparkle 2):** Die DMG-Fassung sucht selbst nach neuen Versionen (Menü „Saga → Nach Updates
   suchen …“, automatisch alle 4 Stunden, abschaltbar in den Einstellungen) und installiert sie auf Wunsch – trotz
-  Sandbox über Sparkles Installer-Dienst. Testversionen (`x.y.z-rc.N`) lesen `appcast-rc.xml`, Releases `appcast.xml`,
-  beide im Zweig `appcast` (`https://raw.githubusercontent.com/<repo>/appcast/…`). Die CI erzeugt und signiert sie
+  Sandbox über Sparkles Installer-Dienst. Bis zur stabilen Linie gibt es einen Kanal: Alle DMGs lesen `appcast.xml` im Zweig
+  `appcast` (`https://raw.githubusercontent.com/<repo>/appcast/…`); dort steht die neueste Version von `main`,
+  Testversion oder Release (Bugs-DB 2333). Die CI erzeugt und signiert sie
   (EdDSA, `tools/appcast.py`, `tools/publish-appcast.sh`), wenn das Secret `SPARKLE_ED_PRIVATE_KEY` gesetzt ist; ohne
   das Secret bleibt das Selbst-Update in der DMG aus. Nur `build-dmg.sh` schaltet es ein (Info.plist-Schlüssel,
   mach-lookup-Ausnahmen `<App-ID>-spks/-spki`); eigene Builds, MDM und iOS bleiben ohne.

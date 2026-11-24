@@ -22,7 +22,6 @@
     <string name="update_checking">Проверка …</string>
     <string name="update_check">Проверить обновления</string>
     <string name="update_button">Обновить</string>
-    <string name="update_footer_testing">Эта тестовая версия получает только новые тестовые версии.</string>
-    <string name="update_footer_stable">Эта версия получает только стабильные версии.</string>
+    <string name="update_footer_all">Вы узнаёте о каждой новой версии — будь то тестовая версия или выпуск. До стабильной линии есть только один канал.</string>
     <string name="update_footer_custom">Собственная сборка: обновления не проверяются.</string>
 </resources>

@@ -51,7 +51,7 @@ class UpdateHintModel(GObject.Object):
 
     @property
     def available(self):
-        """Bekanntes Update im eigenen Kanal (None: keins, Hinweis aus oder Entwickler-Build)"""
+        """Bekanntes Update (None: keins, Hinweis aus oder Entwickler-Build)"""
         return U.available(self.release, self.label) if self.enabled and self.label else None
 
     def status(self):
@@ -78,8 +78,8 @@ class UpdateHintModel(GObject.Object):
         if not self.enabled or self.checking:
             return
         lbl = self.label
-        url, ch = (U.feed_url(lbl), U.channel(lbl)) if lbl else (None, None)
-        if not url or not ch:
+        url = U.feed_url(lbl) if lbl else None
+        if not url:
             if manual:
                 self.failed = True
                 self.emit("changed")
@@ -100,7 +100,7 @@ class UpdateHintModel(GObject.Object):
             if manual:
                 self.failed = True                   # automatische Pruefung: still, alter Stand bleibt
             self.emit("changed")
-        bg(self.fetch, url, ch, done=done, error=error)
+        bg(self.fetch, url, done=done, error=error)
 
 
 hint = UpdateHintModel()
