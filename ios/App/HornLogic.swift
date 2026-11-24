@@ -38,6 +38,9 @@ enum HornLogic {
     static let monMs = 500.0, pingEvery = 2000.0, statsEvery = 3000.0, candsEvery = 30_000.0, udpProbeEvery = 10_000.0
     static let badMs = 60_000.0, retryMax = 120_000.0, freshMs = 30_000.0, fetchMs = 15_000.0
     static let rekeyAfter = 6 * 3_600_000.0
+    /// Bugs-DB 2202 (wie static/horn.js K.CPU_HOLD): meldet der Kodierer CPU-Grenze, sind die Messungen verzerrt - so lange
+    /// und cpuHoldMs danach kein Wechsel wegen "besser" (Abbruch/Leeren/UDP-Regeln weiter sofort)
+    static let cpuHoldMs = 30_000.0
 
     // MARK: Punktzahl
 
@@ -47,6 +50,9 @@ enum HornLogic {
         if let f = fresh, f.ok, !f.rtts.isEmpty { return f.rtts }
         return own
     }
+    /// Bugs-DB 2202 (wie static/horn.js cpuHold): kein "besser"-Wechsel, solange die CPU-Grenze gilt bzw. bis cpuHoldMs
+    /// nach der letzten Meldung (cpuAt/now in ms, 0 = nie gemeldet)
+    static func cpuHold(_ cpuAt: Double, now: Double) -> Bool { cpuAt > 0 && now - cpuAt < cpuHoldMs }
 
     static func median(_ a: [Double]) -> Double {
         let s = a.sorted(), n = s.count

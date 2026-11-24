@@ -102,6 +102,9 @@ object HornLogic {
     fun giveUpCert(certNodes: Collection<String>, other: Boolean, rounds: Int): Boolean =
         certNodes.isNotEmpty() && !other && rounds >= CERT_ROUNDS
     const val CANDS_EVERY = 30_000L
+    /** Bugs-DB 2202 (wie static/horn.js K.CPU_HOLD): meldet der Kodierer CPU-Grenze, sind die Messungen verzerrt - so lange
+     *  und CPU_HOLD danach kein Wechsel wegen "besser" (Abbruch/Leeren/UDP-Regeln weiter sofort) */
+    const val CPU_HOLD = 30_000L
     const val UDP_PROBE_EVERY = 10_000L
     const val PING_EVERY = 2000L
     /** Empfangene Bilder auf TCP/TLS: Jitter-Puffer-Ziel (Web: receiver.jitterBufferTarget) */
@@ -113,6 +116,10 @@ object HornLogic {
      *  Probe wie die anderen Kandidaten; die eigenen WebSocket-Pings nur als Rueckfall */
     fun curRtts(fresh: Measure?, own: List<Double>): List<Double> =
         if (fresh != null && fresh.ok && fresh.rtts.isNotEmpty()) fresh.rtts else own
+
+    /** Bugs-DB 2202 (wie static/horn.js cpuHold): kein "besser"-Wechsel, solange die CPU-Grenze gilt bzw. bis CPU_HOLD nach
+     *  der letzten Meldung (cpuAt/now in ms, 0 = nie gemeldet) */
+    fun cpuHold(cpuAt: Long, now: Long): Boolean = cpuAt > 0 && now - cpuAt < CPU_HOLD
 
     fun median(a: List<Double>): Double {
         if (a.isEmpty()) return Double.NaN

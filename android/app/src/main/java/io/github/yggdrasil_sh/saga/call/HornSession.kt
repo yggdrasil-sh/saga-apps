@@ -305,6 +305,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         var shown: CallDiag.Debounce<String>? = null
         var q5: LongArray? = null
         var q5t = 0L
+        var cpuAt = 0L                                                  // Bugs-DB 2202: letzte CPU-Grenze des Kodierers (ms)
         var bytesIn = 0L
         /** A1: Sendestufe auf TCP/TLS aus der RTT der Bild-Leitung (UDP: aus, GCC regelt) */
         val gov = if (path == "udp") null else HornLogic.TxGov(path)
@@ -1513,7 +1514,11 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                         HornLogic.Measure(true, HornLogic.curRtts(m[c.node], c.rtts), udp = if (c.path == "udp") 1.0 else null),
                         HornLogic.Cand(c.node, here = true, udp = c.path == "udp", load = load),
                     )
-                    sw?.observe(System.currentTimeMillis(), curScore, others.map { HornLogic.Other(it.node, HornLogic.score(m[it.node], it)) })
+                    // Bugs-DB 2202: unter CPU-Grenze des Kodierers (quality setzt cpuAt) keine Wechsel wegen "besser" - leere Liste
+                    // setzt wie im Web den Anwaerter zurueck; Abbruch, Leeren und die UDP-Regeln laufen getrennt weiter
+                    val t = System.currentTimeMillis()
+                    val hold = HornLogic.cpuHold(c.cpuAt, t)
+                    sw?.observe(t, curScore, if (hold) emptyList() else others.map { HornLogic.Other(it.node, HornLogic.score(m[it.node], it)) })
                         ?.let { switch("better", to = it.to) }
                 } catch (e: CancellationException) {
                     throw e
@@ -1537,6 +1542,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         val levels = HashMap<String, Double>()
         val now = System.currentTimeMillis()
         var cpuS: Double? = null                                        // 2.5 (9.11.): CPU-Grenze der Kamera (s, kumulativ)
+        var cpuNow = false                                              // Bugs-DB 2202: qualityLimitationReason "cpu" (wie Web)
         for (L in c.legs.values) {
             val r = stats(L.pc) ?: continue
             val byTrack = L.recv.associateBy { it.track?.id() }
@@ -1546,6 +1552,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                     val src = if (s.type == "outbound-rtp") "me" else host.diagAlias(byTrack[m["trackIdentifier"]?.toString()]?.owner)
                     val mm = if (s.type == "outbound-rtp") CallDiag.withSource(m, (m["mediaSourceId"] as? String)?.let { r.statsMap[it]?.members }) else m
                     host.diagSample(s.type, mm, src, L.role + "." + s.id, c.net?.rtt)
+                    if (s.type == "outbound-rtp" && m["qualityLimitationReason"]?.toString() == "cpu") cpuNow = true
                     if (s.type == "outbound-rtp" && m["kind"] == "video" && m["rid"]?.toString() in CAM_RIDS) {   // Kamera (Simulcast), nicht der Bildschirm
                         val q = (m["qualityLimitationDurations"] as? Map<*, *>)?.get("cpu")
                         val v = (q as? Number)?.toDouble() ?: q?.toString()?.toDoubleOrNull()
@@ -1589,6 +1596,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             if (cpuConn !== c) { cpuConn = c; cpuPrev = null }           // andere Verbindung: Zaehler neu
             val cpu = CallDiag.cpuLimited(cpuPrev?.first, cpuPrev?.second, cpuS, now)
             cpuPrev = cpuS?.let { it to now }
+            if (cpuNow || cpu == true) c.cpuAt = now                    // Bugs-DB 2202: Messungen verzerrt -> cpuHold
             val was = throttle.on
             if (throttle.update(now, host.thermal(), cpu) != was) {
                 val d = if (throttle.on) "drossel an: ${throttle.why} (zurueck nach ${throttle.calmNeed / 1000} s ruhig)" else "drossel aus"

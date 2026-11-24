@@ -73,6 +73,7 @@ final class HornConn {
     var state = "ok"
     var rtts: [Double] = []
     var pingN = 0, pingAt = 0.0
+    var cpuAt = 0.0                                                    // Bugs-DB 2202: letzte CPU-Grenze des Kodierers (ms)
     var pings: [Int: Double] = [:]
     var q5: (lost: Int, recv: Int, fz: Int, t: Double)?
     var rtt: Double?
@@ -979,7 +980,10 @@ extension CallManager {
                 let m = await hornMeasure(list)
                 let curScore = HornLogic.score(HornLogic.Measure(ok: true, rtts: HornLogic.curRtts(m[cur.node], own: cur.rtts), udp: cur.path == "udp" ? 1 : nil),
                                                HornLogic.Candidate(node: cur.node, udp: cur.path == "udp", here: true, load: list.first { $0.node == cur.node }?.load ?? 0))
-                if let x = H.sw?.observe(Self.hornNow(), cur: curScore, others: others.map { ($0.node, HornLogic.score(m[$0.node], $0)) }) {
+                // Bugs-DB 2202: unter CPU-Grenze des Kodierers (hornStats setzt cpuAt) keine Wechsel wegen "besser" - leere Liste
+                // setzt wie im Web den Anwaerter zurueck; Abbruch, Leeren und die UDP-Regeln laufen getrennt weiter
+                let t = Self.hornNow(), hold = HornLogic.cpuHold(cur.cpuAt, now: t)
+                if let x = H.sw?.observe(t, cur: curScore, others: hold ? [] : others.map { ($0.node, HornLogic.score(m[$0.node], $0)) }) {
                     hornSwitch(.better, to: x.to)
                 }
             }
@@ -1042,6 +1046,7 @@ extension CallManager {
         guard let H = horn else { return }
         var rtt: Double?, vrtt: Double?, lost = 0, recv = 0, fz = 0      // A1: vrtt = RTT der Bild-Leitung (dort staut sich das Bild)
         var cpuS: Double?                                                   // 2.5 (9.11.): CPU-Grenze der Kamera (s, kumulativ)
+        var cpuNow = false                                                  // Bugs-DB 2202: qualityLimitationReason "cpu" (wie Web)
         for L in conn.all {
             guard let pc = L.pc, !L.replaced else { continue }               // L3: ersetztes Ton-Bein sendet nichts mehr
             let rep = await pc.statsAsync()
@@ -1058,6 +1063,7 @@ extension CallManager {
                     let src = s.type == "outbound-rtp" ? "me"
                         : diagAlias((v["trackIdentifier"] as? String).flatMap { tracks[$0] }.flatMap { L.ownerOfCryptor($0) })
                     diagSample(type: s.type, values: v, src: src, key: pk + s.id, rtt: conn.rtt, report: rep)
+                    if s.type == "outbound-rtp", (v["qualityLimitationReason"] as? String) == "cpu" { cpuNow = true }
                     if s.type == "outbound-rtp", (v["kind"] as? String) == "video", ["l", "m", "h"].contains(v["rid"] as? String ?? "") {
                         let q = (v["qualityLimitationDurations"] as? [String: Any])?["cpu"]
                         if let x = (q as? NSNumber)?.doubleValue ?? (q as? String).flatMap(Double.init) { cpuS = max(cpuS ?? 0, x) }
@@ -1087,6 +1093,7 @@ extension CallManager {
             let me = ObjectIdentifier(conn), p = H.cpuPrev?.conn == me ? H.cpuPrev : nil   // andere Verbindung: Zaehler neu
             let cpu = CallDiag.cpuLimited(prevS: p?.s, prevT: p?.t, cpuS: cpuS, now: t)
             H.cpuPrev = cpuS.map { ($0, t, me) }
+            if cpuNow || cpu == true { conn.cpuAt = t }                    // Bugs-DB 2202: Messungen verzerrt -> cpuHold
             let was = H.throttle.on
             if H.throttle.update(now: t, thermal: ProcessInfo.processInfo.thermalState.rawValue, cpu: cpu) != was {
                 let d = H.throttle.on ? "drossel an: \(H.throttle.why) (zurueck nach \(Int(H.throttle.calmNeed / 1000)) s ruhig)" : "drossel aus"

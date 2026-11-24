@@ -452,4 +452,24 @@ class HornLogicTest {
         org.junit.Assert.assertEquals(own, H.curRtts(null, own))
         org.junit.Assert.assertEquals(own, H.curRtts(Measure(false), own))
     }
+
+    // Bugs-DB 2202 (wie static/horn.js cpuHold): 30 s nach der letzten CPU-Grenze kein "besser"-Wechsel
+    @org.junit.Test fun cpuHoldWindow() {
+        assertFalse(H.cpuHold(0, 1_000_000))
+        assertTrue(H.cpuHold(1_000_000, 1_000_000))
+        assertTrue(H.cpuHold(1_000_000, 1_029_999))
+        assertFalse(H.cpuHold(1_000_000, 1_030_000))
+        org.junit.Assert.assertEquals(30_000L, H.CPU_HOLD)
+    }
+
+    // Leere Liste unter cpuHold setzt den Anwaerter zurueck (wie Web): nach dem Halt beginnt betterFor neu
+    @org.junit.Test fun cpuHoldResetsCandidate() {
+        val sw = Switcher("a", "udp", 0)
+        val o = listOf(Other("b", 10.0))
+        sw.observe(100_000, 100.0, o)
+        assertNull(sw.observe(130_000, 100.0, emptyList()))
+        assertNull("Anwaerter neu ab 140 s", sw.observe(140_000, 100.0, o))
+        assertNull(sw.observe(150_000, 100.0, o))
+        assertNotNull(sw.observe(160_000, 100.0, o))
+    }
 }
