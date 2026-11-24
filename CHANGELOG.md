@@ -6,8 +6,28 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
-Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
-abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
+## [2.5.0] – 2026-11-XX
+
+> **Beta:** Saga ist im Alltag nutzbar, aber noch jung – mach regelmäßig Backups; einige Funktionen (vor allem Anrufe
+> über Gjallarhorn) sind ausdrücklich experimentell.
+
+Passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst abschaltbar**
+(Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher. Kurzfassung
+(Englisch und Deutsch): [docs/release-notes/2.5.0.md](docs/release-notes/2.5.0.md).
+
+### Kurzfassung
+
+- **Anrufe über die Saga-Adresse hinter jedem Proxy** (Gjallarhorn, experimentell): iPhone/iPad, Android und die
+  Mac-App tunneln ihre Anrufe per WebSocket über die normale Saga-Adresse; Personen in den laufenden Anruf holen und
+  aus einem 1:1 eine Konferenz machen (iOS, Android).
+- **Die Mac-App ist jetzt die Desktop-Hülle** um die Web-Oberfläche – mit Widgets, Teilen, Mitteilungen, Menüleiste,
+  Spotlight und Selbst-Update. Die DMG von 2.5 einmal von Hand installieren, danach aktualisiert sie sich selbst.
+- **Moderne Chats** auf iOS, Android und Linux: Gruppen mit Bild, Beschreibung und Admins, Anheften, Stummschalten mit
+  Dauer, Erwähnungen, Formatierung, Kontakte.
+- **Gemeinsam bearbeiten:** Zusammenführen statt Konfliktdialog (iOS, Android), live mitschreiben unter Linux.
+- **Seiten und Datenbanken:** Unterseiten als Liste oder Galerie, Saga-Siegel, Titelbild- und Vorlagengalerie, Graph
+  der Seiten, Widgets und Diagramme; BookOrbit „Lesen“ (iOS, Android).
+- **Fehlerberichte und „Diagnose senden“** in allen Apps, Update-Hinweis unter „Info“; Härtung nach dem zweiten Pentest.
 
 ### Geändert – Linux: Release-Eintrag 2.5.0 in der AppStream-Metainfo (Bugs-DB 2242)
 
