@@ -977,7 +977,7 @@ extension CallManager {
                 let others = list.filter { $0.node != cur.node }
                 guard !others.isEmpty, hornLive(H) else { return }
                 let m = await hornMeasure(list)
-                let curScore = HornLogic.score(HornLogic.Measure(ok: true, rtts: cur.rtts.isEmpty ? (m[cur.node]?.rtts ?? []) : cur.rtts, udp: cur.path == "udp" ? 1 : nil),
+                let curScore = HornLogic.score(HornLogic.Measure(ok: true, rtts: HornLogic.curRtts(m[cur.node], own: cur.rtts), udp: cur.path == "udp" ? 1 : nil),
                                                HornLogic.Candidate(node: cur.node, udp: cur.path == "udp", here: true, load: list.first { $0.node == cur.node }?.load ?? 0))
                 if let x = H.sw?.observe(Self.hornNow(), cur: curScore, others: others.map { ($0.node, HornLogic.score(m[$0.node], $0)) }) {
                     hornSwitch(.better, to: x.to)

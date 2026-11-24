@@ -109,6 +109,11 @@ object HornLogic {
 
     // ---- Punktzahl -----------------------------------------------------------------------------------------------
 
+    /** Bugs-DB 2202 (Flattern unter Last, wie static/horn.js curRtts): der aktuelle Knoten zaehlt mit derselben frischen
+     *  Probe wie die anderen Kandidaten; die eigenen WebSocket-Pings nur als Rueckfall */
+    fun curRtts(fresh: Measure?, own: List<Double>): List<Double> =
+        if (fresh != null && fresh.ok && fresh.rtts.isNotEmpty()) fresh.rtts else own
+
     fun median(a: List<Double>): Double {
         if (a.isEmpty()) return Double.NaN
         val s = a.sorted()

@@ -41,6 +41,13 @@ enum HornLogic {
 
     // MARK: Punktzahl
 
+    /// Bugs-DB 2202 (Flattern unter Last, wie static/horn.js curRtts): der aktuelle Knoten zaehlt mit derselben frischen
+    /// Probe wie die anderen Kandidaten; die eigenen WebSocket-Pings nur als Rueckfall
+    static func curRtts(_ fresh: Measure?, own: [Double]) -> [Double] {
+        if let f = fresh, f.ok, !f.rtts.isEmpty { return f.rtts }
+        return own
+    }
+
     static func median(_ a: [Double]) -> Double {
         let s = a.sorted(), n = s.count
         guard n > 0 else { return .nan }

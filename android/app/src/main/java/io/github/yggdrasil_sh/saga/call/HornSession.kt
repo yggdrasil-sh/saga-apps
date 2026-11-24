@@ -1510,7 +1510,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                     val m = measure(list)
                     val load = list.firstOrNull { it.node == c.node }?.load
                     val curScore = HornLogic.score(
-                        HornLogic.Measure(true, c.rtts.ifEmpty { m[c.node]?.rtts.orEmpty() }, udp = if (c.path == "udp") 1.0 else null),
+                        HornLogic.Measure(true, HornLogic.curRtts(m[c.node], c.rtts), udp = if (c.path == "udp") 1.0 else null),
                         HornLogic.Cand(c.node, here = true, udp = c.path == "udp", load = load),
                     )
                     sw?.observe(System.currentTimeMillis(), curScore, others.map { HornLogic.Other(it.node, HornLogic.score(m[it.node], it)) })

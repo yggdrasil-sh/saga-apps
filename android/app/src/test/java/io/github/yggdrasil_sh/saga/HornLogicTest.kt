@@ -443,4 +443,13 @@ class HornLogicTest {
         assertEquals(6, ui.runes.codePointCount(0, ui.runes.length))
         assertEquals(6, ui.runeNames.size)
     }
+
+    // Bugs-DB 2202 (Flattern unter Last): der aktuelle Knoten zaehlt mit derselben frischen Probe wie die anderen
+    @org.junit.Test fun curRttsFreshProbe() {
+        val fresh = Measure(true, listOf(20.0, 21.0, 20.0, 22.0, 20.0))
+        val own = listOf(20.0, 90.0, 25.0, 140.0, 30.0, 95.0, 20.0, 130.0, 22.0, 100.0)
+        org.junit.Assert.assertEquals(fresh.rtts, H.curRtts(fresh, own))
+        org.junit.Assert.assertEquals(own, H.curRtts(null, own))
+        org.junit.Assert.assertEquals(own, H.curRtts(Measure(false), own))
+    }
 }
