@@ -6,6 +6,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu
+
+- **Leere Zustände mit nächstem Schritt und „Erste Schritte“** (Bugs-DB 2031, iOS/iPad, Android, Linux – wie das Web):
+  Wo eine Liste leer ist (Heute, Aufgaben, Termine, Datenbank, Seiten, Mit mir geteilt …), steht ein kurzer Satz, was
+  hier erscheint, und **ein** Knopf zum nächsten Schritt („Aufgabe notieren“, „+ Neuer Eintrag“, ohne verbundenen
+  Kalender „Kalender verbinden“). Beim ersten Anmelden fragt die App einmal „Möchtest du eine kurze Einführung?“ – Ja legt
+  die Seite „Erste Schritte“ mit Häkchenliste an und öffnet sie, Saga hakt Erledigtes selbst ab; Wegklicken zählt nicht
+  als Nein. Unter Einstellungen › Info: Stand „n von 5 erledigt“ und „Erste Schritte öffnen/anlegen“. Braucht Saga mit
+  `/api/first-steps` (Server ab 2.5.1-rc, `909180d`); ältere Server: keine Frage, keine Änderung.
+
 ### Geändert
 
 - **Anrufe über Knoten wechseln unter Last seltener hin und her** (Bugs-DB 2202, iOS/Android, wie das Web): Der aktuelle
