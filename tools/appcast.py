@@ -55,7 +55,7 @@ def build(label, build_no, url, length, signature, page, notes_md, pub_date):
     rc = "-rc." in label
     title = "Saga %s%s" % (label, " (Testversion)" if rc else "")
     if not notes_md:
-        notes_md = "Testversion vom Zweig testing." if rc else "Neue Version."
+        notes_md = "Testversion vom Zweig main." if rc else "Neue Version."
     notes_md += "\n\n[Alle Änderungen und Downloads](%s)" % page
     return "\n".join([
         '<?xml version="1.0" encoding="utf-8"?>',

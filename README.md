@@ -133,13 +133,15 @@ repository, but in local files that git ignores. Templates sit right next to the
 - `ios/Config/local.env.example` → `ios/Config/local.env`
 - `tools/local.env.example` → `tools/local.env` (machines for the Linux tests)
 
-Set the version of all apps: `tools/set-version.sh 2.1.0` (single source: `VERSION`). When a change to
-`VERSION` lands on `main`, GitHub builds all packages and publishes them as a release
-(`.github/workflows/release.yml`). New work lands on the `testing` branch first: every push there builds all
-packages and replaces the pre-release `v<version>-rc.<N>` (release candidate, never "Latest"; N = commits since
-the last release). Only the official release shows its plain version (e.g. `2.2.0`); every other build – testing
-pre-releases, ad-hoc/MDM builds, local builds – shows `2.2.0-rc.<N>` in its settings, so test versions are always
-recognisably newer than the stable one (`tools/version-label.sh`).
+Set the version of all apps: `tools/set-version.sh 2.1.0` (single source: `VERSION`). Until 3.0 there is only one
+line, the `main` branch (the `testing` branch is frozen); a release push builds the release instead (see below). Every other push to `main` builds all packages and replaces the
+pre-release `v<version>-rc.<N>` (release candidate, never "Latest"; N = commits since the last release). A release
+happens on `main` once `CHANGELOG.md` has a dated section for the version in `VERSION` (`## [x.y.z] – YYYY-MM-DD`)
+and the tag does not exist yet (`.github/workflows/release.yml`). Only the official release shows its plain version
+(e.g. `2.2.0`); every other build – pre-releases from `main`, ad-hoc/MDM builds, local builds – shows
+`2.2.0-rc.<N>` in its settings, so test versions are always recognisably newer than the release
+(`tools/version-label.sh`). The apps still check two update feeds (releases / test versions); a single channel for
+the apps as well is planned.
 
 ## Versions
 

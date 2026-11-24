@@ -44,7 +44,7 @@ awk -v a="$A" -v d="$TODAY" -v l="$L" -v drop="$drop" '
   /<releases>/ && !done {
     print "    <release version=\"" a "\" date=\"" d "\" type=\"development\">"
     print "      <description>"
-    print "        <p>Test version " l " (release candidate) from the testing branch - not meant for everyday use.</p>"
+    print "        <p>Test version " l " (release candidate) from the main branch - a beta, may contain bugs.</p>"
     print "      </description>"
     print "    </release>"
     done = 1

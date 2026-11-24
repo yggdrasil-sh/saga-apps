@@ -2,7 +2,7 @@
 # Angezeigte Version der Apps ("Versionslabel"). VERSION bleibt die geplante Version (x.y.z, numerisch fuer
 # CFBundleShortVersionString, versionCode); nur das offizielle Release zeigt sie ohne Zusatz.
 #   x.y.z         offizielles Release: SAGA_RELEASE=1 (CI-Release-Job) oder HEAD traegt genau den Tag vx.y.z
-#   x.y.z-rc.N    alles andere (testing-Vorabversion, Ad-hoc/MDM, lokale Builds); N = Commits seit dem letzten
+#   x.y.z-rc.N    alles andere (Vorabversion von main, Ad-hoc/MDM, lokale Builds); N = Commits seit dem letzten
 #                 Release-Tag (v<a.b.c> ohne Zusatz). Ist vx.y.z (oder neuer) schon veroeffentlicht, bevor VERSION
 #                 erhoeht wurde, zaehlt der RC zur naechsten Patch-Version des Tags (z. B. 2.1.1-rc.N nach v2.1.0) -
 #                 wie beim Server (tools/rc-version.sh): Testversionen sind immer erkennbar neuer als das Release.
@@ -46,8 +46,8 @@ label() {
   [ -n "$T" ] || { echo "$V-rc.0"; return; }
   N=$(g rev-list --count "$T..HEAD") || N=0
   B=$V
-  # hoechster Release-Tag ueberhaupt (auch einer, der noch nicht in diesen Branch zurueckgefuehrt ist, z. B. ein
-  # Release auf main vor dem Merge nach testing) - der RC muss neuer sein als jedes veroeffentlichte Release
+  # hoechster Release-Tag ueberhaupt (auch einer, der nicht im Verlauf von HEAD liegt - frueher ein Release auf main
+  # vor dem Merge nach testing; seit 2.5.0 gibt es nur main) - der RC muss neuer sein als jedes veroeffentlichte Release
   HI=$(g tag --list 'v[0-9]*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1) || HI=
   [ -n "$HI" ] || HI=${T#v}
   if echo "$HI" | grep -Eq "$SEMVER" && le "$V" "$HI"; then B=$(next_patch "$HI"); fi
