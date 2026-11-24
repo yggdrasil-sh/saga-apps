@@ -6,7 +6,7 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
-## [2.5.0] – 2026-11-XX
+## [2.5.0] – 2026-11-24
 
 > **Beta:** Saga ist im Alltag nutzbar, aber noch jung – mach regelmäßig Backups; einige Funktionen (vor allem Anrufe
 > über Gjallarhorn) sind ausdrücklich experimentell.
