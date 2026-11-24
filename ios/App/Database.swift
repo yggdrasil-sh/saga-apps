@@ -407,7 +407,11 @@ struct DBEmptyHint: View {
         } else if m.canAdd {
             EmptyHint(text: Text("Noch keine Einträge. Jeder Eintrag ist eine eigene Seite mit den Eigenschaften dieser Spalten."),
                       action: Text("+ Neuer Eintrag")) {
-                Task { if let id = await m.add(store, props: m.defaults(for: view)) { nav.focusTitle = id; nav.open(id, mode: view?["open"] as? String ?? "side") } }
+                Task {                                                       // wie "Neu" im Kopf: Standardvorlage, wenn gesetzt
+                    let mode = view?["open"] as? String ?? "side"
+                    if let t = m.defaultTemplate, let nid = await m.newFromTemplate(store, t) { nav.open(nid, mode: mode); return }
+                    if let id = await m.add(store, props: m.defaults(for: view)) { nav.focusTitle = id; nav.open(id, mode: mode) }
+                }
             }
         } else {
             EmptyHint(text: Text("Noch keine Einträge. Jeder Eintrag ist eine eigene Seite mit den Eigenschaften dieser Spalten."))

@@ -65,7 +65,7 @@ struct EmptyPreviewView: View {
 private struct EmptyPreviewAsk: ViewModifier {
     let store: Store
     func body(content: Content) -> some View {
-        content.modifier(FirstStepsAsk(model: FirstStepsModel.shared, store: store, blockers: .init()) { _ in })
+        content.modifier(FirstStepsAsk(model: FirstStepsModel.shared, calls: store.calls, chat: store.chat, store: store, blockers: { .init() }) { _ in })
     }
 }
 // NEU2031-ENDE

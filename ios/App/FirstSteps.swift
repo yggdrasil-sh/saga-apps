@@ -12,29 +12,55 @@ import SwiftUI
     @Published var askPending = false
     private var throttle = FirstStepsLogic.Throttle()
     private var asked = false
-    private var owner = ""
+    private var owner: FirstStepsLogic.Owner?
+    /// zaehlt Zuruecksetzungen (Abmelden, Kontowechsel): Antworten auf Anfragen davor gelten nicht mehr
+    private var gen = 0
+    /// Sitzung, in der die offene Frage entstand - eine Antwort darf nur an dieses Konto gehen
+    private var askGen = 0
+
+    private func currentOwner(_ store: Store) -> FirstStepsLogic.Owner {
+        FirstStepsLogic.Owner(origin: AppConfig.serverOrigin ?? "", account: store.accountName)
+    }
 
     /// Abrufen (hakt auf dem Server ab): beim Start, beim Wechsel in den Vordergrund, in den Einstellungen - gedrosselt
     func check(_ store: Store, force: Bool = false) async {
         guard AppConfig.hasServer, !store.needsLogin, !store.loginPostponed else { return }
-        let who = (AppConfig.serverOrigin ?? "") + "|" + (store.accountName ?? "")
-        if who != owner { reset(); owner = who }                      // anderes Konto: Frage und Stand gelten nicht mehr
+        let who = currentOwner(store)
+        if let o = owner, who.differs(from: o) { reset() }           // anderes Konto: Frage und Stand gelten nicht mehr
+        owner = who.merged(owner ?? who)                              // Kaltstart: Konto noch unbekannt -> kein Wechsel
         guard throttle.allow(now: Date(), force: force) else { return }
+        let g = gen
         guard let (d, code) = try? await store.apiResponse(FirstStepsLogic.path) else { return }   // offline: Stand behalten
+        // waehrend des Abrufs abgemeldet bzw. Konto gewechselt (Kopplung): Antwort gehoert zum alten Konto
+        guard g == gen, !currentOwner(store).differs(from: who) else { return }
         switch FirstStepsLogic.parse(status: code, data: d) {
         case .off: state = nil; askPending = false
         case .state(let s):
             state = s
-            if s.ask && !asked { askPending = true }
+            if s.ask && !asked { askPending = true; askGen = gen }
         case .failed: break
         }
+    }
+
+    /// Kontowechsel ohne Anmeldefenster (store.accountSwitches): vergessen und fuer das neue Konto neu abrufen
+    func accountSwitched(_ store: Store) async {
+        reset(); owner = nil
+        await check(store, force: true)
+    }
+
+    /// Antwort auf die Frage: nur, wenn sie noch zu diesem Konto gehoert (sonst still verwerfen)
+    func reply(_ store: Store, yes: Bool) async throws -> Int? {
+        guard askGen == gen, !(owner.map { currentOwner(store).differs(from: $0) } ?? false) else { askPending = false; return nil }
+        return try await answer(store, yes: yes)
     }
 
     /// Antwort senden ("yes" legt die Seite an bzw. neu an) -> ID der Seite
     @discardableResult
     func answer(_ store: Store, yes: Bool) async throws -> Int? {
         asked = true; askPending = false
+        let g = gen
         let (d, code) = try await store.apiResponse(FirstStepsLogic.path, method: "POST", body: FirstStepsLogic.body(yes: yes))
+        guard g == gen else { return nil }                            // inzwischen anderes Konto: nichts uebernehmen/oeffnen
         switch FirstStepsLogic.parsePost(status: code, data: d) {
         case .ok(let page):
             state = FirstStepsLogic.answered(state, yes: yes, page: page)
@@ -47,7 +73,7 @@ import SwiftUI
     }
 
     /// Abgemeldet bzw. anderes Konto
-    func reset() { state = nil; askPending = false; asked = false; throttle.reset() }
+    func reset() { state = nil; askPending = false; asked = false; throttle.reset(); gen += 1 }
 
     #if DEBUG
     /// nur fuer Bilder (EmptyPreview)
@@ -55,18 +81,23 @@ import SwiftUI
     #endif
 }
 
-/// Frage "Moechtest du eine kurze Einfuehrung?" - einmal, nicht ueber anderen Dialogen (Blockers)
+/// Frage "Moechtest du eine kurze Einfuehrung?" - einmal, nicht ueber anderen Dialogen (Blockers).
+/// Anrufe und Chats sind eigene ObservableObjects: hier beobachtet, damit die Sperren aktuell ausgewertet werden.
+/// Wegklicken (Escape/⌘.) speichert nichts - nur die beiden Knoepfe antworten; ohne Antwort kommt die Frage beim
+/// naechsten Start wieder (wie Web/Android/Linux). Deshalb hat "Nein, danke" KEINE cancel-Rolle.
 struct FirstStepsAsk: ViewModifier {
     @ObservedObject var model: FirstStepsModel
+    @ObservedObject var calls: CallManager
+    @ObservedObject var chat: ChatModel
     let store: Store
-    let blockers: FirstStepsLogic.Blockers
+    let blockers: () -> FirstStepsLogic.Blockers
     let open: (Int) -> Void
     func body(content: Content) -> some View {
         content.alert(Text("Möchtest du eine kurze Einführung?"),
-                      isPresented: Binding(get: { FirstStepsLogic.showAsk(pending: model.askPending, blockers: blockers) },
+                      isPresented: Binding(get: { FirstStepsLogic.showAsk(pending: model.askPending, blockers: blockers()) },
                                            set: { if !$0 { model.askPending = false } })) {
             Button("Ja, gern") { reply(true) }.keyboardShortcut(.defaultAction)
-            Button("Nein, danke", role: .cancel) { reply(false) }
+            Button("Nein, danke") { reply(false) }
         } message: {
             Text("Saga legt dir eine Seite „Erste Schritte“ mit ein paar Häkchen an: Profilbild, Chats, App, erste Seite und Aufgabe. Was du erledigt hast, hakt Saga selbst ab – und die Seite kannst du jederzeit löschen.")
         }
@@ -74,7 +105,7 @@ struct FirstStepsAsk: ViewModifier {
     private func reply(_ yes: Bool) {
         Task { @MainActor in
             do {
-                let page = try await model.answer(store, yes: yes)
+                let page = try await model.reply(store, yes: yes)
                 if yes, let page { open(page) }
             } catch { store.error = error.localizedDescription }
         }

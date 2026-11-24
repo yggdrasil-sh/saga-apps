@@ -225,6 +225,7 @@ struct RootView: View {
             if v { store.live.stop(); FirstStepsModel.shared.reset() }
             else { store.live.start(); store.push.appStarted(); Task { await store.chat.load(); await FirstStepsModel.shared.check(store, force: true) } }   // 2031
         }
+        .onChange(of: store.accountSwitches) { _, _ in Task { await FirstStepsModel.shared.accountSwitched(store) } }   // 2031: Kopplung auf ein anderes Konto
         .onReceive(NotificationCenter.default.publisher(for: .hkOpenTarget)) { n in if let t = n.object as? NotifTarget { PushModel.pending = nil; openAfterCallUI { openTarget(t) } } }
         .onReceive(NotificationCenter.default.publisher(for: .hkOpenSettings)) { n in
             if CloudNav.pendingSection == nil, let s = n.object as? String { CloudNav.pendingSection = s }   // Bereich (2.5: Konto/Einstellungen/Info)
@@ -292,7 +293,8 @@ struct RootView: View {
         // Kopplungslink: Rueckfrage hier - oder im Anmeldebildschirm, solange der vorne liegt
         // (nur hier zuruecksetzen, solange die Rueckfrage hier liegt: sonst loescht das Ausblenden beim Wechsel zum
         // Anmeldebildschirm den Link - Kaltstart per QR-Code im abgemeldeten Zustand zeigte dann gar nichts)
-        .modifier(FirstStepsAsk(model: FirstStepsModel.shared, store: store, blockers: firstStepsBlockers) { id in   // 2031
+        .modifier(FirstStepsAsk(model: FirstStepsModel.shared, calls: store.calls, chat: store.chat, store: store,
+                                blockers: { firstStepsBlockers }) { id in   // 2031
             nav.peek = nil; nav.path = []
             Task { await store.refresh(quiet: true); selection = id }
         })

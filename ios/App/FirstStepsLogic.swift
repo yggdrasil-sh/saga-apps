@@ -89,6 +89,20 @@ enum FirstStepsLogic {
     }
     static func showAsk(pending: Bool, blockers: Blockers) -> Bool { pending && !blockers.any }
 
+    /// Wem gehoert der Stand? Server-Herkunft + Konto. Das Konto ist beim Kaltstart oft noch unbekannt (nil) - das ist
+    /// kein Wechsel; ein anderer Server bzw. ein anderes bekanntes Konto schon.
+    struct Owner: Equatable {
+        var origin: String
+        var account: String?
+        func differs(from o: Owner) -> Bool {
+            if origin != o.origin { return true }
+            if let a = account, let b = o.account { return a != b }
+            return false
+        }
+        /// bekannt gewordenes Konto uebernehmen (ohne Wechsel)
+        func merged(_ o: Owner) -> Owner { Owner(origin: origin, account: account ?? o.account) }
+    }
+
     /// Einstellungen > Info: Abschnitt "Erste Schritte"
     enum Help: Equatable {
         case open(done: Int, all: Int)                       // Seite vorhanden: "{n} von {all} erledigt" + "Erste Schritte oeffnen"

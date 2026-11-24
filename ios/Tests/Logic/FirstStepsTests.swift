@@ -69,6 +69,13 @@ func firstStepsTests() {
         check(!L.showAsk(pending: true, blockers: b), "blockiert: \(b)")
     }
 
+    // Besitzer des Stands (Pruefer 2031, Fund 3/4): Kaltstart ohne Konto ist kein Wechsel, anderes Konto/Server schon
+    let oA = L.Owner(origin: "https://a.example", account: "anna"), oNil = L.Owner(origin: "https://a.example", account: nil)
+    check(!oNil.differs(from: oA) && !oA.differs(from: oNil), "Konto noch unbekannt: kein Wechsel")
+    check(oA.differs(from: L.Owner(origin: "https://a.example", account: "bert")), "anderes Konto: Wechsel")
+    check(oNil.differs(from: L.Owner(origin: "https://b.example", account: nil)), "anderer Server: Wechsel")
+    check(oNil.merged(oA) == oA && oA.merged(oNil) == oA, "bekanntes Konto wird uebernommen")
+
     // leere Zustaende
     typealias E = EmptyStateLogic
     check(E.tasks(open: 2, done: 0) == .open && E.tasks(open: 0, done: 3) == .allDone && E.tasks(open: 0, done: 0) == .never, "Aufgaben: offen/alles erledigt/noch nie")
@@ -86,5 +93,22 @@ func firstStepsTests() {
         check(root.contains("check(store, force: true)") && root.contains("FirstStepsModel.shared.reset()"), "Anmelden: sofort, Abmelden: vergessen")
         check(root.contains(".modifier(FirstStepsAsk("), "Frage haengt an der Wurzel")
         check(set.contains("FirstStepsSection(close: close)"), "Einstellungen > Info: Abschnitt Erste Schritte")
+    } else { check(false, "SAGA_APP_SRC fehlt") }
+
+    // Pruefer-Funde 2031
+    if let dir = ProcessInfo.processInfo.environment["SAGA_APP_SRC"],
+       let fs = try? String(contentsOfFile: dir + "/FirstSteps.swift", encoding: .utf8),
+       let root = try? String(contentsOfFile: dir + "/RootView.swift", encoding: .utf8),
+       let db = try? String(contentsOfFile: dir + "/Database.swift", encoding: .utf8) {
+        let no = fs.components(separatedBy: "\n").first { $0.contains("Button(\"Nein, danke\")") } ?? ""
+        check(!no.isEmpty && !no.contains(".cancel") && !fs.contains("role: .cancel"), "Nein, danke ohne cancel-Rolle: Wegklicken sendet kein POST no")
+        check(fs.contains("@ObservedObject var calls: CallManager") && fs.contains("@ObservedObject var chat: ChatModel")
+              && fs.contains("blockers: () -> FirstStepsLogic.Blockers") && root.contains("blockers: { firstStepsBlockers }"), "Sperren aktuell (Anrufe/Chats beobachtet, Closure)")
+        check(fs.contains("guard g == gen, !currentOwner(store).differs(from: who) else { return }"), "GET nach Kontowechsel verworfen")
+        check(fs.contains("guard askGen == gen"), "offene Frage antwortet nur dem eigenen Konto")
+        check(root.contains("onChange(of: store.accountSwitches)") && root.contains("accountSwitched(store)"), "Kontowechsel ohne Anmeldefenster: neu abrufen")
+        if let r = db.range(of: "struct DBEmptyHint") {
+            check(db[r.lowerBound...].prefix(2000).contains("m.defaultTemplate"), "+ Neuer Eintrag mit Standardvorlage wie \"Neu\"")
+        } else { check(false, "DBEmptyHint fehlt") }
     } else { check(false, "SAGA_APP_SRC fehlt") }
 }
