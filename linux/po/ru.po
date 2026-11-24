@@ -9737,3 +9737,71 @@ msgstr "Gjallarhorn в Saga 2.5 работает в эксперименталь
 #: hlidskjalf/settings.py
 msgid "Experimental"
 msgstr "Экспериментально"
+
+#: hlidskjalf/agenda.py
+msgid "Your tasks appear here – with due date, priority and repetition."
+msgstr "Здесь появляются ваши задачи — со сроком, приоритетом и повторением."
+
+#: hlidskjalf/agenda.py
+msgid "Write down a task"
+msgstr "Записать задачу"
+
+#: hlidskjalf/agenda.py
+msgid "Events from your calendars appear here."
+msgstr "Здесь появляются события из ваших календарей."
+
+#: hlidskjalf/agenda.py
+msgid "Connect a calendar"
+msgstr "Подключить календарь"
+
+#: hlidskjalf/window.py
+msgid "Create first page"
+msgstr "Создать первую страницу"
+
+#: hlidskjalf/window.py
+msgid "Would you like a short introduction?"
+msgstr "Хотите короткое введение?"
+
+#: hlidskjalf/window.py
+msgid "Saga creates a “First steps” page with a short checklist: profile picture, chats, app, first page and task. Saga ticks off whatever you have done – and you can delete the page at any time."
+msgstr "Saga создаст страницу «Первые шаги» с небольшим списком: фото профиля, чаты, приложение, первая страница и задача. Выполненное Saga отмечает сама, а страницу можно удалить в любой момент."
+
+#: hlidskjalf/window.py
+msgid "No, thanks"
+msgstr "Нет, спасибо"
+
+#: hlidskjalf/window.py
+msgid "Yes, please"
+msgstr "Да, давайте"
+
+#: hlidskjalf/settings.py
+msgid "First steps"
+msgstr "Первые шаги"
+
+#: hlidskjalf/settings.py
+msgid "Your “First steps” page: {n} of {all} done."
+msgstr "Ваша страница «Первые шаги»: выполнено {n} из {all}."
+
+#: hlidskjalf/settings.py
+msgid "Open first steps"
+msgstr "Открыть «Первые шаги»"
+
+#: hlidskjalf/settings.py
+msgid "A page with a short checklist to get started – Saga ticks off what you have done."
+msgstr "Страница с небольшим списком для начала — выполненное Saga отмечает сама."
+
+#: hlidskjalf/settings.py
+msgid "Create first steps"
+msgstr "Создать «Первые шаги»"
+
+#: hlidskjalf/database.py
+msgid "No entry matches the filters of this view."
+msgstr "Ни одна запись не подходит под фильтры этого вида."
+
+#: hlidskjalf/database.py
+msgid "No entries yet. Each entry is a page of its own with the properties of these columns."
+msgstr "Записей пока нет. Каждая запись — отдельная страница со свойствами из этих столбцов."
+
+#: hlidskjalf/database.py
+msgid "+ New entry"
+msgstr "+ Новая запись"

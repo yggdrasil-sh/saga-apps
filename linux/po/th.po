@@ -9407,3 +9407,71 @@ msgstr "Gjallarhorn ใน Saga 2.5 ยังเป็นรุ่นทดล�
 #: hlidskjalf/settings.py
 msgid "Experimental"
 msgstr "ทดลอง"
+
+#: hlidskjalf/agenda.py
+msgid "Your tasks appear here – with due date, priority and repetition."
+msgstr "งานของคุณจะแสดงที่นี่ – พร้อมวันครบกำหนด ลำดับความสำคัญ และการทำซ้ำ"
+
+#: hlidskjalf/agenda.py
+msgid "Write down a task"
+msgstr "จดงาน"
+
+#: hlidskjalf/agenda.py
+msgid "Events from your calendars appear here."
+msgstr "นัดหมายจากปฏิทินของคุณจะแสดงที่นี่"
+
+#: hlidskjalf/agenda.py
+msgid "Connect a calendar"
+msgstr "เชื่อมต่อปฏิทิน"
+
+#: hlidskjalf/window.py
+msgid "Create first page"
+msgstr "สร้างหน้าแรก"
+
+#: hlidskjalf/window.py
+msgid "Would you like a short introduction?"
+msgstr "ต้องการคำแนะนำสั้น ๆ ไหม?"
+
+#: hlidskjalf/window.py
+msgid "Saga creates a “First steps” page with a short checklist: profile picture, chats, app, first page and task. Saga ticks off whatever you have done – and you can delete the page at any time."
+msgstr "Saga จะสร้างหน้า “ก้าวแรก” พร้อมรายการสั้น ๆ: รูปโปรไฟล์ แชท แอป หน้าแรกและงาน สิ่งที่คุณทำแล้ว Saga จะติ๊กให้เอง – และคุณลบหน้านี้ได้ทุกเมื่อ"
+
+#: hlidskjalf/window.py
+msgid "No, thanks"
+msgstr "ไม่ ขอบคุณ"
+
+#: hlidskjalf/window.py
+msgid "Yes, please"
+msgstr "ใช่ ขอบคุณ"
+
+#: hlidskjalf/settings.py
+msgid "First steps"
+msgstr "ก้าวแรก"
+
+#: hlidskjalf/settings.py
+msgid "Your “First steps” page: {n} of {all} done."
+msgstr "หน้า “ก้าวแรก” ของคุณ: เสร็จแล้ว {n} จาก {all}"
+
+#: hlidskjalf/settings.py
+msgid "Open first steps"
+msgstr "เปิดก้าวแรก"
+
+#: hlidskjalf/settings.py
+msgid "A page with a short checklist to get started – Saga ticks off what you have done."
+msgstr "หน้าที่มีรายการสั้น ๆ สำหรับเริ่มต้น – Saga ติ๊กสิ่งที่ทำแล้วให้เอง"
+
+#: hlidskjalf/settings.py
+msgid "Create first steps"
+msgstr "สร้างก้าวแรก"
+
+#: hlidskjalf/database.py
+msgid "No entry matches the filters of this view."
+msgstr "ไม่มีรายการที่ตรงกับตัวกรองของมุมมองนี้"
+
+#: hlidskjalf/database.py
+msgid "No entries yet. Each entry is a page of its own with the properties of these columns."
+msgstr "ยังไม่มีรายการ แต่ละรายการเป็นหน้าของตัวเองพร้อมคุณสมบัติของคอลัมน์เหล่านี้"
+
+#: hlidskjalf/database.py
+msgid "+ New entry"
+msgstr "+ รายการใหม่"

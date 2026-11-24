@@ -165,6 +165,10 @@ class MockServer:
             {"id": "ohne-titel", "category": "work"},
             "kaputt",
         ]
+        # Erste Schritte (2.6, Bugs-DB 2031): None = aelterer Server (404); sonst {"enabled", "state", "page", "done", "keys"}
+        self.first_steps = None
+        self.cal_events = None               # 2031: feste Termine (Liste) statt "Besprechung"
+        self.cal_accounts = None             # 2031: verbundene Kalender (Liste) fuer api/settings/calendars
         mockv2.init(self)                    # Saga 2.0: Live, Benachrichtigungen, Chat, Push, KI, Foederation
         mockv21.init(self)                   # Saga 2.1: Profilbilder, 2FA-Stand, Anrufe
         mockki.init(self)                    # Saga 2.1: KI-Persona, KI im Chat
@@ -446,8 +450,49 @@ class MockServer:
                 r = self._api(method, path, q, bd if isinstance(body, dict) else body)
             return mockv21.decorate(self, path, r)
 
+    def _first_steps(self, method, body):
+        """wie saga/firststeps.py (vereinfacht): GET Stand, POST yes legt die Seite an (bzw. neu an), no merkt sich das"""
+        fs = self.first_steps
+        if fs is None:
+            return self._reply(404, {"error": "not found"})
+        on = fs.get("enabled", True)
+        keys = fs.get("keys") or ["avatar", "chat", "app", "page", "task"]
+        page = fs.get("page") if fs.get("page") in self.notes else None
+        if method == "GET":
+            return self._reply(200, {"enabled": on, "ask": bool(on and fs.get("state") is None and fs.get("ask", True)),
+                                     "state": fs.get("state"), "page": page if on else None,
+                                     "items": [{"key": k, "done": k in (fs.get("done") or ())} for k in keys] if on else []})
+        if method != "POST":
+            return self._reply(405, {"error": "method"})
+        ans = (body or {}).get("answer") if isinstance(body, dict) else None
+        if ans not in ("yes", "no"):
+            return self._reply(400, {"error": "ungültige Angabe"})
+        if not on:
+            return self._reply(403, {"error": "Die Einführung ist auf diesem Server abgeschaltet."})
+        if ans == "no":
+            fs["state"] = fs.get("state") or "no"
+            return self._reply(200, {"ok": True})
+        if page is None:
+            page = self.next_id
+            self.next_id += 1
+            now = time.time()
+            items = [{"content": t, "meta": {"checked": False}, "items": []} for t in
+                     ("Profilbild hochladen", "Chats einrichten", "Eine App koppeln", "Eine eigene Seite anlegen", "Eine erste Aufgabe notieren")]
+            self.notes[page] = {"id": page, "title": "Erste Schritte", "icon": "👋", "format": "blocks", "rev": 1, "parent_id": None,
+                                "updated": now, "created": now,
+                                "body": json.dumps({"blocks": [
+                                    {"id": "fs0", "type": "paragraph", "data": {"text": "Willkommen bei Saga!"}},
+                                    {"id": "fs1", "type": "list", "data": {"style": "checklist", "meta": {}, "items": items}}]})}
+            fs["page"] = page
+        fs["state"] = "yes"
+        return self._reply(200, {"ok": True, "page": page})
+
     def _api(self, method, path, q, body):
         parts = path.split("/")
+        if path == "api/first-steps":
+            return self._first_steps(method, body)
+        if path == "api/settings/calendars" and method == "GET" and self.cal_accounts is not None:
+            return self._reply(200, {"accounts": self.cal_accounts, "allowed": []})
         r = mocksiegel.handle(self, method, path, q)
         if r is not None:
             return r
@@ -604,6 +649,8 @@ class MockServer:
                 if t["id"] == tid:
                     t.update(body or {})
             return self._reply(200, {"ok": True})
+        if path.startswith("api/calendar/events") and self.cal_events is not None:
+            return self._reply(200, {"events": self.cal_events, "errors": []})
         if path.startswith("api/calendar/events"):
             return self._reply(200, {"events": [{"summary": "Besprechung", "start": time.strftime("%Y-%m-%dT10:00:00"),
                                                  "end": time.strftime("%Y-%m-%dT11:00:00"), "color": "#e01b24; } * { color: red",

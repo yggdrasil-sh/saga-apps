@@ -9314,3 +9314,71 @@ msgstr ""
 #: hlidskjalf/settings.py
 msgid "Experimental"
 msgstr ""
+
+#: hlidskjalf/agenda.py
+msgid "Your tasks appear here – with due date, priority and repetition."
+msgstr ""
+
+#: hlidskjalf/agenda.py
+msgid "Write down a task"
+msgstr ""
+
+#: hlidskjalf/agenda.py
+msgid "Events from your calendars appear here."
+msgstr ""
+
+#: hlidskjalf/agenda.py
+msgid "Connect a calendar"
+msgstr ""
+
+#: hlidskjalf/window.py
+msgid "Create first page"
+msgstr ""
+
+#: hlidskjalf/window.py
+msgid "Would you like a short introduction?"
+msgstr ""
+
+#: hlidskjalf/window.py
+msgid "Saga creates a “First steps” page with a short checklist: profile picture, chats, app, first page and task. Saga ticks off whatever you have done – and you can delete the page at any time."
+msgstr ""
+
+#: hlidskjalf/window.py
+msgid "No, thanks"
+msgstr ""
+
+#: hlidskjalf/window.py
+msgid "Yes, please"
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "First steps"
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "Your “First steps” page: {n} of {all} done."
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "Open first steps"
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "A page with a short checklist to get started – Saga ticks off what you have done."
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "Create first steps"
+msgstr ""
+
+#: hlidskjalf/database.py
+msgid "No entry matches the filters of this view."
+msgstr ""
+
+#: hlidskjalf/database.py
+msgid "No entries yet. Each entry is a page of its own with the properties of these columns."
+msgstr ""
+
+#: hlidskjalf/database.py
+msgid "+ New entry"
+msgstr ""

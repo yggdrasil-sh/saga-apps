@@ -59,6 +59,9 @@ def srv():
     store.tree_seen = False
     store.fed_shared, store.fed_unreachable = [], []
     store._set_shared([])
+    store.tasks_known, store.cal_accounts = False, None     # 2031: leere Zustaende erst nach dem Laden
+    from hlidskjalf.firststeps import first_steps
+    first_steps.reset()                                     # 2031: Erste Schritte je Test neu
     from hlidskjalf.assistant import ai
     from hlidskjalf.chat import _mem, chat
     from hlidskjalf.live import live

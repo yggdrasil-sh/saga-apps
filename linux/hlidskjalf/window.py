@@ -281,6 +281,10 @@ class Sidebar(Gtk.Box):
             lb = Gtk.Label(label=_("No pages yet"), xalign=0, margin_start=6)
             lb.add_css_class("dim-label")
             self.box.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=lb))
+            nb = flat_button(icon="list-add-symbolic", label=_("Create first page"), cb=lambda: w.new_page())   # 2031: naechster Schritt
+            nb.set_halign(Gtk.Align.START)
+            nb.add_css_class("hk-first-page")
+            self.box.append(Gtk.ListBoxRow(activatable=False, selectable=False, focusable=False, child=nb))
         roots = store.shared_roots()
         if roots or store.share_off or store.fed_unreachable:                           # Teilen (1.3): "Mit mir geteilt"
             n = store.shared_unread()
@@ -638,6 +642,7 @@ class MainWindow(Adw.ApplicationWindow):
                 chat.load_unread()
             if isinstance(self.current, PageView):
                 self.current.window_active()
+            self.first_steps_check()                       # 2031: gedrosselt (hoechstens jede Minute)
 
     def _tick(self):
         if self.is_active() and not store.needs_login:
@@ -1236,6 +1241,7 @@ class MainWindow(Adw.ApplicationWindow):
         calls.load_config(lambda on: self.update_header())
         calls.check_active()                               # klingelt es gerade schon (App eben gestartet)?
         self.load_account()
+        self.first_steps_check(force=True)                 # 2031: Erste Schritte (Frage beim ersten Anmelden, Abhaken)
 
     def _session_catch_up(self):
         """Start ohne Netz: was beim Sitzungsbeginn nicht geladen werden konnte (Assistent, Anrufe, Konto, Glocke, Chats),
@@ -1265,6 +1271,67 @@ class MainWindow(Adw.ApplicationWindow):
             notifications.load()
         if chat.status == "unknown":
             chat.refresh()
+
+    # --- Erste Schritte (2.6, Bugs-DB 2031) -------------------------------------------------------------------------
+    def first_steps_check(self, force=False):
+        """GET api/first-steps (hakt auf dem Server ab); ask -> einmal fragen. Aeltere Server: still nichts."""
+        from .firststeps import first_steps
+        if store.needs_login or not (client.has_session or get_device_token()):
+            return
+        first_steps.check(force, done=self._first_steps_got)
+
+    def _first_steps_got(self, st):
+        if st and st.get("ask"):
+            self._first_steps_ask()
+
+    def first_steps_blocked(self):
+        """Frage nicht ueber anderen Dialogen und nicht waehrend Anmeldung, Kopplung oder Chat-Einrichtung (alles Dialoge
+        bzw. die Anmeldeseite)"""
+        return store.needs_login or self.stack.get_visible_child_name() != "main" or self.get_visible_dialog() is not None
+
+    def _first_steps_ask(self, tries=0):
+        from .firststeps import first_steps
+        st = first_steps.st
+        if first_steps.asked or not st or not st.get("ask"):
+            return False
+        if self.first_steps_blocked():                 # spaeter noch einmal (bis ~2 min, danach beim naechsten Abruf)
+            if tries < 60:
+                GLib.timeout_add(2000, lambda: self._first_steps_ask(tries + 1))
+            return False
+        first_steps.asked = True
+        d = Adw.AlertDialog(heading=_("Would you like a short introduction?"),
+                            body=_("Saga creates a “First steps” page with a short checklist: profile picture, chats, app, first page "
+                                   "and task. Saga ticks off whatever you have done – and you can delete the page at any time."))
+        d.add_response("no", _("No, thanks"))
+        d.add_response("yes", _("Yes, please"))
+        d.set_response_appearance("yes", Adw.ResponseAppearance.SUGGESTED)
+        d.set_default_response("yes")
+        d.set_close_response("no")                     # Escape/Schliessen = "Nein, danke" (wie im Web)
+        d.connect("response", lambda dd, r: self._first_steps_answer(r == "yes"))
+        self.first_steps_dialog = d
+        d.present(self)
+        return False
+
+    def _first_steps_answer(self, yes):
+        from .firststeps import first_steps
+        first_steps.answer(yes, done=lambda r: yes and self.open_first_steps_page(r.get("page")),
+                           error=lambda e: self.toast(str(e)))
+
+    def open_first_steps_page(self, pid):
+        """neu angelegte (oder vorhandene) Seite "Erste Schritte" zeigen - neue erst in die Seitenliste holen"""
+        if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+            return
+        if pid in store.by_id:
+            self.show_page(pid, root=True)
+        else:
+            store.page_added(pid, None, done=lambda: self.show_page(pid, root=True))
+
+    def show_tasks(self, focus=False):
+        """Aufgaben zeigen (mit Zurueck nach Heute), focus: gleich ins Eingabefeld (leerer Zustand "Aufgabe notieren")"""
+        self.show_route(("tasks",))
+        tl = getattr(self.current, "task_list", None)
+        if focus and tl is not None:
+            GLib.idle_add(lambda: (tl.focus_entry(), False)[1])
 
     def call_current(self):
         """Direkt-Chat: Anrufen im Browser (Web-Oberflaeche mit WebRTC)"""

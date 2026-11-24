@@ -4,6 +4,7 @@ import datetime as _dt
 from gi.repository import Adw, Gdk, GLib, Gtk, Pango
 
 from .blocks import context_menu, flat_button, menu_popover, more_button
+from .emptystate import empty_state
 from .store import store, watch
 from .i18n import _, ngettext
 from .util import day_text, iso_day, parse_day, time_text, weekday_day_text
@@ -284,9 +285,7 @@ class TaskList(Gtk.Box):
                   (_("No date"), [t for t in all_ if not t.get("due")])]
         groups = [g for g in groups if g[1]]
         if not all_:
-            lb = Gtk.Label(label=_("All done 🎉"), xalign=0, margin_top=4)
-            lb.add_css_class("dim-label")
-            self.list.append(lb)
+            self._empty()
         for name, ts in groups:
             if not self.compact or len(groups) > 1:
                 h = Gtk.Label(label=name, xalign=0, margin_top=6)
@@ -308,9 +307,7 @@ class TaskList(Gtk.Box):
         its = [x for x in store.task_items if not x.get("done") or store.tqueue.d.get(("r:" if x.get("kind") == "row" else "t:") + str(x["id"]))]
         its = [x for x in its if not (x.get("kind") == "task" and x.get("id") in store._task_deletes)]
         if not its:
-            lb = Gtk.Label(label=_("All done 🎉"), xalign=0, margin_top=4)
-            lb.add_css_class("dim-label")
-            self.list.append(lb)
+            self._empty()
         overdue = [x for x in its if x.get("overdue")]
         rest = [x for x in its if not x.get("overdue")]
         for name, group in ((_("Overdue"), overdue), ("", rest)):
@@ -337,6 +334,17 @@ class TaskList(Gtk.Box):
             if self.show_done:
                 for t in store.done_tasks[: 5 if self.compact else 50]:
                     self.list.append(TaskRow(self.win, t))
+
+    def _empty(self):
+        """nichts offen: noch nie eine Aufgabe -> was hier erscheint + Knopf ins Eingabefeld (2031), sonst "Alles erledigt" """
+        if not self.compact and store.tasks_known and not store.has_tasks_ever():
+            self.empty = empty_state(_("Your tasks appear here – with due date, priority and repetition."), _("Write down a task"),
+                                     self.focus_entry)
+            self.list.append(self.empty)
+            return
+        lb = Gtk.Label(label=_("All done 🎉"), xalign=0, margin_top=4)
+        lb.add_css_class("dim-label")
+        self.list.append(lb)
 
     def _toggle_done(self):
         self.show_done = not self.show_done
@@ -537,22 +545,34 @@ class EventList(Gtk.Box):
             h.add_css_class("heading")
             top.append(h)
         top.append(Gtk.Box(hexpand=True))
-        top.append(flat_button(icon="list-add-symbolic", label=_("Event"), cb=lambda: EventEditor(win, None, self.reload).present(win)))
+        self.add_btn = flat_button(icon="list-add-symbolic", label=_("Event"), cb=lambda: EventEditor(win, None, self.reload).present(win))
+        top.append(self.add_btn)
         self.append(top)
         self.list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         self.append(self.list)
+        self.evs, self.cal = None, store.cal_accounts
         watch(self, "events-changed", lambda: self.reload(True))
+        watch(self, "today-changed", self._cal_changed)          # 2031: Zahl der Kalender bekannt/geaendert
         c = store.cached_events(days)
         if c is not None:
             self.fill(c)
         self.reload()
+        store.load_cal_accounts()
+
+    def _cal_changed(self):
+        if store.cal_accounts != self.cal and self.evs is not None:
+            self.fill(self.evs)
 
     def reload(self, fresh=False):
         store.fetch_events(self.days, self.fill, fresh=fresh)
 
     def fill(self, evs):
         _clear(self.list)
-        if not evs:
+        self.evs, self.cal = evs, store.cal_accounts
+        self.add_btn.set_visible(self.cal != 0)                 # ohne Kalender: kein "+ Termin" (wie im Web)
+        if not evs and self.cal == 0:                           # 2031: Voraussetzung fehlt - Hinweis + Knopf statt "Keine Termine"
+            self.list.append(calendar_hint(self.win))
+        elif not evs:
             lb = Gtk.Label(label=_("No events"), xalign=0)
             lb.add_css_class("dim-label")
             self.list.append(lb)
@@ -744,7 +764,8 @@ class TodayBox(Gtk.Box):
             items = []
             tasks = [t for t in store.tasks if not t.get("due") or t["due"] <= today][: self.lt]
         evs = store.events[: self.le]
-        if not tasks and not evs and not items:
+        fresh = not self.compact and store.tasks_known and not store.has_tasks_ever()   # 2031: noch nie eine Aufgabe
+        if not tasks and not evs and not items and not fresh:
             lb = Gtk.Label(label=_("Nothing planned 🎉"), xalign=0, margin_start=6)
             lb.add_css_class("dim-label")
             self.append(lb)
@@ -758,11 +779,28 @@ class TodayBox(Gtk.Box):
             self.append(TaskRow(self.win, t, compact=self.compact))
         for it in items:
             self.append(SourceRow(self.win, it, compact=self.compact))
+        if self.compact:
+            return
+        # 2031: leere Zustaende mit naechstem Schritt (Startseite "Heute"; die Seitenleiste bleibt knapp)
+        if fresh:
+            self.tasks_empty = empty_state(_("Your tasks appear here – with due date, priority and repetition."), _("Write down a task"),
+                                           lambda: self.win.show_tasks(focus=True))
+            self.append(self.tasks_empty)
+        if not evs and store.cal_accounts == 0:
+            self.append(calendar_hint(self.win))
+
+
+def calendar_hint(win):
+    """2031: noch kein Kalender verbunden - was hier erscheinen wuerde + "Kalender verbinden" (Einstellungen).
+    Kuerzer als im Web ("fuer heute und morgen"): Heute zeigt hier nur heute, Termine 31 Tage."""
+    return empty_state(_("Events from your calendars appear here."), _("Connect a calendar"),
+                       lambda: win.settings_dialog(page="calendar"), need=True)
 
 
 def today_screen(win):
     bx = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
     bx.append(TodayBox(win, limit_events=50, limit_tasks=50))
+    store.load_cal_accounts()
     return _screen(_("Today"), bx)
 
 

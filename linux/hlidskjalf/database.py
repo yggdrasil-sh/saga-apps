@@ -860,6 +860,21 @@ class RowMenuMixin:
                    done=lambda i: self.win.open_entry(i, (self.view or {}).get("open") or "side"))
 
 
+def rows_empty(m, new_row):
+    """2031: leere Tabelle/Liste - noch keine Eintraege: was ein Eintrag ist + "+ Neuer Eintrag" (nur wer anlegen darf);
+    Eintraege da, aber alle weggefiltert: das sagen (kein Knopf). Vor dem ersten Laden wie bisher "Keine Eintraege"."""
+    from .emptystate import empty_state
+    if not getattr(m, "loaded", True) or getattr(m, "error", None):
+        e = Gtk.Label(label=_("No entries"), xalign=0, margin_top=8, margin_bottom=8)
+        e.add_css_class("dim-label")
+        return e
+    if m.rows:
+        return empty_state(_("No entry matches the filters of this view."))
+    ok = m.can_add and not blocked_new_hint(m.readonly)
+    return empty_state(_("No entries yet. Each entry is a page of its own with the properties of these columns."),
+                       _("+ New entry") if ok else None, (lambda: new_row()) if ok else None)
+
+
 def _blocked(btn, m):
     """#11: Lesen/Kommentieren - Anlege-Schaltflaeche ausgegraut mit Hinweis (nicht ausgeblendet)"""
     hint = blocked_new_hint(m.readonly)
@@ -1028,8 +1043,10 @@ class TableView(Gtk.ScrolledWindow, RowMenuMixin):
             more.set_halign(Gtk.Align.START)
             self.box.append(more)
         if not self.rows:
-            e = Gtk.Label(label=_("No entries"), xalign=0, margin_start=8, margin_top=8, margin_bottom=8)
-            e.add_css_class("dim-label")
+            e = rows_empty(m, self.new_row)
+            e.set_margin_start(8)
+            e.set_margin_end(8)
+            self.empty = e
             self.box.append(e)
         from .dbedit import CalcRow
         self.box.append(CalcRow(self, m, self.view, self.cols, self.rows))
@@ -1194,9 +1211,8 @@ class ListView(Gtk.Box, RowMenuMixin):
             self.append(row)
             self.append(Gtk.Separator())
         if not self.rows:
-            e = Gtk.Label(label=_("No entries"), xalign=0, margin_top=8)
-            e.add_css_class("dim-label")
-            self.append(e)
+            self.empty = rows_empty(m, self.new_row)
+            self.append(self.empty)
 
 
 # --- Karten (Board, Galerie) ----------------------------------------------------------------

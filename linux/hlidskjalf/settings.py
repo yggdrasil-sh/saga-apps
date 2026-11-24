@@ -120,7 +120,8 @@ class SettingsDialog(Adw.PreferencesDialog):
         from .nextcloud import NextcloudGroup
         page.add(NextcloudGroup(self))             # Nextcloud-Dateien in Seiten (Server ab 2.3); sonst unsichtbar
         page.add(ImmichGroup(self))
-        page.add(CalendarGroup(self))
+        self.calendar = CalendarGroup(self)
+        page.add(self.calendar)
         return page
 
     # --- Info -------------------------------------------------------------------------------------------------------
@@ -158,6 +159,11 @@ class SettingsDialog(Adw.PreferencesDialog):
         self.push_subpage(nav)
 
     def show_page(self, name):
+        if name == "calendar":                     # 2031 "Kalender verbinden": Einstellungen, Fokus auf "+ Verbinden"
+            self.set_visible_page(self.pages["settings"])
+            self.calendar.want_focus = True
+            self.calendar.focus_connect()
+            return
         name = {"general": "settings"}.get(name, name)
         p = self.pages.get(name)
         if p is None:
@@ -429,6 +435,8 @@ class CalendarGroup(Adw.PreferencesGroup):
         self.dlg = dlg
         self.rows = []
         self.allowed = []
+        self.connect_btn = None
+        self.want_focus = False
         self.load()
 
     def load(self):
@@ -444,8 +452,18 @@ class CalendarGroup(Adw.PreferencesGroup):
         for a in accs:
             self._add(self._account(a))
         add = Adw.ActionRow(title=_("Connect calendar"))
-        add.add_suffix(_btn("+ " + _("Connect"), cb=lambda: self._new()))
+        self.connect_btn = _btn("+ " + _("Connect"), cb=lambda: self._new())
+        add.add_suffix(self.connect_btn)
         self._add(add)
+        store.set_cal_accounts(len(accs))         # 2031: Heute/Termine zeigen ohne Kalender "Kalender verbinden"
+        self.focus_connect()
+
+    def focus_connect(self):
+        """nach "Kalender verbinden" (leerer Zustand): Knopf fokussieren - die Seite rollt dorthin"""
+        if self.want_focus and self.connect_btn is not None:
+            self.want_focus = False
+            b = self.connect_btn
+            GLib.idle_add(lambda: (b.grab_focus(), False)[1])
 
     def _add(self, w):
         self.add(w)
@@ -752,6 +770,8 @@ class InfoPage(Adw.PreferencesPage):
         gu.add(self.st_row)
         self.dev = ch is None                      # Entwickler-Build: keine Pruefung, nur der Hinweis unter der Gruppe
         self.add(gu)
+        self.first = FirstStepsGroup(dlg)          # 2.6 (2031): Erste Schritte wieder abrufen; ohne Angebot unsichtbar
+        self.add(self.first)
         self.diag = DiagnoseGroup(dlg)             # 2.5 clientlog1: "Diagnose senden"
         self.add(self.diag)
         gl = Adw.PreferencesGroup(title=_("Licenses"))
@@ -773,6 +793,7 @@ class InfoPage(Adw.PreferencesPage):
 
     def _mapped(self):
         self.diag.refresh()
+        self.first.load()
         if not self._h:
             self._h = self.hint.connect("changed", lambda *_: self.refresh())
         self.refresh()
@@ -823,6 +844,74 @@ class InfoPage(Adw.PreferencesPage):
                 self.dlg.win.open_uri(u)            # Release-Seite im Browser (Flatpak/RPM: dort die passende Datei)
         elif st == "check":
             h.check(manual=True)
+
+
+class FirstStepsGroup(Adw.PreferencesGroup):
+    """Einstellungen -> Info -> Erste Schritte (2.6, Bugs-DB 2031): Stand der Seite + "Erste Schritte oeffnen" bzw. ohne
+    Seite "Erste Schritte anlegen" (beides POST yes - legt die Seite an bzw. neu an - und oeffnet sie). Unsichtbar, wenn
+    der Server das Angebot nicht kennt (aelterer Server) oder der Admin es abgeschaltet hat."""
+
+    def __init__(self, dlg):
+        super().__init__(title=_("First steps"))
+        from .firststeps import first_steps
+        self.dlg, self.fs = dlg, first_steps
+        self.row = Adw.ActionRow()
+        self.row.set_title_lines(0)
+        self.btn = Gtk.Button(valign=Gtk.Align.CENTER)
+        self.btn.connect("clicked", lambda *_: self.open())
+        self.row.add_suffix(self.btn)
+        self.row.set_activatable_widget(self.btn)
+        self.add(self.row)
+        self.busy = False
+        h = first_steps.connect("changed", lambda *_: self.fill())
+        self.connect("destroy", lambda *_: first_steps.disconnect(h))
+        self.fill()
+        self.load()
+
+    def load(self):
+        """beim Oeffnen: vorhandenen Stand zeigen, sonst bzw. nach einer Minute neu abrufen (gedrosselt)"""
+        self.fs.check(force=self.fs.st is None and self.fs.supported is None)
+
+    def fill(self):
+        from .firststeps import progress
+        st = self.fs.st
+        on = bool(st and st.get("enabled"))
+        self.set_visible(on)
+        if not on:
+            return
+        if st.get("page"):
+            n, total = progress(st)
+            self.row.set_title(GLib.markup_escape_text(_("Your “First steps” page: {n} of {all} done.").format(n=n, all=total)))
+            self.btn.set_label(_("Open first steps"))
+        else:
+            self.row.set_title(GLib.markup_escape_text(_("A page with a short checklist to get started – Saga ticks off what you have done.")))
+            self.btn.set_label(_("Create first steps"))
+        self.btn.set_sensitive(not self.busy)
+
+    def open(self):
+        if self.busy:
+            return
+        self.busy = True
+        self.btn.set_sensitive(False)
+        win = self.dlg.win
+
+        def fin(r):
+            self.busy = False
+            self.fill()
+            pid = r.get("page")
+            if pid:
+                self.dlg.close()
+                win.open_first_steps_page(pid)
+
+        def err(e):
+            self.busy = False
+            self.fill()
+            msg = GLib.markup_escape_text(str(e))
+            if hasattr(self.dlg, "add_toast"):
+                self.dlg.add_toast(Adw.Toast(title=msg))
+            else:
+                win.toast(str(e))
+        self.fs.answer(True, done=fin, error=err)
 
 
 class DiagnoseGroup(Adw.PreferencesGroup):

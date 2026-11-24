@@ -9762,3 +9762,71 @@ msgstr "Gjallarhorn ist in Saga 2.5 experimentell – getestet mit bis zu 4 Pers
 #: hlidskjalf/settings.py
 msgid "Experimental"
 msgstr "Experimentell"
+
+#: hlidskjalf/agenda.py
+msgid "Your tasks appear here – with due date, priority and repetition."
+msgstr "Hier stehen deine Aufgaben – mit Fälligkeit, Priorität und Wiederholung."
+
+#: hlidskjalf/agenda.py
+msgid "Write down a task"
+msgstr "Aufgabe notieren"
+
+#: hlidskjalf/agenda.py
+msgid "Events from your calendars appear here."
+msgstr "Termine aus deinen Kalendern erscheinen hier."
+
+#: hlidskjalf/agenda.py
+msgid "Connect a calendar"
+msgstr "Kalender verbinden"
+
+#: hlidskjalf/window.py
+msgid "Create first page"
+msgstr "Erste Seite anlegen"
+
+#: hlidskjalf/window.py
+msgid "Would you like a short introduction?"
+msgstr "Möchtest du eine kurze Einführung?"
+
+#: hlidskjalf/window.py
+msgid "Saga creates a “First steps” page with a short checklist: profile picture, chats, app, first page and task. Saga ticks off whatever you have done – and you can delete the page at any time."
+msgstr "Saga legt dir eine Seite „Erste Schritte“ mit ein paar Häkchen an: Profilbild, Chats, App, erste Seite und Aufgabe. Was du erledigt hast, hakt Saga selbst ab – und die Seite kannst du jederzeit löschen."
+
+#: hlidskjalf/window.py
+msgid "No, thanks"
+msgstr "Nein, danke"
+
+#: hlidskjalf/window.py
+msgid "Yes, please"
+msgstr "Ja, gern"
+
+#: hlidskjalf/settings.py
+msgid "First steps"
+msgstr "Erste Schritte"
+
+#: hlidskjalf/settings.py
+msgid "Your “First steps” page: {n} of {all} done."
+msgstr "Deine Seite „Erste Schritte“: {n} von {all} erledigt."
+
+#: hlidskjalf/settings.py
+msgid "Open first steps"
+msgstr "Erste Schritte öffnen"
+
+#: hlidskjalf/settings.py
+msgid "A page with a short checklist to get started – Saga ticks off what you have done."
+msgstr "Eine Seite mit ein paar Häkchen für den Anfang – Saga hakt Erledigtes selbst ab."
+
+#: hlidskjalf/settings.py
+msgid "Create first steps"
+msgstr "Erste Schritte anlegen"
+
+#: hlidskjalf/database.py
+msgid "No entry matches the filters of this view."
+msgstr "Kein Eintrag passt zu den Filtern dieser Ansicht."
+
+#: hlidskjalf/database.py
+msgid "No entries yet. Each entry is a page of its own with the properties of these columns."
+msgstr "Noch keine Einträge. Jeder Eintrag ist eine eigene Seite mit den Eigenschaften dieser Spalten."
+
+#: hlidskjalf/database.py
+msgid "+ New entry"
+msgstr "+ Neuer Eintrag"

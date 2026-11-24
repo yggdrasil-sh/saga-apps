@@ -102,6 +102,8 @@ entry.flat { background: transparent; box-shadow: none; outline: none; }
 entry.flat:focus-within { background: alpha(currentColor, 0.05); }
 button.hk-cellbtn { padding: 2px 4px; min-height: 26px; }
 .hk-empty { color: alpha(currentColor, 0.3); font-size: 0.92em; }
+/* 2031: leerer Zustand mit naechstem Schritt - Knopf mindestens 44 px hoch (Touch) */
+button.hk-empty-go { min-height: 24px; padding: 10px 24px; }
 button.hk-colhead { padding: 4px 8px; font-weight: 500; color: alpha(currentColor, 0.65); border-radius: 0; }
 .hk-calcrow button { padding: 2px 8px; }
 .hk-calc-empty { opacity: 0.3; font-size: 0.85em; }

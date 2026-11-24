@@ -61,6 +61,8 @@ class Store(GObject.Object):
         self.tasks = []
         self.done_tasks = []
         self.events = []
+        self.tasks_known = False          # 2031: Aufgabenliste schon einmal geladen (leerer Zustand erst danach)
+        self.cal_accounts = None          # 2031: Zahl verbundener Kalender (None = unbekannt) - "Kalender verbinden"
         self.loading = False
         self.needs_login = False
         self._refreshing = False
@@ -183,6 +185,9 @@ class Store(GObject.Object):
         self._set_pages([])
         self.tasks, self.done_tasks, self.events = [], [], []
         self.task_items, self.task_sources, self.task_people, self._tqueue = None, [], {}, None
+        self.tasks_known, self.cal_accounts = False, None
+        from .firststeps import first_steps
+        first_steps.reset()                                 # 2031: Stand gehoert zu Server und Konto
         self.fed_shared, self.fed_unreachable = [], []
         self._set_shared([])
         self.share_api, self.share_off = None, False
@@ -249,6 +254,9 @@ class Store(GObject.Object):
         self._set_pages([])
         self.tasks, self.done_tasks, self.events = [], [], []
         self.task_items, self.task_sources, self.task_people, self._tqueue = None, [], {}, None
+        self.tasks_known, self.cal_accounts = False, None
+        from .firststeps import first_steps
+        first_steps.reset()                                 # 2031: Stand gehoert zu Server und Konto
         self.fed_shared, self.fed_unreachable = [], []
         self._set_shared([])
         self.share_api, self.share_off = None, False
@@ -1083,6 +1091,7 @@ class Store(GObject.Object):
         if not isinstance(t, dict):
             return
         self.tasks, self.done_tasks = t.get("open", []) or [], t.get("done", []) or []
+        self.tasks_known = True
         if isinstance(t.get("items"), list):
             from . import tasksrc
             self.task_items = tasksrc.items(t)
@@ -1290,6 +1299,30 @@ class Store(GObject.Object):
             self.events = ev
             self.emit("today-changed")
         self.fetch_events(1, fin)
+
+    def has_tasks_ever(self):
+        """2031: gibt es (offen oder erledigt) schon Aufgaben? Sonst zeigt die Liste den leeren Zustand mit Knopf."""
+        return bool(self.tasks or self.done_tasks or self.task_items)
+
+    def set_cal_accounts(self, n):
+        if n != self.cal_accounts:
+            self.cal_accounts = n
+            self.emit("today-changed")
+
+    def load_cal_accounts(self, done=None):
+        """2031: verbundene Kalender zaehlen (GET api/settings/calendars) - ohne Kalender zeigen Heute und Termine
+        "Kalender verbinden" statt einer leeren Liste. Fehler: unbekannt lassen (kein Hinweis)."""
+        srv = config.settings.server
+
+        def fin(j):
+            if srv != config.settings.server:
+                return
+            accs = j.get("accounts") if isinstance(j, dict) else None
+            if isinstance(accs, list):
+                self.set_cal_accounts(len(accs))
+            if done:
+                done()
+        bg(client.get, "api/settings/calendars", done=fin, error=lambda e: None)
 
     def cal_targets(self, done):
         def work():
