@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -76,6 +77,7 @@ fun EventsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     LaunchedEffect(Unit) { load(false) }
     // 2.4: Termine anlegen/bearbeiten/loeschen (CalDAV ueber den Server, wie Web/iOS). edit: null = zu, Pair(null, Tag) = neu
     var edit by remember { mutableStateOf<Pair<CalEvent?, java.time.LocalDate>?>(null) }
+    val calConnected = io.github.yggdrasil_sh.saga.ui.common.rememberCalendarConnected(repo, events?.isEmpty() == true)
 
     Scaffold(
         topBar = { SagaTopBar(stringResource(R.string.nav_events), nav, chrome, contentMaxWidth = io.github.yggdrasil_sh.saga.ui.common.TopBarAlign.CONTENT) },
@@ -92,13 +94,20 @@ fun EventsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             LazyColumn(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (failed) item { Text(stringResource(R.string.events_load_failed), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
                 // NAV-16: leerer Zustand einheitlich (Symbol, Hinweis, Aktion) statt einer losen Textzeile
+                // 2031: ohne verbundenen Kalender steht dessen Hinweis + "Kalender verbinden" an der Stelle von "Neuer Termin"
                 if (events?.isEmpty() == true) item(key = "empty") {
+                    val noCal = io.github.yggdrasil_sh.saga.ui.common.EmptyStates.events(calConnected) ==
+                        io.github.yggdrasil_sh.saga.ui.common.EmptyStates.Events.NO_CALENDAR
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
                     io.github.yggdrasil_sh.saga.ui.common.SagaLineEmptyState(
                         stringResource(R.string.r4t_events_empty_title), io.github.yggdrasil_sh.saga.ui.theme.SagaIcons.calendar,
-                        text = stringResource(R.string.r4t_events_empty_hint),
+                        text = stringResource(if (noCal) R.string.es2031_cal_text else R.string.r4t_events_empty_hint),
                         action = {
-                            io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton(onClick = { edit = null to java.time.LocalDate.now() }) {
-                                Text(stringResource(R.string.ev_add))
+                            io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton(
+                                onClick = { if (noCal) io.github.yggdrasil_sh.saga.ui.common.openCalendarSettings(ctx, repo) else edit = null to java.time.LocalDate.now() },
+                                modifier = Modifier.heightIn(min = 48.dp),
+                            ) {
+                                Text(stringResource(if (noCal) R.string.es2031_cal_connect else R.string.ev_add))
                             }
                         },
                     )

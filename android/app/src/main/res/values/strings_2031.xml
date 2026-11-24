@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.6 (Bugs-DB 2031): leere Zustaende mit naechstem Schritt, "Erste Schritte" (Texte wie im Web) -->
+<resources>
+    <string name="fs_title">First steps</string>
+    <string name="fs_ask_title">Would you like a short introduction?</string>
+    <string name="fs_ask_text">Saga creates a “First steps” page with a short checklist: profile picture, chats, app, first page and task. Saga ticks off whatever you have done – and you can delete the page at any time.</string>
+    <string name="fs_yes">Yes, please</string>
+    <string name="fs_no">No, thanks</string>
+    <string name="fs_progress">Your “First steps” page: %1$d of %2$d done.</string>
+    <string name="fs_none_text">A page with a short checklist to get started – Saga ticks off what you have done.</string>
+    <string name="fs_open">Open first steps</string>
+    <string name="fs_create">Create first steps</string>
+    <string name="es2031_recent_text">Pages you opened recently appear here.</string>
+    <string name="es2031_tasks_title">No tasks yet</string>
+    <string name="es2031_tasks_text">Your tasks appear here – with due date, priority and repetition.</string>
+    <string name="es2031_task_add">Write down a task</string>
+    <string name="es2031_cal_text">Events from your calendars appear here.</string>
+    <string name="es2031_cal_connect">Connect a calendar</string>
+    <string name="es2031_db_none_title">No entries yet.</string>
+    <string name="es2031_db_none_text">Each entry is a page of its own with the properties of these columns.</string>
+    <string name="es2031_db_filtered">No entry matches the filters of this view.</string>
+    <string name="es2031_shared_none">Nothing is shared with you right now. When someone shares a page with you, it appears here.</string>
+</resources>

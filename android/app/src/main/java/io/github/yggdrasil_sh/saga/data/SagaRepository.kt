@@ -809,6 +809,18 @@ class SagaRepository(
     /** Je Server: Galerie angeboten? (404 -> Eintrag "Aus Vorlage ..." ausblenden) und zuletzt geladene Liste */
     val gallery = GalleryState()
 
+    /** 2.6 (Bugs-DB 2031): "Erste Schritte" - Frage beim ersten Anmelden, Abschnitt in Einstellungen > Info */
+    val firstSteps = FirstStepsModel(get = { api.get(it) }, post = { p, b -> api.post(p, b) })
+
+    /** 2031: leerer Zustand der Termine - ist ein Kalender verbunden? null = unbekannt (offline, Fehler) */
+    suspend fun calendarConnected(): Boolean? = try {
+        calendarAccounts().isNotEmpty()
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
+    }
+
     /** Sprache fuer ?lang= (App-Sprache bzw. angezeigte Sprache) */
     fun galleryLang(): String = io.github.yggdrasil_sh.saga.util.AppLanguage.normalize(language()).ifEmpty { "de" }
 

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.6 (Bugs-DB 2031): leere Zustaende mit naechstem Schritt, "Erste Schritte" (Texte wie im Web) -->
+<resources>
+    <string name="fs_title">ก้าวแรก</string>
+    <string name="fs_ask_title">ต้องการคำแนะนำสั้น ๆ ไหม?</string>
+    <string name="fs_ask_text">Saga จะสร้างหน้า “ก้าวแรก” พร้อมรายการสั้น ๆ: รูปโปรไฟล์ แชท แอป หน้าแรกและงาน สิ่งที่คุณทำแล้ว Saga จะติ๊กให้เอง – และคุณลบหน้านี้ได้ทุกเมื่อ</string>
+    <string name="fs_yes">ใช่ ขอบคุณ</string>
+    <string name="fs_no">ไม่ ขอบคุณ</string>
+    <string name="fs_progress">หน้า “ก้าวแรก” ของคุณ: เสร็จแล้ว %1$d จาก %2$d</string>
+    <string name="fs_none_text">หน้าที่มีรายการสั้น ๆ สำหรับเริ่มต้น – Saga ติ๊กสิ่งที่ทำแล้วให้เอง</string>
+    <string name="fs_open">เปิดก้าวแรก</string>
+    <string name="fs_create">สร้างก้าวแรก</string>
+    <string name="es2031_recent_text">หน้าที่คุณเปิดล่าสุดจะแสดงที่นี่</string>
+    <string name="es2031_tasks_title">ยังไม่มีงาน</string>
+    <string name="es2031_tasks_text">งานของคุณจะแสดงที่นี่ – พร้อมวันครบกำหนด ลำดับความสำคัญ และการทำซ้ำ</string>
+    <string name="es2031_task_add">จดงาน</string>
+    <string name="es2031_cal_text">นัดหมายจากปฏิทินของคุณจะแสดงที่นี่</string>
+    <string name="es2031_cal_connect">เชื่อมต่อปฏิทิน</string>
+    <string name="es2031_db_none_title">ยังไม่มีรายการ</string>
+    <string name="es2031_db_none_text">แต่ละรายการเป็นหน้าของตัวเองพร้อมคุณสมบัติของคอลัมน์เหล่านี้</string>
+    <string name="es2031_db_filtered">ไม่มีรายการที่ตรงกับตัวกรองของมุมมองนี้</string>
+    <string name="es2031_shared_none">ตอนนี้ยังไม่มีอะไรแชร์กับคุณ เมื่อมีคนแชร์หน้าให้คุณ หน้านั้นจะแสดงที่นี่</string>
+</resources>

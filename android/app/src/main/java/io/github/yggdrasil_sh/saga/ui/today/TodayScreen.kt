@@ -85,6 +85,7 @@ import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 @Composable
 fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val tasks by repo.tasks.collectAsState()
+    val doneTasks by repo.doneTasks.collectAsState()
     val events by repo.todayEvents.collectAsState()
     val loading by repo.loading.collectAsState()
     var editing by remember { mutableStateOf<TaskItem?>(null) }
@@ -134,6 +135,9 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         }
     }
     val today = todayIso()
+    // 2031: keine Termine heute - ohne verbundenen Kalender "Kalender verbinden" statt "+ Termin"
+    val calConnected = io.github.yggdrasil_sh.saga.ui.common.rememberCalendarConnected(repo, events.isEmpty())
+    val noCalendar = io.github.yggdrasil_sh.saga.ui.common.EmptyStates.events(calConnected) == io.github.yggdrasil_sh.saga.ui.common.EmptyStates.Events.NO_CALENDAR
     // Widget "Neue Aufgabe": zur Eingabe springen und fokussieren
     val quickAdd by repo.focusQuickAdd.collectAsState()
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -143,7 +147,9 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val recentIds by repo.settings.recent.collectAsState()
     val cont = remember(recentIds, pages, sharedPages) { TodayLogic.continuePages(recentIds, pages, sharedPages) }
     var twoCols by remember { mutableStateOf(false) }
-    LaunchedEffect(quickAdd) { if (quickAdd) listState.scrollToItem(TodayLogic.quickAddIndex(cont.isNotEmpty(), events.size, twoCols)) }
+    // 2031: "Weitermachen" steht auch leer da (Hinweis + "Neue Seite") - ausser waehrend die Seiten noch laden
+    val contShown = cont.isNotEmpty() || pages.isNotEmpty() || !loading
+    LaunchedEffect(quickAdd) { if (quickAdd) listState.scrollToItem(TodayLogic.quickAddIndex(contShown, events.size, twoCols)) }
     val account by repo.account.collectAsState()
     val first = TodayLogic.firstName(account)
     // NAV-13 Schnellaktionen: vorhandene Ablaeufe (Neue Seite wie Seitenleiste, Vorlagengalerie, Aufgaben-Eingabe, Termin-Dialog)
@@ -210,9 +216,21 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     targets = merged?.let { io.github.yggdrasil_sh.saga.data.TaskSourcesLogic.targets(it.sources) }.orEmpty())
             }
             val tasksEmpty = ml == null && todayTasks.isEmpty() || ml != null && todayItems.isNullOrEmpty()
+            // 2031: noch nie eine Aufgabe -> was hier erscheint + "Aufgabe notieren" (ins Eingabefeld); sonst wie bisher
+            val neverTasks = io.github.yggdrasil_sh.saga.ui.common.EmptyStates.tasks(
+                if (ml != null) ml.items.size else tasks.size, doneTasks.size,
+            ) == io.github.yggdrasil_sh.saga.ui.common.EmptyStates.Tasks.NONE_EVER
             val taskEmptyView: @Composable (Modifier) -> Unit = { m ->
                 Box(m.fillMaxWidth().padding(top = SagaSpace.s).sagaSegment(0, 1)) {
-                    SagaLineEmptyState(
+                    if (neverTasks) SagaLineEmptyState(
+                        stringResource(R.string.es2031_tasks_title), SagaIcons.tasks, text = stringResource(R.string.es2031_tasks_text), compact = true,
+                        action = {
+                            io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton(
+                                onClick = { repo.focusQuickAdd.value = true }, modifier = Modifier.heightIn(min = SagaSpace.touch),
+                            ) { Text(stringResource(R.string.es2031_task_add)) }
+                        },
+                    )
+                    else SagaLineEmptyState(
                         stringResource(if (events.isEmpty()) R.string.today_nothing_planned else R.string.today_no_tasks),
                         SagaIcons.tasks, text = stringResource(R.string.today_tasks_empty_hint), compact = true,
                     )
@@ -261,6 +279,14 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                             ContinueRow(cont, repo, contCardW) { nav.push(Dest.Page(it)) }
                         }
                     }
+                } else if (contShown) {
+                    // 2031: noch nichts geoeffnet - sagen, was hier erscheint, und "Neue Seite" als naechster Schritt
+                    item(key = "continue-empty") {
+                        Column(Modifier.widthIn(max = maxW).fillMaxWidth().sagaAppear(1)) {
+                            SagaSectionTitle(stringResource(R.string.r4t_continue), Modifier.padding(top = SagaSpace.xs))
+                            Box(Modifier.fillMaxWidth().sagaSegment(0, 1)) { NoRecentRow(enabled = !creating) { newPage() } }
+                        }
+                    }
                 }
                 if (two) {
                     // Gemeinsame Seite: beide Spalten scrollen mit dem Kopf (die Listen von "Heute" sind kurz, nicht-lazy ok)
@@ -269,7 +295,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                             // TalkBack: erst die ganze linke Spalte (Termine), dann die rechte (Aufgaben)
                             Column(Modifier.weight(1f).widthIn(max = TodayLogic.COLUMN_BOX_DP.dp).semantics { isTraversalGroup = true; traversalIndex = 0f }) {
                                 SagaSectionTitle(stringResource(R.string.nav_events), Modifier.padding(top = SagaSpace.s), count = events.size)
-                                if (events.isEmpty()) Box(Modifier.fillMaxWidth().sagaSegment(0, 1)) { NoEventsRow { newEvent = true } }
+                                if (events.isEmpty()) Box(Modifier.fillMaxWidth().sagaSegment(0, 1)) { NoEventsRow(noCalendar, repo) { newEvent = true } }
                                 events.forEachIndexed { i, e ->
                                     Box(Modifier.fillMaxWidth().sagaSegment(i, events.size).padding(vertical = SagaSpace.xs)) { EventRow(e) }
                                 }
@@ -295,7 +321,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     // NAV-13: leere Termine als eine Zeile mit "+ Termin" statt eines 200-dp-Blocks
                     item(key = "ev-empty") {
                         Box(Modifier.widthIn(max = maxW).fillMaxWidth().sagaSegment(0, 1).sagaAppear(1)) {
-                            NoEventsRow { newEvent = true }
+                            NoEventsRow(noCalendar, repo) { newEvent = true }
                         }
                     }
                 }
@@ -368,22 +394,52 @@ private fun QuickAction(label: String, icon: Int, enabled: Boolean = true, onCli
     }
 }
 
-/** NAV-13: "Keine Termine heute" als eine Zeile, rechts "+ Termin" (oeffnet den Termin-Dialog) */
+/**
+ * NAV-13: "Keine Termine heute" als eine Zeile, rechts "+ Termin" (oeffnet den Termin-Dialog). 2031: ohne verbundenen
+ * Kalender sagt die Zeile, was hier erscheint, und der Knopf heisst "Kalender verbinden" (Web-Einstellungen).
+ */
 @Composable
-private fun NoEventsRow(onAdd: () -> Unit) {
+private fun NoEventsRow(noCalendar: Boolean, repo: SagaRepository, onAdd: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = SagaSpace.m, end = SagaSpace.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SagaIcon(SagaIcons.calendar, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
-            stringResource(R.string.today_no_events), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = SagaSpace.m).weight(1f),
+            stringResource(if (noCalendar) R.string.es2031_cal_text else R.string.today_no_events), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = SagaSpace.m, top = SagaSpace.xs, bottom = SagaSpace.xs).weight(1f),
         )
+        if (noCalendar) {
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            SagaTextButton(onClick = { io.github.yggdrasil_sh.saga.ui.common.openCalendarSettings(ctx, repo) }, modifier = Modifier.heightIn(min = SagaSpace.touch)) {
+                Text(stringResource(R.string.es2031_cal_connect))
+            }
+            return@Row
+        }
         val desc = stringResource(R.string.ev_add)
         SagaTextButton(onClick = onAdd, modifier = Modifier.heightIn(min = SagaSpace.touch).semantics { contentDescription = desc }) {
             SagaIcon(SagaIcons.plus, null, Modifier.size(18.dp))
             Text(stringResource(R.string.r4t_action_event), modifier = Modifier.padding(start = SagaSpace.xs))
+        }
+    }
+}
+
+/** 2031: "Weitermachen" leer - eine Zeile wie bei den Terminen, rechts "Neue Seite" */
+@Composable
+private fun NoRecentRow(enabled: Boolean, onNew: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = SagaSpace.m, end = SagaSpace.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SagaIcon(SagaIcons.filePlus, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            stringResource(R.string.es2031_recent_text), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = SagaSpace.m, top = SagaSpace.xs, bottom = SagaSpace.xs).weight(1f),
+        )
+        SagaTextButton(onClick = onNew, enabled = enabled, modifier = Modifier.heightIn(min = SagaSpace.touch)) {
+            SagaIcon(SagaIcons.plus, null, Modifier.size(18.dp))
+            Text(stringResource(R.string.gal_new_page), modifier = Modifier.padding(start = SagaSpace.xs))
         }
     }
 }

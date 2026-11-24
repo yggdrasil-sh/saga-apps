@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.6 (Bugs-DB 2031): leere Zustaende mit naechstem Schritt, "Erste Schritte" (Texte wie im Web) -->
+<resources>
+    <string name="fs_title">Erste Schritte</string>
+    <string name="fs_ask_title">Möchtest du eine kurze Einführung?</string>
+    <string name="fs_ask_text">Saga legt dir eine Seite „Erste Schritte“ mit ein paar Häkchen an: Profilbild, Chats, App, erste Seite und Aufgabe. Was du erledigt hast, hakt Saga selbst ab – und die Seite kannst du jederzeit löschen.</string>
+    <string name="fs_yes">Ja, gern</string>
+    <string name="fs_no">Nein, danke</string>
+    <string name="fs_progress">Deine Seite „Erste Schritte“: %1$d von %2$d erledigt.</string>
+    <string name="fs_none_text">Eine Seite mit ein paar Häkchen für den Anfang – Saga hakt Erledigtes selbst ab.</string>
+    <string name="fs_open">Erste Schritte öffnen</string>
+    <string name="fs_create">Erste Schritte anlegen</string>
+    <string name="es2031_recent_text">Hier erscheinen die Seiten, die du zuletzt geöffnet hast.</string>
+    <string name="es2031_tasks_title">Noch keine Aufgaben</string>
+    <string name="es2031_tasks_text">Hier stehen deine Aufgaben – mit Fälligkeit, Priorität und Wiederholung.</string>
+    <string name="es2031_task_add">Aufgabe notieren</string>
+    <string name="es2031_cal_text">Termine aus deinen Kalendern erscheinen hier.</string>
+    <string name="es2031_cal_connect">Kalender verbinden</string>
+    <string name="es2031_db_none_title">Noch keine Einträge.</string>
+    <string name="es2031_db_none_text">Jeder Eintrag ist eine eigene Seite mit den Eigenschaften dieser Spalten.</string>
+    <string name="es2031_db_filtered">Kein Eintrag passt zu den Filtern dieser Ansicht.</string>
+    <string name="es2031_shared_none">Zurzeit ist nichts mit dir geteilt. Gibt dir jemand eine Seite frei, erscheint sie hier.</string>
+</resources>

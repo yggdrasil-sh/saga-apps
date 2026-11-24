@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -282,7 +283,19 @@ private fun ChatList(
                 }
                 if (loaded && active.isEmpty() && archived.isEmpty()) {
                     // Design 2: freundlicher Leerzustand mit naechstem Schritt (Knopf "Neuer Chat" unten rechts)
-                    item { io.github.yggdrasil_sh.saga.ui.common.SagaLineEmptyState(stringResource(R.string.chat_none), io.github.yggdrasil_sh.saga.ui.theme.SagaIcons.chats, text = stringResource(R.string.d2_chat_none_hint)) }
+                    // 2031: ein klarer Knopf zum naechsten Schritt (derselbe Ablauf wie "Neuer Chat" unten rechts)
+                    item {
+                        io.github.yggdrasil_sh.saga.ui.common.SagaLineEmptyState(
+                            stringResource(R.string.chat_none), io.github.yggdrasil_sh.saga.ui.theme.SagaIcons.chats, text = stringResource(R.string.d2_chat_none_hint),
+                            action = {
+                                io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton(onClick = { newChat = true }, modifier = Modifier.heightIn(min = 48.dp)) {
+                                    SagaIcon(SagaIcons.plus, null, Modifier.size(18.dp))
+                                    androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp))
+                                    Text(stringResource(R.string.chat_new))
+                                }
+                            },
+                        )
+                    }
                 }
                 val nameOf = { c: ChatSummary -> titles[c.id]?.takeIf { c.kind == "free" } ?: svc.displayName(c) }
                 items(active, key = { it.id }) { c ->

@@ -236,9 +236,7 @@ fun LazyListScope.databaseItems(st: DbViewState, repo: SagaRepository, onOpen: (
         }
     }
     if (v.type != "board" && v.type != "calendar" && v.type != "chart" && v.type != "timeline") {
-        if (st.loaded && st.rows.isEmpty()) item(key = "db-empty") {
-            Text(stringResource(R.string.dbv_empty_view), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 16.dp))
-        }
+        if (st.loaded && st.rows.isEmpty()) item(key = "db-empty") { DbEmptyRows(st, v, onOpen, Modifier.padding(vertical = 16.dp)) }
         if (st.hasMore) item(key = "db-more-" + st.rows.size) {
             LaunchedEffect(Unit) { st.loadMore() }                       // Ende erreicht: naechste Seite
             Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
@@ -248,6 +246,36 @@ fun LazyListScope.databaseItems(st: DbViewState, repo: SagaRepository, onOpen: (
         }
     }
     item(key = "db-end") { Spacer(Modifier.height(120.dp)) }
+}
+
+/**
+ * 2031: Ansicht ohne Zeilen - gar keine Eintraege: was ein Eintrag ist + "+ Neuer Eintrag" (mit Standardvorlage aus
+ * ihr, wie der Knopf der Werkzeugleiste; nur mit Schreibrecht); nur durch Filter/Suche leer: kurzer Satz.
+ */
+@Composable
+internal fun DbEmptyRows(st: DbViewState, v: DbView, onOpen: (Long) -> Unit, modifier: Modifier = Modifier) {
+    val kind = io.github.yggdrasil_sh.saga.ui.common.EmptyStates.db(st.total, v.filters.isNotEmpty(), st.search)
+    val scope = rememberCoroutineScope()
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (kind == io.github.yggdrasil_sh.saga.ui.common.EmptyStates.Db.FILTERED) {
+            Text(stringResource(R.string.es2031_db_filtered), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            return@Column
+        }
+        Text(stringResource(R.string.es2031_db_none_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+        Text(stringResource(R.string.es2031_db_none_text), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (st.canAdd) {
+            io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton(
+                onClick = {
+                    val t = st.defaultTemplate
+                    scope.launch { (if (t != null) st.createFrom(t) else st.create())?.let(onOpen) }
+                },
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                SagaIcon(SagaIcons.plus, null, Modifier.size(18.dp))
+                Text(stringResource(R.string.dbv_new_entry), modifier = Modifier.padding(start = 8.dp))
+            }
+        }
+    }
 }
 
 internal data class GroupHead(val id: String, val option: String?, val count: Int)

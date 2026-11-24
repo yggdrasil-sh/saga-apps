@@ -39,6 +39,7 @@ import io.github.yggdrasil_sh.saga.data.TaskItem
 import io.github.yggdrasil_sh.saga.ui.common.Chrome
 import io.github.yggdrasil_sh.saga.ui.common.SagaTopBar
 import io.github.yggdrasil_sh.saga.data.TaskCounts
+import io.github.yggdrasil_sh.saga.ui.common.EmptyStates
 import io.github.yggdrasil_sh.saga.ui.nav.AppNavigator
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -52,6 +53,7 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     var editing by remember { mutableStateOf<TaskItem?>(null) }
     var showDone by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
+    var focusAdd by remember { mutableStateOf(false) }                  // 2031: "Aufgabe notieren" im leeren Zustand
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { repo.loadTasks() }
 
@@ -77,10 +79,11 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         ) {
             val ml = merged
             if (ml != null) LazyColumn(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-                item { QuickAddTask(repo, Modifier.widthIn(max = 760.dp), targets = io.github.yggdrasil_sh.saga.data.TaskSourcesLogic.targets(ml.sources)) }
-                if (ml.items.isEmpty()) {
-                    item { Text(stringResource(R.string.tasks_all_done), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
+                item {
+                    QuickAddTask(repo, Modifier.widthIn(max = 760.dp), focus = focusAdd, onFocused = { focusAdd = false },
+                        targets = io.github.yggdrasil_sh.saga.data.TaskSourcesLogic.targets(ml.sources))
                 }
+                if (ml.items.isEmpty()) item(key = "empty") { TasksEmpty(EmptyStates.tasks(0, done.size)) { focusAdd = true } }
                 val bySrc = ml.sources.associateBy { it.db }
                 // NAV-12: auch mit Aufgabenquellen gruppiert (Ueberfaellig, Heute, Morgen, Spaeter, Ohne Datum), Reihenfolge je Gruppe vom Server
                 TaskCounts.grouped(ml.items) { TaskCounts.group(it, today, tomorrow) }.forEach { (g, list) ->
@@ -111,10 +114,8 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     }
                 }
             } else LazyColumn(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-                item { QuickAddTask(repo, Modifier.widthIn(max = 760.dp)) }
-                if (tasks.isEmpty()) {
-                    item { Text(stringResource(R.string.tasks_all_done), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
-                }
+                item { QuickAddTask(repo, Modifier.widthIn(max = 760.dp), focus = focusAdd, onFocused = { focusAdd = false }) }
+                if (tasks.isEmpty()) item(key = "empty") { TasksEmpty(EmptyStates.tasks(0, done.size)) { focusAdd = true } }
                 groups.forEach { (g, list) ->
                     stickyHeader(key = "h-$g") { TaskGroupHeader(g, list.size) }
                     items(list, key = { "t-${it.id}" }) { t ->
@@ -151,6 +152,26 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     }
     editing?.let { t -> TaskEditDialog(t, repo) { editing = null } }
     if (manage) TaskSourcesDialog(repo, onOpen = { nav.push(io.github.yggdrasil_sh.saga.ui.nav.Dest.Page(it)) }) { manage = false }
+}
+
+/**
+ * 2031: leere Aufgabenliste - noch nie eine Aufgabe: was hier erscheint + "Aufgabe notieren" (springt ins Eingabefeld);
+ * alles erledigt: kurzer Satz wie bisher (Eingabefeld steht direkt darueber).
+ */
+@androidx.compose.runtime.Composable
+private fun TasksEmpty(kind: EmptyStates.Tasks, onAdd: () -> Unit) {
+    if (kind == EmptyStates.Tasks.ALL_DONE) {
+        Text(stringResource(R.string.tasks_all_done), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp))
+        return
+    }
+    io.github.yggdrasil_sh.saga.ui.common.SagaLineEmptyState(
+        stringResource(R.string.es2031_tasks_title), SagaIcons.tasks, text = stringResource(R.string.es2031_tasks_text), compact = true,
+        action = {
+            io.github.yggdrasil_sh.saga.ui.theme.SagaFilledTonalButton(onClick = onAdd, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(stringResource(R.string.es2031_task_add))
+            }
+        },
+    )
 }
 
 /** Kopf einer Faelligkeits-Gruppe (bleibt beim Scrollen oben stehen), mit Anzahl */

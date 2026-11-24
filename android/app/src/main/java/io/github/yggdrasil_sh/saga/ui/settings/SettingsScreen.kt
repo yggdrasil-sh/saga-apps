@@ -595,6 +595,7 @@ fun SettingsInfoScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) 
                 }
             }
             item(key = "update") { UpdateHintSection(w) }
+            item(key = "first-steps") { io.github.yggdrasil_sh.saga.ui.common.FirstStepsSection(repo, w) }   // 2.6 (2031)
             item(key = "diag") { DiagSection(w) }
             item(key = "licenses") { io.github.yggdrasil_sh.saga.ui.common.SagaWrapSectionTitle(stringResource(R.string.settings_licenses), w.padding(top = 12.dp)) }
             item(key = "license-text") {

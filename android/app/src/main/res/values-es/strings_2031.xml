@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.6 (Bugs-DB 2031): leere Zustaende mit naechstem Schritt, "Erste Schritte" (Texte wie im Web) -->
+<resources>
+    <string name="fs_title">Primeros pasos</string>
+    <string name="fs_ask_title">¿Quieres una breve introducción?</string>
+    <string name="fs_ask_text">Saga te crea una página «Primeros pasos» con una pequeña lista: foto de perfil, chats, app, primera página y tarea. Saga marca por sí sola lo que hayas hecho, y puedes borrar la página cuando quieras.</string>
+    <string name="fs_yes">Sí, por favor</string>
+    <string name="fs_no">No, gracias</string>
+    <string name="fs_progress">Tu página «Primeros pasos»: %1$d de %2$d hechos.</string>
+    <string name="fs_none_text">Una página con una pequeña lista para empezar: Saga marca por sí sola lo que hayas hecho.</string>
+    <string name="fs_open">Abrir primeros pasos</string>
+    <string name="fs_create">Crear primeros pasos</string>
+    <string name="es2031_recent_text">Aquí aparecen las páginas que abriste por última vez.</string>
+    <string name="es2031_tasks_title">Aún no hay tareas</string>
+    <string name="es2031_tasks_text">Aquí aparecen tus tareas, con fecha, prioridad y repetición.</string>
+    <string name="es2031_task_add">Anotar una tarea</string>
+    <string name="es2031_cal_text">Aquí aparecen los eventos de tus calendarios.</string>
+    <string name="es2031_cal_connect">Conectar un calendario</string>
+    <string name="es2031_db_none_title">Todavía no hay entradas.</string>
+    <string name="es2031_db_none_text">Cada entrada es una página propia con las propiedades de estas columnas.</string>
+    <string name="es2031_db_filtered">Ninguna entrada coincide con los filtros de esta vista.</string>
+    <string name="es2031_shared_none">Ahora mismo no hay nada compartido contigo. Cuando alguien te comparta una página, aparecerá aquí.</string>
+</resources>

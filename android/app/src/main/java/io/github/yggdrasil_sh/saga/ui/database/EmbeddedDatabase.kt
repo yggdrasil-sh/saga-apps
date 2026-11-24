@@ -86,7 +86,7 @@ fun EmbeddedDatabase(dbId: Long, data: JsonObject, pageId: Long, blockId: String
                     }
                 }
                 if (st.loaded && st.rows.isEmpty() && v.type in setOf("table", "list", "gallery")) {
-                    Text(stringResource(R.string.dbv_empty_view), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                    DbEmptyRows(st, v, openRow, Modifier.padding(vertical = 8.dp))       // 2031
                 }
                 st.error?.let { Text(it.resolve(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                 // FlowRow: auf schmalen Handys rutscht ein Knopf in die naechste Zeile statt abgeschnitten zu werden

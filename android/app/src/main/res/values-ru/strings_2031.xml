@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.6 (Bugs-DB 2031): leere Zustaende mit naechstem Schritt, "Erste Schritte" (Texte wie im Web) -->
+<resources>
+    <string name="fs_title">Первые шаги</string>
+    <string name="fs_ask_title">Хотите короткое введение?</string>
+    <string name="fs_ask_text">Saga создаст страницу «Первые шаги» с небольшим списком: фото профиля, чаты, приложение, первая страница и задача. Выполненное Saga отмечает сама, а страницу можно удалить в любой момент.</string>
+    <string name="fs_yes">Да, давайте</string>
+    <string name="fs_no">Нет, спасибо</string>
+    <string name="fs_progress">Ваша страница «Первые шаги»: выполнено %1$d из %2$d.</string>
+    <string name="fs_none_text">Страница с небольшим списком для начала — выполненное Saga отмечает сама.</string>
+    <string name="fs_open">Открыть «Первые шаги»</string>
+    <string name="fs_create">Создать «Первые шаги»</string>
+    <string name="es2031_recent_text">Здесь появятся страницы, которые вы недавно открывали.</string>
+    <string name="es2031_tasks_title">Задач пока нет</string>
+    <string name="es2031_tasks_text">Здесь появляются ваши задачи — со сроком, приоритетом и повторением.</string>
+    <string name="es2031_task_add">Записать задачу</string>
+    <string name="es2031_cal_text">Здесь появляются события из ваших календарей.</string>
+    <string name="es2031_cal_connect">Подключить календарь</string>
+    <string name="es2031_db_none_title">Записей пока нет.</string>
+    <string name="es2031_db_none_text">Каждая запись — отдельная страница со свойствами из этих столбцов.</string>
+    <string name="es2031_db_filtered">Ни одна запись не подходит под фильтры этого вида.</string>
+    <string name="es2031_shared_none">Сейчас с вами ничем не поделились. Когда кто-то откроет вам страницу, она появится здесь.</string>
+</resources>

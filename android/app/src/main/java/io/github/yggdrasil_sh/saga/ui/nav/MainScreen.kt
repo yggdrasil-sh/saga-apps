@@ -370,6 +370,19 @@ fun MainScreen(
                 onShowAll = { bellOpen = false; nav.push(Dest.Notifications) },
             )
         }
+        // 2.6 (Bugs-DB 2031): "Erste Schritte" - einmal fragen, nie ueber anderen Dialogen/Ablaeufen
+        val fsServer by repo.server.collectAsState()
+        val fsAccount by repo.account.collectAsState()
+        val fsLogin by repo.needsLogin.collectAsState()
+        val fsPair by repo.pendingPair.collectAsState()
+        val fsPairRejected by repo.pairRejected.collectAsState()
+        val fsShare by repo.pendingShare.collectAsState()
+        val fsLocal by repo.localNetworkNeeded.collectAsState()
+        io.github.yggdrasil_sh.saga.ui.common.FirstStepsPrompt(
+            repo, accountKey = "$fsServer|$fsAccount", current = nav.current,
+            blocked = fsLogin || fsPair != null || fsPairRejected != null || fsShare != null || fsLocal != null ||
+                (callPushHint && inCall == null) || inCall != null || bellOpen || drawerOpen,
+        )
     }
 }
 

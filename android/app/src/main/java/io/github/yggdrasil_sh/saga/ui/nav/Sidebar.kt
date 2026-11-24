@@ -293,7 +293,9 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit, bot
                 }
             }
         }
-        if (sharedTree.isNotEmpty() || shareOff || fedUnreachable.isNotEmpty()) {
+        // 2031: auch leer sichtbar (wie im Web) - sagen, was hier erscheint; nicht waehrend die Seiten noch laden
+        val sharedEmpty = sharedTree.isEmpty() && !shareOff && fedUnreachable.isEmpty()
+        if (!sharedEmpty || !loading) {
             item(key = "shared-head") {
                 val res = LocalResources.current
                 Row(Modifier.fillMaxWidth().padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -327,6 +329,14 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit, bot
                 item(key = "shared-off") {
                     Text(
                         stringResource(R.string.shared_off_hint), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                    )
+                }
+            }
+            if (sharedEmpty) {
+                item(key = "shared-empty") {
+                    Text(
+                        stringResource(R.string.es2031_shared_none), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
                     )
                 }
