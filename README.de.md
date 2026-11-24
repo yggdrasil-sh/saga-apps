@@ -16,7 +16,8 @@
 ---
 
 Die Apps verbinden sich mit deinem eigenen Saga-Server. Seiten, Datenbanken, Aufgaben und Termine werden
-**nativ** angezeigt und bearbeitet – keine eingebettete Webseite. Sie sprechen **fünf Sprachen** – Deutsch,
+**nativ** angezeigt und bearbeitet – keine eingebettete Webseite (Ausnahme ist die Mac-App: Sie zeigt seit 2.5
+die Web-Oberfläche deines Servers in einer nativen Hülle). Sie sprechen **fünf Sprachen** – Deutsch,
 Englisch, Spanisch, Thai und Russisch. Sie folgen der Systemsprache (alle anderen Sprachen: Englisch), oder du
 wählst die Sprache unter **Einstellungen → Sprache** – auch schon vor der Anmeldung, praktisch an einem fremden
 oder geteilten Gerät. Thai und Russisch sind maschinell übersetzt; Verbesserungen von Muttersprachlern sind willkommen.
@@ -48,7 +49,7 @@ Fertige Pakete gibt es unter [Releases](https://github.com/yggdrasil-sh/saga-app
 |---|---|
 | macOS 26 oder neuer | `Saga-<Version>-macOS.dmg` – signiert und von Apple beglaubigt |
 | Linux (Fedora, AlmaLinux/RHEL 10 mit EPEL) | `saga-<Version>-1.noarch.rpm` |
-| Linux (jede Distribution mit Flatpak) | `saga-<Version>-x86_64.flatpak` (`flatpak install --user saga-….flatpak`) |
+| Linux (jede Distribution mit Flatpak) | `saga-<Version>-x86_64.flatpak` bzw. `-aarch64.flatpak` (`flatpak install --user saga-….flatpak`) |
 | Android 8 oder neuer | `Saga-<Version>.apk` (Installation aus unbekannten Quellen erlauben) |
 
 iPhone und iPad: selbst bauen (siehe [ios/README.md](ios/README.md)) – für den App Store gibt es noch keine Version.
@@ -71,6 +72,26 @@ legst du Adresse, **Unterseiten mit veröffentlichen**, **Suchmaschinen erlauben
 kopierst oder öffnest den Link oder wählst **Veröffentlichung beenden**. Öffentliche Seiten zeigen im Seitenkopf
 **Öffentlich**; den öffentlichen Namen änderst du unter **Einstellungen → Konto**. Bei älteren Servern fehlt der
 Menüpunkt.
+
+## Neu in 2.5 (mit Saga-Server 2.5)
+
+> **Beta:** Saga ist im Alltag nutzbar, aber noch jung – mach regelmäßig Backups; einige Funktionen (vor allem Anrufe
+> über Gjallarhorn) sind ausdrücklich experimentell.
+
+- **Anrufe über die Saga-Adresse hinter jedem Proxy** (Gjallarhorn, experimentell): iPhone/iPad, Android und die
+  Mac-App tunneln ihre Anrufe per WebSocket über die normale Saga-Adresse – auch hinter Nginx Proxy Manager mit
+  „Websockets Support“. Personen in den laufenden Anruf holen und aus einem 1:1 eine Konferenz machen (iOS, Android).
+- **Die Mac-App ist jetzt die Desktop-Hülle** um die Web-Oberfläche – mit Widgets, Teilen, Mitteilungen, Menüleiste,
+  Spotlight und Selbst-Update. Die DMG von 2.5 einmal von Hand installieren, danach aktualisiert sie sich selbst.
+- **Moderne Chats** auf iOS, Android und Linux: Gruppen mit Bild, Beschreibung und Admins, Anheften, Stummschalten mit
+  Dauer, Erwähnungen, Formatierung, Kontakte.
+- **Gemeinsam bearbeiten:** Zusammenführen statt Konfliktdialog (iOS, Android), live mitschreiben unter Linux.
+- **Seiten und Datenbanken:** Unterseiten als Liste oder Galerie, Saga-Siegel, Titelbild- und Vorlagengalerie, Graph
+  der Seiten, Widgets und Diagramme; BookOrbit „Lesen“ (iOS, Android).
+- **Fehlerberichte und „Diagnose senden“** in allen Apps, Update-Hinweis unter „Info“; Härtung nach dem zweiten Pentest.
+
+Die neuen Funktionen brauchen Saga-Server 2.5 (einige sind dort abschaltbar); mit älteren Servern laufen die Apps wie
+bisher. Release-Notizen: [docs/release-notes/2.5.0.md](docs/release-notes/2.5.0.md).
 
 ## Neu in 2.1 (mit Saga-Server 2.1)
 
