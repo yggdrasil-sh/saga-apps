@@ -342,3 +342,53 @@ def test_contact_menu_without_contacts2(win, srv):
     assert [e[0] for e in r.hk_contact_menu()] == ["Remove from contacts"]
     d.force_close()
     assert Gtk is not None
+
+
+def test_detail_live_released_after_close(win, srv):
+    """(Pruefung k27lrev) geschlossenes Detail haengt nicht mehr an book "changed" (sonst laedt jedes je geoeffnete Detail bei
+    jedem hello/reset bzw. contacts.changed neu)"""
+    import gc
+    a, m, g = _setup(srv, chats=False)
+    from hlidskjalf.contactbook import book as BK
+    sd = _settings(win)
+    page = sd.pages["contacts"]
+    for _i in range(3):
+        det = page.open(a)
+        pump(lambda: det.c is not None, 4)
+        pump(None, 0.3)
+        sd.pop_subpage()
+        pump(None, 0.6)
+    del det
+    gc.collect()
+    pump(None, 0.3)
+
+    def gets():
+        return len([x for x in srv.book_log if x[0] == "GET" and x[1].startswith(f"api/contacts/{a}")])
+    n0 = gets()
+    BK.emit("changed", a, False)
+    pump(None, 1.0)
+    assert gets() == n0
+    # offenes Detail laedt weiter neu
+    det = page.open(a)
+    pump(lambda: det.c is not None, 4)
+    pump(None, 0.3)
+    n1 = gets()
+    BK.emit("changed", a, False)
+    pump(lambda: gets() > n1, 4)
+    assert gets() == n1 + 1
+    sd.force_close()
+
+
+def test_editor_cc_only_when_account_cc_known(win, srv, monkeypatch):
+    """(Pruefung k27lrev) Konto-Landesvorwahl noch unbekannt (Einstellungen nicht geladen): kein cc aus der Region schicken -
+    sonst wuerde eine vorhandene Konto-Einstellung uebergangen"""
+    _setup(srv, chats=False)
+    from hlidskjalf import contactbook as B
+    monkeypatch.setattr(B, "region_cc", lambda loc=None: "49")
+    B.book.cc, B.book.cc_known = None, False
+    ed = B.ContactEditor(B.Host(None, None, lambda t: None), None)
+    ed.name.set_text("Xaver")
+    ed.addr_rows["e164"][0].set_text("0170 1234567")
+    assert "cc" not in ed.body()
+    B.book.cc_known = True
+    assert ed.body()["cc"] == "49"
