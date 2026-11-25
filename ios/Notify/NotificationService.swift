@@ -42,7 +42,7 @@ final class NotificationService: UNNotificationServiceExtension {
         h(c)
     }
 
-    /// Platzhalter: kein Inhalt, kein Ziel (Antippen oeffnet Saga), Anruf-Hinweis bleibt als Anruf erkennbar
+    /// Platzhalter: kein Inhalt; Anruf-Hinweis bleibt als Anruf erkennbar
     private static func placeholder(_ orig: UNMutableNotificationContent) -> UNMutableNotificationContent {
         let p = UNMutableNotificationContent()
         p.title = String(localized: "SAGA_PUSH_TITLE")
@@ -50,6 +50,7 @@ final class NotificationService: UNNotificationServiceExtension {
         p.body = call ? String(localized: "SAGA_PUSH_CALL") : String(localized: "SAGA_PUSH_BODY")
         p.sound = orig.sound
         p.interruptionLevel = orig.interruptionLevel
+        p.userInfo = orig.userInfo                     // Umschlag bleibt: die App entschluesselt beim Antippen selbst (PushCenterDelegate)
         return p
     }
 }

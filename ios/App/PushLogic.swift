@@ -30,12 +30,28 @@ struct PushState: Equatable {
     var limit = 20
     /// 2.5 (push2): Fassung der Nutzlast (server.payload; aeltere Server: 0) - ab 2 nimmt das Abo `lang` an
     var payload = 0
+    /// 2262 (2.6, pushrelay1): Server verschluesselt Apple-Mitteilungen Ende-zu-Ende (server.apns_e2e, Fassung; aeltere: 0)
+    var e2e = 0
+    /// Topics (App-IDs), an die der Server zustellen kann - direkt (eigener Schluessel) oder ueber das Push-Relais
+    var topics: [String] = []
+    /// App-ID des eigenen APNs-Schluessels (server.apns_bundle; leer = unbekannt)
+    var apnsBundle = ""
+    /// Push-Relais (server.apns_relay): Zustand ok|down|pending|blocked|auth, Topics des Relais; nil = kein Relais
+    var relayState: String?
+    var relayTopics: [String] = []
     init() {}
     init?(data: Data) {
         guard let j = ShareJSON.obj(data) else { return nil }
         let s = j["server"] as? [String: Any] ?? [:]
         enabled = ShareJSON.bool(s["enabled"]); apns = ShareJSON.bool(s["apns"])
         payload = ShareJSON.int(s["payload"]) ?? 0
+        e2e = ShareJSON.int(s["apns_e2e"]) ?? 0
+        topics = (s["apns_topics"] as? [Any] ?? []).compactMap { $0 as? String }
+        apnsBundle = s["apns_bundle"] as? String ?? ""
+        if let r = s["apns_relay"] as? [String: Any] {
+            relayState = r["state"] as? String ?? ""
+            relayTopics = (r["topics"] as? [Any] ?? []).compactMap { $0 as? String }
+        }
         let st = j["settings"] as? [String: Any] ?? [:]
         for (k, v) in st["cats"] as? [String: Any] ?? [:] { cats[k] = ShareJSON.bool(v) }
         categories = (j["categories"] as? [Any] ?? []).compactMap { $0 as? String }
@@ -71,9 +87,14 @@ enum PushLogic {
     static func env(debug: Bool) -> String { debug ? "sandbox" : "production" }
     /// lang (2.5, push2): Sprache der Mitteilungen dieses Geraets - nur an Server mit payload >= 2 (aeltere Server: Feld
     /// unbekannt). Bewusst KEIN caps:["update"]: stille Aktualisierungen (content-available) kann die App noch nicht.
-    static func subscription(token: String, env: String, name: String, type: String = "apns", lang: String? = nil, payload: Int = 0) -> [String: Any] {
+    /// 2262: keys {p256dh, auth} und topic (eigene App-ID) nur an Server mit apns_e2e >= 1 - aeltere Server kennen die Felder nicht
+    static func subscription(token: String, env: String, name: String, type: String = "apns", lang: String? = nil, payload: Int = 0,
+                             e2e: Int = 0, keys: [String: String]? = nil, topic: String? = nil) -> [String: Any] {
         var b: [String: Any] = ["type": type, "token": token, "env": env, "name": String(name.prefix(80))]
         if let l = pushLang(lang, payload: payload) { b["lang"] = l }
+        if e2e >= 1, let keys, keys["p256dh"]?.isEmpty == false, keys["auth"]?.isEmpty == false, let topic, !topic.isEmpty {
+            b["keys"] = keys; b["topic"] = topic
+        }
         return b
     }
     /// Sprache fuers Abo: nur unterstuetzte Codes (de/en/es/ru/th), nur mit payload >= 2
@@ -88,13 +109,25 @@ enum PushLogic {
         return sent != l
     }
     /// Schalter: bedienbar oder warum nicht
-    enum Availability: Equatable { case ok, serverOff, appleMissing, unsupported }
-    static func availability(_ s: PushState?) -> Availability {
+    /// relayDown (2262): Zustellung ueber das Push-Relais gerade gestoert - Schalter bleibt bedienbar, Hinweis "Glocke"
+    enum Availability: Equatable { case ok, serverOff, appleMissing, unsupported, relayDown }
+    /// bundle: eigene App-ID (Topic); e2eReady: App kann Ende-zu-Ende (Erweiterung eingebettet, Schluessel speicherbar)
+    static func availability(_ s: PushState?, bundle: String = "", e2eReady: Bool = false) -> Availability {
         guard let s else { return .unsupported }
         if !s.enabled { return .serverOff }
-        if !s.apns { return .appleMissing }
-        return .ok
+        // Server vor 2.6 (ohne apns_e2e) oder App ohne Ende-zu-Ende: wie bisher nur der eigene Schluessel des Servers
+        guard s.e2e >= 1, e2eReady, !bundle.isEmpty else { return s.apns ? .ok : .appleMissing }
+        let direct = s.apns && (s.apnsBundle.isEmpty || s.apnsBundle == bundle)
+        if direct { return .ok }
+        let relay = s.relayState != nil && (s.relayTopics.contains(bundle) || s.topics.contains(bundle))
+        if relay { return relayDownStates.contains(s.relayState ?? "") ? .relayDown : .ok }
+        if s.topics.contains(bundle) { return .ok }
+        // eigener Schluessel fuer eine andere App-ID (z. B. MDM-Build) und kein Relais fuer diese App: wie bisher anzeigen
+        return s.apns && s.topics.isEmpty ? .ok : .appleMissing
     }
+    static let relayDownStates: Set<String> = ["down", "pending", "blocked", "auth"]
+    /// Schalter bedienbar?
+    static func usable(_ a: Availability) -> Bool { a == .ok || a == .relayDown }
     /// Ruhezeiten: "HH:MM"
     static func validTime(_ t: String) -> Bool { t.range(of: #"^([01]\d|2[0-3]):[0-5]\d$"#, options: .regularExpression) != nil }
     /// Ergebnis von "Test senden"

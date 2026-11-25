@@ -281,7 +281,9 @@ extension CallSystem: PKPushRegistryDelegate {
     /// Pflicht: im selben Durchlauf einen CallKit-Anruf melden - auch wenn der Anruf schon vorbei ist (dann gleich beenden)
     nonisolated func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType,
                                   completion: @escaping () -> Void) {
-        let info = payload.dictionaryPayload
+        // 2262: Ende-zu-Ende (Umschlag "saga") zuerst oeffnen; nicht lesbar -> bleibt der Umschlag, CallLogic.push gibt nil
+        // und der Anruf wird gemeldet und gleich beendet (Pflicht bei PushKit). Klartext alter Server unveraendert.
+        let info = PushE2E.openInfo(payload.dictionaryPayload)
         MainActor.assumeIsolated {
             let p = CallLogic.push(info)
             let title = (info["title"] as? String) ?? ""

@@ -22,6 +22,8 @@ final class PushModel: ObservableObject {
     static weak var current: PushModel?
     /// Ziel einer angetippten Mitteilung, das noch nicht geoeffnet wurde
     static var pending: NotifTarget?
+    /// 2262: Haken fuer stille Mitteilungen (entschluesselte Felder; true = neue Daten) - z. B. Widget-Push (2188)
+    static var backgroundHook: (([AnyHashable: Any]) async -> Bool)?
     weak var store: Store? { didSet { PushModel.current = self } }
     @Published var state: PushState?
     @Published var supported = true
@@ -47,6 +49,28 @@ final class PushModel: ObservableObject {
     }
 
     func signedOut() { state = nil; message = nil }                 // Abo verschwindet beim Abmelden auf dem Server
+
+    /// 2262: App kann Ende-zu-Ende-Mitteilungen anzeigen - nur iOS mit eingebetteter Erweiterung HlidskjalfNotify
+    /// (build-adhoc/-testflight bauen ohne sie weiter, wenn ihr Profil fehlt; dann keine Schluessel ans Abo, alles wie bisher)
+    nonisolated static let e2eReady: Bool = {
+        #if os(iOS)
+        guard let u = Bundle.main.builtInPlugInsURL?.appendingPathComponent("HlidskjalfNotify.appex") else { return false }
+        return FileManager.default.fileExists(atPath: u.path)
+        #else
+        return false                                                // Mac-Huelle: direkt, ohne Schluessel (2262-12 spaeter)
+        #endif
+    }()
+    /// Schalter-Zustand fuer dieses Geraet
+    var availability: PushLogic.Availability {
+        PushLogic.availability(state, bundle: AppConfig.mainBundleID, e2eReady: Self.e2eReady)
+    }
+    /// keys/topic fuers Abo (nur Server mit apns_e2e; Schluessel je Server im gemeinsamen Schluesselbund, Wechsel nach 30 Tagen)
+    private func e2eFields() -> (e2e: Int, keys: [String: String]?, topic: String?) {
+        let e = state?.e2e ?? 0
+        guard e >= 1, Self.e2eReady, let o = AppConfig.serverOrigin,
+              let k = PushE2E.current(origin: o, group: AppConfig.keychainGroup) else { return (0, nil, nil) }
+        return (e, k.subscriptionKeys, AppConfig.mainBundleID)
+    }
 
     func load() async {
         guard let store else { return }
@@ -134,7 +158,9 @@ final class PushModel: ObservableObject {
         guard let store, AppConfig.hasServer, !store.needsLogin else { return }
         if state == nil { await load() }                                // 2.5: payload des Servers kennen (lang nur ab 2)
         let lang = PushLogic.pushLang(AppConfig.appLanguage, payload: state?.payload ?? 0)
-        let body = PushLogic.subscription(token: t, env: Self.env, name: DeviceKey.deviceName, lang: lang, payload: state?.payload ?? 0)
+        let f = e2eFields()
+        let body = PushLogic.subscription(token: t, env: Self.env, name: DeviceKey.deviceName, lang: lang, payload: state?.payload ?? 0,
+                                          e2e: f.e2e, keys: f.keys, topic: f.topic)
         do {
             let (d, code) = try await store.apiResponse("api/push/subscriptions", method: "POST", body: body)
             if !(200..<300).contains(code) { message = ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "\(code)" }
@@ -157,8 +183,10 @@ final class PushModel: ObservableObject {
         #if os(iOS)
         guard CallEnv.callKit, let t = CallSystem.shared.voipToken, let store, AppConfig.hasServer, !store.needsLogin else { return }
         if state == nil { await load() }
+        let f = e2eFields()                                                                             // 2262: derselbe Schluessel
         let body = PushLogic.subscription(token: t, env: Self.env, name: DeviceKey.deviceName, type: "apns-voip",
-                                          lang: AppConfig.appLanguage, payload: state?.payload ?? 0)   // 2.5: Sprache (verpasste Anrufe)
+                                          lang: AppConfig.appLanguage, payload: state?.payload ?? 0,   // 2.5: Sprache (verpasste Anrufe)
+                                          e2e: f.e2e, keys: f.keys, topic: f.topic)
         guard let (d, code) = try? await store.apiResponse("api/push/subscriptions", method: "POST", body: body), (200..<300).contains(code) else { return }
         await load()
         if let keep = ShareJSON.obj(d).flatMap({ ShareJSON.int($0["id"]) }), let s = state {
@@ -222,14 +250,14 @@ final class PushCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
     static let shared = PushCenterDelegate()
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                 withCompletionHandler done: @escaping (UNNotificationPresentationOptions) -> Void) {
-        let info = notification.request.content.userInfo
+        let info = PushE2E.openInfo(notification.request.content.userInfo)   // 2262: Platzhalter der Erweiterung -> selbst oeffnen
         let remote = notification.request.trigger is UNPushNotificationTrigger
         let plain = PushModel.plain(info)
         PushModel.onMain { done(PushCenterDelegate.presentation(plain, remote: remote)) }
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler done: @escaping () -> Void) {
-        let info = PushModel.plain(response.notification.request.content.userInfo), action = response.actionIdentifier
+        let info = PushModel.plain(PushE2E.openInfo(response.notification.request.content.userInfo)), action = response.actionIdentifier
         PushModel.onMain {
             PushModel.handleTap(info, action: action)
             done()
@@ -270,6 +298,16 @@ final class IOSAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         Task { @MainActor in PushModel.current?.didFail(error) }
     }
+    /// 2262: stille Mitteilung (content-available) - Ende-zu-Ende entschluesseln, an den Haken geben (2188 Widget-Push).
+    /// Ohne Haken: nichts zu tun (.noData). Klartext alter Server geht unveraendert durch.
+    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+                     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        let info = PushModel.plain(PushE2E.openInfo(userInfo))
+        MainActor.assumeIsolated {
+            guard let hook = PushModel.backgroundHook else { completionHandler(.noData); return }
+            Task { @MainActor in completionHandler(await hook(info) ? .newData : .noData) }
+        }
+    }
     /// 2.4: Video-Uploads im Hintergrund (URLSession background) - das System weckt die App fuer den naechsten Teil
     func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String, completionHandler: @escaping () -> Void) {
         MainActor.assumeIsolated { ChatVideoUploads.shared.wake(completionHandler) }
@@ -287,26 +325,28 @@ struct PushSettingsSection: View {
     var body: some View {
         if push.supported {
             Section {
-                let av = PushLogic.availability(push.state)
+                let av = push.availability
                 // Schalter und Zustand duerfen sich nicht widersprechen: nur AN, wenn der Server zustellen kann
-                let on = av == .ok && push.wanted && push.state?.thisDevice != nil
+                // (2262: auch bei gestoertem Relais - die Mitteilungen warten, die Glocke zeigt alles)
+                let on = PushLogic.usable(av) && push.wanted && push.state?.thisDevice != nil
                 Toggle(isOn: Binding(get: { on }, set: { v in Task { await push.setEnabled(v) } })) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Mitteilungen auf diesem Gerät")
                         if let d = push.state?.thisDevice, let e = d.lastError { Text("Letzter Fehler: \(e)").font(.caption).foregroundStyle(.orange) }
                     }
                 }
-                .disabled(push.busy || av != .ok)
+                .disabled(push.busy || !PushLogic.usable(av))
                 .id("push")
                 switch av {
                 case .serverOff: Label("Mitteilungen sind auf diesem Server abgeschaltet.", systemImage: "bell.slash").font(.footnote).foregroundStyle(.secondary)
                 case .appleMissing: Label("Mitteilungen an die Apple-App sind auf diesem Server noch nicht eingerichtet (Admin-Bereich).", systemImage: "info.circle").font(.footnote).foregroundStyle(.secondary)
+                case .relayDown: Label("Mitteilungen ans iPhone sind gerade gestört – Saga zeigt alles in der Glocke.", systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(.orange)
                 default: EmptyView()
                 }
                 if let m = push.message { Text(m).font(.footnote).foregroundStyle(.secondary) }
                 // "Worueber?" nur, wenn Mitteilungen eingeschaltet sind UND der Server zustellen kann - sonst wirkten
                 // eingeschaltete Themen-Schalter, als kaeme etwas an (BUG-102)
-                if let s = push.state, s.enabled, av == .ok { options(s, enabled: on) }
+                if let s = push.state, s.enabled, PushLogic.usable(av) { options(s, enabled: on) }
             } header: { Text("Mitteilungen") } footer: {
                 Text("Mitteilungen aufs Handy oder den Computer – auch wenn Saga geschlossen ist. Inhalte von Seiten, Kommentaren und Chats werden nie mitgeschickt.")
             }
