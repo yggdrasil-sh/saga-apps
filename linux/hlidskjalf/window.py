@@ -1482,6 +1482,11 @@ class MainWindow(Adw.ApplicationWindow):
         if typ.startswith("chat."):
             chat.on_live(typ, d)
             return
+        if typ.startswith("contacts.") or typ in ("hello", "reset"):    # (2.6, contacts2) Adressbuch: Liste/Detail neu laden
+            from .contactbook import book
+            book.on_live(typ, d)
+            if typ.startswith("contacts."):
+                return
         if typ == "avatar.changed":                        # Profilbild einer Person (Server 2.1): Chats, eigenes Konto
             chat.on_live(typ, d)
             if isinstance(d, dict) and d.get("user") and d.get("user") == (getattr(self, "me", None) or {}).get("username"):

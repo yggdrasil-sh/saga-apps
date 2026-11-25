@@ -29,7 +29,7 @@ class SettingsDialog(Adw.PreferencesDialog):
     Mein Backup, Mitteilungen und Chats & Geraete sind Unterseiten (Zeile mit Pfeil). show_page(name): "account",
     "settings" (alt: "general"), "info" bzw. die Unterseiten "backup", "push", "chats"."""
 
-    SUBPAGES = ("backup", "push", "chats", "reach")
+    SUBPAGES = ("backup", "push", "chats", "reach", "contacts")
 
     def __init__(self, win):
         super().__init__(title=_("Settings"), search_enabled=False)
@@ -111,6 +111,12 @@ class SettingsDialog(Adw.PreferencesDialog):
         self.pages["reach"].connect("notify::visible", lambda p, _p: self._want_shown(p))
         gn.add(self._nav_row("reach", _("Availability"), "user-available-symbolic"))
         page.add(gn)
+        # 2.6 (contacts2, Bugs-DB 2027a-7): Adressbuch - Unterseite; aeltere Server: unsichtbar
+        from .contactbook import ContactsPage
+        self.pages["contacts"] = ContactsPage(self)
+        gk = Adw.PreferencesGroup()
+        gk.add(self._nav_row("contacts", _("Contacts"), "x-office-address-book-symbolic"))
+        page.add(gk)
         # Chat: Chats & Geraete (Server ab 1.5) - Unterseite, nur wenn Chats eingerichtet sind
         from .chat import chat
         if chat.status in ("setup", "device", "ready"):
@@ -153,7 +159,7 @@ class SettingsDialog(Adw.PreferencesDialog):
         if old is not None:                        # schon einmal gezeigt: Seite aus der alten Huelle loesen und wiederverwenden
             old.get_child().set_content(None)
         titles = {"backup": _("My backup"), "push": pgettext("settings tab", "Push"), "chats": _("Chats &amp; devices"),
-                  "reach": _("Availability")}
+                  "reach": _("Availability"), "contacts": _("Contacts")}
         tv = Adw.ToolbarView()
         tv.add_top_bar(Adw.HeaderBar())
         tv.set_content(p)

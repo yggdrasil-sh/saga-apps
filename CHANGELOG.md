@@ -26,6 +26,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Anderswo geändert (409) → neuer Stand, Eingabe bleibt; doppelte Nummer/Mail → Hinweis mit „Diesen Kontakt öffnen“.
   „Kontakt bearbeiten …“ auch im Kontakt-Menü von „Neue Unterhaltung“ und „Mitglied hinzufügen“; Live `contacts.changed`
   lädt neu. Braucht Saga mit `contacts2`; ältere Server: alles wie bisher.
+- **Kontakte in der Linux-App** (Bugs-DB 2027a-7, wie das Web): Einstellungen › Kontakte mit Suche (entprellt) und Liste
+  (zuletzt zuerst) – Personen aus gemeinsamen Chats und selbst angelegte Kontakte. Detail mit fester Saga-Zeile und
+  „Nachricht“ (Direkt-Chat), Telefonnummern (`tel:`) und E-Mail-Adressen (`mailto:`) zum Anrufen, Schreiben und Kopieren,
+  Anrede und Grußform. Bearbeiten: „Name für mich“ (nur im Adressbuch, nie in Chats), Anrede —/du/Sie, Grußform, Nummern
+  und Mails mit Typ (Mobil, Privat, Arbeit, Sonstige); anderswo geändert (409) → aktueller Stand geladen, Eingabe bleibt;
+  doppelte Nummer/Mail → Hinweis mit „Kontakt zeigen“. „Neuer Kontakt“, „Kontakt löschen“ mit Rückfrage, Landesvorwahl
+  für nationale Nummern (Vorschlag aus der Region des Rechners), Live `contacts.changed`. „Kontakt bearbeiten …“ im
+  Kontaktmenü von „Neue Unterhaltung“ und „Mitglied hinzufügen“. Braucht Saga mit `contacts2`; ältere Server: alles wie
+  bisher.
 - **Eigener Status in der Linux-App** (Bugs-DB 2029-8, wie das Web): Klick auf das eigene Profilbild zeigt den Status
   (Punkt am Bild, wenn nicht verfügbar); „Mein Status“ setzt Verfügbar / Beschäftigt / Nicht stören mit Dauer (1 Stunde,
   bis morgen 7:00, bis ich es ausschalte) und eigenem Text (bis 80 Zeichen), zeigt ehrlich, was gerade wirkt (Ablauf,

@@ -16,6 +16,12 @@ def init(s):
     s.contacts_on = False      # 2.5 Kontakte (Feature contacts1)
     s.contacts = []            # [{ref, name, sub, avatar, remote, host?, ready, gone, last_at, hidden?}]
     s.contacts_log = []
+    # 2.6 Adressbuch (Feature contacts2 nur mit extra_features; Bugs-DB 2027a): id -> Kontakt wie GET /api/contacts/{id}
+    s.book_on = False
+    s.book = {}
+    s.book_cc = None
+    s.book_log = []            # [(methode, pfad, body)]
+    s.book_next = 100
     s.v25_people = {}          # Kennung -> {name, avatar, me, remote, gone?}
     s.v25_calc = {}            # Zeile -> {pid: wert} (Formel-/Rollup-Werte, "rechnet der Server")
     s.v25_fx_err = {}          # Zeile -> {pid: code}
@@ -113,6 +119,154 @@ def patch_row(s, nid, body, out):
     return out
 
 
+# --- (2.6, contacts2) Adressbuch - einfache Regeln wie docs/APP-API.md "Kontakte" (genau: der echte Server) ---------------
+def book_add(s, name=None, saga=None, addrs=(), last_at=None, **kw):
+    """Kontakt im Schein-Server anlegen. saga: {ref, remote?, host?, sub?, ready?, gone?} (feste Adresse), addrs: [(kind, value, type)]"""
+    s.book_next += 1
+    cid = s.book_next
+    now = time.time()
+    al = []
+    if saga:
+        s.book_next += 1
+        al.append({"id": s.book_next, "kind": "fed" if saga.get("remote") else "saga", "value": saga["ref"], "type": None, "fixed": True})
+    for k, v, t in addrs:
+        s.book_next += 1
+        al.append({"id": s.book_next, "kind": k, "value": v, "type": t, "fixed": False})
+    c = {"id": cid, "ver": 1, "origin": "chat" if saga else "manual", "own_name": kw.get("own_name", None if saga else name),
+         "live_name": name, "saga": dict({"remote": False, "host": None, "sub": "", "avatar": None, "ready": True, "gone": False}, **saga) if saga else None,
+         "form": kw.get("form"), "salutation": kw.get("salutation"), "addrs": al, "last_at": last_at, "created": now, "updated": now}
+    s.book[cid] = c
+    return cid
+
+
+def _book_view(c):
+    out = {k: v for k, v in c.items() if k != "live_name"}
+    out["name"] = c.get("own_name") or c.get("live_name") or next((a["value"] for a in c["addrs"] if not a["fixed"]), "?")
+    out["addrs"] = [dict(a) for a in c["addrs"]]
+    return out
+
+
+def _e164(v, cc):
+    import re
+    x = re.sub(r"[\s\-/.()]", "", v or "")
+    if x.startswith("00"):
+        x = "+" + x[2:]
+    elif x.startswith("0"):
+        if not cc:
+            return None
+        x = "+" + str(cc) + x[1:]
+    return x if re.fullmatch(r"\+[1-9]\d{7,14}", x) else None
+
+
+def _book_addrs(s, c, items, cc):
+    """private Adressen pruefen -> (liste, fehler)"""
+    out, seen = [], set()
+    for it in items if isinstance(items, list) else []:
+        if not isinstance(it, dict):
+            return None, (400, {"error": "Ungültige Adresse."})
+        k, v = it.get("kind"), it.get("value")
+        if k in ("saga", "fed"):
+            if any(a["fixed"] and a["value"] == v for a in (c or {}).get("addrs") or []):
+                continue
+            return None, (400, {"error": "Saga-Adressen entstehen nur aus Chats."})
+        if k == "e164":
+            v = _e164(v, cc or s.book_cc)
+            if v is None:
+                return None, (400, {"error": "Ungültige Telefonnummer."})
+        elif k == "email":
+            v = str(v or "").strip()
+            if v.count("@") != 1 or " " in v or len(v) > 254:
+                return None, (400, {"error": "Ungültige E-Mail-Adresse."})
+            v = v.split("@")[0] + "@" + v.split("@")[1].lower()
+        else:
+            return None, (400, {"error": "Ungültige Adresse."})
+        if (k, v) in seen:
+            continue
+        seen.add((k, v))
+        dup = next((o for o in s.book.values() if o is not c and any(a["kind"] == k and a["value"] == v for a in o["addrs"])), None)
+        if dup is not None:
+            return None, (409, {"error": "Diese Nummer bzw. Adresse steht schon bei einem anderen Kontakt.", "contact_id": dup["id"]})
+        old = next((a for a in (c or {}).get("addrs") or [] if a["kind"] == k and a["value"] == v), None)
+        if old is None:
+            s.book_next += 1
+        out.append({"id": old["id"] if old else s.book_next, "kind": k, "value": v, "type": it.get("type") if it.get("type") in
+                    ("mobile", "home", "work", "other") else None, "fixed": False})
+    if len([a for a in out if a["kind"] == "e164"]) > 10 or len([a for a in out if a["kind"] == "email"]) > 10:
+        return None, (400, {"error": "Zu viele Adressen."})
+    return out, None
+
+
+def _book(s, method, path, parts, q, body):
+    if not getattr(s, "book_on", False) or parts[:2] != ["api", "contacts"]:
+        return None
+    s.book_log.append((method, path, dict(body) if isinstance(body, dict) else body))
+    if path == "api/contacts/settings":
+        if method == "PUT":
+            v = str(body.get("cc") or "").lstrip("+") or None
+            if v is not None and not (v.isdigit() and 1 <= len(v) <= 3):
+                return s._reply(400, {"error": "Ungültige Landesvorwahl."})
+            s.book_cc = v
+        return s._reply(200, {"cc": s.book_cc})
+    if path == "api/contacts" and method == "GET":
+        qq = (q.get("q") or "").lower()
+        cs = [_book_view(c) for c in s.book.values()]
+        if qq:
+            dg = "".join(ch for ch in qq if ch.isdigit())
+            cs = [c for c in cs if qq in c["name"].lower() or any(qq in a["value"].lower() for a in c["addrs"] if a["kind"] == "email")
+                  or (len(dg) >= 3 and any(dg in a["value"] for a in c["addrs"] if a["kind"] == "e164"))]
+        cs.sort(key=lambda c: -(c.get("last_at") or c.get("updated") or 0))
+        off, lim = int(q.get("offset") or 0), int(q.get("limit") or 200)
+        return s._reply(200, {"contacts": cs[off:off + lim], "total": len(cs)})
+    if path == "api/contacts" and method == "POST":
+        if not str(body.get("own_name") or "").strip():
+            return s._reply(400, {"error": "Bitte einen Namen eingeben."})
+        if any(isinstance(a, dict) and a.get("kind") in ("saga", "fed") for a in body.get("addrs") or []):
+            return s._reply(400, {"error": "Saga-Adressen entstehen nur aus Chats."})
+        al, err = _book_addrs(s, None, body.get("addrs"), body.get("cc"))
+        if err:
+            return s._reply(*err)
+        if not al:
+            return s._reply(400, {"error": "Mindestens eine Nummer oder E-Mail-Adresse."})
+        cid = book_add(s, body["own_name"].strip(), form=body.get("form"), salutation=body.get("salutation"))
+        s.book[cid]["addrs"] = al
+        s.push_event("contacts.changed", {"id": cid})
+        return s._reply(201, _book_view(s.book[cid]))
+    if len(parts) == 3 and parts[2].isdigit():
+        c = s.book.get(int(parts[2]))
+        if c is None:
+            return s._reply(404, {"error": "not found"})
+        if method == "GET":
+            return s._reply(200, _book_view(c))
+        if method == "DELETE":
+            del s.book[c["id"]]
+            s.push_event("contacts.changed", {"id": c["id"], "deleted": True})
+            return s._reply(200, {"ok": True})
+        if method == "PATCH":
+            if body.get("ver") != c["ver"]:
+                return s._reply(409, {"error": "Der Kontakt wurde inzwischen geändert.", "contact": _book_view(c)})
+            new = dict(c)
+            for k in ("own_name", "form", "salutation"):
+                if k in body:
+                    new[k] = (body[k] or None) if not isinstance(body[k], str) else (body[k].strip() or None)
+            if "addrs" in body:
+                al, err = _book_addrs(s, c, body["addrs"], body.get("cc"))
+                if err:
+                    return s._reply(*err)
+                new["addrs"] = [a for a in c["addrs"] if a["fixed"]] + al
+            if c["origin"] == "manual" and (not new.get("own_name") or not [a for a in new["addrs"] if not a["fixed"]]):
+                return s._reply(400, {"error": "Name und mindestens eine Adresse sind Pflicht."})
+            new["ver"] = c["ver"] + 1
+            new["updated"] = time.time()
+            s.book[c["id"]] = new
+            s.push_event("contacts.changed", {"id": c["id"]})
+            return s._reply(200, _book_view(new))
+    return s._reply(405, {"error": "method"})
+
+
+def _book_id(s, ref):
+    return next((c["id"] for c in getattr(s, "book", {}).values() if c.get("saga") and c["saga"]["ref"] == ref), None)
+
+
 def _chatadm(s, method, path, parts, q, body):
     """(2.5) Gruppeninfo: PATCH /api/chats/{cid}/members/{who} {admin}; Kontakte: GET/DELETE /api/chat/contacts"""
     import mockv2
@@ -124,6 +278,8 @@ def _chatadm(s, method, path, parts, q, body):
         out.sort(key=lambda k: -k.get("last_at", 0))
         for k in out:
             k.pop("hidden", None)
+            if getattr(s, "book_on", False):
+                k["contact_id"] = _book_id(s, k["ref"])
         return s._reply(200, {"contacts": out[:lim]})
     if parts[:3] == ["api", "chat", "contacts"] and len(parts) == 4 and method == "DELETE" and getattr(s, "contacts_on", False):
         import urllib.parse
@@ -137,8 +293,10 @@ def _chatadm(s, method, path, parts, q, body):
     if path == "api/chat/people" and getattr(s, "contacts_on", False):     # Kontakte vorne (contact: true), jede Laenge
         qq = (q.get("q") or "").lower()
         ks = [k for k in s.contacts if not k.get("hidden") and not k.get("gone") and qq and qq in k["name"].lower()]
-        users = [{"username": k["ref"], "name": k["name"], "ready": True, "contact": True} for k in ks if not k.get("remote")]
-        remote = [{"handle": k["ref"], "name": k["name"], "host": k.get("host"), "contact": True} for k in ks if k.get("remote")]
+        users = [{"username": k["ref"], "name": k["name"], "ready": True, "contact": True, "contact_id": _book_id(s, k["ref"])}
+                 for k in ks if not k.get("remote")]
+        remote = [{"handle": k["ref"], "name": k["name"], "host": k.get("host"), "contact": True, "contact_id": _book_id(s, k["ref"])}
+                  for k in ks if k.get("remote")]
         have = {u["name"] for u in users}
         if len(qq) >= 3:
             users += [{"username": "~" + u, "name": n, "ready": u in s.idents} for u, n in s.names.items()
@@ -167,6 +325,9 @@ def _chatadm(s, method, path, parts, q, body):
 
 
 def handle(s, method, path, parts, q, body):
+    r = _book(s, method, path, parts, q, body)
+    if r is not None:
+        return r
     r = _chatadm(s, method, path, parts, q, body)
     if r is not None:
         return r

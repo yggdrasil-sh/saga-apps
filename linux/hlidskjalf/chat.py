@@ -383,7 +383,14 @@ def contact_item(k):
     else:
         sub = " · ".join(x for x in (str(k.get("sub") or ""), "" if k.get("ready", True) else _("hasn't set up chats yet")) if x)
     return {"ref": k.get("ref"), "name": str(k.get("name") or "?"), "sub": sub, "avatar": k.get("avatar"), "remote": remote,
-            "host": host if remote else None, "gone": bool(k.get("gone")), "last_at": k.get("last_at") or 0}
+            "host": host if remote else None, "gone": bool(k.get("gone")), "last_at": k.get("last_at") or 0,
+            "contact_id": contact_id_of(k)}
+
+
+def contact_id_of(k):
+    """(2.6, contacts2) Eintrag im Adressbuch (GET /api/chat/contacts bzw. Kontakt-Treffer von people) -> int oder None"""
+    v = (k or {}).get("contact_id") if isinstance(k, dict) else None
+    return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else None
 
 
 def contacts_sorted(lst):

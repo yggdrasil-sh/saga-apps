@@ -19,7 +19,7 @@ from .chat import (FED_CHECK_EVERY_S, NOTE_RX, RETENTIONS, ChatError, FedNotDeli
                    is_remote, can_edit, can_react, has_feature, rx_groups, voice_file, x3_limits, x3_ok,
                    keys_persistent, recovery_lines, remote_label, retention_label, fed_guide_url, fed_hint_show, fed_hint_texts, safety_for,
                    safety_qr_text, sys_text, chat_home_hint, trust_accept, trust_get, trust_verified,
-                   contact_item, contact_keep_for, gi_actions, gi_handle, gi_members, gi_mine, gi_rights, gi_sub, server_has)
+                   contact_id_of, contact_item, contact_keep_for, gi_actions, gi_handle, gi_members, gi_mine, gi_rights, gi_sub, server_has)
 from . import chatdrafts
 from . import chatstd as K
 from . import chatstdview as SV
@@ -3944,8 +3944,9 @@ def _more_button(tooltip, entries_fn):
     return b
 
 
-def contact_menu(row, ref, name, toaster, removed=None):
-    """Menue "Aus Kontakten entfernen" an einer Zeile: Knopf "⋯" und Rechtsklick (Kontextmenue)"""
+def contact_menu(row, ref, name, toaster, removed=None, contact_id=None):
+    """Menue "Aus Kontakten entfernen" an einer Zeile: Knopf "⋯" und Rechtsklick (Kontextmenue). (2.6, contacts2) mit
+    contact_id davor "Kontakt bearbeiten …" (Adressbuch, eigener Dialog)"""
     def drop():
         def fin():
             toaster(_("{name} removed from contacts.").format(name=name))
@@ -3954,12 +3955,21 @@ def contact_menu(row, ref, name, toaster, removed=None):
             if removed:
                 removed(ref)
         chat.drop_contact(ref, done=fin, error=lambda e: toaster(str(e)))
-    ents = lambda: [(_("Remove from contacts"), drop, True)]      # noqa: E731
+    cid = contact_id_of({"contact_id": contact_id})
+
+    def edit():
+        from .contactbook import edit_contact
+        edit_contact(row, cid)
+
+    def ents():
+        out = [(_("Edit contact …"), edit, False)] if cid is not None and server_has("contacts2") else []
+        return out + [(_("Remove from contacts"), drop, True)]
     row.add_suffix(_more_button(_("Options for {name}").format(name=name), ents))
     gc = Gtk.GestureClick(button=Gdk.BUTTON_SECONDARY)
     gc.connect("pressed", lambda g, *_: (g.set_state(Gtk.EventSequenceState.CLAIMED), menu_popover(row, ents()).popup()))
     row.add_controller(gc)
     row.hk_contact_drop = drop                             # Tests: wie "Aus Kontakten entfernen"
+    row.hk_contact_menu = ents                             # Tests: Eintraege des Menues
     return row
 
 
@@ -3977,7 +3987,7 @@ def contact_row(k, pick, toaster, removed=None):
     else:
         r.connect("activated", lambda *_: pick(it))
     r.hk_contact = it
-    return contact_menu(r, it["ref"], it["name"], toaster, removed)
+    return contact_menu(r, it["ref"], it["name"], toaster, removed, contact_id=it.get("contact_id"))
 
 
 class ContactList:
@@ -4325,7 +4335,7 @@ class GroupInfoDialog(ChatInfoDialog):
                 r.add_prefix(avatars.person(u, 32, text=u.get("name") or "?"))
                 r.connect("activated", lambda *_, u=u["username"]: self._add(u))
                 if u.get("contact"):
-                    contact_menu(r, u["username"], u.get("name") or "?", self._toast)
+                    contact_menu(r, u["username"], u.get("name") or "?", self._toast, contact_id=u.get("contact_id"))
                 self.add_res.append(r)
             for u in rem[:5]:
                 r = Adw.ActionRow(title=GLib.markup_escape_text(remote_label(u)),
@@ -4334,7 +4344,7 @@ class GroupInfoDialog(ChatInfoDialog):
                 r.add_css_class("hk-remote-hit")
                 r.connect("activated", lambda *_, h=u["handle"]: self._add(None, handle=h))
                 if u.get("contact"):
-                    contact_menu(r, u["handle"], remote_label(u), self._toast)
+                    contact_menu(r, u["handle"], remote_label(u), self._toast, contact_id=u.get("contact_id"))
                 self.add_res.append(r)
         bg(client.get, "api/chat/people?q=" + GLib.Uri.escape_string(q, None, True), done=show, error=lambda e: self._toast(e))
 
@@ -4448,7 +4458,7 @@ class NewChatDialog(Adw.Dialog):
             r.add_prefix(avatars.person(u, 32, text=u.get("name") or u["username"]))
             r.connect("activated", lambda *_, u=u: self._pick_user(u))
             if u.get("contact"):                           # 2.5: Kontakte stehen vorne - Menue "Aus Kontakten entfernen"
-                contact_menu(r, u["username"], u.get("name") or "?", self.contacts.toaster)
+                contact_menu(r, u["username"], u.get("name") or "?", self.contacts.toaster, contact_id=u.get("contact_id"))
             self.results.append(r)
         for g in groups:
             from .sharing import people_icon
@@ -4467,7 +4477,7 @@ class NewChatDialog(Adw.Dialog):
             r.add_css_class("hk-remote-hit")
             r.connect("activated", lambda *_, u=u: self._pick_remote(u))
             if u.get("contact"):
-                contact_menu(r, u["handle"], remote_label(u), self.contacts.toaster)
+                contact_menu(r, u["handle"], remote_label(u), self.contacts.toaster, contact_id=u.get("contact_id"))
             self.results.append(r)
         if not users and not groups and not remote:
             if not (j or {}).get("error") and fed_hint_show(q, 0):      # name@server/E-Mail: Hinweis statt "Keine Treffer"
