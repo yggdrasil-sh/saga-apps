@@ -110,6 +110,10 @@ data class PushMessage(
     /** 2.5: stille Aktualisierung einer schon gezeigten Mitteilung (gleicher tag); removed = schliessen */
     val update: Boolean = false,
     val removed: Boolean = false,
+    /** 2.6 (2029-3/7): "Beschaeftigt" mit busy silent - Mitteilung ohne Ton */
+    val silent: Boolean = false,
+    /** 2.6: Sammelmeldung nach "Nicht stoeren" (kind status.digest) - nur Zahlen {messages, calls, other} */
+    val digest: kotlinx.serialization.json.JsonObject? = null,
 ) {
     /** Name aus actor (Text); ohne actor nie ein Name */
     val actorName: String?
@@ -626,6 +630,8 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
         // 4.11.: Nachricht aus dem Chat, der gerade offen ist (App vorne) - kein Banner/Ton, sie steht ja schon da
         val fg = androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
         if (io.github.yggdrasil_sh.saga.live.NotifLogic.hideWhileOpen(msg.kind, msg.url, if (fg) repo.chat.visibleChat else null)) return null
+        // 2.6: Sammelmeldung - App vorne mit Live-Kanal zeigt sie schon als ruhige Meldung (status.digest)
+        if (msg.kind == "status.digest" && fg && repo.live.connected.value) return null
         // Design-Runde 4: Glocken-Zaehler auch ohne Live-Kanal (App im Hintergrund) nachziehen
         if (msg.kind != "test") scope.launch { repo.live.loadNotificationCount() }
         // Nachbesserung: Satz in der App-Sprache (NotifyText), Chat-Name/Seitentitel aus dem lokalen Stand - im Hintergrund
@@ -818,7 +824,10 @@ object Notifier {
         val pi = PendingIntent.getActivity(context, tag.hashCode(), open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val whenMs = if (m.ts > 0) m.ts * 1000 else System.currentTimeMillis()
         val chat = channel == NotifyChannels.CHATS
-        val text = localize(context, m.kind, parsed) ?: m.body
+        // 2.6: Sammelmeldung - Satz aus den Zahlen in der App-Sprache (nie Namen), sonst der Satz des Servers
+        val text = (if (m.kind == "status.digest") io.github.yggdrasil_sh.saga.chat.UserStatusLogic.digest(m.digest)
+            ?.let { io.github.yggdrasil_sh.saga.chat.StatusTexts.digest(it)?.asString(context) } else null)
+            ?: localize(context, m.kind, parsed) ?: m.body
         val appName = context.getString(R.string.app_name)
         val extras = android.os.Bundle().apply { if (key != null) putString(EXTRA_GROUP, key) }
         val prev = active(context, tag)
@@ -837,6 +846,7 @@ object Notifier {
                 },
             )
             .setWhen(whenMs).setShowWhen(true)
+        if (m.silent) b.setSilent(true)                    // 2.6: Beschaeftigt mit "Mitteilungen ohne Ton"
         var sensitive = title != null
         if (chat && look != null) {
             val mention = m.kind == "chat.mention"

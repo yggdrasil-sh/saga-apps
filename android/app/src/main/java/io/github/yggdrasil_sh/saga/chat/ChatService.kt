@@ -14,6 +14,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -310,10 +311,37 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
     val presence = PresenceHub(
         scope,
         post = { body -> repo.api.post("api/chat/presence", body) },
-        allowed = { state.value == ChatSetup.READY && ReceiptLogic.has(me.value, "online") && ReceiptLogic.privacy(me.value).online },
+        // 2.6 (2029-7): mit userstatus1 auch bei eigenem Online-Status aus (dann kommt nur der Status der Personen)
+        allowed = {
+            state.value == ChatSetup.READY && ReceiptLogic.has(me.value, "online") &&
+                (ReceiptLogic.privacy(me.value).online || ReceiptLogic.has(me.value, UserStatusLogic.FEATURE))
+        },
         onDisabled = { me.value = me.value?.let { it.copy(privacy = (it.privacy ?: ChatPrivacy()).copy(online = false)) } },
         maxUsers = { me.value?.statusLimits?.presenceUsers ?: 50 },
+        statusOn = { ReceiptLogic.has(me.value, UserStatusLogic.FEATURE) },
     )
+
+    /** 2.6 (2029-7): Server kann den eigenen Status (features in /api/chat/me bzw. /api/version) */
+    fun hasUserStatus(): Boolean = ReceiptLogic.has(me.value, UserStatusLogic.FEATURE) || repo.hasFeature(UserStatusLogic.FEATURE)
+
+    /** 2.6 (2029-7): eigener Status (Verfuegbar / Beschaeftigt / Nicht stoeren) */
+    val status = UserStatusCenter(
+        scope,
+        get = { path -> repo.api.get(path) },
+        put = { path, body -> repo.api.put(path, body) },
+        supported = { hasUserStatus() },
+    )
+
+    init {
+        // (nach status/presence: der Haupt-Dispatcher startet sofort) Sammelmeldung nach "Nicht stoeren" als ruhige
+        // Meldung in der App (nur Zahlen, nie Namen)
+        scope.launch { status.digests.collect { d -> StatusTexts.digest(d)?.let { repo.notify(it) } } }
+        // 2.6: eigener Status - laden, sobald der Server es kann bzw. die Live-Verbindung (wieder) steht
+        scope.launch {
+            kotlinx.coroutines.flow.combine(me, repo.serverFeatures, repo.live.connected) { _, _, c -> hasUserStatus() to c }
+                .distinctUntilChanged().collect { (on, _) -> if (on) quietly { status.load() } else status.clear() }
+        }
+    }
 
     /** 2.4: Einstellung aendern (gegenseitig) -> neuer Stand; Abo und Haken richten sich danach */
     suspend fun setPrivacy(receipts: Boolean? = null, online: Boolean? = null) {
@@ -357,6 +385,7 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
         hiddenChats.value = null
         hiddenCount.value = 0
         presence.clearAll()
+        status.clear()
         fed.reset()
     }
 
@@ -994,6 +1023,9 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
                 if (chatsLoaded.value) loadChats()
             }
             "chat.privacy" -> if (me.value?.privacy != null) applyPrivacy(ChatPrivacy(ev.bool("receipts"), ev.bool("online")))
+            // 2.6 (2029-7): Status eines Chat-Partners (null = nicht mehr bekannt) bzw. eigener Status / Sammelmeldung
+            "chat.status" -> ev.str("username")?.let { u -> presence.onStatus(u, UserStatusLogic.peer(ev.data["status"])) }
+            "status.changed", "status.digest", "call.state" -> status.onLive(ev.type, ev.data)
         }
     }
 }

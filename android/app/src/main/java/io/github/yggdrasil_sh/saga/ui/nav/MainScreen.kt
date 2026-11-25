@@ -531,10 +531,12 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
     // 2.4 E4/E5: Anruf laeuft auf einem anderen eigenen Geraet bzw. Gruppenanruf ohne mich -> Leiste mit Beitreten
     val runBar by repo.calls.run.collectAsState()
     val ongoing = io.github.yggdrasil_sh.saga.call.CallReturn.active(call)
-    val callBar = ongoing || runBar != null
+    val callBar = ongoing || runBar != null || repo.calls.hold.collectAsState().value != null
     Column(Modifier.fillMaxSize()) {
         io.github.yggdrasil_sh.saga.call.OngoingCallBar(call)
         if (!ongoing) io.github.yggdrasil_sh.saga.call.RunningCallBar(repo.calls, call, statusBar = true)
+        // 2.6 (2029-7): Anklopfen / zurueckgehaltener Anruf - Leiste ueber der App (nie klingeln)
+        io.github.yggdrasil_sh.saga.call.HoldCallBar(repo.calls, statusBar = !ongoing && runBar == null)
         // R5-Fix: die gruene Leiste ist sichtbar - das Band "Zum Anruf zurueckkehren" im Chat entfaellt dann
         androidx.compose.runtime.CompositionLocalProvider(io.github.yggdrasil_sh.saga.call.LocalCallBarShown provides ongoing) {
         Column(
@@ -589,6 +591,7 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
                     Dest.Chats -> ChatsScreen(repo, nav, chrome, null)
                     is Dest.Chat -> ChatsScreen(repo, nav, chrome, d.id)
                     Dest.Push -> PushScreen(repo, nav, chrome)
+                    Dest.Reach -> io.github.yggdrasil_sh.saga.ui.settings.ReachScreen(repo, nav, chrome)
                     Dest.ChatDevices -> ChatDevicesScreen(repo, nav, chrome)
                     Dest.Backup -> io.github.yggdrasil_sh.saga.ui.settings.BackupScreen(repo, nav, chrome)
                     Dest.Nextcloud -> io.github.yggdrasil_sh.saga.ui.settings.NextcloudScreen(repo, nav, chrome)

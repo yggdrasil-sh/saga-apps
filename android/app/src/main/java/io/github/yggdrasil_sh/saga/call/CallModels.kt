@@ -142,6 +142,11 @@ data class CallInfo(
     @SerialName("move_hint") val moveHint: String? = null,
     /** Herkunft (u. a. `chat` = Name des Chats, wenn der Server ihn kennt) */
     val from: kotlinx.serialization.json.JsonObject? = null,
+    /** 2.6 (waiting1): Anklopfen - nicht klingeln, Hinweis im laufenden Gespraech (auch fuer die anrufende Seite: "klopft an") */
+    val waiting: Boolean = false,
+    /** 2.6: zurueckgehalten (Nicht stoeren / Ruhezeit) bzw. stille Einladung */
+    val quiet: Boolean = false,
+    val silent: Boolean = false,
 )
 
 /** 2.5 (L7): Eintrag "Nicht dabei" (Anruf-Objekt `invites`, Ereignis `call.invites`, Antwort von /invite) */
@@ -214,6 +219,8 @@ data class CallEntry(
     val to: String = "",
     /** 2.5 (L9): Anruf ist in diese neue Gruppe umgezogen ("In Gruppenanruf verschoben" + "Zur Gruppe") */
     val moved: Long? = null,
+    /** 2.6 (Bugs-DB 2375): Grund der Anruf-Weiche - nur fuer die angerufene Person (dnd | knock | again) */
+    val hold: String? = null,
 )
 
 /** Reine Regeln fuer Anrufe (Unit-Tests) */
@@ -310,7 +317,10 @@ object CallLogic {
             "declined" -> UiText.Res(R.string.call_entry_declined, what)
             "busy" -> if (out) UiText.Res(R.string.call_entry_busy) else UiText.Res(R.string.call_entry_busy_missed)
             "failed" -> UiText.Res(R.string.call_entry_failed, what)
-            else -> if (out) UiText.Res(R.string.call_entry_not_answered, what)
+            // 2.6: zurueckgehalten (Nicht stoeren bzw. Ruhezeit) bzw. angeklopft, waehrend ich telefoniert habe
+            else -> if (!out && e.hold == "dnd") UiText.Res(if (video) R.string.call_entry_missed_video_dnd else R.string.call_entry_missed_dnd)
+            else if (!out && (e.hold == "knock" || e.hold == "again")) UiText.Res(R.string.call_entry_missed_knock)
+            else if (out) UiText.Res(R.string.call_entry_not_answered, what)
             else UiText.Res(if (video) R.string.call_entry_missed_video else R.string.call_entry_missed)
         }
     }

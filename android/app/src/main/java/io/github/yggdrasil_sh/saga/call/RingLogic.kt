@@ -105,4 +105,64 @@ object RingLogic {
 
     /** Typ des Vordergrund-Dienstes fuer das Klingeln: phoneCall (ab Android 10; braucht MANAGE_OWN_CALLS), davor keiner */
     fun serviceType(sdk: Int): Int = if (sdk >= 29) 4 /* ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL */ else 0
+
+    // ------------------------------------------------------------------ 2.6 (Bugs-DB 2029-7): eigener Status, Anklopfen
+
+    /** Server-Faehigkeit und Geraete-Faehigkeit "Anklopfen anzeigen" (APP-API "Anrufe und eigener Status") */
+    const val CAP_WAITING = "waiting1"
+
+    /** Hoechstzahl der gemeldeten Faehigkeiten (Server-Grenze caps_in) */
+    const val CAPS_MAX = 16
+
+    /**
+     * Faehigkeiten fuer PUT /api/calls/caps: waiting1 nur, wenn der Server es kann (features von GET /api/calls/config) -
+     * sonst klopft nie etwas an; hoechstens CAPS_MAX Eintraege, ohne Doppelte.
+     */
+    fun withWaiting(caps: List<String>, serverFeatures: Set<String>): List<String> =
+        (caps + listOfNotNull(CAP_WAITING.takeIf { it in serverFeatures })).distinct().take(CAPS_MAX)
+
+    /** Was ein eingehender 1:1-Anruf (call.ring, Zustand ringing/callee) hier ausloest */
+    enum class Incoming {
+        /** klingeln wie bisher */
+        RING,
+        /** Anklopf-Leiste im laufenden Gespraech hier (nicht klingeln) */
+        KNOCK,
+        /** Anklopfen, das eigene Gespraech laeuft auf einem anderen Geraet: Leiste nur mit "Ablehnen" */
+        KNOCK_ELSEWHERE,
+        /** zurueckgehalten (Nicht stoeren / Ruhezeit): stille Leiste, nie klingeln */
+        QUIET,
+        /** telefoniere schon hier, Anruf ohne waiting: besetzt ablehnen (wie bisher) */
+        BUSY,
+    }
+
+    /**
+     * waiting: der Server laesst anklopfen (Anruf-Objekt bzw. call.ring); quiet: zurueckgehalten; inCallHere: ein Gespraech
+     * laeuft auf diesem Geraet; ringingHere: hier klingelt schon ein anderer Anruf.
+     */
+    fun incoming(waiting: Boolean, quiet: Boolean, inCallHere: Boolean, ringingHere: Boolean): Incoming = when {
+        quiet -> Incoming.QUIET
+        waiting && inCallHere -> Incoming.KNOCK
+        waiting -> Incoming.KNOCK_ELSEWHERE
+        inCallHere || ringingHere -> Incoming.BUSY
+        else -> Incoming.RING
+    }
+
+    /** Leiste noch zeigen? Ende des Anrufs, abgelehnt oder anderswo angenommen -> weg */
+    fun holdGone(state: String?): Boolean = state == "ended" || state == "declined" || state == "active"
+
+    /**
+     * Gespraech hier zu Ende, Anklopf-Leiste stand noch: ein wartender Anruf klingelt jetzt normal (Rest der Klingelzeit),
+     * eine stille Leiste bleibt still. Rest unter 2 s -> nichts mehr.
+     */
+    fun freedLeftS(totalS: Double, shownForMs: Long): Double? = (totalS - shownForMs / 1000.0).takeIf { it >= 2.0 }
+
+    /** Anrufer: Hinweis bei Antwort mit waiting ("Klopft an …") statt "Klingelt …" */
+    fun ringingText(waiting: Boolean): Int = if (waiting) io.github.yggdrasil_sh.saga.R.string.us_knocking else io.github.yggdrasil_sh.saga.R.string.call_ringing
+
+    /** 409 beim Anrufen: again (schon angeklopft) -> Text des Servers bzw. eigener; sonst null (normales Besetzt) */
+    fun againText(again: Boolean, serverText: String?, peer: String): io.github.yggdrasil_sh.saga.util.UiText? {
+        if (!again) return null
+        val t = serverText?.trim()?.ifEmpty { null }
+        return if (t != null) io.github.yggdrasil_sh.saga.util.UiText.Raw(t) else io.github.yggdrasil_sh.saga.util.UiText.Res(io.github.yggdrasil_sh.saga.R.string.us_again, peer)
+    }
 }

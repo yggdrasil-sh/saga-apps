@@ -207,7 +207,7 @@ private fun ChatList(
     val chatMe by svc.me.collectAsState()
     val presence by svc.presence.state.collectAsState()
     val watch = remember(chats, chatMe) {
-        chats.filter { it.archived != true }.take(30).mapNotNull { io.github.yggdrasil_sh.saga.chat.ReceiptLogic.onlineFor(chatMe, it) }.distinct()
+        chats.filter { it.archived != true }.take(30).mapNotNull { io.github.yggdrasil_sh.saga.chat.PresenceWatchLogic.watchFor(chatMe, it) }.distinct()
     }
     PresenceWatch(svc.presence, "list", watch)
     val onlineOf = { c: ChatSummary -> io.github.yggdrasil_sh.saga.chat.ReceiptLogic.onlineFor(chatMe, c)?.let { presence[it]?.online } == true }
@@ -466,8 +466,15 @@ private fun ChatRow(repo: SagaRepository, c: ChatSummary, name: String, selected
             ).padding(horizontal = 10.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // 2.6 (2029-7): eigener Status des Gegenuebers (Abzeichen am Profilbild + Name fuer Bedienungshilfen)
+        val stAll by repo.chat.presence.statuses.collectAsState()
+        val stMe by repo.chat.me.collectAsState()
+        val peerSt = io.github.yggdrasil_sh.saga.chat.UserStatusLogic.visible(
+            io.github.yggdrasil_sh.saga.chat.PresenceWatchLogic.watchFor(stMe, c)?.let { stAll[it] },
+        )
+        val peerStText = peerStatusText(peerSt, withText = false)
         // Design 2: groesserer Profilkreis in der Tonfarbe der Person bzw. Gruppe
-        WithOnlineDot(online) {
+        WithStatusBadge(peerSt, online) {
             // 2.5 (groupinfo2): Gruppenbild freier Gruppen
             GroupAvatar(repo, c, name, 52.dp)
         }
@@ -477,7 +484,10 @@ private fun ChatRow(repo: SagaRepository, c: ChatSummary, name: String, selected
                 Text(
                     name.ifEmpty { kindLabel }, style = MaterialTheme.typography.titleMedium,
                     fontWeight = if (strong) FontWeight.Bold else FontWeight.Medium,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false).then(
+                        if (peerStText.isNotEmpty()) Modifier.semantics { contentDescription = name.ifEmpty { kindLabel } + ", " + peerStText } else Modifier,
+                    ),
                 )
                 // 2.5 (chatpin1): angeheftet
                 if (c.pinned) SagaIcon(SagaIcons.pin, stringResource(R.string.std_pinned), Modifier.padding(start = 4.dp).size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)

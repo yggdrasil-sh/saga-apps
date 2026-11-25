@@ -170,9 +170,14 @@ object CallRoom {
      */
     fun myCaps(serverFeatures: Set<String>, screen2: Boolean = true, multi: Boolean = true, horn: Boolean = true): List<String> {
         val m = multi && CallV3.CAP_RENEG in serverFeatures && CAP_MULTI in serverFeatures
-        return CallV3.myCaps(serverFeatures, screen2) +
-            listOfNotNull(CAP_MULTI.takeIf { m }, CAP_HORN.takeIf { m && horn && CAP_HORN in serverFeatures },
-                CAP_WS.takeIf { m && horn && CAP_HORN in serverFeatures }, CAP_ASKMUTE.takeIf { m })
+        // 2.6 (2029-7): waiting1 (Anklopfen anzeigen) nur, wenn der Server es kann - in allen gemeldeten caps (PUT
+        // /api/calls/caps und Anrufe), sonst ueberschriebe ein Anruf die Faehigkeit des Geraets
+        return RingLogic.withWaiting(
+            CallV3.myCaps(serverFeatures, screen2) +
+                listOfNotNull(CAP_MULTI.takeIf { m }, CAP_HORN.takeIf { m && horn && CAP_HORN in serverFeatures },
+                    CAP_WS.takeIf { m && horn && CAP_HORN in serverFeatures }, CAP_ASKMUTE.takeIf { m }),
+            serverFeatures,
+        )
     }
 
     fun multi(caps: Collection<String>): Boolean = CAP_MULTI in caps

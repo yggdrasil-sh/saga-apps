@@ -392,6 +392,7 @@ fun SettingsNotificationsScreen(repo: SagaRepository, nav: AppNavigator, chrome:
     }
     val listState = rememberAreaListState(SettingsArea.BENACHRICHTIGUNGEN, signIns)
     val features25 by repo.serverFeatures.collectAsState()
+    val reachMe by repo.chat.me.collectAsState()
     Scaffold(topBar = { SagaTopBar(stringResource(R.string.notifications), nav, chrome, contentMaxWidth = io.github.yggdrasil_sh.saga.ui.common.TopBarAlign.CONTENT) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), state = listState, horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
@@ -417,6 +418,16 @@ fun SettingsNotificationsScreen(repo: SagaRepository, nav: AppNavigator, chrome:
             if (callHints) item(key = "calls") { CallsFullScreenHint(w) }
             if (callHints) item(key = "calls-push") { CallsPushHint(repo.push, w) { nav.push(Dest.Push) } }
 
+            // 2.6 (Bugs-DB 2029-7): Erreichbarkeit (eigener Status) - Ausnahmen, Anklopfen, Ruhezeiten, System-Nicht-stoeren
+            if (io.github.yggdrasil_sh.saga.chat.UserStatusLogic.has(features25) || io.github.yggdrasil_sh.saga.chat.UserStatusLogic.has(reachMe?.features)) {
+                item(key = "reach-head") { GroupHeading(stringResource(R.string.us_reach), w) }
+                item(key = "reach") {
+                    SettingsCategoryRow(
+                        SagaIcons.bellOff, stringResource(R.string.us_reach), w.sagaSegment(0, 1),
+                        summary = stringResource(R.string.us_reach_summary),
+                    ) { nav.push(Dest.Reach) }
+                }
+            }
             // Was Saga dir meldet (Glocke; Server-Einstellung, gilt auf allen Geraeten)
             val digest = "taskdue1" in features25
             if (notifKinds.isNotEmpty() || digest) {

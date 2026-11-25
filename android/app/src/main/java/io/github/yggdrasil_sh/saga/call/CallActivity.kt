@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -298,7 +299,17 @@ class CallActivity : ComponentActivity() {
                         finish()
                     }
                 }
-                st?.let { CallScreen(calls, it, answerRequest, ::minimizeOrPip, pip = inPip, onAspect = { a -> remoteAspect = a }) }
+                st?.let {
+                    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize()) {
+                        CallScreen(calls, it, answerRequest, ::minimizeOrPip, pip = inPip, onAspect = { a -> remoteAspect = a })
+                        // 2.6 (2029-7): Anklopf-Leiste im laufenden Gespraech (kein Klingeln, kein Dialog ueber dem Gespraech)
+                        if (!inPip) HoldCallBar(
+                            calls, androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.TopCenter)
+                                .statusBarsPadding().padding(horizontal = 12.dp, vertical = 56.dp),
+                            inCallScreen = true,
+                        )
+                    }
+                }
             }
         }
     }

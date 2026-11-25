@@ -345,6 +345,13 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     val peerOnline = io.github.yggdrasil_sh.saga.chat.ReceiptLogic.onlineFor(chatMe, s.summary)
     PresenceWatch(svc.presence, "chat:$chatId", listOfNotNull(peerOnline))
     val presenceLine = presenceText(peerOnline?.let { presenceAll[it] }, chatMe?.statusLimits?.lastRound ?: 300)
+    // 2.6 (2029-7): Abo auch mit eigenem Online-Status aus (dann nur der eigene Status des Gegenuebers)
+    val peerWatch = io.github.yggdrasil_sh.saga.chat.PresenceWatchLogic.watchFor(chatMe, s.summary)
+    if (peerWatch != peerOnline) PresenceWatch(svc.presence, "chat-st:$chatId", listOfNotNull(peerWatch))
+    val statusAll by svc.presence.statuses.collectAsState()
+    val peerStatus = io.github.yggdrasil_sh.saga.chat.UserStatusLogic.visible(peerWatch?.let { statusAll[it] })
+    /** Rueckfrage "trotzdem anrufen?" (Nicht stoeren): Video ja/nein */
+    var askCall by remember { mutableStateOf<Boolean?>(null) }
     var readBy by remember { mutableStateOf<ChatMessage?>(null) }
     // 2.5 Chat-Standard: Melden, Sperren, Admin-Loeschen
     var reportMsgs by remember { mutableStateOf<List<ChatMessage>?>(null) }
@@ -516,7 +523,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         }
     }
     val callSt by repo.calls.ui.collectAsState()
-    val startCall: (Boolean) -> Unit = start@{ video ->
+    val startCallNow: (Boolean) -> Unit = start@{ video ->
         // laeuft hier schon ein Anruf: Anruf-Knoepfe fuehren zu ihm zurueck statt "telefonierst schon"
         if (io.github.yggdrasil_sh.saga.call.CallReturn.dial(repo.calls.ui.value, chatId) == io.github.yggdrasil_sh.saga.call.CallReturn.Dial.RETURN) {
             io.github.yggdrasil_sh.saga.call.CallActivity.open(context)
@@ -532,6 +539,19 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             callPerms.launch(need.toTypedArray())
         }
     }
+    // 2.6 (2029-7): vor dem Anruf - Gegenueber auf "Nicht stoeren": Rueckfrage; "Im Anruf": Hinweis "klopft an", dann anrufen
+    val startCall: (Boolean) -> Unit = { video ->
+        val back = io.github.yggdrasil_sh.saga.call.CallReturn.dial(repo.calls.ui.value, chatId) == io.github.yggdrasil_sh.saga.call.CallReturn.Dial.RETURN
+        when (if (back || s.summary?.kind != "dm") io.github.yggdrasil_sh.saga.chat.UserStatusLogic.PreCall.CALL else io.github.yggdrasil_sh.saga.chat.UserStatusLogic.preCall(peerStatus)) {
+            io.github.yggdrasil_sh.saga.chat.UserStatusLogic.PreCall.ASK -> askCall = video
+            io.github.yggdrasil_sh.saga.chat.UserStatusLogic.PreCall.HINT -> {
+                repo.notify(UiText.Res(R.string.us_hint_in_call, s.name))
+                startCallNow(video)
+            }
+            else -> startCallNow(video)
+        }
+    }
+    askCall?.let { v -> CallAnywayDialog(s.name, onCall = { startCallNow(v) }, onDismiss = { askCall = null }) }
     // 2.3: aus Chats ueber Servergrenzen nur, wenn angenommen und nicht schreibgeschuetzt (Anfragen klingeln nie)
     val fedReq = s.isFed && s.summary?.request == true
     val fedRo = s.isFed && s.summary?.readonly == true && !fedReq
@@ -582,9 +602,10 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = full }) {
                         SagaIcon(SagaIcons.lock, null, Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         // eine Zeile: bei 200 % Schrift sonst hoeher als die Kopfzeile (ragt in die Statusleiste, BUG-070)
-                        Text(
+                        if (shown.isNotEmpty()) Text(
                             shown, style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 4.dp),
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
@@ -686,6 +707,9 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 }
             },
         )
+        // 2.6 (2029-7): Status des Gegenuebers als Chip direkt unter dem Chat-Kopf - dort passt der ganze Text
+        // ("Nicht stören bis 10:05 · Im Kundentermin"); im schmalen Titel neben fuenf Knoepfen bliebe nur "Nicht stö…"
+        if (!selecting && peerStatus != null) PeerStatusChip(peerStatus, Modifier.padding(start = 56.dp, end = 16.dp, bottom = 6.dp))
         // Laeuft der Anruf in diesem Chat: zurueck in den Anrufbildschirm (derselbe Anruf, kein neuer Aufbau)
         io.github.yggdrasil_sh.saga.call.ReturnToCallRow(callSt, chatId)
         // 2.5 (msgpin1): angeheftete Nachrichten oben; Tipp springt hin

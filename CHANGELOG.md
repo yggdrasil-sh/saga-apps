@@ -20,6 +20,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Leiste (ohne „Annehmen“, wenn woanders telefoniert wird); Chat-Eintrag „Verpasster Anruf (Nicht stören)“;
   Sammelmeldung nach „Nicht stören“ nur mit Zahlen. Braucht Saga mit `userstatus1`/`waiting1` (Server `fedec6a`); ältere
   Server: alles wie bisher. Kopplung an „Nicht stören“ des Desktops folgt später.
+- **Android: eigener Status „Verfügbar / Beschäftigt / Nicht stören“** (Bugs-DB 2029-7, wie das Web): im Kontomenü
+  Punkt + Zustand, Blatt „Mein Status“ (1 Stunde, bis 7:00, bis ich es ausschalte, eigener Text ≤ 80 Zeichen; anderswo
+  geändert → Stand übernommen), Einstellungen › Benachrichtigungen › „Erreichbarkeit“ (Ruhezeiten, Anklopfen,
+  Wiederholungsanruf, Ausnahmen) und Schalter „System-Nicht-stören übernehmen“ (Standard aus, meldet nur an/aus). Status
+  von Chat-Partnern als Abzeichen in der Liste und Chip im Chat-Kopf, Rückfrage vor dem Anruf bei „Nicht stören“.
+  Anrufe: Anklopf-Leiste im Gespräch („Beenden und annehmen“ erst nach bestätigtem Ende), stille Leiste bei
+  zurückgehaltenen Anrufen, „Klopft an …“ beim Anrufen, „Verpasster Anruf (Nicht stören)“, Sammelmeldung nur mit Zahlen.
+  Braucht Saga-Server mit `userstatus1`/`waiting1`; ältere Server: keine Änderung.
 
 - **Leere Zustände mit nächstem Schritt und „Erste Schritte“** (Bugs-DB 2031, iOS/iPad, Android, Linux – wie das Web):
   Wo eine Liste leer ist (Heute, Aufgaben, Termine, Datenbank, Seiten, Mit mir geteilt …), steht ein kurzer Satz, was

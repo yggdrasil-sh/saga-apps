@@ -20,6 +20,8 @@ sealed interface Dest {
     data class Chat(val id: Long) : Dest
     /** Einstellungen -> Mitteilungen (Push, 1.7) */
     data object Push : Dest
+    /** 2.6 (Bugs-DB 2029-7): Einstellungen -> Benachrichtigungen -> Erreichbarkeit (eigener Status) */
+    data object Reach : Dest
     /** Einstellungen -> Chats & Geraete */
     data object ChatDevices : Dest
     /** 2.3: Einstellungen -> Mein Backup bzw. Nextcloud */
@@ -53,6 +55,7 @@ sealed interface Dest {
             Chats -> "chats"
             is Chat -> "chat:${d.id}"
             Push -> "push"
+            Reach -> "reach"
             ChatDevices -> "chat-devices"
             Backup -> "backup"
             Nextcloud -> "nextcloud"
@@ -78,6 +81,7 @@ sealed interface Dest {
             s == "chats" -> Chats
             s.startsWith("chat:") -> s.removePrefix("chat:").toLongOrNull()?.let { Chat(it) }
             s == "push" -> Push
+            s == "reach" -> Reach
             s == "chat-devices" -> ChatDevices
             s == "backup" -> Backup
             s == "nextcloud" -> Nextcloud

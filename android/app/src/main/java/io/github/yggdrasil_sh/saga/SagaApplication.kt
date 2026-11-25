@@ -66,6 +66,8 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
         // Profilbilder nur vom eingestellten Server; Anrufe hoeren ab jetzt auf den Live-Kanal (Klingeln, Signale)
         io.github.yggdrasil_sh.saga.ui.common.AvatarLogic.server = { repo.settings.server.value }
         repo.calls
+        // 2.6 (2029-7): "System-Nicht-stoeren uebernehmen" (nur, wenn eingeschaltet - sendet nur {state, source:"focus"})
+        io.github.yggdrasil_sh.saga.chat.StatusFocus.start(this, repo, appScope)
         // Homescreen-Widgets: nach Aenderungen in der App neu laden; periodischen Abgleich sicherstellen, falls Widgets da sind
         appScope.launch { io.github.yggdrasil_sh.saga.widget.WidgetUpdates.followApp(this@SagaApplication, repo) }
         appScope.launch(Dispatchers.IO) {

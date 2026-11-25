@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.nav
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
@@ -81,13 +83,18 @@ internal fun AccountAvatarMenu(repo: SagaRepository, nav: AppNavigator, onNaviga
     // R4-Nachbesserung 60b: "Darstellung ›" als Untermenue im selben Menue (Zurueck-Kopf + drei Radio-Eintraege)
     var themeSub by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
+    // 2.6 (Bugs-DB 2029-7): eigener Status - Eintrag oben im Menue, Punkt am Profilbild, Blatt "Mein Status"
+    val myStatus by repo.chat.status.view.collectAsState()
+    var statusSheet by remember { mutableStateOf(false) }
     // Sprache und Darstellung aus ui/settings (r4-settings) - dieselben Werte wie in den Einstellungen
     val (lang, chooseLang) = rememberAppLanguage()
     val (appearance, chooseAppearance) = rememberAppearance()
     if (account.isEmpty()) return
 
     // A11Y-08: TalkBack liest "Konto: <Name>, Schaltflaeche" statt nur der Initiale; Aktion "Kontomenue oeffnen"
-    val accountDesc = stringResource(R.string.r1_account_desc, account)
+    val statusDesc = myStatus?.let { io.github.yggdrasil_sh.saga.ui.chat.ownStatusDesc(repo, it) }
+    val shownState = myStatus?.let { io.github.yggdrasil_sh.saga.chat.UserStatusLogic.shown(it).state }
+    val accountDesc = stringResource(R.string.r1_account_desc, account) + if (shownState != null && shownState != "available") ", $statusDesc" else ""
     val openLabel = stringResource(R.string.r4nav_account_menu)
     Box(modifier) {
         Box(
@@ -100,7 +107,17 @@ internal fun AccountAvatarMenu(repo: SagaRepository, nav: AppNavigator, onNaviga
                 }
                 // 40 dp Avatar + 4 dp ringsum = 48-dp-Tippflaeche
                 .padding(4.dp),
-        ) { io.github.yggdrasil_sh.saga.ui.notifications.Avatar(account, size = 40, avatar = ownAvatar) }
+        ) {
+            Box {
+                io.github.yggdrasil_sh.saga.ui.notifications.Avatar(account, size = 40, avatar = ownAvatar)
+                if (shownState != null && shownState != "available") {
+                    io.github.yggdrasil_sh.saga.ui.chat.StatusDot(
+                        shownState, 14.dp,
+                        Modifier.align(Alignment.BottomEnd).border(2.dp, MaterialTheme.colorScheme.surface, CircleShape).padding(2.dp),
+                    )
+                }
+            }
+        }
         DropdownMenu(expanded = open, onDismissRequest = { open = false; themeSub = false }, modifier = Modifier.widthIn(min = 240.dp)) {
           if (themeSub) {
             AppearanceSubmenu(appearance, onBack = { themeSub = false }, onChoose = chooseAppearance)
@@ -113,6 +130,27 @@ internal fun AccountAvatarMenu(repo: SagaRepository, nav: AppNavigator, onNaviga
                 }
             }
             HorizontalDivider()
+            myStatus?.let { st ->
+                val sh = io.github.yggdrasil_sh.saga.chat.UserStatusLogic.shown(st)
+                val hint = io.github.yggdrasil_sh.saga.ui.chat.ownStatusHint(repo, st)
+                val nm = stringResource(io.github.yggdrasil_sh.saga.chat.StatusTexts.stateRes(sh.state))
+                val d = stringResource(R.string.us_status_change_desc, if (hint.isNotEmpty()) "$nm, $hint" else nm)
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(stringResource(io.github.yggdrasil_sh.saga.chat.StatusTexts.stateRes(sh.state)), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            if (hint.isNotEmpty()) {
+                                Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    },
+                    leadingIcon = { Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) { io.github.yggdrasil_sh.saga.ui.chat.StatusDot(sh.state, 14.dp) } },
+                    trailingIcon = { SagaIcon(SagaIcons.chevronRight, null) },
+                    onClick = { open = false; statusSheet = true },
+                    modifier = Modifier.semantics { contentDescription = d },
+                )
+                HorizontalDivider()
+            }
             DropdownMenuItem(
                 // R5-Nachbesserung: Titel einzeilig, Wert rechts begrenzt - sonst bekam der Titel bei langem Wert
                 // ("System default (English)") keine Breite mehr und brach buchstabenweise um (Tablet, Englisch)
@@ -173,6 +211,12 @@ internal fun AccountAvatarMenu(repo: SagaRepository, nav: AppNavigator, onNaviga
         )
     }
     if (confirmLogout) SignOutConfirmDialog(repo, onDismiss = { confirmLogout = false })
+    if (statusSheet) {
+        io.github.yggdrasil_sh.saga.ui.chat.UserStatusSheet(repo, onDismiss = { statusSheet = false }) {
+            nav.push(Dest.Reach)
+            onNavigate()
+        }
+    }
 }
 
 /**

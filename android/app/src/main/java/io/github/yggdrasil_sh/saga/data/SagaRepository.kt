@@ -203,6 +203,9 @@ class SagaRepository(
         cancelReplies = { appContext?.let { io.github.yggdrasil_sh.saga.push.NotifyReplyWorker.cancelAll(it) } },
     )
 
+    /** 2.6: Lebensdauer der App (Arbeit, die das Verlassen eines Bildschirms ueberdauert) */
+    val appScope: CoroutineScope get() = scope
+
     /** Live-Kanal und Benachrichtigungen (Server 1.4) */
     val live = io.github.yggdrasil_sh.saga.live.LiveCenter(this, scope)
 

@@ -237,8 +237,35 @@ object PresenceLogic {
         return nowSec - steps * r
     }
 
-    /** Personen anderer Server (Prinzipal "@~x@host") ohne Antwort: der eigene Server fragt dort erst nach */
-    fun missingRemote(users: List<String>, got: Map<String, Presence>): Boolean = users.any { it.startsWith("@") && it !in got }
+    /** Personen anderer Server (Prinzipal "@~x@host") ohne Antwort: der eigene Server fragt dort erst nach (2.6: Status zaehlt als Antwort) */
+    fun missingRemote(users: List<String>, got: Map<String, Presence>, status: Map<String, PeerStatus> = emptyMap()): Boolean =
+        users.any { it.startsWith("@") && it !in got && it !in status }
+
+    /**
+     * 2.6 (2029-7): neuer Status-Stand aus einer Abo-Antwort. Fehlt eine Person, ist kein Status bekannt - ausser chat.status
+     * kam nach dem Absenden der Anfrage (liveAt[u] >= sentAt): dann gilt der Live-Stand (old bzw. entfernt).
+     */
+    fun mergeStatus(got: Map<String, PeerStatus>, old: Map<String, PeerStatus>, liveAt: Map<String, Long>, sentAt: Long): Map<String, PeerStatus> {
+        val out = got.toMutableMap()
+        for ((u, at) in liveAt) {
+            if (at < sentAt) continue
+            val o = old[u]
+            if (o != null) out[u] = o else out.remove(u)
+        }
+        return out
+    }
+}
+
+/**
+ * 2.6 (2029-7): Wen abonnieren - Direkt-Chat ohne Anfrage, Server kann "online" und (eigener Online-Status an ODER Server
+ * kann den eigenen Status: dann kommt auch mit eigenem Online-Status aus der Status der Personen, ohne "online").
+ */
+object PresenceWatchLogic {
+    fun watchFor(me: ChatMe?, c: ChatSummary?): String? {
+        if (c == null || c.kind != "dm" || c.request || !ReceiptLogic.has(me, "online") || c.onlineOk == false) return null
+        if (!ReceiptLogic.privacy(me).online && !ReceiptLogic.has(me, UserStatusLogic.FEATURE)) return null
+        return c.peer?.username?.ifEmpty { null }
+    }
 }
 
 /**
@@ -255,6 +282,8 @@ class PresenceHub(
     /** Server meldet enabled: false (Einstellung anderswo abgeschaltet) */
     private val onDisabled: () -> Unit = {},
     private val maxUsers: () -> Int = { 50 },
+    /** 2.6: Server liefert den eigenen Status der Personen (auch bei enabled: false weiter abonnieren) */
+    private val statusOn: () -> Boolean = { false },
 ) {
     companion object {
         const val DEBOUNCE = 400L
@@ -264,6 +293,9 @@ class PresenceHub(
     }
 
     val state = MutableStateFlow<Map<String, Presence>>(emptyMap())
+    /** 2.6 (2029-7): eigener Status der Personen (status im Abo, Live chat.status) */
+    val statuses = MutableStateFlow<Map<String, PeerStatus>>(emptyMap())
+    private val statusAt = HashMap<String, Long>()
     private val wants = LinkedHashMap<String, List<String>>()
     private var job: Job? = null
     private var posted: List<String> = emptyList()
@@ -297,6 +329,8 @@ class PresenceHub(
         job = null
         posted = emptyList()
         state.value = emptyMap()
+        statuses.value = emptyMap()
+        synchronized(statusAt) { statusAt.clear() }
     }
 
     /** Live chat.presence */
@@ -306,6 +340,13 @@ class PresenceHub(
         state.value = if (p == null) state.value - username else state.value + (username to p)
     }
 
+    /** 2.6 Live chat.status (null = nicht mehr bekannt -> entfernen); gewinnt gegen eine Abo-Antwort, die vorher losging */
+    fun onStatus(username: String, st: PeerStatus?) {
+        if (!active) return
+        synchronized(statusAt) { statusAt[username] = System.currentTimeMillis() }
+        statuses.value = if (st == null) statuses.value - username else statuses.value + (username to st)
+    }
+
     private fun restart() {
         job?.cancel()
         val list = users
@@ -313,6 +354,7 @@ class PresenceHub(
             val gone = posted
             posted = emptyList()
             state.value = emptyMap()
+            statuses.value = emptyMap()
             job = null
             if (gone.isNotEmpty()) scope.launch { quietly { post(body(gone, leave = true)) } }
             return
@@ -334,9 +376,11 @@ class PresenceHub(
             val list = users
             if (list.isEmpty() || !allowed()) {
                 state.value = emptyMap()
+                statuses.value = emptyMap()
                 return
             }
             var wait = RENEW
+            val sent = System.currentTimeMillis()
             val r = try {
                 Json.parseToJsonElement(post(body(list, leave = false))) as? JsonObject
             } catch (e: CancellationException) {
@@ -347,13 +391,22 @@ class PresenceHub(
             posted = list
             if (r != null) {
                 val (enabled, got) = PresenceLogic.parse(r)
+                val st = synchronized(statusAt) {
+                    val m = PresenceLogic.mergeStatus(UserStatusLogic.peers(r["status"] as? JsonObject), statuses.value, statusAt, sent)
+                    statusAt.entries.removeAll { it.value < sent }
+                    m
+                }
+                statuses.value = st
                 if (!enabled) {
                     state.value = emptyMap()
                     onDisabled()
-                    return
+                    // 2.6: mit eigenem Online-Status aus liefert der Server weiter den Status der Personen
+                    if (!statusOn()) return
+                    delay(RENEW)
+                    continue
                 }
                 state.value = got
-                miss = if (PresenceLogic.missingRemote(list, got)) miss + 1 else 0
+                miss = if (PresenceLogic.missingRemote(list, got, st)) miss + 1 else 0
                 if (miss in 1..RETRIES) wait = RETRY
             }
             delay(wait)
