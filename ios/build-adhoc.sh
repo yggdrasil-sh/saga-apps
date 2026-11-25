@@ -34,13 +34,39 @@ cat > /tmp/hk-adhoc/ExportOptions.plist <<XML
   <key>compileBitcode</key><false/>
 </dict></plist>
 XML
-out=$(xcodebuild -project Hlidskjalf.xcodeproj -scheme Hlidskjalf -configuration Release \
+# 2262: Mitteilungs-Erweiterung HlidskjalfNotify (eigene App-ID <App-ID>.notify, ohne weitere Faehigkeiten). Laesst sie
+# sich nicht signieren (App-ID/Profil fehlt, API-Schluessel ohne Rechte), wird ohne sie weitergebaut: die App schickt dann
+# keine Schluessel ans Mitteilungs-Abo und bekommt Mitteilungen wie mit 2.5. SAGA_NOTIFY=0 baut gleich ohne sie.
+NOTIFY=${SAGA_NOTIFY:-1}
+nonotify() {
+  echo "WARNUNG: ohne Erweiterung HlidskjalfNotify gebaut (Mitteilungen ohne Ende-zu-Ende wie 2.5) - App-ID <App-ID>.notify einrichten, siehe ios/README.md"
+  sed '/SAGA_NOTIFY_DEP/d' project.yml > project-nonotify.yml
+  local rc=0; xcodegen generate --quiet --spec project-nonotify.yml || rc=$?
+  rm -f project-nonotify.yml; NOTIFY=0; return $rc
+}
+notifyerr() { [ "$NOTIFY" = 1 ] && print -r -- "$1" | grep -qE "HlidskjalfNotify|\.notify['\"]"; }
+[ "$NOTIFY" = 1 ] || nonotify
+archive() {
+  rm -rf "$AR" /tmp/hk-adhoc/export
+  xcodebuild -project Hlidskjalf.xcodeproj -scheme Hlidskjalf -configuration Release \
       -destination 'generic/platform=iOS' -archivePath "$AR" -derivedDataPath /tmp/hk-adhoc/dd \
-      CURRENT_PROJECT_VERSION=$BN SAGA_VERSION_LABEL="$VL" "${AUTH[@]}" archive 2>&1) || { echo "$out" | grep -E "error:" | sort -u | head -15; echo "ARCHIV FEHLGESCHLAGEN"; exit 1; }
-out=$(xcodebuild -exportArchive -archivePath "$AR" -exportPath /tmp/hk-adhoc/export \
-      -exportOptionsPlist /tmp/hk-adhoc/ExportOptions.plist "${AUTH[@]}" 2>&1) || { echo "$out" | grep -E "error" | sort -u | head -15; echo "EXPORT FEHLGESCHLAGEN"; exit 1; }
+      CURRENT_PROJECT_VERSION=$BN SAGA_VERSION_LABEL="$VL" "${AUTH[@]}" archive 2>&1
+}
+export_ipa() {
+  xcodebuild -exportArchive -archivePath "$AR" -exportPath /tmp/hk-adhoc/export \
+      -exportOptionsPlist /tmp/hk-adhoc/ExportOptions.plist "${AUTH[@]}" 2>&1
+}
+for try in 1 2; do
+  out=$(archive) || {
+    if [ $try = 1 ] && notifyerr "$out"; then echo "$out" | grep -E "error:" | sort -u | head -5; nonotify; continue; fi
+    echo "$out" | grep -E "error:" | sort -u | head -15; echo "ARCHIV FEHLGESCHLAGEN"; exit 1; }
+  out=$(export_ipa) || {
+    if [ $try = 1 ] && notifyerr "$out"; then echo "$out" | grep -E "error" | sort -u | head -5; nonotify; continue; fi
+    echo "$out" | grep -E "error" | sort -u | head -15; echo "EXPORT FEHLGESCHLAGEN"; exit 1; }
+  break
+done
 cp /tmp/hk-adhoc/export/*.ipa dist/Hlidskjalf.ipa
-echo "fertig: dist/Hlidskjalf.ipa (Build $BN, $(du -h dist/Hlidskjalf.ipa | cut -f1))"
+echo "fertig: dist/Hlidskjalf.ipa (Build $BN, $(du -h dist/Hlidskjalf.ipa | cut -f1))$([ "$NOTIFY" = 1 ] || echo ' - OHNE HlidskjalfNotify')"
 # optional direkt verteilen (z. B. ins MDM laden)
 if [ "${MDM_PUBLISH:-1}" = 1 ] && [ -n "${SAGA_PUBLISH_CMD:-}" ]; then
   "$SAGA_PUBLISH_CMD" dist/Hlidskjalf.ipa

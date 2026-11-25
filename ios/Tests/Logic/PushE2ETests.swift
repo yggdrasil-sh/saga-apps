@@ -183,8 +183,12 @@ func pushE2EVectorTests() {
         if c["push_type"] as? String == "voip" {
             // PushKit-Weg: CallLogic.push liest den geoeffneten Feldsatz wie bisher den Klartext
             var merged = info; merged.removeValue(forKey: "saga"); for (k, x) in inner { merged[k] = x }
+            // Vektor nutzt eine kurze Anruf-Kennung (16 Hex); echte Kennungen haben 32 - fuer den Parser verlaengern
+            let cid = (merged["call"] as? String).map { CallLogic.isCallID($0) ? $0 : String(($0 + $0).prefix(32)) }
+            merged["call"] = cid
             let p = CallLogic.push(merged)
-            check(p != nil && p?.call == msg["call"] as? String, "\(name): VoIP-Feldsatz -> CallLogic.push")
+            check(p != nil && p?.call == cid && p?.caller == msg["caller"] as? String && p?.chat == (msg["chat"] as? NSNumber)?.intValue,
+                  "\(name): VoIP-Feldsatz -> CallLogic.push")
             check(CallLogic.push(info) == nil, "\(name): ungeoeffneter Umschlag -> kein Anruf (Rueckfall: melden + beenden)")
         }
         check(c["push_type"] as? String != "voip" || ["call", "call.group"].contains(kind), "\(name): voip nur fuer Anrufe")

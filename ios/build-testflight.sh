@@ -37,11 +37,31 @@ cat > $W/ExportOptions.plist <<XML
 </dict></plist>
 XML
 xcodegen generate --quiet
-out=$(xcodebuild -project Hlidskjalf.xcodeproj -scheme Hlidskjalf -configuration Release \
+# 2262: Mitteilungs-Erweiterung HlidskjalfNotify (eigene App-ID <App-ID>.notify, ohne weitere Faehigkeiten). Laesst sie
+# sich nicht signieren (App-ID/Profil fehlt, API-Schluessel ohne Rechte), wird ohne sie weitergebaut: die App schickt dann
+# keine Schluessel ans Mitteilungs-Abo und bekommt Mitteilungen wie mit 2.5. SAGA_NOTIFY=0 baut gleich ohne sie.
+NOTIFY=${SAGA_NOTIFY:-1}
+nonotify() {
+  echo "WARNUNG: ohne Erweiterung HlidskjalfNotify gebaut (Mitteilungen ohne Ende-zu-Ende wie 2.5) - App-ID <App-ID>.notify einrichten, siehe ios/README.md"
+  sed '/SAGA_NOTIFY_DEP/d' project.yml > project-nonotify.yml
+  local rc=0; xcodegen generate --quiet --spec project-nonotify.yml || rc=$?
+  rm -f project-nonotify.yml; NOTIFY=0; return $rc
+}
+notifyerr() { [ "$NOTIFY" = 1 ] && print -r -- "$1" | grep -qE "HlidskjalfNotify|\.notify['\"]"; }
+[ "$NOTIFY" = 1 ] || nonotify
+archive() {
+  rm -rf "$AR"
+  xcodebuild -project Hlidskjalf.xcodeproj -scheme Hlidskjalf -configuration Release \
       -destination 'generic/platform=iOS' -archivePath "$AR" -derivedDataPath $W/dd \
-      CURRENT_PROJECT_VERSION=$BN SAGA_VERSION_LABEL="$VL" "${AUTH[@]}" archive 2>&1) || { echo "$out" | grep -E "error:" | sort -u | head -15; echo "ARCHIV FEHLGESCHLAGEN"; exit 1; }
+      CURRENT_PROJECT_VERSION=$BN SAGA_VERSION_LABEL="$VL" "${AUTH[@]}" archive 2>&1
+}
+# Rueckfall wie build-adhoc.sh (Signierfehler nur in HlidskjalfNotify -> ohne sie), Warnung am Ende
+out=$(archive) || {
+  if notifyerr "$out"; then echo "$out" | grep -E "error:" | sort -u | head -5; nonotify; out=$(archive) || { echo "$out" | grep -E "error:" | sort -u | head -15; echo "ARCHIV FEHLGESCHLAGEN"; exit 1; }
+  else echo "$out" | grep -E "error:" | sort -u | head -15; echo "ARCHIV FEHLGESCHLAGEN"; exit 1; fi; }
 out=$(xcodebuild -exportArchive -archivePath "$AR" -exportPath $W/export \
       -exportOptionsPlist $W/ExportOptions.plist "${AUTH[@]}" 2>&1) || { echo "$out" | grep -iE "error|fail" | sort -u | head -20; echo "UPLOAD FEHLGESCHLAGEN"; exit 1; }
 echo "$out" | grep -iE "upload|succeeded" | tail -3
 echo "hochgeladen: Build $BN ($BUNDLE_ID) - Apple verarbeitet ihn jetzt (meist 5-15 Min), dann steht er in TestFlight."
 echo "Status: ${SAGA_STATUS_HINT:-App Store Connect -> Apps -> TestFlight}"
+[ "$NOTIFY" = 1 ] || echo "WARNUNG: Build OHNE HlidskjalfNotify - fremde Server (Push-Relais) erreichen diese App nicht"
