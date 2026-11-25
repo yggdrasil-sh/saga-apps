@@ -242,7 +242,7 @@ fun ContactsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         }
     }
     if (ccEdit) CcDialog(repo, book, cc, suggest, onDismiss = { ccEdit = false }) { cc = it; ContactsMemory.cc = it }
-    if (creating) ContactEditDialog(repo, null, cc ?: suggest, onDismiss = { creating = false }, onOpen = { creating = false; nav.push(Dest.Contact(it)) }) { c ->
+    if (creating) ContactEditDialog(repo, null, ContactBookLogic.ccForRequest(cc, ccLoaded, suggest), onDismiss = { creating = false }, onOpen = { creating = false; nav.push(Dest.Contact(it)) }) { c ->
         creating = false
         list = ContactBookLogic.applied(list.orEmpty(), c)
         nav.push(Dest.Contact(c.id))
@@ -355,6 +355,16 @@ fun ContactDetailScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
     var editing by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (ContactsMemory.ccLoaded) return@LaunchedEffect
+        try {
+            ContactsMemory.cc = book.cc()
+            ContactsMemory.ccLoaded = true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+    }
     LaunchedEffect(id, tick) {
         if (book.lastChanged == -id) {
             missing = true
@@ -505,7 +515,7 @@ fun ContactDetailScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
         }
     }
     if (editing && cur != null) {
-        ContactEditDialog(repo, cur, ContactsMemory.cc ?: ContactRegion.suggest(context), onDismiss = { editing = false }, onOpen = { editing = false; nav.push(Dest.Contact(it)) }) { n ->
+        ContactEditDialog(repo, cur, ContactBookLogic.ccForRequest(ContactsMemory.cc, ContactsMemory.ccLoaded, ContactRegion.suggest(context)), onDismiss = { editing = false }, onOpen = { editing = false; nav.push(Dest.Contact(it)) }) { n ->
             editing = false
             c = n
             ContactsMemory.list = ContactsMemory.list?.let { ContactBookLogic.applied(it, n) }
@@ -577,6 +587,7 @@ fun ContactEditFor(repo: SagaRepository, id: Long, onDismiss: () -> Unit) {
     val context = LocalContext.current
     var c by remember(id) { mutableStateOf<BookContact?>(null) }
     var cc by remember { mutableStateOf<String?>(null) }
+    var ccLoaded by remember { mutableStateOf(false) }
     var openId by remember { mutableStateOf(id) }
     LaunchedEffect(openId) {
         try {
@@ -586,7 +597,13 @@ fun ContactEditFor(repo: SagaRepository, id: Long, onDismiss: () -> Unit) {
                 onDismiss()
                 return@LaunchedEffect
             }
-            cc = try { repo.chat.book.cc() } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
+            try {
+                cc = repo.chat.book.cc()
+                ccLoaded = true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
             c = r
         } catch (e: CancellationException) {
             throw e
@@ -597,7 +614,7 @@ fun ContactEditFor(repo: SagaRepository, id: Long, onDismiss: () -> Unit) {
     }
     val cur = c ?: return
     androidx.compose.runtime.key(cur.id) {
-        ContactEditDialog(repo, cur, cc ?: ContactRegion.suggest(context), onDismiss = onDismiss, onOpen = { c = null; openId = it }) {
+        ContactEditDialog(repo, cur, ContactBookLogic.ccForRequest(cc, ccLoaded, ContactRegion.suggest(context)), onDismiss = onDismiss, onOpen = { c = null; openId = it }) {
             repo.notify(UiText.Res(R.string.cb_saved))
             onDismiss()
         }

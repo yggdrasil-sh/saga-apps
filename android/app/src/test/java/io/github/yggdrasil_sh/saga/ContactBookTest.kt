@@ -197,12 +197,21 @@ class ContactBookTest {
         assertNull(ContactBookLogic.ccForRegion("XX"))
         assertNull(ContactBookLogic.ccForRegion(null))
         assertNull(ContactBookLogic.ccForRegion("DEU"))
+        // Pruefung k27arev: Geraete-Vorschlag nur, wenn das Konto keine hat - und nur nach geladener Konto-Einstellung
+        assertEquals("49", ContactBookLogic.ccForRequest("49", true, "1"))
+        assertEquals("1", ContactBookLogic.ccForRequest(null, true, "1"))
+        assertNull(ContactBookLogic.ccForRequest(null, false, "1"))
+        assertNull(ContactBookLogic.ccForRequest(null, true, null))
     }
 
     @Test fun displayHelpers() {
         val c = ContactBookLogic.parse(example)!!
         assertEquals("tel:+491701234567", ContactBookLogic.telUri("+49 170 1234567"))
         assertEquals("mailto:anna@example.org", ContactBookLogic.mailUri(" anna@example.org "))
+        // Pruefung k27arev: ? # % & im Teil vor @ kodiert (keine Abfrage/kein Fragment, kein untergeschobenes cc)
+        assertEquals("mailto:a%3Fcc%3Dx@example.org", ContactBookLogic.mailUri("a?cc=x@example.org"))
+        assertEquals("mailto:a%23b%25c%26d@example.org", ContactBookLogic.mailUri("a#b%c&d@example.org"))
+        assertEquals("mailto:j%C3%BCrgen+tag@example.org", ContactBookLogic.mailUri("jürgen+tag@example.org"))
         assertEquals("+491701234567", ContactBookLogic.listSub(c))
         assertEquals("0170 1234567", ContactBookLogic.listSub(c) { "0170 1234567" })      // Anzeige-Format von aussen
         val remote = c.copy(saga = c.saga!!.copy(remote = true, host = "b.example"), addrs = emptyList())

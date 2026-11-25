@@ -263,6 +263,14 @@ object ContactBookLogic {
         return t.takeIf { Regex("[1-9]\\d{0,2}").matches(it) }
     }
 
+    /**
+     * Landesvorwahl, die die App beim Anlegen/Speichern mitschickt: die des Kontos, sonst der Vorschlag des Geraets -
+     * aber nur, wenn die Konto-Einstellung geladen ist (sonst null: der Server nimmt die Konto-Einstellung, statt dass
+     * der Geraete-Vorschlag sie ueberstimmt).
+     */
+    fun ccForRequest(account: String?, accountLoaded: Boolean, suggest: String?): String? =
+        if (!accountLoaded) null else account ?: suggest
+
     /** GET /api/contacts/settings -> cc oder null */
     fun ccFrom(text: String?): String? = try {
         ((text?.let { Json.parseToJsonElement(it) } as? JsonObject)?.get("cc") as? JsonPrimitive)?.takeIf { it !is JsonNull }?.content?.let { ccOf(it) }
@@ -295,7 +303,18 @@ object ContactBookLogic {
     /** tel:-Adresse fuer ACTION_DIAL (Wert ist E.164 vom Server) */
     fun telUri(value: String): String = "tel:" + value.filter { it.isDigit() || it == '+' }
 
-    fun mailUri(value: String): String = "mailto:" + value.trim()
+    /**
+     * mailto: mit kodierter Adresse (RFC 6068): ?, #, %, & usw. im Teil vor @ sind erlaubt und duerfen nicht als
+     * Abfrage/Fragment gelesen werden (sonst bekaeme die Mail-App einen anderen Empfaenger bzw. cc/bcc).
+     */
+    fun mailUri(value: String): String = buildString {
+        append("mailto:")
+        value.trim().toByteArray(Charsets.UTF_8).forEach { b ->
+            val c = b.toInt() and 0xff
+            val ch = c.toChar()
+            if (c < 0x80 && (ch.isLetterOrDigit() || ch in "-._~!$'*+,;=@")) append(ch) else append('%').append("%02X".format(c))
+        }
+    }
 
     /** Unterzeile in der Liste: Saga-Person (Unterzeile bzw. Server), sonst erste Nummer bzw. Mail */
     fun listSub(c: BookContact, phone: (String) -> String = { it }): String? {
