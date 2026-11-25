@@ -133,6 +133,7 @@ extension CallManager {
         guard !mine.isEmpty else { return }
         for h in mine {
             holdTasks[h.id]?.cancel(); holdTasks[h.id] = nil
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["hold-" + h.id])   // "klopft an" gehoert zum Gespraech
             holds.removeAll { $0.id == h.id }
             switch CallHoldLogic.free(mode: h.mode, left: CallHoldLogic.left(expiresIn: h.expiresIn, ringS: h.ringS, shownAt: h.shownAt, now: Date().timeIntervalSince1970)) {
             case .drop: holdGone.insert(h.id)

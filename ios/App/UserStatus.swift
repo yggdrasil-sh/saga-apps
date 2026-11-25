@@ -544,15 +544,23 @@ struct PeerStatusChip: View {
     var body: some View {
         let full = UserStatusText.peer(peer, withText: true)
         Button { tap(full) } label: {
-            HStack(spacing: 4) {
-                StatusDot(state: peer.s, size: 8, ring: false)
-                Text(verbatim: full).lineLimit(1)
+            // Platz reicht (iPad): alles; sonst (iPhone-Kopf neben den Knoepfen) nur der Zustand - ganz lesbar statt
+            // "Nicht stoere…", Zeit und Text per Tippen
+            ViewThatFits(in: .horizontal) {
+                line(full)
+                line(UserStatusText.name(peer.s)).minimumScaleFactor(0.75)
             }
             .font(.caption2.weight(.medium))
             .foregroundStyle(StatusDot.color(peer.s))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(verbatim: String(localized: "Status: \(full)")))
+    }
+    private func line(_ s: String) -> some View {
+        HStack(spacing: 4) {
+            StatusDot(state: peer.s, size: 8, ring: false)
+            Text(verbatim: s).lineLimit(1)
+        }
     }
 }
 
@@ -582,9 +590,10 @@ struct ChatTitleWithStatus: View {
                 if let presence {
                     Text(verbatim: presence).font(.caption2).foregroundStyle(online ? Color.adaptive(0x1E7B34, 0x4CD964) : .secondary).lineLimit(1)
                 }
-                if let peer { PeerStatusChip(peer: peer, tap: tap) }
+                if let peer { PeerStatusChip(peer: peer, tap: tap).layoutPriority(1) }   // Status vor "online"
             }
         }
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)                       // Kopfzeile hat feste Hoehe
     }
 }
 

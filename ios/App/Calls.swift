@@ -641,7 +641,7 @@ final class CallManager: NSObject, ObservableObject {
         if wasDone && (!(again || hint?.group == true) || incoming?.id == cid || id == cid) {   // schon erledigt (VoIP-Push kam spaet)
             CallSystem.shared.endReported(cid, reason: .remoteEnded); return
         }
-        if incoming?.id == cid || id == cid { return }
+        if incoming?.id == cid || id == cid { if take { answerTaken(cid) }; return }   // 2.6: klingelt schon (paralleles ringing) - trotzdem annehmen
         guard let (d, code) = try? await store.apiResponse("api/calls/\(cid)"), code == 200,
               let c = ShareJSON.obj(d)?["call"] as? [String: Any] else { CallSystem.shared.endReported(cid, reason: .failed); return }
         if wasDone {
@@ -665,7 +665,7 @@ final class CallManager: NSObject, ObservableObject {
         // Live-Kanal (call.ring) und Nachholen (checkActive/Push) koennen gleichzeitig fragen: klingelt derselbe Anruf
         // inzwischen schon, ist das kein "besetzt" (sonst lehnte das zweite ringing() den eigenen Anruf ab)
         switch CallLogic.ringDecision(sameCallActive: incoming?.id == cid || id == cid || done.contains(cid), busy: busy) {
-        case .ignore: return
+        case .ignore: if take { answerTaken(cid) }; return                 // 2.6: aus der Leiste angenommen, klingelt schon
         case .busy:                                                         // schon im Gespraech: besetzt
             _ = try? await store.apiResponse("api/calls/\(cid)/decline", method: "POST", body: ["reason": "busy"])
             CallSystem.shared.endReported(cid, reason: .unanswered); return

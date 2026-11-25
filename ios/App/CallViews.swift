@@ -77,7 +77,7 @@ struct CallScreen: View {
         #endif
         .onChange(of: controlsKey) { _, _ in poke() }                       // Bedienung bzw. neuer Zustand
         .background { MeetShortcuts(calls: calls, layoutRaw: $layoutRaw, poke: poke).accessibilityHidden(true) }
-        .overlay(alignment: .top) { CallHoldBars(calls: calls, onCall: true).padding(.top, headerHeight + 4) }   // 2.6: klopft an (Bedienung bleibt)
+        .overlay(alignment: .top) { CallHoldBars(calls: calls, onCall: true).padding(.top, topInset) }   // 2.6: klopft an - unter dem Kopf (topInset = Rand + Kopf + Abstand wie die Buehne), Bedienung bleibt
         .animation(.snappy(duration: 0.25), value: calls.holds)
         .confirmationDialog(Text("Ist \(echoDevice) im selben Raum? Dann gibt es Echo."), isPresented: Binding(get: { echoAsk != nil }, set: { if !$0 { echoAsk = nil } }),
                             titleVisibility: .visible) {
