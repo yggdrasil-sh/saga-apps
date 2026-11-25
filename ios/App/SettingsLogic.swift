@@ -6,7 +6,7 @@ enum SettingsArea: String, CaseIterable, Hashable {
     case konto, einstellungen, info
 
     private static let kontoRows: Set<String> = ["konto", "server", "token", "avatar", "security", "backup", "apps"]
-    private static let settingsRows: Set<String> = ["einstellungen", "sprache", "darstellung", "notifs", "push", "chats", "privacy",
+    private static let settingsRows: Set<String> = ["einstellungen", "sprache", "darstellung", "notifs", "push", "erreichbarkeit", "chats", "privacy",
                                                 "nextcloud", "immich", "kalender", "bookorbit"]
     private static let infoRows: Set<String> = ["info", "about", "update"]
 

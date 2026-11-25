@@ -20,6 +20,7 @@ enum CallV3 {
         let multi = reneg && serverFeatures.contains("multi")
         return (reneg ? ["reneg"] : []) + ["want", "bye"] + (reneg && screen2 && serverFeatures.contains("screen2") ? ["screen2"] : [])
             + (multi ? ["multi"] : []) + (multi && horn && serverFeatures.contains("horn") ? ["horn", "ws"] : [])
+            + (CallHoldLogic.reportsWaiting(serverFeatures: serverFeatures) ? [CallHoldLogic.cap] : [])   // 2.6: Anklopfen (CallHold.swift)
     }
     /// Neuverhandlung (Angebote waehrend des Gespraechs, ICE-Restart) nur, wenn beide Seiten "reneg" melden
     static func canReneg(mine: [String], peer: [String]?) -> Bool { mine.contains("reneg") && peer?.contains("reneg") == true }

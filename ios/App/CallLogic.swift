@@ -290,6 +290,8 @@ enum CallLogic {
         var group = false; var n: Int?
         /// 2.5 (L9): 1:1 ist in diesen neuen Gruppen-Chat umgezogen ("In Gruppenanruf verschoben", "Zur Gruppe")
         var moved: Int?
+        /// 2.6 (Bugs-DB 2375): Grund der Anruf-Weiche - nur fuer die angerufene Person (dnd | knock | again)
+        var hold: String?
         init?(json d: Data) {
             guard let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any], (j["type"] as? String) == "call" else { return nil }
             call = j["call"] as? String ?? ""; media = (j["media"] as? String) == "video" ? "video" : "audio"
@@ -297,6 +299,7 @@ enum CallLogic {
             from = j["from"] as? String ?? ""; to = j["to"] as? String ?? ""
             group = (j["group"] as? Bool) == true; n = (j["n"] as? NSNumber)?.intValue
             moved = Entry.chatRef(j["moved"])
+            hold = (j["hold"] as? String).flatMap { ["dnd", "knock", "again"].contains($0) ? $0 : nil }
         }
         /// Chat-ID: positive ganze Zahl (wie Web /^[1-9][0-9]{0,17}$/), kein Bool, kein Bruch
         static func chatRef(_ v: Any?) -> Int? {

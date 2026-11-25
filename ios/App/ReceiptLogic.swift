@@ -178,10 +178,12 @@ enum ReceiptLogic {
 
     /// Wen abonnieren: offener Direkt-Chat + Direkt-Chats der sichtbaren Liste (erste 30 nicht archivierte), ohne Doppelte
     struct PeerRef: Equatable { var user: String; var flags: ChatFlags; var archived = false }
-    static func presenceWant(open: PeerRef?, list: [PeerRef]?, caps: Caps) -> [String] {
-        guard caps.onlineOn else { return [] }
+    /// 2.6 (userstatus1): das Abo liefert auch den eigenen Status der Personen - auch bei eigenem Online-Status aus
+    static func presenceWant(open: PeerRef?, list: [PeerRef]?, caps: Caps, status: Bool = false) -> [String] {
+        guard caps.onlineOn || status else { return [] }
         var out: [String] = []
-        func add(_ r: PeerRef) { if onlineActive(caps, r.flags), !r.user.isEmpty, !out.contains(r.user) { out.append(r.user) } }
+        func ok(_ f: ChatFlags) -> Bool { onlineActive(caps, f) || (status && f.kind == "dm" && !f.request) }
+        func add(_ r: PeerRef) { if ok(r.flags), !r.user.isEmpty, !out.contains(r.user) { out.append(r.user) } }
         if let open { add(open) }
         for r in (list ?? []).filter({ !$0.archived }).prefix(30) { add(r) }
         return Array(out.prefix(caps.limits.presenceUsers))
