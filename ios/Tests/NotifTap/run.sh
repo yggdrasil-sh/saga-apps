@@ -6,14 +6,14 @@
 # payload.json im Format des Servers (saga/push.py _send_apns), z. B. {"aps":{"alert":{...}},"url":"/notes#12:p3","kind":"comment.new"}.
 # Beispiele: seite.json (Kommentar auf Seite 2, Block p30), chat.json (Nachricht in Chat 1) - IDs an den Testserver anpassen.
 # Ergebnis: Zeile "NOTIFTAP_ERGEBNIS <fall> ZIEL|KEIN_ZIEL", Bildschirmfoto nach dem Antippen, dazu <bild>-banner.png (Banner).
-# 2262 Ende-zu-Ende: Nutzlast aus tests/vectors/push_e2e.json (apns_body eines Falls); die Erweiterung braucht den
-# Testschluessel des Vektors: build mit SAGA_PUSH_TEST_KEY="<keys.ua_priv>.<keys.auth>" (Umgebung, nur Debug).
+# 2262: `simctl push` reicht die Mitteilung direkt an SpringBoard (CoreSimulatorBridge) - die Notification Service
+# Extension laeuft dabei NICHT (Xcode 27 / iOS 27 geprueft). Ende-zu-Ende-Banner: Tests/Notify/run.sh.
 set -u
 CMD=$1 SIM=$2 DD=$3
 BUNDLE=${SAGA_BUNDLE_ID:-io.github.yggdrasil-sh.saga}
 if [[ $CMD == build ]]; then
   xcodebuild build-for-testing -project Hlidskjalf.xcodeproj -scheme NotifTapUITests -configuration Debug \
-    -destination "id=$SIM" -derivedDataPath $DD CODE_SIGNING_ALLOWED=NO SAGA_PUSH_TEST_KEY="${SAGA_PUSH_TEST_KEY:-}" | tail -3
+    -destination "id=$SIM" -derivedDataPath $DD CODE_SIGNING_ALLOWED=NO | tail -3
   exit $pipestatus[1]
 fi
 FALL=$4 PAYLOAD=$5 MARK=$6 EXPECT=$7 SHOT=$8 ARGS=${9:-}

@@ -33,10 +33,12 @@ final class NotifTapUITests: XCTestCase {
         }
         print("NOTIFTAP_BEREIT \(mode)")
         let banner = springboard.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@", mark)).firstMatch
-        XCTAssertTrue(banner.waitForExistence(timeout: 60), "Banner mit \(mark) erscheint")
-        // 2262: Banner gefunden (Text aus der Erweiterung) - kurz stehen lassen, run.sh macht das Bannerfoto
-        print("NOTIFTAP_BANNER \(mode)")
-        if let hold = env["NOTIF_HOLD"].flatMap(UInt32.init), hold > 0 { sleep(hold) }
+        let seen = banner.waitForExistence(timeout: 60)
+        XCTAssertTrue(seen, "Banner mit \(mark) erscheint")
+        if seen {                                                          // kurz stehen lassen, run.sh macht das Bannerfoto
+            print("NOTIFTAP_BANNER \(mode)")
+            if let hold = env["NOTIF_HOLD"].flatMap(UInt32.init), hold > 0 { sleep(hold) }
+        }
         banner.tap()
         print("NOTIFTAP_GETIPPT \(mode)")
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20), "Saga kommt nach vorne")

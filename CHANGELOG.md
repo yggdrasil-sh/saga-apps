@@ -8,6 +8,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Neu
 
+- **Apple-Mitteilungen Ende-zu-Ende, bereit fürs Push-Relais** (Bugs-DB 2262, iOS/iPadOS): An Server mit
+  `pushrelay1` (`server.apns_e2e`) schickt die App beim Mitteilungs-Abo einen eigenen Schlüssel je Server und ihre
+  App-ID; der Server verschlüsselt jede Mitteilung, Apple und das Push-Relais sehen nur „Saga – Neue Mitteilung“. Neue
+  Erweiterung `HlidskjalfNotify` entschlüsselt und zeigt Titel und Text wie bisher (Faden, Ton, Anrufe mit
+  Annehmen/Ablehnen); was sie nicht lesen kann, erscheint als neutraler Platzhalter. Anrufe über PushKit und stille
+  Mitteilungen werden in der App entschlüsselt. Schlüsselwechsel alle 30 Tage, beim Abmelden gelöscht. Einstellungen ›
+  Mitteilungen: Schalter auch für Server, die nur über das Relais zustellen; ist es gestört, Hinweis „Mitteilungen ans
+  iPhone sind gerade gestört – Saga zeigt alles in der Glocke.“ Server vor 2.6: alles wie bisher. Signierung: neue
+  App-ID `<App-ID>.notify`; `build-adhoc.sh`/`build-testflight.sh` bauen ohne die Erweiterung weiter, wenn nur deren
+  Profil fehlt (Warnung), `SAGA_NOTIFY=0` erzwingt das.
 - **Kontakte in iOS/iPadOS** (Bugs-DB 2027a-5, wie das Web): Einstellungen › „Kontakte“ zeigt das Adressbuch – Personen
   aus gemeinsamen Chats und eigene Kontakte – mit Suche (Name, Nummer, E-Mail). Detail mit fester Saga-Zeile und
   „Nachricht“ (öffnet den Direkt-Chat), Telefonnummern (`tel:`) und E-Mail-Adressen (`mailto:`) mit Typ (Mobil, Privat,

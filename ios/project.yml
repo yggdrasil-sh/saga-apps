@@ -410,3 +410,24 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TARGETED_DEVICE_FAMILY: "1,2"
         TEST_TARGET_NAME: Hlidskjalf
+  # Bugs-DB 2262: Notification Service Extension mit den Server-Vektoren (Tests/vectors/push_e2e.json) - dieselbe Klasse wie
+  # in HlidskjalfNotify, laeuft in der App (Mitteilungen erlaubt -> mit TEST_RUNNER_NOTIFY_BANNER=1 auch als Banner).
+  # `simctl push` startet die Erweiterung im Simulator nicht. Tests/Notify/run.sh <sim-id> <derived-data> [bilder-ordner]
+  NotifyTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests/Notify
+      - Notify/NotificationService.swift
+      - Shared/PushE2E.swift
+      - Shared/Keychain.swift
+      - path: Tests/vectors/push_e2e.json
+        buildPhase: resources
+    dependencies:
+      - target: Hlidskjalf
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).notifytests
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Hlidskjalf.app/Hlidskjalf"

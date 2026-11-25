@@ -165,6 +165,29 @@ Bereitstellungsprofil und ist deshalb abschaltbar: `SAGA_MAC_PUSH_SUFFIX = -push
 nutzt `App/App-macOS-push.entitlements` (für ad-hoc signierte DMG-Builds leer lassen). Den APNs-Schlüssel trägt der
 Admin im Saga-Admin-Bereich ein; Debug-Builds melden sich als `sandbox`, alle anderen als `production` an.
 
+**Ende-zu-Ende und Push-Relais (2.6, Bugs-DB 2262, Vertrag `docs/PUSH-RELAY.md` im Server-Repo):** Meldet der Server
+`server.apns_e2e = 1`, schickt die App beim Abo (`apns` und `apns-voip`) einen eigenen Schlüssel je Server
+(`keys: {p256dh, auth}`, P-256 + 16 Byte) und `topic` = eigene App-ID. Der Server verschlüsselt den Inhalt (RFC 8291 mit
+Auffüllen), an Apple bzw. das Relais gehen nur Loc-Keys (`SAGA_PUSH_TITLE/BODY/CALL`) und das Chiffrat. Die
+Notification Service Extension `HlidskjalfNotify` (`Notify/NotificationService.swift`, Logik `Shared/PushE2E.swift`)
+entschlüsselt und setzt Titel, Text, Faden, Ton und bei Anrufen Kategorie/Dringlichkeit; nicht lesbar (vor dem ersten
+Entsperren, fremder Schlüssel, Zeit abgelaufen) → neutraler Platzhalter „Saga – Neue Mitteilung“. PushKit (Anrufe) und
+stille Mitteilungen entschlüsseln in der App. Schlüssel: Schlüsselbund-Gruppe `SAGA_KEYCHAIN_GROUP`, Dienst
+`saga.push.e2e`, Wechsel alle 30 Tage, alte bleiben 7 Tage, beim Abmelden gelöscht. Server vor 2.6 und Builds ohne
+Erweiterung: Abo und Mitteilungen genau wie bisher (ohne Schlüssel).
+- **Signierung:** eigene App-ID `<App-ID>.notify` **ohne** weitere Fähigkeiten (nur Schlüsselbund-Gruppe mit
+  Team-Präfix, keine App-Gruppe). `build-adhoc.sh`/`build-testflight.sh` legen App-ID und Profile mit
+  `-allowProvisioningUpdates` an (API-Schlüssel mit Rolle „Admin“ oder „App Manager“). Scheitert nur die Signierung
+  dieser Erweiterung, bauen beide Skripte **ohne sie** weiter (Zeile `WARNUNG: ohne Erweiterung HlidskjalfNotify …`) –
+  die App verhält sich dann wie 2.5. `SAGA_NOTIFY=0` baut gleich ohne sie. Von Hand: Identifiers → + → App IDs → App →
+  Bundle ID (explizit) `<App-ID>.notify` → Register; für MDM/Ad-hoc zusätzlich ein Profil „Ad Hoc“ mit den Geräten.
+- **Tests:** `xcrun simctl push` startet die Erweiterung im Simulator **nicht** (die Mitteilung geht direkt an
+  SpringBoard). Deshalb prüft `Tests/Notify/run.sh` (Ziel `NotifyTests`) dieselbe Klasse mit den APNs-Körpern aus
+  `Tests/vectors/push_e2e.json` in der App und zeigt die Ergebnisse auf Wunsch als Banner; Entschlüsseln, Auffüllen,
+  Umschlag und Schalter-Zustand prüft `Tests/Logic/PushE2ETests.swift`. Testschlüssel nur in Debug-Builds:
+  Startparameter/Standardwert `hkPushE2ETestKey` = `<priv>.<auth>` (App, Tests) bzw. Build-Einstellung
+  `SAGA_PUSH_TEST_KEY` (Erweiterung auf einem Gerät mit Debug-Build). Echte Zustellung über APNs nur auf Geräten.
+
 ## Sprachen
 Alle Texte stehen in String Catalogs (Quellsprache Englisch = Rückfall für andere Systemsprachen):
 `Shared/Localizable.xcstrings` (App, Widget, Teilen-Erweiterungen), `App/AppShortcuts.xcstrings` (Siri-Sätze),
