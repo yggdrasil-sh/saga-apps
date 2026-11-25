@@ -149,7 +149,8 @@ enum ContactBookLogic {
     }
     static func mailURL(_ mail: String) -> URL? {
         guard mail.filter({ $0 == "@" }).count == 1, !mail.contains(where: \.isWhitespace),
-              let e = mail.addingPercentEncoding(withAllowedCharacters: .urlUserAllowed.union(["@"])) else { return nil }
+              // "," bzw. ";" trennen in mailto: Empfaenger - kodieren, damit es genau eine Adresse bleibt
+              let e = mail.addingPercentEncoding(withAllowedCharacters: CharacterSet.urlUserAllowed.union(["@"]).subtracting(CharacterSet(charactersIn: ",;"))) else { return nil }
         return URL(string: "mailto:" + e)
     }
 

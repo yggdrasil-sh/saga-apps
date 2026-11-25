@@ -54,6 +54,7 @@ func contactBookTests() {
     check(L.telURL("+491701234567")?.absoluteString == "tel:+491701234567" && L.telURL("0170 1") == nil && L.telURL("+49;x") == nil, "tel: nur fuer E.164")
     check(L.mailURL("anna@example.org")?.absoluteString == "mailto:anna@example.org" && L.mailURL("a@b@c") == nil && L.mailURL("a b@c") == nil, "mailto:")
     check(L.mailURL("x?subject=1@example.org").map { !$0.absoluteString.contains("?") } == true, "mailto: keine Parameter einschleusen")
+    check(L.mailURL("a,b;c@example.org")?.absoluteString == "mailto:a%2Cb%3Bc@example.org", "mailto: keine weiteren Empfaenger einschleusen")
 
     // Pfade
     check(L.listPath(q: "") == "api/contacts?limit=200&offset=0" && L.listPath(q: " 0170 123 ") == "api/contacts?limit=200&offset=0&q=0170%20123", "Listenpfad mit Suche")

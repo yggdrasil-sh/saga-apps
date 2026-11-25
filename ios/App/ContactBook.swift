@@ -24,6 +24,8 @@ final class ContactBookModel: ObservableObject {
     @Published var editing: EditTarget?
     private var query = ""
     private var reload: Task<Void, Never>?
+    /// steigt mit clear() (Abmelden/Kontowechsel): spaete Antworten des alten Kontos verwerfen
+    private var epoch = 0
 
     var on: Bool { store?.features.has(L.feature) == true }
     /// Vorschlag aus der Region des Geraets (Plan 2027a Frage 2)
@@ -34,12 +36,12 @@ final class ContactBookModel: ObservableObject {
     func load(q: String? = nil) async {
         if let q { query = q }
         guard on, let store else { clear(); return }
-        let asked = query
+        let asked = query, ep = epoch
         guard let (d, code) = try? await store.apiResponse(L.listPath(q: asked)) else {
-            if !loaded { error = String(localized: "Kontakte konnten nicht geladen werden.") }
+            if !loaded, ep == epoch { error = String(localized: "Kontakte konnten nicht geladen werden.") }
             return
         }
-        guard asked == query else { return }                                // Suche hat sich inzwischen geaendert
+        guard asked == query, ep == epoch else { return }                   // Suche geaendert bzw. inzwischen anderes Konto
         let j = try? JSONSerialization.jsonObject(with: d)
         guard code == 200 else { error = L.str((j as? [String: Any])?["error"]) ?? String(localized: "Kontakte konnten nicht geladen werden."); return }
         let r = L.list(j)
@@ -58,7 +60,8 @@ final class ContactBookModel: ObservableObject {
         } catch { return .failed(error.localizedDescription) }
     }
     func loadSettings() async {
-        guard on, let store, let (d, code) = try? await store.apiResponse(L.settingsPath), code == 200 else { return }
+        let ep = epoch
+        guard on, let store, let (d, code) = try? await store.apiResponse(L.settingsPath), code == 200, ep == epoch else { return }
         cc = L.cc(try? JSONSerialization.jsonObject(with: d)); ccLoaded = true
     }
 
@@ -96,8 +99,10 @@ final class ContactBookModel: ObservableObject {
     /// PUT /api/contacts/settings {cc} - nil entfernt
     func setCC(_ v: String?) async -> String? {
         guard let store else { return "–" }
+        let ep = epoch
         do {
             let (d, code) = try await store.apiResponse(L.settingsPath, method: "PUT", body: ["cc": v.map { $0 as Any } ?? NSNull()])
+            guard ep == epoch else { return nil }                           // inzwischen abgemeldet/anderes Konto
             let j = try? JSONSerialization.jsonObject(with: d)
             guard code == 200 else { return L.str((j as? [String: Any])?["error"]) ?? String(localized: "Konnte nicht gesichert werden.") }
             cc = L.cc(j); ccLoaded = true
@@ -138,6 +143,7 @@ final class ContactBookModel: ObservableObject {
         }
     }
     func clear() {
+        epoch += 1; reload?.cancel(); reload = nil
         if !contacts.isEmpty { contacts = [] }
         total = 0; loaded = false; error = nil; cc = nil; ccLoaded = false; change = nil; query = ""; editing = nil
     }
