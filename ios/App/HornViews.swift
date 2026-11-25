@@ -78,16 +78,13 @@ struct HornInfoLine: View {
 
 /// Feld der Weg-Anzeige: Knoten, Weg, RTT, Verlust, Qualitaet
 /// Bedienungshilfen-Groessen (Bugs-DB 2191): Inhalt rollt, wenn das Popover nicht auf den Bildschirm passt, Bezeichnung
-/// und Wert stehen untereinander, die Breite des Satzes waechst mit; Marke unter dem Titel, wenn sie daneben nicht passt.
+/// und Wert stehen untereinander. 2.6 (2263): ohne Marke/Satz "experimentell".
 struct HornPathCard: View {
     @ObservedObject var horn: HornSession
     let way: String
     let qualityText: String
     let dot: Color
     @Environment(\.dynamicTypeSize) private var dts
-    /// Wunschbreite des Hinweis-Satzes (250 pt bei Standardschrift), waechst mit der Schrift. Nur Wunsch (idealWidth):
-    /// ist der Bildschirm schmaler, kuerzt das Popover die Breite und der Satz bricht um.
-    @ScaledMetric(relativeTo: .footnote) private var hintWidth: CGFloat = 250
     var body: some View {
         // Standardgroessen wie bisher (ohne Rollen: ViewThatFits waehlte dort wegen des Pfeil-Randes schon die
         // Scroll-Fassung und schnitt die letzte Zeile ab); Bedienungshilfen-Groessen: rollt, wenn es nicht passt
@@ -100,14 +97,9 @@ struct HornPathCard: View {
             card
         }
     }
-    /// Breite des Hinweis-Satzes: 250 pt wie bisher, bei Bedienungshilfen-Groessen mitwachsend (hoechstens 560 pt)
-    private var hintMax: CGFloat { dts.isAccessibilitySize ? min(hintWidth, 560) : 250 }
     private var card: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) { title; HornExperimentalBadge() }
-                VStack(alignment: .leading, spacing: 4) { title; HornExperimentalBadge(shrink: true) }
-            }
+            title
             if dts.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(rows.indices, id: \.self) { i in
@@ -123,11 +115,6 @@ struct HornPathCard: View {
                 }
                 .font(.callout)
             }
-            // 2.5: experimentell (ein Satz); hoechstens die Wunschbreite, damit das Feld (Popover) die Hoehe des Umbruchs
-            // kennt - schmaler nur, wenn der Bildschirm es verlangt
-            Text(HornExperimental.hint).font(.footnote).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(idealWidth: hintMax, maxWidth: hintMax, alignment: .leading)
         }
         .padding(16)
         .frame(minWidth: 240, alignment: .leading)
@@ -150,29 +137,6 @@ struct HornPathCard: View {
                 .accessibilityElement(children: .combine).accessibilityLabel(Text("Empfangsqualität")).accessibilityValue(Text(verbatim: qualityText))
         )))
         return r
-    }
-}
-
-/// 2.5: Gjallarhorn ist experimentell - ruhige Marke an der Verbindungs-Info und der Teilnehmerliste, der Hinweis-Satz
-/// nur in der Verbindungs-Info (kein Banner ueber dem laufenden Anruf; gleiche Texte wie Web und Admin)
-enum HornExperimental {
-    static var label: String { String(localized: "Experimentell") }
-    static var hint: String {
-        String(localized: "Gjallarhorn ist in Saga 2.5 experimentell – getestet mit bis zu 4 Personen bzw. Geräten je Anruf. Probleme bitte über „Diagnose senden“ melden.")
-    }
-}
-
-struct HornExperimentalBadge: View {
-    /// true: darf schrumpfen statt ueber den Rand zu ragen (eigene Zeile im Feld "Verbindung", Bugs-DB 2191)
-    var shrink = false
-    var body: some View {
-        Text(verbatim: HornExperimental.label).font(.caption2.weight(.semibold)).foregroundStyle(.secondary).lineLimit(1)
-            .minimumScaleFactor(shrink ? 0.5 : 1)
-            .padding(.horizontal, 6).padding(.vertical, 2)
-            .overlay(Capsule().strokeBorder(Color.secondary.opacity(0.5), lineWidth: 1))
-            .fixedSize(horizontal: !shrink, vertical: true)
-            .help(Text(verbatim: HornExperimental.hint))
-            .accessibilityLabel(Text(verbatim: HornExperimental.label))
     }
 }
 
@@ -220,12 +184,7 @@ struct HornPeoplePanel: View {
     private var list: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                // Marke neben dem Titel; passt das nicht (kleines iPhone, grosse Schrift), steht sie darunter -
-                // sonst nimmt die feste Marke dem Titel den ganzen Platz ("Tei…" bzw. gar nicht sichtbar)
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) { peopleTitle; HornExperimentalBadge() }
-                    VStack(alignment: .leading, spacing: 4) { peopleTitle; HornExperimentalBadge() }
-                }
+                peopleTitle                                                 // 2.6 (2263): ohne Marke "experimentell"
                 Spacer()
                 CallAddButton(calls: calls)                                 // 2.5 (L8/L9): Person hinzufuegen
                 Button { horn.plist = false } label: { Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle()) }
