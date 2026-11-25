@@ -57,6 +57,7 @@ import io.github.yggdrasil_sh.saga.ui.push.SwitchRow
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.sagaSegment
+import io.github.yggdrasil_sh.saga.util.PersonName
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -165,7 +166,7 @@ fun ReachScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             if (list.isEmpty()) item(key = "exc-none") { Hint(stringResource(R.string.us_exc_none), w.padding(top = 4.dp)) }
             list.forEachIndexed { i, x ->
                 item(key = "exc-" + x.type + ":" + (x.ref ?: x.name)) {
-                    val name = if (x.group) x.name.orEmpty() else x.name?.ifEmpty { null } ?: x.ref.orEmpty()
+                    val name = if (x.group) x.name.orEmpty() else PersonName.shown(x.name, x.ref)      // D01: nie die rohe Kennung
                     val rm = stringResource(R.string.us_exc_remove, name)
                     ListItem(
                         headlineContent = { Text(name) },
@@ -253,11 +254,11 @@ private fun RepeatField(cur: Int, enabled: Boolean, l: io.github.yggdrasil_sh.sa
     )
 }
 
-/** Ausnahme hinzufuegen: Personen und eigene Gruppen suchen (GET /api/share/targets) */
+/** Ausnahme hinzufuegen: Personen (auch anderer Server) und eigene Gruppen suchen (GET /api/share/targets) bzw. Kennung direkt eingeben */
 @Composable
 private fun ExceptionSearch(repo: SagaRepository, modifier: Modifier, onAdd: (StatusException) -> Unit) {
     var q by remember { mutableStateOf("") }
-    var hits by remember { mutableStateOf<List<Pair<StatusException, String?>>?>(null) }
+    var hits by remember { mutableStateOf<List<UserStatusLogic.ExcHit>?>(null) }
     val scope = rememberCoroutineScope()
     var job by remember { mutableStateOf<Job?>(null) }
     val groupWord = stringResource(R.string.us_exc_group)
@@ -275,18 +276,15 @@ private fun ExceptionSearch(repo: SagaRepository, modifier: Modifier, onAdd: (St
                 }
                 job = scope.launch {
                     delay(250)
-                    hits = try {
-                        val r = repo.shareTargets(s)
-                        r.users.map { StatusException("user", it.username, it.name) to it.sub } +
-                            r.groups.map { StatusException("group", null, it.name) to groupWord } +
-                            r.remote.filter { it.type == "remote" && it.target.startsWith("~") }.map {
-                                StatusException("user", it.target, it.label ?: it.name) to it.host
-                            }
+                    // Bugs-DB 2387: Personen anderer Server (target '@~x@host' bzw. handle) und direkte Kennung wie im Web
+                    val r = try {
+                        repo.shareTargets(s)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: Exception) {
-                        emptyList()
+                        null
                     }
+                    hits = UserStatusLogic.exceptionHits(r, s, groupWord)
                 }
             },
             singleLine = true,
@@ -300,7 +298,7 @@ private fun ExceptionSearch(repo: SagaRepository, modifier: Modifier, onAdd: (St
             }
             list.take(8).forEach { (x, sub) ->
                 ListItem(
-                    headlineContent = { Text(x.name ?: x.ref.orEmpty()) },
+                    headlineContent = { Text(if (x.group) x.name.orEmpty() else PersonName.shown(x.name, x.ref)) },
                     supportingContent = sub?.takeIf { it.isNotEmpty() }?.let { { Text(it) } },
                     leadingContent = { SagaIcon(if (x.group) SagaIcons.users else SagaIcons.user, null) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),

@@ -271,6 +271,47 @@ object UserStatusLogic {
 
     fun removeException(list: List<StatusException>, x: StatusException): List<StatusException> = list.filterNot { it.same(x) }
 
+    /**
+     * Bugs-DB 2387: Kennung einer Person fuer Ausnahmen - wie static/push.js HANDLE: '~' + 16 Zeichen (base32 klein),
+     * optional '@host' (anderer Server). Gleiche Pruefung fuer die direkte Eingabe und fuer Treffer anderer Server.
+     */
+    val HANDLE = Regex("^~[a-z2-7]{16}(@[a-z0-9.:\\-]{1,260})?$")
+
+    fun validHandle(s: String?): Boolean = s != null && HANDLE.matches(s)
+
+    /**
+     * Treffer eines anderen Servers (GET /api/share/targets -> remote) -> Kennung fuer Ausnahmen ('~x@host') oder null.
+     * Der Server liefert Personen als type "remote" mit target '@~x@host' (bzw. '@name@host' mit oeffentlichem Namen) und
+     * aus dem Adressbuch zusaetzlich handle '~x@host'; Gruppen ("remote_group") gehen nicht. Ausnahmen nehmen nur
+     * pseudonyme Handles an (APP-API "Ausnahmen": '~x@host').
+     */
+    fun remoteRef(type: String?, target: String?, handle: String?): String? {
+        if (!(type == null || type.isEmpty() || type == "remote" || type == "user")) return null
+        handle?.trim()?.takeIf { validHandle(it) }?.let { return it }
+        return target?.trim()?.removePrefix("@")?.takeIf { validHandle(it) }
+    }
+
+    /** Ein Treffer der Ausnahme-Suche: Eintrag und Unterzeile */
+    data class ExcHit(val x: StatusException, val sub: String?)
+
+    /**
+     * Treffer der Ausnahme-Suche wie static/push.js excCard: Personen, eigene Gruppen, Personen anderer Server (nur mit
+     * Handle) - ohne Treffer und bei gueltiger Kennung im Feld die direkte Eingabe (Handle bzw. Handle@host).
+     */
+    fun exceptionHits(r: io.github.yggdrasil_sh.saga.data.ShareTargets?, query: String, groupWord: String): List<ExcHit> {
+        val out = ArrayList<ExcHit>()
+        val seen = HashSet<String>()
+        r?.users?.forEach { if (it.username.isNotEmpty() && seen.add("u:" + it.username)) out += ExcHit(StatusException("user", it.username, it.name), it.sub) }
+        r?.groups?.forEach { if (it.name.isNotEmpty() && seen.add("g:" + it.name)) out += ExcHit(StatusException("group", null, it.name), groupWord) }
+        r?.remote?.forEach { t ->
+            val ref = remoteRef(t.type, t.target, t.handle) ?: return@forEach
+            if (seen.add("u:$ref")) out += ExcHit(StatusException("user", ref, t.label?.ifEmpty { null } ?: t.name.ifEmpty { null }), t.host.ifEmpty { null })
+        }
+        val s = query.trim()
+        if (out.isEmpty() && validHandle(s)) out += ExcHit(StatusException("user", s, null), s)
+        return out
+    }
+
     /** Wiederholungsanruf-Sekunden pruefen (Grenzen des Servers) -> Zahl oder null */
     fun repeatSeconds(text: String, l: StatusLimitsU): Int? = text.trim().toIntOrNull()?.takeIf { it in l.repeatMin..l.repeatMax }
 

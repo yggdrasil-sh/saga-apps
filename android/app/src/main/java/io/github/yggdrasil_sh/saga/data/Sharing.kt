@@ -130,6 +130,8 @@ data class TargetRemote(
     val label: String? = null,
     val avatar: String? = null,
     val pub: String? = null,
+    /** 2.3 Adressbuch: pseudonymer Handle '~x@host' (target ist dann '@~x@host' bzw. '@oeffentlicher-name@host') */
+    val handle: String? = null,
 )
 
 /** GET /api/share/targets?q= (ab 1 Zeichen; Server 2.3: bei 1-2 Zeichen nur genaue Treffer, aeltere erst ab 3) */
