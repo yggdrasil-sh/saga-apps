@@ -537,30 +537,24 @@ struct ExceptionPicker: View {
 
 // MARK: - Status anderer
 
-/// Chip im Kopf des Direkt-Chats: Punkt + "Nicht stören bis 14:30 · Im Kundentermin"; Tippen zeigt den vollen Text
+/// Chip im Kopf des Direkt-Chats: Punkt + "Nicht stören bis 14:30 · Im Kundentermin" (short: nur der Zustand);
+/// Tippen zeigt den vollen Text
 struct PeerStatusChip: View {
     let peer: UserStatusLogic.Peer
+    var short = false
     var tap: (String) -> Void = { _ in }
     var body: some View {
         let full = UserStatusText.peer(peer, withText: true)
         Button { tap(full) } label: {
-            // Platz reicht (iPad): alles; sonst (iPhone-Kopf neben den Knoepfen) nur der Zustand - ganz lesbar statt
-            // "Nicht stoere…", Zeit und Text per Tippen
-            ViewThatFits(in: .horizontal) {
-                line(full)
-                line(UserStatusText.name(peer.s)).minimumScaleFactor(0.75)
+            HStack(spacing: 4) {
+                StatusDot(state: peer.s, size: 8, ring: false)
+                Text(verbatim: short ? UserStatusText.name(peer.s) : full).lineLimit(1).minimumScaleFactor(short ? 0.75 : 1)
             }
             .font(.caption2.weight(.medium))
             .foregroundStyle(StatusDot.color(peer.s))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(verbatim: String(localized: "Status: \(full)")))
-    }
-    private func line(_ s: String) -> some View {
-        HStack(spacing: 4) {
-            StatusDot(state: peer.s, size: 8, ring: false)
-            Text(verbatim: s).lineLimit(1)
-        }
     }
 }
 
@@ -586,14 +580,22 @@ struct ChatTitleWithStatus: View {
     var body: some View {
         VStack(spacing: 0) {
             Text(verbatim: title).font(.headline).lineLimit(1)
-            HStack(spacing: 6) {
-                if let presence {
-                    Text(verbatim: presence).font(.caption2).foregroundStyle(online ? Color.adaptive(0x1E7B34, 0x4CD964) : .secondary).lineLimit(1)
+            // Platz reicht (iPad): alles; sonst (iPhone-Kopf neben den Knoepfen) nur der Zustand - ganz lesbar statt
+            // "Nicht stoere…", Zeit und Text per Tippen; zur Not ohne "online" (der Status ist wichtiger)
+            if let peer {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 6) { presenceText; PeerStatusChip(peer: peer, tap: tap) }
+                    HStack(spacing: 6) { presenceText; PeerStatusChip(peer: peer, short: true, tap: tap) }
+                    PeerStatusChip(peer: peer, short: true, tap: tap)
                 }
-                if let peer { PeerStatusChip(peer: peer, tap: tap).layoutPriority(1) }   // Status vor "online"
-            }
+            } else { presenceText }
         }
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)                       // Kopfzeile hat feste Hoehe
+    }
+    @ViewBuilder private var presenceText: some View {
+        if let presence {
+            Text(verbatim: presence).font(.caption2).foregroundStyle(online ? Color.adaptive(0x1E7B34, 0x4CD964) : .secondary).lineLimit(1)
+        }
     }
 }
 
