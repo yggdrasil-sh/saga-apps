@@ -32,8 +32,9 @@ import java.io.File
 import java.util.Locale
 
 /**
- * 2.5 Gjallarhorn experimentell: Bildschirmfotos der Verbindungsdetails eines Anrufs ueber den Knoten (Marke + Hinweis)
- * und der Teilnehmerliste (Marke) mit erfundenen Beispieldaten - kein Server, keine Medien. Fenster samt Blatt/Dialog per
+ * Bildschirmfotos der Verbindungsdetails eines Anrufs ueber den Knoten und der Teilnehmerliste mit erfundenen
+ * Beispieldaten - kein Server, keine Medien. 2.5: mit Marke/Hinweis "experimentell"; seit 2.6 (2263-7) ohne - gleiche
+ * Dateinamen fuer den Vorher/Nachher-Vergleich. Fenster samt Blatt/Dialog per
  * UiAutomation.takeScreenshot. Ablage: getExternalFilesDir()/shots/hornexp-*.png
  */
 @RunWith(AndroidJUnit4::class)
