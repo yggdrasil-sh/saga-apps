@@ -1,5 +1,6 @@
-# 2.5 Gjallarhorn experimentell: Einstellungen -> Info -> Hilfe (Zeile mit Marke und Hinweis) - Bildschirmfotos mit
-# nachgebautem Server (meldet clientlog1), ohne Netz.
+# Einstellungen -> Info -> Hilfe mit nachgebautem Server (meldet clientlog1), ohne Netz - Bildschirmfotos.
+# 2.5 stand hier eine Zeile "Anrufe ueber den Anruf-Knoten" mit Marke "Experimentell" und Hinweis-Satz; seit 2.6 (2263-8)
+# ist Gjallarhorn nicht mehr experimentell: die Zeile ist weg, "Diagnose senden" bleibt.
 #   HK_TEST=tests/hornexpshots.py HK_OUT=<ordner> python3 -m hlidskjalf.main   (Dateien <HK_SHOT_PREFIX>linux-hilfe[-dunkel].png)
 import os
 import sys
@@ -35,15 +36,16 @@ def info(g):
     g["win"].get_visible_dialog().show_page("info")
 
 
+def walk(w):
+    c = w.get_first_child()
+    while c:
+        yield c
+        yield from walk(c)
+        c = c.get_next_sibling()
+
+
 def scroll(g):
     d = g["win"].get_visible_dialog()
-
-    def walk(w):
-        c = w.get_first_child()
-        while c:
-            yield c
-            yield from walk(c)
-            c = c.get_next_sibling()
     for sw in [w for w in walk(d.pages["info"]) if isinstance(w, Gtk.ScrolledWindow)]:
         a = sw.get_vadjustment()
         a.set_value(a.get_upper() - a.get_page_size())
@@ -52,8 +54,11 @@ def scroll(g):
 def shoot(g):
     d = g["win"].get_visible_dialog()
     g["shot"](os.path.join(g["out"], f"{P}linux-hilfe{S.get('suffix', '')}.png"))
-    h = getattr(d.pages["info"].diag, "horn", None)
-    check("Hilfe: Zeile Gjallarhorn sichtbar", bool(h and h.get_visible()))
+    diag = d.pages["info"].diag
+    check("Hilfe: Diagnose senden bereit", diag.send_row.get_visible() and diag.btn.get_sensitive())
+    check("Hilfe: keine Zeile Gjallarhorn mehr", getattr(diag, "horn", None) is None)
+    texts = [w.get_label() for w in walk(diag) if isinstance(w, Gtk.Label)]
+    check("Hilfe: kein Hinweis experimentell", not any("xperiment" in (t or "") for t in texts))
 
 
 def dark(g):

@@ -9726,18 +9726,6 @@ msgstr "Печать {name}"
 msgid "Saga seals could not be loaded."
 msgstr "Не удалось загрузить печати Saga."
 
-#: hlidskjalf/settings.py
-msgid "Calls via the call node"
-msgstr "Звонки через узел звонков"
-
-#: hlidskjalf/settings.py
-msgid "Gjallarhorn is experimental in Saga 2.5 – tested with up to 4 people or devices per call. Please report problems via “Send diagnostics”."
-msgstr "Gjallarhorn в Saga 2.5 работает в экспериментальном режиме – проверен на звонках до 4 человек или устройств. О проблемах сообщайте через «Отправить диагностику»."
-
-#: hlidskjalf/settings.py
-msgid "Experimental"
-msgstr "Экспериментально"
-
 #: hlidskjalf/agenda.py
 msgid "Your tasks appear here – with due date, priority and repetition."
 msgstr "Здесь появляются ваши задачи — со сроком, приоритетом и повторением."

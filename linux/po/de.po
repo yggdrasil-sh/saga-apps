@@ -9751,18 +9751,6 @@ msgstr "Siegel {name}"
 msgid "Saga seals could not be loaded."
 msgstr "Die Saga-Siegel konnten nicht geladen werden."
 
-#: hlidskjalf/settings.py
-msgid "Calls via the call node"
-msgstr "Anrufe über den Anruf-Knoten"
-
-#: hlidskjalf/settings.py
-msgid "Gjallarhorn is experimental in Saga 2.5 – tested with up to 4 people or devices per call. Please report problems via “Send diagnostics”."
-msgstr "Gjallarhorn ist in Saga 2.5 experimentell – getestet mit bis zu 4 Personen bzw. Geräten je Anruf. Probleme bitte über „Diagnose senden“ melden."
-
-#: hlidskjalf/settings.py
-msgid "Experimental"
-msgstr "Experimentell"
-
 #: hlidskjalf/agenda.py
 msgid "Your tasks appear here – with due date, priority and repetition."
 msgstr "Hier stehen deine Aufgaben – mit Fälligkeit, Priorität und Wiederholung."

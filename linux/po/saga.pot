@@ -9303,18 +9303,6 @@ msgstr ""
 msgid "Saga seals could not be loaded."
 msgstr ""
 
-#: hlidskjalf/settings.py
-msgid "Calls via the call node"
-msgstr ""
-
-#: hlidskjalf/settings.py
-msgid "Gjallarhorn is experimental in Saga 2.5 – tested with up to 4 people or devices per call. Please report problems via “Send diagnostics”."
-msgstr ""
-
-#: hlidskjalf/settings.py
-msgid "Experimental"
-msgstr ""
-
 #: hlidskjalf/agenda.py
 msgid "Your tasks appear here – with due date, priority and repetition."
 msgstr ""

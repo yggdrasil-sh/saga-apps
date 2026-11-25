@@ -974,16 +974,6 @@ class DiagnoseGroup(Adw.PreferencesGroup):
         self.res.add_suffix(self.copy)
         self.res.set_visible(False)
         self.add(self.res)
-        # 2.5: Gjallarhorn ist experimentell - die Anrufe selbst laufen im Browser (dort kennzeichnet die Web-Oberflaeche
-        # den Weg ueber den Knoten); hier ruhig eine Zeile unter "Diagnose senden" mit Marke und dem Hinweis-Satz
-        self.horn = Adw.ActionRow(title=_("Calls via the call node"), subtitle=_(
-            "Gjallarhorn is experimental in Saga 2.5 – tested with up to 4 people or devices per call. "
-            "Please report problems via “Send diagnostics”."))
-        self.horn.set_subtitle_lines(0)
-        self.horn_badge = Gtk.Label(label=_("Experimental"), valign=Gtk.Align.CENTER)
-        self.horn_badge.add_css_class("hk-badge")
-        self.horn.add_suffix(self.horn_badge)
-        self.add(self.horn)
         self.busy, self.sent_id = False, None
         self.refresh()
 
@@ -994,7 +984,6 @@ class DiagnoseGroup(Adw.PreferencesGroup):
 
     def refresh(self):
         on = self.available()
-        self.horn.set_visible(on)                  # nur mit 2.5-Server, der Diagnosen annimmt
         self.set_description(_("Sends the latest events of this app (errors, status codes, view changes – without contents, "
                                "titles or names) to your Saga server. Your text above reaches the admin as you write it.")
                              if on else _("This server does not accept diagnostics (Saga server 2.5 or later, can be turned off by the admin)."))
