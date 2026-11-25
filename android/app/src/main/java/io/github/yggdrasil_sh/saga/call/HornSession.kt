@@ -1734,7 +1734,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     fun signal(from: String, b: JsonObject) {
         if (closed) return
         val now = System.currentTimeMillis()
-        when ((b["t"] as? JsonPrimitive)?.contentOrNull) {
+        when (HornLogic.sigKind(b)) {                       // 2263: unbekannt/reserviert (dtmf, svc-join) -> still nichts
             "fkey" -> {
                 val k = HornE2E.parseFKey(b) ?: return
                 val p = peerKeys.getOrPut(from) { HornLogic.PeerKeys() }

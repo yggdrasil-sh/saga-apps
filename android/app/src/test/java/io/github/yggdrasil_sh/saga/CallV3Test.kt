@@ -249,6 +249,9 @@ class CallV3Test {
         assertEquals(CallV3.Kind.UNKNOWN, CallV3.kind("fkey"))
         assertEquals(CallV3.Kind.UNKNOWN, CallV3.kind(null))
         assertEquals(CallV3.Kind.UNKNOWN, CallV3.kind("join"))
+        // 2263: fuer 3.0 reserviert - bis dahin still ignoriert (Vektoren: CallSignalReservedTest)
+        assertEquals(CallV3.Kind.UNKNOWN, CallV3.kind("dtmf"))
+        assertEquals(CallV3.Kind.UNKNOWN, CallV3.kind("svc-join"))
     }
 
     // ---------------------------------------------------------------- want small/large, Bild-im-Bild

@@ -1977,7 +1977,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         // 2.5 P10: Gruppenanruf ueber Servergrenzen ohne Knoten (ein Server kann keinen nutzen) - einmal sagen
         CallRoom.meshNote(mesh)?.let { if (!rs.meshNoted) { rs.meshNoted = true; repo.notify(UiText.Raw(it)) } }
         // 2.5: im Knoten-Anruf gilt die Grenze des Anrufs (12/25 Video, 50/100 Ton), nicht die Mesh-Grenze
-        if (limit != null && limit > 0) rs.limit = if (rs.horn != null) limit else CallRoom.limit(r.media, limit)
+        if (limit != null && limit > 0) rs.limit = CallRoom.limit(r.media, limit, rs.horn != null)
         val me = myDevId()
         if (r.ready && rs.hoRep == null && diff.left.any { it.device == me }) {
             // nur wenn das andere Geraet gerade die Fuehrung uebernommen hat (neu bzw. vorher Begleitgeraet oder - 2.5 - Uebernahme,
@@ -2328,7 +2328,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 c.rs.dm = k.dm
                 if (k.dm && k.peer.name.isNotEmpty()) c.peer = k.peer          // 2.5: 1:1 ueber Knoten - Gegenueber als Titel
                 c.v2 = k.v == 2
-                c.rs.limit = CallRoom.limit(k.media, k.limit ?: cfg.endpoints(k.media))
+                // 2263 (2418): im Knoten-Anruf die Grenze des Anrufs, nicht 4/6 (sonst "voll (4)" beim Beitritt)
+                c.rs.limit = CallRoom.limit(k.media, k.limit ?: cfg.endpoints(k.media), k.topo == CallRoom.TOPO_HORN)
                 c.rs.old = k.old.map { it.name.ifEmpty { it.username } }
                 st.signals.forEach { c.seen.add(it.seq) }
                 if (k.state == "ended") {
@@ -2450,7 +2451,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
         c.ready = true
         r.call?.let { k ->
-            k.limit?.let { c.rs.limit = CallRoom.limit(c.media, it) }
+            k.limit?.let { c.rs.limit = CallRoom.limit(c.media, it, c.rs.horn != null || k.topo == CallRoom.TOPO_HORN) }
             rosterIn(c, k.legs, null, k.limit, poll = true, mesh = k.hornMesh)
             invitesIn(c, k)
         }
@@ -4523,7 +4524,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         c.rs.title = next.title
         _ui.value = _ui.value?.copy(chatId = tgt, group = true)
         if (k != null) {
-            k.limit?.let { c.rs.limit = CallRoom.limit(k.media, it) }
+            // 2263 (2418): 1:1 ueber den Knoten wird Gruppe - die Grenze des Knoten-Anrufs bleibt (nicht 4/6)
+            k.limit?.let { c.rs.limit = CallRoom.limit(k.media, it, c.rs.horn != null || k.topo == CallRoom.TOPO_HORN) }
             c.rs.invHost = k.host || c.rs.hornHost
             invitesIn(c, k)
         }
@@ -4928,8 +4930,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             val b = openSig(h, s) ?: return@launch
             if (!live(r)) return@launch
             // "Hierher uebernehmen" im Knoten-Anruf: das neue eigene Geraet meldet ready + replaces = dieses Geraet
-            if ((b["t"] as? JsonPrimitive)?.contentOrNull == "state" && (b["ready"] as? JsonPrimitive)?.booleanOrNull == true &&
-                (b["replaces"] as? JsonPrimitive)?.contentOrNull == myDevId() && r.rs.roster.of(s.fromDevice)?.who == myUser()) {
+            if (HornLogic.handoverReady(b, myDevId()) && r.rs.roster.of(s.fromDevice)?.who == myUser()) {
                 handoverOut(r, s.fromDevice)
                 return@launch
             }

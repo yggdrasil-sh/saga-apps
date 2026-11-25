@@ -208,6 +208,14 @@ object CallRoom {
     }
 
     /**
+     * 2263 (Bugs-DB 2418): Grenze je Anruf mit Weg. Im Knoten-Anruf (`topo horn`) gilt die Grenze des Anrufs vom Server
+     * (Vertrag APP-API: `limit` bzw. `limits.horn`, z. B. 12/25 Video, 50 Ton) - nie die Mesh-Grenze 4/6. Fehlt der Wert:
+     * wie bisher die Mesh-Grenze. Ohne Knoten wie [limit].
+     */
+    fun limit(media: String, server: Int?, horn: Boolean): Int =
+        if (horn) server?.takeIf { it > 0 }?.coerceAtLeast(2) ?: limit(media, null) else limit(media, server)
+
+    /**
      * 2.5 P10: Hinweis `horn_mesh` (Teilnehmerliste, Antwort auf join): Gruppenanruf ueber Servergrenzen bleibt im Mesh,
      * weil ein Server keinen Knoten nutzen kann. Text vom Server (Sprache der Anfrage); leer = kein Hinweis.
      */
@@ -350,7 +358,7 @@ object CallRoom {
             val on = (mine.firstOrNull { !it.companion } ?: mine.firstOrNull())?.devName?.ifEmpty { "?" }.orEmpty()
             if (on.isEmpty() && c.kind != KIND_GROUP) continue
             if (on.isEmpty() && c.state != "active" && c.state != "ringing") continue
-            return RunBar(c.id, c.chatId, c.kind, c.media, on, c.legs.size, c.joinable, c.joinBlock, limit(c.media, c.limit),
+            return RunBar(c.id, c.chatId, c.kind, c.media, on, c.legs.size, c.joinable, c.joinBlock, limit(c.media, c.limit, c.topo == TOPO_HORN),
                 takeover = c.takeover && on.isNotEmpty())
         }
         return null

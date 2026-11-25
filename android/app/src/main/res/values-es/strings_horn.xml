@@ -48,7 +48,4 @@
     <string name="horn_mesh_limit">Ningún nodo para llamadas grupales grandes está listo – la llamada va directamente entre los dispositivos (como máximo %1$d con vídeo o %2$d solo audio).</string>
     <string name="horn_ongoing_group">Llamada grupal · %1$d participantes</string>
     <string name="horn_connecting">Conectando con el nodo …</string>
-    <!-- 2.5: Gjallarhorn experimentell (Marke + ein Satz, gleiche Texte wie Web/iOS/Linux) -->
-    <string name="horn_experimental">Experimental</string>
-    <string name="horn_experimental_hint">Gjallarhorn es experimental en Saga 2.5: probado con hasta 4 personas o dispositivos por llamada. Informa de los problemas con «Enviar diagnóstico».</string>
 </resources>

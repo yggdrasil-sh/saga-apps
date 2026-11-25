@@ -48,7 +48,4 @@
     <string name="horn_mesh_limit">ยังไม่มีโหนดสำหรับการโทรกลุ่มขนาดใหญ่ – การโทรจะวิ่งตรงระหว่างอุปกรณ์ (วิดีโอได้สูงสุด %1$d หรือเสียงอย่างเดียว %2$d)</string>
     <string name="horn_ongoing_group">การโทรกลุ่ม · ผู้เข้าร่วม %1$d คน</string>
     <string name="horn_connecting">กำลังเชื่อมต่อกับโหนด …</string>
-    <!-- 2.5: Gjallarhorn experimentell (Marke + ein Satz, gleiche Texte wie Web/iOS/Linux) -->
-    <string name="horn_experimental">ทดลอง</string>
-    <string name="horn_experimental_hint">Gjallarhorn ใน Saga 2.5 ยังเป็นรุ่นทดลอง – ทดสอบกับผู้ร่วมสายหรืออุปกรณ์ไม่เกิน 4 รายต่อการโทร หากพบปัญหาโปรดแจ้งผ่าน “ส่งข้อมูลวินิจฉัย”</string>
 </resources>

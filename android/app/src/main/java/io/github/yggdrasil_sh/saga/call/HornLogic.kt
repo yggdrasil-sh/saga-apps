@@ -699,6 +699,26 @@ object HornLogic {
     }
 
     /**
+     * 2263 (Vertrag APP-API "Reservierte Typen dtmf und svc-join"): Typ eines Signals im Knoten-Anruf. Bekannt sind nur
+     * `fkey`, `fkey-ack` und `state`; alles andere (auch die fuer 3.0 reservierten `dtmf`/`svc-join`) ist `unknown` und wird
+     * still verworfen - kein Fehler, keine Anzeige, kein Schluessel/Zustand, kein bye. Wie static/horn.js `sigKind`.
+     */
+    fun sigKind(b: JsonObject?): String {
+        val t = b?.get("t") as? JsonPrimitive
+        return if (t != null && t.isString && t.content in SIG_KNOWN) t.content else SIG_UNKNOWN
+    }
+    const val SIG_UNKNOWN = "unknown"
+    private val SIG_KNOWN = setOf("fkey", "fkey-ack", "state")
+
+    /**
+     * "Hierher uebernehmen" im Knoten-Anruf: NUR ein `state` mit `ready: true` und `replaces` = dieses Geraet (Absender muss
+     * zusaetzlich ein eigenes Geraet sein - prueft der Aufrufer). Gleiche Felder in einem anderen Typ (z. B. svc-join) zaehlen nicht.
+     */
+    fun handoverReady(b: JsonObject?, myDevice: String): Boolean =
+        sigKind(b) == "state" && (b?.get("ready") as? JsonPrimitive)?.booleanOrNull == true &&
+            myDevice.isNotEmpty() && (b["replaces"] as? JsonPrimitive)?.contentOrNull == myDevice
+
+    /**
      * P9/P10 state.hp: Kennungen des Absenders an seinen Knoten (Kaskade, Knoten anderer Server). null = Feld fehlt
      * (aeltere App); nur Texte bis 64 Zeichen, hoechstens 4.
      */
