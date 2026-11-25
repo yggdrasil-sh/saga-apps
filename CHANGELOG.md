@@ -17,6 +17,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Rückfrage. Landesvorwahl für Nummern mit 0: Konto-Einstellung, Vorschlag aus der Region des Geräts. In „Neue
   Unterhaltung“ und „Mitglied hinzufügen“ hat das Kontakt-Menü „Kontakt bearbeiten …“. Live-Abgleich
   (`contacts.changed`). Braucht Saga mit `contacts2`; ältere Server: alles wie bisher.
+- **Android: Kontakte (Adressbuch)** (Bugs-DB 2027a-6, wie das Web): Einstellungen › Daten & Dienste › „Kontakte“ –
+  Liste mit Suche (Name, Mail, ab 3 Ziffern auch Nummern; zuletzt zuerst), Detail mit fester Saga-Zeile aus dem
+  gemeinsamen Chat und „Nachricht“, Nummern zum Anrufen (Telefon-App, `ACTION_DIAL`) und Mails (`mailto:`), Bearbeiten
+  („Name für mich“ – nur im Adressbuch, nicht in Chats –, Anrede —/du/Sie, Grußform, Nummern und Mails mit Typ Mobil/Privat/
+  Arbeit/Andere), „Neuer Kontakt“ (nur Nummern/Mails; Saga-Adressen entstehen nur aus gemeinsamen Chats) und „Kontakt
+  löschen“ mit Rückfrage. Landesvorwahl für Nummern ohne + als Konto-Einstellung, Vorschlag aus der Region des Geräts.
+  Anderswo geändert (409) → neuer Stand, Eingabe bleibt; doppelte Nummer/Mail → Hinweis mit „Diesen Kontakt öffnen“.
+  „Kontakt bearbeiten …“ auch im Kontakt-Menü von „Neue Unterhaltung“ und „Mitglied hinzufügen“; Live `contacts.changed`
+  lädt neu. Braucht Saga mit `contacts2`; ältere Server: alles wie bisher.
 - **Eigener Status in der Linux-App** (Bugs-DB 2029-8, wie das Web): Klick auf das eigene Profilbild zeigt den Status
   (Punkt am Bild, wenn nicht verfügbar); „Mein Status“ setzt Verfügbar / Beschäftigt / Nicht stören mit Dauer (1 Stunde,
   bis morgen 7:00, bis ich es ausschalte) und eigenem Text (bis 80 Zeichen), zeigt ehrlich, was gerade wirkt (Ablauf,
