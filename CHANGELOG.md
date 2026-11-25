@@ -108,6 +108,8 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 - **Android: Anrufe über den Anruf-Knoten ohne „experimentell“** (Bugs-DB 2263-7): Marke und Hinweis „getestet mit
   bis zu 4 …“ in Teilnehmerliste und Verbindungsdetails entfernt. Die reservierten Anruf-Signale `dtmf` und `svc-join`
   (kommen mit 3.0) werden still ignoriert – kein Zustand, kein Schlüssel, keine Übernahme.
+- **Linux: Hinweis „Anrufe über den Anruf-Knoten – experimentell“ entfernt** (Bugs-DB 2263-8): Einstellungen › Info ›
+  Hilfe zeigt nur noch „Diagnose senden“. Anrufe laufen in der Linux-App im Browser, die Grenzen kommen vom Server.
 
 ### Behoben
 
