@@ -58,7 +58,7 @@ class Reach2393ShotsTest {
     private val h16 = "abcdefghijklmnop"
 
     private val routes: Map<String, String> = mapOf(
-        "api/version" to """{"name":"Saga","version":"2.6.0-rc.1","api":3}""",
+        "api/version" to """{"name":"Saga","version":"2.6.0-rc.1","api":3,"features":["userstatus1"]}""",
         "api/account" to """{"username":"alex","name":"Alex Beispiel","can_edit":true}""",
         "api/account/status" to """{"ver":3,"state":"dnd","source":"manual","effective":"dnd","prefs":{"quiet_dnd":true,"repeat":true,"repeat_s":180},""" +
             """"limits":{"text":80,"exceptions":100,"repeat_s":[30,3600]},"exceptions":[]}""",
@@ -127,6 +127,7 @@ class Reach2393ShotsTest {
     /** Erreichbarkeit: bis zum Suchfeld blaettern, [query] eintragen (SetText, ohne Tastatur), Treffer zeigen */
     private fun search(query: String, name: String) {
         val nav = AppNavigator(listOf(Dest.Settings, Dest.Reach))
+        app.repo.serverFeatures.value = app.repo.serverFeatures.value + "userstatus1"   // Erreichbarkeit nur mit userstatus1
         ActivityScenario.launch(ComponentActivity::class.java).use { sc ->
             sc.onActivity { a ->
                 a.enableEdgeToEdge()
