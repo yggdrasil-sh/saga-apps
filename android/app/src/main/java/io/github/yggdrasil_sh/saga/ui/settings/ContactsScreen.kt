@@ -692,6 +692,11 @@ fun ContactEditDialog(
         }
     }
     Dialog(onDismissRequest = close, properties = io.github.yggdrasil_sh.saga.ui.common.FullScreenDialog.properties) {
+        // Pruefung k27arev: aus dem Kontakt-Menue (ListItem-Trailing) erbte der Dialog labelSmall - Felder zu klein
+        androidx.compose.runtime.CompositionLocalProvider(
+            androidx.compose.material3.LocalTextStyle provides MaterialTheme.typography.bodyLarge,
+            androidx.compose.material3.LocalContentColor provides MaterialTheme.colorScheme.onSurface,
+        ) {
         io.github.yggdrasil_sh.saga.ui.common.FullScreenDialogBars()
         BackHandler { close() }
         Scaffold(
@@ -820,6 +825,7 @@ fun ContactEditDialog(
             confirmButton = { SagaTextButton(onClick = { askDiscard = false; onDismiss() }) { Text(stringResource(R.string.cb_discard), color = MaterialTheme.colorScheme.error) } },
             dismissButton = { SagaTextButton(onClick = { askDiscard = false }) { Text(stringResource(R.string.cb_keep_editing)) } },
         )
+        }
     }
 }
 
