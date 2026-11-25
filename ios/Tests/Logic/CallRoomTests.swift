@@ -175,6 +175,19 @@ private func roomBarTests() {
     check(CallRoom.bar(g, here: "a130", current: nil, ringing: true) == .none, "klingelt hier gerade: keine Leiste")
     let full = run("group", state: "active", mine: [], legs: [leg("anna", "0e32")], joinable: false, block: "full")
     check(full.block == .full && !full.joinable && full.limit == 4, "voll: Hinweis statt Beitreten")
+    // 2.6 (Bugs-DB 2418): Leiste eines vollen Knoten-Anrufs - Grenze des Servers (12 Video / 50 Ton), nicht Mesh 4/6
+    func hornRun(_ media: String, limit: Int?, topo: String = "horn") -> CallRoom.Running {
+        var d: [String: Any] = ["id": String(repeating: "h", count: 32), "chat_id": 12, "kind": "group", "media": media, "state": "active", "mine": [],
+                                "legs": (0..<12).map { leg("p\($0)", String(format: "d%03d", $0)) }, "joinable": false, "join_block": "full", "topo": topo]
+        if let limit { d["limit"] = limit }
+        return CallRoom.running(d)!
+    }
+    check(hornRun("video", limit: 12).limit == 12, "2418: Knoten-Anruf Video - Leiste zeigt die Grenze des Servers (12)")
+    check(hornRun("audio", limit: 50).limit == 50, "2418: Knoten-Anruf nur Ton - Grenze 50")
+    check(hornRun("audio", limit: nil).limit == 50 && hornRun("video", limit: nil).limit == 12, "2418: Knoten ohne Angabe - 12/50")
+    check(CallRoom.fullText(server: nil, limit: hornRun("video", limit: 12).limit).contains("alle 12 Plätze"), "2418: Text der Leiste nennt 12 Plätze")
+    check(hornRun("video", limit: 12, topo: "mesh").limit == 4 && hornRun("audio", limit: 12, topo: "p2p").limit == 6, "Mesh/1:1: weiter 4/6")
+    check(hornRun("video", limit: 3).limit == 3, "Knoten: Admin senkt - gilt")
     let ended = run("group", state: "ended", mine: [], legs: [])
     check(CallRoom.bar(ended, here: "x", current: nil, ringing: false) == .none, "beendet: keine Leiste")
     check(CallRoom.running(["id": "kurz"]) == nil, "ungueltige Kennung")

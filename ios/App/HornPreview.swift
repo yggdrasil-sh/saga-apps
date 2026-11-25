@@ -3,7 +3,7 @@ import SwiftUI
 import WebRTC
 
 // Nur fuer Bilder (Debug-Build, ohne Server, ohne Kamera/Mikrofon): Gruppenanruf ueber einen Knoten mit erfundenem
-// Zustand. Start: -hkHornPreview grid|speaker|share|share-late|people|runes|away|meet-away|dazu-… [-hkHornDark YES] [-hkHornPath udp|tcp|turn] [-hkLandscape YES]
+// Zustand. Start: -hkHornPreview grid|speaker|share|share-late|people|runes|away|meet-away|dazu-…|bar-full [-hkHornDark YES] [-hkHornPath udp|tcp|turn] [-hkLandscape YES]
 // (away/meet-away: Teilnehmerliste eines kleinen Gruppenanrufs ueber Knoten bzw. direkt, offen - Bilder "Nicht dabei")
 // (Mac zusammen mit -hkSnapshot <pfad.png>; iPhone/iPad: xcrun simctl io <id> screenshot). Bewegte Bilder sind hier
 // Farbflaechen (kein WebRTC), Namen und Geraete erfunden.
@@ -32,16 +32,36 @@ struct HornPreviewView: View {
     private let mode = HornPreview.mode ?? "grid"
     var body: some View {
         Group {
-            if ready { CallScreen(calls: store.calls) } else { Color.black }
+            if ready && mode == "bar-full" { runBarPreview } else if ready { CallScreen(calls: store.calls) } else { Color.black }
         }
         .environment(\.hornPreviewFill, true)
         .preferredColorScheme(UserDefaults.standard.bool(forKey: "hkHornDark") ? .dark : .light)
         .task { setUp() }
     }
 
+    /// -hkHornPreview bar-full (2.6, Bugs-DB 2418): Leiste "Gruppenanruf laeuft" eines vollen Knoten-Anrufs mit 12 Geraeten
+    /// (dieses Geraet nicht dabei) ueber einem leeren Chat - Grenze aus dem Anruf-Objekt wie GET /api/calls/active
+    private var runBarPreview: some View {
+        VStack(spacing: 0) {
+            CallRunBar(calls: store.calls)
+            Spacer()
+            Text(verbatim: "Sommerfest").font(.headline).foregroundStyle(.secondary)
+            Spacer()
+        }
+    }
+    private static func mockRunBar(_ c: CallManager) {
+        let legs: [[String: Any]] = (0..<12).map { i in
+            ["device": String(format: "d%031d", i + 1), "who": "p\(i)", "name": "Person \(i + 1)", "dev_name": "iPhone", "role": "member", "state": "active"]
+        }
+        let d: [String: Any] = ["id": String(repeating: "c", count: 32), "chat_id": 37, "kind": "group", "media": "video", "state": "active", "mine": [],
+                                "legs": legs, "joinable": false, "join_block": "full", "limit": 12, "topo": "horn", "created": Date().timeIntervalSince1970 - 600]
+        if let x = CallRoom.running(d) { c.runBars = [x] }
+    }
+
     private func setUp() {
         guard !ready else { return }
         let c = store.calls
+        if mode == "bar-full" { Self.mockRunBar(c); ready = true; return }
         if mode.hasPrefix("meet-") {                                         // Meeting-Ansicht mit Beispiel-Anruf
             HornPreview.startFakeRemote()
             c.mockMeet(String(mode.dropFirst(5)))
