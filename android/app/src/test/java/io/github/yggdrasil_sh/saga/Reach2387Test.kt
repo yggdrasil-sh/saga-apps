@@ -37,7 +37,7 @@ class Reach2387Test {
 
     @Test
     fun handleLikeWeb() {
-        // static/push.js: /^~[a-z2-7]{16}(@[a-z0-9.:\-]{1,260})?$/
+        // static/push.js HANDLE (seit 2393 mit IPv6-Hosts in [], siehe handleIpv6LikeServer)
         assertTrue(UserStatusLogic.validHandle("~$h16"))
         assertTrue(UserStatusLogic.validHandle("~$h16@b.example"))
         assertTrue(UserStatusLogic.validHandle("~$h16@b.example:8443"))
