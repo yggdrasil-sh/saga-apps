@@ -137,7 +137,7 @@ class Reach2393ShotsTest {
             sc.onActivity { a ->
                 a.enableEdgeToEdge()
                 val cfg = Configuration(a.resources.configuration).apply { setLocale(Locale.GERMANY) }   // Bilder auf Deutsch
-                val lc = a.createConfigurationContext(cfg)
+                val lc = android.view.ContextThemeWrapper(a, 0).apply { applyOverrideConfiguration(cfg) }   // bleibt eine Huelle um die Activity
                 a.setContent {
                     CompositionLocalProvider(LocalContext provides lc, LocalConfiguration provides cfg) { SagaTheme(dark = false) {
                         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -191,7 +191,7 @@ class Reach2393ShotsTest {
                 sc.onActivity { a ->
                     a.enableEdgeToEdge()
                     val cfg = Configuration(a.resources.configuration).apply { setLocale(Locale.GERMANY) }
-                    val lc = a.createConfigurationContext(cfg)
+                    val lc = android.view.ContextThemeWrapper(a, 0).apply { applyOverrideConfiguration(cfg) }   // bleibt eine Huelle um die Activity
                     a.setContent {
                         CompositionLocalProvider(LocalContext provides lc, LocalConfiguration provides cfg) { SagaTheme(dark = false) {
                             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
