@@ -67,6 +67,13 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   CI schreibt beim Release zusätzlich `testing.json`; `stable.json` (nur Releases) bleibt für Apps von vor dieser Änderung (bis 2.5.0
   bzw. Testversionen bis 2.5.1-rc.3), die noch nach Kanal lesen. `appcast-rc.xml` wird nicht mehr geschrieben.
 
+### Behoben
+
+- **Android: Personen anderer Server als Ausnahme bei „Nicht stören“** (Bugs-DB 2387): Die Suche unter Einstellungen ›
+  Erreichbarkeit findet jetzt auch föderierte Personen (Kennung `~x@host`), eine gültige Kennung lässt sich wie im Web
+  direkt eingeben. Nach dem Auflegen prüft die stille Leiste erneut, ob auf einem anderen eigenen Gerät noch ein
+  Gespräch läuft, bevor sie „Annehmen“ anbietet. Die Anruf-Entscheidungen liegen in einer eigenen, getesteten Logik.
+
 ## [2.5.0] – 2026-11-24
 
 > **Beta:** Saga ist im Alltag nutzbar, aber noch jung – mach regelmäßig Backups; einige Funktionen (vor allem Anrufe
