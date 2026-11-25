@@ -243,9 +243,11 @@ struct CallHoldBar: View {
             }
         }
         .padding(12)
-        .background(onCall ? AnyShapeStyle(Color.white.opacity(0.14)) : AnyShapeStyle(.regularMaterial), in: RoundedRectangle(cornerRadius: 16))
+        // im Anruf deckend (liegt ueber Buehne und Teilnehmerliste - durchscheinend war sie dort unlesbar)
+        .background(onCall ? AnyShapeStyle(Color(red: 0.17, green: 0.16, blue: 0.15)) : AnyShapeStyle(.regularMaterial), in: RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(h.mode == .wait ? Color.gold : StatusDot.color("dnd"), lineWidth: 1.5))
         .environment(\.colorScheme, onCall ? .dark : colorScheme)
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)                 // sehr grosse Schrift: Leiste bleibt ueberschaubar
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(verbatim: h.label))
     }
