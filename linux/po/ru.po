@@ -10100,3 +10100,229 @@ msgstr "{name} просит сейчас не беспокоить. Всё ра�
 msgctxt "verb"
 msgid "Call"
 msgstr "Позвонить"
+
+#: hlidskjalf/contactbook.py
+msgid "Please enter a name."
+msgstr "Введите имя."
+
+#: hlidskjalf/contactbook.py
+msgid "Please enter at least one phone number or email address."
+msgstr "Введите хотя бы один номер телефона или адрес эл. почты."
+
+#: hlidskjalf/contactbook.py
+msgid "Saga"
+msgstr "Saga"
+
+#: hlidskjalf/contactbook.py
+msgid "At most 10 phone numbers per contact."
+msgstr "Не более 10 номеров телефона на контакт."
+
+#: hlidskjalf/contactbook.py
+msgid "At most 10 email addresses per contact."
+msgstr "Не более 10 адресов эл. почты на контакт."
+
+#: hlidskjalf/contactbook.py
+msgid "Contact"
+msgstr "Контакт"
+
+#: hlidskjalf/contactbook.py
+msgid "e.g. “Dear Anna”"
+msgstr "например, «Дорогая Анна»"
+
+#: hlidskjalf/contactbook.py
+msgid "New contact"
+msgstr "Новый контакт"
+
+#: hlidskjalf/contactbook.py
+msgid "Edit contact"
+msgstr "Изменить контакт"
+
+#: hlidskjalf/contactbook.py
+msgid "Contact saved."
+msgstr "Контакт сохранён."
+
+#: hlidskjalf/contactbook.py
+msgctxt "phone type"
+msgid "Mobile"
+msgstr "Мобильный"
+
+#: hlidskjalf/contactbook.py
+msgctxt "phone type"
+msgid "Home"
+msgstr "Домашний"
+
+#: hlidskjalf/contactbook.py
+msgctxt "phone type"
+msgid "Work"
+msgstr "Рабочий"
+
+#: hlidskjalf/contactbook.py
+msgctxt "phone type"
+msgid "Other"
+msgstr "Другой"
+
+#: hlidskjalf/contactbook.py
+msgctxt "form of address"
+msgid "Informal"
+msgstr "на «ты»"
+
+#: hlidskjalf/contactbook.py
+msgctxt "form of address"
+msgid "Formal"
+msgstr "на «вы»"
+
+#: hlidskjalf/contactbook.py
+msgid "People from your chats and contacts you added yourself – with your own name for them, phone numbers and email addresses. Only you can see them."
+msgstr "Люди из ваших чатов и контакты, добавленные вами, – с вашим собственным именем для них, номерами телефонов и адресами эл. почты. Их видите только вы."
+
+#: hlidskjalf/contactbook.py
+msgid "Search contacts"
+msgstr "Поиск контактов"
+
+#: hlidskjalf/contactbook.py
+msgid "Country code"
+msgstr "Код страны"
+
+#: hlidskjalf/contactbook.py
+msgid "Used for phone numbers you enter without a country code, e.g. 0170 …"
+msgstr "Используется для номеров, введённых без кода страны, например 8 912 …"
+
+#: hlidskjalf/contactbook.py
+msgid "Country code for national numbers"
+msgstr "Код страны для местных номеров"
+
+#: hlidskjalf/contactbook.py
+msgid "Please enter a country code with 1 to 3 digits, e.g. +49."
+msgstr "Введите код страны из 1–3 цифр, например +7."
+
+#: hlidskjalf/contactbook.py
+msgid "Phone numbers"
+msgstr "Номера телефонов"
+
+#: hlidskjalf/contactbook.py
+msgid "Email addresses"
+msgstr "Адреса эл. почты"
+
+#: hlidskjalf/contactbook.py
+msgid "Write email"
+msgstr "Написать письмо"
+
+#: hlidskjalf/contactbook.py
+msgid "Delete contact"
+msgstr "Удалить контакт"
+
+#: hlidskjalf/contactbook.py
+msgid "{name} is removed from your contacts together with all phone numbers and email addresses."
+msgstr "{name} будет удалён(а) из ваших контактов вместе со всеми номерами телефонов и адресами эл. почты."
+
+#: hlidskjalf/contactbook.py
+msgid "Delete contact?"
+msgstr "Удалить контакт?"
+
+#: hlidskjalf/contactbook.py
+msgid "Show contact"
+msgstr "Показать контакт"
+
+#: hlidskjalf/contactbook.py
+msgid "Only you see this name – in your contacts, not in chats."
+msgstr "Это имя видите только вы – в контактах, не в чатах."
+
+#: hlidskjalf/contactbook.py
+msgid "Name for me"
+msgstr "Имя для меня"
+
+#: hlidskjalf/contactbook.py
+msgid "Form of address"
+msgstr "Обращение"
+
+#: hlidskjalf/contactbook.py
+msgid "Greeting"
+msgstr "Приветствие"
+
+#: hlidskjalf/contactbook.py
+msgid "Add phone number"
+msgstr "Добавить номер телефона"
+
+#: hlidskjalf/contactbook.py
+msgid "Add email address"
+msgstr "Добавить адрес эл. почты"
+
+#: hlidskjalf/contactbook.py
+msgid "Please enter numbers with the country code, e.g. +49 170 1234567."
+msgstr "Вводите номера с кодом страны, например +7 912 345 67 89."
+
+#: hlidskjalf/contactbook.py
+msgid "This contact was changed on another device. The current version has been loaded – check your entries and save again."
+msgstr "Этот контакт изменён на другом устройстве. Загружена текущая версия – проверьте введённые данные и сохраните ещё раз."
+
+#: hlidskjalf/contactbook.py
+msgid "This phone number or email address is already saved in another contact."
+msgstr "Этот номер телефона или адрес эл. почты уже сохранён в другом контакте."
+
+#: hlidskjalf/contactbook.py
+msgid "Contact not found"
+msgstr "Контакт не найден"
+
+#: hlidskjalf/contactbook.py
+msgid "No contacts yet. People you chat with appear here; you can also add contacts with a phone number or email address."
+msgstr "Контактов пока нет. Здесь появятся люди, с которыми вы общаетесь в чатах; можно также добавить контакты с номером телефона или адресом эл. почты."
+
+#: hlidskjalf/contactbook.py
+msgid "Message"
+msgstr "Написать"
+
+#: hlidskjalf/contactbook.py
+msgid "Saga address"
+msgstr "Адрес в Saga"
+
+#: hlidskjalf/contactbook.py
+msgid "From a shared chat – can’t be changed"
+msgstr "Из общего чата – изменить нельзя"
+
+#: hlidskjalf/contactbook.py
+msgid "Phone number"
+msgstr "Номер телефона"
+
+#: hlidskjalf/contactbook.py
+msgid "Email address"
+msgstr "Адрес эл. почты"
+
+#: hlidskjalf/contactbook.py
+msgid "Use {cc}"
+msgstr "Использовать {cc}"
+
+#: hlidskjalf/contactbook.py
+msgid "“{name}” is your own name for this person – only you see it, here in your contacts."
+msgstr "«{name}» – ваше собственное имя для этого человека; его видите только вы, здесь в контактах."
+
+#: hlidskjalf/contactbook.py
+msgid "Until you chat again, {name} also no longer appears in your chat suggestions."
+msgstr "Пока вы снова не начнёте общаться, {name} также не будет появляться в подсказках чатов."
+
+#: hlidskjalf/contactbook.py
+msgid "{name} deleted."
+msgstr "{name}: удалено."
+
+#: hlidskjalf/contactbook.py
+msgid "Numbers without a country code get {cc}."
+msgstr "Номера без кода страны получают {cc}."
+
+#: hlidskjalf/contactbook.py
+msgid "Suggested for this computer’s region: {cc}"
+msgstr "Предложение по региону этого компьютера: {cc}"
+
+#: hlidskjalf/contactbook.py
+msgid "Country code saved."
+msgstr "Код страны сохранён."
+
+#: hlidskjalf/contactbook.py
+msgid "It may have been deleted on another device."
+msgstr "Возможно, он был удалён на другом устройстве."
+
+#: hlidskjalf/contactbook.py
+msgid "From a shared chat"
+msgstr "Из общего чата"
+
+#: hlidskjalf/chatview.py
+msgid "Edit contact …"
+msgstr "Изменить контакт …"

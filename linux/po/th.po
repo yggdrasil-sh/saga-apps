@@ -9764,3 +9764,229 @@ msgstr "{name} ไม่ต้องการให้รบกวนตอน�
 msgctxt "verb"
 msgid "Call"
 msgstr "โทร"
+
+#: hlidskjalf/contactbook.py
+msgid "Please enter a name."
+msgstr "โปรดป้อนชื่อ"
+
+#: hlidskjalf/contactbook.py
+msgid "Please enter at least one phone number or email address."
+msgstr "โปรดป้อนหมายเลขโทรศัพท์หรืออีเมลอย่างน้อยหนึ่งรายการ"
+
+#: hlidskjalf/contactbook.py
+msgid "Saga"
+msgstr "Saga"
+
+#: hlidskjalf/contactbook.py
+msgid "At most 10 phone numbers per contact."
+msgstr "สูงสุด 10 หมายเลขโทรศัพท์ต่อผู้ติดต่อ"
+
+#: hlidskjalf/contactbook.py
+msgid "At most 10 email addresses per contact."
+msgstr "สูงสุด 10 อีเมลต่อผู้ติดต่อ"
+
+#: hlidskjalf/contactbook.py
+msgid "Contact"
+msgstr "ผู้ติดต่อ"
+
+#: hlidskjalf/contactbook.py
+msgid "e.g. “Dear Anna”"
+msgstr "เช่น “เรียนคุณแอนนา”"
+
+#: hlidskjalf/contactbook.py
+msgid "New contact"
+msgstr "ผู้ติดต่อใหม่"
+
+#: hlidskjalf/contactbook.py
+msgid "Edit contact"
+msgstr "แก้ไขผู้ติดต่อ"
+
+#: hlidskjalf/contactbook.py
+msgid "Contact saved."
+msgstr "บันทึกผู้ติดต่อแล้ว"
+
+#: hlidskjalf/contactbook.py
+msgctxt "phone type"
+msgid "Mobile"
+msgstr "มือถือ"
+
+#: hlidskjalf/contactbook.py
+msgctxt "phone type"
+msgid "Home"
+msgstr "บ้าน"
+
+#: hlidskjalf/contactbook.py
+msgctxt "phone type"
+msgid "Work"
+msgstr "ที่ทำงาน"
+
+#: hlidskjalf/contactbook.py
+msgctxt "phone type"
+msgid "Other"
+msgstr "อื่น ๆ"
+
+#: hlidskjalf/contactbook.py
+msgctxt "form of address"
+msgid "Informal"
+msgstr "เป็นกันเอง"
+
+#: hlidskjalf/contactbook.py
+msgctxt "form of address"
+msgid "Formal"
+msgstr "เป็นทางการ"
+
+#: hlidskjalf/contactbook.py
+msgid "People from your chats and contacts you added yourself – with your own name for them, phone numbers and email addresses. Only you can see them."
+msgstr "บุคคลจากแชทของคุณและผู้ติดต่อที่คุณเพิ่มเอง พร้อมชื่อที่คุณตั้งเอง หมายเลขโทรศัพท์ และอีเมล มีเพียงคุณที่เห็น"
+
+#: hlidskjalf/contactbook.py
+msgid "Search contacts"
+msgstr "ค้นหาผู้ติดต่อ"
+
+#: hlidskjalf/contactbook.py
+msgid "Country code"
+msgstr "รหัสประเทศ"
+
+#: hlidskjalf/contactbook.py
+msgid "Used for phone numbers you enter without a country code, e.g. 0170 …"
+msgstr "ใช้กับหมายเลขโทรศัพท์ที่ป้อนโดยไม่มีรหัสประเทศ เช่น 081 …"
+
+#: hlidskjalf/contactbook.py
+msgid "Country code for national numbers"
+msgstr "รหัสประเทศสำหรับหมายเลขในประเทศ"
+
+#: hlidskjalf/contactbook.py
+msgid "Please enter a country code with 1 to 3 digits, e.g. +49."
+msgstr "โปรดป้อนรหัสประเทศ 1 ถึง 3 หลัก เช่น +66"
+
+#: hlidskjalf/contactbook.py
+msgid "Phone numbers"
+msgstr "หมายเลขโทรศัพท์"
+
+#: hlidskjalf/contactbook.py
+msgid "Email addresses"
+msgstr "อีเมล"
+
+#: hlidskjalf/contactbook.py
+msgid "Write email"
+msgstr "เขียนอีเมล"
+
+#: hlidskjalf/contactbook.py
+msgid "Delete contact"
+msgstr "ลบผู้ติดต่อ"
+
+#: hlidskjalf/contactbook.py
+msgid "{name} is removed from your contacts together with all phone numbers and email addresses."
+msgstr "{name} จะถูกลบออกจากผู้ติดต่อของคุณพร้อมหมายเลขโทรศัพท์และอีเมลทั้งหมด"
+
+#: hlidskjalf/contactbook.py
+msgid "Delete contact?"
+msgstr "ลบผู้ติดต่อไหม?"
+
+#: hlidskjalf/contactbook.py
+msgid "Show contact"
+msgstr "แสดงผู้ติดต่อ"
+
+#: hlidskjalf/contactbook.py
+msgid "Only you see this name – in your contacts, not in chats."
+msgstr "มีเพียงคุณที่เห็นชื่อนี้ ในผู้ติดต่อของคุณ ไม่ใช่ในแชท"
+
+#: hlidskjalf/contactbook.py
+msgid "Name for me"
+msgstr "ชื่อที่ฉันตั้ง"
+
+#: hlidskjalf/contactbook.py
+msgid "Form of address"
+msgstr "รูปแบบการเรียก"
+
+#: hlidskjalf/contactbook.py
+msgid "Greeting"
+msgstr "คำขึ้นต้น"
+
+#: hlidskjalf/contactbook.py
+msgid "Add phone number"
+msgstr "เพิ่มหมายเลขโทรศัพท์"
+
+#: hlidskjalf/contactbook.py
+msgid "Add email address"
+msgstr "เพิ่มอีเมล"
+
+#: hlidskjalf/contactbook.py
+msgid "Please enter numbers with the country code, e.g. +49 170 1234567."
+msgstr "โปรดป้อนหมายเลขพร้อมรหัสประเทศ เช่น +66 81 234 5678"
+
+#: hlidskjalf/contactbook.py
+msgid "This contact was changed on another device. The current version has been loaded – check your entries and save again."
+msgstr "ผู้ติดต่อนี้ถูกเปลี่ยนบนอุปกรณ์อื่น โหลดเวอร์ชันปัจจุบันแล้ว โปรดตรวจสอบข้อมูลและบันทึกอีกครั้ง"
+
+#: hlidskjalf/contactbook.py
+msgid "This phone number or email address is already saved in another contact."
+msgstr "หมายเลขโทรศัพท์หรืออีเมลนี้บันทึกไว้ในผู้ติดต่ออื่นแล้ว"
+
+#: hlidskjalf/contactbook.py
+msgid "Contact not found"
+msgstr "ไม่พบผู้ติดต่อ"
+
+#: hlidskjalf/contactbook.py
+msgid "No contacts yet. People you chat with appear here; you can also add contacts with a phone number or email address."
+msgstr "ยังไม่มีผู้ติดต่อ บุคคลที่คุณแชทด้วยจะปรากฏที่นี่ คุณยังเพิ่มผู้ติดต่อด้วยหมายเลขโทรศัพท์หรืออีเมลได้"
+
+#: hlidskjalf/contactbook.py
+msgid "Message"
+msgstr "ส่งข้อความ"
+
+#: hlidskjalf/contactbook.py
+msgid "Saga address"
+msgstr "ที่อยู่ Saga"
+
+#: hlidskjalf/contactbook.py
+msgid "From a shared chat – can’t be changed"
+msgstr "จากแชทที่มีร่วมกัน เปลี่ยนไม่ได้"
+
+#: hlidskjalf/contactbook.py
+msgid "Phone number"
+msgstr "หมายเลขโทรศัพท์"
+
+#: hlidskjalf/contactbook.py
+msgid "Email address"
+msgstr "อีเมล"
+
+#: hlidskjalf/contactbook.py
+msgid "Use {cc}"
+msgstr "ใช้ {cc}"
+
+#: hlidskjalf/contactbook.py
+msgid "“{name}” is your own name for this person – only you see it, here in your contacts."
+msgstr "“{name}” คือชื่อที่คุณตั้งให้บุคคลนี้ มีเพียงคุณที่เห็น ที่นี่ในผู้ติดต่อของคุณ"
+
+#: hlidskjalf/contactbook.py
+msgid "Until you chat again, {name} also no longer appears in your chat suggestions."
+msgstr "จนกว่าคุณจะแชทกันอีกครั้ง {name} จะไม่ปรากฏในคำแนะนำแชทของคุณด้วย"
+
+#: hlidskjalf/contactbook.py
+msgid "{name} deleted."
+msgstr "ลบ {name} แล้ว"
+
+#: hlidskjalf/contactbook.py
+msgid "Numbers without a country code get {cc}."
+msgstr "หมายเลขที่ไม่มีรหัสประเทศจะได้รับ {cc}"
+
+#: hlidskjalf/contactbook.py
+msgid "Suggested for this computer’s region: {cc}"
+msgstr "แนะนำตามภูมิภาคของคอมพิวเตอร์นี้: {cc}"
+
+#: hlidskjalf/contactbook.py
+msgid "Country code saved."
+msgstr "บันทึกรหัสประเทศแล้ว"
+
+#: hlidskjalf/contactbook.py
+msgid "It may have been deleted on another device."
+msgstr "อาจถูกลบบนอุปกรณ์อื่นแล้ว"
+
+#: hlidskjalf/contactbook.py
+msgid "From a shared chat"
+msgstr "จากแชทที่มีร่วมกัน"
+
+#: hlidskjalf/chatview.py
+msgid "Edit contact …"
+msgstr "แก้ไขผู้ติดต่อ …"
