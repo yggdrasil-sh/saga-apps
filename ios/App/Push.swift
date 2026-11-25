@@ -161,6 +161,8 @@ final class PushModel: ObservableObject {
     private func subscribe(_ t: String) async {
         guard let store, AppConfig.hasServer, !store.needsLogin else { return }
         if state == nil { await load() }                                // 2.5: payload des Servers kennen (lang nur ab 2)
+        // 2262: Build ohne Erweiterung, Server hat noch Schluessel dieses Geraets -> Abo neu (sonst nur Platzhalter)
+        if let id = PushLogic.staleE2E(state, e2eReady: Self.e2eReady) { _ = try? await store.api("api/push/subscriptions/\(id)", method: "DELETE") }
         let lang = PushLogic.pushLang(AppConfig.appLanguage, payload: state?.payload ?? 0)
         let f = e2eFields()
         let body = PushLogic.subscription(token: t, env: Self.env, name: DeviceKey.deviceName, lang: lang, payload: state?.payload ?? 0,

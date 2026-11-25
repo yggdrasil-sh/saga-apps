@@ -120,6 +120,15 @@ func pushE2ETests() {
           "kein Schluessel, kein Relais")
     check(PushLogic.availability(st(#"{"server":{"enabled":false,"apns":true,"apns_e2e":1}}"#), bundle: B, e2eReady: true) == .serverOff, "Server aus")
 
+    // Build ohne Erweiterung nach einem mit ihr: Server beliefert dieses Abo noch E2E -> vor dem Abo loeschen (Bugs-DB 2262, Pruefung)
+    let withDev = #"{"server":{"enabled":true,"apns":true,"apns_e2e":1},"devices":[{"id":7,"type":"apns","this_device":true,"e2e":true},{"id":8,"type":"apns","this_device":false,"e2e":true}]}"#
+    check(PushLogic.staleE2E(st(withDev), e2eReady: false) == 7, "ohne Erweiterung, Server mit Schluesseln: Abo neu")
+    check(PushLogic.staleE2E(st(withDev), e2eReady: true) == nil, "mit Erweiterung: Abo bleibt")
+    check(PushLogic.staleE2E(st(withDev.replacingOccurrences(of: #""this_device":true,"e2e":true"#, with: #""this_device":true,"e2e":false"#)), e2eReady: false) == nil,
+          "Abo ohne Schluessel: bleibt")
+    check(PushLogic.staleE2E(st(#"{"server":{"enabled":true,"apns":true},"devices":[{"id":7,"type":"apns","this_device":true}]}"#), e2eReady: false) == nil,
+          "Server 2.5: nichts loeschen")
+
     pushE2EVectorTests()
 }
 
@@ -183,9 +192,9 @@ func pushE2EVectorTests() {
         if c["push_type"] as? String == "voip" {
             // PushKit-Weg: CallLogic.push liest den geoeffneten Feldsatz wie bisher den Klartext
             var merged = info; merged.removeValue(forKey: "saga"); for (k, x) in inner { merged[k] = x }
-            // Vektor nutzt eine kurze Anruf-Kennung (16 Hex); echte Kennungen haben 32 - fuer den Parser verlaengern
-            let cid = (merged["call"] as? String).map { CallLogic.isCallID($0) ? $0 : String(($0 + $0).prefix(32)) }
-            merged["call"] = cid
+            // Vektoren ab 2262-1b mit echter Anrufkennung (32 Hex wie chat_call.id)
+            let cid = merged["call"] as? String
+            check(cid.map(CallLogic.isCallID) == true, "\(name): Anrufkennung 32 Hex")
             let p = CallLogic.push(merged)
             check(p != nil && p?.call == cid && p?.caller == msg["caller"] as? String && p?.chat == (msg["chat"] as? NSNumber)?.intValue,
                   "\(name): VoIP-Feldsatz -> CallLogic.push")

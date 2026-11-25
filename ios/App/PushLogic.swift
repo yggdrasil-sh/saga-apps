@@ -7,12 +7,15 @@ import Foundation
 struct PushDevice: Identifiable, Equatable {
     var id: Int; var type: String; var name: String; var whereText: String; var app: Bool; var thisDevice: Bool
     var created: Double?; var lastOK: Double?; var lastError: String?; var fails: Int; var encrypted: Bool
+    /// 2262: Server verschluesselt fuer dieses Abo Ende-zu-Ende (er hat Schluessel dazu) - aeltere Server: false
+    var e2e = false
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let i = ShareJSON.int(d["id"]) else { return nil }
         id = i; type = d["type"] as? String ?? ""; name = d["name"] as? String ?? ""; whereText = d["where"] as? String ?? ""
         app = ShareJSON.bool(d["app"]); thisDevice = ShareJSON.bool(d["this_device"])
         created = ShareJSON.num(d["created"]); lastOK = ShareJSON.num(d["last_ok"]); lastError = ShareJSON.str(d["last_error"])
         fails = ShareJSON.int(d["fails"]) ?? 0; encrypted = d["encrypted"].map(ShareJSON.bool) ?? true
+        e2e = ShareJSON.bool(d["e2e"])
     }
 }
 
@@ -96,6 +99,13 @@ enum PushLogic {
             b["keys"] = keys; b["topic"] = topic
         }
         return b
+    }
+    /// 2262: Abo dieses Geraets, das der Server noch Ende-zu-Ende beliefert, obwohl die App nicht entschluesseln kann (Build
+    /// ohne HlidskjalfNotify nach einem mit ihr). Der Server behaelt Schluessel, wenn ein Abo ohne keys erneuert wird - ohne
+    /// Neuanlage kaemen nur Platzhalter. Rueckgabe: Kennung des Abos, das vor dem neuen Abo geloescht werden muss.
+    static func staleE2E(_ s: PushState?, e2eReady: Bool) -> Int? {
+        guard !e2eReady, let s, s.e2e >= 1, let d = s.thisDevice, d.e2e else { return nil }
+        return d.id
     }
     /// Sprache fuers Abo: nur unterstuetzte Codes (de/en/es/ru/th), nur mit payload >= 2
     static let langs = ["de", "en", "es", "ru", "th"]

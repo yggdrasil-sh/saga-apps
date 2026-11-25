@@ -44,7 +44,14 @@ nonotify() {
   local rc=0; xcodegen generate --quiet --spec project-nonotify.yml || rc=$?
   rm -f project-nonotify.yml; NOTIFY=0; return $rc
 }
-notifyerr() { [ "$NOTIFY" = 1 ] && print -r -- "$1" | grep -qE "HlidskjalfNotify|\.notify['\"]"; }
+# Nur Fehlerzeilen zaehlen (die Ausgabe nennt HlidskjalfNotify immer, z. B. im Abhaengigkeitsgraphen) - und nur, wenn
+# JEDE Fehlerzeile die Erweiterung betrifft; Fehler der App selbst (oder im gemeinsamen Code) brechen wie bisher ab.
+notifyerr() {
+  [ "$NOTIFY" = 1 ] || return 1
+  local e; e=$(print -r -- "$1" | grep -E "error:" | sort -u) || return 1
+  print -r -- "$e" | grep -vqE "HlidskjalfNotify|\.notify['\"]" && return 1
+  return 0
+}
 [ "$NOTIFY" = 1 ] || nonotify
 archive() {
   rm -rf "$AR" /tmp/hk-adhoc/export

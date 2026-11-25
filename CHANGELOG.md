@@ -17,7 +17,8 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Mitteilungen: Schalter auch für Server, die nur über das Relais zustellen; ist es gestört, Hinweis „Mitteilungen ans
   iPhone sind gerade gestört – Saga zeigt alles in der Glocke.“ Server vor 2.6: alles wie bisher. Signierung: neue
   App-ID `<App-ID>.notify`; `build-adhoc.sh`/`build-testflight.sh` bauen ohne die Erweiterung weiter, wenn nur deren
-  Profil fehlt (Warnung), `SAGA_NOTIFY=0` erzwingt das.
+  Profil fehlt (Warnung; nur wenn jede Fehlerzeile die Erweiterung betrifft), `SAGA_NOTIFY=0` erzwingt das. Ein Build ohne
+  die Erweiterung legt ein Abo, das der Server noch verschlüsselt beliefert, neu an (sonst kämen nur Platzhalter).
 - **Kontakte in iOS/iPadOS** (Bugs-DB 2027a-5, wie das Web): Einstellungen › „Kontakte“ zeigt das Adressbuch – Personen
   aus gemeinsamen Chats und eigene Kontakte – mit Suche (Name, Nummer, E-Mail). Detail mit fester Saga-Zeile und
   „Nachricht“ (öffnet den Direkt-Chat), Telefonnummern (`tel:`) und E-Mail-Adressen (`mailto:`) mit Typ (Mobil, Privat,
