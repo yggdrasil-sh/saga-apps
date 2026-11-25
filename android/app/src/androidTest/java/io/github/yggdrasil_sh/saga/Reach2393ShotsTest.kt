@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga
 
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
@@ -13,6 +14,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ActivityScenario
@@ -37,6 +41,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.util.Locale
 import java.net.InetAddress
 import java.net.ServerSocket
 import kotlin.concurrent.thread
@@ -131,24 +136,30 @@ class Reach2393ShotsTest {
         ActivityScenario.launch(ComponentActivity::class.java).use { sc ->
             sc.onActivity { a ->
                 a.enableEdgeToEdge()
+                val cfg = Configuration(a.resources.configuration).apply { setLocale(Locale.GERMANY) }   // Bilder auf Deutsch
+                val lc = a.createConfigurationContext(cfg)
                 a.setContent {
-                    SagaTheme(dark = false) {
+                    CompositionLocalProvider(LocalContext provides lc, LocalConfiguration provides cfg) { SagaTheme(dark = false) {
                         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                             ReachScreen(app.repo, nav, Chrome(showMenu = true, onMenu = {}))
                         }
-                    }
+                    } }
                 }
             }
             Thread.sleep(2500)
-            var field: AccessibilityNodeInfo? = null
-            for (i in 0 until 12) {
-                field = find(ins.uiAutomation.rootInActiveWindow) { it.isEditable }
-                if (field != null) break
-                scroll(1)
+            // ganz nach unten: das Suchfeld ist das letzte Eingabefeld (davor: Zeitraum in Sekunden)
+            scroll(8)
+            val edits = ArrayList<AccessibilityNodeInfo>()
+            fun all(n: AccessibilityNodeInfo?) {
+                n ?: return
+                if (n.isEditable) edits += n
+                for (i in 0 until n.childCount) all(n.getChild(i))
             }
+            all(ins.uiAutomation.rootInActiveWindow)
+            val field = edits.lastOrNull()
             assertTrue("Suchfeld nicht gefunden", field != null)
             val args = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, query) }
-            field!!.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+            assertTrue("Text nicht gesetzt", field!!.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args))
             Thread.sleep(1800)                               // 250 ms Verzoegerung + Antwort des Beispielservers
             scroll(3)
             Thread.sleep(600)
@@ -179,8 +190,10 @@ class Reach2393ShotsTest {
             ActivityScenario.launch(ComponentActivity::class.java).use { sc ->
                 sc.onActivity { a ->
                     a.enableEdgeToEdge()
+                    val cfg = Configuration(a.resources.configuration).apply { setLocale(Locale.GERMANY) }
+                    val lc = a.createConfigurationContext(cfg)
                     a.setContent {
-                        SagaTheme(dark = false) {
+                        CompositionLocalProvider(LocalContext provides lc, LocalConfiguration provides cfg) { SagaTheme(dark = false) {
                             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                                 Column(Modifier.statusBarsPadding()) {
                                     HoldCallBar(calls)
@@ -190,7 +203,7 @@ class Reach2393ShotsTest {
                                     )
                                 }
                             }
-                        }
+                        } }
                     }
                 }
                 calls.hold.value = HoldFlow.rechecked(waiting, waitId, b)
