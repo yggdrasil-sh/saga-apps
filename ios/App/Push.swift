@@ -250,6 +250,8 @@ final class PushCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
         #endif
         let openID = active ? PushModel.current?.store?.chat.open?.chatID : nil
         if NotifLogic.hideWhileOpen(kind: info["kind"] as? String, url: info["url"] as? String, openChat: openID) { return [] }
+        // 2.6 (2029-6): Sammelmeldung bei offener App - der Live-Hinweis (status.digest) steht schon da
+        if active, (info["kind"] as? String) == "status.digest", PushModel.current?.store?.ustatus.on == true { return [] }
         return [.banner, .list, .sound]
     }
 }

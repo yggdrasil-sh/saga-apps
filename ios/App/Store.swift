@@ -97,6 +97,9 @@ final class Store: ObservableObject {
     let chat = ChatModel()
     let push = PushModel()
     let calls = CallManager()                                        // Anrufe (2.1)
+    let ustatus = UserStatusModel()                                  // 2.6 (2029-6): eigener Status (userstatus1)
+    /// 2.6: laufende Sitzung fuer den Fokus-Filter (StatusFocusFilter, laeuft im App-Prozess)
+    static weak var current: Store?
 
     init() {                                                        // sofort aus dem Zwischenspeicher
         // Seitenverweise im Text zeigen den aktuellen Titel (nur auf dem Main-Thread, dort wird gezeichnet)
@@ -125,6 +128,7 @@ final class Store: ObservableObject {
             }
         }
         live.store = self; notifs.store = self; chat.store = self; push.store = self
+        ustatus.store = self; Store.current = self
         AvatarCache.shared.store = self
         calls.store = self; CallSystem.shared.manager = calls
         ClientLog.shared.store = self                                  // 2.5 Fehlerberichte/Diagnose (clientlog1)
@@ -1220,6 +1224,7 @@ final class Store: ObservableObject {
         DraftOwner.app.signedOut(); accountChecked = false; accountName = nil // Entwuerfe bleiben liegen, aber nur fuer ihr Konto lesbar
         AppConfig.token = ""; reloadWidgets()                           // der Server loescht den Widget-Schluessel dieses Geraets mit
         myAvatar = nil
+        ustatus.clear()                                                  // 2.6: eigener Status gehoert zum Konto
         ChatVideoUploads.shared.cancelAll()                             // 2.4: laufende Video-Uploads verwerfen
         await clearAccountData(keepWebCookies: false)
         if switchingServer { serverVersion = nil; minApp = nil }

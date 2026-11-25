@@ -108,6 +108,7 @@ final class LiveHub: ObservableObject {
             ClientLog.shared.conn("sse", "open")                            // 2.5 clientlog1
             Task { await store?.calls.checkActive() }                     // verpasstes Klingeln nachholen
             Task { await store?.liveConnected() }                         // (wieder) verbunden: verpasste Seitenaenderungen nachholen
+            Task { await store?.ustatus.load() }                          // 2.6: eigener Status (Ablauf/Ruhezeit verpasst)
         case "bye": return LiveReconnect.after(bye: d["reason"] as? String ?? "closed")
         case "reset":
             lastID = nil
@@ -133,6 +134,8 @@ final class LiveHub: ObservableObject {
         }
         if e.event.hasPrefix("chat.") { store?.chat.live(e.event, d) }
         if e.event.hasPrefix("call.") { store?.calls.live(e.event, d) }     // Anrufe (2.1)
+        if e.event.hasPrefix("status.") { store?.ustatus.live(e.event, d) }  // 2.6: eigener Status, Sammelmeldung
+        if e.event == "call.state" { store?.ustatus.callChanged() }           // 2.6: "Im Anruf" kommt ohne Ereignis
         events.send(LiveEvent(type: e.event, data: d))
         return nil
     }

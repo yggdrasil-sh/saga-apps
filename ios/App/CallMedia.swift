@@ -397,7 +397,7 @@ struct RTCVideoBox: NSViewRepresentable {
 final class CallTones {
     static let shared = CallTones()
     private var player: AVAudioPlayer?
-    enum Kind { case ringback, ring }
+    enum Kind { case ringback, ring, knock }
     func play(_ k: Kind) {
         stop()
         guard !CallEnv.fakeMedia else { return }                     // Tests: still
@@ -406,9 +406,16 @@ final class CallTones {
         p.play(); player = p
     }
     func stop() { player?.stop(); player = nil }
+    /// 2.6 (2029-6): Anklopfen im laufenden Gespraech - dezenter Doppelton, einmal (eigener Spieler: stoppt nichts)
+    private var knockPlayer: AVAudioPlayer?
+    func knock() {
+        guard !CallEnv.fakeMedia, let p = try? AVAudioPlayer(data: Self.wav(.knock)) else { return }
+        p.numberOfLoops = 0; p.volume = 0.3
+        p.play(); knockPlayer = p
+    }
     /// 16-bit-Mono-WAV: Freizeichen 425 Hz 1 s an / 3 s aus, Klingeln zwei kurze Doppeltoene je 3 s
     private static func wav(_ k: Kind) -> Data {
-        let rate = 16_000, total = k == .ringback ? 4 * rate : 3 * rate
+        let rate = 16_000, total = k == .ringback ? 4 * rate : k == .knock ? rate / 2 : 3 * rate
         var s = [Int16](repeating: 0, count: total)
         for i in 0..<total {
             let t = Double(i) / Double(rate)
@@ -416,6 +423,7 @@ final class CallTones {
             switch k {
             case .ringback: if t < 1 { a = sin(2 * .pi * 425 * t) * 0.5 }
             case .ring: if t < 0.4 || (t > 0.6 && t < 1.0) { a = (sin(2 * .pi * 880 * t) + sin(2 * .pi * 660 * t)) * 0.3 }
+            case .knock: if t < 0.14 || (t > 0.32 && t < 0.46) { a = sin(2 * .pi * 880 * t) * 0.4 }
             }
             s[i] = Int16(max(-1, min(1, a)) * 30000)
         }

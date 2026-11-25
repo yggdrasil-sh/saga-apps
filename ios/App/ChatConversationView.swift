@@ -49,6 +49,7 @@ struct ConversationView: View {
     @State private var unf: ChatStd.Unfurl?               // 2.5 (unfurl1): Vorschau ueber dem Eingabefeld
     @State private var unfOff: Set<String> = []
     @State private var unfImage: CGImage?
+    @State private var askCallVideo: Bool?                // 2.6 (2029-6): Gegenueber auf "Nicht stoeren" - trotzdem anrufen?
     @State private var draftLoaded = false
     @State private var camera = false                     // 2.5: Kamera direkt im Chat (iOS)
     @State private var blank = ChatBlankWatch()           // 2.5 (leerchat): Waechter gegen leere Nachrichtenflaeche
@@ -94,6 +95,12 @@ struct ConversationView: View {
             }
         }
         .navigationTitle(sel.on ? String(localized: "\(selectedCount) ausgewählt") : (conv.info?.title ?? ""))
+        .alert(Text("Nicht stören"), isPresented: Binding(get: { askCallVideo != nil }, set: { if !$0 { askCallVideo = nil } })) {
+            Button("Abbrechen", role: .cancel) { askCallVideo = nil }
+            Button("Anrufen") { let v = askCallVideo ?? false; askCallVideo = nil; callPeer(video: v, confirmed: true) }
+        } message: {
+            Text("\(conv.info?.title ?? "") möchte gerade nicht gestört werden. Trotzdem anrufen?")
+        }
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #else
@@ -107,7 +114,13 @@ struct ConversationView: View {
                 }
             } else {
             #if os(iOS)
-            if let s = presenceText, let t = conv.info?.title {                   // 2.4: Name, darunter online / zuletzt online
+            if let i = conv.info, i.kind == "dm", store.ustatus.on {           // 2.6: dazu der Status des Gegenuebers (Chip)
+                ToolbarItem(placement: .principal) {
+                    DMStatusTitle(model: store.ustatus, info: i, presence: presenceText, online: chat.presenceOf(conv.info)?.online == true) { full in
+                        chat.toast = i.title + ": " + full
+                    }
+                }
+            } else if let s = presenceText, let t = conv.info?.title {                   // 2.4: Name, darunter online / zuletzt online
                 ToolbarItem(placement: .principal) { ChatTitleWithPresence(title: t, status: s, online: chat.presenceOf(conv.info)?.online == true) }
             } else if hasGroupInfo, let t = conv.info?.title {                   // 2.5: Tipp auf den Kopf -> Gruppeninfo
                 ToolbarItem(placement: .principal) {
@@ -124,10 +137,10 @@ struct ConversationView: View {
             #endif
             // Anrufen (2.1): nur im Direkt-Chat
             ToolbarItemGroup(placement: .primaryAction) {
-                if let i = conv.info, i.kind == "dm", let p = i.peer, canCall {
-                    Button { store.calls.start(chatID: chatID, peer: p, video: false, fed: i.fed) } label: { Label("Anrufen", systemImage: "phone") }
+                if let i = conv.info, i.kind == "dm", i.peer != nil, canCall {
+                    Button { callPeer(video: false) } label: { Label("Anrufen", systemImage: "phone") }
                         .help(Text("Anrufen"))
-                    Button { store.calls.start(chatID: chatID, peer: p, video: true, fed: i.fed) } label: { Label("Videoanruf", systemImage: "video") }
+                    Button { callPeer(video: true) } label: { Label("Videoanruf", systemImage: "video") }
                         .help(Text("Videoanruf"))
                 } else if let i = conv.info, canGroupCall(i) {               // 2.4 E5: Gruppen-, freie und Seiten-Chats
                     Button { store.calls.startGroup(i, video: false) } label: { Label("Gruppenanruf", systemImage: "phone") }
@@ -365,7 +378,7 @@ struct ConversationView: View {
                             CallEntryRow(entry: e, mine: m.mine, date: m.date, toGroup: e.moved.map { g -> () -> Void in { chat.pendingOpen = g } }) {
                                 if let g = e.moved { chat.pendingOpen = g }                  // 2.5 (L9): "Zur Gruppe"
                                 else if e.group, let i = conv.info, canGroupCall(i) { store.calls.startGroup(i, video: e.media == "video") }   // 2.4 E5
-                                else if let p = conv.info?.peer, canCall { store.calls.start(chatID: chatID, peer: p, video: e.media == "video", fed: conv.info?.fed) }
+                                else if conv.info?.peer != nil, canCall { callPeer(video: e.media == "video") }
                             }.id(m.id)
                         } else if m.tomb {
                             TombRow(m: m).id(m.id)                                       // 2.5 (moddel1): Grabstein
@@ -560,6 +573,18 @@ struct ConversationView: View {
     /// 2.5: Gruppeninfo statt "Mitglieder" (Gruppen-, freie und Seiten-Chats; Server mit chatadm1)
     private var hasGroupInfo: Bool { store.features.has(GroupInfoLogic.feature) && (conv.info.map { $0.kind != "dm" } ?? false) }
     private var presenceText: String? { PresenceText.text(chat.presenceOf(conv.info)) }
+    /// 2.6 (2029-6): vor dem Anruf - Gegenueber auf "Nicht stoeren" -> Rueckfrage; "Im Anruf" -> Hinweis "klopft an"
+    private func callPeer(video: Bool, confirmed: Bool = false) {
+        guard let i = conv.info, let p = i.peer else { return }
+        if !confirmed && !store.calls.busy {
+            switch UserStatusLogic.callAsk(store.ustatus.peerOf(i)) {
+            case .confirmDnd: askCallVideo = video; return
+            case .knockHint: chat.toast = String(localized: "\(i.title) telefoniert gerade – dein Anruf klopft an.")
+            case .none: break
+            }
+        }
+        store.calls.start(chatID: chatID, peer: p, video: video, fed: i.fed)
+    }
     /// Anrufe: Server kann es; ueber Servergrenzen nur aus angenommenen, beschreibbaren Chats (Anfragen klingeln nie)
     private var canCall: Bool { store.calls.enabled && (conv.fed?.callable ?? true) }
     /// 2.4 E5: Gruppenanruf nur, wenn der Server es fuer diesen Chat meldet und dieses Geraet "multi" kann
@@ -942,6 +967,7 @@ struct CallEntryRow: View {
     }
     private var video: Bool { entry.media == "video" }
     private var missed: Bool { entry.kind() == .missed && !mine }
+    private var note: CallHoldLogic.EntryNote { CallHoldLogic.entryNote(status: entry.status, hold: entry.hold, mine: mine, group: entry.group) }
     private var icon: String {
         switch entry.kind() {
         case .missed, .declined, .busy, .failed: return video ? "video.slash" : "phone.down"
@@ -963,6 +989,9 @@ struct CallEntryRow: View {
             }
             return d.map { base + " · " + $0 } ?? base
         case .missed where entry.group: return video ? String(localized: "Verpasster Gruppen-Videoanruf") : String(localized: "Verpasster Gruppenanruf")
+        case .missed where note == .dnd:                                    // 2.6 (Bugs-DB 2375): Grund der Anruf-Weiche
+            return video ? String(localized: "Verpasster Videoanruf (Nicht stören)") : String(localized: "Verpasster Anruf (Nicht stören)")
+        case .missed where note == .inCall, .busy where note == .inCall: return String(localized: "Verpasster Anruf (du hast telefoniert)")
         case .missed: return mine ? String(localized: "Nicht angenommen") : (video ? String(localized: "Verpasster Videoanruf") : String(localized: "Verpasster Anruf"))
         case .declined: return String(localized: "Anruf abgelehnt")
         case .busy: return String(localized: "Besetzt")

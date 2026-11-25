@@ -71,6 +71,7 @@ struct HornPreviewView: View {
             legs.append(["device": String(format: "d%031d", i + 1), "who": p.0.lowercased(), "name": p.0, "dev_name": p.1, "role": p.2, "hp": "p\(i + 1)"])
         }
         c.mockHorn(title: small ? "Projekt Nordlicht" : "Sommerfest", legs: CallRoom.legs(legs), mode: mode, path: UserDefaults.standard.string(forKey: "hkHornPath") ?? "tcp")
+        c.statusPreview()                                                    // 2.6: -hkStatusPreview knock (Anklopf-Leiste)
         #if os(iOS)
         // -hkLandscape YES: quer starten (Bilder vom iPhone-Querformat ohne Simulator-Bedienung)
         if UserDefaults.standard.bool(forKey: "hkLandscape"), let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {

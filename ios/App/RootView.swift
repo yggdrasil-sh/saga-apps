@@ -91,7 +91,9 @@ struct RootView: View {
                             if store.myAvatar != nil { AvatarView(name: store.accountName ?? "", avatar: store.myAvatar, size: 28) }   // eigenes Profilbild (2.1)
                             else { Label("Einstellungen", systemImage: "gearshape") }
                         }
+                        .overlay(alignment: .bottomTrailing) { MyStatusDot(model: store.ustatus).offset(x: 3, y: 3).allowsHitTesting(false) }   // 2.6: eigener Status
                         .accessibilityLabel(Text("Einstellungen"))
+                        .modifier(MyStatusA11y(model: store.ustatus))
                     }
                     #endif
                 }
@@ -219,7 +221,9 @@ struct RootView: View {
         .onChange(of: phase) { _, p in
             if p == .active || p == .background { ClientLog.shared.life(p == .active ? "visible" : "hidden") }   // 2.5 clientlog1
             if p == .active { Task { await store.refresh(); store.live.start(); await store.calls.checkActive(); await FirstStepsModel.shared.check(store) }; store.push.languageCheck() }   // 2.5: Push-Sprache       // im Web angelegte Seiten; Live nur im Vordergrund; 2031: Erste Schritte (gedrosselt)
-            if p == .background { WidgetCenter.shared.reloadAllTimelines(); store.live.stop() }   // Widgets zeigen sofort den neuen Stand
+            // 2.6 (2029-6): waehrend eines Gespraechs bleibt der Live-Kanal offen (die App laeuft per Audio weiter) - sonst
+            // kaeme Anklopfen (waiting1, ohne Push) bei gesperrtem Bildschirm nie an; CallManager.finish schliesst ihn danach
+            if p == .background { WidgetCenter.shared.reloadAllTimelines(); if !store.calls.busy { store.live.stop() } }   // Widgets zeigen sofort den neuen Stand
         }
         .onChange(of: store.needsLogin) { _, v in
             if v { store.live.stop(); FirstStepsModel.shared.reset() }

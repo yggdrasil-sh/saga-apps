@@ -216,7 +216,7 @@ extension ChatModel {
     func presenceTick() async {
         guard let store else { return }
         let openRef = open?.info.map(peerRef)
-        let want = ReceiptLogic.presenceWant(open: openRef, list: listVisible ? chats.map(peerRef) : nil, caps: me.status)
+        let want = ReceiptLogic.presenceWant(open: openRef, list: listVisible ? chats.map(peerRef) : nil, caps: me.status, status: store.ustatus.on)
         let now = Date().timeIntervalSince1970
         switch presenceSub.plan(want: want, active: appActive && state == .ready, now: now) {
         case .none: return
@@ -224,10 +224,12 @@ extension ChatModel {
             if !presence.isEmpty { presence = [:] }
             _ = try? await store.apiResponse("api/chat/presence", method: "POST", body: ["users": users, "leave": true])
         case .subscribe(let users):
+            let sent = Date().timeIntervalSince1970
             guard let (d, code) = try? await store.apiResponse("api/chat/presence", method: "POST", body: ["users": users]), (200..<300).contains(code) else {
                 presenceSub.failed(); return
             }
             let r = ReceiptLogic.presence(ShareJSON.obj(d))
+            store.ustatus.presence(ShareJSON.obj(d)?["status"], sent: sent)      // 2.6: Status der Personen (auch bei enabled: false)
             presenceSub.answered(r.users, now: Date().timeIntervalSince1970)
             if !r.enabled { me.status.privacy.online = false; presence = [:]; return }
             if presence != r.users { presence = r.users }

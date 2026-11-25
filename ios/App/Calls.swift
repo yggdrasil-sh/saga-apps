@@ -80,6 +80,11 @@ final class CallManager: NSObject, ObservableObject {
     @Published private(set) var enabled = true
     /// Hinweis ausserhalb eines Anrufs ("Du telefonierst gerade schon.")
     @Published var toast: String?
+    /// 2.6 (2029-6): Anklopf- und stille Leisten (waiting1, call.quiet) - CallHold.swift
+    @Published var holds: [CallHold] = []
+    var holdTasks: [String: Task<Void, Never>] = [:]
+    /// Leisten, die hier erledigt sind (ausgeblendet, abgelehnt, angenommen) - spaete Ereignisse nicht neu zeigen
+    var holdGone = Set<String>()
     /// Horn-Fix: Anruf laeuft direkt statt ueber den Knoten (bleibt bis zum Ende sichtbar)
     @Published var directNote = ""
     /// 2.3.1: Anruf-Oberflaeche verkleinert (iPhone/iPad) - zurueck in der App, oben die Leiste "Anruf laeuft".
@@ -557,6 +562,9 @@ final class CallManager: NSObject, ObservableObject {
             links = [L]
             return false
         case .busy:
+            if case .again(let m) = CallHoldLogic.dial(code: res?.1 ?? 0, body: j) {   // 2.6: schon angeklopft
+                finish(.busy, message: m ?? String(localized: "\(peerName) telefoniert noch – du hast schon angeklopft.")); return true
+            }
             finish(.busy); return true
         case .failed(let m):
             throw APIError.http(res?.1 ?? 0, m ?? "")
@@ -572,7 +580,8 @@ final class CallManager: NSObject, ObservableObject {
         ready = true; inRoom = true
         rosterIn(CallRoom.legs(c["legs"]), rv: asked, extra: c)
         if topo == "horn" { hornGo(c["horn"]) }
-        phase = .ringingOut; status = String(localized: "Klingelt …")
+        phase = .ringingOut
+        status = CallHoldLogic.callerWaiting(c) ? String(localized: "Klopft an …") : String(localized: "Klingelt …")   // 2.6: klopft an
         CallEnv.log("ringing horn \(id.prefix(8))")
         CallTones.shared.play(.ringback)
         aliveOn()
@@ -604,9 +613,13 @@ final class CallManager: NSObject, ObservableObject {
             if L.v2 == nil { keysRefreshed.insert(L.who) }
             try await loadPeerKeys(L, fresh: true); try await dial(L, again: true); return
         }
+        if case .again(let m) = CallHoldLogic.dial(code: code, body: j) {     // 2.6: schon angeklopft - besetzt bis zum Ende
+            finish(.busy, message: m ?? String(localized: "\(peerName) telefoniert noch – du hast schon angeklopft.")); return
+        }
         if code == 409, ShareJSON.bool(j?["busy"]) { finish(.busy); return }
         guard (200..<300).contains(code) else { throw APIError.http(code, ShareJSON.str(j?["error"]) ?? "") }
-        ready = true; phase = .ringingOut; status = String(localized: "Klingelt …")
+        ready = true; phase = .ringingOut
+        status = CallHoldLogic.callerWaiting(j?["call"] as? [String: Any]) ? String(localized: "Klopft an …") : String(localized: "Klingelt …")   // 2.6
         if let c = j?["call"] as? [String: Any] { adoptCall(c) }
         CallEnv.log("ringing \(id.prefix(8))")
         CallTones.shared.play(.ringback)
@@ -620,7 +633,9 @@ final class CallManager: NSObject, ObservableObject {
     /// call.ring, call.invite oder VoIP-Push: Zustand holen, nur bei "ringing" klingeln.
     /// again: Gruppen-Einladung (call.invite, Abfrage) - 2.5 (L7) klingelt ein hier schon erledigter Anruf wieder, wenn der
     /// Server ein NEUES Klingeln meldet (invite "ringing", invite_since neuer als das behandelte, kein eigenes Geraet dabei)
-    func ringing(callID cid: String, hint: CallLogic.Push? = nil, silent: Bool = false, again: Bool = false) async {
+    /// 2.6 (2029-6): freed = das Gespraech hier ist eben zu Ende (ein wartender Anruf klingelt normal); take = aus der
+    /// Anklopf-/stillen Leiste angenommen (klingelt nicht, wird gleich angenommen)
+    func ringing(callID cid: String, hint: CallLogic.Push? = nil, silent: Bool = false, again: Bool = false, freed: Bool = false, take: Bool = false) async {
         guard let store else { return }
         let wasDone = done.contains(cid)
         if wasDone && (!(again || hint?.group == true) || incoming?.id == cid || id == cid) {   // schon erledigt (VoIP-Push kam spaet)
@@ -637,7 +652,14 @@ final class CallManager: NSObject, ObservableObject {
             else { if incoming?.id != cid && id != cid { CallSystem.shared.endReported(cid, reason: .remoteEnded) }; return }
             CallEnv.log("ring again \(cid.prefix(8)) \(Int(left))s")
         }
-        if (c["kind"] as? String) == "group" { await ringGroup(c, hint: hint, silent: silent, reRing: wasDone); return }   // 2.4 E5
+        // 2.6 (2029-6): Anklopfen (waiting) bzw. zurueckgehalten (quiet) - nie klingeln, nie an CallKit melden
+        let roomDM = (c["kind"] as? String) == "group" && ShareJSON.bool(c["dm"])
+        if !take, (c["kind"] as? String) != "group" || roomDM, await holdCheck(c, cid: cid, freed: freed) { return }
+        if (c["kind"] as? String) == "group" {                                       // 2.4 E5
+            await ringGroup(c, hint: hint, silent: silent || (!take && ShareJSON.bool(c["quiet"])), reRing: wasDone)
+            if take { answerTaken(cid) }
+            return
+        }
         let st = c["state"] as? String, r = c["role"] as? String
         guard st == "ringing", r == "callee" else { CallSystem.shared.endReported(cid, reason: st == "active" ? .answeredElsewhere : .remoteEnded); return }
         // Live-Kanal (call.ring) und Nachholen (checkActive/Push) koennen gleichzeitig fragen: klingelt derselbe Anruf
@@ -667,6 +689,7 @@ final class CallManager: NSObject, ObservableObject {
         CallEnv.log("incoming \(cid.prefix(8)) \(inc.media)")
         CallSystem.shared.reportIncoming(self, inc)
         aliveRinging(cid)
+        if take { answerTaken(cid) }                                         // 2.6: aus der Leiste angenommen
         #if DEBUG
         if let a = UserDefaults.standard.string(forKey: "hkCallAutoAnswer") {      // nur fuer Tests: annehmen/ablehnen
             Task { try? await Task.sleep(for: .seconds(4)); if incoming?.id == cid { if a == "decline" { decline() } else { answer(video: a == "video") } } }
@@ -994,6 +1017,10 @@ final class CallManager: NSObject, ObservableObject {
         switch type {
         case "call.ring":
             guard let cid, CallLogic.isCallID(cid) else { return }
+            if ShareJSON.bool(d["waiting"]), cid != id, incoming?.id != cid {   // 2.6 (waiting1): klopft an - Leiste statt Klingeln
+                Task { await holdIn(cid, mode: .wait, event: d) }
+                return
+            }
             if busy, cid != id, incoming?.id != cid {
                 Task { _ = try? await store?.apiResponse("api/calls/\(cid)/decline", method: "POST", body: ["reason": "busy"]) }
                 return
@@ -1006,6 +1033,12 @@ final class CallManager: NSObject, ObservableObject {
             chain = Task { await prev?.value; await self.handleRaw(d) }   // der Reihe nach (Neuverhandlung)
         case "call.invite":                                                 // 2.4 E5: Gruppenanruf klingelt
             guard let cid, CallLogic.isCallID(cid) else { return }
+            switch CallHoldLogic.invite(dm: ShareJSON.bool(d["dm"]), waiting: ShareJSON.bool(d["waiting"]), quiet: ShareJSON.bool(d["quiet"])) {
+            case .knock: Task { await holdIn(cid, mode: .wait, event: d) }; runSoon(); return   // 2.6: 1:1 ueber Knoten klopft an
+            case .quiet: Task { await holdIn(cid, mode: .quiet, event: d) }; runSoon(); return  // 2.6: zurueckgehalten
+            case .silent: runSoon(); return                                 // 2.6: stille Einladung (nur die Leiste)
+            case .normal: break
+            }
             // 2.5 (L7): auch ein hier schon erledigter Anruf (erneut klingeln) - ringing() prueft das neue Klingeln
             if !busy && incoming == nil { Task { await ringing(callID: cid, silent: ShareJSON.bool(d["silent"]), again: true) } }
             runSoon()
@@ -1024,10 +1057,17 @@ final class CallManager: NSObject, ObservableObject {
         case "call.horn_move": hornMoveIn(d)                               // 2.5: Knoten wird geleert/aktualisiert/entfernt
         case "call.mod": hornModIn(d)                                       // 2.5: Gastgeber hat stummgeschaltet/entfernt
         case "call.topo": hornTopoIn(d)                                     // Horn-Fix: Server hat auf direkt umgestellt
+        case "call.quiet":                                                  // 2.6: zurueckgehalten (eigenes Nicht stoeren)
+            guard let cid, CallLogic.isCallID(cid) else { return }
+            Task { await holdIn(cid, mode: .quiet, event: d) }
         case "call.state":
             guard let cid else { return }
             let st = d["state"] as? String, group = (d["kind"] as? String) == "group"
             defer { runSoon() }
+            if holds.contains(where: { $0.id == cid }), CallHoldLogic.pollGone(state: st) { holdDrop(cid) }   // 2.6: Leiste weg
+            if cid == id, role == "caller", st == "ringing", let w = d["waiting"] as? Bool, !connected {   // 2.6: Anrufer - klopft an
+                status = w ? String(localized: "Klopft an …") : (kind == "group" && !dmRoom ? String(localized: "Klingelt bei den anderen …") : String(localized: "Klingelt …"))
+            }
             if let inc = incoming, inc.id == cid {
                 if st == "ended" { remoteEnded(reason: d["reason"] as? String) }
                 else if st == "declined" { stopGroupRing(cid, declined: true) }
@@ -1786,6 +1826,10 @@ final class CallManager: NSObject, ObservableObject {
             CallSystem.shared.endReported(cid, reason: r, local: true)
         }
         incoming = nil
+        holdFree()                                                          // 2.6: Anklopfen klingelt jetzt normal
+        #if os(iOS)
+        if UIApplication.shared.applicationState == .background { store?.live.stop() }   // 2.6: Live-Kanal nur fuers Gespraech offen
+        #endif
         status = message ?? note.map(Self.text) ?? String(localized: "Anruf beendet")
         CallEnv.log("ended \(status.prefix(40))")
         if minimized { toast = status }                                     // verkleinert: kein Vollbild mehr, nur der Hinweis

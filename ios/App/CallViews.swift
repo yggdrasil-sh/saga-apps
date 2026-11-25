@@ -77,6 +77,8 @@ struct CallScreen: View {
         #endif
         .onChange(of: controlsKey) { _, _ in poke() }                       // Bedienung bzw. neuer Zustand
         .background { MeetShortcuts(calls: calls, layoutRaw: $layoutRaw, poke: poke).accessibilityHidden(true) }
+        .overlay(alignment: .top) { CallHoldBars(calls: calls, onCall: true).padding(.top, headerHeight + 4) }   // 2.6: klopft an (Bedienung bleibt)
+        .animation(.snappy(duration: 0.25), value: calls.holds)
         .confirmationDialog(Text("Ist \(echoDevice) im selben Raum? Dann gibt es Echo."), isPresented: Binding(get: { echoAsk != nil }, set: { if !$0 { echoAsk = nil } }),
                             titleVisibility: .visible) {
             Button(String(localized: "Trotzdem einschalten")) { if let w = echoAsk { echoDo(w) }; echoAsk = nil }
@@ -697,7 +699,9 @@ struct CallPresenter: ViewModifier {
                 CallBar(calls: calls) { returnToCall() }
             }
             CallRunBar(calls: calls)                                   // 2.4: Anruf laeuft auf anderem Geraet / Gruppenanruf
+            CallHoldBars(calls: calls)                                 // 2.6: Anklopfen / stille Anrufe
         }
+        .animation(.snappy(duration: 0.25), value: calls.holds)
     }
     func body(content: Content) -> some View {
         #if os(iOS)
@@ -752,6 +756,7 @@ private struct CallPresenterRest: ViewModifier {
             #endif
             #if DEBUG
             .task { if let s = calls.store { await CallTestHook.run(s) } }
+            .task { try? await Task.sleep(for: .seconds(2)); calls.statusPreview() }   // nur Bilder: -hkStatusPreview
             #endif
             .overlay(alignment: .bottom) {
                 if let t = calls.toast {

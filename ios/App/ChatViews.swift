@@ -200,7 +200,7 @@ struct ChatListView: View {
     /// Zeile mit Wischgesten (iPhone/iPad) und Kontextmenue (Mac, iPad, langes Druecken) - nur, wenn der Server es kann
     @ViewBuilder private func row(_ c: ChatSummary) -> some View {
         if c.canArchive {
-            ChatRow(c: c, online: chat.presenceOf(c)?.online == true, draft: hasDraft(c)).tag(c.id)
+            ChatRow(c: c, online: chat.presenceOf(c)?.online == true, draft: hasDraft(c), ustatus: chat.store?.ustatus).tag(c.id)
                 .swipeActions(edge: .leading, allowsFullSwipe: true) { leadingSwipe(c) }     // 2.5: Anheften, ungelesen
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button { deleting = c } label: { Label("Löschen", systemImage: "trash") }.tint(.red)
@@ -218,7 +218,7 @@ struct ChatListView: View {
                     Button(role: .destructive) { deleting = c } label: { Label("Chat löschen …", systemImage: "trash") }
                 }
         } else {
-            ChatRow(c: c, online: chat.presenceOf(c)?.online == true, draft: hasDraft(c)).tag(c.id)
+            ChatRow(c: c, online: chat.presenceOf(c)?.online == true, draft: hasDraft(c), ustatus: chat.store?.ustatus).tag(c.id)
                 .swipeActions(edge: .leading, allowsFullSwipe: true) { leadingSwipe(c) }
                 .contextMenu { ChatAlltagItems(chat: chat, c: c) { if selection == c.id { selection = nil } } }
         }
@@ -349,13 +349,17 @@ struct ChatRow: View {
     var online = false
     /// 2.5: Entwurf liegt auf diesem Geraet
     var draft = false
+    /// 2.6 (2029-6): eigener Status des Gegenuebers (Abzeichen am Bild)
+    var ustatus: UserStatusModel? = nil
     @Environment(\.dynamicTypeSize) private var typeSize
     var body: some View {
         // Grosse Schrift (Bedienungshilfen): Zeit und Zaehler unter den Namen statt daneben - nebeneinander blieb fuer
         // den Namen nur "Nora V…" (F10)
         let big = typeSize.isAccessibilitySize
         HStack(alignment: big ? .top : .center, spacing: 10) {
-            ChatAvatar(c: c).overlay(alignment: .bottomTrailing) { if online { OnlineDot().offset(x: 2, y: 2) } }
+            ChatAvatar(c: c).overlay(alignment: .bottomTrailing) {
+                if let ustatus { ChatAvatarBadge(model: ustatus, c: c, online: online) } else if online { OnlineDot().offset(x: 2, y: 2) }
+            }
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(verbatim: c.title).font(.body.weight(c.unread > 0 ? .semibold : .regular)).lineLimit(big ? 3 : 1)

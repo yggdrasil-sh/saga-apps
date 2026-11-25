@@ -16,11 +16,14 @@ struct SettingsView: View {
     @State private var tab: SettingsArea = .konto
     #endif
     @State private var scroll: String?                    // Zeile, zu der der geoeffnete Bereich scrollt
+    @State private var statusOpen = false                 // 2.6: Blatt "Mein Status"
 
     var body: some View {
         content
             .task { if store.chat.state == .loading { await store.chat.load() } }
             .task { jump(initial()) }
+            .task { await store.ustatus.load() }                             // 2.6: eigener Status
+            .sheet(isPresented: $statusOpen) { StatusSheet(model: store.ustatus) { jump("erreichbarkeit") } }
             .onAppear { ClientLog.shared.overlay("settings", true) }         // 2.5 clientlog1: grober Ort
             .onDisappear { ClientLog.shared.overlay("settings", false) }
             .onReceive(NotificationCenter.default.publisher(for: .hkOpenSettings)) { n in jump(n.object as? String) }
@@ -100,6 +103,7 @@ struct SettingsView: View {
                     }
                     .accessibilityHint(Text("Konto"))
                 }
+                MyStatusSection(model: store.ustatus) { statusOpen = true }   // 2.6 (2029-6): eigener Status (userstatus1)
                 Section {
                     NavigationLink(value: SettingsArea.einstellungen) { Label("Einstellungen", systemImage: "gearshape") }
                     NavigationLink(value: SettingsArea.info) {
@@ -304,6 +308,7 @@ struct GeneralSettings: View {
                 SettingsGroupHeading("Benachrichtigungen")
                 NotificationSettingsSection()                 // Glocke (1.4)
                 PushSettingsSection(push: store.push)         // Mitteilungen aufs Geraet (1.7)
+                ReachabilitySection(model: store.ustatus)     // 2.6 (2029-6): eigener Status, Erreichbarkeit, Ausnahmen
                 TaskDigestSection()                           // 2.5 taskdue1: taegliche Zusammenfassung der Aufgaben
                 ChatGroupHeading(chat: store.chat)
                 ChatDevicesSection(chat: store.chat)          // Chats & Geraete (2.0), Zeile "chats"

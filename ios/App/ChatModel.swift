@@ -743,6 +743,8 @@ final class ChatModel: ObservableObject {
             if let o = open, o.chatID == cid { o.live(type, d) }
         case "chat.receipt", "chat.presence", "chat.privacy":           // 2.4: Gelesen-Bestaetigungen, Online-Status
             statusLive(type, d)
+        case "chat.status":                                             // 2.6 (2029-6): Status eines Chat-Partners
+            store?.ustatus.live(type, d)
         case "chat.blocks":                                             // 2.5 (block2): auf einem anderen eigenen Geraet
             Task { await loadBlocks(); await loadList(); if let o = open { await o.load() } }
         case "chat.mention":
