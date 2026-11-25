@@ -2864,52 +2864,22 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         } catch (_: Exception) {
             return
         }
-        // 2.4 E5: Gruppenanruf (Mitteilung "call.group"): eigene Einladung klingelt und noch kein eigenes Geraet dabei
-        if (info.kind == CallRoom.KIND_GROUP) {
-            // 2.6 (2029-7): stille Einladung (Nicht stoeren) - nie klingeln, nur die Leiste "Gruppenanruf laeuft";
-            // 1:1 ueber Knoten zurueckgehalten -> stille Leiste
-            if (info.quiet || info.silent) {
-                if (info.dm && info.quiet && info.invite == "ringing" && info.mine.isEmpty()) showHold(info, HoldBar.Mode.QUIET, "dnd") else refreshRun()
-                return
+        // 2.6 (Bugs-DB 2029-7/2387): Entscheidung rein in HoldFlow.route (Tests), hier nur ausfuehren
+        when (val r = HoldFlow.route(info, callId, callId in gone, goneAt[callId], cur?.id, ring?.id, cur != null, myUser(), System.currentTimeMillis())) {
+            HoldFlow.Route.Ignore -> {}
+            HoldFlow.Route.Refresh -> refreshRun()
+            is HoldFlow.Route.Hold -> showHold(r.info, r.mode, r.why)
+            HoldFlow.Route.DeclineBusy -> quietPost("api/calls/$callId/decline", buildJsonObject { put("reason", "busy") })   // telefoniere schon
+            is HoldFlow.Route.RingGroup -> {
+                if (r.clearGone) gone.remove(callId)
+                ringGroup(r.info)
             }
-            // 1:1 ueber Knoten klopft an (ich telefoniere)
-            if (info.dm && info.waiting && info.invite == "ringing") {
-                showHold(info.copy(peer = info.legs.firstOrNull()?.person() ?: info.peer), HoldBar.Mode.KNOCK, null)
-                return
+            is HoldFlow.Route.Ring -> {
+                ring = r.info
+                _ui.value = CallUiState(CallPhase.INCOMING, r.info.id, r.info.chatId, false, r.info.media == "video", r.info.peer)
+                startRinging(r.info)
             }
-            // 2.5 (L7): hier schon vorbei/abgelehnt -> nur bei erneutem Klingeln (spaeterer Beginn invite_since)
-            val again = callId in gone
-            if (again && !Invites.ringsAgain(info, goneAt[callId], System.currentTimeMillis())) return
-            if (info.invite == "ringing" && !CallRoom.stopRinging(info.legs, myUser()) && ring?.id != callId && cur?.id != callId) {
-                // Alter ab invite_since (nicht ab Anrufbeginn) - aeltere Server ohne invite_since wie bisher
-                val left = Invites.ringLeftS(info)
-                if (left != null && left <= 0) return
-                if (again) gone.remove(callId)
-                val from = info.legs.firstOrNull()?.person() ?: info.peer
-                ringGroup(info.copy(peer = from, state = "ringing", role = "callee", expiresIn = left ?: info.expiresIn))
-            }
-            return
         }
-        if (info.state != "ringing" || info.role != "callee" || callId in gone || ring?.id == callId) return
-        // 2.6 (Bugs-DB 2029-7): Anklopfen (waiting) bzw. zurueckgehalten (quiet) - nie klingeln, Leiste statt Dialog
-        when (RingLogic.incoming(info.waiting, info.quiet, cur != null, ring != null)) {
-            RingLogic.Incoming.QUIET -> {
-                showHold(info, HoldBar.Mode.QUIET, "dnd")
-                return
-            }
-            RingLogic.Incoming.KNOCK, RingLogic.Incoming.KNOCK_ELSEWHERE -> {
-                showHold(info, HoldBar.Mode.KNOCK, null)
-                return
-            }
-            RingLogic.Incoming.BUSY -> {
-                quietPost("api/calls/$callId/decline", buildJsonObject { put("reason", "busy") })       // telefoniere schon
-                return
-            }
-            RingLogic.Incoming.RING -> {}
-        }
-        ring = info
-        _ui.value = CallUiState(CallPhase.INCOMING, info.id, info.chatId, false, info.media == "video", info.peer)
-        startRinging(info)
     }
 
     /**
@@ -3049,12 +3019,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         holdPoll = null
     }
 
-    /** Laeuft ein eigenes Gespraech auf einem anderen Geraet? (GET /api/calls/active) */
-    private suspend fun busyElsewhere(id: String): Boolean = try {
-        json.decodeFromString(CallsActive.serializer(), api.get("api/calls/active")).calls.any { x ->
-            x.id != id && x.state == "active" && x.id != cur?.id &&
-                if (x.kind == CallRoom.KIND_GROUP && !x.dm) x.mine.isNotEmpty() else x.role == "caller" || x.role == "callee" || x.mine.isNotEmpty()
-        }
+    /** Laeuft ein eigenes Gespraech auf einem anderen Geraet? (GET /api/calls/active; [ended]: gerade hier beendet) */
+    private suspend fun busyElsewhere(id: String, ended: String? = null): Boolean = try {
+        HoldFlow.busyElsewhere(json.decodeFromString(CallsActive.serializer(), api.get("api/calls/active")).calls, setOf(id, cur?.id, ended))
     } catch (e: CancellationException) {
         throw e
     } catch (_: Exception) {
@@ -3088,21 +3055,32 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     }
 
     /**
-     * Gespraech hier zu Ende: wartender Anruf klingelt jetzt normal (Rest der Klingelzeit); eine stille Leiste bleibt still,
-     * bietet aber "Annehmen" (kein eigenes Gespraech mehr).
+     * Gespraech hier zu Ende: wartender Anruf klingelt jetzt normal (Rest der Klingelzeit); eine stille Leiste bleibt still
+     * und prueft erneut, ob auf einem anderen Geraet ein eigenes Gespraech laeuft (Bugs-DB 2387, wie static/calls.js
+     * holdFree -> holdBar -> busyElsewhere) - erst danach "Annehmen". [ended]: das gerade beendete Gespraech.
      */
-    private fun holdFreed() {
-        val h = hold.value ?: return
-        if (!h.here || holdTaking) return
-        if (h.mode == HoldBar.Mode.QUIET) {
-            hold.value = h.copy(here = false, elsewhere = false)
-            return
-        }
-        val left = RingLogic.freedLeftS(h.totalS, System.currentTimeMillis() - h.at)
-        clearHold(markAsGone = left == null)
-        if (left != null) scope.launch {
-            delay(300)
-            ringAgain(h.info, left)
+    private fun holdFreed(ended: String? = null) {
+        when (val f = HoldFlow.freed(hold.value, holdTaking, System.currentTimeMillis())) {
+            HoldFlow.Freed.None -> {}
+            is HoldFlow.Freed.Recheck -> {
+                val id = f.bar.callId
+                hold.value = f.bar
+                scope.launch {
+                    val b = busyElsewhere(id, ended)
+                    HoldFlow.rechecked(hold.value, id, b)?.let {
+                        hold.value = it
+                        log("hold freed elsewhere=$b")
+                    }
+                }
+            }
+            HoldFlow.Freed.Drop -> clearHold()
+            is HoldFlow.Freed.RingAgain -> {
+                clearHold(markAsGone = false)
+                scope.launch {
+                    delay(300)
+                    ringAgain(f.info, f.leftS)
+                }
+            }
         }
     }
 
@@ -3143,27 +3121,27 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
      */
     fun holdTake(video: Boolean) {
         val h = hold.value ?: return
-        val c = cur
-        if (c == null || c.done) {
+        val c = cur?.takeIf { !it.done }
+        if (c == null) {
             holdAccept(video)
             return
         }
         holdTaking = true
         hold.value = h.copy(taking = true)
         scope.launch {
-            val ok = try {
-                hangupConfirmed(c)
+            val r = try {
+                HoldFlow.take(h, true, { hangupConfirmed(c) }) { System.currentTimeMillis() }
             } finally {
                 holdTaking = false
             }
-            if (ok) {
-                holdAccept(video)
-                return@launch
+            when (r) {
+                HoldFlow.Take.Accept -> holdAccept(video)
+                is HoldFlow.Take.Failed -> {
+                    repo.notify(UiText.Res(R.string.us_take_failed))
+                    clearHold(markAsGone = r.leftS == null)
+                    if (r.leftS != null) ringAgain(h.info, r.leftS)
+                }
             }
-            repo.notify(UiText.Res(R.string.us_take_failed))
-            val left = RingLogic.freedLeftS(h.totalS, System.currentTimeMillis() - h.at)
-            clearHold(markAsGone = left == null)
-            if (left != null) ringAgain(h.info, left)
         }
     }
 
@@ -3179,16 +3157,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             }
             val bye = if (c.ready) byeSeal(c, "hangup") else null
             if (bye != null) byePost(id, bye)
-            ok = try {
-                api.post("api/calls/$id/end", end)
-                true
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: ApiException) {
-                e.code == 404 || e.code == 410
-            } catch (_: Exception) {
-                false
-            }
+            ok = HoldFlow.endConfirmed(true) { api.post("api/calls/$id/end", end) }
         }
         val dur = if (c.t0 > 0) (System.currentTimeMillis() - c.t0) / 1000 else -1
         finish(c, if (dur >= 0) UiText.Res(R.string.call_ended_dur, CallLogic.duration(dur)) else UiText.Res(R.string.call_ended), false)
@@ -4244,7 +4213,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         adm?.setSpeakerMute(false)
         adm?.setMicrophoneMute(false)
         if (cur === c) cur = null
-        holdFreed()                                         // 2.6: wartender Anruf klingelt jetzt normal
+        holdFreed(c.id)                                     // 2.6: wartender Anruf klingelt jetzt normal
         audioOff()
         CallService.stop(app)
         val st = _ui.value

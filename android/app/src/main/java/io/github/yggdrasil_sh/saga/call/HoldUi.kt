@@ -61,12 +61,14 @@ data class HoldBar(
     val at: Long,
     /** "Beenden und annehmen" laeuft */
     val taking: Boolean = false,
+    /** 2.6 (Bugs-DB 2387): Gespraech hier zu Ende, es wird gerade geprueft, ob woanders eines laeuft - noch kein "Annehmen" */
+    val checking: Boolean = false,
 ) {
     enum class Mode { KNOCK, QUIET }
 
     /** Knoepfe (rein, Tests): Ablehnen | Ausblenden, dazu Beenden-und-annehmen bzw. Annehmen */
     val canTake: Boolean get() = here
-    val canAccept: Boolean get() = !here && !elsewhere && mode == Mode.QUIET
+    val canAccept: Boolean get() = !here && !elsewhere && !checking && mode == Mode.QUIET
     val canDecline: Boolean get() = mode == Mode.KNOCK
 }
 
