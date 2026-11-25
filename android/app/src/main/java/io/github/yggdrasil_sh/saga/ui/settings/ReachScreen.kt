@@ -296,9 +296,9 @@ private fun ExceptionSearch(repo: SagaRepository, modifier: Modifier, onAdd: (St
             if (list.isEmpty()) {
                 Text(stringResource(R.string.us_exc_no_hits), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp))
             }
-            list.take(8).forEach { (x, sub) ->
+            list.take(8).forEach { (x, sub, title) ->
                 ListItem(
-                    headlineContent = { Text(if (x.group) x.name.orEmpty() else PersonName.shown(x.name, x.ref)) },
+                    headlineContent = { Text(title ?: if (x.group) x.name.orEmpty() else PersonName.shown(x.name, x.ref)) },
                     supportingContent = sub?.takeIf { it.isNotEmpty() }?.let { { Text(it) } },
                     leadingContent = { SagaIcon(if (x.group) SagaIcons.users else SagaIcons.user, null) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),

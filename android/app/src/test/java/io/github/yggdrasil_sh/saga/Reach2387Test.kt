@@ -54,6 +54,44 @@ class Reach2387Test {
         assertFalse(UserStatusLogic.validHandle(""))
     }
 
+    /** Bugs-DB 2393: IPv6-Hosts in eckigen Klammern wie der Server (saga/contacts.py _RREF) */
+    @Test
+    fun handleIpv6LikeServer() {
+        assertTrue(UserStatusLogic.validHandle("~$h16@[2001:db8::1]"))
+        assertTrue(UserStatusLogic.validHandle("~$h16@[2001:db8::1]:8443"))
+        assertTrue(UserStatusLogic.validHandle("~$h16@[::1]"))
+        assertEquals("~$h16@[2001:db8::1]", UserStatusLogic.remoteRef("remote", "@~$h16@[2001:db8::1]", null))
+        assertEquals(
+            listOf("~$h16@[2001:db8::1]"),
+            UserStatusLogic.exceptionHits(ShareTargets(), "~$h16@[2001:db8::1]", "Gruppe").map { it.x.ref },
+        )
+        // weiter abgelehnt (auch vom Server): Grossbuchstaben, Leerzeichen, Schraegstrich, zweites @, leerer Host
+        assertFalse(UserStatusLogic.validHandle("~$h16@[2001:DB8::1]"))
+        assertFalse(UserStatusLogic.validHandle("~$h16@[2001:db8:: 1]"))
+        assertFalse(UserStatusLogic.validHandle("~$h16@[2001:db8::1]/x"))
+        assertFalse(UserStatusLogic.validHandle("~$h16@a@[::1]"))
+        assertFalse(UserStatusLogic.validHandle("~$h16@"))
+    }
+
+    /** Bugs-DB 2393: Treffer anderer Server - Host nur in der Unterzeile */
+    @Test
+    fun remoteTitleHostOnce() {
+        assertEquals("Anna Berg" to "b.example", UserStatusLogic.remoteTitle("Anna Berg · b.example", "b.example"))
+        // Gleichnamige auf demselben Server: Unterscheider bleibt in der Zeile
+        assertEquals("Anna Berg · anna" to "b.example", UserStatusLogic.remoteTitle("Anna Berg · b.example · anna", "b.example"))
+        assertEquals("Anna Berg" to "[2001:db8::1]:8443", UserStatusLogic.remoteTitle("Anna Berg · [2001:db8::1]:8443", "[2001:db8::1]:8443"))
+        // Label ohne Host (nur Name): Host als Unterzeile
+        assertEquals("Anna Berg" to "b.example", UserStatusLogic.remoteTitle("Anna Berg", "b.example"))
+        // Ersatz "Person auf host (tag)" enthaelt den Host schon: keine Unterzeile
+        assertEquals("Person auf b.example (spqz)" to null, UserStatusLogic.remoteTitle("Person auf b.example (spqz)", "b.example"))
+        // kein Host bekannt
+        assertEquals("Anna Berg" to null, UserStatusLogic.remoteTitle("Anna Berg", ""))
+        // Treffer ohne Namen: Kennung (enthaelt den Host) ohne Unterzeile
+        val r = json.decodeFromString(ShareTargets.serializer(), """{"remote": [{"type": "remote", "target": "@~$h16@b.example", "name": "", "host": "b.example"}]}""")
+        assertEquals(listOf(UserStatusLogic.ExcHit(StatusException("user", "~$h16@b.example", null), null, "~$h16@b.example")),
+            UserStatusLogic.exceptionHits(r, "b.example", "Gruppe"))
+    }
+
     @Test
     fun remoteRefFromServerShapes() {
         // Adressbuch (fed_dir.search): target '@~x@host' + handle '~x@host'
@@ -84,7 +122,8 @@ class Reach2387Test {
         assertEquals(3, hits.size)
         assertEquals(UserStatusLogic.ExcHit(StatusException("user", "~$h16b", "Anna Lokal"), ""), hits[0])
         assertEquals(UserStatusLogic.ExcHit(StatusException("group", null, "team"), "Gruppe"), hits[1])
-        assertEquals(UserStatusLogic.ExcHit(StatusException("user", "~$h16@b.example", "Anna Berg · b.example"), "b.example"), hits[2])
+        // Bugs-DB 2393: Host nur einmal - Zeile "Anna Berg", Unterzeile "b.example" (Eintrag behaelt das Label fuer die Liste)
+        assertEquals(UserStatusLogic.ExcHit(StatusException("user", "~$h16@b.example", "Anna Berg · b.example"), "b.example", "Anna Berg"), hits[2])
         // daraus wird der Body fuer PUT /api/account/status/prefs: ref '~x@host' (APP-API "Ausnahmen")
         val body = UserStatusLogic.exceptionsBody(UserStatusLogic.addException(emptyList(), hits[2].x))
         val e = body["exceptions"]!!.jsonArray[0].jsonObject
@@ -102,7 +141,7 @@ class Reach2387Test {
                           {"type": "remote", "target": "@~$h16@b.example", "name": "Anna Berg", "host": "b.example"}]}""",
         )
         val hits = UserStatusLogic.exceptionHits(r, "anna@b.example", "Gruppe")
-        assertEquals(listOf(UserStatusLogic.ExcHit(StatusException("user", "~$h16@b.example", "Anna Berg"), "b.example")), hits)
+        assertEquals(listOf(UserStatusLogic.ExcHit(StatusException("user", "~$h16@b.example", "Anna Berg"), "b.example", "Anna Berg")), hits)
     }
 
     @Test

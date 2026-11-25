@@ -2,6 +2,7 @@ package io.github.yggdrasil_sh.saga.chat
 
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.data.ApiException
+import io.github.yggdrasil_sh.saga.util.PersonName
 import io.github.yggdrasil_sh.saga.util.UiText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -274,8 +275,9 @@ object UserStatusLogic {
     /**
      * Bugs-DB 2387: Kennung einer Person fuer Ausnahmen - wie static/push.js HANDLE: '~' + 16 Zeichen (base32 klein),
      * optional '@host' (anderer Server). Gleiche Pruefung fuer die direkte Eingabe und fuer Treffer anderer Server.
+     * Bugs-DB 2393: Host wie der Server (saga/contacts.py _RREF `[a-z0-9.:\[\]-]{1,260}`) - auch IPv6 in eckigen Klammern.
      */
-    val HANDLE = Regex("^~[a-z2-7]{16}(@[a-z0-9.:\\-]{1,260})?$")
+    val HANDLE = Regex("^~[a-z2-7]{16}(@[a-z0-9.:\\[\\]\\-]{1,260})?$")
 
     fun validHandle(s: String?): Boolean = s != null && HANDLE.matches(s)
 
@@ -291,8 +293,25 @@ object UserStatusLogic {
         return target?.trim()?.removePrefix("@")?.takeIf { validHandle(it) }
     }
 
-    /** Ein Treffer der Ausnahme-Suche: Eintrag und Unterzeile */
-    data class ExcHit(val x: StatusException, val sub: String?)
+    /**
+     * Ein Treffer der Ausnahme-Suche: Eintrag, Unterzeile und (Personen anderer Server) die Zeile darueber [title] -
+     * null = Name des Eintrags (PersonName.shown).
+     */
+    data class ExcHit(val x: StatusException, val sub: String?, val title: String? = null)
+
+    /**
+     * Bugs-DB 2393: Treffer anderer Server - Label "Name · host" (ggf. " · Unterscheider") ohne den Host, der steht in der
+     * Unterzeile (sonst doppelt). Steckt der Host anders im Namen (Ersatz "Person auf host (tag)"), keine Unterzeile.
+     * -> (Zeile, Unterzeile)
+     */
+    fun remoteTitle(label: String, host: String?): Pair<String, String?> {
+        val h = host?.trim().orEmpty()
+        if (h.isEmpty()) return label to null
+        val parts = label.split(" · ")
+        val rest = parts.filterNot { it.trim().equals(h, ignoreCase = true) }.joinToString(" · ").trim()
+        val t = if (rest.isEmpty() || rest.length == label.length) label else rest
+        return t to (if (t.contains(h, ignoreCase = true)) null else h)
+    }
 
     /**
      * Treffer der Ausnahme-Suche wie static/push.js excCard: Personen, eigene Gruppen, Personen anderer Server (nur mit
@@ -305,7 +324,10 @@ object UserStatusLogic {
         r?.groups?.forEach { if (it.name.isNotEmpty() && seen.add("g:" + it.name)) out += ExcHit(StatusException("group", null, it.name), groupWord) }
         r?.remote?.forEach { t ->
             val ref = remoteRef(t.type, t.target, t.handle) ?: return@forEach
-            if (seen.add("u:$ref")) out += ExcHit(StatusException("user", ref, t.label?.ifEmpty { null } ?: t.name.ifEmpty { null }), t.host.ifEmpty { null })
+            if (!seen.add("u:$ref")) return@forEach
+            val nm = t.label?.ifEmpty { null } ?: t.name.ifEmpty { null }
+            val (title, sub) = remoteTitle(nm ?: PersonName.shown(null, ref), t.host)
+            out += ExcHit(StatusException("user", ref, nm), sub, title)
         }
         val s = query.trim()
         if (out.isEmpty() && validHandle(s)) out += ExcHit(StatusException("user", s, null), s)
