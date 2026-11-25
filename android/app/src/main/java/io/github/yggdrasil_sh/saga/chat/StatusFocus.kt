@@ -27,15 +27,29 @@ object StatusFocus {
     private const val PREFS = "saga_ui"
     private const val KEY = "status_focus"
     private val lock = Mutex()
-    /** zuletzt gemeldet (null = noch nichts in diesem Prozess) */
-    @Volatile private var sent: Boolean? = null
+    /**
+     * Zuletzt gemeldeter Stand je Konto, ueber Prozess-Neustarts hinweg (Pruefer a7rev): sonst meldete jeder Start
+     * (Push-Wecken, Hintergrund) den Filter erneut - und ein danach selbst gesetzter Status (z. B. "Verfuegbar" trotz
+     * System-Nicht-stoeren) wuerde beim naechsten Prozess-Start still wieder auf "Nicht stoeren" gesetzt.
+     */
+    private const val KEY_SENT = "status_focus_sent"
     @Volatile private var registered = false
+
+    private fun account(repo: SagaRepository): String = (repo.settings.server.value + "|" + repo.settings.accountKey.value).hashCode().toString()
+
+    private fun lastSent(ctx: Context, repo: SagaRepository): Boolean? {
+        val s = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_SENT, null) ?: return null
+        return if (s.substringBefore(':') == account(repo)) s.substringAfter(':') == "1" else null
+    }
+
+    private fun markSent(ctx: Context, repo: SagaRepository, dnd: Boolean) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_SENT, account(repo) + ":" + (if (dnd) "1" else "0")).apply()
+    }
 
     fun enabled(ctx: Context): Boolean = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY, false)
 
     fun setEnabled(ctx: Context, repo: SagaRepository, scope: CoroutineScope, on: Boolean) {
-        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY, on).apply()
-        sent = null
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY, on).remove(KEY_SENT).apply()
         if (on) {
             register(ctx.applicationContext, repo, scope)
             scope.launch { sync(ctx.applicationContext, repo, force = true) }
@@ -82,10 +96,10 @@ object StatusFocus {
     suspend fun sync(ctx: Context, repo: SagaRepository, force: Boolean) = lock.withLock {
         if (!enabled(ctx) || !repo.chat.hasUserStatus()) return@withLock
         val dnd = UserStatusLogic.focusDnd(filter(ctx)) ?: return@withLock
-        if (!force && sent == dnd) return@withLock
+        if (!force && lastSent(ctx, repo) == dnd) return@withLock
         try {
             repo.chat.status.focus(dnd)
-            sent = dnd
+            markSent(ctx, repo, dnd)
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
