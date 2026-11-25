@@ -105,8 +105,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   CI schreibt beim Release zusätzlich `testing.json`; `stable.json` (nur Releases) bleibt für Apps von vor dieser Änderung (bis 2.5.0
   bzw. Testversionen bis 2.5.1-rc.3), die noch nach Kanal lesen. `appcast-rc.xml` wird nicht mehr geschrieben.
 
+- **Android: Anrufe über den Anruf-Knoten ohne „experimentell“** (Bugs-DB 2263-7): Marke und Hinweis „getestet mit
+  bis zu 4 …“ in Teilnehmerliste und Verbindungsdetails entfernt. Die reservierten Anruf-Signale `dtmf` und `svc-join`
+  (kommen mit 3.0) werden still ignoriert – kein Zustand, kein Schlüssel, keine Übernahme.
+
 ### Behoben
 
+- **Android: Knoten-Anruf behält die Grenze des Servers** (Bugs-DB 2418): Leiste „Gruppenanruf läuft / voll“,
+  „Personen hinzufügen“ und der Text bei abgelehntem Beitritt kappten Anrufe über den Knoten auf die Mesh-Grenze 4
+  (Ton 6) – „Personen hinzufügen“ war schon bei 5 Geräten voll. Jetzt gilt im Knoten-Anruf die Grenze vom Server
+  (z. B. 12 mit Video); Mesh-Anrufe bleiben bei 4/6.
 - **Android: stille Leiste nach Auflegen im Gruppenanruf** (Bugs-DB 2393): Spricht ein zweites eigenes Gerät im gerade
   hier beendeten Gruppenanruf weiter (ebenso 1:1 mit Begleitgerät bzw. nach der Übergabe), bietet die stille Leiste
   kein „Annehmen“ mehr an – sonst liefen zwei Gespräche. In der Ausnahme-Suche steht der Server einer föderierten Person
