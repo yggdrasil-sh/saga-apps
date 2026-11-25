@@ -188,7 +188,63 @@ def device_caps(cfg):
     betreffen die Signalisierung bzw. Medien einer eigenen PeerConnection und werden nicht behauptet."""
     f = (cfg or {}).get("features") if isinstance(cfg, dict) else None
     f = set(x for x in f if isinstance(x, str)) if isinstance(f, list) else set()
-    return ["multi", "horn_ring"] if {"reneg", "multi"} <= f and (cfg or {}).get("enabled") else []
+    on = bool((cfg or {}).get("enabled")) if isinstance(cfg, dict) else False
+    out = ["multi", "horn_ring"] if {"reneg", "multi"} <= f and on else []
+    # (2.6, Bugs-DB 2029-8) waiting1: dieses Geraet zeigt einen zweiten Anruf waehrend eines Gespraechs als Anklopf-Leiste
+    # (ohne Klingeln, mit Ablehnen) - nur, wenn der Server Anklopfen kann (sonst klopft ohnehin nichts an)
+    if "waiting1" in f and on:
+        out.append("waiting1")
+    return out
+
+
+def ring_mode(c):
+    """(2.6) Anruf-Objekt (GET /api/calls/<id>, /active; ggf. mit dem Ereignis zusammengefuehrt) -> "ring" (klingeln) |
+    "wait" (Anklopfen: waiting, die Person telefoniert) | "quiet" (zurueckgehalten: eigenes Nicht stoeren/Ruhezeit) | None.
+    Gruppenanrufe (nicht 1:1 ueber Knoten) klingeln wie bisher - Nicht stoeren kommt dort als stille Einladung (silent)."""
+    if not isinstance(c, dict):
+        return None
+    if is_group(c) and not c.get("dm"):
+        return "ring" if group_rings(c) else None
+    if not ((c.get("state") == "ringing" and c.get("role") == "callee") or group_rings(c)):
+        return None
+    if c.get("quiet"):
+        return "quiet"
+    return "wait" if c.get("waiting") else "ring"
+
+
+def own_running(lst, cid=None):
+    """(2.6) eigene laufende Gespraeche aus GET /api/calls/active (ohne cid) - wie busyElsewhere im Web: 1:1 als Anrufer
+    bzw. Angerufene(r), Gruppe mit einem eigenen Geraet"""
+    out = []
+    for x in lst if isinstance(lst, list) else []:
+        if not isinstance(x, dict) or x.get("id") == cid or x.get("state") != "active" or not valid_id(x.get("id")):
+            continue
+        if (x.get("kind") == "group" and not x.get("dm")) and not _mine(x):
+            continue
+        if not (x.get("kind") == "group" and not x.get("dm")) and not (x.get("role") in ("caller", "callee") or _mine(x)):
+            continue
+        out.append(x)
+    return out
+
+
+def hold_view(h):
+    """(2.6) Inhalt der Anklopf- bzw. stillen Leiste: {"title", "sub", "note", "label", "decline", "take", "accept", "hide"}.
+    Linux fuehrt das Gespraech nie selbst (Browser) - wie im Web ohne eigenes Gespraech: Anklopfen nur "Ablehnen" (besetzt),
+    dazu "Beenden und annehmen", wenn genau ein eigenes laufendes Gespraech bekannt ist; stumm: "Annehmen" nur, wenn kein
+    eigenes Gespraech laeuft (sonst zwei Gespraeche)."""
+    name = caller_name(h) or "?"
+    video = h.get("media") == "video"
+    what = _("Video call") if video else _("Call")
+    elsewhere = _("You are on a call in your browser or on another device.")
+    if h.get("mode") == "wait":
+        lab = _("{name} is calling (call waiting)").format(name=name)
+        return {"title": lab, "sub": what, "note": elsewhere, "label": lab, "decline": True, "take": bool(h.get("run")),
+                "accept": False, "hide": False}
+    quiet = h.get("why") == "quiet"
+    lab = (_("Call from {name} – silent (quiet hours)") if quiet else _("Call from {name} – silent (Do not disturb)")).format(name=name)
+    sub = what + " · " + (_("silent (quiet hours)") if quiet else _("silent (Do not disturb)"))
+    return {"title": name, "sub": sub, "note": elsewhere if h.get("elsewhere") else "", "label": lab, "decline": False, "take": False,
+            "accept": h.get("elsewhere") is False, "hide": True}
 
 
 def chat_url(chat_id):
@@ -242,8 +298,10 @@ def parse_entry(m):
         return None
     st = d.get("status") if d.get("status") in ("ended", "missed", "declined", "busy", "failed") else "missed"
     dur = d.get("dur") if isinstance(d.get("dur"), int) and d["dur"] >= 0 else None
+    # (2.6, Bugs-DB 2375) hold: Grund der Anruf-Weiche (dnd | knock | again) - nur die angerufene Person bekommt ihn
+    hold = d.get("hold") if d.get("hold") in ("dnd", "knock", "again") else None
     return {"call": str(d.get("call") or ""), "media": "video" if d.get("media") == "video" else "audio", "status": st, "dur": dur,
-            "from": str(d.get("from") or ""), "to": str(d.get("to") or "")}
+            "from": str(d.get("from") or ""), "to": str(d.get("to") or ""), "hold": hold}
 
 
 def duration(sec):
@@ -268,6 +326,10 @@ def entry_text(k, me):
         return _("{what} – no connection").format(what=what)
     if out:
         return _("{what} – not answered").format(what=what)
+    if k.get("hold") == "dnd":                             # (2.6) zurueckgehalten: Nicht stoeren bzw. Ruhezeit
+        return _("Missed video call (Do not disturb)") if video else _("Missed call (Do not disturb)")
+    if k.get("hold") in ("knock", "again"):                # (2.6) angeklopft, waehrend du telefoniert hast
+        return _("Missed call (you were on another call)")
     return _("Missed video call") if video else _("Missed call")
 
 
@@ -444,6 +506,7 @@ class Calls(GObject.Object):
         "ring": (GObject.SignalFlags.RUN_FIRST, None, (object,)),
         "info": (GObject.SignalFlags.RUN_FIRST, None, (str,)),       # kurze Meldung (Toast)
         "running": (GObject.SignalFlags.RUN_FIRST, None, (object,)),  # (2.5, L6) Liste fuer die Leiste "Anruf laeuft"
+        "hold": (GObject.SignalFlags.RUN_FIRST, None, (object,)),     # (2.6) Anklopf-/stille Leisten (Liste, neueste zuerst)
     }
 
     def __init__(self):
@@ -464,6 +527,8 @@ class Calls(GObject.Object):
         self.running = []               # (2.5, L6) Anrufe der Leiste "Anruf laeuft" (aus GET /api/calls/active)
         self.local = {}                 # call_id -> {"t", "before", "devs"}: hier im Browser geoeffnet (Geraet des Browsers)
         self._run_t = 0
+        self.holds = {}                 # (2.6) call_id -> Anklopfen ("wait") bzw. zurueckgehalten ("quiet"), ohne Klingeln
+        self._why = {}                  # (2.6) call_id -> why aus call.quiet (dnd | quiet)
 
     def reset(self):
         self._stop(withdraw=True)
@@ -474,6 +539,10 @@ class Calls(GObject.Object):
         self.config = None
         self._caps_sent = None
         self.local.clear()
+        for cid in list(self.holds):
+            self._hold_drop(cid, emit=False)
+        self._why.clear()
+        self.emit("hold", [])
         if self._run_t:
             GLib.source_remove(self._run_t)
             self._run_t = 0
@@ -561,7 +630,13 @@ class Calls(GObject.Object):
             if r and r["id"] == cid and (r.get("group") or r.get("dm")) and me and \
                     any(isinstance(x, dict) and x.get("who") == me for x in d.get("legs") or []):
                 self._done(cid)
+        elif typ == "call.quiet" and cid:                   # (2.6) zurueckgehalten (eigenes Nicht stoeren): nur still zeigen
+            if not (d.get("kind") == "group" and not d.get("dm")) and cid not in self.holds:
+                self._why[cid] = d.get("why") if d.get("why") in ("dnd", "quiet") else "dnd"
+                self.check(cid)                             # nachgeholte Ereignisse koennen alt sein: Zustand pruefen
         elif typ == "call.state" and cid:
+            if cid in self.holds and d.get("state") in ("active", "ended", "declined"):
+                self._hold_drop(cid)                        # (2.6) angenommen (anderswo), vorbei, abgelehnt
             st = d.get("state")
             # (2.5) 1:1 ueber Knoten (kind group, dm): "active" heisst angenommen - wie 1:1 aufhoeren
             group = (d.get("kind") == "group" and not d.get("dm")) or \
@@ -620,7 +695,10 @@ class Calls(GObject.Object):
             lst = [c for c in ((j or {}).get("calls") or []) if isinstance(c, dict)] if isinstance(j, dict) else []
             for c in lst:
                 if (c.get("state") == "ringing" and c.get("role") == "callee") or group_rings(c):
+                    if ring_mode(c) == "wait" and not own_running(lst, c.get("id")):
+                        c = dict(c, waiting=False)            # (2.6) das eigene Gespraech ist vorbei: jetzt normal klingeln
                     self._maybe_ring(c)
+            self._holds_free(lst)
             self._set_running(lst)
         bg(client.get, "api/calls/active", done=fin, error=lambda e: None)
 
@@ -705,6 +783,8 @@ class Calls(GObject.Object):
                 c = dict(inv, **{k: v for k, v in c.items() if v is not None})
                 c.setdefault("kind", "group")
             if isinstance(c, dict) and ((c.get("state") == "ringing" and c.get("role") == "callee") or group_rings(c)):
+                if cid in self._why:
+                    c = dict(c, why=self._why.pop(cid))
                 self._maybe_ring(c)
             elif isinstance(c, dict) and self.ringing and self.ringing["id"] == cid:
                 self._done(cid)                               # klingelte hier noch (again): aufhoeren
@@ -727,6 +807,13 @@ class Calls(GObject.Object):
         cid = c.get("id")
         if not cid:
             return
+        mode = ring_mode(c)
+        if mode in ("wait", "quiet"):                        # (2.6) Anklopfen bzw. zurueckgehalten: Leiste, kein Klingeln
+            if not (self.ringing and self.ringing["id"] == cid) and cid not in self.done:
+                self._hold_show(c, mode)
+            return
+        if cid in self.holds:                                # (2.6) war Anklopfen: jetzt klingelt es normal
+            self._hold_drop(cid, done=False)
         if self.ringing and self.ringing["id"] == cid:
             self._extend(c)
             return
@@ -741,7 +828,8 @@ class Calls(GObject.Object):
         group = is_group(c) and not dm
         self.ringing = {"id": cid, "media": c.get("media") or "audio", "chat_id": c.get("chat_id"), "dm": dm,
                         "peer": c.get("peer") or (c.get("from") if isinstance(c.get("from"), dict) else {}),
-                        "until": time.monotonic() + left, "group": group, "silent": bool(group and c.get("silent")),
+                        "until": time.monotonic() + left, "group": group,
+                        "silent": bool(group and (c.get("silent") or c.get("quiet"))),      # (2.6) quiet: Nicht stoeren
                         "from": c.get("from") if isinstance(c.get("from"), dict) else {},
                         "since": c.get("invite_since") if group and _num(c.get("invite_since")) else None}
         self._hold(True)
@@ -763,7 +851,7 @@ class Calls(GObject.Object):
             return
         left = ring_left(c)
         r["since"], r["until"] = since, time.monotonic() + left
-        if r.get("silent") and not c.get("silent"):
+        if r.get("silent") and not c.get("silent") and not c.get("quiet"):
             r["silent"] = False
             self._notify()
             self.ringer.start()
@@ -808,6 +896,141 @@ class Calls(GObject.Object):
         """Klick auf die Mitteilung: Fenster nach vorn, Leiste zeigt den Anruf"""
         if self.ringing and self.ringing["id"] == cid:
             self.emit("ring", self.ringing)
+
+    # --- (2.6) Anklopfen und zurueckgehaltene Anrufe ---------------------------------------------------------------------
+    def hold_list(self):
+        return sorted(self.holds.values(), key=lambda h: -h["at"])
+
+    def _hold_show(self, c, mode):
+        cid = c["id"]
+        if cid in self.holds:
+            return
+        h = {"id": cid, "mode": mode, "media": c.get("media") or "audio", "chat_id": c.get("chat_id"),
+             "peer": c.get("peer") or (c.get("from") if isinstance(c.get("from"), dict) else {}), "why": c.get("why") or "dnd",
+             "group": is_group(c), "dm": bool(c.get("dm")), "at": time.monotonic(), "left": ring_left(c),
+             "elsewhere": True if mode == "wait" else None, "run": None, "c": c}
+        self.holds[cid] = h
+        h["timer"] = GLib.timeout_add(int(h["left"] * 1000) + 3000, self._hold_timeout, cid)
+        h["poll"] = GLib.timeout_add_seconds(5, self._hold_poll, cid)
+
+        def fin(j):
+            lst = (j or {}).get("calls") if isinstance(j, dict) else None
+            runs = own_running(lst if isinstance(lst, list) else [], cid)
+            if cid not in self.holds:
+                return
+            if mode == "quiet":
+                h["elsewhere"] = bool(runs)                  # eigenes Gespraech laeuft: kein "Annehmen" (sonst zwei)
+            h["run"] = runs[0]["id"] if len(runs) == 1 else None
+            self.emit("hold", self.hold_list())
+
+        def err(_e):
+            if cid in self.holds and mode == "quiet":
+                h["elsewhere"] = False
+                self.emit("hold", self.hold_list())
+        bg(client.get, "api/calls/active", done=fin, error=err)
+        if mode == "wait":
+            self.emit("hold", self.hold_list())
+
+    def _hold_drop(self, cid, emit=True, done=True):
+        h = self.holds.pop(cid, None)
+        if h is None:
+            return None
+        for k in ("timer", "poll"):
+            if h.get(k):
+                GLib.source_remove(h[k])
+                h[k] = 0
+        if done:
+            self.done[cid] = time.time()
+        if emit:
+            self.emit("hold", self.hold_list())
+        return h
+
+    def _hold_timeout(self, cid):
+        h = self.holds.get(cid)
+        if h is not None:
+            h["timer"] = 0
+            self._hold_drop(cid)
+        return False
+
+    def _hold_poll(self, cid):
+        """wie beim Klingeln im Web: alle 5 s nachsehen, falls das Ende-Ereignis fehlt"""
+        if cid not in self.holds:
+            return False
+
+        def fin(j):
+            k = (j or {}).get("call") if isinstance(j, dict) else None
+            if isinstance(k, dict) and k.get("state") in ("ended", "declined", "active") and cid in self.holds:
+                self._hold_drop(cid)
+
+        def err(e):
+            if isinstance(e, APIError) and e.code == 404:
+                self._hold_drop(cid)
+        bg(client.get, f"api/calls/{cid}", done=fin, error=err)
+        return True
+
+    def _holds_free(self, lst):
+        """Liste von GET /api/calls/active: laeuft kein eigenes Gespraech mehr, klingelt ein wartender Anruf jetzt normal"""
+        for cid, h in list(self.holds.items()):
+            if h["mode"] == "wait" and not own_running(lst, cid):
+                left = h["left"] - (time.monotonic() - h["at"])
+                self._hold_drop(cid, done=False)
+                if left > 2:
+                    self._maybe_ring(dict(h["c"], waiting=False, expires_in=left))
+            elif h["mode"] == "wait":
+                runs = own_running(lst, cid)
+                run = runs[0]["id"] if len(runs) == 1 else None
+                if run != h["run"]:
+                    h["run"] = run
+                    self.emit("hold", self.hold_list())
+
+    def hold_dismiss(self, cid):
+        """stille Leiste nur hier ausblenden (kein Ablehnen)"""
+        self._hold_drop(cid)
+
+    def hold_decline(self, cid):
+        """Anklopfen ablehnen: besetzt (decline busy)"""
+        if self._hold_drop(cid) is None:
+            return
+
+        def err(e):
+            if not (isinstance(e, APIError) and e.code in (404, 409)):
+                self.emit("info", str(e))
+        bg(client.json, "POST", f"api/calls/{cid}/decline", {"reason": "busy"}, error=err)
+
+    def hold_accept(self, cid, parent=None):
+        """stumm: annehmen (im Browser) - nur ohne eigenes laufendes Gespraech"""
+        h = self.holds.get(cid)
+        if h is None or h.get("elsewhere") is not False:
+            return
+        self._hold_drop(cid)
+        self._push_group.discard(cid)
+        self._opened(cid)
+        open_in_browser(join_url(cid, h["media"]) if h["group"] and not h["dm"] else call_url(cid, h["media"]), parent)
+        self.emit("info", _("The call opens in your browser …"))
+
+    def hold_take(self, cid, parent=None):
+        """"Beenden und annehmen": eigenes Gespraech beenden (POST /api/calls/<run>/end) und ERST nach bestaetigtem Ende
+        annehmen - sonst liefen zwei Gespraeche; ging das Beenden schief, klingelt der wartende Anruf normal weiter"""
+        h = self.holds.get(cid)
+        run = (h or {}).get("run")
+        if h is None or not valid_id(run):
+            return
+        self._hold_drop(cid, done=False)
+
+        def fin(j):
+            if isinstance(j, dict) and j.get("ok"):
+                self._opened(cid)
+                open_in_browser(call_url(cid, h["media"]), parent)
+                self.emit("info", _("The call opens in your browser …"))
+                return
+            err(None)
+
+        def err(_e):
+            self.emit("info", _("The current call could not be ended reliably – the incoming call was not answered. Please try again."))
+            left = h["left"] - (time.monotonic() - h["at"])
+            if left > 2:
+                self._maybe_ring(dict(h["c"], waiting=False, expires_in=left))
+        bg(client.json, "POST", f"api/calls/{run}/end", {"reason": "hangup", "connected": True}, done=fin, error=err)
 
     # --- intern ----------------------------------------------------------------------------------------------------------
     def _done(self, cid):
@@ -1095,5 +1318,105 @@ class RunBar(Gtk.Revealer):
             self.btns.append(b)
             self.buttons.append(b)
         self.update_property([Gtk.AccessibleProperty.LABEL], [" · ".join(x for x in (v["title"], v["sub"]) if x)])
+        self.set_visible(True)
+        self.set_reveal_child(True)
+
+
+class HoldBar(Gtk.Revealer):
+    """(2.6, Bugs-DB 2029-8) Anklopfen ("{name} klopft an": Ablehnen, ggf. Beenden und annehmen) bzw. zurueckgehaltener Anruf
+    ("Anruf von {name} – stumm (Nicht stören)": Hinweis ausblenden, Annehmen nur ohne eigenes Gespraech). Kein Klingelton,
+    keine dringende Mitteilung. Zeigt den neuesten Eintrag der Liste."""
+    __gtype_name__ = "HKCallHoldBar"
+
+    def __init__(self, win):
+        super().__init__(transition_type=Gtk.RevealerTransitionType.SLIDE_DOWN, reveal_child=False, visible=False)
+        self.win = win
+        self.cid = None
+        self.compact = False
+        box = Gtk.Box(spacing=12, margin_start=12, margin_end=12, margin_top=6, margin_bottom=6)
+        box.add_css_class("hk-callbar")
+        box.add_css_class("hk-holdbar")
+        self.box = box
+        self.av = Adw.Avatar(size=36, text="?", show_initials=True, valign=Gtk.Align.CENTER)
+        box.append(self.av)
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, hexpand=True, valign=Gtk.Align.CENTER)
+        self.title = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.title.add_css_class("heading")
+        col.append(self.title)
+        self.sub = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.sub.add_css_class("caption")
+        col.append(self.sub)
+        self.note = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.note.add_css_class("dim-label")
+        self.note.add_css_class("caption")
+        col.append(self.note)
+        box.append(col)
+        self.hide_b = Gtk.Button(icon_name="window-close-symbolic", valign=Gtk.Align.CENTER, tooltip_text=_("Hide notice"))
+        self.hide_b.add_css_class("flat")
+        self.hide_b.add_css_class("circular")
+        self.hide_b.update_property([Gtk.AccessibleProperty.LABEL], [_("Hide notice")])
+        self.hide_b.connect("clicked", lambda *_: calls.hold_dismiss(self.cid))
+        self.dec = self._btn("call-stop-symbolic", _("Decline"), "destructive-action", lambda: calls.hold_decline(self.cid))
+        self.take = self._btn("call-start-symbolic", _("End and answer"), "suggested-action", lambda: calls.hold_take(self.cid, self.win))
+        self.acc = self._btn("call-start-symbolic", _("Answer"), "suggested-action", lambda: calls.hold_accept(self.cid, self.win))
+        for b in (self.dec, self.take, self.acc, self.hide_b):
+            box.append(b)
+        self.set_child(box)
+        self._h = [calls.connect("hold", lambda o, lst: self.show(lst))]
+        self.connect("destroy", lambda *_: [calls.disconnect(h) for h in self._h])
+        if calls.holds:
+            self.show(calls.hold_list())
+
+    def _btn(self, icon, label, css, cb):
+        b = Gtk.Button(valign=Gtk.Align.CENTER, tooltip_text=label)
+        b.short = label
+        bc = Adw.ButtonContent(icon_name=icon, label=label)
+        if hasattr(bc, "set_can_shrink"):
+            bc.set_can_shrink(True)
+        b.set_child(bc)
+        b.add_css_class(css)
+        b.add_css_class("pill")
+        b.connect("clicked", lambda *_: cb())
+        b.update_property([Gtk.AccessibleProperty.LABEL], [label])
+        return b
+
+    def set_compact(self, on):
+        self.compact = on
+        self.box.set_spacing(8 if on else 12)
+        for b in (self.dec, self.take, self.acc):
+            b.get_child().set_label("" if on else b.short)
+            (b.add_css_class if on else b.remove_css_class)("circular")
+            (b.remove_css_class if on else b.add_css_class)("pill")
+        self.note.set_visible(not on and bool(self.note.get_label()))
+
+    def show(self, lst):
+        h = (lst or [None])[0] if isinstance(lst, list) else None
+        if not isinstance(h, dict) or not h.get("id"):
+            self.cid = None
+            self.set_reveal_child(False)
+            self.set_visible(False)
+            return
+        v = hold_view(h)
+        self.cid = h["id"]
+        p = h.get("peer") or {}
+        self.av.set_text(avatars.initials_text(p.get("name") or p.get("username") or "?"))
+        avatars.attach(self.av, p.get("avatar"), 36)
+        (self.box.add_css_class if h["mode"] == "quiet" else self.box.remove_css_class)("hk-hold-quiet")
+        self.title.set_label(v["title"])
+        self.title.set_tooltip_text(v["label"])
+        self.sub.set_label(v["sub"])
+        self.note.set_label(v["note"])
+        self.note.set_tooltip_text(v["note"] or None)
+        self.note.set_visible(bool(v["note"]) and not self.compact)
+        self.dec.set_visible(v["decline"])
+        self.take.set_visible(v["take"])
+        name = caller_name(h) or "?"
+        self.take.set_tooltip_text(_("End the current call and answer the call from {name}").format(name=name))
+        self.take.update_property([Gtk.AccessibleProperty.LABEL], [_("End the current call and answer the call from {name}").format(name=name)])
+        self.acc.set_visible(v["accept"])
+        self.acc.set_tooltip_text(_("Answer call from {name}").format(name=name))
+        self.acc.update_property([Gtk.AccessibleProperty.LABEL], [_("Answer call from {name}").format(name=name)])
+        self.hide_b.set_visible(v["hide"])
+        self.update_property([Gtk.AccessibleProperty.LABEL], [v["label"]])
         self.set_visible(True)
         self.set_reveal_child(True)

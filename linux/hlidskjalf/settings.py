@@ -29,7 +29,7 @@ class SettingsDialog(Adw.PreferencesDialog):
     Mein Backup, Mitteilungen und Chats & Geraete sind Unterseiten (Zeile mit Pfeil). show_page(name): "account",
     "settings" (alt: "general"), "info" bzw. die Unterseiten "backup", "push", "chats"."""
 
-    SUBPAGES = ("backup", "push", "chats")
+    SUBPAGES = ("backup", "push", "chats", "reach")
 
     def __init__(self, win):
         super().__init__(title=_("Settings"), search_enabled=False)
@@ -106,6 +106,10 @@ class SettingsDialog(Adw.PreferencesDialog):
         self.pages["push"] = PushPage(self)
         gn = Adw.PreferencesGroup()
         gn.add(self._nav_row("push", pgettext("settings tab", "Push"), bell_icon()))
+        from .statusview import ReachPage            # 2.6 (userstatus1): Erreichbarkeit des eigenen Status; sonst unsichtbar
+        self.pages["reach"] = ReachPage(self)
+        self.pages["reach"].connect("notify::visible", lambda p, _p: self._want_shown(p))
+        gn.add(self._nav_row("reach", _("Availability"), "user-available-symbolic"))
         page.add(gn)
         # Chat: Chats & Geraete (Server ab 1.5) - Unterseite, nur wenn Chats eingerichtet sind
         from .chat import chat
@@ -148,7 +152,8 @@ class SettingsDialog(Adw.PreferencesDialog):
         old = self._navs.get(name)
         if old is not None:                        # schon einmal gezeigt: Seite aus der alten Huelle loesen und wiederverwenden
             old.get_child().set_content(None)
-        titles = {"backup": _("My backup"), "push": pgettext("settings tab", "Push"), "chats": _("Chats &amp; devices")}
+        titles = {"backup": _("My backup"), "push": pgettext("settings tab", "Push"), "chats": _("Chats &amp; devices"),
+                  "reach": _("Availability")}
         tv = Adw.ToolbarView()
         tv.add_top_bar(Adw.HeaderBar())
         tv.set_content(p)
@@ -157,6 +162,14 @@ class SettingsDialog(Adw.PreferencesDialog):
         self._navs[name] = nav
         self.sub = name
         self.push_subpage(nav)
+
+    def _want_shown(self, p):
+        """Unterseite, die beim Oeffnen noch unsichtbar war (laedt noch), jetzt zeigen"""
+        if p.get_visible() and getattr(self, "want_page", None) is p:
+            self.want_page = None
+            name = next((k for k, v in self.pages.items() if v is p), None)
+            if name:
+                self.show_page(name)
 
     def show_page(self, name):
         if name == "calendar":                     # 2031 "Kalender verbinden": Einstellungen, Fokus auf "+ Verbinden"

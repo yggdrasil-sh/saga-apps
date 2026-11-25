@@ -700,10 +700,13 @@ class MainWindow(Adw.ApplicationWindow):
         hb.pack_end(self.bell)
         # eigenes Konto (2.1: mit Profilbild) -> Einstellungen, Seite Konto
         self.acct_av = Adw.Avatar(size=24, text="?", show_initials=True)
-        self.acct_btn = Gtk.Button(child=self.acct_av, visible=False, valign=Gtk.Align.CENTER)
+        self.acct_ov = Gtk.Overlay(child=self.acct_av)      # (2.6) Punkt des eigenen Status (nur, wenn nicht verfuegbar)
+        self.acct_dot = None
+        self.acct_btn = Gtk.Button(child=self.acct_ov, visible=False, valign=Gtk.Align.CENTER)
         self.acct_btn.add_css_class("flat")
         self.acct_btn.add_css_class("hk-acct-btn")
-        self.acct_btn.connect("clicked", lambda *_: self.settings_dialog(page="account"))
+        self.acct_btn.connect("clicked", lambda *_: self._account_clicked())
+        self.acct_pop = None
         hb.pack_end(self.acct_btn)
         sb.add_top_bar(hb)
         self.sidebar = Sidebar(self)
@@ -780,7 +783,14 @@ class MainWindow(Adw.ApplicationWindow):
         from .calls import RunBar
         self.runbar = RunBar(self)                                  # (2.5, L6) Anruf laeuft auf einem anderen Geraet
         ct.add_top_bar(self.runbar)
+        from .calls import HoldBar
+        self.holdbar = HoldBar(self)                                # (2.6) Anklopfen / Anruf stumm (Nicht stoeren)
+        ct.add_top_bar(self.holdbar)
         store.connect("version-changed", lambda *_: self._version_banner())
+        from .userstatus import ustatus
+        store.connect("version-changed", lambda *_: ustatus.load())                     # 2.6: eigener Status (userstatus1)
+        ustatus.connect("changed", lambda *_: self._account_button())
+        ustatus.connect("digest", lambda _u, txt: self.toast(txt))                       # Sammelmeldung nach "Nicht stoeren"
         store.connect("version-changed", lambda *_: self.sidebar.fill(force=False))     # 2.5: Eintrag "Graph" je Server
         store.connect("version-changed", lambda *_: self._gallery_probe())               # 2.5: Vorlagengalerie je Server
         store.connect("version-changed", lambda *_: self._live_probe())                  # 2.5: live1 an/aus -> offene Seite
@@ -799,9 +809,9 @@ class MainWindow(Adw.ApplicationWindow):
         bp2 = Adw.Breakpoint.new(Adw.BreakpointCondition.parse("max-width: 560sp"))
         bp2.add_setter(self.split, "collapsed", True)        # es gilt immer nur ein Breakpoint: Einklappen wiederholen
         bp2.connect("apply", lambda *_: (setattr(self, "very_narrow", True), self.update_header(), self.callbar.set_compact(True),
-                                         self.runbar.set_compact(True), self._narrow_views()))
+                                         self.runbar.set_compact(True), self.holdbar.set_compact(True), self._narrow_views()))
         bp2.connect("unapply", lambda *_: (setattr(self, "very_narrow", False), self.update_header(), self.callbar.set_compact(False),
-                                           self.runbar.set_compact(False), self._narrow_views()))
+                                           self.runbar.set_compact(False), self.holdbar.set_compact(False), self._narrow_views()))
         self.add_breakpoint(bp2)
         self.split.set_show_sidebar(bool(settings.get("sidebar_shown", True)))
         self.split.connect("notify::show-sidebar", self._sidebar_changed)
@@ -1338,9 +1348,16 @@ class MainWindow(Adw.ApplicationWindow):
         cid = getattr(self.current, "call_chat", lambda: None)()
         if not cid:
             return
-        from .calls import chat_url, open_in_browser
-        open_in_browser(chat_url(cid), self)
-        self.toast(_("The chat opens in your browser – start the call there."))
+        from . import calls as CL
+        from .chat import chat
+        from .statusview import before_call
+        c = chat.chat(cid)
+
+        def go():
+            CL.open_in_browser(CL.chat_url(cid), self)
+            self.toast(_("The chat opens in your browser – start the call there."))
+        # (2.6) Gegenueber auf "Nicht stoeren": Rueckfrage; "Im Anruf": Hinweis, dass der Anruf anklopft
+        before_call(self, c, chat.title(c) if c else "", go)
 
     def _live_probe(self):
         """Server meldet (wieder) live1: Live-Schalter neu pruefen und offene Seiten live oeffnen"""
@@ -1363,6 +1380,9 @@ class MainWindow(Adw.ApplicationWindow):
         notifications.emit("changed")
         chat.reset()
         ai.reset()
+        from .userstatus import ustatus
+        ustatus.reset()                                    # 2.6: eigener Status dieser Sitzung
+        ustatus.emit("changed")
         calls.reset()
         avatars.reset()
         self.me = {}
@@ -1411,8 +1431,39 @@ class MainWindow(Adw.ApplicationWindow):
         self.acct_av.set_text(avatars.initials_text(name or "?"))
         avatars.attach(self.acct_av, m.get("avatar"), 24)
         tip = _("Account: {name}").format(name=name) if name else _("Account")
+        from .statusview import status_badge, status_label
+        from .userstatus import ustatus
+        s = ustatus.shown()                                # (2.6) eigener Status: Punkt am Profilbild, Name im Tooltip
+        if self.acct_dot is not None:
+            self.acct_ov.remove_overlay(self.acct_dot)
+            self.acct_dot = None
+        if s and s["state"] != "available":
+            self.acct_dot = status_badge(s["state"], 10, halign=Gtk.Align.END, valign=Gtk.Align.END, can_target=False)
+            self.acct_ov.add_overlay(self.acct_dot)
+            tip += ", " + status_label()
         b.set_tooltip_text(tip)
         b.update_property([Gtk.AccessibleProperty.LABEL], [tip])
+        if self.acct_pop is not None:
+            self.acct_pop.fill()
+
+    def _account_clicked(self):
+        """(2.6) mit eigenem Status: kleines Menue (Status, Konto); sonst wie bisher die Einstellungen (Konto)"""
+        from .userstatus import ustatus
+        if not ustatus.ok:
+            self.settings_dialog(page="account")
+            return
+        if self.acct_pop is not None:
+            return
+        from .statusview import AccountPopover
+        pop = self.acct_pop = AccountPopover(self)
+        pop.set_parent(self.acct_btn)
+
+        def closed(p):                                     # danach loesen (GTK4: sonst bliebe ein Kind am Knopf haengen)
+            if self.acct_pop is p:
+                self.acct_pop = None
+            GLib.idle_add(lambda: (p.unparent(), False)[1])
+        pop.connect("closed", closed)
+        pop.popup()
 
     def _views(self):
         out = [self.current] if isinstance(self.current, PageView) else []
@@ -1440,6 +1491,11 @@ class MainWindow(Adw.ApplicationWindow):
             from .assistant import ai
             ai.on_live(typ, d)
             if typ != "reset":
+                return
+        if typ.startswith("status.") or typ in ("hello", "reset", "call.state"):    # (2.6) eigener Status, Sammelmeldung
+            from .userstatus import ustatus
+            ustatus.on_live(typ, d)
+            if typ.startswith("status."):
                 return
         if typ.startswith("call.") or typ in ("hello", "reset"):    # Anrufe: klingeln, anderswo angenommen/beendet
             from .calls import calls

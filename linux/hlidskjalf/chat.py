@@ -773,6 +773,8 @@ class ChatState(GObject.Object):
             GLib.source_remove(src)
         self._rc_timer = {}
         self.pres = {}             # Benutzername/Prinzipal -> {"online", "last"}
+        self.ustat = {}            # (2.6, userstatus1) Benutzername/Prinzipal -> eigener Status {s, until?, text?}
+        self._ustat_at = {}        # Benutzername -> monotonic des letzten chat.status (gewinnt gegen aeltere Abo-Antworten)
         self._pres_users = []      # gerade abonniert
         self._pres_at = 0.0
         self._pres_run = False
@@ -1825,7 +1827,7 @@ class ChatState(GObject.Object):
         self._pres_soon()
 
     def presence_want(self):
-        if not self.ready or not S.online_on(self.me):
+        if not self.ready or not S.presence_on(self.me):
             return []
         out = []
         for fn in list(self._pres_src.values()):
@@ -1843,8 +1845,8 @@ class ChatState(GObject.Object):
             old, self._pres_users = self._pres_users, []
             if old and self.ready and "online" in S.features(self.me):
                 bg(client.json, "POST", "api/chat/presence", {"users": old, "leave": True}, error=lambda e: None)
-            if self.pres:
-                self.pres = {}
+            if self.pres or self.ustat:
+                self.pres, self.ustat = {}, {}
                 self.emit("presence")
             self._pres_stop()
             return
@@ -1855,6 +1857,7 @@ class ChatState(GObject.Object):
         if not self._pres_timer:
             self._pres_timer = GLib.timeout_add_seconds(15, self._pres_tick)
         srv = config.settings.server
+        sent = time.monotonic()
 
         def fin(j):
             self._pres_run = False
@@ -1863,15 +1866,34 @@ class ChatState(GObject.Object):
                     self._pres_again = False
                     self._pres_soon()
                 return
-            if j.get("enabled") is False:                 # eigener Online-Status aus (anderswo geaendert): nichts sehen
+            ust = S.has_userstatus(self.me)
+            if j.get("enabled") is False and not ust:     # eigener Online-Status aus (anderswo geaendert): nichts sehen
                 self._pres_users = []                     # der Server hat das Abo schon verworfen
                 self._privacy_applied(dict(S.privacy(self.me), online=False))
                 return
-            got = j.get("users") if isinstance(j.get("users"), dict) else {}
+            if j.get("enabled") is False and S.privacy(self.me)["online"] and isinstance(self.me, dict):
+                # (2.6) Online-Status anderswo abgeschaltet: das Abo laeuft fuer den eigenen Status weiter (kein neues Abo)
+                self.me["privacy"] = dict(S.privacy(self.me), online=False)
+                self.emit("changed")
+            got = j.get("users") if isinstance(j.get("users"), dict) and j.get("enabled") is not False else {}
             self.pres = {u: {"online": bool(v.get("online")), "last": v.get("last")} for u, v in got.items()
                          if u in users and isinstance(v, dict)}
+            # (2.6, userstatus1) eigener Status der Personen; fehlt eine: kein Status - ausser chat.status kam nach dem Senden
+            st = j.get("status") if isinstance(j.get("status"), dict) else {}
+            old, self.ustat = self.ustat, {}
+            for u, x in st.items():
+                x = S.peer_status(x) if u in users else None            # Verfuegbar zeigt nichts
+                if x is not None:
+                    self.ustat[u] = x
+            for u, at in list(self._ustat_at.items()):
+                if at < sent:
+                    self._ustat_at.pop(u, None)
+                elif u in old:
+                    self.ustat[u] = old[u]
+                else:
+                    self.ustat.pop(u, None)
             # Personen anderer Server: der eigene Server fragt dort erst nach - fehlende eine Minute lang alle 10 s erneut
-            miss = any(u.startswith("@") and u not in got for u in users)
+            miss = any(u.startswith("@") and u not in got and u not in st for u in users)
             self._pres_miss = self._pres_miss + 1 if miss else 0
             if self._pres_retry:
                 GLib.source_remove(self._pres_retry)
@@ -1907,6 +1929,23 @@ class ChatState(GObject.Object):
             if getattr(self, a, 0):
                 GLib.source_remove(getattr(self, a))
                 setattr(self, a, 0)
+
+    def peer_status(self, c):
+        """(2.6) eigener Status des Gegenuebers eines Direkt-Chats -> {s, until?, text?} oder None (Verfuegbar: None)"""
+        return S.peer_status(self.ustat.get(S.presence_user(self.me, c))) if isinstance(c, dict) and c.get("kind") == "dm" else None
+
+    def _status_live(self, d):
+        """(2.6) chat.status {username, status: {s, until?, text?} | null} - null = nicht mehr bekannt -> entfernen"""
+        u = d.get("username") if isinstance(d, dict) else None
+        if not isinstance(u, str) or u not in self._pres_users:
+            return
+        st = d.get("status")
+        self._ustat_at[u] = time.monotonic()
+        if S.peer_status(st) is not None:
+            self.ustat[u] = S.peer_status(st)
+        elif self.ustat.pop(u, None) is None:             # Verfuegbar bzw. null: nichts (mehr) anzeigen
+            return
+        self.emit("presence")
 
     def _presence_live(self, d):
         u = d.get("username")
@@ -3015,6 +3054,8 @@ class ChatState(GObject.Object):
             self._receipt_live(cid, d)
         elif typ == "chat.presence":
             self._presence_live(d)
+        elif typ == "chat.status":                        # (2.6) eigener Status eines Chat-Partners
+            self._status_live(d)
         elif typ == "chat.privacy":                       # eigene Einstellung auf einem anderen Geraet geaendert
             self._privacy_applied(d)
         elif typ == "chat.typing":

@@ -218,6 +218,15 @@ button.hk-unv { padding: 0 4px; min-height: 0; font-weight: normal; }
 .hk-tick.hk-tick-read { opacity: 1; color: var(--accent-color); font-weight: 800; }
 button.hk-tick-btn { padding: 0 4px; min-height: 0; min-width: 0; font-weight: normal; }
 .hk-online-dot { background: var(--success-color); border-radius: 999px; box-shadow: 0 0 0 2px var(--window-bg-color); }
+/* 2.6 (Bugs-DB 2029-8) eigener Status: Punkte wie im Web (Beschaeftigt gelb, Nicht stoeren rot mit Strich, Im Anruf Ring) */
+.hk-us-dot { border-radius: 999px; background: var(--success-bg-color); box-shadow: 0 0 0 2px var(--window-bg-color); }
+.hk-us-busy { background: var(--warning-bg-color); }
+.hk-us-dnd { background: var(--error-bg-color); }
+.hk-us-dnd .hk-us-bar { background: white; border-radius: 1px; }
+.hk-us-in_call { background: var(--window-bg-color); box-shadow: inset 0 0 0 2px var(--accent-color), 0 0 0 2px var(--window-bg-color); }
+.hk-us-in_call .hk-us-inner { background: var(--accent-color); border-radius: 999px; }
+.hk-holdbar { background: alpha(var(--accent-bg-color), 0.10); }
+.hk-holdbar.hk-hold-quiet { background: alpha(currentColor, 0.06); }
 .hk-quote { border-left: 3px solid alpha(currentColor, 0.45); padding: 2px 0 2px 8px; }
 .hk-composer-bar { border-top: 1px solid alpha(currentColor, 0.10); }
 .hk-composer { border-radius: 18px; background: alpha(currentColor, 0.05); box-shadow: inset 0 0 0 1px alpha(currentColor, 0.15); }

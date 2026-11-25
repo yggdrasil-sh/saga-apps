@@ -3,6 +3,7 @@ Einrichtung mit Wiederherstellungsschluessel, neues Geraet (Kopplung/Wiederherst
 Geraete, Sicherheitsnummer (+ QR-Code), Mitglieder und Einstellungen eines Chats, "Chats & Geraete" in den Einstellungen.
 Nachrichtentexte werden nie als Markup interpretiert (escape; nur eigene Links fuer Adressen und [[note:ID]])."""
 import datetime as _dt
+import json
 import re
 import threading
 
@@ -24,6 +25,7 @@ from . import chatstd as K
 from . import chatstdview as SV
 from .i18n import _, ngettext, pgettext, ui_language
 from .sharing import person_mark, same_host
+from .statusview import status_badge
 from .util import Debounce, bg, date_short, esc, human_size, rel_time, time_text, weekday_day_text
 
 URL_RX = re.compile(r"https?://[^\s<>\"']+[^\s<>\"'.,;:!?)\]]")
@@ -439,10 +441,12 @@ class ChatsScreen(Gtk.Box):
             if c.get("readonly"):
                 parts.append(_("read-only"))
             on = S.presence_text(chat.pres.get(S.presence_user(chat.me, c)))     # (2.4) online / zuletzt online
-            return chat.title(c), " · ".join(([on] if on else []) + parts) + arch
+            ust = S.peer_text(chat.peer_status(c))               # (2.6) eigener Status (anderer Server: ohne Text)
+            return chat.title(c), " · ".join([x for x in (ust, on) if x] + parts) + arch
         if c.get("kind") == "dm":
             on = S.presence_text(chat.pres.get(S.presence_user(chat.me, c)))
-            sub = on or _("End-to-end encrypted")
+            ust = S.peer_text(chat.peer_status(c), True)        # (2.6) "Nicht stören bis 14:30 · Im Kundentermin"
+            sub = " · ".join(x for x in (ust, on) if x) or _("End-to-end encrypted")
             if is_fed(c):                                # 2.5 Stufe 3 (lokal): Vertrauen ueber den Handle
                 p = chat.peer(c) or {}
                 probs = dict((m.get("handle"), t) for m, t in chat.fed_problems(c))
@@ -581,7 +585,8 @@ class ChatList(Gtk.Box):
                tuple((c.get("id"), chat.title(c), c.get("unread"), c.get("muted"), c.get("last_at"),
                                                      c.get("archived"), (chat.peer(c) or {}).get("avatar") if c.get("kind") == "dm" else None,
                                                      c.get("request"), c.get("readonly"),
-                                                     bool((chat.pres.get(S.presence_user(chat.me, c)) or {}).get("online")))
+                                                     bool((chat.pres.get(S.presence_user(chat.me, c)) or {}).get("online")),
+                                                     json.dumps(chat.peer_status(c), sort_keys=True))   # (2.6) eigener Status
                                                     for c in reqs + lst))
         if sig == self.sig:
             return
@@ -679,11 +684,16 @@ class ChatList(Gtk.Box):
             from .publish import _icon
             av.set_icon_name(_icon("saga-page-symbolic", "text-x-generic-symbolic"))
         online = bool((chat.pres.get(S.presence_user(chat.me, c)) or {}).get("online"))
-        if online:                                       # (2.4) gruener Punkt am Bild: Gegenueber ist online
+        ust = chat.peer_status(c)                        # (2.6) eigener Status des Gegenuebers (Verfuegbar: None)
+        if online or ust:
             ov = Gtk.Overlay(child=av, valign=Gtk.Align.CENTER)
-            dot = Gtk.Box(halign=Gtk.Align.END, valign=Gtk.Align.END, width_request=12, height_request=12)
-            dot.add_css_class("hk-online-dot")
-            ov.add_overlay(dot)
+            if online:                                   # (2.4) gruener Punkt am Bild: Gegenueber ist online
+                dot = Gtk.Box(halign=Gtk.Align.END, valign=Gtk.Align.START if ust else Gtk.Align.END, width_request=12,
+                              height_request=12)
+                dot.add_css_class("hk-online-dot")
+                ov.add_overlay(dot)
+            if ust:                                      # (2.6) Abzeichen unten rechts: Nicht stoeren / Beschaeftigt / Im Anruf
+                ov.add_overlay(status_badge(ust["s"], 14, halign=Gtk.Align.END, valign=Gtk.Align.END))
             box.append(ov)
         else:
             box.append(av)
@@ -711,12 +721,16 @@ class ChatList(Gtk.Box):
                 + ("" if c.get("home_self") else " · " + (c.get("home") or "?")) + (" · " + _("read-only") if c.get("readonly") else "")
         else:
             sub = chat.kind_label(c) + ("" if c.get("kind") == "dm" else " · " + ngettext("{n} person", "{n} people", n).format(n=n))
+        if ust:                                          # (2.6) "Nicht stören bis 14:30" statt "Direkt-Chat" (ohne eigenen Text)
+            sub = S.peer_text(ust) + sub[len(chat.kind_label(c)):]
         mute_now = K.muted_now(c) if K.has(K.MUTE2) else bool(c.get("muted"))
         if K.has(K.MUTE2) and (mute_now or c.get("notify") in ("mentions", "none")):
             sub += " · " + K.mute_label(c)                 # (2.5) "Stumm bis …" / "Nur Erwaehnungen"
         s = Gtk.Label(label=sub, xalign=0, ellipsize=Pango.EllipsizeMode.END)
         s.add_css_class("caption")
         s.add_css_class("dim-label")
+        if ust:
+            s.set_tooltip_text(S.peer_text(ust, True))
         col.append(s)
         has_draft = c["id"] != self.screen.cid and chatdrafts.has(c["id"])
         if has_draft:                                    # (2.5) Entwurf (nur auf diesem Geraet)

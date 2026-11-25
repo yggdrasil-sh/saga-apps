@@ -235,8 +235,14 @@ class UnifiedPush(GObject.Object):
             if calls.on_push(d):
                 return
         n = Gio.Notification.new(str(d.get("title") or "Saga")[:200])
-        if d.get("body"):
-            n.set_body(str(d["body"])[:500])
+        body = d.get("body")
+        if d.get("kind") == "status.digest":                         # (2.6) Sammelmeldung: Satz aus den Zahlen, nie Namen
+            from .chatstatus import digest_text
+            body = digest_text(d) or body
+        if body:
+            n.set_body(str(body)[:500])
+        if d.get("silent") is True:                                  # (2.6) "Beschaeftigt" mit Mitteilungen ohne Ton
+            n.set_priority(Gio.NotificationPriority.LOW)
         url = d.get("url")
         if isinstance(url, str) and url.startswith("/"):
             n.set_default_action_and_target("app.open-url", GLib.Variant("s", url[:300]))

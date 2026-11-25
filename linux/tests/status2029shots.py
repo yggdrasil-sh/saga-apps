@@ -13,6 +13,7 @@ import mockv21  # noqa: E402
 
 P = os.environ.get("HK_SHOT_PREFIX", "")
 AFTER = P.startswith("nachher")
+DE = os.environ.get("LANG", "de").startswith("de")       # Text-Pruefungen nur auf Deutsch
 S = {"opened": []}
 
 
@@ -51,6 +52,7 @@ def _close_dialog(g):
 def start(g):
     srv = S["srv"] = mockserver.install()
     srv.v25 = True
+    srv.extra_features = ["userstatus1"]
     srv.ustatus_api = True
     srv.calls_waiting = True
     srv.calls_cfg = dict(srv.calls_cfg, features=["reneg", "multi", "waiting1"])
@@ -117,7 +119,7 @@ def shot_list_dark(g):
 
 def shot_head(g):
     shoot(g, "03-chatkopf-hell")
-    if AFTER:
+    if AFTER and DE:
         check("Chip im Chat-Kopf", "Nicht stören" in (g["win"].wtitle.get_subtitle() or "") or
               any("Nicht stören" in t for t in _labels(g["win"])))
     _dark(True)
@@ -135,24 +137,33 @@ def shot_ask(g):
     if AFTER:
         check("Rueckfrage vor dem Anruf", d is not None and not S["opened"])
     _close_dialog(g)
-    b = g["win"].acct_btn
-    b.emit("clicked") if not hasattr(b, "popup") else b.popup()
+    S["srv"].uview.update(state="dnd", until=time.time() + 3600, text="Im Kundentermin", source="manual")
+    S["srv"].uview["ver"] += 1
+    try:
+        from hlidskjalf.userstatus import ustatus
+    except ImportError:
+        return
+    ustatus.load()
+
+
+def open_menu(g):
+    g["win"].acct_btn.emit("clicked")
 
 
 def shot_menu(g):
     shoot(g, "06-status-menue")
+    pop = getattr(g["win"], "acct_pop", None)
+    if pop is not None and pop.get_visible():
+        g["shot"](os.path.join(g["out"], f"{P}06b-status-menue-aufgeklappt.png"), pop)
     try:
         from hlidskjalf.statusview import StatusDialog
+        del StatusDialog
     except ImportError:
         _close_dialog(g)
         return
     pop = getattr(g["win"], "acct_pop", None)
     if pop is not None:
         pop.popdown()
-    S["srv"].uview.update(state="dnd", until=time.time() + 3600, text="Im Kundentermin", source="manual")
-    S["srv"].uview["ver"] += 1
-    from hlidskjalf.userstatus import ustatus
-    ustatus.load()
 
 
 def open_status(g):
@@ -183,7 +194,7 @@ def shot_reach(g):
 
 def shot_missed(g):
     shoot(g, "10-verpasst-nicht-stoeren")
-    if AFTER:
+    if AFTER and DE:
         check("Verpasster Anruf (Nicht stoeren)", any("Nicht stören" in t for t in _labels(g["win"].current)))
     srv = S["srv"]
     # eigenes Gespraech laeuft (im Browser); Bruno klopft an
@@ -241,6 +252,6 @@ def shot_digest(g):
 
 
 steps = [(300, start), (1500, setup), (1500, ready), (1500, data), (2500, shot_list), (900, shot_list_dark), (1800, shot_head),
-         (900, shot_head_dark), (1200, shot_ask), (1200, shot_menu), (1500, open_status), (1200, shot_status),
+         (900, shot_head_dark), (1200, shot_ask), (1200, open_menu), (1200, shot_menu), (1500, open_status), (1200, shot_status),
          (900, shot_status_dark), (2000, shot_reach), (2500, shot_missed), (2500, shot_knock), (900, shot_knock_dark),
          (2500, shot_quiet), (1500, shot_digest)]

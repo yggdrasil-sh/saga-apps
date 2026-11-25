@@ -8,6 +8,19 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Neu
 
+- **Eigener Status in der Linux-App** (Bugs-DB 2029-8, wie das Web): Klick auf das eigene Profilbild zeigt den Status
+  (Punkt am Bild, wenn nicht verfügbar); „Mein Status“ setzt Verfügbar / Beschäftigt / Nicht stören mit Dauer (1 Stunde,
+  bis morgen 7:00, bis ich es ausschalte) und eigenem Text (bis 80 Zeichen), zeigt ehrlich, was gerade wirkt (Ablauf,
+  Ruhezeit, im Anruf), und übernimmt still einen anderswo geänderten Stand (409). Einstellungen › Erreichbarkeit:
+  Ruhezeiten, Sammelmeldung, Erwähnungen, Anrufe während eines Gesprächs, „Im Anruf“ zeigen, „Beschäftigt“ ohne Ton,
+  wiederholte Anrufe und Ausnahmen. Chat-Partner zeigen ihren Status in der Liste (Abzeichen) und im Chat-Kopf; vor dem
+  Anruf bei „Nicht stören“ die Rückfrage „Trotzdem anrufen?“, bei „Im Anruf“ der Hinweis „klopft an“. Anklopfen
+  (`waiting1`) klingelt nicht, sondern zeigt eine Leiste mit „Ablehnen“ (besetzt) und – bei einem eigenen laufenden
+  Gespräch – „Beenden und annehmen“ (nimmt erst nach bestätigtem Ende an); zurückgehaltene Anrufe zeigen eine stille
+  Leiste (ohne „Annehmen“, wenn woanders telefoniert wird); Chat-Eintrag „Verpasster Anruf (Nicht stören)“;
+  Sammelmeldung nach „Nicht stören“ nur mit Zahlen. Braucht Saga mit `userstatus1`/`waiting1` (Server `fedec6a`); ältere
+  Server: alles wie bisher. Kopplung an „Nicht stören“ des Desktops folgt später.
+
 - **Leere Zustände mit nächstem Schritt und „Erste Schritte“** (Bugs-DB 2031, iOS/iPad, Android, Linux – wie das Web):
   Wo eine Liste leer ist (Heute, Aufgaben, Termine, Datenbank, Seiten, Mit mir geteilt …), steht ein kurzer Satz, was
   hier erscheint, und **ein** Knopf zum nächsten Schritt („Aufgabe notieren“, „+ Neuer Eintrag“, ohne verbundenen
