@@ -126,5 +126,77 @@ func pushE2ETests() {
 /// Server-Vektoren (tools/push_e2e_vectors.py): Format im Kopf der Datei, siehe docs/PUSH-RELAY.md
 func pushE2EVectorTests() {
     guard let v = e2eVectors() else { check(false, "Tests/vectors/push_e2e.json fehlt"); return }
-    _ = v
+    check(v["format"] as? String == "saga-push-e2e/1", "Vektoren: Format saga-push-e2e/1")
+    let b64 = PushE2ELogic.b64uDecode
+    guard let ks = v["keys"] as? [String: String], let d = ks["ua_priv"].flatMap(b64), let a = ks["auth"].flatMap(b64),
+          let priv = try? P256.KeyAgreement.PrivateKey(rawRepresentation: d) else { check(false, "Vektoren: keys"); return }
+    let key = PushE2EKey(priv: priv, auth: a, created: 0, origin: "https://saga.example.org")
+    check(PushE2ELogic.b64u(key.p256dh) == ks["ua_pub"], "Vektoren: ua_pub aus ua_priv")
+    check(key.kid == ks["k"], "Vektoren: k = SHA-256(p256dh)[:8]")
+    check(key.subscriptionKeys == ["p256dh": ks["ua_pub"] ?? "", "auth": ks["auth"] ?? ""], "Vektoren: keys des Abos")
+    // RFC 8291 aus der Datei
+    if let r = v["rfc8291"] as? [String: String], let rd = r["ua_priv"].flatMap(b64), let ra = r["auth"].flatMap(b64),
+       let rk = try? P256.KeyAgreement.PrivateKey(rawRepresentation: rd), let body = r["body"].flatMap(b64) {
+        let p = PushE2ELogic.decrypt(body, key: PushE2EKey(priv: rk, auth: ra, created: 0, origin: ""))
+        check(p.flatMap { String(data: $0, encoding: .utf8) } == r["plain"], "Vektoren: RFC 8291")
+    } else { check(false, "Vektoren: rfc8291") }
+    let params = v["params"] as? [String: Any] ?? [:]
+    let lk = params["loc_keys"] as? [String: String] ?? [:]
+    check(lk == ["title": PushE2ELogic.titleKey, "body": PushE2ELogic.bodyKey, "call": PushE2ELogic.callKey], "Vektoren: Loc-Keys wie die App")
+    let cases = v["cases"] as? [[String: Any]] ?? []
+    check(cases.count >= 10, "Vektoren: Faelle (\(cases.count))")
+    for c in cases {
+        let name = c["name"] as? String ?? "?"
+        guard let body = c["apns_body"] as? [String: Any], let msg = c["msg"] as? [String: Any], let plain = c["plain"] as? String else {
+            check(false, "\(name): Fall unvollstaendig"); continue
+        }
+        let info: [AnyHashable: Any] = Dictionary(uniqueKeysWithValues: body.map { (AnyHashable($0.key), $0.value) })
+        check(Set(body.keys) == ["aps", "saga"], "\(name): APNs-Koerper nur aps + saga")
+        guard let env = PushE2ELogic.envelope(info) else { check(false, "\(name): Umschlag"); continue }
+        check(env.k == ks["k"], "\(name): k")
+        let got = PushE2ELogic.decrypt(env.c, key: key)
+        check(got.flatMap { String(data: $0, encoding: .utf8) } == plain, "\(name): Klartext Byte fuer Byte")
+        if let pad = c["pad_to"] as? Int { check(env.c.count == 16 + 4 + 1 + 65 + pad + 16, "\(name): Auffuellen auf \(pad)") }
+        let inner = got.flatMap(PushE2ELogic.inner) ?? [:]
+        check(NSDictionary(dictionary: inner).isEqual(to: msg), "\(name): innere Felder = msg")
+        // sichtbarer Teil ohne Inhalt (nur Loc-Keys/Flags)
+        let aps = body["aps"] as? [String: Any] ?? [:]
+        let alert = aps["alert"] as? [String: Any] ?? [:]
+        check(Set(alert.keys).isSubset(of: ["title-loc-key", "loc-key"]) && aps["thread-id"] == nil, "\(name): aps ohne Freitext/thread-id")
+        let raw = (try? JSONSerialization.data(withJSONObject: body)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+        for f in ["title", "body", "actor", "tag", "thread"] {
+            if let t = msg[f] as? String, t.count > 3, t != "Saga" { check(!raw.contains(t), "\(name): \(f) nicht im Klartext") }
+        }
+        // Anzeige in der Erweiterung, Weg der App
+        let sh = PushE2ELogic.shown(inner)
+        let kind = msg["kind"] as? String ?? ""
+        check(sh.title == (msg["title"] as? String ?? "") && sh.body == (msg["body"] as? String ?? ""), "\(name): Titel/Text")
+        check(sh.thread == ((msg["thread"] as? String) ?? (msg["tag"] as? String)), "\(name): Faden = thread ?? tag")
+        check(sh.sound == !PushE2ELogic.flag(msg["silent"]), "\(name): Ton nur ohne silent")
+        check(sh.call == ["call", "call.group"].contains(kind), "\(name): Anruf-Kategorie nur bei Anrufen")
+        if c["push_type"] as? String == "alert" {
+            check((aps["mutable-content"] as? NSNumber)?.intValue == 1, "\(name): mutable-content (Erweiterung laeuft)")
+            check((aps["sound"] != nil) == sh.sound, "\(name): sichtbarer Ton wie innerer")
+            let want = sh.call ? PushE2ELogic.callKey : PushE2ELogic.bodyKey
+            check(alert["loc-key"] as? String == want && alert["title-loc-key"] as? String == PushE2ELogic.titleKey, "\(name): Loc-Keys")
+        }
+        if c["push_type"] as? String == "voip" {
+            // PushKit-Weg: CallLogic.push liest den geoeffneten Feldsatz wie bisher den Klartext
+            var merged = info; merged.removeValue(forKey: "saga"); for (k, x) in inner { merged[k] = x }
+            let p = CallLogic.push(merged)
+            check(p != nil && p?.call == msg["call"] as? String, "\(name): VoIP-Feldsatz -> CallLogic.push")
+            check(CallLogic.push(info) == nil, "\(name): ungeoeffneter Umschlag -> kein Anruf (Rueckfall: melden + beenden)")
+        }
+        check(c["push_type"] as? String != "voip" || ["call", "call.group"].contains(kind), "\(name): voip nur fuer Anrufe")
+    }
+    // Auffuellen: [n, pad_to(n)] - die App entfernt jede Laenge
+    for pr in v["pad"] as? [[Int]] ?? [] where pr.count == 2 {
+        let content = Data(repeating: 0x41, count: pr[0])
+        let rec = content + Data([2]) + Data(count: pr[1] - pr[0] - 1)
+        check(PushE2ELogic.unpad(rec) == content, "Auffuellen \(pr[0]) -> \(pr[1])")
+    }
+    for b in v["bad"] as? [[String: String]] ?? [] {
+        let c = b["c"].flatMap(b64)
+        check(c != nil && PushE2ELogic.decrypt(c!, key: key) == nil, "verwerfen: \(b["name"] ?? "?")")
+    }
 }

@@ -48,7 +48,11 @@ final class PushModel: ObservableObject {
         #endif
     }
 
-    func signedOut() { state = nil; message = nil }                 // Abo verschwindet beim Abmelden auf dem Server
+    func signedOut() {                                              // Abo verschwindet beim Abmelden auf dem Server
+        state = nil; message = nil
+        // 2262: Schluessel gehoeren zum Konto - das naechste Abo (auch ein anderes Konto desselben Servers) bekommt neue
+        if let o = AppConfig.serverOrigin { PushE2E.forget(origin: o) }
+    }
 
     /// 2262: App kann Ende-zu-Ende-Mitteilungen anzeigen - nur iOS mit eingebetteter Erweiterung HlidskjalfNotify
     /// (build-adhoc/-testflight bauen ohne sie weiter, wenn ihr Profil fehlt; dann keine Schluessel ans Abo, alles wie bisher)
