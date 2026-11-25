@@ -110,9 +110,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   (kommen mit 3.0) werden still ignoriert – kein Zustand, kein Schlüssel, keine Übernahme.
 - **Linux: Hinweis „Anrufe über den Anruf-Knoten – experimentell“ entfernt** (Bugs-DB 2263-8): Einstellungen › Info ›
   Hilfe zeigt nur noch „Diagnose senden“. Anrufe laufen in der Linux-App im Browser, die Grenzen kommen vom Server.
+- **iOS/iPadOS: Anrufe über den Anruf-Knoten ohne „experimentell“** (Bugs-DB 2263-6): Marke und Hinweis „getestet mit
+  bis zu 4 …“ in Verbindung und Teilnehmerliste entfernt. Die reservierten Anruf-Signale `dtmf` und `svc-join` (kommen mit
+  3.0) werden still ignoriert. Das Prüfpaket ChatVectors baut wieder (Bugs-DB 2424).
 
 ### Behoben
 
+- **iOS/iPadOS: Leiste „Anruf läuft“ mit der Grenze des Knotens** (Bugs-DB 2418): Ein voller Knoten-Anruf zeigte „alle 4
+  Plätze sind belegt“, obwohl 12 Geräte drin waren. Jetzt gilt im Knoten-Anruf die Grenze vom Server; Mesh und 1:1 bleiben
+  bei 4/6.
 - **Android: Knoten-Anruf behält die Grenze des Servers** (Bugs-DB 2418): Leiste „Gruppenanruf läuft / voll“,
   „Personen hinzufügen“ und der Text bei abgelehntem Beitritt kappten Anrufe über den Knoten auf die Mesh-Grenze 4
   (Ton 6) – „Personen hinzufügen“ war schon bei 5 Geräten voll. Jetzt gilt im Knoten-Anruf die Grenze vom Server
