@@ -1,0 +1,275 @@
+{
+ "list": {
+  "contacts": [
+   {
+    "id": 8,
+    "ver": 1,
+    "origin": "manual",
+    "name": "Mara Muster",
+    "own_name": "Mara Muster",
+    "saga": null,
+    "form": "formal",
+    "salutation": "Sehr geehrte Frau Muster",
+    "addrs": [
+     {
+      "id": 11,
+      "kind": "e164",
+      "value": "+491705550101",
+      "type": "mobile",
+      "fixed": false
+     },
+     {
+      "id": 12,
+      "kind": "email",
+      "value": "mara@example.org",
+      "type": "home",
+      "fixed": false
+     }
+    ],
+    "last_at": null,
+    "created": 1795602021.0420525,
+    "updated": 1795602021.0420525
+   },
+   {
+    "id": 7,
+    "ver": 1,
+    "origin": "manual",
+    "name": "Praxis Dr. Lind",
+    "own_name": "Praxis Dr. Lind",
+    "saga": null,
+    "form": null,
+    "salutation": null,
+    "addrs": [
+     {
+      "id": 9,
+      "kind": "e164",
+      "value": "+49301234567",
+      "type": "work",
+      "fixed": false
+     },
+     {
+      "id": 10,
+      "kind": "email",
+      "value": "praxis@example.org",
+      "type": "work",
+      "fixed": false
+     }
+    ],
+    "last_at": null,
+    "created": 1795602021.0378041,
+    "updated": 1795602021.0378041
+   },
+   {
+    "id": 5,
+    "ver": 2,
+    "origin": "chat",
+    "name": "Anna Berg",
+    "own_name": null,
+    "saga": {
+     "ref": "~3t7snsnvddpeuk4p",
+     "remote": false,
+     "host": null,
+     "sub": "~3t7snsnvddpeuk4p",
+     "avatar": null,
+     "ready": true,
+     "gone": false
+    },
+    "form": "informal",
+    "salutation": "Liebe Anna",
+    "addrs": [
+     {
+      "id": 5,
+      "kind": "saga",
+      "value": "~3t7snsnvddpeuk4p",
+      "type": null,
+      "fixed": true
+     },
+     {
+      "id": 7,
+      "kind": "e164",
+      "value": "+491701234567",
+      "type": "mobile",
+      "fixed": false
+     },
+     {
+      "id": 8,
+      "kind": "email",
+      "value": "anna@example.org",
+      "type": "work",
+      "fixed": false
+     }
+    ],
+    "last_at": 1795602019.883796,
+    "created": 1795602019.883796,
+    "updated": 1795602021.0306199
+   },
+   {
+    "id": 3,
+    "ver": 1,
+    "origin": "chat",
+    "name": "Bruno Keller",
+    "own_name": null,
+    "saga": {
+     "ref": "~goaslmuifheh32ws",
+     "remote": false,
+     "host": null,
+     "sub": "~goaslmuifheh32ws",
+     "avatar": null,
+     "ready": true,
+     "gone": false
+    },
+    "form": null,
+    "salutation": null,
+    "addrs": [
+     {
+      "id": 3,
+      "kind": "saga",
+      "value": "~goaslmuifheh32ws",
+      "type": null,
+      "fixed": true
+     }
+    ],
+    "last_at": 1795602018.7723935,
+    "created": 1795602018.7723935,
+    "updated": 1795602018.7723935
+   },
+   {
+    "id": 1,
+    "ver": 1,
+    "origin": "chat",
+    "name": "Carla Ruiz",
+    "own_name": null,
+    "saga": {
+     "ref": "~dvjqj2lox7uqnu5k",
+     "remote": false,
+     "host": null,
+     "sub": "~dvjqj2lox7uqnu5k",
+     "avatar": null,
+     "ready": true,
+     "gone": false
+    },
+    "form": null,
+    "salutation": null,
+    "addrs": [
+     {
+      "id": 1,
+      "kind": "saga",
+      "value": "~dvjqj2lox7uqnu5k",
+      "type": null,
+      "fixed": true
+     }
+    ],
+    "last_at": 1795602017.6599205,
+    "created": 1795602017.6599205,
+    "updated": 1795602017.6599205
+   }
+  ],
+  "total": 5
+ },
+ "conflict": {
+  "error": "Der Kontakt wurde inzwischen geändert – bitte neu laden.",
+  "contact": {
+   "id": 5,
+   "ver": 2,
+   "origin": "chat",
+   "name": "Anna Berg",
+   "own_name": null,
+   "saga": {
+    "ref": "~3t7snsnvddpeuk4p",
+    "remote": false,
+    "host": null,
+    "sub": "~3t7snsnvddpeuk4p",
+    "avatar": null,
+    "ready": true,
+    "gone": false
+   },
+   "form": "informal",
+   "salutation": "Liebe Anna",
+   "addrs": [
+    {
+     "id": 5,
+     "kind": "saga",
+     "value": "~3t7snsnvddpeuk4p",
+     "type": null,
+     "fixed": true
+    },
+    {
+     "id": 7,
+     "kind": "e164",
+     "value": "+491701234567",
+     "type": "mobile",
+     "fixed": false
+    },
+    {
+     "id": 8,
+     "kind": "email",
+     "value": "anna@example.org",
+     "type": "work",
+     "fixed": false
+    }
+   ],
+   "last_at": 1795602019.883796,
+   "created": 1795602019.883796,
+   "updated": 1795602021.0306199
+  }
+ },
+ "duplicate": {
+  "error": "Diese Adresse gehört schon zu einem anderen Kontakt.",
+  "contact_id": 5
+ },
+ "chat_contacts": {
+  "contacts": [
+   {
+    "ref": "~3t7snsnvddpeuk4p",
+    "name": "Anna Berg",
+    "sub": "~3t7snsnvddpeuk4p",
+    "avatar": null,
+    "remote": false,
+    "ready": true,
+    "gone": false,
+    "last_at": 1795602019.883796,
+    "contact_id": 5
+   },
+   {
+    "ref": "~goaslmuifheh32ws",
+    "name": "Bruno Keller",
+    "sub": "~goaslmuifheh32ws",
+    "avatar": null,
+    "remote": false,
+    "ready": true,
+    "gone": false,
+    "last_at": 1795602018.7723935,
+    "contact_id": 3
+   },
+   {
+    "ref": "~dvjqj2lox7uqnu5k",
+    "name": "Carla Ruiz",
+    "sub": "~dvjqj2lox7uqnu5k",
+    "avatar": null,
+    "remote": false,
+    "ready": true,
+    "gone": false,
+    "last_at": 1795602017.6599205,
+    "contact_id": 1
+   }
+  ]
+ },
+ "people": {
+  "users": [
+   {
+    "username": "~3t7snsnvddpeuk4p",
+    "name": "Anna Berg",
+    "sub": "~3t7snsnvddpeuk4p",
+    "ready": true,
+    "avatar": null,
+    "contact": true,
+    "contact_id": 5
+   }
+  ],
+  "groups": [],
+  "remote": []
+ },
+ "settings": {
+  "cc": null
+ }
+}
