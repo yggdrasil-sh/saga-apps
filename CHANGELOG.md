@@ -96,6 +96,11 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Behoben
 
+- **Android: stille Leiste nach Auflegen im Gruppenanruf** (Bugs-DB 2393): Spricht ein zweites eigenes Gerät im gerade
+  hier beendeten Gruppenanruf weiter (ebenso 1:1 mit Begleitgerät bzw. nach der Übergabe), bietet die stille Leiste
+  kein „Annehmen“ mehr an – sonst liefen zwei Gespräche. In der Ausnahme-Suche steht der Server einer föderierten Person
+  nur noch einmal (Unterzeile), Kennungen mit IPv6-Host in eckigen Klammern (`~x@[2001:db8::1]`) sind wie am Server
+  gültig.
 - **Android: Personen anderer Server als Ausnahme bei „Nicht stören“** (Bugs-DB 2387): Die Suche unter Einstellungen ›
   Erreichbarkeit findet jetzt auch föderierte Personen (Kennung `~x@host`), eine gültige Kennung lässt sich wie im Web
   direkt eingeben. Nach dem Auflegen prüft die stille Leiste erneut, ob auf einem anderen eigenen Gerät noch ein
