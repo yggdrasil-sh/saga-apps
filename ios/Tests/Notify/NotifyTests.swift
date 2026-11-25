@@ -120,12 +120,12 @@ final class NotifyTests: XCTestCase {
         guard ProcessInfo.processInfo.environment["NOTIFY_BANNER"] == "1" else { return }
         guard let c = r.mutableCopy() as? UNMutableNotificationContent else { return }
         c.interruptionLevel = .active                                                   // ohne Berechtigung "Time Sensitive"
-        let done = expectation(description: "add")
-        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "notify-" + name, content: c, trigger: nil)) { _ in done.fulfill() }
-        wait(for: [done], timeout: 5)
-        print("NOTIFY_BANNER \(name)")
-        Thread.sleep(forTimeInterval: 4)                                                // run.sh macht das Bild
+        // Haupt-Faden nicht blockieren: der Mitteilungs-Delegat der App (willPresent) laeuft dort
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "notify-" + name, content: c, trigger: nil)) { e in
+            print("NOTIFY_BANNER \(name) \(e.map { "\($0)" } ?? "ok")")
+        }
+        RunLoop.main.run(until: Date().addingTimeInterval(6))                          // run.sh macht das Bild
         UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["notify-" + name])
-        Thread.sleep(forTimeInterval: 1)
+        RunLoop.main.run(until: Date().addingTimeInterval(1))
     }
 }

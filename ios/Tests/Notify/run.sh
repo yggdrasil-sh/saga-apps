@@ -15,7 +15,7 @@ while kill -0 $XB 2>/dev/null; do
   if [[ -n $OUT ]]; then
     for n in $(grep -o "NOTIFY_BANNER [a-z]*" $LOG | awk '{print $2}'); do
       [[ -n ${shot[$n]:-} ]] && continue
-      shot[$n]=1; sleep 1.5; xcrun simctl io $SIM screenshot $OUT/notify-$n.png > /dev/null 2>&1
+      shot[$n]=1; sleep 2; xcrun simctl io $SIM screenshot $OUT/notify-$n.png > /dev/null 2>&1
     done
   fi
   sleep 0.5
