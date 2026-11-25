@@ -212,6 +212,8 @@ class ContactBookTest {
         assertEquals("mailto:a%3Fcc%3Dx@example.org", ContactBookLogic.mailUri("a?cc=x@example.org"))
         assertEquals("mailto:a%23b%25c%26d@example.org", ContactBookLogic.mailUri("a#b%c&d@example.org"))
         assertEquals("mailto:j%C3%BCrgen+tag@example.org", ContactBookLogic.mailUri("jürgen+tag@example.org"))
+        assertEquals("mailto:a%2Cb@example.org", ContactBookLogic.mailUri("a,b@example.org"))           // kein zweiter Empfaenger
+        assertEquals("mailto:a%3Bb@example.org", ContactBookLogic.mailUri("a;b@example.org"))
         assertEquals("+491701234567", ContactBookLogic.listSub(c))
         assertEquals("0170 1234567", ContactBookLogic.listSub(c) { "0170 1234567" })      // Anzeige-Format von aussen
         val remote = c.copy(saga = c.saga!!.copy(remote = true, host = "b.example"), addrs = emptyList())
@@ -298,5 +300,12 @@ class ContactBookTest {
         assertFalse(ContactBookLogic.has(null))
         for (d in listOf(Dest.Contacts, Dest.Contact(42))) assertEquals(d, Dest.decode(Dest.encode(d)))
         assertNull(Dest.decode("contact:x"))
+        // Pruefung k27arev: ?settings=contacts nur mit contacts2 bis zur Unterseite
+        val n1 = io.github.yggdrasil_sh.saga.ui.nav.AppNavigator(listOf(Dest.Today))
+        io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(n1, "contacts", replace = true, contacts = false)
+        assertEquals(Dest.Settings, n1.current)
+        val n2 = io.github.yggdrasil_sh.saga.ui.nav.AppNavigator(listOf(Dest.Today))
+        io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(n2, "contacts", replace = true, contacts = true)
+        assertEquals(Dest.Contacts, n2.current)
     }
 }

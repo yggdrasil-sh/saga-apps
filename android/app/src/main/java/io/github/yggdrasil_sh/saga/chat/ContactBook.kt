@@ -304,15 +304,15 @@ object ContactBookLogic {
     fun telUri(value: String): String = "tel:" + value.filter { it.isDigit() || it == '+' }
 
     /**
-     * mailto: mit kodierter Adresse (RFC 6068): ?, #, %, & usw. im Teil vor @ sind erlaubt und duerfen nicht als
-     * Abfrage/Fragment gelesen werden (sonst bekaeme die Mail-App einen anderen Empfaenger bzw. cc/bcc).
+     * mailto: mit kodierter Adresse (RFC 6068): ?, #, %, &, `,` und ; im Teil vor @ nimmt der Server an; sie duerfen
+     * nicht als Abfrage/Fragment bzw. Empfaenger-Trenner gelesen werden (sonst andere/mehrere Empfaenger, cc/bcc).
      */
     fun mailUri(value: String): String = buildString {
         append("mailto:")
         value.trim().toByteArray(Charsets.UTF_8).forEach { b ->
             val c = b.toInt() and 0xff
             val ch = c.toChar()
-            if (c < 0x80 && (ch.isLetterOrDigit() || ch in "-._~!$'*+,;=@")) append(ch) else append('%').append("%02X".format(c))
+            if (c < 0x80 && (ch.isLetterOrDigit() || ch in "-._~!$'*+=@")) append(ch) else append('%').append("%02X".format(c))
         }
     }
 

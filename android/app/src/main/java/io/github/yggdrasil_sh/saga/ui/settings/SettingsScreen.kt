@@ -776,7 +776,8 @@ private fun UpdateHintSection(modifier: Modifier) {
 
 /** Spruenge in die Einstellungen (Mitteilung ?settings=…, Glocke): Hauptliste, Bereich, ggf. Unterseite + Zeile */
 object SettingsNav {
-    fun open(nav: AppNavigator, section: String?, replace: Boolean) {
+    /** contacts = Server kann das Adressbuch (contacts2) - sonst fuehrt ?settings=contacts nur in die Hauptliste */
+    fun open(nav: AppNavigator, section: String?, replace: Boolean, contacts: Boolean = false) {
         if (replace) nav.top(Dest.Settings) else nav.push(Dest.Settings)
         SettingsArea.of(section)?.let { area ->
             SettingsMemory.scrollTo = SettingsArea.scrollTarget(section)?.let { area to it }
@@ -786,7 +787,7 @@ object SettingsNav {
             SettingsArea.Sub.BACKUP -> nav.push(Dest.Backup)
             SettingsArea.Sub.NEXTCLOUD -> nav.push(Dest.Nextcloud)
             SettingsArea.Sub.BOOKORBIT -> nav.push(Dest.BookOrbit)
-            SettingsArea.Sub.CONTACTS -> nav.push(Dest.Contacts)
+            SettingsArea.Sub.CONTACTS -> if (contacts) nav.push(Dest.Contacts)
             null -> {}
         }
     }

@@ -223,7 +223,7 @@ fun MainScreen(
     val openSettings by repo.openSettingsRequest.collectAsState()
     LaunchedEffect(openSettings) {
         openSettings?.let { sec ->
-            io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, sec, replace = true)   // 2.5: Bereich + Unterseite
+            io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, sec, replace = true, contacts = repo.chat.hasContactBook())   // 2.5: Bereich + Unterseite
             repo.openSettingsRequest.value = null
         }
     }

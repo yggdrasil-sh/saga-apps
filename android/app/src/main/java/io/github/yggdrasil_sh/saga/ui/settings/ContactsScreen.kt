@@ -89,25 +89,27 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun ContactsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
-    ContactsMemory.forSignIn(repo.signInCount.collectAsState().value)
+    val signIn = repo.signInCount.collectAsState().value
+    ContactsMemory.forSignIn(signIn)
     val book = repo.chat.book
     val tick by book.tick.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var q by remember { mutableStateOf("") }
-    var list by remember { mutableStateOf(ContactsMemory.list) }
-    var total by remember { mutableStateOf(ContactsMemory.total) }
-    var loading by remember { mutableStateOf(list == null) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var cc by remember { mutableStateOf(ContactsMemory.cc) }
-    var ccLoaded by remember { mutableStateOf(ContactsMemory.ccLoaded) }
+    var list by remember(signIn) { mutableStateOf(ContactsMemory.list) }
+    var total by remember(signIn) { mutableStateOf(ContactsMemory.total) }
+    var loading by remember(signIn) { mutableStateOf(list == null) }
+    var error by remember(signIn) { mutableStateOf<String?>(null) }
+    var cc by remember(signIn) { mutableStateOf(ContactsMemory.cc) }
+    var ccLoaded by remember(signIn) { mutableStateOf(ContactsMemory.ccLoaded) }
     var ccEdit by remember { mutableStateOf(false) }
     var creating by remember { mutableStateOf(false) }
     val suggest = remember { ContactRegion.suggest(context) }
-    LaunchedEffect(q, tick) {
+    LaunchedEffect(q, tick, signIn) {
         if (q.isNotEmpty()) delay(250)
         try {
             val r = book.list(q)
+            if (!ContactsMemory.current(repo, signIn)) return@LaunchedEffect      // Antwort des vorigen Kontos
             list = r.contacts
             total = r.total
             if (q.isEmpty()) {
@@ -122,9 +124,11 @@ fun ContactsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         }
         loading = false
     }
-    LaunchedEffect(tick) {
+    LaunchedEffect(tick, signIn) {
         try {
-            cc = book.cc()
+            val v = book.cc()
+            if (!ContactsMemory.current(repo, signIn)) return@LaunchedEffect
+            cc = v
             ccLoaded = true
             ContactsMemory.cc = cc
             ContactsMemory.ccLoaded = true
@@ -179,8 +183,10 @@ fun ContactsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                                 SagaTextButton(onClick = {
                                     scope.launch {
                                         try {
-                                            cc = book.setCc(proposal)
-                                            ContactsMemory.cc = cc
+                                            val v = book.setCc(proposal)
+                                            if (!ContactsMemory.current(repo, signIn)) return@launch
+                                            cc = v
+                                            ContactsMemory.cc = v
                                             repo.notify(UiText.Res(R.string.cb_cc_saved))
                                         } catch (e: CancellationException) {
                                             throw e
@@ -219,6 +225,7 @@ fun ContactsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                             scope.launch {
                                 try {
                                     val r = book.list(q, offset = l.size)
+                                    if (!ContactsMemory.current(repo, signIn)) return@launch
                                     list = (l + r.contacts).distinctBy { it.id }
                                     total = r.total
                                 } catch (e: CancellationException) {
@@ -241,9 +248,10 @@ fun ContactsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             item(key = "end") { Box(Modifier.padding(bottom = 24.dp)) }
         }
     }
-    if (ccEdit) CcDialog(repo, book, cc, suggest, onDismiss = { ccEdit = false }) { cc = it; ContactsMemory.cc = it }
+    if (ccEdit) CcDialog(repo, book, cc, suggest, onDismiss = { ccEdit = false }) { if (ContactsMemory.current(repo, signIn)) { cc = it; ContactsMemory.cc = it } }
     if (creating) ContactEditDialog(repo, null, ContactBookLogic.ccForRequest(cc, ccLoaded, suggest), onDismiss = { creating = false }, onOpen = { creating = false; nav.push(Dest.Contact(it)) }) { c ->
         creating = false
+        if (!ContactsMemory.current(repo, signIn)) return@ContactEditDialog
         list = ContactBookLogic.applied(list.orEmpty(), c)
         nav.push(Dest.Contact(c.id))
     }
@@ -257,6 +265,9 @@ internal object ContactsMemory {
     var ccLoaded = false
     /** Anmeldung, zu der die Liste gehoert (anderes Konto: nichts Altes zeigen) */
     var key = -1
+
+    /** Gehoert eine Antwort, deren Anfrage bei Anmeldung n begann, noch zum angemeldeten Konto? (sonst verwerfen) */
+    fun current(repo: SagaRepository, n: Int): Boolean = !repo.needsLogin.value && repo.signInCount.value == n && key == n
 
     fun forSignIn(n: Int) {
         if (key == n) return
@@ -344,34 +355,38 @@ private fun CcDialog(repo: SagaRepository, book: ContactBook, cur: String?, sugg
 /** Ein Kontakt: Kopf, feste Saga-Zeile mit "Nachricht", Nummern (Anrufen), Mails, Anrede, Grussform, Loeschen */
 @Composable
 fun ContactDetailScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, id: Long) {
-    ContactsMemory.forSignIn(repo.signInCount.collectAsState().value)
+    val signIn = repo.signInCount.collectAsState().value
+    ContactsMemory.forSignIn(signIn)
     val book = repo.chat.book
     val tick by book.tick.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var c by remember(id) { mutableStateOf(ContactsMemory.list?.firstOrNull { it.id == id }) }
-    var missing by remember(id) { mutableStateOf(false) }
-    var error by remember(id) { mutableStateOf<String?>(null) }
+    var c by remember(id, signIn) { mutableStateOf(ContactsMemory.list?.firstOrNull { it.id == id }) }
+    var missing by remember(id, signIn) { mutableStateOf(false) }
+    var error by remember(id, signIn) { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(signIn) {
         if (ContactsMemory.ccLoaded) return@LaunchedEffect
         try {
-            ContactsMemory.cc = book.cc()
+            val v = book.cc()
+            if (!ContactsMemory.current(repo, signIn)) return@LaunchedEffect
+            ContactsMemory.cc = v
             ContactsMemory.ccLoaded = true
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
         }
     }
-    LaunchedEffect(id, tick) {
+    LaunchedEffect(id, tick, signIn) {
         if (book.lastChanged == -id) {
             missing = true
             return@LaunchedEffect
         }
         try {
             val r = book.one(id)
+            if (!ContactsMemory.current(repo, signIn)) return@LaunchedEffect
             if (r == null) missing = true else c = r
             error = null
         } catch (e: CancellationException) {
@@ -517,8 +532,10 @@ fun ContactDetailScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
     if (editing && cur != null) {
         ContactEditDialog(repo, cur, ContactBookLogic.ccForRequest(ContactsMemory.cc, ContactsMemory.ccLoaded, ContactRegion.suggest(context)), onDismiss = { editing = false }, onOpen = { editing = false; nav.push(Dest.Contact(it)) }) { n ->
             editing = false
-            c = n
-            ContactsMemory.list = ContactsMemory.list?.let { ContactBookLogic.applied(it, n) }
+            if (ContactsMemory.current(repo, signIn)) {
+                c = n
+                ContactsMemory.list = ContactsMemory.list?.let { ContactBookLogic.applied(it, n) }
+            }
         }
     }
     if (confirmDelete && cur != null) {
@@ -532,6 +549,7 @@ fun ContactDetailScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
                     scope.launch {
                         try {
                             book.remove(cur.id)
+                            if (!ContactsMemory.current(repo, signIn)) return@launch
                             ContactsMemory.list = ContactsMemory.list?.let { ContactBookLogic.applied(it, null, cur.id) }
                             repo.notify(UiText.Res(R.string.cb_deleted))
                             nav.pop()
