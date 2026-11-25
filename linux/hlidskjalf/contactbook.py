@@ -487,8 +487,17 @@ class ContactDetail:
         self.groups = []
         self.edit_btn = Gtk.Button(label=_("Edit"), valign=Gtk.Align.CENTER, sensitive=False)
         self.edit_btn.connect("clicked", lambda *_: self.edit())
-        self._h = book.connect("changed", lambda _b, cid, dl: self._live(cid, dl))
-        self.page.connect("destroy", lambda *_: book.disconnect(self._h))
+        # Live nur, solange das Detail zu sehen ist ("destroy" kommt in GTK4 nicht - sonst haengt jedes je geoeffnete Detail an
+        # book und laedt bei jedem hello/reset neu); wieder sichtbar (nach Bearbeiten) -> neu laden
+        from .util import watch_obj
+        watch_obj(self.page, book, "changed", lambda cid, dl: self._live(cid, dl))
+        self._seen = False
+        self.page.connect("map", lambda *_: self._remap())
+
+    def _remap(self):
+        if self._seen and self.c is not None:
+            self.reload()
+        self._seen = True
 
     def show(self):
         self.nav = self.host.push(_("Contact"), _toolbar(_("Contact"), self.page, end=self.edit_btn), "contact")
@@ -499,7 +508,15 @@ class ContactDetail:
         return self
 
     def reload(self):
-        book.get(self.cid, self._got)
+        def err(e):                                # nur 404 heisst "weg"; Netz weg u. a.: Stand bleibt, Meldung
+            if isinstance(e, APIError) and e.code == 404:
+                self._got(None)
+            elif self.c is None:
+                self.fill(None)
+                self.host.toast(e)
+            else:
+                self.host.toast(e)
+        book.get(self.cid, self._got, error=err)
 
     def _got(self, c):
         if c is None:
@@ -793,7 +810,8 @@ class ContactEditor:
     def body(self):
         new = self.c is None
         return edit_body(self.name.get_text(), FORMS[self.form.get_selected()] if self.form.get_selected() < 3 else None,
-                         self.sal.get_text(), self.rows(), ver=None if new else self.c.get("ver"), cc=self.cc, new=new)
+                         self.sal.get_text(), self.rows(), ver=None if new else self.c.get("ver"),
+                         cc=self.cc if book.cc_known else None, new=new)    # Konto-Vorwahl unbekannt: der Server entscheidet
 
     def show_msg(self, t, jump=None):
         self.jump_id = jump
@@ -813,7 +831,7 @@ class ContactEditor:
         self.show_msg(None)
         self.busy = True
         self.save_btn.set_sensitive(False)
-        if "cc" in b and not book.cc and self.cc:
+        if "cc" in b and book.cc_known and not book.cc and self.cc:
             book.put_cc(self.cc, error=lambda e: None)          # Vorschlag aus der Region einmal fuer das Konto merken
         if self.c is None:
             book.create(b, self._done, self._err)
