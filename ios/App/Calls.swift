@@ -49,7 +49,7 @@ struct CallTile: Identifiable, Equatable {
 final class CallManager: NSObject, ObservableObject {
     weak var store: Store?
     enum Phase: String, Equatable { case idle, preparing, ringingOut, incoming, connecting, active, ended }
-    @Published var phase: Phase = .idle { didSet { if phase != oldValue { ClientLog.shared.overlay("calls", phase != .idle && phase != .ended); pipRefresh(); if phase != .idle && phase != .ended { VoicePlayer.shared.pauseForCall() } } } }   // 2.5: Sprachnachricht pausiert beim Anruf
+    @Published var phase: Phase = .idle { didSet { if phase != oldValue { ClientLog.shared.overlay("calls", phase != .idle && phase != .ended); pipRefresh(); if phase != .idle && phase != .ended { VoicePlayer.shared.pauseForCall() }; liveFollow() } } }   // 2.5: Sprachnachricht pausiert beim Anruf
     @Published var status = ""
     @Published var peerName = ""
     @Published var peerAvatar: String?
@@ -1827,9 +1827,6 @@ final class CallManager: NSObject, ObservableObject {
         }
         incoming = nil
         holdFree()                                                          // 2.6: Anklopfen klingelt jetzt normal
-        #if os(iOS)
-        if UIApplication.shared.applicationState == .background { store?.live.stop() }   // 2.6: Live-Kanal nur fuers Gespraech offen
-        #endif
         status = message ?? note.map(Self.text) ?? String(localized: "Anruf beendet")
         CallEnv.log("ended \(status.prefix(40))")
         if minimized { toast = status }                                     // verkleinert: kein Vollbild mehr, nur der Hinweis

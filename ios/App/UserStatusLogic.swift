@@ -276,6 +276,10 @@ enum CallHoldLogic {
     /// Faehigkeit melden erst, wenn der Server Anklopfen kann (sonst klingelt er nie mit waiting)
     static let cap = "waiting1"
     static func reportsWaiting(serverFeatures: [String]) -> Bool { serverFeatures.contains(cap) }
+    /// Live-Kanal offen? Im Vordergrund immer; im Hintergrund nur waehrend eines eigenen Gespraechs - Anklopfen kommt
+    /// ohne Push, und CallKit-Annehmen auf dem Sperrbildschirm laeuft mit der App im Hintergrund. Kein Dauer-Live ohne
+    /// Gespraech (Klingeln allein haelt ihn nicht offen).
+    static func liveWanted(foreground: Bool, phase: String) -> Bool { foreground || CallLogic.isOngoing(phase) }
 
     enum Mode: String, Equatable { case wait, quiet }
     /// Eingehender Anruf (Live, Abfrage, Push) nach dem Zustand des Anrufs: schon da -> nichts; zurueckgehalten (quiet)

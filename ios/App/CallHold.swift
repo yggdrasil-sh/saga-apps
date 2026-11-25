@@ -91,6 +91,16 @@ extension CallManager {
         holdWatch(h)
     }
 
+    /// 2.6: Live-Kanal im Hintergrund der Regel CallHoldLogic.liveWanted nachfuehren (bei jedem Wechsel der Phase und
+    /// beim Wechsel in den Hintergrund): Gespraech verbunden (auch CallKit-Annehmen bei gesperrtem Geraet) -> offen,
+    /// Gespraech vorbei -> zu. Im Vordergrund steuert RootView den Kanal wie bisher. Mac: unveraendert.
+    func liveFollow(background: Bool? = nil) {
+        #if os(iOS)
+        guard let store, background ?? (UIApplication.shared.applicationState == .background) else { return }
+        if !store.needsLogin, CallHoldLogic.liveWanted(foreground: false, phase: phase.rawValue) { store.live.start() } else { store.live.stop() }
+        #endif
+    }
+
     #if os(iOS)
     /// Gespraech laeuft im Hintergrund (CallKit vorne, Bildschirm gesperrt): stille Mitteilung "{name} klopft an" - Tippen
     /// holt die App mit der Leiste nach vorn (kein zweiter CallKit-Anruf, der Ton kam schon)
@@ -98,7 +108,7 @@ extension CallManager {
         let c = UNMutableNotificationContent()
         c.title = h.label
         c.body = h.mode == .wait ? String(localized: "Anruf – dein Gespräch läuft weiter") : (h.why == "quiet" ? String(localized: "stumm (Ruhezeit)") : String(localized: "stumm (Nicht stören)"))
-        c.interruptionLevel = .timeSensitive
+        c.interruptionLevel = .active
         c.userInfo = ["kind": "call.hold", "call": h.id]
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "hold-" + h.id, content: c, trigger: nil))
     }

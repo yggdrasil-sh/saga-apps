@@ -91,6 +91,11 @@ func userStatusTests() {
 
     // Anrufe: Anklopfen, stille Anrufe
     typealias H = CallHoldLogic
+    check(H.liveWanted(foreground: true, phase: "idle") && H.liveWanted(foreground: true, phase: "active"), "Live: Vordergrund immer")
+    check(H.liveWanted(foreground: false, phase: "active") && H.liveWanted(foreground: false, phase: "connecting") && H.liveWanted(foreground: false, phase: "ringingOut"),
+          "Live im Hintergrund waehrend des Gespraechs (CallKit-Annehmen auf dem Sperrbildschirm)")
+    check(!H.liveWanted(foreground: false, phase: "idle") && !H.liveWanted(foreground: false, phase: "ended") && !H.liveWanted(foreground: false, phase: "incoming"),
+          "Live im Hintergrund ohne Gespraech zu (auch beim blossen Klingeln)")
     check(H.reportsWaiting(serverFeatures: ["reneg", "waiting1"]) && !H.reportsWaiting(serverFeatures: ["reneg", "multi"]), "waiting1 nur mit Server")
     check(H.ring(sameCallActive: true, busy: true, waiting: true, quiet: false, freed: false) == .ignore, "derselbe Anruf")
     check(H.ring(sameCallActive: false, busy: true, waiting: true, quiet: false, freed: false) == .knock(here: true), "im Gespraech: Anklopf-Leiste")

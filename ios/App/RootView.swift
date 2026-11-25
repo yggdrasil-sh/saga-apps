@@ -223,7 +223,7 @@ struct RootView: View {
             if p == .active { Task { await store.refresh(); store.live.start(); await store.calls.checkActive(); await FirstStepsModel.shared.check(store) }; store.push.languageCheck() }   // 2.5: Push-Sprache       // im Web angelegte Seiten; Live nur im Vordergrund; 2031: Erste Schritte (gedrosselt)
             // 2.6 (2029-6): waehrend eines Gespraechs bleibt der Live-Kanal offen (die App laeuft per Audio weiter) - sonst
             // kaeme Anklopfen (waiting1, ohne Push) bei gesperrtem Bildschirm nie an; CallManager.finish schliesst ihn danach
-            if p == .background { WidgetCenter.shared.reloadAllTimelines(); if !store.calls.busy { store.live.stop() } }   // Widgets zeigen sofort den neuen Stand
+            if p == .background { WidgetCenter.shared.reloadAllTimelines(); store.calls.liveFollow(background: true) }   // Widgets zeigen sofort den neuen Stand
         }
         .onChange(of: store.needsLogin) { _, v in
             if v { store.live.stop(); FirstStepsModel.shared.reset() }
