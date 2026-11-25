@@ -28,6 +28,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Anrufe: Anklopf-Leiste im Gespräch („Beenden und annehmen“ erst nach bestätigtem Ende), stille Leiste bei
   zurückgehaltenen Anrufen, „Klopft an …“ beim Anrufen, „Verpasster Anruf (Nicht stören)“, Sammelmeldung nur mit Zahlen.
   Braucht Saga-Server mit `userstatus1`/`waiting1`; ältere Server: keine Änderung.
+- **Eigener Status in iOS/iPadOS: Verfügbar / Beschäftigt / Nicht stören** (Bugs-DB 2029-6, wie das Web): Einstellungen ›
+  „Mein Status“ setzt Zustand, Dauer (1 Stunde, bis morgen 7:00, bis ich es ausschalte) und einen Text (≤ 80 Zeichen);
+  angezeigt wird, was wirkt (Ablauf, Ruhezeit, im Anruf), am Kontoknopf ein Punkt. Neuer Abschnitt „Erreichbarkeit“
+  (Ruhezeiten, Sammelmeldung, Anklopfen/Besetzt, „Im Anruf“ zeigen, Mitteilungen bei „Beschäftigt“, wiederholte Anrufe,
+  Erwähnungen, Ausnahmen). Der Status von Chat-Partnern steht als Abzeichen in der Chat-Liste und als Chip im Chat-Kopf;
+  bei „Nicht stören“ fragt die App vor dem Anruf nach. Anklopfen: ein zweiter Anruf im Gespräch erscheint als Leiste
+  („Ablehnen“ / „Beenden und annehmen“, erst nach bestätigtem Ende) statt als zweiter CallKit-Anruf; zurückgehaltene
+  Anrufe als stille Leiste; „Verpasster Anruf (Nicht stören)“ im Chat; Sammelmeldung nur mit Zahlen. Fokus-Filter
+  „Saga-Status“ sendet nur Zustand und Quelle (nie den Namen des Fokus). Braucht Saga mit `userstatus1`/`waiting1`
+  (Server `fedec6a`); ältere Server: nichts davon sichtbar, Anrufe wie bisher.
 
 - **Leere Zustände mit nächstem Schritt und „Erste Schritte“** (Bugs-DB 2031, iOS/iPad, Android, Linux – wie das Web):
   Wo eine Liste leer ist (Heute, Aufgaben, Termine, Datenbank, Seiten, Mit mir geteilt …), steht ein kurzer Satz, was
