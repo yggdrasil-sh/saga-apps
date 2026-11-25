@@ -379,7 +379,9 @@ enum CallRoom {
                        media: (d["media"] as? String) == "video" ? "video" : "audio", state: (d["state"] as? String) ?? "",
                        mine: (d["mine"] as? [Any] ?? []).compactMap { $0 as? String }, legs: legs(d["legs"]),
                        joinable: (d["joinable"] as? Bool) == true, block: block(d["join_block"] as? String),
-                       limit: limit(media: (d["media"] as? String) ?? "audio", server: (d["limit"] as? NSNumber)?.intValue),
+                       // 2.6 (Bugs-DB 2418): Knoten-Anruf - Grenze des Servers (sonst zeigte die Leiste "alle 4 Plaetze")
+                       limit: limit(media: (d["media"] as? String) ?? "audio", server: (d["limit"] as? NSNumber)?.intValue,
+                                    horn: (d["topo"] as? String) == "horn"),
                        invite: d["invite"] as? String, created: (d["created"] as? NSNumber)?.doubleValue ?? 0,
                        ringS: (d["ring_s"] as? NSNumber)?.doubleValue ?? 45, peerName: (peer["name"] as? String) ?? "", role: (d["role"] as? String) ?? "",
                        takeover: (d["takeover"] as? Bool) == true, inviteSince: (d["invite_since"] as? NSNumber)?.doubleValue,

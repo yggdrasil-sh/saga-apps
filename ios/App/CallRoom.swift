@@ -351,7 +351,8 @@ extension CallManager {
         guard roster.apply(legs, rv: rv) else { CallEnv.log("roster: aeltere Liste verworfen"); return }
         let here = myDevice ?? ""
         if let e = extra {
-            if let n = ShareJSON.int(e["limit"]) { limit = CallRoom.limit(media: media, server: n, horn: topo == "horn") }
+            // 2.6 (Bugs-DB 2418): topo aus demselben Objekt (call.roster traegt es), sonst der bekannte Stand
+            if let n = ShareJSON.int(e["limit"]) { limit = CallRoom.limit(media: media, server: n, horn: ((e["topo"] as? String) ?? topo) == "horn") }
             // 2.5 P10: Gruppenanruf ueber Servergrenzen ohne Knoten (ein Server kann keinen nutzen) - einmal sagen
             if let m = CallRoom.meshNote(e), !meshNoted { meshNoted = true; toast = m }
         }
