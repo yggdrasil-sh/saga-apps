@@ -91,6 +91,8 @@ targets:
         destinationFilters: [iOS]
       - target: HlidskjalfBroadcast                       # 2.4: Bildschirm teilen (ReplayKit), nur iPhone/iPad
         destinationFilters: [iOS]
+      - target: HlidskjalfNotify                          # SAGA_NOTIFY_DEP 2262: Mitteilungen Ende-zu-Ende entschluesseln
+        destinationFilters: [iOS]                         # SAGA_NOTIFY_DEP (build-adhoc/-testflight: ohne Profil ohne NSE)
   HlidskjalfWidget:
     type: app-extension
     supportedDestinations: [iOS]                         # Mac: SagaShellWidget (gleiche Quellen)
@@ -164,6 +166,31 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).broadcast
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_ENTITLEMENTS: Broadcast/Broadcast.entitlements
+  # 2262 (2.6): Notification Service Extension - entschluesselt Ende-zu-Ende-Mitteilungen (Shared/PushE2E.swift) aus dem
+  # Schluesselbund (Gruppe SAGA_KEYCHAIN_GROUP); keine App-Gruppe, kein Netz. Signierung: eigene App-ID $(SAGA_BUNDLE_ID).notify
+  # ohne weitere Faehigkeiten (build-adhoc.sh/-testflight.sh legen sie mit -allowProvisioningUpdates an; klappt das nicht,
+  # bauen sie ohne die Erweiterung weiter - die App schickt dann keine Schluessel und bekommt Mitteilungen wie bisher).
+  # SAGA_PUSH_TEST_KEY (nur Testbuilds, DEBUG): fester Testschluessel fuer Tests/NotifTap (unsigniert kein geteilter Schluesselbund)
+  HlidskjalfNotify:
+    type: app-extension
+    platform: iOS
+    sources: [Notify, Shared/PushE2E.swift, Shared/Keychain.swift, Shared/Localizable.xcstrings]
+    info:
+      path: Notify/Info.plist
+      properties:
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleDisplayName: Saga
+        SagaKeychainGroup: $(SAGA_KEYCHAIN_GROUP)
+        SagaPushTestKey: $(SAGA_PUSH_TEST_KEY)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.usernotifications.service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).notify
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_ENTITLEMENTS: Notify/Notify.entitlements
   # Eingefroren seit P3 (gehoerte zur nativen Mac-App, keine Abhaengigkeit mehr) - die Huelle nutzt SagaShellShareMac
   HlidskjalfShareMac:
     type: app-extension

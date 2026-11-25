@@ -48,6 +48,8 @@ SAGA_SHELL_NAME = Saga
 // (preGenCommand in project.yml); die Bauskripte setzen beide zusaetzlich direkt. Rueckfall ohne die Datei:
 SAGA_VERSION_LABEL = $(MARKETING_VERSION)-rc.0
 CURRENT_PROJECT_VERSION = 1
+// 2262: fester Testschluessel der Mitteilungs-Erweiterung (nur Testbuilds, wirkt nur in DEBUG; leer = aus)
+SAGA_PUSH_TEST_KEY =
 #include? "Version.xcconfig"
 
 #include? "Local.xcconfig"

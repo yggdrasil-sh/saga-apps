@@ -7,10 +7,10 @@ enum AppConfig {
         let v = (Bundle.main.object(forInfoDictionaryKey: key) as? String ?? "").trimmingCharacters(in: .whitespaces)
         return v.hasPrefix("$(") ? "" : v                                  // nicht ersetzte Variable = nicht gesetzt
     }
-    /// App-ID der Haupt-App (in Erweiterungen ohne .widget/.share/.sharemac)
+    /// App-ID der Haupt-App (in Erweiterungen ohne .widget/.share/.sharemac/.notify) - 2262: auch Topic des Mitteilungs-Abos
     static let mainBundleID: String = {
         let id = Bundle.main.bundleIdentifier ?? "io.github.yggdrasil-sh.saga"
-        for s in [".widget", ".sharemac", ".share"] where id.hasSuffix(s) { return String(id.dropLast(s.count)) }
+        for s in [".widget", ".sharemac", ".share", ".notify"] where id.hasSuffix(s) { return String(id.dropLast(s.count)) }
         return id
     }()
     static let appGroup: String = { let g = info("SagaAppGroup"); return g.isEmpty ? "group." + mainBundleID : g }()

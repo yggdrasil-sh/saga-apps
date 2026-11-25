@@ -48,6 +48,28 @@ enum Keychain {
         return nil
     }
 
+    /// Alle Konten eines Dienstes (2262: Mitteilungs-Schluessel je Server, Suche ueber die Kennung)
+    static func accounts(service: String) -> [String] {
+        #if DEBUG
+        if let f = testFile { return testAll(f).keys.filter { $0.hasPrefix(service + "|") }.map { String($0.dropFirst(service.count + 1)) }.sorted() }
+        #endif
+        var out = Set<String>()
+        for dp in variants {
+            var q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+                                    kSecReturnAttributes as String: true, kSecMatchLimit as String: kSecMatchLimitAll]
+            #if os(macOS)
+            if dp { q[kSecUseDataProtectionKeychain as String] = true }
+            #else
+            _ = dp
+            #endif
+            var res: AnyObject?
+            if SecItemCopyMatching(q as CFDictionary, &res) == errSecSuccess, let items = res as? [[String: Any]] {
+                for i in items { if let a = i[kSecAttrAccount as String] as? String { out.insert(a) } }
+            }
+        }
+        return out.sorted()
+    }
+
     static func delete(service: String, account: String) {
         #if DEBUG
         if let f = testFile { testSet(f, service + "|" + account, nil); return }
