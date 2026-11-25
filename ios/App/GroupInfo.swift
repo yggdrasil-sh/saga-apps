@@ -70,13 +70,16 @@ struct ContactRow: View {
     }
 }
 
-/// Abschnitt "Kontakte": waehlbar (ausser gone), Wischen bzw. Kontextmenue "Aus Kontakten entfernen"
+/// Abschnitt "Kontakte": waehlbar (ausser gone), Wischen bzw. Kontextmenue "Aus Kontakten entfernen";
+/// 2.6 (contacts2): im Kontextmenue dazu "Kontakt bearbeiten …" (Adressbuch, ContactBook.swift)
 struct ContactsSection: View {
     @ObservedObject var chat: ChatModel
     let list: [ChatContact]
     var picked: (ChatContact) -> Bool = { _ in false }
     var disabled = false
     let pick: (ChatContact) -> Void
+    /// Blatt "Kontakt bearbeiten" haengt an der Liste (ContactEditPresenter), nicht am Section (Bugs-DB 2200)
+    private var book: ContactBookModel? { chat.store.flatMap { $0.contacts.on ? $0.contacts : nil } }
     var body: some View {
         if !list.isEmpty {
             Section("Kontakte") {
@@ -88,6 +91,9 @@ struct ContactsSection: View {
                             Button(role: .destructive) { Task { await chat.hideContact(k) } } label: { Label("Aus Kontakten entfernen", systemImage: "person.crop.circle.badge.minus") }
                         }
                         .contextMenu {
+                            if let cid = k.contactId, book != nil {
+                                Button { book?.editing = .init(id: cid) } label: { Label("Kontakt bearbeiten …", systemImage: "pencil") }
+                            }
                             Button(role: .destructive) { Task { await chat.hideContact(k) } } label: { Label("Aus Kontakten entfernen", systemImage: "person.crop.circle.badge.minus") }
                         }
                 }
@@ -143,6 +149,7 @@ struct GroupInfoSheet: View {
                 }
             }
             .formStyle(.grouped)
+            .modifier(ContactEditPresenter(model: store.contacts))   // 2.6 (2027a-5): "Kontakt bearbeiten …" (Bugs-DB 2200: an der Form)
             // Bugs-DB 2199: Bildauswahl einmal an der Form (nicht am Section der Zeilen) - sonst schloss iOS das Blatt
             .photosPicker(isPresented: $pickPhoto, selection: $photo, matching: .images)
             .onChange(of: photo) { _, it in

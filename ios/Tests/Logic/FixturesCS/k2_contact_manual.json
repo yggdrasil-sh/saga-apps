@@ -1,0 +1,29 @@
+{
+ "addrs": [
+  {
+   "fixed": false,
+   "id": 12,
+   "kind": "e164",
+   "type": "mobile",
+   "value": "+4915112345678"
+  },
+  {
+   "fixed": false,
+   "id": 13,
+   "kind": "email",
+   "type": "home",
+   "value": "klara@example.net"
+  }
+ ],
+ "created": 1795602303.7935607,
+ "form": "informal",
+ "id": 10,
+ "last_at": null,
+ "name": "Klara Neumann",
+ "origin": "manual",
+ "own_name": "Klara Neumann",
+ "saga": null,
+ "salutation": null,
+ "updated": 1795602303.7935607,
+ "ver": 1
+}

@@ -1,0 +1,190 @@
+{
+ "contacts": [
+  {
+   "addrs": [
+    {
+     "fixed": false,
+     "id": 12,
+     "kind": "e164",
+     "type": "mobile",
+     "value": "+4915112345678"
+    },
+    {
+     "fixed": false,
+     "id": 13,
+     "kind": "email",
+     "type": "home",
+     "value": "klara@example.net"
+    }
+   ],
+   "created": 1795602303.7935607,
+   "form": "informal",
+   "id": 10,
+   "last_at": null,
+   "name": "Klara Neumann",
+   "origin": "manual",
+   "own_name": "Klara Neumann",
+   "saga": null,
+   "salutation": null,
+   "updated": 1795602303.7935607,
+   "ver": 1
+  },
+  {
+   "addrs": [
+    {
+     "fixed": false,
+     "id": 11,
+     "kind": "e164",
+     "type": "work",
+     "value": "+49301234567"
+    }
+   ],
+   "created": 1795602303.7887337,
+   "form": null,
+   "id": 9,
+   "last_at": null,
+   "name": "Praxis Dr. Weber",
+   "origin": "manual",
+   "own_name": "Praxis Dr. Weber",
+   "saga": null,
+   "salutation": null,
+   "updated": 1795602303.7887337,
+   "ver": 1
+  },
+  {
+   "addrs": [
+    {
+     "fixed": true,
+     "id": 8,
+     "kind": "saga",
+     "type": null,
+     "value": "~5xivcu4mafo3xnsz"
+    }
+   ],
+   "created": 1795602302.6336522,
+   "form": null,
+   "id": 8,
+   "last_at": 1795602302.6336522,
+   "name": "Emil Brand",
+   "origin": "chat",
+   "own_name": null,
+   "saga": {
+    "avatar": null,
+    "gone": false,
+    "host": null,
+    "ready": true,
+    "ref": "~5xivcu4mafo3xnsz",
+    "remote": false,
+    "sub": "~5xivcu4mafo3xnsz"
+   },
+   "salutation": null,
+   "updated": 1795602302.6336522,
+   "ver": 1
+  },
+  {
+   "addrs": [
+    {
+     "fixed": true,
+     "id": 6,
+     "kind": "saga",
+     "type": null,
+     "value": "~jsi3qw2jt45cuqhw"
+    }
+   ],
+   "created": 1795602301.5218158,
+   "form": null,
+   "id": 6,
+   "last_at": 1795602301.5218158,
+   "name": "Dora Stein",
+   "origin": "chat",
+   "own_name": null,
+   "saga": {
+    "avatar": null,
+    "gone": false,
+    "host": null,
+    "ready": true,
+    "ref": "~jsi3qw2jt45cuqhw",
+    "remote": false,
+    "sub": "~jsi3qw2jt45cuqhw"
+   },
+   "salutation": null,
+   "updated": 1795602301.5218158,
+   "ver": 1
+  },
+  {
+   "addrs": [
+    {
+     "fixed": true,
+     "id": 4,
+     "kind": "saga",
+     "type": null,
+     "value": "~cdgzjabqd6fmhkky"
+    }
+   ],
+   "created": 1795602300.4100723,
+   "form": "formal",
+   "id": 4,
+   "last_at": 1795602300.4100723,
+   "name": "Cora (Chor)",
+   "origin": "chat",
+   "own_name": "Cora (Chor)",
+   "saga": {
+    "avatar": null,
+    "gone": false,
+    "host": null,
+    "ready": true,
+    "ref": "~cdgzjabqd6fmhkky",
+    "remote": false,
+    "sub": "~cdgzjabqd6fmhkky"
+   },
+   "salutation": "Sehr geehrte Frau Lind",
+   "updated": 1795602303.7843182,
+   "ver": 2
+  },
+  {
+   "addrs": [
+    {
+     "fixed": true,
+     "id": 2,
+     "kind": "saga",
+     "type": null,
+     "value": "~ghkkaqbomeqvmpjk"
+    },
+    {
+     "fixed": false,
+     "id": 9,
+     "kind": "e164",
+     "type": "mobile",
+     "value": "+491701234567"
+    },
+    {
+     "fixed": false,
+     "id": 10,
+     "kind": "email",
+     "type": "work",
+     "value": "bert@example.org"
+    }
+   ],
+   "created": 1795602299.2971847,
+   "form": "informal",
+   "id": 2,
+   "last_at": 1795602299.2971847,
+   "name": "Bert Berg",
+   "origin": "chat",
+   "own_name": null,
+   "saga": {
+    "avatar": null,
+    "gone": false,
+    "host": null,
+    "ready": true,
+    "ref": "~ghkkaqbomeqvmpjk",
+    "remote": false,
+    "sub": "~ghkkaqbomeqvmpjk"
+   },
+   "salutation": "Lieber Bert",
+   "updated": 1795602303.7777584,
+   "ver": 2
+  }
+ ],
+ "total": 6
+}

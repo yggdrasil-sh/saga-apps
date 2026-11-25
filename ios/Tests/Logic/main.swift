@@ -109,5 +109,6 @@ hornViewTests()                  // Bugs-DB 2193: Teilen mitten im Knoten-Anruf 
 presentTests()                   // Bugs-DB 2200/2197: keine Blaetter am Section, Feld "Verbindung" hell/dunkel
 firstStepsTests()                // Bugs-DB 2031: Erste Schritte, leere Zustaende
 userStatusTests()                // Bugs-DB 2029-6: eigener Status, Erreichbarkeit, Anklopfen
+contactBookTests()               // Bugs-DB 2027a-5: Adressbuch (contacts2)
 print("Logik-Tests 2.0: \(passed) ok, \(failed) fehlgeschlagen")
 exit(failed == 0 ? 0 : 1)

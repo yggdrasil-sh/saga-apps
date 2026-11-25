@@ -1,0 +1,44 @@
+{
+ "addrs": [
+  {
+   "fixed": true,
+   "id": 2,
+   "kind": "saga",
+   "type": null,
+   "value": "~ghkkaqbomeqvmpjk"
+  },
+  {
+   "fixed": false,
+   "id": 9,
+   "kind": "e164",
+   "type": "mobile",
+   "value": "+491701234567"
+  },
+  {
+   "fixed": false,
+   "id": 10,
+   "kind": "email",
+   "type": "work",
+   "value": "bert@example.org"
+  }
+ ],
+ "created": 1795602299.2971847,
+ "form": "informal",
+ "id": 2,
+ "last_at": 1795602299.2971847,
+ "name": "Bert Berg",
+ "origin": "chat",
+ "own_name": null,
+ "saga": {
+  "avatar": null,
+  "gone": false,
+  "host": null,
+  "ready": true,
+  "ref": "~ghkkaqbomeqvmpjk",
+  "remote": false,
+  "sub": "~ghkkaqbomeqvmpjk"
+ },
+ "salutation": "Lieber Bert",
+ "updated": 1795602303.7777584,
+ "ver": 2
+}

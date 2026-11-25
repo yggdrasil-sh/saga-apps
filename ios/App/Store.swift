@@ -98,6 +98,7 @@ final class Store: ObservableObject {
     let push = PushModel()
     let calls = CallManager()                                        // Anrufe (2.1)
     let ustatus = UserStatusModel()                                  // 2.6 (2029-6): eigener Status (userstatus1)
+    let contacts = ContactBookModel()                                // 2.6 (2027a-5): Adressbuch (contacts2)
     /// 2.6: laufende Sitzung fuer den Fokus-Filter (StatusFocusFilter, laeuft im App-Prozess)
     static weak var current: Store?
 
@@ -128,7 +129,7 @@ final class Store: ObservableObject {
             }
         }
         live.store = self; notifs.store = self; chat.store = self; push.store = self
-        ustatus.store = self; Store.current = self
+        ustatus.store = self; contacts.store = self; Store.current = self
         AvatarCache.shared.store = self
         calls.store = self; CallSystem.shared.manager = calls
         ClientLog.shared.store = self                                  // 2.5 Fehlerberichte/Diagnose (clientlog1)
@@ -1248,6 +1249,7 @@ final class Store: ObservableObject {
         images.removeAllObjects(); cookieHeader = nil; AvatarCache.shared.reset(); FaviconLoader.shared.reset()
         URLCache.shared.removeAllCachedResponses()                      // Profilbilder (private, max-age) u. a. nicht liegen lassen
         live.stop(); live.forgetServer(); notifs.reset(); calls.signedOut(); chat.signedOut(); push.signedOut()   // 2.0: Live, Glocke, Chat-Schluessel im Speicher, Push-Abo
+        contacts.clear()                                                  // 2.6 (2027a): Adressbuch gehoert zum Konto
         cursorEpoch += 1; noteCursor = nil; savedCursor = nil; listUnsaved = false; cacheLoad?.cancel(); cacheLoad = nil   // Abgleich-Stand gehoert zum Konto
         pages = []; archivedPages = []; list = PageList(); listGen += 1; shared = []; fedShared = []; aiEnabled = false; aiPersona = nil; aiChat = false; aiHost = ""; fedUnreachable = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
         AppConfig.store.removeObject(forKey: "w.tasks")                 // Widget: eben abgehakte Aufgaben (IDs des alten Kontos)

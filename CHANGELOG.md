@@ -8,6 +8,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Neu
 
+- **Kontakte in iOS/iPadOS** (Bugs-DB 2027a-5, wie das Web): Einstellungen › „Kontakte“ zeigt das Adressbuch – Personen
+  aus gemeinsamen Chats und eigene Kontakte – mit Suche (Name, Nummer, E-Mail). Detail mit fester Saga-Zeile und
+  „Nachricht“ (öffnet den Direkt-Chat), Telefonnummern (`tel:`) und E-Mail-Adressen (`mailto:`) mit Typ (Mobil, Privat,
+  Arbeit, Andere), Anrede (du/Sie) und Grußform. Bearbeiten: „Name für mich“ (nur im Adressbuch, nicht in Chats),
+  Anrede, Grußform, Nummern und Mails; anderswo geändert (409) → neuer Stand, die Eingabe bleibt; schon bei einem
+  anderen Kontakt vorhanden → „Zum anderen Kontakt“. „Neuer Kontakt“ (Name + Nummer oder Mail), „Kontakt löschen“ mit
+  Rückfrage. Landesvorwahl für Nummern mit 0: Konto-Einstellung, Vorschlag aus der Region des Geräts. In „Neue
+  Unterhaltung“ und „Mitglied hinzufügen“ hat das Kontakt-Menü „Kontakt bearbeiten …“. Live-Abgleich
+  (`contacts.changed`). Braucht Saga mit `contacts2`; ältere Server: alles wie bisher.
 - **Eigener Status in der Linux-App** (Bugs-DB 2029-8, wie das Web): Klick auf das eigene Profilbild zeigt den Status
   (Punkt am Bild, wenn nicht verfügbar); „Mein Status“ setzt Verfügbar / Beschäftigt / Nicht stören mit Dauer (1 Stunde,
   bis morgen 7:00, bis ich es ausschalte) und eigenem Text (bis 80 Zeichen), zeigt ehrlich, was gerade wirkt (Ablauf,

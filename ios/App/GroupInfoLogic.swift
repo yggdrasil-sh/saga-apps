@@ -113,11 +113,13 @@ struct ChatContact: Equatable, Identifiable {
     var ready: Bool
     var gone: Bool
     var lastAt: Double
+    /// 2.6 (contacts2): Eintrag im Adressbuch (GET /api/contacts/{id}) - "Kontakt bearbeiten …"
+    var contactId: Int?
     var id: String { ref }
     init(ref: String, name: String, sub: String? = nil, host: String? = nil, avatar: String? = nil, remote: Bool = false,
-         ready: Bool = true, gone: Bool = false, lastAt: Double = 0) {
+         ready: Bool = true, gone: Bool = false, lastAt: Double = 0, contactId: Int? = nil) {
         self.ref = ref; self.name = name; self.sub = sub; self.host = host; self.avatar = avatar; self.remote = remote
-        self.ready = ready; self.gone = gone; self.lastAt = lastAt
+        self.ready = ready; self.gone = gone; self.lastAt = lastAt; self.contactId = contactId
     }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let ref = ShareJSON.str(d["ref"]) else { return nil }
@@ -125,7 +127,7 @@ struct ChatContact: Equatable, Identifiable {
         self.init(ref: ref, name: PersonName.shown(ShareJSON.str(d["name"]), id: ref), sub: PersonRef.sub(d["sub"]),
                   host: ShareJSON.str(d["host"]) ?? (remote ? FedChatLogic.host(of: ref) : nil), avatar: ShareJSON.str(d["avatar"]),
                   remote: remote, ready: d["ready"] == nil ? true : ShareJSON.bool(d["ready"]), gone: ShareJSON.bool(d["gone"]),
-                  lastAt: ShareJSON.num(d["last_at"]) ?? 0)
+                  lastAt: ShareJSON.num(d["last_at"]) ?? 0, contactId: ShareJSON.int(d["contact_id"]))
     }
     /// als Treffer anderer Server (Neue Unterhaltung: Gruppe mit Personen anderer Server)
     var fedPerson: FedPerson {

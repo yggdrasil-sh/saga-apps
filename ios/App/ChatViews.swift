@@ -517,6 +517,7 @@ struct NewChatSheet: View {
                 if let err { Text(verbatim: err).font(.footnote).foregroundStyle(.red) }
             }
             .formStyle(.grouped)
+            .modifier(ContactEditPresenter(model: store.contacts))   // 2.6 (2027a-5): "Kontakt bearbeiten …" (Bugs-DB 2200: an der Form)
             .navigationTitle("Neue Unterhaltung")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

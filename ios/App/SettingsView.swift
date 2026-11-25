@@ -71,6 +71,7 @@ struct SettingsView: View {
         case .konto: KontoSettings(scroll: $scroll, close: { dismiss() }, logout: macLogout)
         case .einstellungen: GeneralSettings(scroll: $scroll)
         case .info: InfoSettings(close: { dismiss() })
+        case .kontakte: ContactBookView(model: store.contacts, close: { dismiss() })   // 2.6 (2027a-5, contacts2)
         }
     }
 
@@ -106,6 +107,7 @@ struct SettingsView: View {
                 MyStatusSection(model: store.ustatus) { statusOpen = true }   // 2.6 (2029-6): eigener Status (userstatus1)
                 Section {
                     NavigationLink(value: SettingsArea.einstellungen) { Label("Einstellungen", systemImage: "gearshape") }
+                    ContactsSettingsLink(model: store.contacts)              // 2.6 (2027a-5): Adressbuch (nur mit contacts2)
                     NavigationLink(value: SettingsArea.info) {
                         HStack {
                             Label("Info", systemImage: "info.circle")

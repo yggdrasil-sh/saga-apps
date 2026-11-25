@@ -1,0 +1,48 @@
+{
+ "contacts": [
+  {
+   "avatar": null,
+   "contact_id": 8,
+   "gone": false,
+   "last_at": 1795602302.6336522,
+   "name": "Emil Brand",
+   "ready": true,
+   "ref": "~5xivcu4mafo3xnsz",
+   "remote": false,
+   "sub": "~5xivcu4mafo3xnsz"
+  },
+  {
+   "avatar": null,
+   "contact_id": 6,
+   "gone": false,
+   "last_at": 1795602301.5218158,
+   "name": "Dora Stein",
+   "ready": true,
+   "ref": "~jsi3qw2jt45cuqhw",
+   "remote": false,
+   "sub": "~jsi3qw2jt45cuqhw"
+  },
+  {
+   "avatar": null,
+   "contact_id": 4,
+   "gone": false,
+   "last_at": 1795602300.4100723,
+   "name": "Cora Lind",
+   "ready": true,
+   "ref": "~cdgzjabqd6fmhkky",
+   "remote": false,
+   "sub": "~cdgzjabqd6fmhkky"
+  },
+  {
+   "avatar": null,
+   "contact_id": 2,
+   "gone": false,
+   "last_at": 1795602299.2971847,
+   "name": "Bert Berg",
+   "ready": true,
+   "ref": "~ghkkaqbomeqvmpjk",
+   "remote": false,
+   "sub": "~ghkkaqbomeqvmpjk"
+  }
+ ]
+}
