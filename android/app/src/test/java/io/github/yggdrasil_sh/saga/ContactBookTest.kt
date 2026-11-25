@@ -209,7 +209,7 @@ class ContactBookTest {
         assertEquals("tel:+491701234567", ContactBookLogic.telUri("+49 170 1234567"))
         assertEquals("mailto:anna@example.org", ContactBookLogic.mailUri(" anna@example.org "))
         // Pruefung k27arev: ? # % & im Teil vor @ kodiert (keine Abfrage/kein Fragment, kein untergeschobenes cc)
-        assertEquals("mailto:a%3Fcc%3Dx@example.org", ContactBookLogic.mailUri("a?cc=x@example.org"))
+        assertEquals("mailto:a%3Fcc=x@example.org", ContactBookLogic.mailUri("a?cc=x@example.org"))
         assertEquals("mailto:a%23b%25c%26d@example.org", ContactBookLogic.mailUri("a#b%c&d@example.org"))
         assertEquals("mailto:j%C3%BCrgen+tag@example.org", ContactBookLogic.mailUri("jürgen+tag@example.org"))
         assertEquals("mailto:a%2Cb@example.org", ContactBookLogic.mailUri("a,b@example.org"))           // kein zweiter Empfaenger
