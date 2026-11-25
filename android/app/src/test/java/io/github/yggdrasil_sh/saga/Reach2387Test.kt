@@ -165,8 +165,9 @@ class Reach2387Test {
     fun busyElsewhereSkipsJustEnded() {
         val mineDm = CallInfo(id = other, state = "active", role = "caller")
         assertTrue(HoldFlow.busyElsewhere(listOf(mineDm), setOf(id, null, null)))
-        // das gerade hier beendete Gespraech (Server meldet es noch kurz als aktiv) zaehlt nicht
-        assertFalse(HoldFlow.busyElsewhere(listOf(mineDm), setOf(id, null, other)))
+        // das gerade hier beendete Gespraech (Server meldet es noch kurz als aktiv, samt diesem Geraet) zaehlt nicht
+        assertFalse(HoldFlow.busyElsewhere(listOf(mineDm), setOf(id, null), ended = other, myDev = "dev1"))
+        assertFalse(HoldFlow.busyElsewhere(listOf(mineDm.copy(mine = listOf("dev1"))), setOf(id, null), ended = other, myDev = "dev1"))
         // der wartende Anruf selbst, klingelnde Anrufe und fremde Gruppenanrufe zaehlen nicht
         assertFalse(HoldFlow.busyElsewhere(listOf(mineDm.copy(id = id)), setOf(id)))
         assertFalse(HoldFlow.busyElsewhere(listOf(mineDm.copy(state = "ringing")), setOf(id)))
@@ -175,6 +176,36 @@ class Reach2387Test {
         assertTrue(HoldFlow.busyElsewhere(listOf(grp.copy(mine = listOf("dev2"))), setOf(id)))
         // 1:1 ueber Knoten: Rolle genuegt
         assertTrue(HoldFlow.busyElsewhere(listOf(grp.copy(dm = true, role = "callee")), setOf(id)))
+    }
+
+    /**
+     * Bugs-DB 2393: Gruppenanruf hier aufgelegt, ein zweites eigenes Geraet spricht darin weiter -> "woanders im Gespraech"
+     * (kein "Annehmen"). Nur dieses Geraet (bzw. keins) noch im Anruf -> zaehlt nicht.
+     */
+    @Test
+    fun busyElsewhereGroupWithSecondOwnDevice() {
+        val grp = CallInfo(id = other, state = "active", kind = CallRoom.KIND_GROUP, role = "member")
+        // vorher: das beendete Gespraech wurde immer uebersprungen -> faelschlich frei
+        assertTrue(HoldFlow.busyElsewhere(listOf(grp.copy(mine = listOf("dev2"))), setOf(id, null), ended = other, myDev = "dev1"))
+        assertTrue(HoldFlow.busyElsewhere(listOf(grp.copy(mine = listOf("dev1", "dev2"))), setOf(id, null), ended = other, myDev = "dev1"))
+        // nur noch dieses Geraet (Server meldet es kurz weiter) bzw. keins: frei
+        assertFalse(HoldFlow.busyElsewhere(listOf(grp.copy(mine = listOf("dev1"))), setOf(id, null), ended = other, myDev = "dev1"))
+        assertFalse(HoldFlow.busyElsewhere(listOf(grp), setOf(id, null), ended = other, myDev = "dev1"))
+        // inzwischen vorbei: frei
+        assertFalse(HoldFlow.busyElsewhere(listOf(grp.copy(state = "ended", mine = listOf("dev2"))), setOf(id, null), ended = other, myDev = "dev1"))
+        // 1:1 (auch ueber Knoten): beendet ohne weiteres eigenes Geraet frei, mit Begleitgeraet bzw. nach Uebergabe belegt
+        val dm = CallInfo(id = other, state = "active", role = "caller", mine = listOf("dev1"))
+        assertFalse(HoldFlow.busyElsewhere(listOf(dm, grp.copy(dm = true, mine = listOf("dev1"))), setOf(id, null), ended = other, myDev = "dev1"))
+        assertTrue(HoldFlow.busyElsewhere(listOf(dm.copy(mine = listOf("dev3"))), setOf(id, null), ended = other, myDev = "dev1"))
+        // Geraete-ID unbekannt: lieber kein "Annehmen" (sonst zwei Gespraeche)
+        assertTrue(HoldFlow.busyElsewhere(listOf(grp.copy(mine = listOf("dev1"))), setOf(id, null), ended = other, myDev = ""))
+        // ein ANDERES Gespraech laeuft woanders weiter: zaehlt wie bisher
+        val g2 = grp.copy(id = "c".repeat(32), mine = listOf("dev2"))
+        assertTrue(HoldFlow.busyElsewhere(listOf(grp.copy(mine = listOf("dev1")), g2), setOf(id, null), ended = other, myDev = "dev1"))
+        // Ergebnis in die stille Leiste: kein "Annehmen"
+        val waiting = (HoldFlow.freed(bar(HoldBar.Mode.QUIET, here = true), taking = false, nowMs = 1_000) as HoldFlow.Freed.Recheck).bar
+        val b = HoldFlow.busyElsewhere(listOf(grp.copy(mine = listOf("dev2"))), setOf(id, null), ended = other, myDev = "dev1")
+        HoldFlow.rechecked(waiting, id, b)!!.let { assertTrue(it.elsewhere); assertFalse(it.canAccept) }
     }
 
     // ------------------------------------------------------------ 3. checkRing / holdTake / hangupConfirmed

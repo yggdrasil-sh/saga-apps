@@ -3021,7 +3021,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     /** Laeuft ein eigenes Gespraech auf einem anderen Geraet? (GET /api/calls/active; [ended]: gerade hier beendet) */
     private suspend fun busyElsewhere(id: String, ended: String? = null): Boolean = try {
-        HoldFlow.busyElsewhere(json.decodeFromString(CallsActive.serializer(), api.get("api/calls/active")).calls, setOf(id, cur?.id, ended))
+        HoldFlow.busyElsewhere(json.decodeFromString(CallsActive.serializer(), api.get("api/calls/active")).calls, setOf(id, cur?.id), ended, myDevId())
     } catch (e: CancellationException) {
         throw e
     } catch (_: Exception) {

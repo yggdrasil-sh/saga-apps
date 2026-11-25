@@ -68,12 +68,18 @@ object HoldFlow {
 
     /**
      * Laeuft ein eigenes Gespraech auf einem anderen Geraet? (GET /api/calls/active, wie static/calls.js busyElsewhere)
-     * [skip]: der wartende Anruf selbst, das Gespraech hier und ein gerade hier beendetes (der Server kann es noch kurz
-     * als aktiv melden).
+     * [skip]: der wartende Anruf selbst und das Gespraech hier.
+     * [ended]: das gerade hier beendete Gespraech - der Server kann es noch kurz als aktiv melden (samt diesem Geraet [myDev]
+     * in `mine`). Es zaehlt nur, solange ein ANDERES eigenes Geraet darin ist (Bugs-DB 2393: Gruppenanruf, in dem das
+     * zweite Geraet weiter spricht; ebenso 1:1 mit Begleitgeraet bzw. nach der Uebergabe) - sonst bot die stille Leiste
+     * faelschlich "Annehmen" an.
      */
-    fun busyElsewhere(calls: List<CallInfo>, skip: Set<String?>): Boolean = calls.any { x ->
-        x.id !in skip && x.state == "active" &&
-            if (x.kind == CallRoom.KIND_GROUP && !x.dm) x.mine.isNotEmpty() else x.role == "caller" || x.role == "callee" || x.mine.isNotEmpty()
+    fun busyElsewhere(calls: List<CallInfo>, skip: Set<String?>, ended: String? = null, myDev: String = ""): Boolean = calls.any { x ->
+        x.id !in skip && x.state == "active" && when {
+            ended != null && x.id == ended -> x.mine.any { it != myDev }
+            x.kind == CallRoom.KIND_GROUP && !x.dm -> x.mine.isNotEmpty()
+            else -> x.role == "caller" || x.role == "callee" || x.mine.isNotEmpty()
+        }
     }
 
     // ------------------------------------------------------------ holdFreed
