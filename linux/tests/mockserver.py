@@ -14,6 +14,7 @@ import urllib.parse
 
 import mockv2
 import mockv21
+import mockstatus
 import mockstd
 import mockcovers
 import mocksiegel
@@ -176,6 +177,7 @@ class MockServer:
         mockcovers.init(self)                # Saga 2.5: Titelbild-Galerie (api/covers, Standard 404)
         mocksiegel.init(self)                # Saga 2.5: Saga-Siegel (api/siegel, /siegel/...; Feature siegel1 setzt der Test)
         mockstd.init(self)                   # Saga 2.5: Chat-Standard
+        mockstatus.init(self)                # Saga 2.6: eigener Status (Bugs-DB 2029)
 
     def _graph(self):
         """api/graph wie saga/graph.py: eigene Seiten, Unterseiten-Kanten, Zeilen unter Datenbanken"""

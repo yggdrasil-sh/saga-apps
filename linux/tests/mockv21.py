@@ -150,6 +150,10 @@ def _merge_calls(s, cid, q, reply):
 def handle(s, method, path, parts, q, b, raw, rest):
     """-> Antwort oder None; rest(): die uebrigen Pfade (mockv2 + mockserver) fuer Antworten, die hier ergaenzt werden"""
     me = s.me
+    import mockstatus
+    r = mockstatus.handle(s, method, path, parts, q, b)                 # 2.6: eigener Status, Anklopfen
+    if r is not None:
+        return r
     if path.startswith("api/avatar/"):
         if not s.avatar_api:
             return s._reply(404, {"error": "not found"})

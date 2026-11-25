@@ -35,6 +35,8 @@ def me_extra(s, d):
     if s.status_api:
         d.update(privacy=prefs(s, s.me), features=["receipts", "online"],
                  status_limits={"receipt_gap": 2.0, "presence_ttl": 90, "presence_users": 50, "last_round": 300})
+        import mockstatus
+        mockstatus.me_features(s, d)                        # 2.6: userstatus1
     return d
 
 
