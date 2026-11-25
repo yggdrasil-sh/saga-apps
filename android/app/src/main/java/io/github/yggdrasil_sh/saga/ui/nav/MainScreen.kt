@@ -596,6 +596,8 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
                     Dest.Backup -> io.github.yggdrasil_sh.saga.ui.settings.BackupScreen(repo, nav, chrome)
                     Dest.Nextcloud -> io.github.yggdrasil_sh.saga.ui.settings.NextcloudScreen(repo, nav, chrome)
                     Dest.BookOrbit -> io.github.yggdrasil_sh.saga.ui.settings.BookOrbitScreen(repo, nav, chrome)
+                    Dest.Contacts -> io.github.yggdrasil_sh.saga.ui.settings.ContactsScreen(repo, nav, chrome)
+                    is Dest.Contact -> key(d.id) { io.github.yggdrasil_sh.saga.ui.settings.ContactDetailScreen(repo, nav, chrome, d.id) }
                     is Dest.Graph -> io.github.yggdrasil_sh.saga.ui.graph.GraphScreen(repo, nav, chrome, d.focus)
                     Dest.Trash -> io.github.yggdrasil_sh.saga.ui.pages.TrashScreen(repo, nav, chrome)
                 }

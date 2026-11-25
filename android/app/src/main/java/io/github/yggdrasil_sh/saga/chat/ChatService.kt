@@ -889,6 +889,17 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
     /** 2.5 Chat-Standard (Seiten-Chat-Mitglieder, Gruppen B, Alltag A, Nachrichten C): was der Server kann */
     val std: ChatStd.Features get() = ChatStd.Features.of(repo.serverFeatures.value)
 
+    /** 2.6 (Bugs-DB 2027a, contacts2): Adressbuch (features in /api/version bzw. /api/chat/me) */
+    fun hasContactBook(): Boolean = repo.hasFeature(ContactBookLogic.FEATURE) || ReceiptLogic.has(me.value, ContactBookLogic.FEATURE)
+    val book = ContactBook(
+        get = { p -> repo.api.get(p) },
+        post = { p, b -> repo.api.post(p, b) },
+        patch = { p, b -> repo.api.patch(p, b) },
+        put = { p, b -> repo.api.put(p, b) },
+        delete = { p -> repo.api.delete(p) },
+        supported = { hasContactBook() },
+    )
+
     /** hochgezaehlt bei chat.contacts (anderes Geraet hat einen Kontakt ausgeblendet) - offene Listen laden neu */
     val contactsTick = MutableStateFlow(0)
 
@@ -1017,6 +1028,11 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
             }
             // 2.5 (contacts1): Kontakt auf einem anderen Geraet ausgeblendet -> Listen neu laden
             "chat.contacts" -> contactsTick.value++
+            // 2.6 (contacts2): Adressbuch-Eintrag angelegt/geaendert/geloescht (eigene Verbindungen) -> Kontakte neu laden
+            "contacts.changed" -> {
+                book.onLive(ev.data)
+                contactsTick.value++
+            }
             // 2.5 (block2): Sperrliste auf einem anderen Geraet geaendert
             "chat.blocks" -> {
                 blocksTick.value++

@@ -29,6 +29,9 @@ sealed interface Dest {
     data object Nextcloud : Dest
     /** 2.5 bookorbit1: Einstellungen -> BookOrbit (Leseliste verbinden/trennen) */
     data object BookOrbit : Dest
+    /** 2.6 (Bugs-DB 2027a, contacts2): Einstellungen -> Kontakte (Adressbuch) bzw. ein Kontakt */
+    data object Contacts : Dest
+    data class Contact(val id: Long) : Dest
     /** 2.5: Einstellungen -> Konto / Einstellungen / Info */
     data object SettingsAccount : Dest
     data object SettingsGeneral : Dest
@@ -60,6 +63,8 @@ sealed interface Dest {
             Backup -> "backup"
             Nextcloud -> "nextcloud"
             BookOrbit -> "bookorbit"
+            Contacts -> "contacts"
+            is Contact -> "contact:${d.id}"
             SettingsAccount -> "settings-account"
             SettingsGeneral -> "settings-general"
             SettingsInfo -> "settings-info"
@@ -86,6 +91,8 @@ sealed interface Dest {
             s == "backup" -> Backup
             s == "nextcloud" -> Nextcloud
             s == "bookorbit" -> BookOrbit
+            s == "contacts" -> Contacts
+            s.startsWith("contact:") -> s.removePrefix("contact:").toLongOrNull()?.let { Contact(it) }
             s == "settings-account" -> SettingsAccount
             s == "settings-general" -> SettingsGeneral
             s == "settings-info" -> SettingsInfo

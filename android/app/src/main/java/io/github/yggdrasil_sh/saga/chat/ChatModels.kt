@@ -98,6 +98,8 @@ data class ChatPerson(
     val admin: Boolean = false,
     /** 2.5 (contacts1): Treffer der Personensuche ist ein Kontakt (steht vorne) */
     val contact: Boolean = false,
+    /** 2.6 (contacts2): Adressbuch-Eintrag des Kontakt-Treffers */
+    @SerialName("contact_id") val contactId: Long? = null,
     /** 2.5 (pagechatmembers1, nur bei can_manage im Seiten-Chat): Weg des Zugriffs owner|share|group|parent, entfernbar */
     val via: String? = null,
     val removable: Boolean? = null,
@@ -117,6 +119,8 @@ data class ChatContact(
     val ready: Boolean = false,
     val gone: Boolean = false,
     @SerialName("last_at") val lastAt: Double = 0.0,
+    /** 2.6 (contacts2): Eintrag im Adressbuch (GET /api/contacts/{id}) oder null */
+    @SerialName("contact_id") val contactId: Long? = null,
 )
 
 @Serializable
@@ -137,6 +141,8 @@ data class FedPerson(
     val avatar: String? = null,
     /** 2.5 (contacts1): Kontakt (steht vorne) */
     val contact: Boolean = false,
+    /** 2.6 (contacts2): Adressbuch-Eintrag des Kontakt-Treffers */
+    @SerialName("contact_id") val contactId: Long? = null,
 ) {
     val shown: String get() = label.ifBlank { if (host.isNotEmpty()) "$name · $host" else name }
 }

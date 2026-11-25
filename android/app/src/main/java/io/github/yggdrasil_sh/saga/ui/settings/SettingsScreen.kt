@@ -137,6 +137,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         backup = backup?.allowed == true,
         nextcloud = ncShown != null,
         bookorbit = io.github.yggdrasil_sh.saga.blocks.BookOrbit.FEATURE in features,
+        contacts = io.github.yggdrasil_sh.saga.chat.ContactBookLogic.has(features) || io.github.yggdrasil_sh.saga.chat.ContactBookLogic.has(repo.chat.me.collectAsState().value?.features),
     )
     Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_settings), nav, chrome, contentMaxWidth = io.github.yggdrasil_sh.saga.ui.common.TopBarAlign.CONTENT) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -164,7 +165,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
 
             val groups = listOf(
                 R.string.r4s_group_alerts to cats.filter { it == SettingsLogic.Category.NOTIFICATIONS || it == SettingsLogic.Category.CHATS },
-                R.string.r4s_group_data to cats.filter { it == SettingsLogic.Category.BACKUP || it == SettingsLogic.Category.NEXTCLOUD || it == SettingsLogic.Category.BOOKORBIT },
+                R.string.r4s_group_data to cats.filter { it == SettingsLogic.Category.CONTACTS || it == SettingsLogic.Category.BACKUP || it == SettingsLogic.Category.NEXTCLOUD || it == SettingsLogic.Category.BOOKORBIT },
                 R.string.r4s_group_account to cats.filter { it == SettingsLogic.Category.ACCOUNT || it == SettingsLogic.Category.INFO },
             ).filter { it.second.isNotEmpty() }
             groups.forEach { (title, list) ->
@@ -179,6 +180,9 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                             SettingsLogic.Category.CHATS -> SettingsCategoryRow(
                                 SagaIcons.chats, stringResource(R.string.r4s_chats), m, summary = stringResource(R.string.r4s_cat_chats_hint),
                             ) { openPage(nav, SettingsArea.CHATS) }
+                            SettingsLogic.Category.CONTACTS -> SettingsCategoryRow(
+                                SagaIcons.users, stringResource(R.string.cb_title), m, summary = stringResource(R.string.cb_settings_summary),
+                            ) { nav.push(Dest.Contacts) }
                             SettingsLogic.Category.BACKUP -> SettingsCategoryRow(
                                 SagaIcons.archive, stringResource(R.string.r4s_backup), m,
                                 summary = backup?.let { b ->
@@ -782,6 +786,7 @@ object SettingsNav {
             SettingsArea.Sub.BACKUP -> nav.push(Dest.Backup)
             SettingsArea.Sub.NEXTCLOUD -> nav.push(Dest.Nextcloud)
             SettingsArea.Sub.BOOKORBIT -> nav.push(Dest.BookOrbit)
+            SettingsArea.Sub.CONTACTS -> nav.push(Dest.Contacts)
             null -> {}
         }
     }

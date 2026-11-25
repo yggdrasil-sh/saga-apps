@@ -248,7 +248,7 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                             )?.let { t -> { Text(t) } },
                             leadingContent = { Avatar(u.name, size = NewChatLogic.AVATAR_DP, avatar = u.avatar) },
                             trailingContent = if (multi) ({ Checkbox(checked = on, onCheckedChange = null) })
-                                else if (u.contact) ({ ContactMore(repo, ChatLogic.shown(u), u.username) { users = users.filter { it.username != u.username } } }) else null,
+                                else if (u.contact) ({ ContactMore(repo, ChatLogic.shown(u), u.username, u.contactId) { users = users.filter { it.username != u.username } } }) else null,
                             modifier = Modifier.clickable {
                                 if (multi) picked = if (on) picked.filter { it.username != u.username } else picked + u
                                 else repo.launchAction { onOpen(svc.createDm(u.username).id) }
@@ -272,7 +272,7 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                             u, if (u.contact && !multi) stringResource(R.string.ct_person_on, u.host)
                                 else stringResource(if (multi) R.string.fed_person_sub_group else R.string.fed_person_sub, u.host),
                             trailing = if (multi) ({ Checkbox(checked = on, onCheckedChange = null) })
-                                else if (u.contact) ({ ContactMore(repo, u.shown, u.handle) { remote = remote.filter { it.handle != u.handle } } }) else null,
+                                else if (u.contact) ({ ContactMore(repo, u.shown, u.handle, u.contactId) { remote = remote.filter { it.handle != u.handle } } }) else null,
                             avatarSize = NewChatLogic.AVATAR_DP,
                         ) {
                             if (multi) pickedRemote = if (on) pickedRemote.filter { it.handle != u.handle } else pickedRemote + u

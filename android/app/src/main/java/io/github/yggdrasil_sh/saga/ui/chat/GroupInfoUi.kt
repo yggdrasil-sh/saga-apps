@@ -390,10 +390,10 @@ private fun AddMemberBox(repo: SagaRepository, s: ChatSession, c: ChatSummary, d
             found.forEach { u ->
                 val same = found.count { ChatLogic.shown(it) == ChatLogic.shown(u) } > 1
                 PersonHit(repo, u.name, ChatLogic.shownMarked(u) { mark.format(it) }, ChatLogic.personSub(u.sub, same) { mark.format(it) }, u.avatar,
-                    contactRef = if (u.contact) u.username else null) { add(u) }
+                    contactRef = if (u.contact) u.username else null, contactId = u.contactId) { add(u) }
             }
             foundRemote.forEach { u ->
-                PersonHit(repo, u.name, u.shown, stringResource(R.string.ct_person_on, u.host), u.avatar, contactRef = if (u.contact) u.handle else null) { addRemote(u.handle) }
+                PersonHit(repo, u.name, u.shown, stringResource(R.string.ct_person_on, u.host), u.avatar, contactRef = if (u.contact) u.handle else null, contactId = u.contactId) { addRemote(u.handle) }
             }
         }
     }
@@ -462,7 +462,7 @@ fun ContactRow(repo: SagaRepository, k: ChatContact, onRemoved: () -> Unit, avat
         val col = if (dim) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
         PersonRowBase(
             name = k.name, shown = k.name, sub = sub, avatar = k.avatar, color = col, enabled = !dim,
-            menu = { MoreRemove(k.name, remove) }, onClick = onPick,
+            menu = { MoreRemove(repo, k.name, k.contactId, remove) }, onClick = onPick,
             description = if (dim) stringResource(R.string.ct_unreachable) else null, avatarSize = avatarSize,
         )
     }
@@ -470,13 +470,13 @@ fun ContactRow(repo: SagaRepository, k: ChatContact, onRemoved: () -> Unit, avat
 
 /** Treffer der Personensuche; Kontakte (contact:true) mit Menue "Aus Kontakten entfernen" */
 @Composable
-fun PersonHit(repo: SagaRepository, name: String, shown: String, sub: String?, avatar: String?, contactRef: String?, onClick: () -> Unit) {
+fun PersonHit(repo: SagaRepository, name: String, shown: String, sub: String?, avatar: String?, contactRef: String?, contactId: Long? = null, onClick: () -> Unit) {
     var gone by remember(contactRef) { mutableStateOf(false) }
     if (gone) return
     PersonRowBase(
         name, shown, sub, avatar, MaterialTheme.colorScheme.onSurface, true,
         menu = if (contactRef != null) ({
-            MoreRemove(shown) { repo.launchAction { repo.chat.removeContact(contactRef); gone = true; repo.notify(UiText.Res(R.string.ct_removed, shown)) } }
+            MoreRemove(repo, shown, contactId) { repo.launchAction { repo.chat.removeContact(contactRef); gone = true; repo.notify(UiText.Res(R.string.ct_removed, shown)) } }
         }) else null,
         onClick = onClick,
     )
@@ -497,22 +497,33 @@ private fun PersonRowBase(
     )
 }
 
+/**
+ * Menue "⋯" an einem Kontakt: 2.6 (contacts2, mit contact_id) "Kontakt bearbeiten …" (Adressbuch-Eintrag als
+ * Vollbild-Dialog), dann "Aus Kontakten entfernen".
+ */
 @Composable
-private fun MoreRemove(name: String, onRemove: () -> Unit) {
+private fun MoreRemove(repo: SagaRepository, name: String, contactId: Long?, onRemove: () -> Unit) {
     var open by remember { mutableStateOf(false) }
+    var edit by remember { mutableStateOf<Long?>(null) }
+    val editable = contactId != null && repo.chat.hasContactBook()
     Box {
         IconButton(onClick = { open = true }) { SagaIcon(SagaIcons.moreVert, stringResource(R.string.gi_actions, name)) }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            if (editable) DropdownMenuItem(
+                text = { Text(stringResource(R.string.cb_edit_contact)) },
+                onClick = { open = false; edit = contactId },
+            )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.ct_remove), color = MaterialTheme.colorScheme.error) },
                 onClick = { open = false; onRemove() },
             )
         }
     }
+    edit?.let { id -> io.github.yggdrasil_sh.saga.ui.settings.ContactEditFor(repo, id) { edit = null } }
 }
 
-/** Menue "⋯" an einem Kontakt-Treffer der Personensuche: "Aus Kontakten entfernen" */
+/** Menue "⋯" an einem Kontakt-Treffer der Personensuche: "Kontakt bearbeiten …" (contacts2), "Aus Kontakten entfernen" */
 @Composable
-fun ContactMore(repo: SagaRepository, name: String, ref: String, onRemoved: () -> Unit) {
-    MoreRemove(name) { repo.launchAction { repo.chat.removeContact(ref); onRemoved(); repo.notify(UiText.Res(R.string.ct_removed, name)) } }
+fun ContactMore(repo: SagaRepository, name: String, ref: String, contactId: Long? = null, onRemoved: () -> Unit) {
+    MoreRemove(repo, name, contactId) { repo.launchAction { repo.chat.removeContact(ref); onRemoved(); repo.notify(UiText.Res(R.string.ct_removed, name)) } }
 }
