@@ -290,4 +290,33 @@ final class HornLogicTests: XCTestCase {
         XCTAssertEqual(H.unreadable(prev: .init(packets: 10, decoded: 3), now: .init(packets: 20, decoded: 5)), false)
         XCTAssertNil(H.unreadable(prev: .init(packets: 10, decoded: 3), now: .init(packets: 10, decoded: 3)))
     }
+
+    // MARK: 2.6 (Bugs-DB 2263): reservierte Typen dtmf/svc-join (tests/call_signal_reserved.json, Kopie in Tests/vectors)
+
+    /// Knoten-Faelle: Typ-Erkennung wie Web sigKind (hornSig wertet nur fkey/fkey-ack/state aus); ignoriert = auch kein
+    /// fkey, keine Quittung, kein state/hp aus Feldern, die so aussehen. Kontrollfaelle (fkey-ack, state) werden gelesen.
+    func testReservedSignalsIgnored() throws {
+        let url = try XCTUnwrap(Bundle(for: HornLogicTests.self).url(forResource: "call_signal_reserved", withExtension: "json"))
+        let v = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        XCTAssertEqual(v["format"] as? String, "saga-call-reserved/v1")
+        let cases = try XCTUnwrap(v["cases"] as? [[String: Any]]).filter { ($0["ctx"] as? String) == "horn" }
+        XCTAssertEqual(cases.count, 6)
+        for c in cases {
+            let name = c["name"] as? String ?? "?"
+            let b = try XCTUnwrap(c["body"] as? [String: Any])
+            let body = try XCTUnwrap(String(data: JSONSerialization.data(withJSONObject: b, options: [.sortedKeys]), encoding: .utf8))
+            let o = try JSONSerialization.jsonObject(with: Data(body.utf8))
+            XCTAssertEqual(H.sigKind(o).rawValue, c["kind"] as? String, name)
+            guard (c["expect"] as? String) == "ignore" else { continue }
+            XCTAssertNil(HornE2E.parseFKey(o), name)
+            XCTAssertNil(H.parseAck(o), name)
+            XCTAssertNil(H.parseState(o), name)
+            XCTAssertNil(H.parseHp(o), name)
+        }
+        let ack = try XCTUnwrap(cases.first { $0["name"] as? String == "horn-fkey-ack-kontrolle" }?["body"])
+        XCTAssertEqual(H.parseAck(ack), H.Ack(n: 3, s: "0123456789abcdef", ok: true))
+        let st = try XCTUnwrap(cases.first { $0["name"] as? String == "horn-state-kontrolle" }?["body"])
+        XCTAssertEqual(H.parseState(st), H.PeerState(mic: true, cam: false, screen: false))
+        XCTAssertEqual(H.parseHp(st), ["p-0000000000000003"])
+    }
 }

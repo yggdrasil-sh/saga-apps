@@ -75,7 +75,9 @@ cd ios/Tests/ChatVectors && swift run -c release ChatVectors /pfad/zu/saga/tests
 ```
 
 Die Anruf-Signalisierung (`App/CallCrypto.swift`, `App/CallLogic.swift`) prüft dasselbe Programm gegen
-`tests/call_vectors.json` (neben `chat_vectors.json` oder als zweites Argument).
+`tests/call_vectors.json` (neben `chat_vectors.json` oder als zweites Argument), dazu (2.6) die reservierten Typen
+`dtmf`/`svc-join` aus `Tests/vectors/call_signal_reserved.json` (Kopie von `tests/call_signal_reserved.json`, echt
+versiegelt und still ignoriert; die Typ-Erkennung im Knoten-Anruf prüfen `Tests/Logic` und `HornE2ETests`).
 
 ### Anrufe (WebRTC, CallKit, PushKit)
 - WebRTC kommt als vorgebautes libwebrtc über SPM: seit 2.5 `webrtc-sdk` (LiveKit-Zweig, BSD; xcframework aus

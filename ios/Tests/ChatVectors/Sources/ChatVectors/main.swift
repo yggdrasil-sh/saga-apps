@@ -151,6 +151,12 @@ let fvpath = CommandLine.arguments.dropFirst(5).first
     ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../../vectors/file_v2.json").standardized.path
 res += fileV2Vectors(fvpath)
 
+// Reservierte Signal-Typen dtmf/svc-join (2.6, Bugs-DB 2263): 6. Argument oder die Kopie im Repo
+// (ios/Tests/vectors/call_signal_reserved.json); Schluessel aus call_vectors.json (wie oben)
+let rspath = CommandLine.arguments.dropFirst(6).first
+    ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../../vectors/call_signal_reserved.json").standardized.path
+res += reservedVectors(rspath, callVectors: cpath)
+
 for (n, g) in res { print(g ? "OK  " : "FAIL", n) }
 let good = res.filter { $0.1 }.count
 print("VEKTOREN \(good)/\(res.count)", good == res.count ? "- ALLES GRUEN" : "- FEHLER")

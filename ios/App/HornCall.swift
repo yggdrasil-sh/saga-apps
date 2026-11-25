@@ -1395,14 +1395,17 @@ extension CallManager {
         }
         hornPeople()
     }
-    /// Signal im Knoten-Anruf: fkey, fkey-ack (ok:false = Nachforderung), state; Uebernahme (state.ready + replaces)
+    /// Signal im Knoten-Anruf: fkey, fkey-ack (ok:false = Nachforderung), state; Uebernahme (state.ready + replaces);
+    /// andere Typen (2.6: reservierte dtmf/svc-join) still ignoriert (HornLogic.sigKind)
     func hornSig(_ s: [String: Any]) async {
         guard let H = horn else { return }
         guard H.started, let from = s["from_device"] as? String else { H.q.append(s); return }
         guard roster.leg(from) != nil else { H.q.append(s); if H.q.count > 200 { H.q.removeFirst() }; return }
         guard let L = await hornLink(from), let body = await openBody(L, s), hornLive(H) else { return }
         let o = try? JSONSerialization.jsonObject(with: Data(body.utf8))
-        if let k = HornE2E.parseFKey(o) {
+        let kind = HornLogic.sigKind(o)                                     // 2.6: unbekannt (dtmf, svc-join, ...) - still verwerfen
+        guard kind != .unknown else { return }
+        if kind == .fkey, let k = HornE2E.parseFKey(o) {
             var pk = H.recv[from] ?? HornLogic.PeerKeys()
             if let a = pk.fkey(k, now: Self.hornNow()) {
                 if a.reset { for kid in 0..<HornE2E.ring { HornCryptor.scrub(H.provider, device: from, kid: kid) } }
@@ -1411,13 +1414,13 @@ extension CallManager {
                 hornAck(to: from, n: k.n, s: k.s, ok: true)
             }
             H.recv[from] = pk
-        } else if let a = HornLogic.parseAck(o) {
+        } else if kind == .fkeyAck, let a = HornLogic.parseAck(o) {
             if !a.ok { await hornSend([from: H.own.body(H.own.newest)]) }   // Nachforderung: nur den neuesten
             else if a.n == H.own.pending?.n, H.plan.known.allSatisfy({ $0 == from || H.acked[$0] == a.n }) {
                 if H.own.commit() != nil { hornKeyIndex(H) }                 // alle haben bestaetigt: frueher umschalten
             }
             if a.ok { H.acked[from] = a.n }
-        } else if let st = HornLogic.parseState(o) {
+        } else if kind == .state, let st = HornLogic.parseState(o) {
             H.st[from] = st
             if let hp = HornLogic.parseHp(o), H.hpx[from] != hp { H.hpx[from] = hp; hornMap() }   // P9/P10: Kennungen des Absenders
             let m = CallV3.meta(body)

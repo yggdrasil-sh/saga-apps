@@ -385,6 +385,8 @@ targets:
       - App/ScreenSink.swift                               # Bildschirm: Empfaenger vor der Quelle (Wiederholung)
       - path: Tests/vectors/horn_e2e.json
         buildPhase: resources
+      - path: Tests/vectors/call_signal_reserved.json         # 2.6 (2263): reservierte Typen dtmf/svc-join
+        buildPhase: resources
     dependencies:
       - package: WebRTC
         product: WebRTC

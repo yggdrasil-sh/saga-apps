@@ -451,6 +451,14 @@ extension HornLogic {
             "{\"t\":\"fkey\",\"n\":\(g.n),\"kid\":\(g.kid),\"key\":\"\(g.key.base64EncodedString())\",\"s\":\"\(s)\"}"
         }
     }
+    /// 2.6 (Bugs-DB 2263): Typ eines Signals im Knoten-Anruf (Gegenstueck zu Web sigKind) - ausgewertet werden nur fkey,
+    /// fkey-ack und state; alles andere, auch die reservierten dtmf/svc-join (docs/APP-API.md), still ignorieren: kein
+    /// Fehler, keine Anzeige, kein Schluessel/Zustand. Felder, die wie fkey/state aussehen, zaehlen nur mit passendem t.
+    enum SigKind: String { case fkey, fkeyAck = "fkey-ack", state, unknown }
+    static func sigKind(_ o: Any?) -> SigKind {
+        guard let b = o as? [String: Any], let t = b["t"] as? String else { return .unknown }
+        return SigKind(rawValue: t) ?? .unknown
+    }
     static func ackBody(n: Int, s: String, ok: Bool) -> String { "{\"t\":\"fkey-ack\",\"n\":\(n),\"s\":\"\(s)\",\"ok\":\(ok)}" }
     struct Ack: Equatable { var n: Int; var s: String; var ok: Bool }
     static func parseAck(_ o: Any?) -> Ack? {

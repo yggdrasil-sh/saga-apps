@@ -12,6 +12,67 @@ func callV3Tests() {
     callV3WantTests()
     callV3SampleBufferTests()
     callV3RestartSettleTests()
+    callV3ReservedTests()
+}
+
+/// 2.6 (Bugs-DB 2263): reservierte Typen dtmf/svc-join gegen Tests/vectors/call_signal_reserved.json (Kopie von
+/// tests/call_signal_reserved.json aus dem Server-Repo, Klartext nach dem Entsiegeln). Mesh: CallLogic.parse -> .other
+/// (handleRaw: kein Zustand, keine Uebernahme, kein bye); Knoten: HornLogic.sigKind -> unknown, kein fkey/fkey-ack/state.
+/// Versiegelt/signiert mit CallCrypto: Tests/ChatVectors (libsodium).
+private func callV3ReservedTests() {
+    guard let dir = ProcessInfo.processInfo.environment["SAGA_APP_SRC"],
+          let raw = FileManager.default.contents(atPath: dir + "/../Tests/vectors/call_signal_reserved.json"),
+          let v = (try? JSONSerialization.jsonObject(with: raw)) as? [String: Any], v["format"] as? String == "saga-call-reserved/v1",
+          let cases = v["cases"] as? [[String: Any]] else { check(false, "call_signal_reserved.json lesbar"); return }
+    let pc = v["mesh_pc"] as? String ?? ""
+    func meshKind(_ s: CallLogic.Signal?) -> String {
+        switch s {
+        case .offer?: return "offer"
+        case .answer?: return "answer"
+        case .ice?: return "ice"
+        case .state?: return "state"
+        case .bye?: return "bye"
+        case .other?: return "unknown"
+        case nil: return "kaputt"
+        }
+    }
+    var ignored = (mesh: 0, horn: 0), handled = 0
+    for c in cases {
+        let name = c["name"] as? String ?? "?", kind = c["kind"] as? String ?? "?", ignore = (c["expect"] as? String) == "ignore"
+        guard let b = c["body"] as? [String: Any], let d = try? JSONSerialization.data(withJSONObject: b, options: [.sortedKeys]),
+              let body = String(data: d, encoding: .utf8), let t = b["t"] as? String else { check(false, "\(name): body"); continue }
+        if (c["ctx"] as? String) == "mesh" {
+            let sg = CallLogic.parse(body), m = CallV3.meta(body)
+            check(meshKind(sg) == kind, "\(name): Mesh-Typ \(kind)")
+            check(m.pc == pc && CallV3.samePC(m.pc, pc), "\(name): pc passt - der Weg erreicht die Auswertung")
+            if ignore {
+                check(sg == .other(t), "\(name): still ignoriert (.other, kein Zustand/bye)")
+                ignored.mesh += 1
+            } else {
+                if case .state? = sg {} else { check(false, "\(name): Kontrollfall state") }
+                handled += 1
+            }
+            if name == "mesh-state-kontrolle" { check(sg == .state(mic: true, cam: false, screen: false), "\(name): mic an, cam aus") }
+            if name == "mesh-state-zusatzfeld" { check(sg == .state(mic: false, cam: false, screen: false), "\(name): Zusatzfeld egal") }
+        } else {
+            let o = try? JSONSerialization.jsonObject(with: Data(body.utf8))
+            check(HornLogic.sigKind(o).rawValue == kind, "\(name): Knoten-Typ \(kind)")
+            if ignore {
+                check(HornE2E.parseFKey(o) == nil && HornLogic.parseAck(o) == nil && HornLogic.parseState(o) == nil && HornLogic.parseHp(o) == nil,
+                      "\(name): kein Schluessel, keine Quittung, kein Zustand")
+                check(CallLogic.parse(body) == .other(t), "\(name): auch als Mesh-Signal unbekannt")
+                ignored.horn += 1
+            } else { handled += 1 }
+            if name == "horn-fkey-ack-kontrolle" { check(HornLogic.parseAck(o) == HornLogic.Ack(n: 3, s: "0123456789abcdef", ok: true), "\(name): Quittung gelesen") }
+            if name == "horn-state-kontrolle" {
+                check(HornLogic.parseState(o) == HornLogic.PeerState(mic: true, cam: false, screen: false) && HornLogic.parseHp(o) == ["p-0000000000000003"],
+                      "\(name): Zustand und hp gelesen")
+            }
+        }
+    }
+    check(ignored.mesh == 4 && ignored.horn == 4 && handled == 4, "Vektoren: 4 Mesh + 4 Knoten ignoriert, 4 Kontrollfaelle")
+    check(HornLogic.sigKind(["t": "fkey"]) == .fkey && HornLogic.sigKind(["x": 1]) == .unknown && HornLogic.sigKind(nil) == .unknown
+          && HornLogic.sigKind(["t": "unknown"]) == .unknown && HornLogic.sigKind(["t": "bye"]) == .unknown, "sigKind: Randfaelle")
 }
 
 private func callV3PathTests() {
