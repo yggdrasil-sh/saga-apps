@@ -1019,6 +1019,10 @@ class Calls(GObject.Object):
 
         def fin(j):
             if isinstance(j, dict) and j.get("ok"):
+                # (Pruefer) erledigt: sonst klingelt er hier beim naechsten GET /api/calls/active (eigenes Gespraech vorbei,
+                # Anruf noch ringing, bis der Browser angenommen hat) - Leiste ggf. wieder weg (zwischendurch neu gezeigt)
+                self._hold_drop(cid)
+                self.done[cid] = time.time()
                 self._opened(cid)
                 open_in_browser(call_url(cid, h["media"]), parent)
                 self.emit("info", _("The call opens in your browser …"))
@@ -1346,7 +1350,9 @@ class HoldBar(Gtk.Revealer):
         self.sub = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
         self.sub.add_css_class("caption")
         col.append(self.sub)
-        self.note = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        # (Pruefer) Hinweis darf umbrechen (hoechstens 2 Zeilen) - neben den beiden Knoepfen sonst "… auf einem and…"
+        self.note = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END, wrap=True, lines=2,
+                              wrap_mode=Pango.WrapMode.WORD_CHAR, width_chars=20)
         self.note.add_css_class("dim-label")
         self.note.add_css_class("caption")
         col.append(self.note)

@@ -228,7 +228,8 @@ def test_peer_status_presence_and_call_question(win, srv, monkeypatch):
     monkeypatch.setattr(CL, "open_in_browser", lambda u, p=None: opened.append(u))
     monkeypatch.setattr(CL.calls, "config", {"enabled": True})
     win.show_route(("chat", cid))
-    pump(None, 0.4)
+    # (Pruefer) Abo nach 400 ms Entprellung + Anfrage: auf die Antwort warten statt fest 0,4 s (wackelte auf saga-test)
+    pump(lambda: win.wtitle.get_subtitle().startswith("Do not disturb until "), 3)
     sub = win.wtitle.get_subtitle()                          # Abo-Antwort nach dem Oeffnen: Stand des Servers (mit Ende)
     assert sub.startswith("Do not disturb until ") and " · Im Kundentermin" in sub
     win.call_current()
@@ -297,6 +298,12 @@ def test_knock_decline_and_take(win, srv, app, monkeypatch):
     win.holdbar.take.emit("clicked")
     assert pump(lambda: opened, 3)
     assert srv.ended and srv.ended[0][0] == run and opened == [f"https://saga.test/chats#call-{k2}-audio"]
+    # (Pruefer) danach klingelt der angenommene Anruf hier nicht noch einmal (eigenes Gespraech vorbei, der Browser nimmt an)
+    assert srv.calls[k2]["state"] == "ringing"
+    CL.calls.check_active()
+    pump(None, 0.6)
+    assert CL.calls.ringing is None and k2 not in CL.calls.holds
+    srv.calls[k2]["state"] = "ended"
     # Ende nicht bestaetigt: nicht annehmen, Meldung, der wartende Anruf klingelt normal
     run2 = _running(srv, a)
     srv.end_fail = True
