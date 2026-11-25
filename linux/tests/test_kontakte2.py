@@ -392,3 +392,31 @@ def test_editor_cc_only_when_account_cc_known(win, srv, monkeypatch):
     assert "cc" not in ed.body()
     B.book.cc_known = True
     assert ed.body()["cc"] == "49"
+
+
+def test_mailto_encodes_recipient_separators():
+    """(Pruefung k27lrev) Server nimmt z. B. a,b@example.org an: , ; ? & # (und %) kodiert - sonst mehrere Empfaenger/Parameter"""
+    from hlidskjalf.contactbook import addr_href
+    h = addr_href({"kind": "email", "value": "a,b;c?d&e#f%g@example.org"})
+    assert h == "mailto:a%2Cb%3Bc%3Fd%26e%23f%25g@example.org"
+    assert not any(ch in h[7:] for ch in ",;?&#")
+
+
+def test_late_answers_after_session_change_dropped(win, srv, monkeypatch):
+    """(Pruefung k27lrev) Antworten nach Abmelden/Kontowechsel (store.session_gen) gehen nicht ins Adressbuch der neuen
+    Sitzung; die Landesvorwahl gilt je Sitzung"""
+    _setup(srv, chats=False)
+    from hlidskjalf.contactbook import book as BK
+    from hlidskjalf.store import store
+    srv.book_cc = "43"
+    got = {}
+    BK.load_settings(lambda cc: got.setdefault("cc", cc))
+    pump(lambda: "cc" in got, 4)
+    assert BK.known_cc() and BK.cc == "43" and BK.cc_suggest() == "43"
+    lst, cc2 = [], []
+    BK.list("", lambda cs, total: lst.append(cs))
+    BK.load_settings(lambda cc: cc2.append(cc))
+    monkeypatch.setattr(store, "session_gen", store.session_gen + 1)      # Abmelden/Kontowechsel, Antworten noch unterwegs
+    pump(None, 1.0)
+    assert lst == [] and cc2 == []
+    assert not BK.known_cc() and BK.cc is None

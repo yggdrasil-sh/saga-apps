@@ -209,9 +209,32 @@ class ContactBook(GObject.Object):
         super().__init__()
         self.cc = None               # Landesvorwahl des Kontos (GET /api/contacts/settings) oder None
         self.cc_known = False
+        self._ep = None
 
     def available(self):
         return has_feature()
+
+    # Sitzung (Konto/Server): Abmelden, Kontowechsel, anderer Server zaehlen store.session_gen hoch. Antworten aus einer
+    # frueheren Sitzung werden verworfen, die Landesvorwahl gilt je Konto.
+    def _epoch(self):
+        from . import config
+        from .store import store
+        ep = (store.session_gen, config.origin(config.settings.server))
+        if ep != self._ep:
+            self._ep, self.cc, self.cc_known = ep, None, False
+        return ep
+
+    def _bg(self, fn, *a, done, error=None):
+        ep = self._epoch()
+
+        def ok(j):
+            if self._epoch() == ep:
+                done(j)
+
+        def err(e):
+            if self._epoch() == ep and error:
+                error(e)
+        bg(fn, *a, done=ok, error=err)
 
     def list(self, q, done, error=None, limit=200):
         p = f"api/contacts?limit={int(limit)}" + ("&q=" + urllib.parse.quote(q) if q else "")
@@ -219,18 +242,18 @@ class ContactBook(GObject.Object):
         def fin(j):
             j = j if isinstance(j, dict) else {}
             done([c for c in j.get("contacts") or [] if contact_ok(c)], j.get("total"))
-        bg(client.get, p, done=fin, error=error or (lambda e: done([], 0)))
+        self._bg(client.get, p, done=fin, error=error or (lambda e: done([], 0)))
 
     def get(self, cid, done, error=None):
-        bg(client.get, f"api/contacts/{int(cid)}", done=lambda j: done(j if contact_ok(j) else None),
-           error=error or (lambda e: done(None)))
+        self._bg(client.get, f"api/contacts/{int(cid)}", done=lambda j: done(j if contact_ok(j) else None),
+                 error=error or (lambda e: done(None)))
 
     def create(self, body, done, error):
         def fin(j):
             if contact_ok(j):
                 self.emit("changed", j["id"], False)
             done(j)
-        bg(client.json, "POST", "api/contacts", body, done=fin, error=error)
+        self._bg(client.json, "POST", "api/contacts", body, done=fin, error=error)
 
     def update(self, cid, body, done, error):
         """PATCH mit ver; Fehler an error (409: conflict_of(e))"""
@@ -238,13 +261,13 @@ class ContactBook(GObject.Object):
             if contact_ok(j):
                 self.emit("changed", j["id"], False)
             done(j)
-        bg(client.json, "PATCH", f"api/contacts/{int(cid)}", body, done=fin, error=error)
+        self._bg(client.json, "PATCH", f"api/contacts/{int(cid)}", body, done=fin, error=error)
 
     def delete(self, cid, done, error):
         def fin(_j):
             self.emit("changed", int(cid), True)
             done()
-        bg(client.json, "DELETE", f"api/contacts/{int(cid)}", None, done=fin, error=error)
+        self._bg(client.json, "DELETE", f"api/contacts/{int(cid)}", None, done=fin, error=error)
 
     def load_settings(self, done=None):
         def fin(j):
@@ -252,7 +275,7 @@ class ContactBook(GObject.Object):
             self.cc, self.cc_known = (v or None), True
             if done:
                 done(self.cc)
-        bg(client.get, "api/contacts/settings", done=fin, error=lambda e: done and done(self.cc))
+        self._bg(client.get, "api/contacts/settings", done=fin, error=lambda e: done and done(self.cc))
 
     def put_cc(self, cc, done=None, error=None):
         def fin(j):
@@ -261,10 +284,16 @@ class ContactBook(GObject.Object):
             self.cc_known = True
             if done:
                 done(self.cc)
-        bg(client.json, "PUT", "api/contacts/settings", {"cc": cc}, done=fin, error=error)
+        self._bg(client.json, "PUT", "api/contacts/settings", {"cc": cc}, done=fin, error=error)
+
+    def known_cc(self):
+        """Konto-Landesvorwahl in dieser Sitzung geladen?"""
+        self._epoch()
+        return self.cc_known
 
     def cc_suggest(self):
         """Landesvorwahl fuer nationale Nummern: die des Kontos, sonst die der Region des Rechners"""
+        self._epoch()
         return self.cc or region_cc()
 
     def on_live(self, typ, d):
@@ -421,7 +450,7 @@ class ContactsPage(Adw.PreferencesPage):
             self.loaded = True
             self.fill(cs, q)
         book.list(q, fin, error=lambda e: gen == self.gen and self.fill([], q, err=str(e)))
-        if not book.cc_known:
+        if not book.known_cc():
             book.load_settings(lambda _cc: self._cc_fill())
         else:
             self._cc_fill()
@@ -746,7 +775,7 @@ class ContactEditor:
         self.nav = self.host.push(self.title, _toolbar(self.title, self.page, start=self.cancel_btn, end=self.save_btn), "contact-edit")
         self.nav.hk_editor = self
         GLib.idle_add(lambda: self.name.grab_focus() and False)
-        if not book.cc_known:
+        if not book.known_cc():
             book.load_settings(lambda _cc: (setattr(self, "cc", book.cc_suggest()), self._cc_desc()))
         return self
 
@@ -811,7 +840,7 @@ class ContactEditor:
         new = self.c is None
         return edit_body(self.name.get_text(), FORMS[self.form.get_selected()] if self.form.get_selected() < 3 else None,
                          self.sal.get_text(), self.rows(), ver=None if new else self.c.get("ver"),
-                         cc=self.cc if book.cc_known else None, new=new)    # Konto-Vorwahl unbekannt: der Server entscheidet
+                         cc=self.cc if book.known_cc() else None, new=new)    # Konto-Vorwahl unbekannt: der Server entscheidet
 
     def show_msg(self, t, jump=None):
         self.jump_id = jump
@@ -831,7 +860,7 @@ class ContactEditor:
         self.show_msg(None)
         self.busy = True
         self.save_btn.set_sensitive(False)
-        if "cc" in b and book.cc_known and not book.cc and self.cc:
+        if "cc" in b and book.known_cc() and not book.cc and self.cc:
             book.put_cc(self.cc, error=lambda e: None)          # Vorschlag aus der Region einmal fuer das Konto merken
         if self.c is None:
             book.create(b, self._done, self._err)
