@@ -599,6 +599,11 @@ enum SagaLogic {
         else { return nil }
         return String(s.dropFirst())                      // relativ fuer Store.api
     }
+    /// Hoechste Zugnummer des Servers (lokal angehaengte Zuege ohne n zaehlen nicht)
+    static func maxN(_ turns: [SagaTurn]) -> Int { turns.compactMap(\.n).max() ?? 0 }
+    /// Hat der Server seit n0 Zuege angelegt? Ueber die Nummer, nicht ueber die Anzahl: mit Verlauf kuerzt der Server auf
+    /// 200 Zuege, die Anzahl bleibt dann gleich (sonst haengte die App die Zuege ein zweites Mal an)
+    static func hasServerTurns(_ turns: [SagaTurn], after n0: Int) -> Bool { turns.contains { ($0.n ?? 0) > n0 } }
     /// Live-Ereignis ai.job.changed {id, state, sub, plan_v} (nur Kennungen)
     static func jobChanged(_ d: [String: Any]) -> (id: Int, state: String?)? {
         ShareJSON.int(d["id"]).map { ($0, ShareJSON.str(d["state"])) }

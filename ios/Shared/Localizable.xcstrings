@@ -90793,6 +90793,142 @@
           }
         }
       }
+    },
+    "Gemeldet" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemeldet"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reported"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reportado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Жалоба отправлена"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รายงานแล้ว"
+          }
+        }
+      }
+    },
+    "Deine Aufträge sind angehalten, weil du die Einwilligung widerrufen hast. Ansehen, abbrechen und rückgängig machen geht weiter – neue Aufträge erst, wenn du %@ wieder kennenlernst." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deine Aufträge sind angehalten, weil du die Einwilligung widerrufen hast. Ansehen, abbrechen und rückgängig machen geht weiter – neue Aufträge erst, wenn du %@ wieder kennenlernst."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your jobs are paused because you withdrew your consent. You can still view, cancel and undo them – new jobs only once you meet %@ again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tus encargos están en pausa porque retiraste tu consentimiento. Puedes seguir viéndolos, cancelarlos y deshacerlos; encargos nuevos, solo cuando vuelvas a conocer a %@."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Твои поручения приостановлены, потому что ты отозвал(а) согласие. Смотреть, отменять и откатывать их по-прежнему можно – новые поручения только после нового знакомства с %@."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "งานที่มอบหมายของคุณถูกหยุดไว้ เพราะคุณถอนความยินยอม ยังดู ยกเลิก และเลิกทำได้ – งานใหม่ได้เมื่อคุณทำความรู้จัก %@ อีกครั้ง"
+          }
+        }
+      }
+    },
+    "Der Admin hat die KI umgestellt – deine Aufträge warten, bis du %@ noch einmal kennenlernst." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Admin hat die KI umgestellt – deine Aufträge warten, bis du %@ noch einmal kennenlernst."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your admin changed the AI – your jobs wait until you meet %@ again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El admin ha cambiado la IA: tus encargos esperan hasta que vuelvas a conocer a %@."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Админ переключил ИИ – твои поручения ждут, пока ты снова не познакомишься с %@."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ผู้ดูแลเปลี่ยน AI แล้ว – งานที่มอบหมายของคุณจะรอจนกว่าคุณจะทำความรู้จัก %@ อีกครั้ง"
+          }
+        }
+      }
+    },
+    "Neue Aufträge gibst du, sobald du %@ kennengelernt hast." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neue Aufträge gibst du, sobald du %@ kennengelernt hast."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can give new jobs once you have met %@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Podrás dar encargos nuevos en cuanto conozcas a %@."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новые поручения можно дать, когда ты познакомишься с %@."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณมอบหมายงานใหม่ได้เมื่อทำความรู้จัก %@ แล้ว"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -222,4 +222,12 @@ func sagaTests() {
     check(L.reportBody(where: "ask", job: nil, reason: "spam", text: "  ")["text"] == nil && L.reportBody(where: "ask", job: nil, reason: "spam", text: nil)["page"] == nil, "Melden ohne Text")
     check(SettingsArea.area(for: "saga") == .saga && SettingsArea.area(for: "mydata") == .saga && SettingsArea.scrollTarget(for: "saga") == nil, "Einstellungen › Saga (Sprungziel)")
     check(L.planText(plan).contains("Aufgabe „Pavillon abholen“") && L.tag == -7 && !FedLogic.isPageID(L.tag), "Plan-Text, Tag ist keine Seite")
+
+    // --- piossaga: neue Server-Zuege ueber die Nummer (Verlauf kuerzt auf 200 - die Anzahl bleibt gleich) -----------------
+    let full = (1...200).map { SagaTurn(n: $0, role: $0 % 2 == 1 ? "me" : "ai", text: "t\($0)") }
+    let n0 = L.maxN(full + [SagaTurn(role: "me", text: "lokal")])
+    let trimmed = Array(full.dropFirst(2)) + [SagaTurn(n: 201, role: "me", zug: "job", text: "Bitte"), SagaTurn(n: 202, role: "ai", zug: "plan", text: "Plan: X", jobID: 7)]
+    check(n0 == 200 && trimmed.count == full.count && L.hasServerTurns(trimmed, after: n0), "200 Zuege gekuerzt: neue Zuege trotz gleicher Anzahl erkannt (kein doppeltes Anhaengen)")
+    check(!L.hasServerTurns(full, after: n0) && !L.hasServerTurns(full + [SagaTurn(role: "ai", text: "lokal")], after: n0), "aelterer Server ohne Zuege: nichts Neues (lokaler Rueckfall)")
+    check(L.maxN([]) == 0 && L.hasServerTurns([SagaTurn(n: 1, role: "me", text: "x")], after: 0), "leerer Verlauf")
 }

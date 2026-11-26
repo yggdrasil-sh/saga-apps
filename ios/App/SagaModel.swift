@@ -34,6 +34,8 @@ final class SagaModel: ObservableObject {
     @Published var toast: String?
     @Published var cardError: String?
     @Published var busy = false
+    /// Gemeldete Antworten/Karten (Abschnitt 6: je Antwort eine Meldung, Knopf danach "Gemeldet")
+    @Published var reported: Set<String> = []
 
     private var streamTask: Task<Void, Never>?
     private var jobTask: Task<Void, Never>?
@@ -49,8 +51,11 @@ final class SagaModel: ObservableObject {
         streamTask?.cancel(); jobTask?.cancel()
         thread = SagaThread(); threadLoaded = false; live = nil; liveQ = nil; liveError = nil
         jobs = SagaJobList(); jobsLoaded = false; detail = nil; openJob = nil; jobMode = false; liveJob = nil
-        jobState = [:]; jobGone = []; editing = []; toast = nil; cardError = nil; busy = false
+        jobState = [:]; jobGone = []; editing = []; toast = nil; cardError = nil; busy = false; reported = []
     }
+    /// Hoechste Zugnummer des Servers im Verlauf (lokal angehaengte Zuege ohne n zaehlen nicht)
+    private var maxN: Int { SagaLogic.maxN(thread.turns) }
+    private func serverTurns(after n0: Int) -> Bool { SagaLogic.hasServerTurns(thread.turns, after: n0) }
 
     private func err(_ d: Data, _ code: Int) -> String {
         ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? APIError.http(code, "").localizedDescription
@@ -81,7 +86,7 @@ final class SagaModel: ObservableObject {
     // MARK: Gespraech (K10)
 
     func loadThread() async {
-        guard let store, status?.consentOK == true else { return }
+        guard let store, status?.consentOK == true, streamTask == nil else { return }   // waehrend einer Frage nicht ersetzen
         guard let (d, code) = try? await store.apiResponse("api/ai/thread") else { return }
         if code == 200, let t = SagaThread(data: d) { thread = t; threadLoaded = true }
         else if SagaLogic.needsConsent(code: code, body: d) { await consentLost() }
@@ -92,6 +97,7 @@ final class SagaModel: ObservableObject {
         clearFinished()
         guard let store, live == nil, liveJob == nil, AILogic.validQuestion(t, max: status?.qMax ?? 1000) else { return }
         liveQ = t; liveError = nil; live = SagaStream()
+        let n0 = maxN
         streamTask = Task { [weak self] in
             guard let self else { return }
             var s = SagaStream()
@@ -112,9 +118,10 @@ final class SagaModel: ObservableObject {
                     if s.finished { break }
                 }
                 self.finish(q: t, s, error: s.error ?? (s.finished ? nil : String(localized: "Die Verbindung ist abgebrochen.")))
+                if !s.finished { await self.settleAsk(after: n0) }
             } catch {
                 if Task.isCancelled || (error as? URLError)?.code == .cancelled { self.finish(q: t, s, error: nil, stopped: true) }
-                else { self.finish(q: t, s, error: error.localizedDescription) }
+                else { self.finish(q: t, s, error: error.localizedDescription); await self.settleAsk(after: n0) }
             }
         }
     }
@@ -129,6 +136,14 @@ final class SagaModel: ObservableObject {
         // Fehler/Abbruch: die Frage bleibt sichtbar mit Hinweis (der Server hat sie ggf. nicht gespeichert)
         live = stopped ? nil : s; liveError = stopped ? nil : (error ?? "")
         if stopped { liveQ = nil }
+    }
+    /// Verbindung gerissen (z. B. App im Hintergrund): hat der Server die Antwort trotzdem gespeichert, zeigt der Verlauf sie -
+    /// die Fehlerkarte mit derselben Frage faellt dann weg (sonst stuende die Frage doppelt)
+    private func settleAsk(after n0: Int) async {
+        await loadThread()
+        guard liveError != nil, serverTurns(after: n0) else { return }
+        if thread.turns.contains(where: { ($0.n ?? 0) > n0 && !$0.mine }) { dismissLiveError() }
+        else { liveQ = "" }                                          // nur die Frage ist gespeichert: Hinweis ohne zweite Frage
     }
     func stop() { streamTask?.cancel() }
     /// Liegengebliebene Fehler-/Abbruch-Karten raeumen, bevor etwas Neues startet
@@ -174,6 +189,7 @@ final class SagaModel: ObservableObject {
         var b = alt.map { SagaLogic.recipeBody($0, text: t) } ?? SagaLogic.giveBody(text: t, choice: choice)
         b["thread"] = true
         let shown = said ?? t
+        let n0 = maxN
         liveJob = LiveJob(said: shown, status: store.aiThinking)
         jobTask = Task { [weak self] in
             guard let self else { return }
@@ -193,25 +209,35 @@ final class SagaModel: ObservableObject {
                     for e in evs {
                         if e.event == "status", let s = ShareJSON.str(e.json["text"]) { self.liveJob?.status = s; continue }
                         guard let o = SagaLogic.outcome(e) else { continue }
-                        await self.landed(o, said: shown, q: t)
+                        await self.landed(o, said: shown, q: t, after: n0)
                         return
                     }
                 }
+                if await self.settleJob(after: n0) { return }
                 self.liveJob?.error = String(localized: "Das hat nicht geklappt.")
             } catch {
-                if Task.isCancelled || (error as? URLError)?.code == .cancelled { self.liveJob?.stopped = true }
-                else { self.liveJob?.error = error.localizedDescription }
+                let stopped = Task.isCancelled || (error as? URLError)?.code == .cancelled
+                if await self.settleJob(after: n0) { return }
+                if stopped { self.liveJob?.stopped = true } else { self.liveJob?.error = error.localizedDescription }
             }
         }
     }
+    /// Verbindung weg bzw. Stopp nach dem Planen: der Server legt die Zuege trotzdem an (ai_jobs.plan_job) - dann diese
+    /// zeigen statt "nichts ist passiert" (true = Zuege da, laufende Karte weg)
+    private func settleJob(after n0: Int) async -> Bool {
+        await loadThread()
+        guard serverTurns(after: n0) else { return false }
+        liveJob = nil
+        await loadJobs()
+        return true
+    }
     /// Ergebnis des Planens in den Verlauf (Server-Zuege, sonst lokal)
-    private func landed(_ o: SagaJobOutcome, said: String, q: String) async {
+    private func landed(_ o: SagaJobOutcome, said: String, q: String, after n0: Int) async {
         let now = Date().timeIntervalSince1970
         var ai: SagaTurn?
         switch o {
         case .plan(let p):
-            await loadJobState(p.job)
-            if jobState[p.job] == nil, !jobGone.contains(p.job) { liveJob?.error = String(localized: "Das hat nicht geklappt."); return }
+            await loadJobState(p.job)                                // Detail nicht geladen: der Zug laedt es selbst nach
             ai = SagaTurn(role: "ai", zug: "plan", text: p.title, created: now, jobID: p.job)
             AccessibilityNotification.Announcement(String(localized: "Plan bereit – wartet auf dein OK")).post()
             await loadJobs()
@@ -221,9 +247,8 @@ final class SagaModel: ObservableObject {
             liveJob?.error = m.isEmpty ? String(localized: "Das hat nicht geklappt.") : m
             return
         }
-        let before = thread.turns.count
         await loadThread()
-        if thread.turns.count <= before, let ai {                    // Server ohne Zuege fuer Auftraege (aelter als 11.7)
+        if !serverTurns(after: n0), let ai {                          // Server ohne Zuege fuer Auftraege (aelter als 11.7)
             thread.turns.append(SagaTurn(role: "me", zug: "job", text: said, created: now))
             thread.turns.append(ai)
         }
@@ -332,12 +357,13 @@ final class SagaModel: ObservableObject {
 
     // MARK: Melden (Abschnitt 6)
 
-    func report(where w: String, job: Int?, reason: ChatStd.ReportReason, text: String?) async -> String? {
+    func report(where w: String, job: Int?, reason: ChatStd.ReportReason, text: String?, key: String? = nil) async -> String? {
         guard let store else { return nil }
         do {
             let (d, code) = try await store.apiResponse("api/ai/report", method: "POST", body: SagaLogic.reportBody(where: w, job: job, reason: reason.rawValue, text: text))
             guard (200..<300).contains(code) else { return err(d, code) }
             toast = String(localized: "Danke – die Meldung ist bei den Admins.")
+            if let key { reported.insert(key) }
             return nil
         } catch { return error.localizedDescription }
     }

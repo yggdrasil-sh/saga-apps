@@ -178,7 +178,25 @@ struct SagaScreen: View {
     /// "Ansehen" an einem Auftrag im Gespraech: Detail im Segment "Aufträge" (iPad: rechts)
     private func openJob(_ id: Int) { tab = 1; Task { await m.open(id) } }
     /// Beispiel aus der leeren Liste: ins Gespraech, als Auftrag geben
-    private func giveExample(_ t: String) { tab = 0; m.close(); m.jobMode = true; m.giveInThread(t) }
+    private func giveExample(_ t: String) {
+        tab = 0; m.close()
+        guard store.sagaStatus?.consentOK == true else { return }    // ohne Einwilligung: nur die Kennenlernen-Karte, nichts ans Modell
+        m.jobMode = true; m.giveInThread(t)
+    }
+    /// Hinweis ueber der Liste ohne Einwilligung (wie das Web, pweb 1): warum die Auftraege stehen, was weiter geht
+    private func pausedNote(_ st: SagaStatus) -> String {
+        switch st.consent?.state {
+        case .withdrawn?: return String(localized: "Deine Aufträge sind angehalten, weil du die Einwilligung widerrufen hast. Ansehen, abbrechen und rückgängig machen geht weiter – neue Aufträge erst, wenn du \(store.sagaName) wieder kennenlernst.")
+        case .stale?: return String(localized: "Der Admin hat die KI umgestellt – deine Aufträge warten, bis du \(store.sagaName) noch einmal kennenlernst.")
+        default: return String(localized: "Neue Aufträge gibst du, sobald du \(store.sagaName) kennengelernt hast.")
+        }
+    }
+    private func introOnly(_ intro: SagaIntro) -> some View {
+        ScrollView {                                                   // vor der Einwilligung: nur die Karte (nichts ans Modell)
+            SagaIntroCard(m: m, intro: intro).frame(maxWidth: 620).padding()
+                .frame(maxWidth: .infinity)
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -188,10 +206,23 @@ struct SagaScreen: View {
                     Divider()
                 }
                 if !st.consentOK, let intro = st.intro {
-                    ScrollView {                                       // vor der Einwilligung: nur die Karte (nichts ans Modell)
-                        SagaIntroCard(m: m, intro: intro).frame(maxWidth: 620).padding()
-                            .frame(maxWidth: .infinity)
-                    }
+                    // Ohne Einwilligung (Widerruf, stale) bleiben vorhandene Auftraege erreichbar - Liste, Detail, Abbrechen,
+                    // Rueckgaengig (der Server erlaubt das ohne Einwilligung); Gespraech und "Als Auftrag" bleiben gesperrt (11.7)
+                    if st.jobsOn && m.jobs.total > 0 {
+                        Picker("Bereich", selection: $tab) {
+                            Text("Gespräch").tag(0)
+                            Text("Aufträge").tag(1)
+                        }
+                        .pickerStyle(.segmented).labelsHidden().padding(.horizontal).padding(.vertical, 8)
+                        if tab == 1 {
+                            if m.openJob == nil {
+                                Text(verbatim: pausedNote(st)).font(.subheadline).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal).padding(.top, 4)
+                            }
+                            SagaJobsPane(m: m, inlineDetail: true, give: giveExample)
+                        } else { introOnly(intro) }
+                    } else { introOnly(intro) }
                 } else if st.jobsOn && wide {
                     HStack(spacing: 0) {
                         SagaJobsPane(m: m, inlineDetail: false, give: giveExample).frame(width: 360)
@@ -250,6 +281,7 @@ struct SagaScreen: View {
         .task(id: store.sagaStatus?.consentOK) {
             await store.loadAIStatus()
             if store.sagaStatus?.consentOK == true { await m.loadThread(); await m.loadJobs() }
+            else if store.sagaStatus?.jobsOn == true { await m.loadJobs() }      // vorhandene Auftraege auch ohne Einwilligung
         }
     }
 }
@@ -272,7 +304,7 @@ struct SagaConversation: View {
                         if m.thread.turns.isEmpty && m.liveQ == nil && m.liveJob == nil && m.threadLoaded { empty }
                         ForEach(m.thread.turns) { t in turn(t).id(t.id) }
                         if let lq = m.liveQ {
-                            mine(lq)
+                            if !lq.isEmpty { mine(lq) }
                             liveCard
                         }
                         if let lj = m.liveJob {
@@ -343,8 +375,7 @@ struct SagaConversation: View {
                 AnswerText(text: t.text, sources: t.sources, openPage: open)
                 SagaSourceLine(sources: t.sources, open: open)
                 if t.reportable {
-                    Button("Melden …") { reporting = SagaReportItem(where: "ask", job: nil, text: t.text) }
-                        .font(.subheadline).buttonStyle(.borderless).foregroundStyle(.secondary).frame(minHeight: 44)
+                    SagaReportButton(m: m, key: "a" + t.id) { reporting = SagaReportItem(where: "ask", job: nil, text: t.text, key: "a" + t.id) }
                 }
             }
             .sagaCard()
@@ -460,7 +491,19 @@ struct SagaSourceLine: View {
 
 // MARK: - Melden (Abschnitt 6: dieselben Gruende wie im Chat, Dialog bleibt bei Fehlern offen)
 
-struct SagaReportItem: Identifiable { let id = UUID(); var `where`: String; var job: Int?; var text: String }
+struct SagaReportItem: Identifiable { let id = UUID(); var `where`: String; var job: Int?; var text: String; var key: String? = nil }
+
+/// "Melden …" unter einer Antwort bzw. Karte; danach "Gemeldet" (je Antwort eine Meldung, Abschnitt 6)
+struct SagaReportButton: View {
+    @ObservedObject var m: SagaModel
+    let key: String
+    let open: () -> Void
+    var body: some View {
+        let done = m.reported.contains(key)
+        Button(action: open) { Text(done ? "Gemeldet" : "Melden …") }
+            .font(.subheadline).buttonStyle(.borderless).foregroundStyle(.secondary).frame(minHeight: 44).disabled(done)
+    }
+}
 
 struct SagaReportSheet: View {
     @ObservedObject var m: SagaModel
@@ -500,7 +543,7 @@ struct SagaReportSheet: View {
                     Button("Melden") {
                         busy = true
                         Task {
-                            err = await m.report(where: item.where, job: item.job, reason: reason, text: include ? text : nil)
+                            err = await m.report(where: item.where, job: item.job, reason: reason, text: include ? text : nil, key: item.key)
                             busy = false
                             if err == nil { dismiss() }
                         }

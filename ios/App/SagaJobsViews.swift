@@ -195,8 +195,7 @@ struct SagaPlanCard: View {
                 Text("Offline – gespeicherter Stand. Freigeben geht, sobald du wieder verbunden bist.").font(.footnote).foregroundStyle(.secondary)
             }
             actions
-            Button("Melden …") { reporting = SagaReportItem(where: "job", job: plan.job, text: SagaLogic.planText(plan)) }
-                .font(.subheadline).buttonStyle(.borderless).foregroundStyle(.secondary).frame(minHeight: 44)
+            SagaReportButton(m: m, key: "p\(plan.job)") { reporting = SagaReportItem(where: "job", job: plan.job, text: SagaLogic.planText(plan), key: "p\(plan.job)") }
         }
         .sagaCard()
         .accessibilityElement(children: .contain)
@@ -318,8 +317,7 @@ struct SagaFeedbackCard: View {
             if let err { Label(err, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(.orange) }
             if let onOpen { Button("Ansehen", action: onOpen).buttonStyle(.bordered).frame(minHeight: 44) }
             if !rep.text.isEmpty {
-                Button("Melden …") { reporting = SagaReportItem(where: "job", job: detail.id, text: rep.text) }
-                    .font(.subheadline).buttonStyle(.borderless).foregroundStyle(.secondary).frame(minHeight: 44)
+                SagaReportButton(m: m, key: "f\(detail.id)") { reporting = SagaReportItem(where: "job", job: detail.id, text: rep.text, key: "f\(detail.id)") }
             }
         }
         .sagaCard()
