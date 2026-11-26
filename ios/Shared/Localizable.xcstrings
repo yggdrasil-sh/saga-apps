@@ -90929,6 +90929,108 @@
           }
         }
       }
+    },
+    "Zu Kontakten hinzufügen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zu Kontakten hinzufügen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add to Contacts"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir a Contactos"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавить в контакты"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพิ่มในรายชื่อติดต่อ"
+          }
+        }
+      }
+    },
+    "Gesichert wird erst, wenn du es bestätigst." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gesichert wird erst, wenn du es bestätigst."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing is saved until you confirm."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se guarda nada hasta que lo confirmes."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ничего не сохраняется без вашего подтверждения."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "จะยังไม่บันทึกจนกว่าคุณจะยืนยัน"
+          }
+        }
+      }
+    },
+    "Übernimmt Name, Nummern und E-Mail-Adressen in die Kontakte des Geräts. Im nächsten Schritt entscheidest du, ob ein neuer Kontakt entsteht oder ein vorhandener ergänzt wird. Saga liest deine Kontakte nicht." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Übernimmt Name, Nummern und E-Mail-Adressen in die Kontakte des Geräts. Im nächsten Schritt entscheidest du, ob ein neuer Kontakt entsteht oder ein vorhandener ergänzt wird. Saga liest deine Kontakte nicht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copies the name, numbers and email addresses to this device's contacts. In the next step you decide whether to create a new contact or add to an existing one. Saga does not read your contacts."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia el nombre, los números y los correos a los contactos de este dispositivo. En el siguiente paso decides si se crea un contacto nuevo o se completa uno existente. Saga no lee tus contactos."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Переносит имя, номера и адреса эл. почты в контакты устройства. На следующем шаге вы решаете, создать новый контакт или дополнить существующий. Saga не читает ваши контакты."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คัดลอกชื่อ หมายเลข และอีเมลไปยังรายชื่อติดต่อของอุปกรณ์นี้ ในขั้นตอนถัดไปคุณเลือกได้ว่าจะสร้างรายชื่อใหม่หรือเพิ่มในรายชื่อที่มีอยู่ Saga ไม่อ่านรายชื่อติดต่อของคุณ"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -395,6 +395,11 @@ struct ContactDetailView: View {
         } message: { if let c = c ?? initial { Text(Self.deleteMessage(c)) } }
         #if DEBUG
         .task { if UserDefaults.standard.string(forKey: "hkContactEdit") != nil { try? await Task.sleep(for: .seconds(1.5)); if c != nil { editing = true } } }
+        .task {                                                               // nur fuer Bilder: System-Karte direkt (2027b)
+            if UserDefaults.standard.string(forKey: "hkContactExport") != nil {
+                try? await Task.sleep(for: .seconds(2)); if let c, let p = ContactExportLogic.prefill(c) { ContactExport.present(p) }
+            }
+        }
         #endif
     }
 
@@ -443,6 +448,16 @@ struct ContactDetailView: View {
             if !c.mails.isEmpty {
                 Section("E-Mail-Adressen") {
                     ForEach(c.mails) { a in addrRow(a, url: L.mailURL(a.value), shown: a.value, icon: "envelope") }
+                }
+            }
+            if let p = ContactExportLogic.prefill(c) {                       // 2027b: einzeln ins System-Adressbuch
+                Section {
+                    Button { ContactExport.present(p) } label: {
+                        Label("Zu Kontakten hinzufügen", systemImage: "person.crop.circle.badge.plus")
+                    }
+                    .accessibilityHint(Text("Gesichert wird erst, wenn du es bestätigst."))
+                } footer: {
+                    Text("Übernimmt Name, Nummern und E-Mail-Adressen in die Kontakte des Geräts. Im nächsten Schritt entscheidest du, ob ein neuer Kontakt entsteht oder ein vorhandener ergänzt wird. Saga liest deine Kontakte nicht.")
                 }
             }
             if c.form != nil || c.salutation != nil {

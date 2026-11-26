@@ -112,6 +112,7 @@ presentTests()                   // Bugs-DB 2200/2197: keine Blaetter am Section
 firstStepsTests()                // Bugs-DB 2031: Erste Schritte, leere Zustaende
 userStatusTests()                // Bugs-DB 2029-6: eigener Status, Erreichbarkeit, Anklopfen
 contactBookTests()               // Bugs-DB 2027a-5: Adressbuch (contacts2)
+contactExportTests()             // Bugs-DB 2027b: einzeln ins System-Adressbuch (Vorbefuellung)
 pushE2ETests()                   // Bugs-DB 2262: Apple-Mitteilungen Ende-zu-Ende (pushrelay1)
 hornSpeakTests()                 // Bugs-DB 2457: Sprechring ueber den Knoten - Pausen, Rueckfall, eigener Pegel
 sagaTests()                      // Bugs-DB 2269/2267: Ort "Saga" - Einwilligung, Gespraech, Plan-Karte, Auftraege
