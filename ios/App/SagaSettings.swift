@@ -37,6 +37,7 @@ struct SagaSettingsView: View {
             if let p, p.enabled {
                 speech(p)
                 state(p)
+                SagaNotifySection(push: store.push, name: name)          // 2270 (K-C): Mitteilungen von {Persona}
                 if p.consent?.granted == true { ideasAndSources(p) }
                 myData(p)
             } else if loaded {

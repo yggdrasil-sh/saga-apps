@@ -115,6 +115,78 @@ final class NotifyTests: XCTestCase {
         XCTAssertEqual(out?.userInfo["kind"] as? String, "chat.message")
     }
 
+    // MARK: 2270 (K-C): Auftraege der Kollegin (Tests/vectors/push_kollegin.json, gleiche App-Schluessel)
+
+    private func jobCase(_ name: String) throws -> [String: Any] {
+        let url = try XCTUnwrap(Bundle(for: NotifyTests.self).url(forResource: "push_kollegin", withExtension: "json"))
+        let v = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        let cs = try XCTUnwrap(v["cases"] as? [[String: Any]])
+        return try XCTUnwrap(cs.first { $0["name"] as? String == name })
+    }
+    private func jobService(_ name: String, auth: Bool = true) throws -> (UNNotificationContent, [String: Any]) {
+        let c = try jobCase(name)
+        let ab = try XCTUnwrap((c["transport"] as? [String: Any])?["apns_body"] as? [String: Any])
+        UserDefaults.standard.set(auth, forKey: "hkJobDeviceAuth")
+        defer { UserDefaults.standard.removeObject(forKey: "hkJobDeviceAuth") }
+        return (service(ab), c)
+    }
+    private func checkJob(_ r: UNNotificationContent, _ c: [String: Any], category: String) {
+        let e = c["expect"] as? [String: Any] ?? [:]
+        let t = e["text"] as? [String: String] ?? [:]
+        XCTAssertEqual(r.title, t["title"]); XCTAssertEqual(r.body, t["body"])
+        XCTAssertEqual(r.threadIdentifier, e["thread_id"] as? String)
+        XCTAssertEqual(r.categoryIdentifier, category)
+        XCTAssertNil(r.userInfo["saga"], "Umschlag entfernt")
+        XCTAssertNil(r.userInfo["detail"], "detail nicht in userInfo")
+        XCTAssertNotEqual(r.interruptionLevel, .timeSensitive)
+    }
+    func testJobErledigt() throws {
+        let (r, c) = try jobService("done_undo_apns")
+        checkJob(r, c, category: "saga.job.done")
+        XCTAssertNotNil(r.sound)
+        XCTAssertEqual(r.userInfo["atok.undo"] as? String, "WuKANryrN8RlH60qY3vFUDoR")
+        XCTAssertEqual((r.userInfo["pv"] as? NSNumber)?.intValue, 2)
+        XCTAssertEqual((r.userInfo["job"] as? NSNumber)?.intValue, 42)
+        XCTAssertEqual(r.userInfo["url"] as? String, "/saga?tab=jobs&job=42")
+        try banner("job-done", r)
+    }
+    func testJobWartetAufOK() throws {
+        let (r, c) = try jobService("needs_ok_apns")
+        checkJob(r, c, category: "saga.job.needs.ok")
+        try banner("job-needs", r)
+    }
+    func testJobOhneCode() throws {
+        let (r, c) = try jobService("needs_ok_apns", auth: false)
+        checkJob(r, c, category: "saga.job.needs.ok~open-later")              // ohne Geraete-Code nie "Passt, los"
+    }
+    func testJobFehlgeschlagen() throws {
+        let (r, c) = try jobService("failed_apns")
+        checkJob(r, c, category: "saga.job.failed")
+        try banner("job-failed", r)
+    }
+    func testJobStill() throws {
+        let (r, c) = try jobService("done_silent_apns")
+        checkJob(r, c, category: "saga.job.done")
+        XCTAssertNil(r.sound, "silent: ohne Ton")
+    }
+    func testJobOhneCaps() throws {
+        let (r, c) = try jobService("done_nocaps_apns")
+        checkJob(r, c, category: "saga.job.done.plain~")                       // keine Token -> keine Knoepfe
+        XCTAssertNil(r.userInfo["atok.quiet"])
+    }
+    func testJobKategorienAngemeldet() throws {
+        let cats = PushJobLogic.notificationCategories()
+        XCTAssertEqual(cats.count, PushJobLogic.iosCategories().count)
+        let done = try XCTUnwrap(cats.first { $0.identifier == "saga.job.done" })
+        XCTAssertEqual(done.actions.map(\.identifier), ["saga.job.undo", "saga.job.quiet"])
+        XCTAssertTrue(done.actions[0].options.contains(.authenticationRequired))
+        XCTAssertFalse(done.actions[0].options.contains(.foreground))
+        XCTAssertFalse(done.actions[1].options.contains(.authenticationRequired))
+        let needs = try XCTUnwrap(cats.first { $0.identifier == "saga.job.needs" })
+        XCTAssertTrue(needs.actions[0].options.contains(.foreground), "Ansehen oeffnet Saga")
+        XCTAssertFalse(cats.contains { $0.actions.contains { $0 is UNTextInputNotificationAction } }, "kein Textfeld")
+    }
+
     /// Ergebnis als Banner zeigen (nur mit TEST_RUNNER_NOTIFY_BANNER): gleiche Inhalte, lokal zugestellt
     private func banner(_ name: String, _ r: UNNotificationContent) throws {
         guard ProcessInfo.processInfo.environment["NOTIFY_BANNER"] == "1" else { return }

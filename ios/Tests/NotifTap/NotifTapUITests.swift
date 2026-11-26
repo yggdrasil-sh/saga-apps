@@ -48,6 +48,38 @@ final class NotifTapUITests: XCTestCase {
         XCTAssertTrue(found, "Ziel \(expect) nach dem Antippen sichtbar")
     }
 
+    /// 2270 (K-C): Auftrags-Mitteilung mit Knoepfen auf SpringBoard. run.sh-Ablauf wie oben, Fall in TEST_RUNNER_JOB_CASE:
+    /// "unlocked" (Home, Banner lang druecken, Knopf TEST_RUNNER_JOB_BUTTON antippen -> act im Hintergrund) bzw. "locked"
+    /// (Sperrbildschirm, Mitteilung lang druecken - nur Bild). Ausgaben JOBTAP_BEREIT/_BANNER/_OFFEN/_GEDRUECKT fuer Bilder.
+    func testJobButtons() throws {
+        guard let mode = env["JOB_CASE"], let mark = env["JOB_MARK"] else { throw XCTSkip("nur ueber das Gegenlauf-Skript") }
+        let app = XCUIApplication()
+        app.launchArguments = (env["NOTIF_ARGS"] ?? "").split(separator: " ").map(String.init)
+        app.launch()
+        // Rueckfrage "Mitteilungen erlauben" kommt erst nach der Kopplung (-hkAskNotif) - bis 60 s warten
+        let end = Date().addingTimeInterval(60)
+        loop: while Date() < end {
+            for l in ["Allow", "Erlauben"] where springboard.buttons[l].waitForExistence(timeout: 2) { springboard.buttons[l].tap(); break loop }
+        }
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20))
+        sleep(UInt32(env["NOTIF_SETTLE"].flatMap(UInt32.init) ?? 10))
+        XCUIDevice.shared.press(.home); sleep(2)
+        if mode == "locked" { XCUIDevice.shared.perform(NSSelectorFromString("pressLockButton")); sleep(2) }
+        print("JOBTAP_BEREIT \(mode)")
+        let banner = springboard.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@", mark)).firstMatch
+        XCTAssertTrue(banner.waitForExistence(timeout: 60), "Mitteilung mit \(mark) erscheint")
+        print("JOBTAP_BANNER \(mode)"); sleep(3)
+        banner.press(forDuration: 1.6)
+        sleep(2)
+        print("JOBTAP_OFFEN \(mode)"); sleep(4)
+        guard mode == "unlocked", let label = env["JOB_BUTTON"] else { return }
+        let b = springboard.buttons[label]
+        XCTAssertTrue(b.waitForExistence(timeout: 10), "Knopf \(label) sichtbar")
+        b.tap()
+        print("JOBTAP_GEDRUECKT \(label)")
+        sleep(12)                                                           // act im Hintergrund, Skript fragt den Server
+    }
+
     private func target(_ app: XCUIApplication, _ text: String) -> XCUIElement {
         app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@ OR value CONTAINS[c] %@ OR placeholderValue CONTAINS[c] %@",
                                                              text, text, text)).firstMatch

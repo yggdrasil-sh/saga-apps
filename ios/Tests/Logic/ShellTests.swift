@@ -8,6 +8,8 @@ func shellTests() {
     check(r("saga://page/42") == .path("/notes#42") && r("hlidskjalf://page/7/") == .path("/notes#7"), "Seite")
     check(r("saga://page/abc") == .none && r("saga://page/1234567890123") == .none, "Seite ohne gueltige ID")
     check(r("saga://tasks") == .path("/notes?v=tasks") && r("saga://events") == .path("/notes?v=events"), "Aufgaben/Termine")
+    check(r("saga://saga") == .path("/saga") && r("saga://jobs") == .path("/saga?tab=jobs") && r("saga://job/42") == .path("/saga?tab=jobs&job=42")
+          && r("saga://job/4x") == .path("/saga?tab=jobs"), "2270: Ort Saga, Auftraege, Auftrag")
     check(r("saga://new-task?src=3") == .path("/notes?v=tasks&new=task") && r("saga://new-page") == .path("/notes?new=blank"), "Neu")
     check(r("saga://new?db=5&view=t&k=x") == .create(.init(db: 5, view: "t", parent: nil, key: "x"))
           && r("saga://new?parent=9") == .create(.init(db: nil, view: nil, parent: 9, key: nil))

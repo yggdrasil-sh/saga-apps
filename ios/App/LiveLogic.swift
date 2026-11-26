@@ -184,6 +184,8 @@ enum NotifTarget: Equatable {
     case web(String)
     /// Aufgaben (Bugs-DB 2187: Erinnerung "task.due" - der Server schickt nur "/")
     case tasks
+    /// 2270: Auftrag im Ort "Saga" ("/saga?tab=jobs&job=42"; ohne Kennung nur der Bereich "Auftraege")
+    case job(id: Int?)
     case none
 }
 
@@ -209,6 +211,7 @@ enum NotifLogic {
         guard let u = url else { return .none }
         if let c = chatID(fromURL: u) { return .chat(id: c) }
         if let s = settingsSection(u) { return .settings(s) }
+        if let j = PushJobLogic.jobTarget(url: u) { return .job(id: j.job) }          // 2270
         if kind == "backup.failed", u.hasPrefix("http://") || u.hasPrefix("https://"), CloudLogic.httpURL(u) != nil, !u.contains("/notes#") { return .web(u) }
         guard let r = u.range(of: "/notes#") else { return .none }
         let frag = u[r.upperBound...]

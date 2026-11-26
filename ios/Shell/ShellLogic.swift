@@ -62,6 +62,9 @@ enum ShellLogic {
         case "chats": return .path("/chats")
         case "new-task": return .path("/notes?v=tasks&new=task")
         case "new-page": return .path("/notes?new=blank")
+        case "saga": return .path("/saga")                                  // 2.6 (K-I) Ort "Saga"
+        case "jobs": return .path("/saga?tab=jobs")                         // 2.6 (2270, K-C) Mitteilung ohne Kennung
+        case "job": return .path(isID(arg) ? "/saga?tab=jobs&job=" + arg : "/saga?tab=jobs")
         case "new":
             let db = item("db"), parent = item("parent")
             if isID(db) {

@@ -174,7 +174,7 @@ targets:
   HlidskjalfNotify:
     type: app-extension
     platform: iOS
-    sources: [Notify, Shared/PushE2E.swift, Shared/Keychain.swift, Shared/Localizable.xcstrings]
+    sources: [Notify, Shared/PushE2E.swift, Shared/PushJob.swift, Shared/Keychain.swift, Shared/Localizable.xcstrings]   # 2270: PushJob
     info:
       path: Notify/Info.plist
       properties:
@@ -422,8 +422,11 @@ targets:
       - Tests/Notify
       - Notify/NotificationService.swift
       - Shared/PushE2E.swift
+      - Shared/PushJob.swift                               # 2270: Auftraege der Kollegin (Vektoren push_kollegin.json)
       - Shared/Keychain.swift
       - path: Tests/vectors/push_e2e.json
+        buildPhase: resources
+      - path: Tests/vectors/push_kollegin.json
         buildPhase: resources
     dependencies:
       - target: Hlidskjalf

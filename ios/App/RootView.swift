@@ -455,10 +455,21 @@ extension RootView {
         case .tasks:                                                    // Bugs-DB 2187: Erinnerung an faellige Aufgaben
             nav.peek = nil; nav.path = []; showNotifs = false
             selection = -1
+        case .job(let id):                                              // 2270: Mitteilung eines Auftrags -> Ort "Saga", Auftraege
+            openJob(id)
         case .none: break
         }
     }
     func copyPageLink(_ id: Int) { HlidskjalfApp_copyPageLink(id) }
+    /// 2270: Ort "Saga", Bereich "Auftraege", ggf. mit geoeffnetem Auftrag (nur mit Ort "Saga" - sonst nichts)
+    func openJob(_ id: Int?) {
+        guard store.sagaStatus != nil else { return }
+        nav.peek = nil; nav.path = []; showNotifs = false
+        JobPush.wantJobsTab = true
+        selection = SagaLogic.tag
+        NotificationCenter.default.post(name: .hkSagaJobs, object: id)
+        if let id { Task { await store.saga.open(id); await JobPush.remove(job: id) } }
+    }
     /// hlidskjalf:// bzw. saga:// - page/12 · today · tasks · events · new-task · new?db=7&view=tab · new?parent=12 · pair?u=…&c=…
     func openLink(_ url: URL) {
         guard url.scheme == "hlidskjalf" || url.scheme == "saga" else { return }
@@ -473,6 +484,8 @@ extension RootView {
         case "tasks": selection = -1
         case "events": selection = -2
         case "new-task": selection = -1; nav.wantQuickAdd = true
+        case "jobs": openJob(nil)                                           // 2270 (K-C)
+        case "job": openJob(PushJobLogic.jobTarget(url: PushJobLogic.linkRoute(host: "job", arg: arg))?.job)
         case "new":                                                        // eigene Widgets duerfen ohne Rueckfrage anlegen
             let k = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "k" }?.value
             if k == AppConfig.linkSecret { createFromLink(url) } else { newAsk = url }

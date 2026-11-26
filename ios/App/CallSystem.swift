@@ -37,7 +37,9 @@ final class CallSystem: NSObject {
             let cat = UNNotificationCategory(identifier: CallSystem.category, actions: [ans, dec], intentIdentifiers: [], options: [])
             let c = UNUserNotificationCenter.current()
             let have = await c.notificationCategories()
-            c.setNotificationCategories(have.filter { $0.identifier != CallSystem.category }.union([cat]))
+            // 2270: Auftrags-Kategorien der Kollegin im selben Aufruf (sonst ueberschreiben sich zwei Anmeldungen)
+            c.setNotificationCategories(have.filter { $0.identifier != CallSystem.category && !JobPush.isOwnCategory($0.identifier) }
+                .union([cat]).union(JobPush.categories()))
         }
         #if os(iOS)
         CallAudio.prepare()                                                  // vor jedem CallKit-Anruf (VoIP-Kaltstart)

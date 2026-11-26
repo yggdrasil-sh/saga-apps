@@ -167,7 +167,7 @@ final class PushModel: ObservableObject {
         let f = e2eFields()
         let body = PushLogic.subscription(token: t, env: Self.env, name: DeviceKey.deviceName, lang: lang, payload: state?.payload ?? 0,
                                           e2e: f.e2e, keys: f.keys, topic: f.topic,
-                                          caps: WidgetPushLogic.subscriptionCaps(serverCaps: state?.subCaps ?? []))   // 2188
+                                          caps: PushJobLogic.subscriptionCaps(serverCaps: state?.subCaps ?? []))   // 2188 widgets, 2270 detail/actions
         do {
             let (d, code) = try await store.apiResponse("api/push/subscriptions", method: "POST", body: body)
             if !(200..<300).contains(code) { message = ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "\(code)" }
@@ -268,6 +268,13 @@ final class PushCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler done: @escaping () -> Void) {
         let info = PushModel.plain(PushE2E.openInfo(response.notification.request.content.userInfo)), action = response.actionIdentifier
+        // 2270: Knopf an einer Auftrags-Mitteilung (ausser "Ansehen") - im Hintergrund ausfuehren, erst danach done()
+        if let a = PushJobLogic.action(fromID: action), a != "open" {
+            let rid = response.notification.request.identifier
+            let thread = response.notification.request.content.threadIdentifier
+            Task { await JobPush.perform(a, info: info, requestID: rid, thread: thread); PushModel.onMain { done() } }
+            return
+        }
         PushModel.onMain {
             PushModel.handleTap(info, action: action)
             done()
@@ -288,6 +295,11 @@ final class PushCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
         #endif
         let openID = active ? PushModel.current?.store?.chat.open?.chatID : nil
         if NotifLogic.hideWhileOpen(kind: info["kind"] as? String, url: info["url"] as? String, openChat: openID) { return [] }
+        // 2270: Auftrag gerade offen (Saga vorne) - kein Banner; aeltere Mitteilungen desselben Auftrags entfernen
+        if PushJobLogic.isJob(info["kind"] as? String), let job = PushJobLogic.int(info["job"]) {
+            Task { await JobPush.remove(job: job) }
+            if active, PushModel.current?.store?.saga.openJob == job { return [] }
+        }
         // 2.6 (2029-6): Sammelmeldung bei offener App - der Live-Hinweis (status.digest) steht schon da
         if active, (info["kind"] as? String) == "status.digest", PushModel.current?.store?.ustatus.on == true { return [] }
         return [.banner, .list, .sound]
@@ -314,6 +326,11 @@ final class IOSAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any],
                      fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         let info = PushModel.plain(PushE2E.openInfo(userInfo))
+        // 2270: Auftrag abgebrochen/zurueckgenommen (job.changed update+removed) - Mitteilung mit diesem tag schliessen
+        if let tag = PushJobLogic.removeTag(info) {
+            Task { await JobPush.remove(thread: tag); completionHandler(.newData) }
+            return
+        }
         MainActor.assumeIsolated {
             guard let hook = PushModel.backgroundHook else { completionHandler(.noData); return }
             Task { @MainActor in completionHandler(await hook(info) ? .newData : .noData) }
@@ -442,6 +459,7 @@ struct PushSettingsSection: View {
         case "call": return String(localized: "Anrufe")
         case "admin": return String(localized: "Admin: Backups des Servers fehlgeschlagen")
         case "tasks": return String(localized: "Aufgaben heute fällig oder überfällig")
+        case "jobs": return String(localized: "Rückmeldungen der KI zu Aufträgen")     // 2270
         default: return c
         }
     }
