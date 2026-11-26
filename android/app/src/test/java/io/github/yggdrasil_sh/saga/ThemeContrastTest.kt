@@ -110,6 +110,22 @@ class ThemeContrastTest {
         }
     }
 
+    /**
+     * 2515: umrandete Knoepfe auf der KI-Karte ("Ja, ohne Ideen", "Rueckgaengig"): Rand >= 3:1 (WCAG 1.4.11), Schrift
+     * >= 4,5:1 auf Gold-Soft - hell und dunkel. Vorher: Rand outlineVariant ~1:1, Schrift onSurfaceVariant 4,37/4,42:1.
+     */
+    @Test
+    fun umrandeteKnoepfeAufKiKarte() {
+        for ((s, name) in schemes) {
+            val edge = ChatUi.contrast(io.github.yggdrasil_sh.saga.ui.theme.sagaCardEdge(s), s.secondaryContainer)
+            assertTrue("Rand $name ${hex(io.github.yggdrasil_sh.saga.ui.theme.sagaCardEdge(s))} auf ${hex(s.secondaryContainer)}: $edge", edge >= 3.0)
+            val text = ChatUi.contrast(io.github.yggdrasil_sh.saga.ui.theme.sagaCardOnEdge(s), s.secondaryContainer)
+            assertTrue("Schrift $name: $text", text >= 4.5)
+            assertTrue("vorher: outlineVariant $name unter 3:1 (darum eigener Rand)", ChatUi.contrast(s.outlineVariant, s.secondaryContainer) < 3.0)
+            assertTrue("vorher: Schrift onSurfaceVariant $name unter 4,5:1 (darum eigene Schrift)", ChatUi.contrast(s.onSurfaceVariant, s.secondaryContainer) < 4.5)
+        }
+    }
+
     /** Neutralfarben = Web-Tokens (static/tokens.css) */
     @Test
     fun neutralWieWeb() {

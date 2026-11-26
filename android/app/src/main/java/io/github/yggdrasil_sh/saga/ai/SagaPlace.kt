@@ -126,7 +126,8 @@ data class JobPlan(
     @SerialName("read_text") val readText: String = "",
     val say: String? = null,
     val recipe: String? = null,
-    val edited: Boolean = false,
+    /** "geaendert – bitte neu freigeben" (2515: Detail und plan_view liefern es immer; aeltere Server nur nach PUT /plan) */
+    val edited: Boolean? = null,
 )
 
 @Serializable
@@ -153,6 +154,8 @@ data class JobChange(
     val undone: Boolean = false,
     @SerialName("can_undo") val canUndo: Boolean = false,
     val why: String? = null,
+    /** Satz zu why (Systemtext, 2515; neuere Server) - unveraendert zeigen */
+    @SerialName("why_text") val whyText: String? = null,
     @SerialName("version_url") val versionUrl: String? = null,
 )
 
@@ -333,6 +336,56 @@ object SagaLogic {
         put("plan_v", plan.planV)
         put("plan_hash", plan.planHash)
     }
+
+    /**
+     * "geaendert – bitte neu freigeben" (Bugs-DB 2515): edited vom Server (Detail/plan_view liefern es immer, true|false);
+     * fehlt es (aeltere Server), wie iOS: ab plan_v 2 ist der Plan geaendert. Nach 409 stale (Plan anderswo geaendert)
+     * steht der Hinweis immer - die Karte wechselt nie still zum neuen Plan.
+     */
+    fun planChanged(plan: JobPlan, afterStale: Boolean = false): Boolean = afterStale || (plan.edited ?: (plan.planV > 1))
+
+    /** Was nach einem 409 auf "Passt, los" geschieht (2515) */
+    enum class ApproveConflict {
+        /** stale: Plan anderswo geaendert - neuen Plan laden und "geaendert – bitte neu freigeben" zeigen */
+        STALE,
+        /** state (anderswo freigegeben/abgebrochen) und sonst: Stand neu laden, "Passt, los" bleibt aus */
+        SETTLED,
+    }
+
+    fun approveConflict(code: String?): ApproveConflict = if (code == "stale") ApproveConflict.STALE else ApproveConflict.SETTLED
+
+    /** Endzustaende: aendern sich nicht mehr (beim Wiederverbinden nicht neu holen) */
+    private val FINAL = setOf("abgebrochen", "zurueckgenommen", "fehlgeschlagen")
+
+    /**
+     * Beim (Wieder-)Verbinden und Zurueckkehren in den Vordergrund den Stand eines gezeigten Auftrags einmal neu holen
+     * (2515): ai.job.changed kann beim Wiederverbinden verloren gehen - sonst bliebe "Laeuft" bzw. die Plan-Karte stehen.
+     * Unbekannt/nicht geladen -> holen; erledigt auch (Rueckgaengig anderswo).
+     */
+    fun resyncDue(state: String?): Boolean = state == null || state !in FINAL
+
+    /**
+     * "Alte Fassung ansehen" nur mit Adresse (bei Aufgaben fehlt sie), nur eigene Pfade. Kennt das Detail den Konflikt
+     * schon (why changed), gilt seine version_url (aeltere Server schicken im 409 auch fuer Aufgaben eine Adresse);
+     * sonst die aus dem 409, bis das Detail neu geladen ist.
+     */
+    fun oldVersionUrl(conflictUrl: String?, change: JobChange?, job: Long): String? =
+        (if (change?.why == "changed") change.versionUrl else conflictUrl)?.takeIf { it.isNotBlank() && beforePathOk(it, job) }
+
+    /**
+     * Satz, warum eine Aenderung nicht (mehr) rueckgaengig geht (2515): why_text vom Server bei changed | gone | no_undo |
+     * done ("schon wie vorher"); fehlt er (aeltere Server), null -> eigener Text ("Das wurde seitdem geaendert.") bzw. nichts.
+     */
+    fun whyNote(ch: JobChange?): String? =
+        ch?.whyText?.trim()?.takeIf { it.isNotEmpty() && ch.why in setOf("changed", "gone", "no_undo", "done") }
+
+    /** 409 changed je Aenderung ueber Drehen/Prozess-Neustart behalten (rememberSaveable): "id\turl" je Eintrag */
+    fun conflictsSave(m: Map<Long, String?>): ArrayList<String> = ArrayList(m.map { (k, v) -> "$k\t${v.orEmpty()}" })
+
+    fun conflictsRestore(l: List<String>?): Map<Long, String?> = l.orEmpty().mapNotNull { e ->
+        val k = e.substringBefore('\t').toLongOrNull() ?: return@mapNotNull null
+        k to e.substringAfter('\t', "").ifBlank { null }
+    }.toMap()
 
     /** Freigabe moeglich? Hash muss da sein (64 Zeichen), sonst nie senden */
     fun approvable(plan: JobPlan): Boolean = plan.job > 0 && plan.planHash.length == 64 && plan.steps.isNotEmpty()

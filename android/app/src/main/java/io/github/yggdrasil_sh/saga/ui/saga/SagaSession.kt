@@ -2,6 +2,7 @@ package io.github.yggdrasil_sh.saga.ui.saga
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.yggdrasil_sh.saga.ai.AiChunk
@@ -85,6 +86,8 @@ class SagaSession(private val repo: SagaRepository) {
     var jobsError by mutableStateOf<UiText?>(null)
     /** Ansage fuer TalkBack (role=status, hoeflich) */
     var live by mutableStateOf("")
+    /** 2515: Rueckgaengig mit 409 changed je Aenderung -> version_url (null = ohne alte Fassung); lebt laenger als die Karte */
+    val undoConflicts = mutableStateMapOf<Long, String?>()
 
     init {
         scope.launch {
@@ -102,6 +105,24 @@ class SagaSession(private val repo: SagaRepository) {
                 }
             }
         }
+    }
+
+    init {
+        // 2515: ai.job.changed geht beim Wiederverbinden ggf. verloren (bzw. kam, bevor der Zug den Auftrag kannte) -
+        // beim (Wieder-)Verbinden, auch nach dem Zurueckkehren in den Vordergrund (Live startet dann neu), einmal neu holen
+        scope.launch {
+            var was = repo.live.connected.value
+            repo.live.connected.collect { on ->
+                if (on && !was) resync()
+                was = on
+            }
+        }
+    }
+
+    /** Stand der gezeigten Auftraege einmal neu holen (nicht bei Endzustaenden) */
+    fun resync() {
+        if (groups != null) refreshJobs()
+        turns.filter { it.zug == "plan" && it.jobId != null && SagaLogic.resyncDue(it.detail?.state) }.forEach { loadJob(it) }
     }
 
     fun close() = scope.cancel()

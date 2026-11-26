@@ -253,6 +253,83 @@ class SagaPlaceTest {
         assertFalse(SagaLogic.consentNeeded(409, """{"consent":"needed"}"""))
     }
 
+    /** 2515: edited vom Server (Detail und plan_view, true|false) - ohne das Feld (aeltere Server) wie iOS ab plan_v 2 */
+    @Test fun planChangedWithAndWithoutEdited() {
+        fun plan(v: Int, edited: String?) = json.decodeFromString(
+            JobPlan.serializer(),
+            """{"job":7,"plan_v":$v,"plan_hash":"$hash","title":"T","state":"wartet_ok","steps":[{"n":1,"tool":"create_task","klass":"own","text":"x"}]""" +
+                (edited?.let { ""","edited":$it""" } ?: "") + "}",
+        )
+        // mit dem Feld (neuer Server): es gilt, was der Server sagt - auch bei plan_v > 1
+        assertTrue(SagaLogic.planChanged(plan(2, "true")))
+        assertFalse("plan_v 3, aber nicht geaendert (Server weiss es)", SagaLogic.planChanged(plan(3, "false")))
+        assertTrue("edited auch bei plan_v 1", SagaLogic.planChanged(plan(1, "true")))
+        assertFalse(SagaLogic.planChanged(plan(1, "false")))
+        // ohne das Feld (Server main): Rueckfall plan_v > 1 - nach 409 stale laedt das Detail ohne edited
+        assertNull(plan(2, null).edited)
+        assertTrue(SagaLogic.planChanged(plan(2, null)))
+        assertFalse(SagaLogic.planChanged(plan(1, null)))
+        assertNull("edited: null wie fehlend", plan(2, "null").edited)
+        // nach 409 stale steht der Hinweis immer (nie stiller Wechsel zum neuen Plan)
+        assertTrue(SagaLogic.planChanged(plan(1, null), afterStale = true))
+        assertTrue(SagaLogic.planChanged(plan(3, "false"), afterStale = true))
+        // Detail mit Plan (GET /api/ai/jobs/<id>), mit und ohne edited
+        val d = json.decodeFromString(io.github.yggdrasil_sh.saga.ai.JobDetail.serializer(),
+            """{"id":7,"state":"wartet_ok","plan":{"job":7,"plan_v":2,"plan_hash":"$hash","steps":[{"n":1,"text":"x"}],"edited":false}}""")
+        assertFalse(SagaLogic.planChanged(d.plan!!))
+        val d0 = json.decodeFromString(io.github.yggdrasil_sh.saga.ai.JobDetail.serializer(),
+            """{"id":7,"state":"wartet_ok","plan":{"job":7,"plan_v":2,"plan_hash":"$hash","steps":[{"n":1,"text":"x"}]}}""")
+        assertTrue(SagaLogic.planChanged(d0.plan!!))
+    }
+
+    /** 2515: 409 auf "Passt, los" - stale: neuer Plan mit Hinweis; state (anderswo freigegeben) und sonst: neu laden, Knopf aus */
+    @Test fun approveConflictFollowUp() {
+        val stale = SagaLogic.conflict("""{"error":"Der Plan hat sich inzwischen geändert.","code":"stale","plan_v":3}""")
+        assertEquals(SagaLogic.ApproveConflict.STALE, SagaLogic.approveConflict(stale.code))
+        val st = SagaLogic.conflict("""{"error":"Dieser Auftrag wartet nicht mehr auf dein OK.","code":"state","state":"laeuft"}""")
+        assertEquals(SagaLogic.ApproveConflict.SETTLED, SagaLogic.approveConflict(st.code))
+        assertEquals(SagaLogic.ApproveConflict.SETTLED, SagaLogic.approveConflict(SagaLogic.conflict("<html>").code))
+    }
+
+    /** 2515: beim (Wieder-)Verbinden einmal neu holen - nicht bei Endzustaenden */
+    @Test fun resyncOnReconnect() {
+        for (s in listOf(null, "wartet_ok", "laeuft", "wartet_dich", "erledigt", "neu_unbekannt")) assertTrue("$s", SagaLogic.resyncDue(s))
+        for (s in listOf("abgebrochen", "zurueckgenommen", "fehlgeschlagen")) assertFalse(s, SagaLogic.resyncDue(s))
+    }
+
+    /** 2515: 409 changed ueberlebt Drehen/Prozess-Neustart; "Alte Fassung ansehen" nur mit version_url (Aufgaben ohne) */
+    @Test fun undoConflictKeptAndOldVersionOnlyWithUrl() {
+        val m = mapOf(12L to "/api/ai/jobs/7/changes/12/before", 13L to null)
+        val saved = SagaLogic.conflictsSave(m)
+        assertTrue(saved.all { it is String })
+        assertEquals(m, SagaLogic.conflictsRestore(saved))
+        assertEquals(emptyMap<Long, String?>(), SagaLogic.conflictsRestore(null))
+        assertEquals(mapOf(5L to null), SagaLogic.conflictsRestore(listOf("5\t", "kaputt", "\t/x")))
+        val task = io.github.yggdrasil_sh.saga.ai.JobChange(id = 13, target = "task:3", why = "changed", versionUrl = null)
+        val note = io.github.yggdrasil_sh.saga.ai.JobChange(id = 12, target = "note:4", why = "changed", versionUrl = "/api/ai/jobs/7/changes/12/before")
+        assertNull("Aufgabe: keine alte Fassung", SagaLogic.oldVersionUrl(null, task, 7))
+        assertNull(SagaLogic.oldVersionUrl("", task, 7))
+        assertNull(SagaLogic.oldVersionUrl(null, null, 7))
+        assertEquals("/api/ai/jobs/7/changes/12/before", SagaLogic.oldVersionUrl(null, note, 7))
+        assertNull("Detail kennt den Konflikt (Aufgabe ohne alte Fassung): Adresse aus dem 409 gilt nicht (aeltere Server)",
+            SagaLogic.oldVersionUrl("/api/ai/jobs/7/changes/12/before", task, 7))
+        assertEquals("vor dem Neuladen: Adresse aus dem 409", "/api/ai/jobs/7/changes/12/before",
+            SagaLogic.oldVersionUrl("/api/ai/jobs/7/changes/12/before", task.copy(why = null), 7))
+        assertEquals("409 leer, Detail hat sie", "/api/ai/jobs/7/changes/12/before", SagaLogic.oldVersionUrl("", note, 7))
+        assertNull("fremder Auftrag", SagaLogic.oldVersionUrl("/api/ai/jobs/8/changes/12/before", null, 7))
+        // why_text vom Server (neuere Server), auch why "done" (schon wie vorher); ohne why_text eigene Texte
+        val d = json.decodeFromString(io.github.yggdrasil_sh.saga.ai.JobDetail.serializer(),
+            """{"id":7,"state":"erledigt","changes":[{"id":1,"target":"task:3","why":"done","why_text":"Schon wie vorher – die Aufgabe gibt es nicht mehr.","version_url":null,"can_undo":false},""" +
+                """{"id":2,"target":"note:4","why":"changed","why_text":"Die Seite wurde seitdem geändert.","version_url":"/api/ai/jobs/7/changes/2/before"},""" +
+                """{"id":3,"target":"task:5","why":"changed","version_url":null},{"id":4,"target":"task:6","why":null,"why_text":"x","can_undo":true}]}""")
+        assertEquals("Schon wie vorher – die Aufgabe gibt es nicht mehr.", SagaLogic.whyNote(d.changes[0]))
+        assertEquals("Die Seite wurde seitdem geändert.", SagaLogic.whyNote(d.changes[1]))
+        assertNull("ohne why_text: eigener Text", SagaLogic.whyNote(d.changes[2]))
+        assertNull("ohne why kein Satz", SagaLogic.whyNote(d.changes[3]))
+        assertNull(SagaLogic.oldVersionUrl(null, d.changes[0], 7))
+        assertEquals("/api/ai/jobs/7/changes/2/before", SagaLogic.oldVersionUrl(null, d.changes[1], 7))
+    }
+
     // ------------------------------------------------------------------ Gespraech, Einstellungen, Export
 
     @Test fun threadAndPrefs() {

@@ -111,6 +111,30 @@ fun SagaOutlinedButton(
     border = border, contentPadding = contentPadding, interactionSource = interactionSource, content = content,
 )
 
+/**
+ * Umrandete Knoepfe auf der KI-Karte (secondaryContainer, Gold-Soft, Bugs-DB 2515): Material zeichnet Schrift in
+ * onSurfaceVariant (4,37:1 dunkel, 4,42:1 hell - unter AA) und den Rand in outlineVariant (~1:1). Auf der Karte beides
+ * in primary: Schrift >= 4,5:1, Rand >= 3:1 (WCAG 1.4.11), hell und dunkel - Pruefung: ThemeContrastTest.
+ */
+fun sagaCardEdge(s: androidx.compose.material3.ColorScheme): Color = s.primary
+
+/** Schrift umrandeter Knoepfe auf der KI-Karte */
+fun sagaCardOnEdge(s: androidx.compose.material3.ColorScheme): Color = s.primary
+
+/** Umrandeter Knopf auf der KI-Karte ("Ja, ohne Ideen", "Rueckgaengig"): Schrift und Rand primary, gesperrt wie Material */
+@Composable
+fun SagaCardOutlinedButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable RowScope.() -> Unit,
+) = SagaOutlinedButton(
+    onClick = onClick, modifier = modifier, enabled = enabled,
+    colors = ButtonDefaults.outlinedButtonColors(contentColor = sagaCardOnEdge(MaterialTheme.colorScheme)),
+    border = BorderStroke(1.dp, if (enabled) sagaCardEdge(MaterialTheme.colorScheme) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)),
+    content = content,
+)
+
 @Composable
 fun SagaTextButton(
     onClick: () -> Unit,

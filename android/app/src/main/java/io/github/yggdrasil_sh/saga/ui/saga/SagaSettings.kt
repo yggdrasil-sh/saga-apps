@@ -82,6 +82,7 @@ fun SagaSettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) 
     var askWithdraw by remember { mutableStateOf(false) }
     var askDelete by remember { mutableStateOf(false) }
     var adminOpen by remember { mutableStateOf(false) }
+    val sagaSession = rememberSagaSession(repo)
     suspend fun load() {
         try {
             repo.ai.loadStatus()
@@ -101,7 +102,12 @@ fun SagaSettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) 
             try {
                 prefs = repo.saga.putPrefs(body)
                 repo.notify(UiText.Res(R.string.saga_saved))
-                if (body.containsKey("history")) repo.ai.loadStatus()
+                if (body.containsKey("history")) {
+                    repo.ai.loadStatus()
+                    // 2515: Hinweis "Verlauf an/aus" im Gespraech sofort richtig (Gespraech neu laden, wenn es schon geladen war)
+                    val ses = sagaSession
+                    if (ses.talkLoaded) ses.loadThread() else prefs?.history?.let { ses.history = it }
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

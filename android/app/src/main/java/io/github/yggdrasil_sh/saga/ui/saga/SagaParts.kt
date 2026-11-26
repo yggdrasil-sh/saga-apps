@@ -52,7 +52,7 @@ import io.github.yggdrasil_sh.saga.ui.ai.AiAvatar
 import io.github.yggdrasil_sh.saga.ui.nav.AppNavigator
 import io.github.yggdrasil_sh.saga.ui.nav.Dest
 import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
-import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaCardOutlinedButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import io.github.yggdrasil_sh.saga.util.UiText
 import io.github.yggdrasil_sh.saga.util.resolve
@@ -233,7 +233,7 @@ fun IntroCard(
                 when {
                     a == SagaLogic.IntroAnswer.LATER -> SagaTextButton(onClick = { go(a) }, enabled = !busy, modifier = m.padding(top = 8.dp)) { Text(text) }
                     i == 0 -> SagaButton(onClick = { go(a) }, enabled = !busy, modifier = m) { Text(text) }
-                    else -> SagaOutlinedButton(onClick = { go(a) }, enabled = !busy, modifier = m) { Text(text) }
+                    else -> SagaCardOutlinedButton(onClick = { go(a) }, enabled = !busy, modifier = m) { Text(text) }
                 }
             }
         }

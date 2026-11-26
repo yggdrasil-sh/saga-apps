@@ -35,6 +35,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,6 +72,7 @@ import io.github.yggdrasil_sh.saga.ui.common.dateTimeText
 import io.github.yggdrasil_sh.saga.ui.nav.AppNavigator
 import io.github.yggdrasil_sh.saga.ui.nav.Dest
 import io.github.yggdrasil_sh.saga.ui.theme.SagaButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaCardOutlinedButton
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
 import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
@@ -266,13 +268,14 @@ fun JobTurnView(repo: SagaRepository, nav: AppNavigator, st: AiStatus, session: 
                     repo, st, shown,
                     onPlan = { np -> t.plan = np; t.detail = t.detail?.copy(plan = np); session.refreshJobs() },
                     onDone = { _, _, text, _ -> session.live = text; session.loadJob(t); session.refreshJobs() },
+                    onReload = { session.loadJob(t); session.refreshJobs() },
                 )
                 d == null -> SagaCard {
                     SagaHead(st)
                     Text(t.text, style = MaterialTheme.typography.bodyLarge)
                 }
                 SagaLogic.jobView(d) == SagaLogic.JobView.REPORT ->
-                    ReportCard(repo, st, d, onOpen = { nav.push(Dest.SagaJob(id)) }) { session.loadJob(t); session.refreshJobs() }
+                    ReportCard(repo, st, d, session, onOpen = { nav.push(Dest.SagaJob(id)) }) { session.loadJob(t); session.refreshJobs() }
                 else -> SagaCard {
                     SagaHead(st, extra = d.stateText)
                     Text(d.title.ifBlank { d.reasonText.orEmpty() }, style = MaterialTheme.typography.bodyLarge)
@@ -325,12 +328,14 @@ private fun fieldLabel(k: String): String = stringResource(
 
 /**
  * B3 Plan-Karte: "Wartet auf dein OK" · Satz · Schritte · Entwurf · "Ich lese dafuer: …" · Passt, los (volle Breite) ·
- * Aendern · Lieber nicht (Textknoepfe, Abstand). Freigabe nur mit plan_v + plan_hash; 409 stale -> neuer Plan.
+ * Aendern · Lieber nicht (Textknoepfe, Abstand). Freigabe nur mit plan_v + plan_hash; 409 stale -> neuer Plan mit
+ * "geaendert – bitte neu freigeben", 409 state (anderswo freigegeben) -> Stand neu laden (onReload), "Passt, los" aus (2515).
  */
 @Composable
 fun PlanCard(
     repo: SagaRepository, st: AiStatus, plan: JobPlan,
     onPlan: (JobPlan) -> Unit, onDone: (job: Long, stateText: String, text: String, approved: Boolean) -> Unit,
+    onReload: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val online = rememberOnline()
@@ -338,12 +343,28 @@ fun PlanCard(
     var busy by remember { mutableStateOf(false) }
     var error by remember(plan.job, plan.planV) { mutableStateOf<UiText?>(null) }
     val values = remember(plan.job, plan.planV) { mutableStateMapOf<Int, Map<String, String>>() }
+    // 2515: nach 409 stale bleibt der Hinweis am neuen Plan stehen; nach 409 state ist diese Fassung erledigt (Knopf aus)
+    var afterStale by rememberSaveable(plan.job) { mutableStateOf(false) }
+    var settled by rememberSaveable(plan.job, plan.planV) { mutableStateOf(false) }
     fun fail(e: Exception) {
         error = repo.friendly(e)
     }
+    suspend fun conflict(e: Exception) {
+        if (e !is ApiException || e.code != 409) return
+        when (SagaLogic.approveConflict(SagaLogic.conflict(e.body).code)) {
+            SagaLogic.ApproveConflict.STALE -> {
+                afterStale = true
+                reload(repo, plan.job, onPlan, onReload)
+            }
+            SagaLogic.ApproveConflict.SETTLED -> {
+                settled = true
+                onReload()
+            }
+        }
+    }
     SagaCard {
         SagaHead(st, extra = stringResource(R.string.saga_wait_ok))
-        if (plan.edited) Text(stringResource(R.string.saga_edited), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        if (SagaLogic.planChanged(plan, afterStale)) Text(stringResource(R.string.saga_edited), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         Text(plan.say?.takeIf { it.isNotBlank() } ?: stringResource(R.string.saga_plan_lead), style = MaterialTheme.typography.bodyLarge)
         plan.steps.forEachIndexed { i, step ->
             StepRow(i, plan.steps.size, step, showWording = !(editing && step.edit.isNotEmpty()))
@@ -391,7 +412,7 @@ fun PlanCard(
                             throw e
                         } catch (e: Exception) {
                             fail(e)
-                            if (e is ApiException && e.code == 409) reload(repo, plan.job, onPlan)
+                            conflict(e)
                         } finally {
                             busy = false
                         }
@@ -416,17 +437,17 @@ fun PlanCard(
                             throw e
                         } catch (e: Exception) {
                             fail(e)
-                            if (e is ApiException && e.code == 409) reload(repo, plan.job, onPlan)   // stale: neuer Plan, neue Freigabe
+                            conflict(e)                                   // stale: neuer Plan, neue Freigabe; state: neu laden
                         } finally {
                             busy = false
                         }
                     }
                 },
-                enabled = !busy && online, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                enabled = !busy && online && !settled, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
             ) { Text(stringResource(R.string.saga_go_ahead)) }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 if (SagaLogic.canEdit(plan)) {
-                    SagaTextButton(onClick = { editing = true }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.saga_edit)) }
+                    SagaTextButton(onClick = { editing = true }, enabled = !busy && !settled, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.saga_edit)) }
                 }
                 Spacer(Modifier.weight(1f))
                 SagaTextButton(onClick = {
@@ -451,12 +472,12 @@ fun PlanCard(
     }
 }
 
-/** 409: Plan neu laden - wartet er noch auf das OK, steht der neue Plan (neuer Hash) da */
-private suspend fun reload(repo: SagaRepository, job: Long, onPlan: (JobPlan) -> Unit) {
+/** 409 stale: Plan neu laden - wartet er noch auf das OK, steht der neue Plan (neuer Hash) da, sonst der neue Stand */
+private suspend fun reload(repo: SagaRepository, job: Long, onPlan: (JobPlan) -> Unit, onReload: () -> Unit) {
     try {
         val d = repo.saga.job(job)
         val p = d.plan
-        if (d.state == "wartet_ok" && p != null && p.steps.isNotEmpty()) onPlan(p)
+        if (d.state == "wartet_ok" && p != null && p.steps.isNotEmpty()) onPlan(p) else onReload()
     } catch (e: CancellationException) {
         throw e
     } catch (_: Exception) {
@@ -465,14 +486,18 @@ private suspend fun reload(repo: SagaRepository, job: Long, onPlan: (JobPlan) ->
 
 /**
  * B4 Rueckmeldung: Ergebnis zuerst, je Aenderung eine Zeile mit Knopf "Rueckgaengig" (48 dp). "nur loeschbar" fragt vorher;
- * 409 changed -> "Das wurde seitdem geaendert." + "Alte Fassung ansehen" (nie still ueberschreiben).
+ * 409 changed -> "Das wurde seitdem geaendert." + "Alte Fassung ansehen" (nur mit version_url, nie still ueberschreiben);
+ * der Hinweis bleibt (2515): im Zustand des Orts (SagaSession - Drehen, Wechsel auf zwei Spalten ab 840 dp, anderer
+ * Bildschirm), im gesicherten Zustand der Karte (rememberSaveable - Prozess-Neustart) und nach dem Neuladen im Detail (why).
  */
 @Composable
-fun ReportCard(repo: SagaRepository, st: AiStatus, d: JobDetail, onOpen: (() -> Unit)? = null, onChanged: () -> Unit) {
+fun ReportCard(repo: SagaRepository, st: AiStatus, d: JobDetail, session: SagaSession? = null, onOpen: (() -> Unit)? = null, onChanged: () -> Unit) {
     val scope = rememberCoroutineScope()
     val rep = d.report
     var confirm by remember { mutableStateOf<Long?>(null) }
-    val conflicts = remember(d.id) { mutableStateMapOf<Long, String?>() }
+    var savedConflicts by rememberSaveable(d.id) { mutableStateOf(ArrayList<String>()) }
+    val held = session?.undoConflicts
+    val conflicts = SagaLogic.conflictsRestore(savedConflicts) + held.orEmpty()
     var busy by remember { mutableStateOf<Long?>(null) }
     var old by remember { mutableStateOf<JobBefore?>(null) }
     val undoneText = stringResource(R.string.saga_undone)
@@ -487,7 +512,13 @@ fun ReportCard(repo: SagaRepository, st: AiStatus, d: JobDetail, onOpen: (() -> 
                 throw e
             } catch (e: Exception) {
                 val c = (e as? ApiException)?.takeIf { it.code == 409 }?.let { SagaLogic.conflict(it.body) }
-                if (c?.code == "changed") conflicts[change] = c.versionUrl else repo.notify(repo.friendly(e))
+                if (c?.code == "changed") {
+                    savedConflicts = SagaLogic.conflictsSave(SagaLogic.conflictsRestore(savedConflicts) + (change to c.versionUrl))
+                    held?.set(change, c.versionUrl)
+                    onChanged()                                           // Detail neu: why "changed" kommt vom Server
+                } else {
+                    repo.notify(repo.friendly(e))
+                }
             } finally {
                 busy = null
             }
@@ -517,8 +548,11 @@ fun ReportCard(repo: SagaRepository, st: AiStatus, d: JobDetail, onOpen: (() -> 
                 val conflictUrl = conflicts[ln.change]
                 when {
                     ln.undone -> Text(undoneText, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    ln.change in conflicts || ch?.why == "changed" -> ChangedNote(d.id, conflictUrl ?: ch?.versionUrl, ::showOld)
-                    ln.canUndo -> SagaOutlinedButton(
+                    ln.change in conflicts || ch?.why == "changed" -> ChangedNote(SagaLogic.whyNote(ch), SagaLogic.oldVersionUrl(conflictUrl, ch, d.id), ::showOld)
+                    SagaLogic.whyNote(ch) != null && ch?.canUndo != true -> Text(
+                        SagaLogic.whyNote(ch).orEmpty(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    ln.canUndo -> SagaCardOutlinedButton(
                         onClick = { if (ch?.undoClass == "delete_only") confirm = ln.change else undo(ln.change) },
                         enabled = busy == null, modifier = Modifier.heightIn(min = 48.dp),
                     ) { Text(stringResource(R.string.saga_undo)) }
@@ -549,10 +583,10 @@ fun ReportCard(repo: SagaRepository, st: AiStatus, d: JobDetail, onOpen: (() -> 
 }
 
 @Composable
-private fun ChangedNote(job: Long, url: String?, onOld: (String) -> Unit) {
+private fun ChangedNote(text: String?, url: String?, onOld: (String) -> Unit) {
     Column {
-        Text(stringResource(R.string.saga_changed_since), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (url != null && SagaLogic.beforePathOk(url, job)) {
+        Text(text ?: stringResource(R.string.saga_changed_since), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (url != null) {
             SagaTextButton(onClick = { onOld(url) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.saga_old_view)) }
         }
     }
@@ -582,6 +616,14 @@ fun SagaJobScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, id: L
     LaunchedEffect(id) {
         repo.live.events.collect { ev -> if (ev.type == "ai.job.changed" && ev.long("id") == id) load() }
     }
+    // 2515: ai.job.changed kann beim Wiederverbinden verloren gehen - (wieder) verbunden bzw. Vordergrund: einmal neu holen
+    LaunchedEffect(id) {
+        var was = repo.live.connected.value
+        repo.live.connected.collect { on ->
+            if (on && !was && SagaLogic.resyncDue(d?.state)) load()
+            was = on
+        }
+    }
     val title = d?.title?.ifBlank { null } ?: stringResource(R.string.saga_job)
     Scaffold(topBar = { io.github.yggdrasil_sh.saga.ui.common.SagaTopBar(title, nav, chrome, contentMaxWidth = io.github.yggdrasil_sh.saga.ui.common.TopBarAlign.CONTENT) }) { pad ->
         val s = st
@@ -602,9 +644,9 @@ fun SagaJobScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, id: L
                     PlanCard(repo, s, plan, onPlan = { p -> d = x.copy(plan = p) }, onDone = { _, _, _, _ ->
                         session.refreshJobs()
                         load()
-                    })
+                    }, onReload = { load(); session.refreshJobs() })
                 } else {
-                    if ((x.state == "erledigt" || x.state == "zurueckgenommen") && s != null) ReportCard(repo, s, x) { load(); session.refreshJobs() }
+                    if ((x.state == "erledigt" || x.state == "zurueckgenommen") && s != null) ReportCard(repo, s, x, session) { load(); session.refreshJobs() }
                     if (plan != null && plan.steps.isNotEmpty()) {
                         Section(stringResource(R.string.saga_plan))
                         plan.steps.forEachIndexed { i, step -> StepRow(i, plan.steps.size, step, showWording = true) }
