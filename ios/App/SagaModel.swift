@@ -371,4 +371,46 @@ final class SagaModel: ObservableObject {
         guard let store else { throw APIError.other("") }
         return try await store.api("api/ai/mydata?format=\(format == "md" ? "md" : "json")", timeout: 60)
     }
+
+    #if DEBUG
+    /// Nur fuer Tests (Startparameter): Einwilligung, Frage, Auftrag, Freigabe und Rueckgaengig ohne Antippen
+    /// -hkSagaConsent ideas|no_ideas · -hkSagaAsk <frage> · -hkSagaGive <bitte> · -hkSagaApprove YES · -hkSagaUndo YES
+    func debugRun() async {
+        let d = UserDefaults.standard
+        func log(_ s: String) { print("SAGA_DBG " + s); fflush(stdout) }
+        func wait(_ what: String, _ ok: () -> Bool) async -> Bool {
+            for _ in 0..<120 { if ok() { return true }; try? await Task.sleep(for: .milliseconds(250)) }
+            log("timeout " + what); return false
+        }
+        guard await wait("status", { status != nil }) else { return }
+        if let c = d.string(forKey: "hkSagaConsent"), let a = SagaLogic.ConsentAnswer(rawValue: c), status?.consentOK == false {
+            try? await Task.sleep(for: .seconds(2))
+            await consent(a); log("consent \(status?.consent?.state.rawValue ?? "-") \(cardError ?? "")")
+        }
+        if let q = d.string(forKey: "hkSagaAsk"), await wait("thread", { threadLoaded }) {
+            send(q)
+            if await wait("answer", { live == nil || liveError != nil }) { log("ask turns=\(thread.turns.count) err=\(liveError ?? "-")") }
+        }
+        if let g = d.string(forKey: "hkSagaGive") {
+            try? await Task.sleep(for: .seconds(1))
+            give(g)
+            guard await wait("plan", { if case .plan = stage { return true }; if case .error = stage { return true }; return false }) else { return }
+            if case .error(let e)? = stage { log("give error \(e)"); return }
+            if case .plan(let p)? = stage { log("plan job=\(p.job) v=\(p.planV) steps=\(p.steps.count)") }
+        }
+        if d.bool(forKey: "hkSagaApprove"), case .plan(let p)? = stage {
+            try? await Task.sleep(for: .seconds(Double(d.integer(forKey: "hkSagaPause"))))
+            let e = await approve(p); log("approve \(e ?? "ok")")
+            if await wait("feedback", { if case .feedback = stage { return true }; return false }), case .feedback(let x)? = stage {
+                log("feedback \(x.stateText) lines=\(x.feedback?.lines.count ?? 0)")
+            }
+        }
+        if d.bool(forKey: "hkSagaUndo"), case .feedback(let x)? = stage, let ln = x.feedback?.lines.first(where: \.canUndo) {
+            try? await Task.sleep(for: .seconds(Double(d.integer(forKey: "hkSagaPause"))))
+            let r = await undo(job: x.id, change: ln.change); log("undo \(r)")
+            if case .feedback(let y)? = stage { log("after undo \(y.stateText)") }
+        }
+        log("fertig")
+    }
+    #endif
 }

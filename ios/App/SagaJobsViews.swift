@@ -415,8 +415,7 @@ struct SagaJobDetailView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(verbatim: d.title.isEmpty ? String(localized: "Auftrag") : d.title).font(.title3.weight(.semibold))
                 .accessibilityAddTraits(.isHeader).accessibilityFocused($titleFocus)
-            (Text(verbatim: d.stateText).bold() + Text(verbatim: d.reasonText.map { " – " + $0 } ?? ""))
-                .fixedSize(horizontal: false, vertical: true)
+            Text(Self.stateLine(d)).fixedSize(horizontal: false, vertical: true)
         }
         .onAppear { titleFocus = true }                          // eigener Schritt (antippen): Fokus auf den Titel
         if d.awaitingOK, let p = d.plan {
@@ -448,8 +447,11 @@ struct SagaJobDetailView: View {
         if !d.events.isEmpty {
             section("Protokoll") {
                 ForEach(d.events) { e in
-                    (Text(verbatim: Self.when(e.at)).font(.subheadline.monospacedDigit()).foregroundStyle(.secondary) + Text(verbatim: "  " + e.text))
-                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(verbatim: Self.when(e.at)).font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+                        Text(verbatim: e.text).fixedSize(horizontal: false, vertical: true)
+                    }
+                    .accessibilityElement(children: .combine)
                 }
             }
         }
@@ -465,6 +467,12 @@ struct SagaJobDetailView: View {
             Text(title).font(.headline).accessibilityAddTraits(.isHeader)
             c()
         }
+    }
+    /// Genaues Zustandswort fett, Grund dahinter ("Wartet auf dich – Einwilligung widerrufen")
+    static func stateLine(_ d: SagaJobDetail) -> AttributedString {
+        var a = AttributedString(d.stateText); a.inlinePresentationIntent = .stronglyEmphasized
+        if let r = d.reasonText, !r.isEmpty, r != d.stateText { a += AttributedString(" – " + r) }
+        return a
     }
     static func when(_ ts: Double) -> String { Date(timeIntervalSince1970: ts).formatted(date: .abbreviated, time: .shortened) }
 }

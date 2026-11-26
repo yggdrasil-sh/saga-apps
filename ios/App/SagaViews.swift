@@ -145,7 +145,7 @@ struct SagaIntroCard: View {
         .sheet(isPresented: $info) { SagaInfoSheet(details: intro.details) }
     }
     @ViewBuilder private func answerButton(_ a: SagaLogic.ConsentAnswer) -> some View {
-        let go = { Task { await m.consent(a); if m.cardError == nil { onAnswer(a) } } }
+        let go: () -> Void = { _ = Task { await m.consent(a); if m.cardError == nil { onAnswer(a) } } }
         switch a {
         case .ideas:
             Button { go() } label: { Text("Ja, mit Ideen").frame(maxWidth: .infinity, minHeight: 30) }.prominentGold().controlSize(.large)
@@ -235,6 +235,12 @@ struct SagaScreen: View {
                     .accessibilityAddTraits(.updatesFrequently)
             }
         }
+        #if DEBUG
+        .task {                                                        // nur fuer Tests: Bereich und Ablauf per Startparameter
+            if UserDefaults.standard.integer(forKey: "hkSagaTab") == 1 { tab = 1 }
+            await m.debugRun()
+        }
+        #endif
         .task(id: store.sagaStatus?.consentOK) {
             await store.loadAIStatus()
             if store.sagaStatus?.consentOK == true { await m.loadThread(); await m.loadJobs() }
