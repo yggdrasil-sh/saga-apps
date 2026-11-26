@@ -88,11 +88,12 @@ struct SagaInfoSheet: View {
 struct SagaBar: View {
     let text: String
     let open: () -> Void
+    @Environment(\.dynamicTypeSize) private var dts
     var body: some View {
         Button(action: open) {
             HStack(spacing: 6) {
                 Image(systemName: "lock.open").font(.footnote).accessibilityHidden(true)
-                Text(verbatim: text).font(.footnote).lineLimit(1).truncationMode(.head)   // Host bleibt sichtbar (Ende des Satzes)
+                Text(verbatim: text).font(.footnote).lineLimit(dts.isAccessibilitySize ? 3 : 1).truncationMode(.head)   // Host bleibt sichtbar (Ende des Satzes; sehr grosse Schrift: bis 3 Zeilen)
                 Spacer(minLength: 4)
                 Image(systemName: "info.circle").font(.body)
             }
@@ -429,7 +430,9 @@ struct SagaConversation: View {
         }
     }
 
+    @Environment(\.dynamicTypeSize) private var dts
     /// Eingabe: Feld ueber die volle Breite, darunter "Als Auftrag" (Umschalter mit Wort, 11.7) und der Knopf
+    /// (sehr grosse Schrift: untereinander, damit weder "Als Auftrag" bricht noch "Senden" abgeschnitten wird)
     private var input: some View {
         let jobs = store.sagaStatus?.jobsOn == true
         let asJob = jobs && m.jobMode
@@ -439,7 +442,8 @@ struct SagaConversation: View {
                 .lineLimit(1...5).textFieldStyle(.roundedBorder).focused($focused)
                 .accessibilityLabel(asJob ? Text("Auftrag an \(store.sagaName)") : Text("Nachricht an \(store.sagaName)"))
                 .disabled(busy)
-            HStack(spacing: 8) {
+            let row = dts.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
+            row {
                 if jobs {                                              // klarer Umschalter, kein Raten, ob es ein Auftrag ist
                     Toggle(isOn: $m.jobMode) { Label("Als Auftrag", systemImage: "checklist") }
                         .toggleStyle(.button).controlSize(.large).frame(minHeight: 44).disabled(busy)
