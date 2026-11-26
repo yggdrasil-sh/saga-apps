@@ -49,6 +49,17 @@ data class AiStatus(
     val persona: AiPersona? = null,
     /** 2.1: Admin hat "KI in Chats erlauben" eingeschaltet */
     val chat: Boolean = false,
+    /** 2.6 (2261): Faehigkeiten der Person (ai, ai_act, ai_ideas); null = aelterer Server */
+    val caps: List<String>? = null,
+    /** 2.6 K-H (2268): Kennzeichnung "{Persona} · KI", Form, Lebhaftigkeit, Anrede */
+    val style: AiStyle? = null,
+    /** 2.6 K-B (2267): Auftraege und Faehigkeitsstufe (plans | recipes | answers) */
+    val jobs: Boolean? = null,
+    val level: String? = null,
+    /** 2.6 K-I (2269): Anbieter-/Host-Hinweis, Einwilligung, Kennenlernen-Karte - fehlen bei aelteren Servern */
+    val endpoint: AiEndpoint? = null,
+    val consent: AiConsent? = null,
+    val intro: AiIntro? = null,
 )
 
 /** 2.1: Persona der KI (GET /api/ai/persona, status.persona, Live-Ereignis ai.persona.changed) */

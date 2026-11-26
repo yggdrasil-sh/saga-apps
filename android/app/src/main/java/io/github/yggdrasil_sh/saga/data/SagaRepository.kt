@@ -224,6 +224,8 @@ class SagaRepository(
 
     /** KI-Assistent (Server 1.6) */
     val ai = io.github.yggdrasil_sh.saga.ai.AiService(this, scope)
+    /** 2.6 (K-I 2269, K-B 2267): Ort "Saga" - Einwilligung, Gespraech, Auftraege, Meine Daten */
+    val saga = io.github.yggdrasil_sh.saga.ai.SagaService(this)
 
     @Volatile private var pushChecked = false
 
