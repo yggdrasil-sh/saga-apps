@@ -241,33 +241,37 @@ fun JobTurnView(repo: SagaRepository, nav: AppNavigator, st: AiStatus, session: 
             val d = t.detail
             val p = t.plan
             val id = t.jobId ?: 0L
+            // Eine Aufrufstelle fuer die Plan-Karte: Plan aus dem Strom bzw. aus dem Detail - sonst verloere der Wechsel
+            // (Detail kommt per ai.job.changed nach) ein gerade geoeffnetes "Aendern" samt Eingaben
+            val shown: JobPlan? = when {
+                t.gone -> null
+                d == null -> p?.takeIf { it.steps.isNotEmpty() }
+                SagaLogic.jobView(d) == SagaLogic.JobView.PLAN -> d.plan
+                else -> null
+            }
             when {
                 t.gone -> SagaCard {
                     SagaHead(st)
                     Text(stringResource(R.string.saga_job_gone), style = MaterialTheme.typography.bodyLarge)
                 }
-                d == null && p != null && p.steps.isNotEmpty() -> PlanCard(
-                    repo, st, p, onPlan = { np -> t.plan = np; session.refreshJobs() },
+                shown != null -> PlanCard(
+                    repo, st, shown,
+                    onPlan = { np -> t.plan = np; t.detail = t.detail?.copy(plan = np); session.refreshJobs() },
                     onDone = { _, _, text, _ -> session.live = text; session.loadJob(t); session.refreshJobs() },
                 )
                 d == null -> SagaCard {
                     SagaHead(st)
                     Text(t.text, style = MaterialTheme.typography.bodyLarge)
                 }
-                else -> when (SagaLogic.jobView(d)) {
-                    SagaLogic.JobView.PLAN -> PlanCard(
-                        repo, st, d.plan!!, onPlan = { np -> t.detail = d.copy(plan = np); session.refreshJobs() },
-                        onDone = { _, _, text, _ -> session.live = text; session.loadJob(t); session.refreshJobs() },
-                    )
-                    SagaLogic.JobView.REPORT -> ReportCard(repo, st, d, onOpen = { nav.push(Dest.SagaJob(id)) }) { session.loadJob(t); session.refreshJobs() }
-                    SagaLogic.JobView.STATE -> SagaCard {
-                        SagaHead(st, extra = d.stateText)
-                        Text(d.title.ifBlank { d.reasonText.orEmpty() }, style = MaterialTheme.typography.bodyLarge)
-                        if (d.title.isNotBlank() && !d.reasonText.isNullOrBlank()) {
-                            Text(d.reasonText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        SagaTextButton(onClick = { nav.push(Dest.SagaJob(id)) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.saga_view)) }
+                SagaLogic.jobView(d) == SagaLogic.JobView.REPORT ->
+                    ReportCard(repo, st, d, onOpen = { nav.push(Dest.SagaJob(id)) }) { session.loadJob(t); session.refreshJobs() }
+                else -> SagaCard {
+                    SagaHead(st, extra = d.stateText)
+                    Text(d.title.ifBlank { d.reasonText.orEmpty() }, style = MaterialTheme.typography.bodyLarge)
+                    if (d.title.isNotBlank() && !d.reasonText.isNullOrBlank()) {
+                        Text(d.reasonText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    SagaTextButton(onClick = { nav.push(Dest.SagaJob(id)) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.saga_view)) }
                 }
             }
         }

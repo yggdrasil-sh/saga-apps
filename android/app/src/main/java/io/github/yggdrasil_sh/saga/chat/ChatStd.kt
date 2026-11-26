@@ -183,11 +183,11 @@ object ChatStd {
         put("text", text?.trim()?.take(REPORT_TEXT_MAX).orEmpty())
     }
 
-    /** Vorbelegung des mitgeschickten Texts: "Name: Text" je Nachricht */
     /** 2.6 (2258a): eigene Nachricht nur meldbar, wenn sie eine KI-Antwort mit passendem Beleg ist (Server: sonst 400) */
     fun aiReportable(mine: Boolean, ai: io.github.yggdrasil_sh.saga.ai.AiReplyCheck, reportOn: Boolean, hasContent: Boolean): Boolean =
         mine && ai == io.github.yggdrasil_sh.saga.ai.AiReplyCheck.OK && reportOn && hasContent
 
+    /** Vorbelegung des mitgeschickten Texts: "Name: Text" je Nachricht */
     fun reportPrefill(lines: List<Pair<String, String>>): String =
         lines.joinToString("\n") { (n, t) -> (if (n.isNotEmpty()) "$n: " else "") + t }.take(REPORT_TEXT_MAX)
 
