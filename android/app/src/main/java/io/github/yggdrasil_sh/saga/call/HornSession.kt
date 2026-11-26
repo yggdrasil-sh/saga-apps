@@ -127,6 +127,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         fun diagWay(path: String, node: String) {}
         /** Bugs-DB 2472: eigene Kachel zu sehen (Meeting-Ansicht) - nur dann wird der eigene Pegel gemessen */
         fun selfTile(): Boolean = false
+        /** Pruefung 2472: Anrufbildschirm zu sehen - sonst Sprechring-Pegel im alten Takt (3 s) statt 500 ms */
+        fun viewShown(): Boolean = true
         /** Video-Senke einer Kachel bzw. des grossen Bildes (Sprecher/Bildschirm) */
         fun tileSink(dev: String): ProxySink
         val bigSink: ProxySink
@@ -1230,8 +1232,11 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         stateOut()                                                  // P9/P10: neue Kennung (state.hp) an alle
         runesSoon()
         if (monJob == null) monJob = scope.launch {
+            val t0 = System.currentTimeMillis()
             while (isActive && !closed) {
-                delay(500)
+                // Pruefung 2472: fester Takt ab Start (Abstand 500 ms auch mit getStats in mon) - sonst 550-700 ms und der
+                // 600-ms-Nachlauf des Sprechrings ueberbrueckte keine einzelne leise Messung (Flackern)
+                delay(Meeting.tickDelay(t0, System.currentTimeMillis(), Meeting.LEVEL_TICK_MS))
                 try {
                     mon()
                     cur?.let { if (System.currentTimeMillis() - tuneAt > 5000) tune(it) }   // Energiesparen an/aus
@@ -1509,8 +1514,9 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             statAt = now
             quality(c)
         }
-        // Bugs-DB 2472: Sprechring im Takt der Ueberwachung (500 ms wie iOS, Web 330 ms) - vorher nur mit quality alle 3 s
-        if (c != null && now - lvAt >= Meeting.LEVEL_TICK_MS - 50) {
+        // Bugs-DB 2472: Sprechring im Takt der Ueberwachung (500 ms wie iOS, Web 330 ms) - vorher nur mit quality alle 3 s;
+        // Anrufbildschirm nicht zu sehen (Hintergrund, Bild-im-Bild): alter Takt 3 s (Akku)
+        if (c != null && now - lvAt >= (if (host.viewShown()) Meeting.LEVEL_TICK_MS else 3000L) - 50) {
             lvAt = now
             levels(c)
         }

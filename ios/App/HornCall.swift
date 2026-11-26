@@ -780,8 +780,9 @@ extension CallManager {
         Task { await hornRunes() }
         if H.monTask == nil {
             H.monTask = Task { [weak self, weak H] in
+                let start = Self.hornNow()                                    // Pruefung 2472: fester Takt (Abstand 500 ms)
                 while !Task.isCancelled {
-                    try? await Task.sleep(for: .milliseconds(Int(HornLogic.monMs)))
+                    try? await Task.sleep(for: .milliseconds(Int(CallLogic.tickDelay(start: start, now: Self.hornNow(), period: HornLogic.monMs))))
                     guard let self, let H, self.hornLive(H) else { return }
                     self.hornMon()
                 }
@@ -963,7 +964,7 @@ extension CallManager {
         }
         // 2457: jeden Takt. Bugs-DB 2472 (wie Web 2459): nur, wenn ihn jemand braucht - die eigene Kachel (eigener Ring) bzw.
         // ein laufender Wechsel (alte Verbindung offen halten, solange man spricht) -, im 1:1 ohne eigene Kachel kein getStats
-        if let cur, !H.selfBusy, meetSelfTile || H.switching || !H.olds.isEmpty { H.selfBusy = true; Task { await hornSelfLevel(cur) } }
+        if let cur, !H.selfBusy, (meetSelfTile && levelsLive) || H.switching || !H.olds.isEmpty { H.selfBusy = true; Task { await hornSelfLevel(cur) } }
         hornLevels(now: now)
         hornAudioRoute()
         hornDraw()

@@ -172,6 +172,11 @@ final class CallManager: NSObject, ObservableObject {
     /// (MeetingStage: Meeting-Ansicht, eigenes Bild als Kachel, nicht schwebend/ausgeblendet). Nur dann wird gemessen.
     var meetSelfRing = Meeting.SelfRing()
     var meetSelfTile = false
+    /// Pruefung 2472 (Akku): Szene im Vordergrund (iOS scenePhase, CallPresenter). Mit `minimized` ergibt das levelsLive
+    var sceneActive = true
+    /// Anrufbildschirm zu sehen (nicht verkleinert, App vorn) - nur dann schnelle Pegelmessung und eigener Pegel; sonst
+    /// alter Takt (2 s), zurueck vorn ab dem naechsten 500-ms-Termin
+    var levelsLive: Bool { !minimized && sceneActive }
     var meetShareAt: [String: Double] = [:]
     /// stabile Galerie-Reihenfolge (nicht veroeffentlicht: aendert sich im Zeichnen)
     var meetOrder = Meeting.Order()
@@ -1558,6 +1563,7 @@ final class CallManager: NSObject, ObservableObject {
             var toggled = false
             #endif
             var fullAt = 0.0
+            let start = Date().timeIntervalSince1970 * 1000                 // Pruefung 2472: fester Takt ab Start
             while !Task.isCancelled {
                 guard let self, !self.ending else { return }
                 var levels: [(device: String, level: Double, mic: Bool)] = []
@@ -1624,7 +1630,7 @@ final class CallManager: NSObject, ObservableObject {
                 }
                 if self.meshView, self.speakerState.update(levels, now: Date().timeIntervalSince1970) { self.speakerDev = self.speakerState.device }
                 // Meeting-Ansicht: Pegel je Person mit Hysterese (Buehne, Sprechring); eigener Pegel nur mit eigener Kachel (2472)
-                let own = self.meetSelfTile && !self.links.isEmpty
+                let own = self.meetSelfTile && self.levelsLive && !self.links.isEmpty
                 self.meetLevels(Dictionary(levels.map { ($0.device, $0.mic ? $0.level : 0) }, uniquingKeysWith: max),
                                 selfLevel: own && self.mic ? selfLevel : 0, selfAt: own ? Date().timeIntervalSince1970 * 1000 : 0)
                 self.syncPrimary()
@@ -1637,7 +1643,8 @@ final class CallManager: NSObject, ObservableObject {
                     if let h = Double(ud.string(forKey: "hkCallHangupAfter") ?? ""), el > h { self.hangup(); return }
                 }
                 #endif
-                try? await Task.sleep(for: .milliseconds(self.meshView || self.meetSelfTile ? CallLogic.levelTickMs : 2000))
+                let period = self.levelsLive && (self.meshView || self.meetSelfTile) ? Double(CallLogic.levelTickMs) : 2000
+                try? await Task.sleep(for: .milliseconds(Int(CallLogic.tickDelay(start: start, now: Date().timeIntervalSince1970 * 1000, period: period))))
             }
         }
     }

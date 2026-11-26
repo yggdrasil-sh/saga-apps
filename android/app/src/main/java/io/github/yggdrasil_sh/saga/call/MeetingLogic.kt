@@ -211,6 +211,18 @@ object Meeting {
     /** Bugs-DB 2472: Takt der Pegelmessung (Sprechring, eigener Ring) - wie iOS, Web 330 ms */
     const val LEVEL_TICK_MS = 500L
 
+    /**
+     * Bugs-DB 2472 (Pruefung): fester Takt ab Startzeit - Wartezeit bis zum naechsten Termin start + k * period; verpasste
+     * Termine fallen weg. So bleibt der Abstand zweier Messungen bei period (500 ms), auch wenn die Arbeit (getStats)
+     * dauert - mit "500 ms Pause nach der Arbeit" waren es 550-700 ms, und der Nachlauf (600 ms) ueberbrueckte dann keine
+     * einzelne leise Messung mehr (Ring flackerte).
+     */
+    fun tickDelay(start: Long, now: Long, period: Long): Long {
+        val e = now - start
+        if (e < 0) return -e
+        return period - e % period
+    }
+
     /** §3 Kacheln ohne Video ausgeblendet: Nachlauf, solange eine Person nach dem Sprechen sichtbar bleibt */
     const val NOVIDEO_TAIL = 5000L
 

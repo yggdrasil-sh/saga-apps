@@ -130,8 +130,12 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   auf iOS während eines Knotenwechsels – im 1:1 über den Knoten nicht mehr jede halbe Sekunde (wie Web 2459). Die eigene
   Stimme bewegt die Bühne weiterhin nie. **Messtakt** einheitlich 500 ms (Web 330 ms): Android über den Knoten maß nur
   alle 3 s (Nachlauf 3,6 s, jetzt 600 ms), Android direkt alle 2 s, iOS direkt alle 1 s bzw. 2 s. Prüfung der
-  Fingerabdrücke, Weg, Diagnose und Ton-Anzeige laufen im alten Takt weiter. Tests: `MeetingTests` (iOS),
-  `MeetingVectorsTest.selfRing` (Android); Bilder: iOS `-hkHornPreview meet-trio-self`, Android `MeetShotsTest.eigenerRing2472`.
+  Fingerabdrücke, Weg, Diagnose und Ton-Anzeige laufen im alten Takt weiter. Der Takt ist fest ab Anrufbeginn
+  (Abstand 500 ms auch mit Messarbeit, sonst 550–700 ms und der Ring flackerte in Atempausen; `Meeting.tickDelay` bzw.
+  `CallLogic.tickDelay`). **Akku:** Ist der Anrufbildschirm nicht zu sehen (App im Hintergrund, verkleinert,
+  Bild-im-Bild), misst die App im alten Takt (direkt 2 s, Android über den Knoten 3 s) und den eigenen Pegel gar nicht;
+  zurück vorn gilt ab dem nächsten Termin wieder der 500-ms-Takt. Tests: `MeetingTests` (iOS),
+  `MeetingVectorsTest.selfRing`, `MeetingTickTest` (Android); Bilder: iOS `-hkHornPreview meet-trio-self`, Android `MeetShotsTest.eigenerRing2472`.
 - **Sprechring: dritte Person sofort, stumm sofort aus** (Bugs-DB 2459, Nacharbeit zu 2125, iOS/iPadOS/Mac und
   Android): Im direkten Anruf (Mesh) zählte iOS die Personen für den Ring aus den Verbindungen – der Ring erschien erst,
   wenn die Verbindung zur dritten Person stand. Jetzt zählt wie im Web und auf Android die Teilnehmerliste (Verbindungen

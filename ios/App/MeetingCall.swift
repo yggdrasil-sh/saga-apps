@@ -116,7 +116,7 @@ extension CallManager {
         for (d, l) in byDevice { if let w = who[d], w != myWho { lv[w] = max(lv[w] ?? 0, l) } }
         let now = Date().timeIntervalSince1970
         meetSpk.update(lv, me: myWho, now: now)
-        let selfOn = meetSelfRing.update(now: now * 1000, level: selfLevel, at: selfAt, mic: mic) && meetSelfTile
+        let selfOn = meetSelfRing.update(now: now * 1000, level: selfLevel, at: selfAt, mic: mic) && meetSelfTile && levelsLive
         var s = meet
         var sp = Meeting.audible(meetSpk.speaking, devs)                     // 2459: stumm sofort aus
         if let m = myWho { if selfOn { sp.insert(m) } else { sp.remove(m) } }

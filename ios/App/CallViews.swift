@@ -734,7 +734,7 @@ private struct CallPresenterRest: ViewModifier {
             #if os(iOS)
             // 2.4: Quellansicht fuer Bild-im-Bild (unsichtbar hinter der App) und Szenenwechsel (Hintergrund)
             .background { PiPSourceHost().allowsHitTesting(false).accessibilityHidden(true) }
-            .onChange(of: scenePhase, initial: true) { _, p in CallPiP.shared.sceneActive(p == .active) }
+            .onChange(of: scenePhase, initial: true) { _, p in CallPiP.shared.sceneActive(p == .active); calls.sceneActive = p == .active }   // 2472
             #endif
             // 2.3.1: laufender Anruf verkleinert bzw. Mac-Fenster im Hintergrund -> gruene Leiste oben, Tippen kehrt zurueck
             .animation(.snappy(duration: 0.25), value: calls.runBars)

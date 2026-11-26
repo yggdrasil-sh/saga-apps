@@ -1006,7 +1006,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val now = System.currentTimeMillis()
         // Bugs-DB 2472: eigene Kachel "spricht" nach Meeting.SelfRing (eigener Pegel nur mit eigener Kachel gemessen)
         val selfMic = c.micOn && !rs.companion
-        val selfSpk = selfTileShown && (if (horn != null) rs.selfRing.update(now, horn.selfLevel, horn.selfAt, selfMic)
+        val selfSpk = selfTileShown && viewShown && (if (horn != null) rs.selfRing.update(now, horn.selfLevel, horn.selfAt, selfMic)
             else rs.selfRing.update(now, rs.selfLevel, rs.selfAt, selfMic))
         val self = { who: String, name: String, devName: String, comp: Boolean, av: String? ->
             Meeting.Dev(who, name, me, devName, comp, me = true, avatar = av, mic = selfMic, cam = c.videoTrack != null,
@@ -1062,6 +1062,15 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
      */
     @Volatile
     var selfTileShown = false
+        private set
+
+    /**
+     * Pruefung 2472 (Akku): Anrufbildschirm gross zu sehen (nicht im Hintergrund, nicht Bild-im-Bild) - aus setView. Sonst
+     * keine schnelle Pegelmessung (Mesh: alter Takt ueber checkStats, Knoten: 3 s) und kein eigener Pegel; zurueck im
+     * Vordergrund gilt wieder der 500-ms-Takt (naechster Termin).
+     */
+    @Volatile
+    var viewShown = true
         private set
 
     fun meetSelfTile(on: Boolean) {
@@ -1714,6 +1723,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     /** Oberflaeche: Bild-im-Bild an/aus, Anrufbildschirm sichtbar? -> `want` an das Gegenueber (nur bei Aenderung) */
     fun setView(pip: Boolean, visible: Boolean) {
+        viewShown = !pip && visible                          // 2472: schnelle Pegelmessung nur mit sichtbarem Anruf
         val c = cur ?: return
         val want = CallPip.want(pip, visible)
         if (c.pip == pip && c.myWant == want) return
@@ -3599,7 +3609,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 else if (st.type == "media-source") mine = (st.members["audioLevel"] as? Number)?.toDouble()
             }
             l.peerDevice?.let { d -> if (!own(l)) r.rs.levels[d] = if (l.rMic) aLevel ?: 0.0 else 0.0 }
-            if (!selfDone && selfTileShown) {
+            if (!selfDone && selfTileShown && viewShown) {
                 selfDone = true
                 r.rs.selfLevel = if (r.micOn) mine ?: 0.0 else 0.0
                 r.rs.selfAt = System.currentTimeMillis()
@@ -3660,10 +3670,13 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
         // Bugs-DB 2472: Pegel (Sprechring, eigener Ring) in der Kachelansicht bzw. mit eigener Kachel alle 500 ms wie ueber
         // den Knoten und iOS (Web 330 ms) - bisher nur mit checkStats alle 2 s, Ring und Buehne kamen bis zu 2 s zu spaet
+        // Pruefung 2472: fester Takt ab Start (Abstand <= 500 ms, kein Flackern); Anrufbildschirm nicht zu sehen
+        // (Hintergrund, Bild-im-Bild): keine schnelle Messung - die Pegel kommen dann wie frueher mit checkStats (2 s)
         c.jobs += scope.launch {
+            val t0 = System.currentTimeMillis()
             while (live(c) && !c.done) {
-                delay(Meeting.LEVEL_TICK_MS)
-                if (c.rs.horn == null && links(c).isNotEmpty() && (meshView(c) || selfTileShown)) levelTick(c)
+                delay(Meeting.tickDelay(t0, System.currentTimeMillis(), Meeting.LEVEL_TICK_MS))
+                if (viewShown && c.rs.horn == null && links(c).isNotEmpty() && (meshView(c) || selfTileShown)) levelTick(c)
             }
         }
         c.jobs += scope.launch {
@@ -4860,7 +4873,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
 
         override fun changed() = hornChanged(r)
-        override fun selfTile(): Boolean = selfTileShown                    // 2472: eigener Pegel nur mit eigener Kachel
+        override fun selfTile(): Boolean = this@CallManager.selfTileShown && this@CallManager.viewShown       // 2472: eigener Pegel nur mit eigener Kachel
+        override fun viewShown(): Boolean = this@CallManager.viewShown                       // 2472: sonst Pegel im alten Takt (3 s)
         override fun note(text: UiText?) = update(r)
         override fun lost(text: UiText) {
             r.rs.stickyEnd = true                           // TT 67: Grund (z. B. Zertifikat) bleibt stehen

@@ -141,6 +141,34 @@ func meetingSharedTests() {
         check(!steps.isEmpty && got == steps.map { ($0["expect"] as? Bool) == true }, "gemeinsam selfRing: \(c["name"] ?? "?") \(got)")
     }
     meetingRingFlowTests()
+    meetingTickTests()
+}
+
+/// Pruefung 2472: fester Takt der Pegelmessung ab Startzeit (CallLogic.tickDelay) - Abstand 500 ms auch mit Arbeit,
+/// verpasste Termine fallen weg; Gegenprobe "500 ms Pause nach der Arbeit": eine leise Messung laesst den Ring flackern
+func meetingTickTests() {
+    let P = Double(CallLogic.levelTickMs)
+    check(CallLogic.tickDelay(start: 1000, now: 1000, period: P) == 500, "2472 Takt: auf dem Termin -> naechster in 500 ms")
+    check(CallLogic.tickDelay(start: 1000, now: 1150, period: P) == 350, "2472 Takt: Arbeit 150 ms -> Rest bis zum Termin")
+    check(CallLogic.tickDelay(start: 1000, now: 1700, period: P) == 300, "2472 Takt: Termin verpasst -> uebernaechster")
+    check(CallLogic.tickDelay(start: 1000, now: 800, period: P) == 200, "2472 Takt: vor dem Start -> bis zum Start")
+    func schedule(_ work: [Double], fixed: Bool) -> [Double] {
+        let t0 = 10_000.0
+        var now = t0, out: [Double] = []
+        for w in work { now += fixed ? CallLogic.tickDelay(start: t0, now: now, period: P) : P; out.append(now); now += w }
+        return out
+    }
+    let work: [Double] = [40, 150, 90, 200, 10, 120, 180, 60]
+    let ts = schedule(work, fixed: true), old = schedule(work, fixed: false)
+    check(zip(ts, ts.dropFirst()).allSatisfy { $1 - $0 == P }, "2472 Takt: fester Takt - Abstand immer 500 ms")
+    check(zip(old, old.dropFirst()).contains { $1 - $0 > 600 }, "2472 Takt: Gegenprobe alt - Abstaende ueber 600 ms")
+    func ring(_ ts: [Double]) -> [Bool] {
+        var r = Meeting.SelfRing()
+        return ts.enumerated().map { i, t in r.update(now: t, level: i % 2 == 0 ? 0.2 : 0, at: t, mic: true) }
+    }
+    let even = [Double](repeating: 150, count: 8)
+    check(ring(schedule(even, fixed: true)).allSatisfy { $0 }, "2472 Takt: fester Takt - einzelne leise Messung, Ring bleibt an")
+    check(!ring(schedule(even, fixed: false)).allSatisfy { $0 }, "2472 Takt: Gegenprobe alt (650 ms) - Ring flackert")
 }
 
 /// 2125: Ablauf in der Meeting-Ansicht (Geraete wie meetingDevices): 1:1 aus, + Begleitgeraet aus, dritte kommt an, geht aus

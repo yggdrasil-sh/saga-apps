@@ -11,6 +11,14 @@ enum CallLogic {
     static let iceDelay = 0.12
     /// Bugs-DB 2472: Takt der Pegelmessung (Sprechring, eigener Ring) in der Kachelansicht - wie ueber den Knoten (HornLogic.monMs)
     static let levelTickMs = 500
+    /// Pruefung 2472: fester Takt ab Startzeit - Wartezeit (ms) bis zum naechsten Termin start + k * period, verpasste Termine
+    /// fallen weg. So bleibt der Abstand zweier Messungen bei period, auch wenn die Arbeit (Statistik) dauert - mit "500 ms
+    /// Pause nach der Arbeit" waren es 550-700 ms, und der Nachlauf (600 ms) ueberbrueckte keine einzelne leise Messung.
+    static func tickDelay(start: Double, now: Double, period: Double) -> Double {
+        let e = now - start
+        if e < 0 { return -e }
+        return period - e.truncatingRemainder(dividingBy: period)
+    }
     /// Nach dem Annehmen ohne Verbindung -> Meldung "Direktverbindung nicht moeglich"
     static let connectTimeout = 30.0
 
