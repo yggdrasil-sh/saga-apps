@@ -303,6 +303,7 @@ struct SagaScreen: View {
         // 2270: Mitteilung eines Auftrags bzw. saga://job/<id> -> Bereich "Auftraege" (Detail oeffnet RootView.openJob)
         .onReceive(NotificationCenter.default.publisher(for: .hkSagaJobs)) { _ in tab = 1; JobPush.wantJobsTab = false }
         .onAppear { if JobPush.wantJobsTab { JobPush.wantJobsTab = false; tab = 1 } }
+        .onChange(of: m.wantJobs, initial: true) { _, w in if w { tab = 1; m.wantJobs = false } }   // 2.6 (2271): aus der Tageszeile
         .task(id: store.sagaStatus?.consentOK) {
             await store.loadAIStatus()
             if store.sagaStatus?.consentOK == true { await m.loadThread(); await m.loadJobs() }

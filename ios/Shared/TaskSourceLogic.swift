@@ -16,6 +16,8 @@ struct TodayData: Codable {
     var items: [TaskItem]? = nil
     var more: Int? = nil
     var sources: [TaskSource]? = nil
+    /// 2.6 (2271, ?line=1): Tageszeile fuer Mittel/Gross (TodayLineLogic); aeltere Server ohne
+    var line: TodayLineState? = nil
 }
 
 /// Ein Eintrag der gemeinsamen Liste (`items`, fertig sortiert vom Server)

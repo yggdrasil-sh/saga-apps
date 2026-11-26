@@ -22,6 +22,8 @@ final class SagaModel: ObservableObject {
     @Published var jobsLoaded = false
     @Published var detail: SagaJobDetail?
     @Published var openJob: Int?
+    /// 2.6 (2271): "Wartet auf dich" aus der Tageszeile - SagaScreen zeigt das Segment "Aufträge"
+    @Published var wantJobs = false
     /// "Als Auftrag" (Umschalter neben dem Eingabefeld, Abschnitt 11.7)
     @Published var jobMode = false
     @Published var liveJob: LiveJob?

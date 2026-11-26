@@ -54,7 +54,8 @@ enum API {
     }
 
     static func today() async throws -> TodayData {
-        try JSONDecoder().decode(TodayData.self, from: try await request("api/app/today?sources=1"))   // aeltere Server ignorieren sources
+        // aeltere Server ignorieren sources; 2.6 (2271): line=1 haengt die Tageszeile an (Zone des Geraets)
+        try JSONDecoder().decode(TodayData.self, from: try await request(TodayLineLogic.widgetPath(tz: TimeZone.current.identifier)))
     }
 
     // --- Widgets ---

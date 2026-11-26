@@ -134,6 +134,15 @@ struct TodayWidgetView: View {
             if let err = entry.error {
                 Text(err).font(.caption).foregroundStyle(.secondary)
             } else if let d = entry.data {
+                // 2.6 (2271): Tageszeile nur Mittel/Gross (gesperrt ausgeblendet), Klein/Sperrbildschirm wie bisher nur Zahlen
+                let lineSize: TodayWidgetSize = family == .systemLarge ? .large : family == .systemMedium ? .medium : .small
+                let limit = max(1, self.limit - TodayLineLogic.widgetRows(d.line, size: lineSize))
+                if let t = TodayLineLogic.widgetText(d.line, size: lineSize) {
+                    Text(verbatim: t).font(.caption).lineLimit(family == .systemLarge ? 2 : 1).privacySensitive()
+                }
+                if let w = TodayLineLogic.widgetWaiting(d.line, size: lineSize) {
+                    Text(verbatim: w).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                }
                 let evs = todays(d.events)
                 let rows = WTask.list(d)
                 if evs.isEmpty && rows.isEmpty { Text("Nichts geplant 🎉").font(.caption).foregroundStyle(.secondary) }

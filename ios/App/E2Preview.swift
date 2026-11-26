@@ -91,6 +91,10 @@ struct E2TodayPreviewView: View {
                 store.features = ServerFeatures(["tasksrc1", "taskdue1", "mention1", "synced1", "move1"])
                 store.previewTasks(Data(E2Preview.tasks.utf8))
                 store.taskUndo = nil
+                if let j = TodayLinePreview.json {                     // 2.6 (2271): -hkTodayLine normal|ruhe|frage
+                    store.features = ServerFeatures(["tasksrc1", "taskdue1", "mention1", "synced1", "move1", TodayLineLogic.feature])
+                    store.todayLine.preview(j)
+                }
                 ready = true
             }
     }

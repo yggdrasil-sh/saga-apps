@@ -117,5 +117,6 @@ pushE2ETests()                   // Bugs-DB 2262: Apple-Mitteilungen Ende-zu-End
 hornSpeakTests()                 // Bugs-DB 2457: Sprechring ueber den Knoten - Pausen, Rueckfall, eigener Pegel
 sagaTests()                      // Bugs-DB 2269/2267: Ort "Saga" - Einwilligung, Gespraech, Plan-Karte, Auftraege
 pushJobTests()                   // Bugs-DB 2270: Mitteilungen und Aktionen der Kollegin (jobpush1, push_kollegin.json)
+todayLineTests()                 // Bugs-DB 2271: Tageszeile "Kurz gesagt" gegen tests/today_vectors.json
 print("Logik-Tests 2.0: \(passed) ok, \(failed) fehlgeschlagen")
 exit(failed == 0 ? 0 : 1)

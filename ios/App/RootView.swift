@@ -457,6 +457,13 @@ extension RootView {
             selection = -1
         case .job(let id):                                              // 2270: Mitteilung eines Auftrags -> Ort "Saga", Auftraege
             openJob(id)
+        case .events:                                                   // 2.6 (2271): Tageszeile, Teil "Termin"
+            nav.peek = nil; nav.path = []; showNotifs = false
+            selection = -2
+        case .sagaJobs:                                                 // 2.6 (2271): "Wartet auf dich" -> Saga › Aufträge
+            nav.peek = nil; nav.path = []; showNotifs = false
+            store.saga.wantJobs = true
+            selection = SagaLogic.tag
         case .none: break
         }
     }
@@ -954,14 +961,36 @@ struct TodayScreen: View {
     @State private var reading: BookOrbitLogic.Reading?   // 2.5 bookorbit1: Karte "Lesen"
     @State private var editingTask: OpenTask?             // Bugs-DB 2200: Blaetter an der Liste
     @State private var editingEvent: CalEvent?
+    @EnvironmentObject private var nav: NavModel
     var body: some View {
         List {
+            // 2.6 (2271): Tageszeile „Kurz gesagt“ oben - nur mit aitoday1 und Faehigkeit "ai"
+            TodayLineSection(m: store.todayLine, jobsReachable: store.sagaStatus != nil) { openLine($0) }
             TodaySection(store: store, header: false, editingTask: $editingTask, editingEvent: $editingEvent)
             ReadingTodaySection(store: store, reading: reading)   // nur mit Verbindung
         }
             .modifier(TodayEditors(store: store, task: $editingTask, event: $editingEvent))
             .task(id: store.features.has(BookOrbitLogic.feature)) { reading = await ReadingTodaySection.load(store, keeping: reading) }
+            .task(id: store.features.has(TodayLineLogic.feature)) {   // auch bei jedem Erscheinen
+                await store.todayLine.load()
+                #if DEBUG
+                if store.features.has(TodayLineLogic.feature) { await TodayLineDebug.run(store.todayLine) }
+                #endif
+            }
+            .refreshable { await store.todayLine.load(); await store.refresh(quiet: true) }
             .navigationTitle("Heute")
+    }
+    /// Tipp auf einen Teil der Tageszeile bzw. „Wartet auf dich“: nur oeffnen (nie abhaken)
+    private func openLine(_ n: TodayLineNav) {
+        switch n {
+        case .task(let id):
+            if let t = store.tasks.first(where: { $0.id == id }) { editingTask = t }
+            else { NotificationCenter.default.post(name: .hkOpenTarget, object: NotifTarget.tasks) }
+        case .row(let id): nav.open(id, mode: "side")
+        case .tasks: NotificationCenter.default.post(name: .hkOpenTarget, object: NotifTarget.tasks)
+        case .events: NotificationCenter.default.post(name: .hkOpenTarget, object: NotifTarget.events)
+        case .jobs: NotificationCenter.default.post(name: .hkOpenTarget, object: NotifTarget.sagaJobs)
+        }
     }
 }
 

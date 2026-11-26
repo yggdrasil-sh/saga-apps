@@ -36,6 +36,7 @@ struct SagaSettingsView: View {
         Form {
             if let p, p.enabled {
                 speech(p)
+                TodayLineToggle(m: store.todayLine)                  // 2.6 (2271): Tageszeile auf „Heute“
                 state(p)
                 SagaNotifySection(push: store.push, name: name)          // 2270 (K-C): Mitteilungen von {Persona}
                 if p.consent?.granted == true { ideasAndSources(p) }

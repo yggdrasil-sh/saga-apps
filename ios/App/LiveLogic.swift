@@ -186,6 +186,9 @@ enum NotifTarget: Equatable {
     case tasks
     /// 2270: Auftrag im Ort "Saga" ("/saga?tab=jobs&job=42"; ohne Kennung nur der Bereich "Auftraege")
     case job(id: Int?)
+    /// 2.6 (2271): Termine (Tageszeile) bzw. Saga › Aufträge, Gruppe „Wartet auf dich“
+    case events
+    case sagaJobs
     case none
 }
 

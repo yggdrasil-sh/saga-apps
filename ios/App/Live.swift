@@ -110,6 +110,7 @@ final class LiveHub: ObservableObject {
             Task { await store?.liveConnected() }                         // (wieder) verbunden: verpasste Seitenaenderungen nachholen
             Task { await store?.ustatus.load() }                          // 2.6: eigener Status (Ablauf/Ruhezeit verpasst)
             Task { await store?.saga.resync() }                           // 2515: Auftraege (ai.job.changed verpasst)
+            Task { await store?.todayLine.resync() }                      // 2.6 (2271): ai.today.changed verpasst
         case "bye": return LiveReconnect.after(bye: d["reason"] as? String ?? "closed")
         case "reset":
             lastID = nil
@@ -129,6 +130,7 @@ final class LiveHub: ObservableObject {
         case "ai.persona.changed":                                        // 2.1: Name/Bild der KI oder Schalter geaendert
             if let p = AIPersona(d) { store?.setPersona(p) }
             Task { await store?.loadAIStatus() }                         // "enabled"/"chat" sind je Person verschieden
+        case "ai.today.changed": store?.todayLine.live(d)                // 2.6 (2271): Tageszeile, 400 ms entprellt
         case "comments.changed":
             if let nid = ShareJSON.int(d["note_id"]), let c = d["counts"] as? [String: Any] { store?.setUnread(nid, (ShareJSON.int(c["unread"]) ?? 0) > 0) }
         default: break
