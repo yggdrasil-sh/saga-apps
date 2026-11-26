@@ -31,7 +31,8 @@ final class SagaModel: ObservableObject {
     /// Plan-Karten, an denen gerade "Aendern" offen ist (Live zeichnet sie dann nicht neu)
     var editing: Set<Int> = []
     // Hinweise
-    @Published var toast: String?
+    /// Kurzer Hinweis unten; VoiceOver sagt ihn an (sonst hoerte man z. B. "Zurückgenommen" nach Rueckgaengig nicht)
+    @Published var toast: String? { didSet { if let t = toast, t != oldValue { AccessibilityNotification.Announcement(t).post() } } }
     @Published var cardError: String?
     @Published var busy = false
     /// Gemeldete Antworten/Karten (Abschnitt 6: je Antwort eine Meldung, Knopf danach "Gemeldet")
