@@ -93,7 +93,7 @@ struct SagaBar: View {
         Button(action: open) {
             HStack(spacing: 6) {
                 Image(systemName: "lock.open").font(.footnote).accessibilityHidden(true)
-                Text(verbatim: text).font(.footnote).lineLimit(dts.isAccessibilitySize ? 3 : 1).truncationMode(.head)   // Host bleibt sichtbar (Ende des Satzes; sehr grosse Schrift: bis 3 Zeilen)
+                Text(verbatim: text).font(.footnote).lineLimit(dts.isAccessibilitySize ? nil : 1).truncationMode(.head)   // Host bleibt sichtbar (Ende des Satzes; sehr grosse Schrift: ganzer Satz)
                 Spacer(minLength: 4)
                 Image(systemName: "info.circle").font(.body)
             }
