@@ -153,7 +153,7 @@ class SagaService(private val repo: SagaRepository) {
                 call.execute().use { resp ->
                     val ct = resp.header("Content-Type").orEmpty()
                     if (resp.code !in 200..299 || !ct.startsWith("text/event-stream")) {
-                        trySend(SagaSse.Http(if (resp.code in 200..299) 502 else resp.code, resp.body.string()))
+                        send(SagaSse.Http(if (resp.code in 200..299) 502 else resp.code, resp.body.string()))
                         return@use
                     }
                     val src = resp.body.source()
@@ -161,14 +161,19 @@ class SagaService(private val repo: SagaRepository) {
                     while (true) {
                         val line = src.readUtf8Line() ?: break
                         val ev = parser.feed(line) ?: continue
-                        trySend(SagaSse.Event(ev.event, ev.data))
+                        send(SagaSse.Event(ev.event, ev.data))   // send statt trySend: bei vollem Puffer warten, nie ein Ereignis verlieren
                     }
-                    parser.feed("")?.let { trySend(SagaSse.Event(it.event, it.data)) }
+                    parser.feed("")?.let { send(SagaSse.Event(it.event, it.data)) }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (!call.isCanceled()) trySend(SagaSse.Broken(repo.friendly(e)))
+                if (!call.isCanceled()) {
+                    try {
+                        send(SagaSse.Broken(repo.friendly(e)))
+                    } catch (_: kotlinx.coroutines.channels.ClosedSendChannelException) {
+                    }
+                }
             } finally {
                 close()
             }
