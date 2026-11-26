@@ -411,11 +411,12 @@ private fun BellButton(count: Int, onClick: () -> Unit) {
 @Composable
 private fun SagaBottomBar(repo: SagaRepository, nav: AppNavigator, drawerOpen: Boolean, onPages: () -> Unit, modifier: Modifier = Modifier) {
     val chatOn by repo.live.chatEnabled.collectAsState()
+    val sagaOn = rememberSagaOn(repo)
     val chatUnread = rememberUnreadChats(repo)
     val accent = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current
     val selected = NavModel.selectedTab(nav.root, drawerOpen)
     androidx.compose.material3.NavigationBar(modifier, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-        NavModel.tabs(chatOn).forEach { tab ->
+        NavModel.tabs(chatOn, sagaOn).forEach { tab ->
             val (label, icon) = tabLook(tab)
             val badge = if (tab == NavModel.Tab.CHATS) chatUnread else 0
             val text = stringResource(label)
@@ -428,6 +429,7 @@ private fun SagaBottomBar(repo: SagaRepository, nav: AppNavigator, drawerOpen: B
                         NavModel.Tab.PAGES -> onPages()
                         NavModel.Tab.SEARCH -> nav.top(Dest.Search)
                         NavModel.Tab.CHATS -> nav.top(Dest.Chats)
+                        NavModel.Tab.SAGA -> nav.top(Dest.Saga)
                     }
                 },
                 // Zaehler als Text angesagt ("1 ungelesenes Gespraech"), nicht als nackte Zahl; Beschriftung liest die Leiste selbst
@@ -447,6 +449,14 @@ private fun tabLook(tab: NavModel.Tab): Pair<Int, Int> = when (tab) {
     NavModel.Tab.PAGES -> R.string.pages to SagaIcons.file
     NavModel.Tab.SEARCH -> R.string.r4nav_search to SagaIcons.search
     NavModel.Tab.CHATS -> R.string.chats to SagaIcons.chats
+    NavModel.Tab.SAGA -> R.string.saga_nav to SagaIcons.sparkles
+}
+
+/** 2.6 (K10/M1): Ziel "Saga" nur, wenn der Server den Ort und die Faehigkeit meldet (sonst unsichtbar) */
+@Composable
+internal fun rememberSagaOn(repo: SagaRepository): Boolean {
+    val st by repo.ai.status.collectAsState()
+    return io.github.yggdrasil_sh.saga.ai.SagaLogic.available(st)
 }
 
 /**
@@ -457,6 +467,7 @@ private fun tabLook(tab: NavModel.Tab): Pair<Int, Int> = when (tab) {
 @Composable
 private fun SagaRail(repo: SagaRepository, nav: AppNavigator, drawerOpen: Boolean, onPages: () -> Unit) {
     val chatOn by repo.live.chatEnabled.collectAsState()
+    val sagaOn = rememberSagaOn(repo)
     val chatUnread = rememberUnreadChats(repo)
     val accent = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current
     val selected = NavModel.selectedTab(nav.root, drawerOpen, nav.current)
@@ -465,7 +476,7 @@ private fun SagaRail(repo: SagaRepository, nav: AppNavigator, drawerOpen: Boolea
     )
     NavigationRail(Modifier.statusBarsPadding(), containerColor = MaterialTheme.colorScheme.surfaceContainer) {
         Spacer(Modifier.size(8.dp))
-        NavModel.railTabs(chatOn).forEach { tab ->
+        NavModel.railTabs(chatOn, sagaOn).forEach { tab ->
             val (label, icon) = tabLook(tab)
             val badge = if (tab == NavModel.Tab.CHATS) chatUnread else 0
             val count = if (tab == NavModel.Tab.CHATS) unreadChatsText(badge) else null
@@ -477,6 +488,7 @@ private fun SagaRail(repo: SagaRepository, nav: AppNavigator, drawerOpen: Boolea
                         NavModel.Tab.PAGES -> onPages()
                         NavModel.Tab.SEARCH -> nav.top(Dest.Search)
                         NavModel.Tab.CHATS -> nav.top(Dest.Chats)
+                        NavModel.Tab.SAGA -> nav.top(Dest.Saga)
                     }
                 },
                 icon = { Box(Modifier.clearAndSetSemantics { if (count != null) contentDescription = count }) { BadgeIcon(badge) { SagaIcon(icon, null) } } },
@@ -600,6 +612,9 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
                     is Dest.Contact -> key(d.id) { io.github.yggdrasil_sh.saga.ui.settings.ContactDetailScreen(repo, nav, chrome, d.id) }
                     is Dest.Graph -> io.github.yggdrasil_sh.saga.ui.graph.GraphScreen(repo, nav, chrome, d.focus)
                     Dest.Trash -> io.github.yggdrasil_sh.saga.ui.pages.TrashScreen(repo, nav, chrome)
+                    Dest.Saga -> io.github.yggdrasil_sh.saga.ui.saga.SagaScreen(repo, nav, chrome)
+                    is Dest.SagaJob -> key(d.id) { io.github.yggdrasil_sh.saga.ui.saga.SagaJobScreen(repo, nav, chrome, d.id) }
+                    Dest.SettingsSaga -> io.github.yggdrasil_sh.saga.ui.saga.SagaSettingsScreen(repo, nav, chrome)
                 }
                 }
             }

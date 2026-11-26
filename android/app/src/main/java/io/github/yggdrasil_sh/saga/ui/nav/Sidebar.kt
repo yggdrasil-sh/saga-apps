@@ -177,7 +177,7 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit, bot
     }
     val galTemplate: ((PageMeta) -> Unit)? = if (galOn) ({ p -> openGallery(p) }) else null
 
-    val mainDests = NavModel.sidebarMain(bottomBar, chatOn)
+    val mainDests = NavModel.sidebarMain(bottomBar, chatOn, rememberSagaOn(repo))
     val serverVersion by repo.serverVersion.collectAsState()
     val graphOn = io.github.yggdrasil_sh.saga.ui.graph.GraphSupport.available(serverVersion, galServer)
     // "Zu „Mit mir geteilt“" (Seite ohne Zugriff): zum Bereich scrollen (Reihenfolge wie die Eintraege unten)
@@ -387,6 +387,7 @@ internal fun destLabel(d: Dest): Pair<Int, Int> = when (d) {
     Dest.Tasks -> R.string.nav_tasks to SagaIcons.tasks
     Dest.Events -> R.string.nav_events to SagaIcons.calendar
     Dest.Chats -> R.string.chats to SagaIcons.chats
+    Dest.Saga -> R.string.saga_nav to SagaIcons.sparkles
     Dest.Search -> R.string.r4nav_search to SagaIcons.search
     Dest.Services -> R.string.r4nav_services_links to SagaIcons.server
     is Dest.Graph -> R.string.graph_title to SagaIcons.graph

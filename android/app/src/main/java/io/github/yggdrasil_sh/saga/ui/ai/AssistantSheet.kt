@@ -165,7 +165,7 @@ private fun Footer(st: AiStatus?) {
 /** Antworttext in der KI-Darstellung (Bugs-DB 2248: Absaetze, Listen, Ueberschrift, **fett**, `code`) mit antippbaren
  *  Verweisen [n] */
 @Composable
-private fun AnswerText(text: String, sources: List<AiSource>, onOpenPage: (Long) -> Unit) {
+internal fun AnswerText(text: String, sources: List<AiSource>, onOpenPage: (Long) -> Unit) {
     val link = MaterialTheme.colorScheme.primary
     val s = buildAnnotatedString {
         AiLogic.lines(text, sources.map { it.n }.toSet()).forEachIndexed { i, line ->

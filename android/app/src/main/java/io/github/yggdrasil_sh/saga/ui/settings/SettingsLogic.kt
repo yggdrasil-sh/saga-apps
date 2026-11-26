@@ -7,16 +7,17 @@ package io.github.yggdrasil_sh.saga.ui.settings
  */
 object SettingsLogic {
     /** Kategorien der Hauptliste "Einstellungen" (Reihenfolge = Anzeige) */
-    enum class Category { NOTIFICATIONS, CHATS, CONTACTS, BACKUP, NEXTCLOUD, BOOKORBIT, ACCOUNT, INFO }
+    enum class Category { NOTIFICATIONS, CHATS, SAGA, CONTACTS, BACKUP, NEXTCLOUD, BOOKORBIT, ACCOUNT, INFO }
 
     /**
      * Sichtbare Kategorien: Benachrichtigungen, Konto und Info immer; Chats nur, wenn der Server Chats kann
      * (eingerichtet oder einrichtbar); Sicherung ("Mein Backup"), Nextcloud und BookOrbit (2.5, bookorbit1) nur, wenn
-     * der Server sie anbietet. 2.6: Kontakte (Adressbuch) nur mit contacts2.
+     * der Server sie anbietet. 2.6: Kontakte (Adressbuch) nur mit contacts2; Saga (Anrede, Meine Daten) nur mit dem Ort "Saga".
      */
-    fun categories(chats: Boolean, backup: Boolean, nextcloud: Boolean, bookorbit: Boolean = false, contacts: Boolean = false): List<Category> = buildList {
+    fun categories(chats: Boolean, backup: Boolean, nextcloud: Boolean, bookorbit: Boolean = false, contacts: Boolean = false, saga: Boolean = false): List<Category> = buildList {
         add(Category.NOTIFICATIONS)
         if (chats) add(Category.CHATS)
+        if (saga) add(Category.SAGA)                      // 2.6 (K-I 2269, M7): Einstellungen › Saga nur mit dem Ort "Saga"
         if (contacts) add(Category.CONTACTS)
         if (backup) add(Category.BACKUP)
         if (nextcloud) add(Category.NEXTCLOUD)

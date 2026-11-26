@@ -10,13 +10,20 @@ import kotlinx.serialization.json.JsonPrimitive
  */
 object NavModel {
     /** Ziele der unteren Leiste (Phone, wie Web am Handy) */
-    enum class Tab { TODAY, PAGES, SEARCH, CHATS }
+    enum class Tab { TODAY, PAGES, SEARCH, CHATS, SAGA }
 
-    /** Untere Leiste: Heute · Seiten · Suchen · Chats (Chats nur, wenn der Server sie anbietet) */
-    fun tabs(chatOn: Boolean): List<Tab> = buildList {
+    /**
+     * Untere Leiste: Heute · Seiten · Suchen · Chats (Chats nur, wenn der Server sie anbietet) · Saga (2.6 K10/M1: nur
+     * mit der Faehigkeit des Servers, SagaLogic.available - wie die Tab-Leiste im Web am Handy)
+     */
+    fun tabs(chatOn: Boolean, sagaOn: Boolean = false): List<Tab> = buildList {
         add(Tab.TODAY); add(Tab.PAGES); add(Tab.SEARCH)
         if (chatOn) add(Tab.CHATS)
+        if (sagaOn) add(Tab.SAGA)
     }
+
+    /** 2.6: Bereich "Saga" (Gespraech/Auftraege oder ein Auftrag im Detail) */
+    fun sagaArea(d: Dest): Boolean = d == Dest.Saga || d is Dest.SagaJob
 
     /**
      * Leiste sichtbar? Nur bei kompakter Breite (< 600 dp), nicht im Editor (Seite offen), nicht in einer
@@ -36,6 +43,7 @@ object NavModel {
         root == Dest.Today -> Tab.TODAY
         root == Dest.Search -> Tab.SEARCH
         root == Dest.Chats || root is Dest.Chat -> Tab.CHATS
+        sagaArea(root) -> Tab.SAGA
         root is Dest.Page -> Tab.PAGES
         else -> null
     }
@@ -66,7 +74,7 @@ object NavModel {
     fun tabsShown(layout: Layout): Boolean = layout != Layout.SIDEBAR
 
     /** Rail: dieselben Ziele wie die Phone-Leiste, unten Einstellungen */
-    fun railTabs(chatOn: Boolean): List<Tab> = tabs(chatOn)
+    fun railTabs(chatOn: Boolean, sagaOn: Boolean = false): List<Tab> = tabs(chatOn, sagaOn)
 
     /** "Einstellungen" unten in der Rail markiert (nicht, solange die Schublade "Seiten" offen ist) */
     fun railSettingsSelected(root: Dest, drawerOpen: Boolean): Boolean = !drawerOpen && same(root, Dest.Settings)
@@ -88,7 +96,7 @@ object NavModel {
     data class Head(val bell: Boolean, val search: Boolean)
 
     private fun isMain(d: Dest): Boolean = when (d) {
-        Dest.Today, Dest.Tasks, Dest.Events, Dest.Services, Dest.Search, Dest.Chats, Dest.Trash -> true
+        Dest.Today, Dest.Tasks, Dest.Events, Dest.Services, Dest.Search, Dest.Chats, Dest.Trash, Dest.Saga -> true
         is Dest.Graph -> true
         else -> false
     }
@@ -104,10 +112,11 @@ object NavModel {
     }
 
     /** Hauptpunkte der Seitenleiste: nur, was nicht unten liegt (wie Web: Heute, Chats, Aufgaben, Termine) */
-    fun sidebarMain(bottomBar: Boolean, chatOn: Boolean): List<Dest> =
+    fun sidebarMain(bottomBar: Boolean, chatOn: Boolean, sagaOn: Boolean = false): List<Dest> =
         if (bottomBar) listOf(Dest.Tasks, Dest.Events)
         else buildList {
             add(Dest.Today)
+            if (sagaOn) add(Dest.Saga)                   // 2.6 (K10): wie im Web unter "Heute"
             if (chatOn) add(Dest.Chats)
             add(Dest.Tasks); add(Dest.Events)
         }
@@ -129,8 +138,9 @@ object NavModel {
     fun same(root: Dest, d: Dest): Boolean = when (d) {
         is Dest.Graph -> root is Dest.Graph
         Dest.Chats -> root == Dest.Chats || root is Dest.Chat
+        Dest.Saga -> sagaArea(root)
         Dest.Settings -> root == Dest.Settings || root == Dest.SettingsAccount || root == Dest.SettingsGeneral || root == Dest.SettingsInfo ||
-            root == Dest.SettingsNotifications || root == Dest.SettingsChats
+            root == Dest.SettingsNotifications || root == Dest.SettingsChats || root == Dest.SettingsSaga
         else -> root == d
     }
 

@@ -43,6 +43,11 @@ sealed interface Dest {
     data class Graph(val focus: Long? = null) : Dest
     /** Design-Runde 4 (NAV-17): Papierkorb als eigenes Ziel statt Vollbild-Dialog */
     data object Trash : Dest
+    /** 2.6 (K-I 2269, K10/M1): Bereich "Saga" (Gespraech, Auftraege) und ein Auftrag im Detail (K-B 2267) */
+    data object Saga : Dest
+    data class SagaJob(val id: Long) : Dest
+    /** 2.6: Einstellungen -> Saga (Anrede, Lebhaftigkeit, Meine Daten) */
+    data object SettingsSaga : Dest
 
     companion object {
         /** Als Text (zum Sichern nach Prozess-Tod) */
@@ -72,6 +77,9 @@ sealed interface Dest {
             SettingsChats -> "settings-chats"
             is Graph -> if (d.focus != null) "graph:${d.focus}" else "graph"
             Trash -> "trash"
+            Saga -> "saga"
+            is SagaJob -> "saga-job:${d.id}"
+            SettingsSaga -> "settings-saga"
         }
 
         fun decode(s: String): Dest? = when {
@@ -100,6 +108,9 @@ sealed interface Dest {
             s == "settings-chats" -> SettingsChats
             s == "graph" -> Graph()
             s == "trash" -> Trash
+            s == "saga" -> Saga
+            s.startsWith("saga-job:") -> s.removePrefix("saga-job:").toLongOrNull()?.let { SagaJob(it) }
+            s == "settings-saga" -> SettingsSaga
             s.startsWith("graph:") -> s.removePrefix("graph:").toLongOrNull()?.let { Graph(it) }
             else -> null
         }

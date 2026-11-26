@@ -272,6 +272,12 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                         )
                     }
                 }
+                // 2.6 (K-I 2269, K19/R1): Kennenlernen-Karte ueber "Weitermachen" - nur mit dem Ort "Saga", einmal bis zur Antwort
+                item(key = "saga-intro") {
+                    io.github.yggdrasil_sh.saga.ui.saga.SagaTodayIntro(
+                        repo, nav, Modifier.widthIn(max = maxW).fillMaxWidth().padding(horizontal = SagaSpace.gutter, vertical = SagaSpace.xs),
+                    )
+                }
                 if (cont.isNotEmpty()) {
                     item(key = "continue") {
                         Column(Modifier.widthIn(max = maxW).fillMaxWidth().sagaAppear(1)) {

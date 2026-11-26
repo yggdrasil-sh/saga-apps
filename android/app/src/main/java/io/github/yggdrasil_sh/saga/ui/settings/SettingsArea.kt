@@ -10,7 +10,7 @@ enum class SettingsArea {
     KONTO, BENACHRICHTIGUNGEN, CHATS, INFO;
 
     /** Unterseite, die zusaetzlich geoeffnet wird (Sicherung, Nextcloud - beide direkt aus der Hauptliste) */
-    enum class Sub { BACKUP, NEXTCLOUD, BOOKORBIT, CONTACTS }
+    enum class Sub { BACKUP, NEXTCLOUD, BOOKORBIT, CONTACTS, SAGA }
 
     companion object {
         private val kontoRows = setOf("konto", "name", "avatar", "security", "public", "federation", "apps", "logout")
@@ -45,6 +45,7 @@ enum class SettingsArea {
             "nextcloud" -> Sub.NEXTCLOUD
             "bookorbit" -> Sub.BOOKORBIT
             "contacts", "kontakte" -> Sub.CONTACTS
+            "saga", "mydata" -> Sub.SAGA                      // 2.6: Einstellungen › Saga (› Meine Daten)
             else -> null
         }
     }
