@@ -398,6 +398,14 @@ final class SagaModel: ObservableObject {
             if case .error(let e)? = stage { log("give error \(e)"); return }
             if case .plan(let p)? = stage { log("plan job=\(p.job) v=\(p.planV) steps=\(p.steps.count)") }
         }
+        if let e = d.string(forKey: "hkSagaEdit"), case .plan(let p)? = stage, let st = p.steps.first(where: { $0.edit.contains("text") }) {
+            let (np, err) = await saveEdit(p, values: [st.n: ["text": .text(e)]])
+            log("edit v=\(np?.planV ?? -1) edited=\(np?.edited ?? false) err=\(err ?? "-")")
+            if d.bool(forKey: "hkSagaStale") {                     // alte Fassung freigeben -> 409 stale, Karte zeigt den neuen Plan
+                let e2 = await approve(p)
+                if case .plan(let cur)? = stage { log("stale \(e2 ?? "ok") now v=\(cur.planV)") } else { log("stale \(e2 ?? "ok")") }
+            }
+        }
         if d.bool(forKey: "hkSagaApprove"), case .plan(let p)? = stage {
             try? await Task.sleep(for: .seconds(Double(d.integer(forKey: "hkSagaPause"))))
             let e = await approve(p); log("approve \(e ?? "ok")")
