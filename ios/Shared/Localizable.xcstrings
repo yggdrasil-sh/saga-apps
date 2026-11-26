@@ -90431,27 +90431,87 @@
     "Widerrufen – %lld Aufträge angehalten." : {
       "localizations" : {
         "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Widerrufen – %lld Aufträge angehalten."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Widerrufen – %lld Auftrag angehalten."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Widerrufen – %lld Aufträge angehalten."
+                }
+              }
+            }
           }
         },
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Withdrawn – %lld tasks paused."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Withdrawn – %lld task paused."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Withdrawn – %lld tasks paused."
+                }
+              }
+            }
           }
         },
         "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Retirado – %lld encargos pausados."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Retirado – %lld encargo pausado."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Retirado – %lld encargos pausados."
+                }
+              }
+            }
           }
         },
         "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Отозвано – приостановлено поручений: %lld."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Отозвано – приостановлено поручение: %lld."
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Отозвано – приостановлено поручения: %lld."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Отозвано – приостановлено поручений: %lld."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Отозвано – приостановлено поручения: %lld."
+                }
+              }
+            }
           }
         },
         "th" : {
