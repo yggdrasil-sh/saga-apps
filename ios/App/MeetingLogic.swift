@@ -327,6 +327,21 @@ enum Meeting {
         speakRingOn(devs.map { RingMember(device: $0.device, who: $0.who, companion: $0.companion, me: $0.own || $0.here) },
                     self: devs.first(where: \.here)?.who)
     }
+    /// Bugs-DB 2459: Personen fuer die Ring-Regel im Mesh aus der TEILNEHMERLISTE (wie Web ringPeople, Android meetDevs) -
+    /// vorher aus den Verbindungen, dann erschien der Ring auf iOS erst, wenn die Verbindung zur dritten Person stand.
+    /// legs = Teilnehmerliste, links = Gegenueber aus den Verbindungen (nur Geraete, die die Liste nicht kennt: aeltere 1:1
+    /// ohne Liste), here = dieses Geraet (zaehlt immer). Jedes Geraet einmal, die Liste geht vor.
+    static func ringRoster(legs: [RingMember], links: [RingMember], here: RingMember) -> [RingMember] {
+        var out: [RingMember] = [], seen = Set<String>()
+        for x in legs + links + [here] where !x.device.isEmpty && seen.insert(x.device).inserted { out.append(x) }
+        return out
+    }
+    /// Stumm = kein Sprechring (Bugs-DB 2459, wie Web: Kachel "spricht" nur mit Mikrofon an): Personen, von denen gerade kein
+    /// Geraet mit Mikrofon an im Anruf ist, fallen sofort heraus - der Nachlauf (600 ms) gilt nur fuer Sprechpausen. Die
+    /// Hysterese (Speakers: Buehne, Reihenfolge) bleibt unberuehrt.
+    static func audible(_ speaking: Set<String>, _ devs: [Device]) -> Set<String> {
+        speaking.filter { w in devs.contains { $0.who == w && $0.mic } }
+    }
 
     // MARK: Sprecher (Hysterese, §2.3)
 

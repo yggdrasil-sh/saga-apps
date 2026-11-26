@@ -387,7 +387,8 @@ struct MeetTileView: View {
     /// 2.5: gemeldete Groesse des Videos (nach Drehung per CVO) - Buehne: fuellen oder ganz zeigen (CallLogic.videoFill)
     @State private var videoSize: CGSize = .zero
 
-    private var speaking: Bool { calls.meet.speaking.contains(tile.who) && tile.kind != .screen }
+    /// Bugs-DB 2459: stumm = sofort kein "spricht" (wie Web t.mic) - auch vor der naechsten Messung
+    private var speaking: Bool { calls.meet.speaking.contains(tile.who) && tile.kind != .screen && tile.mic }
     /// Bugs-DB 2125: gruener Ring nur ab 3 Personen (im 1:1 kein Ring); Symbol und VoiceOver "spricht" bleiben (speaking)
     private var ring: Bool { speaking && calls.meet.ring }
     private var pinned: Bool { calls.meet.pin == tile.id }

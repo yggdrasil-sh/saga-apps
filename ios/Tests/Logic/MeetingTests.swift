@@ -150,6 +150,46 @@ func meetingRingFlowTests() {
     // dieses Geraet ist selbst das Begleitgeraet: zaehlt trotzdem als die eigene Person
     let hereComp = M.Device(device: "me-2", who: "me", name: "Max", companion: true, own: true, here: true)
     check(M.speakRingOn([hereComp, anna, ben]) && !M.speakRingOn([hereComp, anna]), "2125: auf dem Begleitgeraet: zu dritt Ring, zu zweit keiner")
+    meetingRingRosterTests()
+}
+
+/// 2459: Mesh - Personen aus der Teilnehmerliste (wie Web ringPeople/Android meetDevs), nicht aus den Verbindungen
+func meetingRingRosterTests() {
+    typealias M = Meeting
+    typealias R = M.RingMember
+    let here = R(device: "me-dev", who: "me", me: true)
+    let legs3 = [R(device: "me-dev", who: "me", me: true), R(device: "a1", who: "anna"), R(device: "b1", who: "ben")]
+    let linkAnna = [R(device: "a1", who: "anna")]
+    // Ben ist in der Liste, die Verbindung zu ihm steht noch nicht: Ring schon an (vorher erst mit der Verbindung)
+    check(M.speakRingOn(M.ringRoster(legs: legs3, links: linkAnna, here: here), self: "me"), "2459: dritte Person in der Liste, Verbindung noch nicht da - Ring")
+    check(!M.speakRingOn(linkAnna + [here], self: "me"), "2459: Gegenprobe alte Zaehlung (nur Verbindungen) - kein Ring")
+    check(!M.speakRingOn(M.ringRoster(legs: Array(legs3.prefix(2)), links: linkAnna, here: here), self: "me"), "2459: zu zweit in der Liste - kein Ring")
+    // aeltere 1:1 ohne Liste: Gegenueber aus der Verbindung, dieses Geraet zaehlt immer
+    let ros = M.ringRoster(legs: [], links: [R(device: "peer", who: "anna")], here: here)
+    check(ros.count == 2 && !M.speakRingOn(ros, self: "me"), "2459: ohne Liste (aeltere 1:1) - Verbindung + dieses Geraet, kein Ring")
+    // jedes Geraet einmal, die Liste geht vor (Begleitgeraet laut Liste zaehlt nicht, auch wenn die Verbindung es nicht weiss)
+    let r2 = M.ringRoster(legs: [here, R(device: "a1", who: "anna"), R(device: "a2", who: "anna", companion: true)],
+                          links: [R(device: "a2", who: "anna"), R(device: "a1", who: "anna")], here: here)
+    check(r2.count == 3 && r2.filter { $0.device == "a2" }.first?.companion == true && !M.speakRingOn(r2, self: "me"),
+          "2459: doppelte Geraete einmal, Liste vor Verbindung (Begleitgeraet zaehlt nicht)")
+    // ein Geraet verlaesst die Liste, Verbindung noch offen: zaehlt ueber die Verbindung weiter (wie Web), bis sie weg ist
+    check(M.speakRingOn(M.ringRoster(legs: Array(legs3.prefix(2)), links: linkAnna + [R(device: "b1", who: "ben")], here: here), self: "me"),
+          "2459: Liste ohne Ben, Verbindung zu Ben noch offen - zaehlt weiter (wie Web ringPeople)")
+
+    // Stumm = sofort kein "spricht" (Nachlauf nur fuer Sprechpausen); Hysterese unberuehrt
+    var sp = M.Speakers()
+    sp.update(["anna": 0.4, "me": 0.4], me: "me", now: 0); sp.update(["anna": 0.4, "me": 0.4], me: "me", now: 0.5)
+    sp.update(["anna": 0, "me": 0], me: "me", now: 0.6)
+    check(sp.speaking == ["anna", "me"], "2459: Sprechpause - Nachlauf haelt beide (Speakers unveraendert)")
+    let me = M.Device(device: "me-dev", who: "me", name: "Max", own: true, here: true)
+    let anna = M.Device(device: "a1", who: "anna", name: "Anna")
+    var meMuted = me; meMuted.mic = false
+    var annaMuted = anna; annaMuted.mic = false
+    check(M.audible(sp.speaking, [me, anna]) == ["anna", "me"], "2459: Mikro an - Nachlauf bleibt sichtbar")
+    check(M.audible(sp.speaking, [meMuted, anna]) == ["anna"], "2459: selbst stumm - eigener Ring sofort aus")
+    check(M.audible(sp.speaking, [me, annaMuted]) == ["me"], "2459: Anna stumm - ihr Ring sofort aus")
+    var annaComp = M.Device(device: "a2", who: "anna", name: "Anna", companion: true); annaComp.mic = true
+    check(M.audible(sp.speaking, [me, annaMuted, annaComp]) == ["anna", "me"], "2459: Person mit einem Geraet mit Mikro an - zaehlt (wie Kachel-mic)")
 }
 
 func meetingTests() {

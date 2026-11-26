@@ -1010,7 +1010,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             val video = if (p.gotState) p.rCam else c.media == "video"
             return listOf(
                 Meeting.Dev(who, p.peer.shown, dev, avatar = p.peer.avatar, mic = p.rMic, cam = video && (if (p.rScreen) p.camTileVideo != null else p.tileVideo != null),
-                    screen = p.rScreen && p.tileVideo != null, sharedAt = p.sharedAt, level = rs.levels[dev] ?: 0.0, speaking = rs.pick.speaking(who, now)),
+                    screen = p.rScreen && p.tileVideo != null, sharedAt = p.sharedAt, level = rs.levels[dev] ?: 0.0,
+                    speaking = p.rMic && rs.pick.speaking(who, now)),                  // Bugs-DB 2459: stumm = sofort aus
                 self(user.ifEmpty { "me" }, "", "", false, null),
             )
         }
@@ -1034,7 +1035,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                         x.who, name, x.device, x.devName, x.companion, me = isMe, avatar = x.avatar, mic = l?.rMic == true,
                         cam = l != null && l.rCam && (if (l.rScreen) l.camTileVideo != null else l.tileVideo != null),
                         screen = l?.rScreen == true && l.tileVideo != null, sharedAt = l?.sharedAt ?: 0,
-                        level = rs.levels[x.device] ?: 0.0, speaking = !isMe && rs.pick.speaking(x.who, now),
+                        level = rs.levels[x.device] ?: 0.0, speaking = !isMe && l?.rMic != false && rs.pick.speaking(x.who, now),   // 2459: stumm sofort aus
                     )
                 }
             }
@@ -4316,7 +4317,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             val x = legOf(l)
             CallTile(
                 device = l.peerDevice.orEmpty(), name = io.github.yggdrasil_sh.saga.util.PersonName.shown(x?.name ?: l.peer.name, l.peer.handle ?: l.peer.username, l.peer.host), devName = x?.devName.orEmpty(),
-                video = l.remoteVideo != null && (l.rCam || l.rScreen), mic = l.rMic, speaking = mesh && rs.speaker == l.peerDevice,
+                video = l.remoteVideo != null && (l.rCam || l.rScreen), mic = l.rMic, speaking = mesh && l.rMic && rs.speaker == l.peerDevice,   // 2459
                 companion = x?.companion == true, own = own(l), connected = l.connected, screen = l.rScreen,
             )
         }

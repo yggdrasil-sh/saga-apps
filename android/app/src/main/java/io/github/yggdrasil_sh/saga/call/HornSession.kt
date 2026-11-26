@@ -1640,7 +1640,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         levelsAt = now
         for ((d, lv) in levels) if (lv > 0.03 && st[d]?.first != false) speakAt[d] = now
         speaking.clear()
-        for ((d, t) in speakAt) if (now - t < 3600) speaking.add(d)
+        for ((d, t) in speakAt) if (now - t < 3600 && st[d]?.first != false) speaking.add(d)
         if (cur === c && !switching) {
             val udpOk = c.path != "udp" && c.cand.udp && meas[c.node]?.udp != null
             sw?.udp(now, loss, udpOk, HornLogic.streamPath(c.cand))?.let { x ->
@@ -1761,6 +1761,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                     (b["cam"] as? JsonPrimitive)?.booleanOrNull == true,
                     (b["screen"] as? JsonPrimitive)?.booleanOrNull == true,
                 )
+                // Bugs-DB 2459: stumm = Sprechring sofort aus (kein Nachlauf bis zur naechsten Messung, wie iOS/Web)
+                if (st[from]?.first == false) { speakAt.remove(from); speaking.remove(from) }
                 HornLogic.parseHp(b)?.let { hp -> if (hpx[from] != hp) { hpx[from] = hp; mapAll() } }   // P9/P10
                 bind()
             }

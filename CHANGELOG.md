@@ -122,6 +122,13 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Behoben
 
+- **Sprechring: dritte Person sofort, stumm sofort aus** (Bugs-DB 2459, Nacharbeit zu 2125, iOS/iPadOS/Mac und
+  Android): Im direkten Anruf (Mesh) zählte iOS die Personen für den Ring aus den Verbindungen – der Ring erschien erst,
+  wenn die Verbindung zur dritten Person stand. Jetzt zählt wie im Web und auf Android die Teilnehmerliste (Verbindungen
+  nur noch für ältere 1:1 ohne Liste). Stummschalten nimmt den Ring jetzt überall sofort weg, auch an der eigenen
+  Kachel; der Nachlauf (600 ms) gilt nur noch für Sprechpausen – wie im Web. Android über den Knoten hielt den Ring
+  nach dem Stummschalten bis zur nächsten Messung (bis ~3,6 s). Sprecher-Hysterese unverändert. Logik
+  `Meeting.ringRoster`/`Meeting.audible`, Tests in `MeetingTests`.
 - **Eigenes Logo im Lesezeichen-Dialog** (Bugs-DB 2460, iOS/iPadOS und Android): Beim Bearbeiten eines Lesezeichens
   mit eigenem Logo steht im Feld „Symbol“ nicht mehr der Pfad `/files/<id>`, sondern „Eigenes Logo“ mit kleiner
   Vorschau – gesperrt wie im Web. „Entfernen“ (Android: ×) gibt das Feld wieder frei (leer = automatisches Symbol).

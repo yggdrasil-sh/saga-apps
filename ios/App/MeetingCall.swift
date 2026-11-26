@@ -68,6 +68,21 @@ extension CallManager {
         }
         return out
     }
+    /// Bugs-DB 2125/2459: Sprechring erlaubt (ab 3 Personen)? Ueber den Knoten kommen die Geraete schon aus der
+    /// Teilnehmerliste; im Mesh zaehlt ebenfalls die Liste (wie Web/Android), nicht nur die Verbindungen - der Ring
+    /// erscheint, sobald die dritte Person im Anruf ist, nicht erst, wenn die Verbindung zu ihr steht
+    func meetRingOn(_ devs: [Meeting.Device]) -> Bool {
+        #if DEBUG
+        if meet.demo != nil { return Meeting.speakRingOn(devs) }
+        #endif
+        guard horn == nil, let h = devs.first(where: \.here) else { return Meeting.speakRingOn(devs) }
+        let legs = roster.legs.map { Meeting.RingMember(device: $0.device, who: $0.who, companion: $0.companion, me: $0.device == h.device || $0.who == h.who) }
+        let ls = links.filter { !$0.gone }.map { L in
+            Meeting.RingMember(device: L.dev ?? "peer", who: roster.leg(L.dev)?.who ?? L.who, companion: roster.leg(L.dev)?.companion ?? false, me: L.own)
+        }
+        let ros = Meeting.ringRoster(legs: legs, links: ls, here: Meeting.RingMember(device: h.device, who: h.who, companion: h.companion, me: true))
+        return Meeting.speakRingOn(ros, self: h.who)
+    }
     private func meetSince(_ dev: String, on: Bool, now: Double) -> Double {
         if !on { meetShareAt[dev] = nil; return 0 }
         if let t = meetShareAt[dev] { return t }
@@ -100,8 +115,8 @@ extension CallManager {
         let now = Date().timeIntervalSince1970
         meetSpk.update(lv, me: myWho, now: now)
         var s = meet
-        s.stage = meetSpk.stage; s.speaking = meetSpk.speaking; s.recent = meetSpk.recent(now: now)
-        s.ring = Meeting.speakRingOn(devs)                                  // 2125: jede Messung - dritte Person kommt/geht
+        s.stage = meetSpk.stage; s.speaking = Meeting.audible(meetSpk.speaking, devs); s.recent = meetSpk.recent(now: now)   // 2459: stumm sofort aus
+        s.ring = meetRingOn(devs)                                           // 2125: jede Messung - dritte Person kommt/geht
         s.talked = meetSpk.talked(within: Meeting.noVideoTail, now: now)
         if s != meet { meet = s }
     }
