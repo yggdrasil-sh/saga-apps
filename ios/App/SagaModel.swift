@@ -377,7 +377,12 @@ final class SagaModel: ObservableObject {
     /// -hkSagaConsent ideas|no_ideas · -hkSagaAsk <frage> · -hkSagaGive <bitte> · -hkSagaApprove YES · -hkSagaUndo YES
     func debugRun() async {
         let d = UserDefaults.standard
-        func log(_ s: String) { print("SAGA_DBG " + s); fflush(stdout) }
+        func log(_ s: String) {                                        // auch als Datei (Tests lesen sie aus dem App-Container)
+            print("SAGA_DBG " + s); fflush(stdout)
+            let u = FileManager.default.temporaryDirectory.appendingPathComponent("saga-dbg.log")
+            let line = Data(("SAGA_DBG " + s + "\n").utf8)
+            if let h = try? FileHandle(forWritingTo: u) { h.seekToEndOfFile(); h.write(line); try? h.close() } else { try? line.write(to: u) }
+        }
         func wait(_ what: String, _ ok: () -> Bool) async -> Bool {
             for _ in 0..<120 { if ok() { return true }; try? await Task.sleep(for: .milliseconds(250)) }
             log("timeout " + what); return false
