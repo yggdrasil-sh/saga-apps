@@ -80,6 +80,14 @@ func thumb(_ d: Data?, max: Int) -> CGImage? {
 }
 
 struct PageCardProvider: AppIntentTimelineProvider {
+    /// 2188: Bild nach Plan - wiederverwenden, laden (mit Versionsschluessel) oder keins
+    private static func image(_ plan: WidgetFeed.ImagePlan, _ id: Int, _ which: String, _ cached: Data?) async -> WidgetImage {
+        switch plan {
+        case .none: return .none
+        case .reuse: return cached.map { .image($0) } ?? .none
+        case .fetch(let v): return await API.pageImageResult(id, which, version: v)
+        }
+    }
     func placeholder(in context: Context) -> PageCardEntry { PageCardEntry(date: .now, title: String(localized: "Haupt Dashboard"), emoji: "🏠") }
     func snapshot(for configuration: PageCardIntent, in context: Context) async -> PageCardEntry {
         configuration.page == nil ? placeholder(in: context) : await load(configuration.page)
@@ -132,15 +140,8 @@ struct PageCardProvider: AppIntentTimelineProvider {
         let coverPlan = WidgetFeed.imagePlan(version: p.cover_v, cached: snap?.value.coverV, hasData: cachedCover != nil)
         let iconPlan: WidgetFeed.ImagePlan = p.imageIcon
             ? WidgetFeed.imagePlan(version: p.cover_v == nil ? nil : p.icon, cached: snap?.value.iconRef, hasData: cachedIcon != nil) : .none
-        func load(_ plan: WidgetFeed.ImagePlan, _ which: String, _ cached: Data?) async -> WidgetImage {
-            switch plan {
-            case .none: return .none
-            case .reuse: return cached.map { .image($0) } ?? .none
-            case .fetch(let v): return await API.pageImageResult(p.id, which, version: v)   // ohne Titelbild: erstes Bild im Inhalt
-            }
-        }
-        async let cov = load(coverPlan, "cover", cachedCover)
-        async let ico = load(iconPlan, "icon", cachedIcon)                                  // 2.5: Siegel als PNG
+        async let cov = Self.image(coverPlan, p.id, "cover", cachedCover)                  // ohne Titelbild: erstes Bild im Inhalt
+        async let ico = Self.image(iconPlan, p.id, "icon", cachedIcon)                     // 2.5: Siegel als PNG
         let (rc, ri) = (await cov, await ico)
         let cd = rc.resolved(cached: cachedCover), icd = ri.resolved(cached: cachedIcon)
         e.cover = thumb(cd, max: 900)

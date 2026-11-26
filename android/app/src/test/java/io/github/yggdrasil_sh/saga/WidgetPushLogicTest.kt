@@ -12,6 +12,8 @@ import org.junit.Test
 
 /** 2.6 (Bugs-DB 2188): stiller Widget-Push - Abo-Faehigkeit "widgets", Erkennen der Nachricht, Meldung der Widgets */
 class WidgetPushLogicTest {
+    private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+
     @Test
     fun capsWidgetsOnlyWhenServerOffersIt() {
         assertEquals(listOf("update", "widgets"), PushSubLogic.caps(PushServerInfo(payload = 2, subCaps = listOf("update", "widgets"))))
@@ -36,7 +38,7 @@ class WidgetPushLogicTest {
         assertFalse(WidgetPushLogic.isWidgetPush("chat.message"))
         assertFalse(WidgetPushLogic.isWidgetPush(null))
         val raw = """{"title":"","body":"","url":"/","tag":"widgets","kind":"widgets.update","ts":1,"ttl":300,"v":2,"lang":"de","update":true}"""
-        val m = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString(io.github.yggdrasil_sh.saga.push.PushMessage.serializer(), raw)
+        val m = json.decodeFromString(io.github.yggdrasil_sh.saga.push.PushMessage.serializer(), raw)
         assertTrue(WidgetPushLogic.isWidgetPush(m.kind) && m.update && m.title.isEmpty() && m.body.isEmpty())
     }
 
