@@ -212,6 +212,54 @@ class JobNotifyTest {
         assertEquals(emptyList<String>(), JobNotifyLogic.wearActions(JobNotifyLogic.plan(fail, "phone")!!))
     }
 
+    /** Nachpruefung 2270: alle Token-Teilmengen x Art/Zustand x Inhalt x Geraet sowie die `issue`-Faelle - was die Uhr
+     *  tatsaechlich zeigt (eigene Liste; leere Liste = gespiegelte Telefon-Knoepfe; null = setLocalOnly), nie approve/undo */
+    @Test
+    fun wearNeverAuthExhaustive() {
+        fun onWatch(p: JobNotifyLogic.Plan): List<String> = when (val w = JobNotifyLogic.wearActions(p)) {
+            null -> emptyList()
+            else -> w.ifEmpty { p.buttons }
+        }
+        val d = Json.parseToJsonElement("""{"t1":"Plan wartet","t2":"Bitte freigeben"}""").jsonObject
+        val names = listOf("approve", "undo", "later", "quiet", "open", "x")
+        val kinds = listOf("job.needs_you" to "needs", "job.done" to "done", "job.failed" to "failed")
+        var n = 0
+        for (mask in 0 until (1 shl names.size)) {
+            val toks = names.filterIndexed { i, _ -> mask and (1 shl i) != 0 }.map { io.github.yggdrasil_sh.saga.push.JobToken(it, "t".repeat(24)) }
+            for ((kind, st) in kinds) for (state in listOf(st, null)) for (detail in listOf(d, null)) for (dev in listOf("phone", "phone_noauth")) {
+                val m = io.github.yggdrasil_sh.saga.push.PushMessage(kind = kind, state = state, job = 7, detail = detail, actions = toks)
+                val p = JobNotifyLogic.plan(m, dev)!!
+                val w = onWatch(p)
+                assertTrue("$kind/$state/${toks.map { it.a }}/$dev Uhr $w", w.none { it in JobNotifyLogic.AUTH })
+                assertTrue("$kind ${toks.map { it.a }} nur bekannte Knoepfe", w.all { it in JobNotifyLogic.ACTIONS })
+                assertFalse("open nie mit Token", "open" in JobNotifyLogic.tokens(m))
+                n++
+            }
+        }
+        assertEquals(64 * 3 * 2 * 2 * 2, n)
+        // issue-Faelle (Server-Zustaende inkl. wartet_ok nach zweimal "Spaeter")
+        for (i in v["issue"]!!.jsonArray.map { it.jsonObject }) {
+            val push = i["push"] as? JsonObject ?: continue
+            val toks = push["actions"]!!.jsonArray.map { io.github.yggdrasil_sh.saga.push.JobToken(it.jsonPrimitive.content, "t".repeat(24)) }
+            val det = if (push["detail"]!!.jsonPrimitive.boolean) d else null
+            val p = JobNotifyLogic.plan(
+                io.github.yggdrasil_sh.saga.push.PushMessage(kind = s(push, "kind")!!, state = s(push, "group"), job = 7, detail = det, actions = toks),
+                "phone",
+            )!!
+            assertEquals(i.toString(), s(push, "category"), p.category)
+            assertTrue(i.toString(), onWatch(p).none { it in JobNotifyLogic.AUTH })
+        }
+        // Einzelfaelle des Auftrags: nur undo -> gar nicht auf die Uhr; nur approve -> "Ansehen"; approve+later -> "Spaeter"
+        fun w(kind: String, vararg a: String) = JobNotifyLogic.wearActions(JobNotifyLogic.plan(io.github.yggdrasil_sh.saga.push.PushMessage(
+            kind = kind, job = 7, detail = d, actions = a.map { io.github.yggdrasil_sh.saga.push.JobToken(it, "t".repeat(24)) }), "phone")!!)
+        assertNull(w("job.done", "undo"))
+        assertEquals(listOf("open"), w("job.needs_you", "approve"))
+        assertEquals(listOf("later"), w("job.needs_you", "approve", "later"))
+        assertEquals(listOf("quiet"), w("job.done", "undo", "quiet"))
+        assertEquals(emptyList<String>(), w("job.needs_you"))                     // spiegelt nur "Ansehen"
+        assertEquals(emptyList<String>(), w("job.failed", "approve", "undo"))      // failed: nur "Ansehen"
+    }
+
     @Test
     fun capsAndPrefs() {
         val sc = v["params"]!!.jsonObject["sub_caps"]!!.jsonArray.map { it.jsonPrimitive.content }
