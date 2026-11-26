@@ -8,6 +8,21 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Neu
 
+- **Android: Bereich „Saga“ – Gespräch, Aufträge und „Meine Daten“** (Bugs-DB 2269 K-I Apps, 2267 K-B „Rückmeldung in
+  der App“, Konzept K10/K11/K19, M1/M3/M4/M7): Neues Navigationsziel „Saga“ (untere Leiste und Rail hinter „Chats“, feste
+  Seitenleiste unter „Heute“), nicht in der Chat-Liste; Kopf „{Persona} · KI“ mit Persona-Bild. Oben die feste Leiste
+  „Was du hier schreibst, liest die KI auf …“ mit ⓘ (Details als Blatt). Vor der Einwilligung nur die Kennenlernen-Karte
+  (Texte und Host-Hinweis vom Server, „Ja, mit Ideen“ · „Ja, ohne Ideen“ bzw. „Ja, einverstanden“ · „Jetzt nicht“,
+  „Mehr einstellen“), auf „Heute“ einmal bis zur Antwort; Einwilligung mit Fassung und Host der Karte, bei 409 neu geladen.
+  Danach Reiter „Gespräch“ (Antworten als Strom in der KI-Darstellung, Quellen „aus:“, „Gespräch leeren“) und
+  „Aufträge“ (nur mit `jobs`): Auftrag geben, Rückfrage mit Chips, Absage mit „Als Aufgabe anlegen“, Plan-Karte „Passt,
+  los · Ändern · Lieber nicht“ mit Klasse je Schritt und „Ich lese dafür …“ (Freigabe nur mit `plan_v` + `plan_hash`,
+  409 → neuer Plan), Rückmeldung mit Ergebnis zuerst und „Rückgängig“ je Änderung (nur löschbar: Rückfrage; seitdem
+  geändert: „Alte Fassung ansehen“), Liste in 4 Gruppen und Detail mit Zustandswort, Plan, Gelesenem und Protokoll.
+  Ab 840 dp Breite stehen Gespräch und Aufträge nebeneinander. Einstellungen › Saga: Anrede (nicht im Englischen),
+  Lebhaftigkeit, Ideen, Verlauf, „Meine Daten“ (Einwilligung widerrufen, Export JSON/Markdown teilen, „Alles löschen“
+  mit Rückfrage, „Was mein Admin sehen kann“). Alles nur, wenn `/api/ai/status` den Ort meldet (`consent`, `intro`,
+  Fähigkeit `ai`); ältere Server: unverändert. Texte de/en/es/ru/th wie im Web.
 - **Sprechring nur noch in Gruppen** (Bugs-DB 2125, iOS/iPadOS/Mac und Android): Der grüne Ring um Bild bzw. Profilbild erscheint
   nur, wenn mindestens drei verschiedene Personen im Anruf sind – im 1:1 (direkt und über den Knoten) wirkte er nur wie
   Umgebungslicht. Eigene Begleitgeräte zählen nicht als weitere Person; kommt eine dritte Person dazu, erscheint der
