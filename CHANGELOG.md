@@ -38,6 +38,24 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Lebhaftigkeit, Ideen, Verlauf, „Meine Daten“ (Einwilligung widerrufen, Export JSON/Markdown teilen, „Alles löschen“
   mit Rückfrage, „Was mein Admin sehen kann“). Alles nur, wenn `/api/ai/status` den Ort meldet (`consent`, `intro`,
   Fähigkeit `ai`); ältere Server: unverändert. Texte de/en/es/ru/th wie im Web.
+- **Ort „Saga“ auf iPhone und iPad** (Bugs-DB 2269 K-I + 2267 K-B, wie das Web): Eigener Eintrag „Saga“ in der
+  Seitenleiste (nicht in der Chat-Liste), nur wenn der Server ihn für dich meldet (`/api/ai/status` mit `consent`
+  und `intro`; ältere Server oder KI aus: nichts zu sehen). Oben die feste Leiste „Was du hier schreibst, liest die KI
+  auf …“ mit ⓘ, Kopf „Marin · KI“ mit Persona-Bild. Vor der Einwilligung nur die Kennenlernen-Karte (Texte und
+  Host-Hinweis vom Server, „Ja, mit Ideen“ · „Ja, ohne Ideen“ bzw. „Ja, einverstanden“ · „Jetzt nicht“, Details als
+  Blatt; geänderter Text oder Host → neu laden). Danach das Gespräch mit der KI (Strom, KI-Darstellung, „aus:“-Quellen,
+  „Melden …“, „Gespräch leeren“) und – wenn der Server Aufträge kann – der Umschalter „Als Auftrag“ neben dem Feld:
+  Bitte und Ergebnis stehen im Gespräch und zeigen immer den jetzigen Stand – Plan-Karte („Passt, los“ · „Ändern“ ·
+  „Lieber nicht“, je Schritt Art und Klasse, „Ich lese dafür: …“, Freigabe nur mit dem gezeigten Plan), Rückfrage,
+  Absage mit „Als Aufgabe anlegen“, Rückmeldung (Ergebnis zuerst, „Rückgängig“ je Änderung, bei „nur löschbar“ mit
+  Rückfrage, „Das wurde seitdem geändert.“ + „Alte Fassung ansehen“) bzw. Zustand mit „Ansehen“. Segment „Aufträge“:
+  Liste in vier Gruppen mit Detail (genaues Zustandswort, Plan, „Was ich gelesen habe“, Protokoll, „Auftrag abbrechen“).
+  iPhone: Segment Gespräch/Aufträge; iPad: Aufträge links, Gespräch bzw. Detail rechts. Zähler „wartet auf dich“ an
+  der Seitenleiste, Live über `ai.job.changed`. Einstellungen › Saga: Anrede, Lebhaftigkeit, Ideen, Verlauf, Quellen
+  und „Meine Daten“ (Einwilligung widerrufen, Export JSON/Markdown teilen, „Alles löschen“ mit Rückfrage, „Was mein
+  Admin sehen kann“). Nach einem Widerruf bleiben vorhandene Aufträge im Segment „Aufträge“ erreichbar (ansehen,
+  abbrechen, rückgängig – mit Hinweis, warum sie stehen). Deutsch, Englisch, Spanisch, Russisch, Thai; VoiceOver,
+  Dynamic Type, hell/dunkel.
 - **Widgets sofort aktuell** (Bugs-DB 2188, iOS/iPadOS und Android, Server mit `sub_caps` „widgets“): Ändert sich auf
   einem anderen Gerät (oder im Widget selbst) etwas, das ein Homescreen-Widget zeigt, schickt der Server einen stillen
   Push ohne Inhalt, und die Widgets laden neu – iOS über `content-available` (`WidgetCenter.reloadAllTimelines`),
