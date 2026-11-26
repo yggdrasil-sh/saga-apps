@@ -140,10 +140,13 @@ object AiLogic {
 
     data class Line(val kind: String, val spans: List<Span>, val n: Int? = null)   // n: Nummer aus dem Text (ol)
 
-    private val LI = Regex("(?U)^\\s*(?:[-*•]|([0-9]{1,2})[.)])\\s+(.*)$")
-    private val HEAD = Regex("(?U)^\\s*#{1,6}\\s+(.*)$")
-    private val INL = Regex("(?U)(\\*\\*[^*\\n]+\\*\\*|__[^_\\n]+__|`[^`\\n]+`|\\[[0-9]{1,2}(?:\\s*[,;]\\s*[0-9]{1,2})*])")
-    private val SEP = Regex("(?U)\\s*[,;]\\s*")
+    // Unicode-Leerraum wie Pythons \s (Server ai_md.py) - ausdruecklich als Klasse: Androids ICU-Regex kennt das Flag
+    // (?U) nicht (PatternSyntaxException beim Laden von AiLogic -> Absturz bei jeder KI-Antwort; die JVM-Tests sahen das nicht)
+    private const val WS = "[\\t\\n\\x0B\\f\\r\\x1C-\\x1F \\u0085\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000]"
+    private val LI = Regex("^$WS*(?:[-*•]|([0-9]{1,2})[.)])$WS+(.*)$")
+    private val HEAD = Regex("^$WS*#{1,6}$WS+(.*)$")
+    private val INL = Regex("(\\*\\*[^*\\n]+\\*\\*|__[^_\\n]+__|`[^`\\n]+`|\\[[0-9]{1,2}(?:$WS*[,;]$WS*[0-9]{1,2})*])")
+    private val SEP = Regex("$WS*[,;]$WS*")
 
     /** Eine Zeile -> Stuecke; [n] nur als Quelle, wenn n in cites (sonst Text "[n]"); benachbarter Text zusammengefasst */
     fun spans(s: String, cites: Set<Int>): List<Span> {
