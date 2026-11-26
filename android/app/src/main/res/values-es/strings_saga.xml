@@ -79,6 +79,9 @@
     <string name="saga_job_label">Encargo para %1$s</string>
     <string name="saga_job_gone">Este encargo ya no existe.</string>
     <string name="saga_stopped">Cancelado: no ha pasado nada.</string>
+    <string name="saga_paused_withdrawn">Tus encargos están en pausa porque retiraste tu consentimiento. Puedes seguir viéndolos, cancelarlos y deshacerlos; encargos nuevos, solo cuando vuelvas a conocer a %1$s.</string>
+    <string name="saga_paused_stale">El admin ha cambiado la IA: tus encargos esperan hasta que vuelvas a conocer a %1$s.</string>
+    <string name="saga_paused_not_met">Podrás dar encargos nuevos en cuanto conozcas a %1$s.</string>
     <string name="saga_g_wait">Te necesita</string>
     <string name="saga_g_run">En curso</string>
     <string name="saga_g_done">Terminados</string>

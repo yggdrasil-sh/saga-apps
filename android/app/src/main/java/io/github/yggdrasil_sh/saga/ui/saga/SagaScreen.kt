@@ -151,22 +151,57 @@ fun SagaScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 return@Column
             }
             SagaBar(s)
+            var tab by rememberSaveable { mutableIntStateOf(0) }
             if (!consent) {
-                Column(
-                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    IntroCard(
-                        repo, s, Modifier.widthIn(max = 640.dp),
-                        onLater = { nav.top(Dest.Today) },
-                        onMore = { nav.push(Dest.SettingsSaga) },
-                    )
+                // 2518 A1: ohne Einwilligung nur die Karte - hat die Person Auftraege, bleibt der Reiter "Auftraege"
+                // erreichbar (Liste, Detail, Abbrechen, Rueckgaengig); Gespraech und "Als Auftrag" bleiben gesperrt
+                LaunchedEffect(s.consent?.state) { if (SagaLogic.jobsOn(s)) session.refreshJobs() }
+                val paused = SagaLogic.pausedJobsShown(s, session.groups?.let { SagaLogic.total(it) } ?: 0)
+                val intro: @Composable () -> Unit = {
+                    Column(
+                        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        IntroCard(
+                            repo, s, Modifier.widthIn(max = 640.dp),
+                            onLater = { nav.top(Dest.Today) },
+                            onMore = { nav.push(Dest.SettingsSaga) },
+                        )
+                    }
+                }
+                if (!paused) {
+                    intro()
+                    return@Column
+                }
+                val name = sagaName(s)
+                val note = when (SagaLogic.pausedNote(s)) {
+                    SagaLogic.PausedNote.WITHDRAWN -> stringResource(R.string.saga_paused_withdrawn, name)
+                    SagaLogic.PausedNote.STALE -> stringResource(R.string.saga_paused_stale, name)
+                    SagaLogic.PausedNote.NOT_MET -> stringResource(R.string.saga_paused_not_met, name)
+                }
+                BoxWithConstraints(Modifier.fillMaxSize()) {
+                    if (maxWidth >= 840.dp) {
+                        Row(Modifier.fillMaxSize()) {
+                            Box(Modifier.weight(1f).fillMaxHeight()) { intro() }
+                            VerticalDivider()
+                            Box(Modifier.width(420.dp).fillMaxHeight()) { SagaJobsPane(repo, nav, s, session, onGive = {}, note = note) }
+                        }
+                    } else {
+                        Column(Modifier.fillMaxSize()) {
+                            PrimaryTabRow(selectedTabIndex = tab) {
+                                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.saga_tab_talk)) }, modifier = Modifier.heightIn(min = 48.dp))
+                                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.saga_tab_jobs)) }, modifier = Modifier.heightIn(min = 48.dp))
+                            }
+                            Box(Modifier.weight(1f)) {
+                                if (tab == 1) SagaJobsPane(repo, nav, s, session, onGive = {}, note = note) else intro()
+                            }
+                        }
+                    }
                 }
                 return@Column
             }
             val jobsOn = SagaLogic.jobsOn(s)
             if (!jobsOn && session.asJob) session.asJob = false            // Server bietet keine Auftraege (mehr)
-            var tab by rememberSaveable { mutableIntStateOf(0) }
             val thinking = thinkingText(AiPersonaLogic.effective(s))
             val ready = stringResource(R.string.saga_plan_ready)
             // Beispiel aus der leeren Auftrags-Liste: im Gespraech als Auftrag geben (11.7: ein Ort fuer die Eingabe)

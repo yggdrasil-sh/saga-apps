@@ -65,6 +65,10 @@ import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.util.UiText
 import io.github.yggdrasil_sh.saga.util.resolve
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -291,8 +295,12 @@ fun ReportDialog(repo: SagaRepository, s: ChatSession, msgs: List<ChatMessage>, 
     var reason by remember { mutableStateOf("spam") }
     var include by remember { mutableStateOf(true) }
     var text by remember { mutableStateOf(prefill.take(ChatStd.REPORT_TEXT_MAX)) }
+    // 2518 N3: beim Senden offen bleiben - bei 429/Netzfehler steht die Meldung im Dialog, der Text bleibt; erst nach ok zu
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<UiText?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!busy) onDismiss() },
         properties = io.github.yggdrasil_sh.saga.ui.common.ImeDialog.properties, // CH-05/A11Y-26: Tastatur verdeckt nichts
         modifier = Modifier.imeDialog(),
         title = { Text(stringResource(if (msgs.size == 1 && msgs[0].ai == io.github.yggdrasil_sh.saga.ai.AiReplyCheck.OK) R.string.ai_report_title else R.string.std_report)) },
@@ -319,15 +327,34 @@ fun ReportDialog(repo: SagaRepository, s: ChatSession, msgs: List<ChatMessage>, 
                     OutlinedTextField(value = text, onValueChange = { text = it.take(ChatStd.REPORT_TEXT_MAX) }, minLines = 3, maxLines = 8, modifier = Modifier.fillMaxWidth())
                     Text(stringResource(R.string.std_report_edit), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                error?.let {
+                    Text(
+                        it.resolve(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                }
             }
         },
         confirmButton = {
             SagaTextButton(onClick = {
-                onDismiss()
-                repo.launchAction { s.report(msgs.map { it.id }, reason, if (include) text else null); repo.notify(UiText.Res(R.string.std_report_done)) }
-            }) { Text(stringResource(R.string.std_report), color = MaterialTheme.colorScheme.error) }
+                busy = true
+                error = null
+                scope.launch {
+                    try {
+                        s.report(msgs.map { it.id }, reason, if (include) text else null)
+                        repo.notify(UiText.Res(R.string.std_report_done))
+                        onDismiss()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        error = repo.friendly(e)
+                    } finally {
+                        busy = false
+                    }
+                }
+            }, enabled = !busy) { Text(stringResource(R.string.std_report), color = MaterialTheme.colorScheme.error) }
         },
-        dismissButton = { SagaTextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { SagaTextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 

@@ -8,6 +8,11 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Neu
 
+- **Android: Aufträge nach dem Widerruf erreichbar** (Bugs-DB 2518, wie das Web): Ohne Einwilligung (widerrufen bzw.
+  KI umgestellt) zeigt der Bereich „Saga“ bei vorhandenen Aufträgen weiter den Reiter „Aufträge“ – Liste, Detail,
+  Abbrechen, Rückgängig – mit dem Hinweis, warum nichts Neues geht; Gespräch und „Als Auftrag“ bleiben gesperrt.
+  „Melden“ im Chat bleibt bei Fehlern (zu viele Meldungen, Netz) offen; eine Rückmeldung mit nur einer Änderung zeigt
+  nur noch den Knopf „Rückgängig“.
 - **Android: „Melden“ für KI-Ausgaben** (Bugs-DB 2507, APP-API-KI §6): Unter jeder fertigen KI-Antwort ein
   unauffälliger Knopf „Melden …“ – im Gespräch des Bereichs „Saga“, an Plan-Karte und Rückmeldung (`where: job`), bei
   „Frag deine Seiten“ (`ask`) und den Seiten-Hilfen (`page`). Dialog wie im Web: Grund, „Antwort der KI mitschicken“

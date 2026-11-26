@@ -463,6 +463,29 @@ object SagaLogic {
         else -> JobView.STATE
     }
 
+    /**
+     * Ohne Einwilligung (Widerruf, Endpunkt gewechselt) bleiben vorhandene Auftraege erreichbar (Liste, Detail,
+     * Abbrechen, Rueckgaengig - Bugs-DB 2518, wie Web static/saga.js pausedJobs); Gespraech und "Als Auftrag" bleiben
+     * gesperrt. Reiter "Auftraege" nur, wenn der Server Auftraege anbietet und es welche gibt.
+     */
+    fun pausedJobsShown(st: AiStatus?, jobs: Int): Boolean = jobsOn(st) && !consentOk(st) && jobs > 0
+
+    /** Hinweis ueber der Liste ohne Einwilligung: widerrufen / Endpunkt gewechselt / noch nicht kennengelernt */
+    enum class PausedNote { WITHDRAWN, STALE, NOT_MET }
+
+    fun pausedNote(st: AiStatus?): PausedNote = when (st?.consent?.state) {
+        "withdrawn" -> PausedNote.WITHDRAWN
+        "stale" -> PausedNote.STALE
+        else -> PausedNote.NOT_MET
+    }
+
+    /**
+     * Text einer Zeile der Rueckmeldung (B4): bei genau einer Aenderung nur der Knopf (der Ergebnis-Satz steht schon
+     * darueber, Web/§10, Bugs-DB 2518 N2) -> null; sonst der Gegenstand (label) bzw. der Satz der Zeile.
+     */
+    fun reportLineText(count: Int, ln: ReportLine): String? =
+        if (count <= 1) null else ln.label?.takeIf { it.isNotBlank() } ?: ln.text.takeIf { it.isNotBlank() }
+
     /** Rueckgaengig-Antwort: 200 {already, text} (Termin schon weg) -> diesen Satz zeigen, sonst null */
     fun undoText(body: JsonObject): String? = str(body["text"])?.takeIf { it.isNotBlank() }
 

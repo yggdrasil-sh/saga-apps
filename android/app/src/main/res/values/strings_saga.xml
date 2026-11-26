@@ -79,6 +79,9 @@
     <string name="saga_job_label">Job for %1$s</string>
     <string name="saga_job_gone">This job no longer exists.</string>
     <string name="saga_stopped">Cancelled – nothing happened.</string>
+    <string name="saga_paused_withdrawn">Your jobs are paused because you withdrew your consent. You can still view, cancel and undo them – new jobs only once you meet %1$s again.</string>
+    <string name="saga_paused_stale">Your admin changed the AI – your jobs wait until you meet %1$s again.</string>
+    <string name="saga_paused_not_met">You can give new jobs once you have met %1$s.</string>
     <string name="saga_g_wait">Needs you</string>
     <string name="saga_g_run">In progress</string>
     <string name="saga_g_done">Finished</string>

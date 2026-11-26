@@ -104,13 +104,21 @@ private fun rememberOnline(): Boolean {
  * Leer: Satz + Beispiel-Chip - der Chip gibt den Auftrag im Gespraech (onGive).
  */
 @Composable
-fun SagaJobsPane(repo: SagaRepository, nav: AppNavigator, st: AiStatus, session: SagaSession, onGive: (String) -> Unit) {
+fun SagaJobsPane(repo: SagaRepository, nav: AppNavigator, st: AiStatus, session: SagaSession, onGive: (String) -> Unit, note: String? = null) {
     LaunchedEffect(session) { session.refreshJobs() }
     LazyColumn(
         Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
+        // 2518: ohne Einwilligung - warum nichts Neues geht (Ansehen, Abbrechen, Rueckgaengig gehen weiter)
+        if (!note.isNullOrBlank()) {
+            item(key = "jnote") {
+                Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.medium, modifier = w) {
+                    Text(note, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(12.dp).semantics { liveRegion = LiveRegionMode.Polite })
+                }
+            }
+        }
         val groups = session.groups
         session.jobsError?.let { e -> item(key = "jerr") { Text(e.resolve(), color = MaterialTheme.colorScheme.error, modifier = w) } }
         if (groups != null) {
@@ -499,11 +507,13 @@ fun ReportCard(repo: SagaRepository, st: AiStatus, d: JobDetail, onOpen: (() -> 
     SagaCard {
         SagaHead(st, extra = d.stateText)
         AnswerText(rep?.text?.ifBlank { null } ?: d.reasonText?.ifBlank { null } ?: d.stateText, emptyList()) {}
-        rep?.lines?.forEach { ln ->
+        val lines = rep?.lines.orEmpty()
+        lines.forEach { ln ->
             val ch = d.changes.firstOrNull { it.id == ln.change }
-            HorizontalDivider()
+            if (lines.size > 1) HorizontalDivider()
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(ln.label?.takeIf { it.isNotBlank() } ?: ln.text, style = MaterialTheme.typography.bodyLarge)
+                // N2 (2518): bei genau einer Aenderung nur der Knopf - der Ergebnis-Satz steht schon darueber
+                SagaLogic.reportLineText(lines.size, ln)?.let { Text(it, style = MaterialTheme.typography.bodyLarge) }
                 val conflictUrl = conflicts[ln.change]
                 when {
                     ln.undone -> Text(undoneText, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)

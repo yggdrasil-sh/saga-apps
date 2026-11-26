@@ -79,6 +79,9 @@
     <string name="saga_job_label">งานสำหรับ %1$s</string>
     <string name="saga_job_gone">งานที่มอบหมายนี้ไม่มีอยู่แล้ว</string>
     <string name="saga_stopped">ยกเลิกแล้ว – ไม่มีอะไรเกิดขึ้น</string>
+    <string name="saga_paused_withdrawn">งานที่มอบหมายของคุณถูกหยุดไว้ เพราะคุณถอนความยินยอม ยังดู ยกเลิก และเลิกทำได้ – งานใหม่ได้เมื่อคุณทำความรู้จัก %1$s อีกครั้ง</string>
+    <string name="saga_paused_stale">ผู้ดูแลเปลี่ยน AI แล้ว – งานที่มอบหมายของคุณจะรอจนกว่าคุณจะทำความรู้จัก %1$s อีกครั้ง</string>
+    <string name="saga_paused_not_met">คุณมอบหมายงานใหม่ได้เมื่อทำความรู้จัก %1$s แล้ว</string>
     <string name="saga_g_wait">ต้องการคุณ</string>
     <string name="saga_g_run">กำลังทำ</string>
     <string name="saga_g_done">เสร็จสิ้น</string>

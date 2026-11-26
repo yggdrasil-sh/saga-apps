@@ -79,6 +79,9 @@
     <string name="saga_job_label">Auftrag an %1$s</string>
     <string name="saga_job_gone">Diesen Auftrag gibt es nicht mehr.</string>
     <string name="saga_stopped">Abgebrochen – nichts ist passiert.</string>
+    <string name="saga_paused_withdrawn">Deine Aufträge sind angehalten, weil du die Einwilligung widerrufen hast. Ansehen, abbrechen und rückgängig machen geht weiter – neue Aufträge erst, wenn du %1$s wieder kennenlernst.</string>
+    <string name="saga_paused_stale">Der Admin hat die KI umgestellt – deine Aufträge warten, bis du %1$s noch einmal kennenlernst.</string>
+    <string name="saga_paused_not_met">Neue Aufträge gibst du, sobald du %1$s kennengelernt hast.</string>
     <string name="saga_g_wait">Wartet auf dich</string>
     <string name="saga_g_run">Läuft</string>
     <string name="saga_g_done">Fertig</string>
