@@ -242,6 +242,44 @@ enum HornLogic {
         return d >= overlapMax || (d >= overlapMin && waiting == 0)
     }
 
+    // MARK: Sprechring ueber den Knoten (Pegel je Absender)
+
+    /// Wer spricht (je Geraet) aus dem Pegel der Tonplaetze, je Takt (0,5 s): Pegel > 0,03 bei Mikro an, 600 ms Nachlauf, stumm
+    /// sofort aus. Ohne Pegel vom Knoten (aelterer Knoten, kein audio-level) gilt der Sprecherplatz des Knotens - aber NUR,
+    /// solange auf den Verbindungen noch nie ein Pegel kam (lvSeen, wie Web Bugs-DB 2126). Bugs-DB 2457 (Fund aus 2125): frueher galt der
+    /// Rueckfall, sobald in einem Takt kein Platz einen Pegel lieferte (Sprechpause mit DTX, Platz kurz ohne Rahmen,
+    /// Gegenueber stumm) - dann leuchtete der Ring am Sprecherplatz dauerhaft, auch in Sprechpausen.
+    struct SpeakLevels: Equatable {
+        static let threshold = 0.03, tailMs = 600.0
+        private(set) var speaking = Set<String>()
+        private var speakAt: [String: Double] = [:]
+        /// levels: Pegel je Geraet (nur Plaetze mit Rahmen), muted: Geraete mit Mikro aus, spk: Sprecherplatz des Knotens,
+        /// lvSeen: auf einer der Verbindungen schon einmal ein Pegel. -> sprechende Geraete
+        @discardableResult
+        mutating func update(levels: [String: Double], muted: Set<String>, spk: String?, lvSeen: Bool, now: Double) -> Set<String> {
+            for (d, l) in levels where l > Self.threshold && !muted.contains(d) { speakAt[d] = now }
+            for d in muted { speakAt[d] = nil }
+            speakAt = speakAt.filter { now - $0.value < Self.tailMs }
+            var sp = Set(speakAt.keys)
+            if !lvSeen, let s = spk, !muted.contains(s) { sp.insert(s) }
+            speaking = sp
+            return sp
+        }
+        /// Pegel fuer die Meeting-Hysterese (Personen): ohne Pegel vom Knoten der Sprecherplatz als Kandidat (0,1)
+        static func meetLevels(_ levels: [String: Double], spk: String?, lvSeen: Bool) -> [String: Double] {
+            var ml = levels
+            if !lvSeen, ml.isEmpty, let s = spk { ml[s] = 0.1 }
+            return ml
+        }
+    }
+    /// Eigener Pegel (media-source des Ton-Senders) - jeden Takt gemessen; aelter als 1,5 s gilt er nicht mehr (Bugs-DB 2457:
+    /// frueher nur waehrend eines Knotenwechsels gemessen, danach blieb der letzte Wert stehen - sprach man dabei, leuchtete
+    /// der eigene Ring dauerhaft)
+    static let selfLevelMaxAge = 1500.0
+    static func selfLevel(_ level: Double, at: Double, now: Double, mic: Bool) -> Double {
+        mic && at > 0 && now - at <= selfLevelMaxAge ? level : 0
+    }
+
     // MARK: Kacheln
 
     /// Spalten fuer n Kacheln bei Breite w (Punkte). Schmal (Handy): 2 Spalten

@@ -121,6 +121,12 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Behoben
 
+- **iOS/iPadOS: Sprechring leuchtet in Sprechpausen nicht mehr** (Bugs-DB 2457, Fund aus 2125, Anrufe über den Knoten): Kam
+  in einem Takt von keinem Tonplatz ein Pegel (Sprechpause, Platz kurz ohne Rahmen, Gegenüber stumm), fiel die App auf
+  den Sprecherplatz des Knotens zurück – der Ring blieb dort dauerhaft an. Der Rückfall gilt jetzt wie im Web nur,
+  solange auf der Verbindung nie ein Pegel kam (Knoten ohne audio-level), und nie für eine stumme Person. Der eigene
+  Pegel wird jeden Takt gemessen (vorher nur während eines Knotenwechsels, danach blieb der letzte Wert stehen); älter
+  als 1,5 s zählt er nicht. Logik in `HornLogic.SpeakLevels`, Tests `HornSpeakTests` (mit Gegenprobe der alten Regel).
 - **iOS/iPadOS: Leiste „Anruf läuft“ mit der Grenze des Knotens** (Bugs-DB 2418): Ein voller Knoten-Anruf zeigte „alle 4
   Plätze sind belegt“, obwohl 12 Geräte drin waren. Jetzt gilt im Knoten-Anruf die Grenze vom Server; Mesh und 1:1 bleiben
   bei 4/6.

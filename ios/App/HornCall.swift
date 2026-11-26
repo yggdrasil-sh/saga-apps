@@ -69,6 +69,8 @@ final class HornConn {
     let created: Double
     var up = 0.0, rx = 0.0, retired = 0.0
     var dead = false
+    /// schon einmal ein Pegel (audio-level) auf einem Tonplatz dieser Verbindung (Rueckfall Sprecherplatz nur ohne)
+    var lvSeen = false
     var closed: String?
     var state = "ok"
     var rtts: [Double] = []
@@ -189,9 +191,13 @@ final class HornSession: ObservableObject {
     /// Bugs-DB 2193: zuletzt an die Anrufansicht gemeldeter Stand (HornLogic.ViewKey)
     var viewKey: HornLogic.ViewKey?
     var speaking = Set<String>()
-    var speakAt: [String: Double] = [:]
+    /// Sprechring: Schwelle, Nachlauf, Rueckfall auf den Sprecherplatz nur ohne je gesehenen Pegel (HornLogic.SpeakLevels)
+    var spkLv = HornLogic.SpeakLevels()
     var spk: String?
     var selfLevel = 0.0
+    /// Zeit der letzten Messung des eigenen Pegels (hornNow, ms); 0 = nie
+    var selfAt = 0.0
+    var selfBusy = false
     var runesKey = ""
     var acked: [String: Int] = [:]
     /// nur Bilder (HornPreview): eigenes Geraet ohne Chat-Schluessel
@@ -937,7 +943,6 @@ extension CallManager {
         // Alte Verbindungen schliessen: 2 s nachdem die neue liefert, wenn dort niemand mehr nur ueber die alte zu hoeren
         // ist und man selbst nicht gerade spricht, waehrend am alten Knoten noch andere zuhoeren; hoechstens 15 s
         if let cur, cur.rx > 0 {
-            if !H.olds.isEmpty { Task { await hornSelfLevel(cur) } }
             let onCur = hornLiveOwners(cur, now: now)
             for o in H.olds {
                 var uniq = false
@@ -956,6 +961,7 @@ extension CallManager {
                 }
             }
         }
+        if let cur, !H.selfBusy { H.selfBusy = true; Task { await hornSelfLevel(cur) } }   // 2457: jeden Takt (Sprechring, Wechsel)
         hornLevels(now: now)
         hornAudioRoute()
         hornDraw()
@@ -1012,13 +1018,15 @@ extension CallManager {
         return out
     }
     private func hornSelfLevel(_ conn: HornConn) async {
-        guard let H = horn, let pc = conn.aLeg?.pc else { return }
+        guard let H = horn else { return }
+        defer { H.selfBusy = false }
+        guard let pc = conn.aLeg?.pc else { return }
         let rep = await pc.statsAsync()
         var lv = 0.0
         for s in rep.statistics.values where s.type == "media-source" && (s.values["kind"] as? String) == "audio" {
             lv = (s.values["audioLevel"] as? NSNumber)?.doubleValue ?? lv
         }
-        H.selfLevel = mic ? lv : 0
+        H.selfLevel = mic ? lv : 0; H.selfAt = Self.hornNow()
     }
     /// Pegel je Absender (Tonplaetze), Sprechring mit 600 ms Nachlauf
     private func hornLevels(now: Double) {
@@ -1027,21 +1035,22 @@ extension CallManager {
         for c in H.conns {
             guard let L = c.aLeg else { continue }
             let audio = L.slots.filter { $0.cls == "audio" }
-            for (k, i) in L.audioRecv.enumerated() where L.live(i, now: now) {
-                guard let d = HornLogic.owner(k < audio.count ? audio[k] : nil, c.csrc), let l = L.level(i) else { continue }
+            for (k, i) in L.audioRecv.enumerated() {
+                let l = L.level(i)
+                if l != nil { c.lvSeen = true }                               // 2457: Pegel gesehen -> kein Rueckfall mehr
+                guard L.live(i, now: now), let d = HornLogic.owner(k < audio.count ? audio[k] : nil, c.csrc), let l else { continue }
                 lv[d] = max(lv[d] ?? 0, l)
             }
         }
         H.levels = lv
-        var sp = Set<String>()
-        for (d, l) in lv where l > 0.03 && H.st[d]?.mic != false { H.speakAt[d] = now }
-        for (d, t) in H.speakAt where now - t < 600 { sp.insert(d) }
-        if sp.isEmpty, lv.isEmpty, let s = H.spk { sp.insert(s) }         // ohne Pegel: Sprecherplatz des Knotens
+        // Bugs-DB 2457: Rueckfall auf den Sprecherplatz nur ohne je gesehenen Pegel (vorher: in jeder Sprechpause ohne Rahmen)
+        let seen = H.conns.contains { $0.lvSeen }
+        let muted = Set(H.st.filter { $0.value.mic == false }.map(\.key))
+        let sp = H.spkLv.update(levels: lv, muted: muted, spk: H.spk, lvSeen: seen, now: now)
         if sp != H.speaking { H.speaking = sp }
         // Meeting-Ansicht: Hysterese je Person; ohne Pegel gilt der Sprecherplatz des Knotens als Kandidat
-        var ml = lv
-        if ml.isEmpty, let s = H.spk { ml[s] = 0.1 }
-        meetLevels(ml, selfLevel: H.selfLevel)
+        meetLevels(HornLogic.SpeakLevels.meetLevels(lv, spk: H.spk, lvSeen: seen),
+                   selfLevel: HornLogic.selfLevel(H.selfLevel, at: H.selfAt, now: now, mic: mic))
     }
     /// Qualitaet (RTT, Verlust, Einfrieren), UDP-Regeln, Nachforderung aus getStats
     private func hornStats(_ conn: HornConn) async {
