@@ -406,6 +406,10 @@ struct SagaJobDetail: Equatable {
     }
     /// "Auftrag abbrechen" ausserhalb der Plan-Karte
     var cancellable: Bool { actions.contains("cancel") && state != "wartet_ok" }
+    /// Plan-Karte mit Freigabe nur mit Einwilligung (sonst lehnt der Server ab, 403 consent); ohne Einwilligung
+    /// wird der Plan nur gezeigt und "Auftrag abbrechen" steht auch bei "Wartet auf dein OK" (Widerruf, 2518)
+    func showsPlanCard(consentOK: Bool) -> Bool { awaitingOK && consentOK }
+    func cancellable(consentOK: Bool) -> Bool { cancellable || (!consentOK && state == "wartet_ok" && actions.contains("cancel")) }
     func change(_ id: Int) -> SagaChange? { changes.first { $0.id == id } }
     /// Text neben "Rückgängig": das Ergebnis nennt die Aenderungen schon - bei einer Aenderung nur der Knopf, sonst der
     /// Gegenstand (label; aeltere Server: die ganze Zeile)

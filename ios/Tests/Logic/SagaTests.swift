@@ -192,6 +192,8 @@ func sagaTests() {
     check(det?.planSteps.count == 3 && det?.readText == "Ich lese dafür: Sommerfest", "Plan im Detail")
     let waiting = SagaJobDetail(data: data(#"{"id":12,"title":"P","state":"wartet_ok","state_text":"Wartet auf dein OK","plan":\#(planJSON),"changes":[],"events":[],"actions":["approve","edit","cancel"]}"#))
     check(waiting?.awaitingOK == true && waiting?.cancellable == false && waiting?.feedback == nil, "wartet_ok: Plan-Karte, kein Abbrechen-Knopf daneben")
+    check(waiting?.showsPlanCard(consentOK: true) == true && waiting?.cancellable(consentOK: true) == false, "mit Einwilligung: Plan-Karte")
+    check(waiting?.showsPlanCard(consentOK: false) == false && waiting?.cancellable(consentOK: false) == true, "nach Widerruf: Plan nur ansehen, Abbrechen geht")
     let running = SagaJobDetail(data: data(#"{"id":3,"title":"K","state":"wartet_dich","state_text":"Wartet auf dich","reason_text":"Einwilligung widerrufen","plan":{},"changes":[],"events":[],"actions":["cancel"]}"#))
     check(running?.cancellable == true && running?.plan == nil && running?.reasonText == "Einwilligung widerrufen", "wartet_dich: abbrechen, Grund")
     let undone = SagaJobDetail(data: data(#"{"id":3,"title":"K","state":"zurueckgenommen","state_text":"Zurückgenommen","reason_text":"","changes":[],"events":[],"actions":[]}"#))

@@ -431,7 +431,8 @@ struct SagaJobDetailView: View {
             Text(Self.stateLine(d)).fixedSize(horizontal: false, vertical: true)
         }
         .onAppear { titleFocus = true }                          // eigener Schritt (antippen): Fokus auf den Titel
-        if d.awaitingOK, let p = d.plan {
+        // Ohne Einwilligung keine Freigabe (der Server lehnt sie ab): Plan nur ansehen, abbrechen geht weiter
+        if d.showsPlanCard(consentOK: store.sagaStatus?.consentOK == true), let p = d.plan {
             SagaPlanCard(m: m, plan: p).id("dplan-\(p.job)")
         } else {
             if d.feedback != nil { SagaFeedbackCard(m: m, detail: d) }
@@ -469,7 +470,7 @@ struct SagaJobDetailView: View {
             }
         }
         if let err { Label(err, systemImage: "exclamationmark.circle").foregroundStyle(.orange) }
-        if d.cancellable {
+        if d.cancellable(consentOK: store.sagaStatus?.consentOK == true) {
             Button(role: .destructive) { Task { err = await m.cancel(d.id) } } label: { Text("Auftrag abbrechen").frame(minHeight: 30) }
                 .buttonStyle(.bordered).controlSize(.large)
         }
