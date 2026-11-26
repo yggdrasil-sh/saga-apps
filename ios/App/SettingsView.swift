@@ -72,6 +72,7 @@ struct SettingsView: View {
         case .einstellungen: GeneralSettings(scroll: $scroll)
         case .info: InfoSettings(close: { dismiss() })
         case .kontakte: ContactBookView(model: store.contacts, close: { dismiss() })   // 2.6 (2027a-5, contacts2)
+        case .saga: SagaSettingsView(m: store.saga)                                   // 2.6 (2269): Einstellungen › Saga
         }
     }
 
@@ -108,6 +109,7 @@ struct SettingsView: View {
                 Section {
                     NavigationLink(value: SettingsArea.einstellungen) { Label("Einstellungen", systemImage: "gearshape") }
                     ContactsSettingsLink(model: store.contacts)              // 2.6 (2027a-5): Adressbuch (nur mit contacts2)
+                    SagaSettingsLink()                                       // 2.6 (2269): Einstellungen › Saga (nur mit Ort "Saga")
                     NavigationLink(value: SettingsArea.info) {
                         HStack {
                             Label("Info", systemImage: "info.circle")

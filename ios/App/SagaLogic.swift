@@ -221,6 +221,7 @@ struct SagaPlan: Equatable {
     var state: String?
     var steps: [SagaStep]
     var readText: String
+    var readLabels: [String]
     var say: String?
     var edited: Bool
     init?(_ v: Any?) {
@@ -231,6 +232,7 @@ struct SagaPlan: Equatable {
         state = ShareJSON.str(d["state"])
         steps = (d["steps"] as? [Any] ?? []).compactMap(SagaStep.init)
         readText = d["read_text"] as? String ?? ""
+        readLabels = (d["read"] as? [Any] ?? []).compactMap { ($0 as? [String: Any]).flatMap { ShareJSON.str($0["label"]) } }
         say = ShareJSON.str(d["say"])
         edited = ShareJSON.bool(d["edited"])
     }

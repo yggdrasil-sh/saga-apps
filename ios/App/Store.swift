@@ -99,6 +99,7 @@ final class Store: ObservableObject {
     let calls = CallManager()                                        // Anrufe (2.1)
     let ustatus = UserStatusModel()                                  // 2.6 (2029-6): eigener Status (userstatus1)
     let contacts = ContactBookModel()                                // 2.6 (2027a-5): Adressbuch (contacts2)
+    let saga = SagaModel()                                           // 2.6 (2269/2267): Ort "Saga" - Gespraech, Auftraege
     /// 2.6: laufende Sitzung fuer den Fokus-Filter (StatusFocusFilter, laeuft im App-Prozess)
     static weak var current: Store?
 
@@ -128,7 +129,7 @@ final class Store: ObservableObject {
                 }
             }
         }
-        live.store = self; notifs.store = self; chat.store = self; push.store = self
+        live.store = self; notifs.store = self; chat.store = self; push.store = self; saga.store = self
         ustatus.store = self; contacts.store = self; Store.current = self
         AvatarCache.shared.store = self
         calls.store = self; CallSystem.shared.manager = calls
@@ -817,6 +818,8 @@ final class Store: ObservableObject {
     /// "KI in Chats erlauben" auf dem Server an (2.1) und Ziel der Inhalte (host)
     @Published var aiChat = false
     @Published var aiHost = ""
+    /// 2.6 (2269 K-I): Ort "Saga" aus /api/ai/status (nil = aus bzw. aelterer Server ohne consent/intro -> kein Tab)
+    @Published var sagaStatus: SagaStatus?
     /// Server, die gerade nicht erreichbar sind (dezent anzeigen, kein Fehler)
     @Published var fedUnreachable: [String] = []
     private var fedLoading = false
@@ -1250,6 +1253,7 @@ final class Store: ObservableObject {
         URLCache.shared.removeAllCachedResponses()                      // Profilbilder (private, max-age) u. a. nicht liegen lassen
         live.stop(); live.forgetServer(); notifs.reset(); calls.signedOut(); chat.signedOut(); push.signedOut()   // 2.0: Live, Glocke, Chat-Schluessel im Speicher, Push-Abo
         contacts.clear()                                                  // 2.6 (2027a): Adressbuch gehoert zum Konto
+        sagaStatus = nil; saga.reset()                                    // 2.6 (2269): Ort "Saga" gehoert zum Konto
         cursorEpoch += 1; noteCursor = nil; savedCursor = nil; listUnsaved = false; cacheLoad?.cancel(); cacheLoad = nil   // Abgleich-Stand gehoert zum Konto
         pages = []; archivedPages = []; list = PageList(); listGen += 1; shared = []; fedShared = []; aiEnabled = false; aiPersona = nil; aiChat = false; aiHost = ""; fedUnreachable = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
         AppConfig.store.removeObject(forKey: "w.tasks")                 // Widget: eben abgehakte Aufgaben (IDs des alten Kontos)

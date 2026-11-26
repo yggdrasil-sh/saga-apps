@@ -137,6 +137,7 @@ final class LiveHub: ObservableObject {
         if e.event.hasPrefix("status.") { store?.ustatus.live(e.event, d) }  // 2.6: eigener Status, Sammelmeldung
         if e.event.hasPrefix("contacts.") { store?.contacts.live(e.event, d) }   // 2.6 (2027a): Adressbuch geaendert (ohne Inhalt)
         if e.event == "call.state" { store?.ustatus.callChanged() }           // 2.6: "Im Anruf" kommt ohne Ereignis
+        if e.event == "ai.job.changed" { store?.saga.live(LiveEvent(type: e.event, data: d)) }   // 2.6 (2267): Auftraege (nur Kennungen)
         events.send(LiveEvent(type: e.event, data: d))
         return nil
     }

@@ -92,6 +92,9 @@ extension Store {
         guard let (d, code) = try? await apiResponse("api/ai/status") else { return }
         let st = code == 200 ? AIStatus(data: d) : nil
         let on = st?.enabled ?? false
+        let sg = code == 200 ? SagaStatus(data: d).flatMap { $0.hasPlace ? $0 : nil } : nil   // 2.6 (2269): Tab "Saga" nur mit Faehigkeit
+        if sg != sagaStatus { sagaStatus = sg }
+        if sg?.consentOK == true && sg?.jobsOn == true && !saga.jobsLoaded { Task { await saga.loadJobs() } }   // Zaehler in der Seitenleiste
         if on != aiEnabled { aiEnabled = on }
         let chatOn = on && (st?.chat ?? false)
         if chatOn != aiChat { aiChat = chatOn }

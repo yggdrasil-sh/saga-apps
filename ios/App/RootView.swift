@@ -103,6 +103,7 @@ struct RootView: View {
                     Group {
                         if selection == -1 { TasksScreen() } else if selection == -2 { EventsScreen() } else if selection == -3 { ServicesScreen() }
                     else if selection == FedLogic.chatsTag { ChatsScreen(chat: store.chat, openChat: $openChat) }
+                    else if selection == SagaLogic.tag { SagaScreen(m: store.saga) }                                    // 2.6 (2269): Ort "Saga"
                     else if selection == FedLogic.graphTag { GraphScreen(store: store, focusID: store.recent.first, onOpen: { selection = $0 }) }   // 2.5
                     else if let id = selection, FedLogic.isPageID(id) { NativePageScreen(id: id).id(id) } else { TodayScreen(store: store) }
                     }
@@ -153,6 +154,7 @@ struct RootView: View {
             nav.path = []; nav.peek = nil; if v != FedLogic.chatsTag { openChat = nil }
             ClientLog.shared.view(ClientLogScreen.of(selection: v))          // 2.5 clientlog1: grober Ort, keine ID
         }
+        .onChange(of: store.sagaStatus == nil) { _, gone in if gone && selection == SagaLogic.tag { selection = nil } }   // 2.6: Ort "Saga" entzogen
         .onChange(of: nav.sharedJump) { _, _ in nav.peek = nil; nav.path = []; selection = nil }   // "Zu „Mit mir geteilt“" (Kein Zugriff)
         .onChange(of: nav.peek) { old, new in if old != nil && new == nil { store.dataChanged() } }   // Peek zu -> Ansichten auffrischen
         // Seite in den Papierkorb (Seitenmenue): offene Ansicht dieser Seite schliessen - als Hauptseite (Auswahl/Deep-Link)
@@ -396,6 +398,9 @@ extension RootView {
         if store.galleryOffered { a.insert(.init(id: "gallery", icon: "square.grid.2x2", title: String(localized: "Aus Vorlage …")) { gallery = GalleryRequest() }, at: 1) }
         if let id = currentPageID { a.append(.init(id: "link", icon: "link", title: String(localized: "Link zur Seite kopieren")) { copyPageLink(id) }) }
         if store.aiEnabled { a.append(.init(id: "ai", icon: "sparkles", title: store.aiAskLabel) { showAssistant = true }) }
+        #if os(iOS)
+        if store.sagaStatus != nil { a.append(.init(id: "saga", icon: "sparkles.rectangle.stack", title: "Saga") { selection = SagaLogic.tag }) }   // 2.6 (2269)
+        #endif
         #if os(macOS)
         a.append(.init(id: "settings", icon: "gearshape", title: String(localized: "Einstellungen")) { openSettings() })
         #else
@@ -654,6 +659,7 @@ extension Sidebar {
     @ViewBuilder private func deskRow(_ r: SidebarLayout.Row) -> some View {
         switch r {
         case .today: Label("Heute", systemImage: "sun.max").badge(todayCount).tag(SidebarLayout.todayTag)
+        case .saga: SagaSidebarRow(store: store)
         case .chats: ChatsSidebarRow(chat: store.chat).tag(FedLogic.chatsTag)
         case .tasks: tasksRow
         case .events: eventsRow
@@ -671,6 +677,7 @@ extension Sidebar {
     }
     /// iPhone: Reihenfolge wie bisher
     @ViewBuilder private var toolRows: some View {
+                    SagaSidebarRow(store: store)                         // 2.6 (2269): Ort "Saga" (nur mit Faehigkeit, nicht in der Chat-Liste)
                     tasksRow
                     eventsRow
                     servicesRow
@@ -1187,3 +1194,20 @@ struct SidebarAnimationFreeze: ViewModifier {
     }
 }
 #endif
+
+/// Seitenleiste: Ort "Saga" (K10, M1) - nur iPhone/iPad (Mac: Desktop-Huelle), nur mit Faehigkeit; Zaehler = wartet auf dich
+struct SagaSidebarRow: View {
+    @ObservedObject var store: Store
+    @ObservedObject private var m: SagaModel
+    init(store: Store) { self.store = store; self.m = store.saga }
+    var body: some View {
+        #if os(iOS)
+        if store.sagaStatus != nil {
+            let waiting = m.jobs.groups.first { $0.key == "wartet_auf_dich" }?.items.count ?? 0
+            Label { Text(verbatim: "Saga") } icon: { AIAvatarView(persona: store.aiPersona, size: 22) }
+                .badge(waiting)
+                .tag(SagaLogic.tag)
+        }
+        #endif
+    }
+}

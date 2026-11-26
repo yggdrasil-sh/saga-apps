@@ -91,7 +91,7 @@ func sagaTests() {
     check(plan.job == 12 && plan.planV == 2 && plan.planHash == "ab12cd" && plan.steps.count == 3 && plan.editable, "Plan gelesen")
     check(plan.steps[0].symbol == "◎" && plan.steps[1].symbol == "✎" && L.kindSymbol("out") == "↗" && L.kindSymbol("?") == "•", "Art-Symbole")
     check(plan.steps[1].classText == "rückgängig" && plan.steps[2].undoClass == "delete_only" && plan.steps[0].undoClass == nil, "Klasse je Schritt")
-    check(plan.readText == "Ich lese dafür: Sommerfest", "Ich lese dafür (Server)")
+    check(plan.readText == "Ich lese dafür: Sommerfest" && plan.readLabels == ["Sommerfest"], "Ich lese dafür (Server)")
     check(plan.steps[2].fields["allday"] == .flag(true) && plan.steps[2].fields["n"] == .text("3"), "Wahrheitswert vs. Zahl")
     check(plan.steps[1].initial("due") == .text("2026-07-10") && plan.steps[2].initial("allday") == .flag(true), "Startwerte")
     check(L.outcome(ev("status", #"{"phase":"planning","text":"Marin denkt nach …"}"#)) == nil, "status ist kein Ausgang")
@@ -197,5 +197,6 @@ func sagaTests() {
     let rb = L.reportBody(where: "job", job: 12, reason: "other", text: String(repeating: "x", count: 2500))
     check(rb["where"] as? String == "job" && rb["page"] as? Int == 12 && (rb["text"] as? String)?.count == 2000, "Melden: Auftrag, Text begrenzt")
     check(L.reportBody(where: "ask", job: nil, reason: "spam", text: "  ")["text"] == nil && L.reportBody(where: "ask", job: nil, reason: "spam", text: nil)["page"] == nil, "Melden ohne Text")
+    check(SettingsArea.area(for: "saga") == .saga && SettingsArea.area(for: "mydata") == .saga && SettingsArea.scrollTarget(for: "saga") == nil, "Einstellungen › Saga (Sprungziel)")
     check(L.planText(plan).contains("Aufgabe „Pavillon abholen“") && L.tag == -7 && !FedLogic.isPageID(L.tag), "Plan-Text, Tag ist keine Seite")
 }
