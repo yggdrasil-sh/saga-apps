@@ -167,7 +167,6 @@ class SagaSession(private val repo: SagaRepository) {
                         is AiChunk.Done -> {
                             c.done.text?.let { ai.text = it }
                             ai.zug = if (c.done.noMatch) "no_match" else "answer"
-                            live = ai.text.take(200)
                         }
                         is AiChunk.Failed -> {
                             ai.error = c.error
