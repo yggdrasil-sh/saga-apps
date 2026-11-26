@@ -131,6 +131,15 @@ func meetingSharedTests() {
         }
         check(M.speakRingOn(ros, self: c["self"] as? String) == (c["expect"] as? Bool), "gemeinsam speakRing: \(c["name"] ?? "?")")
     }
+    // selfRing (Bugs-DB 2472): eigener Sprechring - Schwelle, Nachlauf, stumm sofort aus, alter Messwert zaehlt nicht
+    let own = j["selfRing"] as? [[String: Any]] ?? []
+    check(own.count >= 7, "gemeinsam selfRing: alle Faelle gelesen (\(own.count))")
+    for c in own {
+        var r = M.SelfRing()
+        let steps = c["steps"] as? [[String: Any]] ?? []
+        let got = steps.map { s in r.update(now: num(s["t"]), level: num(s["level"]), at: num(s["at"]), mic: (s["mic"] as? Bool) == true) }
+        check(!steps.isEmpty && got == steps.map { ($0["expect"] as? Bool) == true }, "gemeinsam selfRing: \(c["name"] ?? "?") \(got)")
+    }
     meetingRingFlowTests()
 }
 

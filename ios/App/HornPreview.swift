@@ -103,7 +103,7 @@ struct HornPreviewView: View {
 }
 
 extension CallManager {
-    /// nur fuer Bilder (-hkHornPreview meet-duo|duo-speak|trio-speak|present|present-group|own-share|own-back|gallery|speaker|pages|gallery2|speaker2|
+    /// nur fuer Bilder (-hkHornPreview meet-duo|duo-speak|trio-speak|trio-self|present|present-group|own-share|own-back|gallery|speaker|pages|gallery2|speaker2|
     /// gallery-screen|novideo-speaker): Meeting-Ansicht mit
     /// erfundenen Geraeten ohne Netz und ohne Medien (bewegte Bilder als Farbflaechen). present = Labor-Befund: Anna mit
     /// Mac (Kamera), iPhone (Begleitgeraet ohne Bild) und Android (Begleitgeraet teilt den Bildschirm)
@@ -132,6 +132,11 @@ extension CallManager {
             list.append(d("a1", "anna", "Anna", "MacBook", cam: true))
             list.append(d("b1", "ben", "Ben", "Pixel", cam: true))
             meet.stage = "anna"; meet.speaking = ["anna"]
+        case "trio-self":                                                    // Bugs-DB 2472: Gruppe zu dritt, man spricht selbst
+            kind = "group"; peerName = "Projekt Nordlicht"
+            list.append(d("a1", "anna", "Anna", "MacBook", cam: true))
+            list.append(d("b1", "ben", "Ben", "Pixel", cam: true))
+            meet.stage = "anna"; meet.speaking = ["me"]
         case "dazu-direct":                                                  // 2.5 (L9): direktes 1:1 - Knopf zeigt nur den Hinweis
             kind = "dm"; peerName = "Anna"
             list.append(d("a1", "anna", "Anna", "MacBook", cam: true))

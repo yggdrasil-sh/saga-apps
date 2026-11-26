@@ -961,7 +961,9 @@ extension CallManager {
                 }
             }
         }
-        if let cur, !H.selfBusy { H.selfBusy = true; Task { await hornSelfLevel(cur) } }   // 2457: jeden Takt (Sprechring, Wechsel)
+        // 2457: jeden Takt. Bugs-DB 2472 (wie Web 2459): nur, wenn ihn jemand braucht - die eigene Kachel (eigener Ring) bzw.
+        // ein laufender Wechsel (alte Verbindung offen halten, solange man spricht) -, im 1:1 ohne eigene Kachel kein getStats
+        if let cur, !H.selfBusy, meetSelfTile || H.switching || !H.olds.isEmpty { H.selfBusy = true; Task { await hornSelfLevel(cur) } }
         hornLevels(now: now)
         hornAudioRoute()
         hornDraw()
@@ -1049,8 +1051,7 @@ extension CallManager {
         let sp = H.spkLv.update(levels: lv, muted: muted, spk: H.spk, lvSeen: seen, now: now)
         if sp != H.speaking { H.speaking = sp }
         // Meeting-Ansicht: Hysterese je Person; ohne Pegel gilt der Sprecherplatz des Knotens als Kandidat
-        meetLevels(HornLogic.SpeakLevels.meetLevels(lv, spk: H.spk, lvSeen: seen),
-                   selfLevel: HornLogic.selfLevel(H.selfLevel, at: H.selfAt, now: now, mic: mic))
+        meetLevels(HornLogic.SpeakLevels.meetLevels(lv, spk: H.spk, lvSeen: seen), selfLevel: H.selfLevel, selfAt: H.selfAt)   // 2472: Meeting.SelfRing
     }
     /// Qualitaet (RTT, Verlust, Einfrieren), UDP-Regeln, Nachforderung aus getStats
     private func hornStats(_ conn: HornConn) async {

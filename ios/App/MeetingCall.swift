@@ -103,19 +103,24 @@ extension CallManager {
         return screen ? (L.remote.screen ? L.remoteVideo : nil) : camTrack(L)
     }
 
-    /// Pegel je Geraet -> je Person (Maximum) in die Sprecher-Hysterese; nur veroeffentlichen, wenn sich etwas aendert
-    func meetLevels(_ byDevice: [String: Double], selfLevel: Double) {
+    /// Pegel je Geraet -> je Person (Maximum) in die Sprecher-Hysterese; nur veroeffentlichen, wenn sich etwas aendert.
+    /// Bugs-DB 2472: die eigene Kachel "spricht" nach Meeting.SelfRing (wie Web/Android, Mesh und Knoten gleich) - selfLevel
+    /// und selfAt (ms, 0 = nie gemessen) sind der letzte eigene Messwert; die eigene Stimme geht nicht in die Hysterese
+    /// (Buehne). Gemessen wird nur mit eigener Kachel (meetSelfTile), sonst ist die eigene Kachel aus.
+    func meetLevels(_ byDevice: [String: Double], selfLevel: Double, selfAt: Double) {
         let devs = meetingDevices()
         var who: [String: String] = [:]
         for d in devs { who[d.device] = d.who }
         let myWho = devs.first(where: \.here)?.who
         var lv: [String: Double] = [:]
-        for (d, l) in byDevice { if let w = who[d], w != myWho || d == devs.first(where: \.here)?.device { lv[w] = max(lv[w] ?? 0, l) } }
-        if let m = myWho { lv[m] = max(lv[m] ?? 0, mic ? selfLevel : 0) }
+        for (d, l) in byDevice { if let w = who[d], w != myWho { lv[w] = max(lv[w] ?? 0, l) } }
         let now = Date().timeIntervalSince1970
         meetSpk.update(lv, me: myWho, now: now)
+        let selfOn = meetSelfRing.update(now: now * 1000, level: selfLevel, at: selfAt, mic: mic) && meetSelfTile
         var s = meet
-        s.stage = meetSpk.stage; s.speaking = Meeting.audible(meetSpk.speaking, devs); s.recent = meetSpk.recent(now: now)   // 2459: stumm sofort aus
+        var sp = Meeting.audible(meetSpk.speaking, devs)                     // 2459: stumm sofort aus
+        if let m = myWho { if selfOn { sp.insert(m) } else { sp.remove(m) } }
+        s.stage = meetSpk.stage; s.speaking = sp; s.recent = meetSpk.recent(now: now)
         s.ring = meetRingOn(devs)                                           // 2125: jede Messung - dritte Person kommt/geht
         s.talked = meetSpk.talked(within: Meeting.noVideoTail, now: now)
         if s != meet { meet = s }

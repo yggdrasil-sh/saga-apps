@@ -168,6 +168,10 @@ final class CallManager: NSObject, ObservableObject {
     /// Meeting-Ansicht (MEETING-SPEC, MeetingCall.swift): Pin, Seite, Hinweise, Sprecher - nur dieser Anruf
     @Published var meet = MeetState()
     var meetSpk = Meeting.Speakers()
+    /// Bugs-DB 2472: eigener Sprechring (Meeting.SelfRing) und ob gerade eine eigene Kachel zu sehen ist - setzt die Ansicht
+    /// (MeetingStage: Meeting-Ansicht, eigenes Bild als Kachel, nicht schwebend/ausgeblendet). Nur dann wird gemessen.
+    var meetSelfRing = Meeting.SelfRing()
+    var meetSelfTile = false
     var meetShareAt: [String: Double] = [:]
     /// stabile Galerie-Reihenfolge (nicht veroeffentlicht: aendert sich im Zeichnen)
     var meetOrder = Meeting.Order()
@@ -1544,46 +1548,53 @@ final class CallManager: NSObject, ObservableObject {
              : String(localized: "Direktverbindung nicht möglich (z. B. strenge Firewall oder Mobilfunknetz). Der Admin kann einen TURN-Server eintragen."), reason: "failed")
     }
     /// DTLS-Zertifikat je Verbindung (Statistik) muss in den SIGNIERTEN Fingerabdruecken stehen; Weg direkt/Relais;
-    /// Pegel der empfangenen Tonspur (Sprecher in der Kachelansicht: Takt 1 s, sonst 2 s)
+    /// Pegel der empfangenen Tonspur und eigener Pegel. Bugs-DB 2472: Pegel in der Kachelansicht bzw. mit eigener Kachel
+    /// alle 0,5 s (wie ueber den Knoten; vorher 1 s bzw. 2 s - Ring und Bühne kamen bis zu 2 s zu spaet), sonst alle 2 s.
+    /// Pruefung der Fingerabdruecke, Weg, Diagnose und Ton-Anzeige laufen weiter im alten Takt (1 s bzw. 2 s).
     private func statsOn() {
         statsTask?.cancel()
         statsTask = Task { [weak self] in
             #if DEBUG
             var toggled = false
             #endif
+            var fullAt = 0.0
             while !Task.isCancelled {
                 guard let self, !self.ending else { return }
                 var levels: [(device: String, level: Double, mic: Bool)] = []
                 var selfLevel = 0.0
+                let t0 = Date().timeIntervalSince1970, full = t0 - fullAt >= (self.meshView ? 1 : 2) - 0.05   // alter Takt
+                if full { fullAt = t0 }
                 for L in self.links where !L.gone {
                     guard let pc = L.pc else { continue }
                     let rep = await pc.statsAsync()
                     guard !L.gone, !self.ending else { continue }
-                    var byID: [String: RTCStatistics] = [:]
-                    for (k, v) in rep.statistics { byID[k] = v }
-                    let tr = rep.statistics.values.first { $0.type == "transport" }
-                    if !L.verified, let cid = tr?.values["remoteCertificateId"] as? String, let cert = byID[cid],
-                       let alg = cert.values["fingerprintAlgorithm"] as? String, let fp = cert.values["fingerprint"] as? String {
-                        let c = CallLogic.certFingerprint(algorithm: alg, fingerprint: fp)
-                        guard !L.fps.isEmpty, L.fps.contains(c) else { CallEnv.log("dtls-mismatch"); self.securityFail(L); continue }
-                        L.verified = true
-                        CallEnv.log("verified dtls")
-                    }
-                    // Pfad bei jedem Takt (Netzwechsel/ICE-Restart waehlt ein neues Paar) -> Relais-Hinweis und Bitrate-Regeln
-                    if let pid = tr?.values["selectedCandidatePairId"] as? String, let pair = byID[pid] {
-                        let l = (pair.values["localCandidateId"] as? String).flatMap { byID[$0] }, r = (pair.values["remoteCandidateId"] as? String).flatMap { byID[$0] }
-                        L.relay = (l?.values["candidateType"] as? String) == "relay" || (r?.values["candidateType"] as? String) == "relay"
-                        let p = CallV3.path(local: l?.values as [String: Any]?, remote: r?.values as [String: Any]?)
-                        if p != L.path { if L === self.primary { self.diagEvent("path", "\(L.path?.rawValue ?? "-") -> \(p?.rawValue ?? "-")") }; L.path = p; CallEnv.log("pfad \(p?.rawValue ?? "-")"); self.stateOut(L) }   // path an das Gegenueber
-                        self.applyLimits(L)
-                    }
-                    if self.horn == nil {                                    // 2.5 Diagnose auch fuer P2P (Knoten: hornStats)
-                        let rtt = (tr?.values["selectedCandidatePairId"] as? String).flatMap { byID[$0] }
-                            .flatMap { ($0.values["currentRoundTripTime"] as? NSNumber)?.doubleValue }.map { $0 * 1000 }
-                        if L === self.primary { self.diag?.path = "p2p"; self.diag?.transport = CallDiag.transport(p2p: L.path?.rawValue); self.diag?.node = "" }
-                        for st in rep.statistics.values where st.type == "inbound-rtp" || st.type == "outbound-rtp" {
-                            self.diagSample(type: st.type, values: st.values, src: st.type == "outbound-rtp" ? "me" : self.diagAlias(L.dev),
-                                            key: ObjectIdentifier(L).debugDescription + st.id, rtt: rtt, report: rep)
+                    if full {
+                        var byID: [String: RTCStatistics] = [:]
+                        for (k, v) in rep.statistics { byID[k] = v }
+                        let tr = rep.statistics.values.first { $0.type == "transport" }
+                        if !L.verified, let cid = tr?.values["remoteCertificateId"] as? String, let cert = byID[cid],
+                           let alg = cert.values["fingerprintAlgorithm"] as? String, let fp = cert.values["fingerprint"] as? String {
+                            let c = CallLogic.certFingerprint(algorithm: alg, fingerprint: fp)
+                            guard !L.fps.isEmpty, L.fps.contains(c) else { CallEnv.log("dtls-mismatch"); self.securityFail(L); continue }
+                            L.verified = true
+                            CallEnv.log("verified dtls")
+                        }
+                        // Pfad bei jedem Takt (Netzwechsel/ICE-Restart waehlt ein neues Paar) -> Relais-Hinweis und Bitrate-Regeln
+                        if let pid = tr?.values["selectedCandidatePairId"] as? String, let pair = byID[pid] {
+                            let l = (pair.values["localCandidateId"] as? String).flatMap { byID[$0] }, r = (pair.values["remoteCandidateId"] as? String).flatMap { byID[$0] }
+                            L.relay = (l?.values["candidateType"] as? String) == "relay" || (r?.values["candidateType"] as? String) == "relay"
+                            let p = CallV3.path(local: l?.values as [String: Any]?, remote: r?.values as [String: Any]?)
+                            if p != L.path { if L === self.primary { self.diagEvent("path", "\(L.path?.rawValue ?? "-") -> \(p?.rawValue ?? "-")") }; L.path = p; CallEnv.log("pfad \(p?.rawValue ?? "-")"); self.stateOut(L) }   // path an das Gegenueber
+                            self.applyLimits(L)
+                        }
+                        if self.horn == nil {                                    // 2.5 Diagnose auch fuer P2P (Knoten: hornStats)
+                            let rtt = (tr?.values["selectedCandidatePairId"] as? String).flatMap { byID[$0] }
+                                .flatMap { ($0.values["currentRoundTripTime"] as? NSNumber)?.doubleValue }.map { $0 * 1000 }
+                            if L === self.primary { self.diag?.path = "p2p"; self.diag?.transport = CallDiag.transport(p2p: L.path?.rawValue); self.diag?.node = "" }
+                            for st in rep.statistics.values where st.type == "inbound-rtp" || st.type == "outbound-rtp" {
+                                self.diagSample(type: st.type, values: st.values, src: st.type == "outbound-rtp" ? "me" : self.diagAlias(L.dev),
+                                                key: ObjectIdentifier(L).debugDescription + st.id, rtt: rtt, report: rep)
+                            }
                         }
                     }
                     let au = CallLogic.AudioSample.from(rep.statistics.values.map { (type: $0.type, values: $0.values as [String: Any]) })
@@ -1591,6 +1602,7 @@ final class CallManager: NSObject, ObservableObject {
                     if let d = L.dev, !L.own { levels.append((d, au.levelIn, L.remote.mic)) }
                     if L === self.primary {
                         selfLevel = au.levelMic
+                        guard full else { continue }
                         self.meter.update(au, micOn: self.mic && self.audioTrack != nil)
                         if self.audioIn != self.meter.input { self.audioIn = self.meter.input }
                         if self.audioMic != self.meter.mic { self.audioMic = self.meter.mic }
@@ -1611,8 +1623,10 @@ final class CallManager: NSObject, ObservableObject {
                     }
                 }
                 if self.meshView, self.speakerState.update(levels, now: Date().timeIntervalSince1970) { self.speakerDev = self.speakerState.device }
-                // Meeting-Ansicht: Pegel je Person mit Hysterese (Buehne, Sprechring)
-                self.meetLevels(Dictionary(levels.map { ($0.device, $0.mic ? $0.level : 0) }, uniquingKeysWith: max), selfLevel: self.mic ? selfLevel : 0)
+                // Meeting-Ansicht: Pegel je Person mit Hysterese (Buehne, Sprechring); eigener Pegel nur mit eigener Kachel (2472)
+                let own = self.meetSelfTile && !self.links.isEmpty
+                self.meetLevels(Dictionary(levels.map { ($0.device, $0.mic ? $0.level : 0) }, uniquingKeysWith: max),
+                                selfLevel: own && self.mic ? selfLevel : 0, selfAt: own ? Date().timeIntervalSince1970 * 1000 : 0)
                 self.syncPrimary()
                 #if DEBUG
                 if CallEnv.fakeMedia {
@@ -1623,7 +1637,7 @@ final class CallManager: NSObject, ObservableObject {
                     if let h = Double(ud.string(forKey: "hkCallHangupAfter") ?? ""), el > h { self.hangup(); return }
                 }
                 #endif
-                try? await Task.sleep(for: .seconds(self.meshView ? 1 : 2))
+                try? await Task.sleep(for: .milliseconds(self.meshView || self.meetSelfTile ? CallLogic.levelTickMs : 2000))
             }
         }
     }
@@ -1859,7 +1873,7 @@ final class CallManager: NSObject, ObservableObject {
     func reset() {
         for L in links { L.close() }
         hornStop(); horn = nil; topo = ""; meshNoted = false; callHost = false; directNote = ""
-        meet = MeetState(); meetSpk = Meeting.Speakers(); meetShareAt = [:]; meetOrder = Meeting.Order()
+        meet = MeetState(); meetSpk = Meeting.Speakers(); meetSelfRing = Meeting.SelfRing(); meetSelfTile = false; meetShareAt = [:]; meetOrder = Meeting.Order()
         id = nil; chatID = 0; peer = ""; links = []; seen = []; early = []
         v2 = nil; roomHandle = nil
         ready = false; connected = false; ending = false; answered = false; keysRefreshed = []; failed = false

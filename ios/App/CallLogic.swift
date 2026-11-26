@@ -9,6 +9,8 @@ enum CallLogic {
     /// ICE-Kandidaten je Signal hoechstens (Server-Grenze fuer die Groesse), Sammelpause wie im Web
     static let iceBatch = 40
     static let iceDelay = 0.12
+    /// Bugs-DB 2472: Takt der Pegelmessung (Sprechring, eigener Ring) in der Kachelansicht - wie ueber den Knoten (HornLogic.monMs)
+    static let levelTickMs = 500
     /// Nach dem Annehmen ohne Verbindung -> Meldung "Direktverbindung nicht moeglich"
     static let connectTimeout = 30.0
 

@@ -343,6 +343,27 @@ enum Meeting {
         speaking.filter { w in devs.contains { $0.who == w && $0.mic } }
     }
 
+    /// Bugs-DB 2472 (Entscheidung 26.11.: "ueberall gleich"): eigener Sprechring an der EIGENEN Kachel - wie meeting.js
+    /// SelfRing, Vektoren "selfRing", auf allen Plattformen und Wegen (Mesh und Knoten) gleich. Eigener Pegel > 0,03 -> an,
+    /// 600 ms Nachlauf fuer Sprechpausen, Mikro aus -> sofort aus (2459, kein Aufleuchten beim Wieder-Einschalten), ein
+    /// Messwert aelter als 1,5 s zaehlt nicht (2458). Gemessen wird nur, solange eine eigene Kachel zu sehen ist
+    /// (CallManager.meetSelfTile); ob der Ring sichtbar ist, entscheidet wie bei allen Kacheln speakRingOn (2125: ab 3
+    /// Personen). Die eigene Stimme geht nicht in die Sprecher-Hysterese - Ring und Buehne bleiben getrennt.
+    struct SelfRing: Equatable {
+        static let threshold = 0.03, tailMs = 600.0, maxAgeMs = 1500.0
+        private(set) var onAt = 0.0
+        /// level/at: letzter eigener Messwert und wann (ms, 0 = nie), mic: eigenes Mikro an -> eigene Kachel spricht
+        @discardableResult
+        mutating func update(now: Double, level: Double, at: Double, mic: Bool) -> Bool {
+            guard mic else { onAt = 0; return false }
+            if Self.level(level, at: at, now: now, mic: mic) > Self.threshold { onAt = now }
+            return onAt > 0 && now - onAt < Self.tailMs
+        }
+        static func level(_ level: Double, at: Double, now: Double, mic: Bool) -> Double {
+            mic && at > 0 && now - at <= maxAgeMs ? level : 0
+        }
+    }
+
     // MARK: Sprecher (Hysterese, §2.3)
 
     /// Pegel je Person alle ~330 ms. "spricht" = Pegel > 0,03 fuer >= 300 ms (+ 600 ms Nachlauf). Buehnenwechsel nur, wenn

@@ -65,7 +65,9 @@ struct MeetingStage: View {
                 }
             }
             .frame(width: size.width, height: size.height)
+            .onChange(of: selfTileShown(size), initial: true) { _, v in calls.meetSelfTile = v }   // 2472: eigener Pegel nur mit Kachel
         }
+        .onDisappear { calls.meetSelfTile = false }
         .overlay(alignment: .topTrailing) { hornButton }
         .overlay(alignment: .topLeading) {
             // "+ 3 ohne Video" auch ausserhalb der Galerie (dort steht er unter dem Raster), wie im Web; oben links in der
@@ -74,6 +76,15 @@ struct MeetingStage: View {
         }
         .padding(.trailing, (chromeHidden || mode == .duo ? 0 : trailing) + sidebar)
         .onChange(of: built.tiles.map(\.id)) { _, _ in calls.meetCheckPin(built.tiles) }
+    }
+
+    /// Bugs-DB 2472: eigenes Bild als Kachel zu sehen (nicht schwebend, nicht ausgeblendet) - dann misst die App den eigenen
+    /// Pegel fuer den eigenen Sprechring (wie Web: Klasse self-tile bzw. eigene Kachel ueber den Knoten)
+    private func selfTileShown(_ size: CGSize) -> Bool {
+        guard mode != .duo, tiles.contains(where: \.me) else { return false }
+        if mode == .gallery { return true }
+        let right = Meeting.strip(width: Double(size.width), height: Double(size.height), presentation: mode == .presentation).side == .right
+        return !Meeting.floats(mode, people: built.tiles.filter { $0.kind == .person }.count, rightStrip: right)
     }
 
     // MARK: 1:1 - Gegenueber gross, eigenes Bild schwebend
