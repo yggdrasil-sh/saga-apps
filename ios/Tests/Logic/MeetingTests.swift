@@ -121,6 +121,35 @@ func meetingSharedTests() {
                                       factor: (M.SelfSize(rawValue: size) ?? .m).factor)
         check(e.count == 2 && r.w == e[0].doubleValue && r.h == e[1].doubleValue, "gemeinsam selfPipSize \(c["w"] ?? 0)x\(c["h"] ?? 0) ar \(ar) \(size): \(r)")
     }
+    // speakRing (Bugs-DB 2125): Sprechring nur ab 3 verschiedenen Personen, Begleitgeraete zaehlen nicht
+    let ring = j["speakRing"] as? [[String: Any]] ?? []
+    check(ring.count >= 12, "gemeinsam speakRing: alle Faelle gelesen (\(ring.count))")
+    for c in ring {
+        let ros = (c["roster"] as? [[String: Any]] ?? []).map { o in
+            M.RingMember(device: o["device"] as? String ?? "", who: o["who"] as? String, companion: (o["role"] as? String) == "companion",
+                         me: (o["me"] as? Bool) == true)
+        }
+        check(M.speakRingOn(ros, self: c["self"] as? String) == (c["expect"] as? Bool), "gemeinsam speakRing: \(c["name"] ?? "?")")
+    }
+    meetingRingFlowTests()
+}
+
+/// 2125: Ablauf in der Meeting-Ansicht (Geraete wie meetingDevices): 1:1 aus, + Begleitgeraet aus, dritte kommt an, geht aus
+func meetingRingFlowTests() {
+    typealias M = Meeting
+    let me = M.Device(device: "me-dev", who: "me", name: "Max", own: true, here: true)
+    let anna = M.Device(device: "a1", who: "anna", name: "Anna")
+    let comp = M.Device(device: "me-2", who: "me", name: "Max", companion: true, own: true)
+    let ben = M.Device(device: "b1", who: "ben", name: "Ben")
+    let annaComp = M.Device(device: "a2", who: "anna", name: "Anna", companion: true)
+    check(!M.speakRingOn([me, anna]), "2125: 1:1 (zwei Personen) - kein Ring")
+    check(!M.speakRingOn([me, anna, comp]), "2125: 1:1 + eigenes Begleitgeraet - kein Ring")
+    check(!M.speakRingOn([me, anna, annaComp]), "2125: 1:1 + Begleitgeraet der anderen Person - kein Ring")
+    check(M.speakRingOn([me, anna, comp, ben]), "2125: dritte Person kommt - Ring")
+    check(!M.speakRingOn([me, anna, comp]), "2125: dritte Person geht - kein Ring")
+    // dieses Geraet ist selbst das Begleitgeraet: zaehlt trotzdem als die eigene Person
+    let hereComp = M.Device(device: "me-2", who: "me", name: "Max", companion: true, own: true, here: true)
+    check(M.speakRingOn([hereComp, anna, ben]) && !M.speakRingOn([hereComp, anna]), "2125: auf dem Begleitgeraet: zu dritt Ring, zu zweit keiner")
 }
 
 func meetingTests() {

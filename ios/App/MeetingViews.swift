@@ -388,6 +388,8 @@ struct MeetTileView: View {
     @State private var videoSize: CGSize = .zero
 
     private var speaking: Bool { calls.meet.speaking.contains(tile.who) && tile.kind != .screen }
+    /// Bugs-DB 2125: gruener Ring nur ab 3 Personen (im 1:1 kein Ring); Symbol und VoiceOver "spricht" bleiben (speaking)
+    private var ring: Bool { speaking && calls.meet.ring }
     private var pinned: Bool { calls.meet.pin == tile.id }
     private var screenStage: Bool { stage && tile.kind == .screen }
 
@@ -408,7 +410,7 @@ struct MeetTileView: View {
         .overlay {
             if !screenStage {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(speaking ? MeetStyle.ring : Color.white.opacity(0.15), lineWidth: speaking ? 3 : 1)
+                    .strokeBorder(ring ? MeetStyle.ring : Color.white.opacity(0.15), lineWidth: ring ? 3 : 1)
             }
         }
         .overlay(alignment: .bottomLeading) { if screenStage && calls.meet.zoom > 1.01 { zoomChip } }
@@ -425,6 +427,7 @@ struct MeetTileView: View {
         .onHover { hover = $0 }
         #endif
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: speaking)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: ring)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { if screenStage { meetToggleFullScreen(calls) } else if !tile.me { calls.meetPin(tile.id) } }
         .contextMenu { menu }

@@ -8,6 +8,11 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Neu
 
+- **Sprechring nur noch in Gruppen** (Bugs-DB 2125, iOS/iPadOS/Mac): Der grüne Ring um Bild bzw. Profilbild erscheint
+  nur, wenn mindestens drei verschiedene Personen im Anruf sind – im 1:1 (direkt und über den Knoten) wirkte er nur wie
+  Umgebungslicht. Eigene Begleitgeräte zählen nicht als weitere Person; kommt eine dritte Person dazu, erscheint der
+  Ring, geht sie, verschwindet er wieder. Sprecher groß, Lautsprechersymbol, VoiceOver „spricht“ und die Markierung in
+  der Teilnehmerliste bleiben. Regel wie im Web (`Meeting.speakRingOn`), gemeinsame Testvektoren `speakRing`.
 - **Apple-Mitteilungen Ende-zu-Ende, bereit fürs Push-Relais** (Bugs-DB 2262, iOS/iPadOS): An Server mit
   `pushrelay1` (`server.apns_e2e`) schickt die App beim Mitteilungs-Abo einen eigenen Schlüssel je Server und ihre
   App-ID; der Server verschlüsselt jede Mitteilung, Apple und das Push-Relais sehen nur „Saga – Neue Mitteilung“. Neue

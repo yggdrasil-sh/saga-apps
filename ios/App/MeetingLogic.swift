@@ -295,6 +295,39 @@ enum Meeting {
     /// Hoechstzahl Videos im Streifen (Handy 3, sonst 6)
     static func stripVideos(phone: Bool) -> Int { phone ? 3 : 6 }
 
+    // MARK: Sprechring nur in Gruppen (Bugs-DB 2125)
+
+    /// Eintrag fuer die Ring-Regel (Roster wie GET /api/calls/{id}: who, device, role, me)
+    struct RingMember: Equatable {
+        var device: String
+        var who: String?
+        var companion = false
+        /// Geraet der eigenen Person
+        var me = false
+    }
+    static let ringMinPersons = 3
+    /// Sprechring nur, wenn im Anruf MINDESTENS 3 VERSCHIEDENE PERSONEN sind - im 1:1 wirkt der gruene Ring nur wie
+    /// Umgebungslicht (FaceTime/WhatsApp zeigen ihn dort auch nicht). Wie meeting.js speakRingOn, Vektoren "speakRing":
+    /// Person = who (ohne who: Geraet); eigene Geraete (me bzw. who == self) sind eine Person; Begleitgeraete (role companion)
+    /// zaehlen nie als weitere Person; self zaehlt immer mit. Gilt gleich fuer Mesh, 1:1 ueber den Knoten und Gruppen: kommt
+    /// eine dritte Person dazu, erscheint der Ring, geht sie, verschwindet er. Nur der Ring - Sprecher-Erkennung, Buehne,
+    /// Lautsprechersymbol, VoiceOver "spricht" und die Markierung in der Teilnehmerliste bleiben.
+    static func speakRingOn(_ roster: [RingMember], self me: String?) -> Bool {
+        let ME = "\u{0}me"
+        var w = Set<String>()
+        if let me, !me.isEmpty { w.insert(ME) }
+        for x in roster where !x.companion {
+            let k = x.me || (me != nil && !(me ?? "").isEmpty && x.who == me) ? ME : ((x.who ?? "").isEmpty ? x.device : x.who!)
+            if !k.isEmpty { w.insert(k) }
+        }
+        return w.count >= ringMinPersons
+    }
+    /// dieselbe Regel fuer die Geraete der Meeting-Ansicht (eigene Geraete: own/here)
+    static func speakRingOn(_ devs: [Device]) -> Bool {
+        speakRingOn(devs.map { RingMember(device: $0.device, who: $0.who, companion: $0.companion, me: $0.own || $0.here) },
+                    self: devs.first(where: \.here)?.who)
+    }
+
     // MARK: Sprecher (Hysterese, §2.3)
 
     /// Pegel je Person alle ~330 ms. "spricht" = Pegel > 0,03 fuer >= 300 ms (+ 600 ms Nachlauf). Buehnenwechsel nur, wenn

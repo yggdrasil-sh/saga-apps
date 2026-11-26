@@ -15,6 +15,8 @@ struct MeetState: Equatable {
     /// Person auf der Buehne (Sprecher-Hysterese) und wer gerade spricht (Sprechring)
     var stage: String?
     var speaking = Set<String>()
+    /// Bugs-DB 2125: Sprechring erlaubt - erst ab 3 verschiedenen Personen (Meeting.speakRingOn); speaking bleibt davon unberuehrt
+    var ring = false
     var recent: [String] = []
     /// in den letzten 5 s gesprochen (Kacheln ohne Video: Nachlauf, Meeting.noVideoTail)
     var talked = Set<String>()
@@ -99,6 +101,7 @@ extension CallManager {
         meetSpk.update(lv, me: myWho, now: now)
         var s = meet
         s.stage = meetSpk.stage; s.speaking = meetSpk.speaking; s.recent = meetSpk.recent(now: now)
+        s.ring = Meeting.speakRingOn(devs)                                  // 2125: jede Messung - dritte Person kommt/geht
         s.talked = meetSpk.talked(within: Meeting.noVideoTail, now: now)
         if s != meet { meet = s }
     }

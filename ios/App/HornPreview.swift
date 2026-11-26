@@ -103,7 +103,7 @@ struct HornPreviewView: View {
 }
 
 extension CallManager {
-    /// nur fuer Bilder (-hkHornPreview meet-duo|present|present-group|own-share|own-back|gallery|speaker|pages|gallery2|speaker2|
+    /// nur fuer Bilder (-hkHornPreview meet-duo|duo-speak|trio-speak|present|present-group|own-share|own-back|gallery|speaker|pages|gallery2|speaker2|
     /// gallery-screen|novideo-speaker): Meeting-Ansicht mit
     /// erfundenen Geraeten ohne Netz und ohne Medien (bewegte Bilder als Farbflaechen). present = Labor-Befund: Anna mit
     /// Mac (Kamera), iPhone (Begleitgeraet ohne Bild) und Android (Begleitgeraet teilt den Bildschirm)
@@ -122,6 +122,16 @@ extension CallManager {
             kind = "dm"; peerName = "Anna"
             list.append(d("a1", "anna", "Anna", "MacBook", cam: true))
             list.append(d("a2", "anna", "Anna", "iPhone", comp: true, mic: false))
+        case "duo-speak":                                                    // Bugs-DB 2125: 1:1 + eigenes Begleitgeraet, Anna spricht
+            kind = "dm"; peerName = "Anna"
+            list.append(d("a1", "anna", "Anna", "MacBook", cam: true))
+            list.append(Meeting.Device(device: "me-2", who: "me", name: "Max", devName: "iPad", companion: true, own: true, mic: false))
+            meet.stage = "anna"; meet.speaking = ["anna"]
+        case "trio-speak":                                                   // Bugs-DB 2125: Gruppe zu dritt, Anna spricht
+            kind = "group"; peerName = "Projekt Nordlicht"
+            list.append(d("a1", "anna", "Anna", "MacBook", cam: true))
+            list.append(d("b1", "ben", "Ben", "Pixel", cam: true))
+            meet.stage = "anna"; meet.speaking = ["anna"]
         case "dazu-direct":                                                  // 2.5 (L9): direktes 1:1 - Knopf zeigt nur den Hinweis
             kind = "dm"; peerName = "Anna"
             list.append(d("a1", "anna", "Anna", "MacBook", cam: true))
@@ -181,6 +191,7 @@ extension CallManager {
         UserDefaults.standard.set(["gallery", "pages", "gallery2", "gallery-screen"].contains(m) ? "gallery" : m == "speaker2" ? "speaker" : "auto", forKey: "call.layout")
         UserDefaults.standard.set(m != "novideo-speaker", forKey: "call.showNoVideo")
         meet.demo = list
+        meet.ring = Meeting.speakRingOn(list)                                // 2125: wie im echten Anruf (meetLevels)
     }
 
     /// nur fuer Bilder (away/meet-away): "Nicht dabei" wie vom Server - nicht angenommen, abgelehnt, klingelt, App zu alt
