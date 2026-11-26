@@ -82,7 +82,9 @@ final class NotifyTests: XCTestCase {
     }
     func testKollegin() throws {
         let r = service(try body("auftrag_kollegin"))
-        XCTAssertEqual(r.categoryIdentifier, "", "Auftrag der Kollegin ist kein Anruf")
+        XCTAssertNotEqual(r.categoryIdentifier, "SAGA_CALL", "Auftrag der Kollegin ist kein Anruf")
+        // 2270: job.* bekommt die Auftrags-Kategorie (ohne state/Token: "Erledigt" ohne Knoepfe)
+        XCTAssertEqual(r.categoryIdentifier, "saga.job.done.plain~")
         XCTAssertNotEqual(r.interruptionLevel, .timeSensitive)
     }
     func testUnlesbar() throws {
