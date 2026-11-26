@@ -92,7 +92,7 @@ struct SagaBar: View {
         Button(action: open) {
             HStack(spacing: 6) {
                 Image(systemName: "lock.open").font(.footnote).accessibilityHidden(true)
-                Text(verbatim: text).font(.footnote).lineLimit(1).truncationMode(.middle)
+                Text(verbatim: text).font(.footnote).lineLimit(1).truncationMode(.head)   // Host bleibt sichtbar (Ende des Satzes)
                 Spacer(minLength: 4)
                 Image(systemName: "info.circle").font(.body)
             }
@@ -238,6 +238,7 @@ struct SagaScreen: View {
         #if DEBUG
         .task {                                                        // nur fuer Tests: Bereich und Ablauf per Startparameter
             if UserDefaults.standard.integer(forKey: "hkSagaTab") == 1 { tab = 1 }
+            if UserDefaults.standard.integer(forKey: "hkSagaOpen") > 0 { tab = 1; await m.loadJobs(); await m.open(UserDefaults.standard.integer(forKey: "hkSagaOpen")) }
             await m.debugRun()
         }
         #endif
