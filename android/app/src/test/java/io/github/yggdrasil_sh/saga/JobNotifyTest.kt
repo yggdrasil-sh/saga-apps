@@ -87,6 +87,7 @@ class JobNotifyTest {
             assertEquals("$name Knoepfe", expect["buttons_unlocked_phone"]!!.jsonArray.map { it.jsonPrimitive.content }, p.buttons)
             assertEquals("$name Deep-Link", s(expect, "deeplink"), p.deeplink)
             assertTrue("$name Uhr nur Ruhe-Knoepfe", p.wear.all { it in JobNotifyLogic.QUIET })
+            assertTrue("$name Uhr nie approve/undo", JobNotifyLogic.wearActions(p).orEmpty().none { it in JobNotifyLogic.AUTH })
             val silent = c["input"]?.jsonObject?.get("silent")?.jsonPrimitive?.boolean ?: false
             assertEquals("$name silent", silent, p.silent)
             // Android < 12 bzw. ohne Sperre: nie approve/undo
@@ -191,6 +192,24 @@ class JobNotifyTest {
         assertNull(JobNotifyLogic.jobOf("/saga"))
         assertEquals(0L, JobNotifyLogic.jobOf("/saga?tab=jobs&job=4x"))
         assertNull(NotifLogic.target("/notes?v=jobs"))
+    }
+
+    /** Ohne eigene Uhr-Knoepfe spiegelt Wear OS die des Telefons: "Passt, los" ohne Token "later" (dritte Zustellung
+     *  nach zweimal "Spaeter") darf dann nicht auf die Uhr - nur "Ansehen" */
+    @Test
+    fun wearNeverMirrorsAuth() {
+        val d = Json.parseToJsonElement("""{"t1":"Plan wartet","t2":"Bitte freigeben"}""").jsonObject
+        val ok = io.github.yggdrasil_sh.saga.push.PushMessage(kind = "job.needs_you", state = "needs", job = 7, detail = d,
+            actions = listOf(io.github.yggdrasil_sh.saga.push.JobToken("approve", "x".repeat(24))))
+        val p = JobNotifyLogic.plan(ok, "phone")!!
+        assertEquals(listOf("approve", "open"), p.buttons)
+        assertTrue(p.wear.isEmpty())
+        assertEquals(listOf("open"), JobNotifyLogic.wearActions(p))
+        val undo = io.github.yggdrasil_sh.saga.push.PushMessage(kind = "job.done", state = "done", job = 7, detail = d,
+            actions = listOf(io.github.yggdrasil_sh.saga.push.JobToken("undo", "y".repeat(24))))
+        assertNull(JobNotifyLogic.wearActions(JobNotifyLogic.plan(undo, "phone")!!))
+        val fail = io.github.yggdrasil_sh.saga.push.PushMessage(kind = "job.failed", state = "failed", job = 7)
+        assertEquals(emptyList<String>(), JobNotifyLogic.wearActions(JobNotifyLogic.plan(fail, "phone")!!))
     }
 
     @Test

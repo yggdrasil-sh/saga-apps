@@ -121,6 +121,17 @@ object JobNotifyLogic {
         )
     }
 
+    /**
+     * Knoepfe fuer Wear OS. Ohne eigene Uhr-Knoepfe (WearableExtender) spiegelt Wear die des Telefons - dann waeren
+     * approve/undo auf der Uhr (z. B. "Passt, los" ohne Token "later" nach zweimal "Spaeter"). Darum in diesem Fall nur
+     * "Ansehen"; null = Mitteilung gar nicht auf die Uhr (setLocalOnly), falls auch "Ansehen" fehlt.
+     */
+    fun wearActions(p: Plan): List<String>? = when {
+        p.wear.isNotEmpty() || p.buttons.none { it in AUTH } -> p.wear
+        "open" in p.buttons -> listOf("open")
+        else -> null
+    }
+
     /** job.changed mit update + removed -> tag der Mitteilung, die zu schliessen ist */
     fun removeTag(m: PushMessage): String? = m.tag.takeIf { m.kind == UPDATE_KIND && m.update && m.removed && it.isNotEmpty() }
 
@@ -230,9 +241,13 @@ object JobNotify {
         b.addExtras(android.os.Bundle().apply { m.groupKey?.let { putString(Notifier.EXTRA_GROUP, it) }; p.job?.let { putLong(EXTRA_JOB, it) } })
         for (a in p.buttons) b.addAction(action(context, a, p, tokens[a], m.pv, account, pi))
         // Wear OS: nur Ruhe-Knoepfe (approve/undo nie auf der Uhr) - eigene Liste ersetzt die des Telefons
-        val wear = NotificationCompat.WearableExtender()
-        for (a in p.wear) wear.addAction(action(context, a, p, tokens[a], m.pv, account, pi))
-        b.extend(wear)
+        val wearActs = JobNotifyLogic.wearActions(p)
+        if (wearActs == null) b.setLocalOnly(true)
+        else {
+            val wear = NotificationCompat.WearableExtender()
+            for (a in wearActs) wear.addAction(action(context, a, p, tokens[a], m.pv, account, pi))
+            b.extend(wear)
+        }
         val del = Intent(context, NotifyReadReceiver::class.java).setAction(NotifyReadReceiver.ACTION_DISMISSED)
         b.setDeleteIntent(PendingIntent.getBroadcast(context, 0x5a6a, del, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
         try {

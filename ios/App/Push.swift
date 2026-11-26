@@ -262,8 +262,8 @@ final class PushCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
                                 withCompletionHandler done: @escaping (UNNotificationPresentationOptions) -> Void) {
         let info = PushE2E.openInfo(notification.request.content.userInfo)   // 2262: Platzhalter der Erweiterung -> selbst oeffnen
         let remote = notification.request.trigger is UNPushNotificationTrigger
-        let plain = PushModel.plain(info)
-        PushModel.onMain { done(PushCenterDelegate.presentation(plain, remote: remote)) }
+        let plain = PushModel.plain(info), rid = notification.request.identifier
+        PushModel.onMain { done(PushCenterDelegate.presentation(plain, remote: remote, requestID: rid)) }
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                 withCompletionHandler done: @escaping () -> Void) {
@@ -280,7 +280,7 @@ final class PushCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
             done()
         }
     }
-    @MainActor private static func presentation(_ info: [AnyHashable: Any], remote: Bool) -> UNNotificationPresentationOptions {
+    @MainActor private static func presentation(_ info: [AnyHashable: Any], remote: Bool, requestID: String = "") -> UNNotificationPresentationOptions {
         // Anruf-Mitteilung vom Server, waehrend die App vorne ist: die App klingelt selbst (CallKit bzw. Klingelton und
         // Fenster) - nicht zusaetzlich Banner und Ton; Klingeln anstossen, falls der Live-Kanal es verpasst hat
         if CallLogic.hideWhileRunning(kind: info["kind"] as? String, remote: remote) {
@@ -297,7 +297,7 @@ final class PushCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
         if NotifLogic.hideWhileOpen(kind: info["kind"] as? String, url: info["url"] as? String, openChat: openID) { return [] }
         // 2270: Auftrag gerade offen (Saga vorne) - kein Banner; aeltere Mitteilungen desselben Auftrags entfernen
         if PushJobLogic.isJob(info["kind"] as? String), let job = PushJobLogic.int(info["job"]) {
-            Task { await JobPush.remove(job: job) }
+            Task { await JobPush.remove(job: job, except: requestID) }                // nie die gerade gezeigte (gleiche collapse-id)
             if active, PushModel.current?.store?.saga.openJob == job { return [] }
         }
         // 2.6 (2029-6): Sammelmeldung bei offener App - der Live-Hinweis (status.digest) steht schon da

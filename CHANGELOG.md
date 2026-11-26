@@ -214,6 +214,10 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Behoben
 
+- **iOS: eigener `If-None-Match` am URL-Zwischenspeicher vorbei** (Bugs-DB 2556): Schickt die App selbst einen ETag
+  (derzeit nur die Tageszeile), fragt sie ohne lokalen Zwischenspeicher – sonst machte das System aus der 304 des Servers
+  eine ältere gespeicherte Antwort eines anderen Stands (Pille bzw. Frage sprang nach `ai.today.changed` zurück).
+  Andere Abrufe unverändert.
 - **Plan-Karte und Rückmeldung im Ort „Saga“** (Bugs-DB 2515, iOS/iPadOS und Android): Wurde der Plan anderswo
   geändert, zeigt die Karte nach „Passt, los“ den neuen Plan mit „geändert – bitte neu freigeben“ statt still zu wechseln
   (`edited` vom Server, bei älteren Servern ab Plan-Fassung 2). Wurde er anderswo schon freigegeben, lädt die Karte den

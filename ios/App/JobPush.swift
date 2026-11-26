@@ -84,13 +84,15 @@ enum JobPush {
         try? await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "job-hint-" + (job.map(String.init) ?? "x"), content: c, trigger: nil))
     }
 
-    /// Gezeigte Mitteilungen eines Auftrags entfernen (Faden bzw. tag job-<id>)
-    static func remove(thread: String) async {
+    /// Gezeigte Mitteilungen eines Auftrags entfernen (Faden bzw. tag job-<id>); `except`: diese Kennung behalten (im
+    /// Vordergrund die gerade ankommende Mitteilung - sie kann schon in deliveredNotifications stehen)
+    static func remove(thread: String, except: String? = nil) async {
         let c = UNUserNotificationCenter.current()
         let ids = await c.deliveredNotifications().filter { n in
-            n.request.content.threadIdentifier == thread || (n.request.content.userInfo["tag"] as? String) == thread
+            n.request.identifier != except &&
+                (n.request.content.threadIdentifier == thread || (n.request.content.userInfo["tag"] as? String) == thread)
         }.map(\.request.identifier)
         if !ids.isEmpty { c.removeDeliveredNotifications(withIdentifiers: ids) }
     }
-    static func remove(job: Int) async { await remove(thread: "job-\(job)") }
+    static func remove(job: Int, except: String? = nil) async { await remove(thread: "job-\(job)", except: except) }
 }
