@@ -247,6 +247,9 @@ final class Store: ObservableObject {
         req.httpMethod = method
         req.setValue("1", forHTTPHeaderField: "X-Hlidskjalf"); req.httpShouldHandleCookies = false   // Cookie selbst setzen
         for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }                               // z. B. X-Saga-Caps (2.5)
+        // 2.6 (2271): eigener If-None-Match -> am URL-Cache vorbei (sonst macht URLSession aus der 304 eine aeltere,
+        // zwischengespeicherte 200 eines anderen Stands)
+        if headers.keys.contains(where: { $0.caseInsensitiveCompare("If-None-Match") == .orderedSame }) { req.cachePolicy = .reloadIgnoringLocalCacheData }
         if let body { req.setValue("application/json", forHTTPHeaderField: "Content-Type"); req.httpBody = try JSONSerialization.data(withJSONObject: body) }
         return try await send(req, stale: stale) { try await URLSession.shared.data(for: $0) }
     }
