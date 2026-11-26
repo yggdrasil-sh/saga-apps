@@ -122,6 +122,11 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Behoben
 
+- **Android: Absturz bei jeder KI-Antwort** (Bugs-DB 2506): Die KI-Darstellung nutzte das Regex-Kennzeichen `(?U)`, das Androids
+  Regex-Engine (ICU) nicht kennt – „Frag deine Seiten“, Seiten-Hilfen und KI im Chat brachen auf echten Geräten ab. Jetzt feste
+  Zeichenklassen wie auf dem Server (`ai_md.py`); Wächter-Test gegen `(?U)`/`UNICODE_CHARACTER_CLASS`, Unicode-Vektoren auf JVM
+  und Gerät.
+
 - **Eigener Sprechring überall gleich, schnellerer Messtakt** (Bugs-DB 2472, Entscheidung 26.11., iOS/iPadOS/Mac und
   Android): Spricht man selbst, bekommt die eigene Kachel den grünen Ring jetzt überall nach derselben Regel wie im Web
   (`Meeting.SelfRing`, gemeinsame Testvektoren `selfRing`): eigener Pegel über 0,03, 600 ms Nachlauf, stumm sofort aus;

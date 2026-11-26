@@ -1,0 +1,381 @@
+{
+ "cites": [
+  1,
+  2,
+  3
+ ],
+ "assistant": [
+  {
+   "in": "  - Punkt mit NBSP",
+   "lines": [
+    {
+     "k": "ul",
+     "s": [
+      [
+       "t",
+       "Punkt mit NBSP"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "#　Titel mit Ideographic Space",
+   "lines": [
+    {
+     "k": "h",
+     "s": [
+      [
+       "t",
+       "Titel mit Ideographic Space"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "## Geviert",
+   "lines": [
+    {
+     "k": "h",
+     "s": [
+      [
+       "t",
+       "Geviert"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "-\u001cTrenner",
+   "lines": [
+    {
+     "k": "ul",
+     "s": [
+      [
+       "t",
+       "Trenner"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "Siehe [1, 2] und [2　; 3]",
+   "lines": [
+    {
+     "k": "p",
+     "s": [
+      [
+       "t",
+       "Siehe "
+      ],
+      [
+       "n",
+       1
+      ],
+      [
+       "t",
+       " "
+      ],
+      [
+       "n",
+       2
+      ],
+      [
+       "t",
+       " und "
+      ],
+      [
+       "n",
+       2
+      ],
+      [
+       "t",
+       " "
+      ],
+      [
+       "n",
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "-​nicht Liste (ZWSP)",
+   "lines": [
+    {
+     "k": "p",
+     "s": [
+      [
+       "t",
+       "-​nicht Liste (ZWSP)"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "- 😀 Emoji **fett 😀** [1]",
+   "lines": [
+    {
+     "k": "ul",
+     "s": [
+      [
+       "t",
+       "😀 Emoji "
+      ],
+      [
+       "b",
+       "fett 😀"
+      ],
+      [
+       "t",
+       " "
+      ],
+      [
+       "n",
+       1
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "- Привет **мир** [2]",
+   "lines": [
+    {
+     "k": "ul",
+     "s": [
+      [
+       "t",
+       "Привет "
+      ],
+      [
+       "b",
+       "мир"
+      ],
+      [
+       "t",
+       " "
+      ],
+      [
+       "n",
+       2
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "1. สวัสดี **ครับ** `โค้ด`",
+   "lines": [
+    {
+     "k": "ol",
+     "n": 1,
+     "s": [
+      [
+       "t",
+       "สวัสดี "
+      ],
+      [
+       "b",
+       "ครับ"
+      ],
+      [
+       "t",
+       " "
+      ],
+      [
+       "c",
+       "โค้ด"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "－ Vollbreit-Strich",
+   "lines": [
+    {
+     "k": "p",
+     "s": [
+      [
+       "t",
+       "－ Vollbreit-Strich"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "１. Vollbreit-Ziffer",
+   "lines": [
+    {
+     "k": "p",
+     "s": [
+      [
+       "t",
+       "１. Vollbreit-Ziffer"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "**Ｇｅｔｒäｎｋｅ**：　Ｗａｓｓｅｒ",
+   "lines": [
+    {
+     "k": "p",
+     "s": [
+      [
+       "b",
+       "Ｇｅｔｒäｎｋｅ"
+      ],
+      [
+       "t",
+       "：　Ｗａｓｓｅｒ"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "Ä Ö Ü ß **Grüße** __ÄÖÜ__",
+   "lines": [
+    {
+     "k": "p",
+     "s": [
+      [
+       "t",
+       "Ä Ö Ü ß "
+      ],
+      [
+       "b",
+       "Grüße"
+      ],
+      [
+       "t",
+       " "
+      ],
+      [
+       "b",
+       "ÄÖÜ"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "　　• 全角",
+   "lines": [
+    {
+     "k": "ul",
+     "s": [
+      [
+       "t",
+       "全角"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "[1 , 3]",
+   "lines": [
+    {
+     "k": "p",
+     "s": [
+      [
+       "n",
+       1
+      ],
+      [
+       "t",
+       " "
+      ],
+      [
+       "n",
+       3
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": " - Ogham",
+   "lines": [
+    {
+     "k": "ul",
+     "s": [
+      [
+       "t",
+       "Ogham"
+      ]
+     ]
+    }
+   ]
+  }
+ ],
+ "known_gaps": [
+  {
+   "in": "- a b",
+   "lines": [
+    {
+     "k": "ul",
+     "s": [
+      [
+       "t",
+       "a b"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "- ab",
+   "lines": [
+    {
+     "k": "ul",
+     "s": [
+      [
+       "t",
+       "ab"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "- a\rb",
+   "lines": [
+    {
+     "k": "ul",
+     "s": [
+      [
+       "t",
+       "a\rb"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "in": "- Ende\r",
+   "lines": [
+    {
+     "k": "ul",
+     "s": [
+      [
+       "t",
+       "Ende\r"
+      ]
+     ]
+    }
+   ]
+  }
+ ],
+ "note": "Pruefer pcrash: erzeugt mit saga/ai_md.py lines(); known_gaps = vorbestehende Unterschiede bei '.'/'$' (Zeilenenden), nur protokolliert"
+}
