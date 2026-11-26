@@ -8,10 +8,6 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Neu
 
-- **Eigenes Logo im Lesezeichen-Dialog** (Bugs-DB 2460, iOS/iPadOS/Mac und Android): Beim Bearbeiten eines Lesezeichens
-  mit eigenem Logo steht im Feld „Symbol“ nicht mehr der Pfad `/files/<id>`, sondern „Eigenes Logo“ mit kleiner
-  Vorschau – gesperrt wie im Web. „Entfernen“ (Android: ×) gibt das Feld wieder frei (leer = automatisches Symbol).
-  Unverändert gespeichert bleibt `icon` genau wie vorher. Hochladen und Ersetzen weiter nur im Web.
 - **Sprechring nur noch in Gruppen** (Bugs-DB 2125, iOS/iPadOS/Mac und Android): Der grüne Ring um Bild bzw. Profilbild erscheint
   nur, wenn mindestens drei verschiedene Personen im Anruf sind – im 1:1 (direkt und über den Knoten) wirkte er nur wie
   Umgebungslicht. Eigene Begleitgeräte zählen nicht als weitere Person; kommt eine dritte Person dazu, erscheint der
@@ -126,6 +122,10 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Behoben
 
+- **Eigenes Logo im Lesezeichen-Dialog** (Bugs-DB 2460, iOS/iPadOS und Android): Beim Bearbeiten eines Lesezeichens
+  mit eigenem Logo steht im Feld „Symbol“ nicht mehr der Pfad `/files/<id>`, sondern „Eigenes Logo“ mit kleiner
+  Vorschau – gesperrt wie im Web. „Entfernen“ (Android: ×) gibt das Feld wieder frei (leer = automatisches Symbol).
+  Unverändert gespeichert bleibt `icon` genau wie vorher. Hochladen und Ersetzen weiter nur im Web.
 - **iOS/iPadOS: Sprechring leuchtet in Sprechpausen nicht mehr** (Bugs-DB 2457, Fund aus 2125, Anrufe über den Knoten): Kam
   in einem Takt von keinem Tonplatz ein Pegel (Sprechpause, Platz kurz ohne Rahmen, Gegenüber stumm), fiel die App auf
   den Sprecherplatz des Knotens zurück – der Ring blieb dort dauerhaft an. Der Rückfall gilt jetzt wie im Web nur,
