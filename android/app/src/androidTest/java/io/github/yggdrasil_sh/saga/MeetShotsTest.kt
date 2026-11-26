@@ -84,6 +84,12 @@ class MeetShotsTest {
         shot("2125-trio-hoch", "trio", false)
     }
 
+    /** Bugs-DB 2472: eigener Sprechring - zu dritt spricht man selbst, die eigene Kachel hat den Ring */
+    @Test
+    fun eigenerRing2472() {
+        shot("2472-trio-selbst-hoch", "trio-self", false)
+    }
+
     @Test
     fun duo() {
         shot("duo-hoch", "duo", false)

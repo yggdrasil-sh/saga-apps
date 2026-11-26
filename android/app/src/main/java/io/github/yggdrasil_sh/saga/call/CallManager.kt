@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -317,6 +318,11 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         /** Meeting-Ansicht: Sprecher mit Zeit-Hysterese je Person (who) */
         val pick = SpeakerPick()
         var pickFed = 0L
+        /** Bugs-DB 2472: eigener Sprechring (Mesh und Knoten gleich) und letzter eigener Pegel im Mesh (Knoten: HornSession) */
+        val selfRing = Meeting.SelfRing()
+        var selfLevel = 0.0
+        var selfAt = 0L
+        var selfN = 0
         var title = ""
         // 2.5 Gjallarhorn: Gruppenanruf ueber einen Knoten
         var horn: HornSession? = null
@@ -998,9 +1004,13 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val user = myUser()
         val horn = rs.horn
         val now = System.currentTimeMillis()
+        // Bugs-DB 2472: eigene Kachel "spricht" nach Meeting.SelfRing (eigener Pegel nur mit eigener Kachel gemessen)
+        val selfMic = c.micOn && !rs.companion
+        val selfSpk = selfTileShown && (if (horn != null) rs.selfRing.update(now, horn.selfLevel, horn.selfAt, selfMic)
+            else rs.selfRing.update(now, rs.selfLevel, rs.selfAt, selfMic))
         val self = { who: String, name: String, devName: String, comp: Boolean, av: String? ->
-            Meeting.Dev(who, name, me, devName, comp, me = true, avatar = av, mic = c.micOn && !rs.companion, cam = c.videoTrack != null,
-                screen = c.screen != null)
+            Meeting.Dev(who, name, me, devName, comp, me = true, avatar = av, mic = selfMic, cam = c.videoTrack != null,
+                screen = c.screen != null, speaking = selfSpk)
         }
         val legs = rs.roster.legs
         if (legs.isEmpty()) {
@@ -1046,6 +1056,20 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
      * Meeting-Ansicht: Geraete, deren Kamera gerade mit Bild gezeigt wird (null = Ansicht aus, alles empfangen). Im Mesh
      * bekommen die anderen `want: off` (nur bei Aenderung); der Bildschirm ist davon nicht betroffen.
      */
+    /**
+     * Bugs-DB 2472: zeigt die Meeting-Ansicht das eigene Bild als Kachel (nicht schwebend)? Nur dann wird der eigene Pegel
+     * gemessen (Mesh: Pegel-Schleife, Knoten: HornSession) - im 1:1 ohne eigene Kachel kein getStats dafuer (wie 2459 im Web).
+     */
+    @Volatile
+    var selfTileShown = false
+        private set
+
+    fun meetSelfTile(on: Boolean) {
+        if (on == selfTileShown) return
+        selfTileShown = on
+        cur?.let { update(it) }
+    }
+
     fun meetShown(devs: Set<String>?) {
         val r = cur ?: return
         if (r.rs.horn != null) return
@@ -3553,6 +3577,44 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         log("stats verified=$verified path=$path bytesIn=$bytes")
     }
 
+    /**
+     * Bugs-DB 2472: nur die Pegel - empfangener Ton je Verbindung (Sprechring, Buehne) und, solange eine eigene Kachel zu
+     * sehen ist, der eigene Pegel (media-source am Ton-Sender, eine Verbindung genuegt). Danach die Oberflaeche.
+     */
+    private suspend fun levelTick(r: Call) {
+        var selfDone = false
+        for (l in links(r)) {
+            val pc = l.pc ?: continue
+            if (!l.connected) continue
+            val rep = withTimeoutOrNull(1000) {
+                suspendCancellableCoroutine<RTCStatsReport> { cont -> pc.getStats { x -> if (cont.isActive) cont.resume(x) } }
+            } ?: continue
+            if (!live(l) || l.done) continue
+            var aLevel: Double? = null
+            var mine: Double? = null
+            for (st in rep.statsMap.values) {
+                val kind = (st.members["kind"] ?: st.members["mediaType"]) as? String
+                if (kind != "audio") continue
+                if (st.type == "inbound-rtp") aLevel = (st.members["audioLevel"] as? Number)?.toDouble()
+                else if (st.type == "media-source") mine = (st.members["audioLevel"] as? Number)?.toDouble()
+            }
+            l.peerDevice?.let { d -> if (!own(l)) r.rs.levels[d] = if (l.rMic) aLevel ?: 0.0 else 0.0 }
+            if (!selfDone && selfTileShown) {
+                selfDone = true
+                r.rs.selfLevel = if (r.micOn) mine ?: 0.0 else 0.0
+                r.rs.selfAt = System.currentTimeMillis()
+                r.rs.selfN++
+            }
+        }
+        if (!live(r) || r.done || r.rs.horn != null) return
+        val sp = feedPick(r, r.rs.levels.filterKeys { k -> linkOf(r, k) != null })
+        if (sp != r.rs.speaker) {
+            r.rs.speaker = sp
+            bindMain(r)
+        }
+        update(r)
+    }
+
     private fun startLoops(c: Call) {
         val alive = (config?.aliveS ?: 15).coerceIn(5, 60) * 1000L
         c.jobs += scope.launch {
@@ -3594,6 +3656,14 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     throw e
                 } catch (_: Exception) {
                 }
+            }
+        }
+        // Bugs-DB 2472: Pegel (Sprechring, eigener Ring) in der Kachelansicht bzw. mit eigener Kachel alle 500 ms wie ueber
+        // den Knoten und iOS (Web 330 ms) - bisher nur mit checkStats alle 2 s, Ring und Buehne kamen bis zu 2 s zu spaet
+        c.jobs += scope.launch {
+            while (live(c) && !c.done) {
+                delay(Meeting.LEVEL_TICK_MS)
+                if (c.rs.horn == null && links(c).isNotEmpty() && (meshView(c) || selfTileShown)) levelTick(c)
             }
         }
         c.jobs += scope.launch {
@@ -4790,6 +4860,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
 
         override fun changed() = hornChanged(r)
+        override fun selfTile(): Boolean = selfTileShown                    // 2472: eigener Pegel nur mit eigener Kachel
         override fun note(text: UiText?) = update(r)
         override fun lost(text: UiText) {
             r.rs.stickyEnd = true                           // TT 67: Grund (z. B. Zertifikat) bleibt stehen

@@ -71,6 +71,7 @@ object MeetDemo {
             // Bugs-DB 2125: 1:1 in der Galerie (+ eigenes Begleitgeraet), Anna spricht - kein Ring; zu dritt mit Ring
             "duo-galerie" -> listOf(p(0, speaking = true), me, Meeting.Dev("erik", "Erik", "e-tab", "Tablet", companion = true, me = true))
             "trio" -> listOf(p(0, speaking = true), p(1), me)
+            "trio-self" -> listOf(p(0), p(1), me.copy(speaking = true, level = 0.3))   // Bugs-DB 2472: man spricht selbst
             else -> listOf(Meeting.Dev("anna", "Anna", "a-mac", "MacBook", mic = true, cam = true), me)
         }
     }
@@ -78,7 +79,7 @@ object MeetDemo {
     fun speaker(scenario: String): String? = if (scenario == "speaker") "cem" else null
 
     fun pref(scenario: String): Meeting.Pref = when (scenario) {
-        "gallery", "novideo", "duo-galerie", "trio" -> Meeting.Pref.GALLERY
+        "gallery", "novideo", "duo-galerie", "trio", "trio-self" -> Meeting.Pref.GALLERY
         "speaker" -> Meeting.Pref.SPEAKER
         else -> Meeting.Pref.AUTO
     }

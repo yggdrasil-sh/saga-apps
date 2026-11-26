@@ -812,6 +812,7 @@ internal fun MeetCall(
     MeetingLayer(
         model, ms, st.meetSpeaker, hidden, reduced, phone, onActivity = { lastAct = System.currentTimeMillis() }, sideControls = flat,
         onShown = { calls.meetShown(it) },
+        onSelfTile = { calls.meetSelfTile(it) },                                // 2472: eigener Pegel nur mit eigener Kachel
         onPeople = { if (room?.horn != null) onPanel("people") else { meshPeople = true; menuOpen = true } },
         tileVideo = { t, fit, m -> calls.meetSink(t)?.let { sink -> MeetVideo(calls, sink, mirror = t.me && front, fit = fit, modifier = m) } },
         selfVideo = { m, onA ->

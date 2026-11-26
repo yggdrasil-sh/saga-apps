@@ -236,6 +236,21 @@ class MeetingVectorsTest {
         }
     }
 
+    /** Bugs-DB 2472: eigener Sprechring (gemeinsame Vektoren "selfRing") */
+    @Test
+    fun selfRing() {
+        val cases = list("selfRing")
+        assertTrue(cases.size >= 7)
+        for (v in cases) {
+            val r = Meeting.SelfRing()
+            val steps = v["steps"]!!.jsonArray.map { it.jsonObject }
+            val got = steps.map { s ->
+                r.update(s["t"]!!.jsonPrimitive.double.toLong(), s["level"]!!.jsonPrimitive.double, s["at"]!!.jsonPrimitive.double.toLong(), s.b("mic"))
+            }
+            assertEquals("selfRing ${v.s("name")}", steps.map { it.b("expect") }, got)
+        }
+    }
+
     /** 2125: Ablauf in der Meeting-Ansicht (Geraete wie CallManager.meetDevs, Model.ring aus Meeting.tiles) */
     @Test
     fun speakRingAblauf() {

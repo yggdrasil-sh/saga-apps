@@ -446,7 +446,10 @@ internal fun MeetingStage(
     onShown: (Set<String>) -> Unit = {},
     /** Chip "+ 3 ohne Video": Teilnehmerliste oeffnen */
     onPeople: (() -> Unit)? = null,
+    /** Bugs-DB 2472: eigenes Bild als Kachel zu sehen (nicht schwebend) - nur dann misst der Anruf den eigenen Pegel */
+    onSelfTile: (Boolean) -> Unit = {},
 ) {
+    DisposableEffect(Unit) { onDispose { onSelfTile(false) } }
     // §3 Kacheln ohne Video ausgeblendet: wer spricht, erscheint waehrend des Sprechens + 5 s
     val spokeAt = remember { androidx.compose.runtime.mutableStateMapOf<String, Long>() }
     var tick by remember { mutableIntStateOf(0) }
@@ -476,6 +479,8 @@ internal fun MeetingStage(
             val h = maxHeight.value
             when (view) {
                 Meeting.View.GALLERY -> Box(Modifier.fillMaxSize().padding(end = end)) {
+                    val selfShown = m.self != null
+                    LaunchedEffect(selfShown) { onSelfTile(selfShown) }
                     Gallery(m, ms, speaker, controls, w - end.value, h, bottom, insetTop, tileVideo, speakingWho, onShown)
                 }
                 else -> {
@@ -490,6 +495,8 @@ internal fun MeetingStage(
                     val shown = (listOfNotNull(st.stage?.takeIf { !it.screen }?.device) +
                         (if (showStrip && !ms.stripCollapsed) Meeting.videoSlots(strip, sp.videos, ms.pin, null, emptyMap()).let { v -> strip.filter { it.id in v && !it.screen }.map { it.device } } else emptyList())).toSet()
                     LaunchedEffect(shown) { onShown(shown) }
+                    val selfShown = showStrip && !ms.stripCollapsed && strip.any { it.me }   // 2472: eigene Kachel im Streifen
+                    LaunchedEffect(selfShown) { onSelfTile(selfShown) }
                     val stage: @Composable (Modifier) -> Unit = { mod ->
                         val t = st.stage
                         if (t != null) StageView(
@@ -798,6 +805,7 @@ internal fun MeetingLayer(
     sideControls: Boolean = false,
     onShown: (Set<String>) -> Unit = {},
     onPeople: (() -> Unit)? = null,
+    onSelfTile: (Boolean) -> Unit = {},
     tileVideo: @Composable (Meeting.Tile, Boolean, Modifier) -> Unit,
     selfVideo: @Composable (Modifier, (Float?) -> Unit) -> Unit,
     header: @Composable () -> Unit,
@@ -834,7 +842,7 @@ internal fun MeetingLayer(
                 .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.displayCutout),
             insetTop = with(d) { topH.toDp() }, insetBottom = if (sideControls) 0.dp else with(d) { botH.toDp() },
             insetEnd = if (sideControls) with(d) { endW.toDp() } else 0.dp, tileVideo = tileVideo, selfVideo = selfVideo, phone = phone,
-            onShown = onShown, onPeople = onPeople,
+            onShown = onShown, onPeople = onPeople, onSelfTile = onSelfTile,
         )
         AnimatedVisibility(!hidden && !ms.fullscreen, Modifier.align(Alignment.TopCenter).fillMaxWidth(), enter = enter, exit = exit) {
             Box(

@@ -125,6 +125,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         fun diagSample(type: String, m: Map<String, Any?>, src: String, key: String, rtt: Double?) {}
         fun diagAlias(dev: String?): String = ""
         fun diagWay(path: String, node: String) {}
+        /** Bugs-DB 2472: eigene Kachel zu sehen (Meeting-Ansicht) - nur dann wird der eigene Pegel gemessen */
+        fun selfTile(): Boolean = false
         /** Video-Senke einer Kachel bzw. des grossen Bildes (Sprecher/Bildschirm) */
         fun tileSink(dev: String): ProxySink
         val bigSink: ProxySink
@@ -139,6 +141,10 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         .writeTimeout(15, TimeUnit.SECONDS).pingInterval(20, TimeUnit.SECONDS).build()
 
     companion object {
+        /** Bugs-DB 2472: Sprechring ueber den Knoten - Schwelle und Nachlauf wie Web/iOS (vorher 3600 ms bei 3-s-Takt) */
+        const val SPEAK_LEVEL = 0.03
+        const val SPEAK_TAIL_MS = 600L
+
         /** Nur Geraetetests (lokaler Knoten mit selbst signiertem Zertifikat); in der App immer null */
         @androidx.annotation.VisibleForTesting
         @Volatile internal var testClient: OkHttpClient? = null
@@ -224,6 +230,14 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     val levelsNow = HashMap<String, Double>()
     var levelsAt = 0L
         private set
+    /** Bugs-DB 2472: eigener Pegel (media-source am Ton-Sender) und wann gemessen (ms, 0 = nie), Zahl der Messungen */
+    var selfLevel = 0.0
+        private set
+    var selfAt = 0L
+        private set
+    var selfN = 0
+        private set
+    private var lvAt = 0L
     var runes: HornE2E.RuneSeal? = null
         private set
     private var runesKey = ""
@@ -1495,6 +1509,11 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             statAt = now
             quality(c)
         }
+        // Bugs-DB 2472: Sprechring im Takt der Ueberwachung (500 ms wie iOS, Web 330 ms) - vorher nur mit quality alle 3 s
+        if (c != null && now - lvAt >= Meeting.LEVEL_TICK_MS - 50) {
+            lvAt = now
+            levels(c)
+        }
         // Auf TCP/TLS zu einem Knoten mit UDP: alle 10 s die UDP-Probe
         if (c != null && c.path != "udp" && c.cand.udp && c.cand.tokens["both"] != null && now - udpProbeAt >= HornLogic.UDP_PROBE_EVERY) {
             udpProbeAt = now
@@ -1533,7 +1552,53 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     private fun num(v: Any?): Long = (v as? Number)?.toLong() ?: v?.toString()?.toBigDecimalOrNull()?.toLong() ?: 0L
     private fun dbl(v: Any?): Double? = (v as? Number)?.toDouble() ?: v?.toString()?.toDoubleOrNull()
 
-    /** Qualitaet (RTT, Verlust, Einfrieren), UDP-Regeln, Sprechpegel, "need" aus getStats */
+    /**
+     * Sprechring (Bugs-DB 2472, vorher Teil von quality alle 3 s mit 3600 ms Nachlauf): Pegel der Tonplaetze je Absender
+     * alle 500 ms, "spricht" = Pegel > 0,03, 600 ms Nachlauf (wie Web/iOS), stumme Geraete nie. Der eigene Pegel
+     * (media-source am Ton-Sender) nur, solange eine eigene Kachel zu sehen ist (Host.selfTile) - im 1:1 ohne eigene Kachel
+     * nicht (wie Web 2459). Nur die Beine mit Ton (Bild-Beine liefern keinen Pegel).
+     */
+    private suspend fun levels(c: Conn) {
+        val wantSelf = host.selfTile()
+        val ar = Handover.audioRole(c.legs.keys)
+        val levels = HashMap<String, Double>()
+        var mine: Double? = null
+        var measured = false
+        for (L in c.legs.values) {
+            if (L.aud.isEmpty() && L.role != ar) continue
+            val r = stats(L.pc) ?: continue
+            val byTrack = L.recv.associateBy { it.track?.id() }
+            for (s in r.statsMap.values) {
+                val m = s.members
+                if (m["kind"] != "audio") continue
+                if (s.type == "inbound-rtp") {
+                    val o = byTrack[m["trackIdentifier"]?.toString()]?.owner
+                    val lv = dbl(m["audioLevel"])
+                    if (o != null && lv != null) levels[o] = maxOf(levels[o] ?: 0.0, lv)
+                } else if (wantSelf && s.type == "media-source" && L.role == ar) {
+                    measured = true
+                    dbl(m["audioLevel"])?.let { mine = it }
+                }
+            }
+        }
+        if (closed) return
+        val now = System.currentTimeMillis()
+        if (wantSelf && measured) {
+            selfLevel = if (host.myState().first) mine ?: 0.0 else 0.0
+            selfAt = now
+            selfN++
+        }
+        levelsNow.clear()
+        for ((d, lv) in levels) if (st[d]?.first != false) levelsNow[d] = lv
+        levelsAt = now
+        for ((d, lv) in levels) if (lv > SPEAK_LEVEL && st[d]?.first != false) speakAt[d] = now
+        speakAt.entries.removeAll { now - it.value >= SPEAK_TAIL_MS || st[it.key]?.first == false }   // 2459: stumm sofort aus
+        speaking.clear()
+        speaking.addAll(speakAt.keys)
+        host.changed()
+    }
+
+    /** Qualitaet (RTT, Verlust, Einfrieren), UDP-Regeln, "need" aus getStats (Sprechpegel: levels) */
     private suspend fun quality(c: Conn) {
         var rtt: Double? = null
         var vrtt: Double? = null                                       // A1: RTT der Bild-Leitung (dort staut sich das Bild)
@@ -1541,7 +1606,6 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         var recv = 0L
         var fz = 0L
         var bytes = 0L
-        val levels = HashMap<String, Double>()
         val now = System.currentTimeMillis()
         var cpuS: Double? = null                                        // 2.5 (9.11.): CPU-Grenze der Kamera (s, kumulativ)
         var cpuNow = false                                              // Bugs-DB 2202: qualityLimitationReason "cpu" (wie Web)
@@ -1586,10 +1650,6 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                                 }
                             } else unreadSince.remove(o)
                         }
-                    } else if (m["kind"] == "audio") {
-                        val o = rr?.owner
-                        val lv = dbl(m["audioLevel"])
-                        if (o != null && lv != null) levels[o] = maxOf(levels[o] ?: 0.0, lv)
                     }
                 }
             }
@@ -1634,13 +1694,6 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             log("senderate $d")
             tune(c)
         }
-        // Sprechring (Pegel der Tonplaetze), 600 ms Nachlauf; stumme Geraete nie
-        levelsNow.clear()
-        for ((d, lv) in levels) if (st[d]?.first != false) levelsNow[d] = lv
-        levelsAt = now
-        for ((d, lv) in levels) if (lv > 0.03 && st[d]?.first != false) speakAt[d] = now
-        speaking.clear()
-        for ((d, t) in speakAt) if (now - t < 3600 && st[d]?.first != false) speaking.add(d)
         if (cur === c && !switching) {
             val udpOk = c.path != "udp" && c.cand.udp && meas[c.node]?.udp != null
             sw?.udp(now, loss, udpOk, HornLogic.streamPath(c.cand))?.let { x ->

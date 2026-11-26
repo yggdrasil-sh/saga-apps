@@ -183,6 +183,34 @@ object Meeting {
         return speakRingOn(devs.map { RingMember(it.device, it.who, it.companion, it.me) }, self ?: "\u0000self")
     }
 
+    /**
+     * Bugs-DB 2472 (Entscheidung 26.11.: "ueberall gleich"): eigener Sprechring an der EIGENEN Kachel - wie meeting.js
+     * SelfRing und iOS Meeting.SelfRing, Vektoren "selfRing", Mesh und Knoten gleich. Eigener Pegel (media-source am
+     * Ton-Sender) > 0,03 -> an, 600 ms Nachlauf fuer Sprechpausen, Mikro aus -> sofort aus (2459, kein Aufleuchten beim
+     * Wieder-Einschalten), ein Messwert aelter als 1,5 s zaehlt nicht. Gemessen wird nur, solange eine eigene Kachel zu
+     * sehen ist; sichtbar ist der Ring wie bei allen Kacheln nur ab 3 Personen (2125). Die eigene Stimme geht nicht in die
+     * Sprecher-Hysterese (Buehne) - Ring und Buehne bleiben getrennt.
+     */
+    class SelfRing {
+        companion object {
+            const val THRESHOLD = 0.03
+            const val TAIL_MS = 600L
+            const val MAX_AGE_MS = 1500L
+            fun level(level: Double, at: Long, now: Long, mic: Boolean): Double = if (mic && at > 0 && now - at <= MAX_AGE_MS) level else 0.0
+        }
+        var onAt = 0L
+            private set
+        /** level/at: letzter eigener Messwert und wann (ms, 0 = nie), mic: eigenes Mikro an -> eigene Kachel spricht */
+        fun update(now: Long, level: Double, at: Long, mic: Boolean): Boolean {
+            if (!mic) { onAt = 0; return false }
+            if (level(level, at, now, mic) > THRESHOLD) onAt = now
+            return onAt > 0 && now - onAt < TAIL_MS
+        }
+    }
+
+    /** Bugs-DB 2472: Takt der Pegelmessung (Sprechring, eigener Ring) - wie iOS, Web 330 ms */
+    const val LEVEL_TICK_MS = 500L
+
     /** §3 Kacheln ohne Video ausgeblendet: Nachlauf, solange eine Person nach dem Sprechen sichtbar bleibt */
     const val NOVIDEO_TAIL = 5000L
 
