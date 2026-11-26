@@ -110,6 +110,29 @@ class ContactExportTest {
     }
 
     @Test
+    fun bidiAndFormatCharactersLikeIos() {
+        // Pruefer pk27b: Bidi-Steuerung (U+202E, U+2066, U+200E) und andere Formatzeichen wie auf iOS (Cc+Cf)
+        assertEquals("Anna Berg", ContactExportLogic.clean("Anna\u202E Berg\u2066"))
+        assertEquals("A B", ContactExportLogic.clean("A\u200EB"))
+        assertFalse(ContactExportLogic.validMail("anna\u202E@example.org"))
+        assertFalse(ContactExportLogic.validMail("anna@exa\u2066mple.org"))
+        assertFalse(ContactExportLogic.validMail("anna@example.org\u00AD"))
+        val p = ContactExportLogic.prefill(
+            BookContact(
+                id = 20, ver = 1, name = "\u202Egro.elpmaxe", ownName = null,
+                addrs = listOf(BookAddr(kind = "email", value = "x\u202E@example.org"), BookAddr(kind = "e164", value = "+491701234567")),
+            ),
+        )!!
+        assertEquals("gro.elpmaxe", p.name)
+        assertTrue(p.mails.isEmpty())
+        // 120 Codepunkte wie der Server, nie ein halbes Ersatzzeichenpaar
+        val emoji = "\uD83D\uDE00".repeat(130)
+        val e = ContactExportLogic.clean(emoji)
+        assertEquals(120, e.codePointCount(0, e.length))
+        assertFalse(Character.isHighSurrogate(ContactExportLogic.clean("x" + "\uD83D\uDE00".repeat(130)).last()))
+    }
+
+    @Test
     fun atMostTenPerKind() {
         val many = BookContact(
             id = 16, ver = 1, name = "Viele", ownName = "Viele",

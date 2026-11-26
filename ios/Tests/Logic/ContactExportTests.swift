@@ -87,6 +87,11 @@ func contactExportTests() {
     check(po.phones == [.init(value: "+4917012345", label: .other)], "nur gueltige E.164, Doppelte einmal (erste zaehlt): \(po.phones)")
     check(po.mails.map(\.value) == ["ÄGOT+tag@Example.org", "Q@EXAMPLE.ORG"], "nur ein Empfaenger je Mail, unsichtbare Zeichen raus, Doppelte einmal: \(po.mails.map(\.value))")
 
+    // Pruefer pk27b: Bidi-/Formatzeichen (Cf) raus wie auf Android, Mail damit ungueltig
+    check(X.clean("Anna\u{202E} Berg\u{2066}") == "Anna Berg", "Bidi-Steuerung raus: \(X.clean("Anna\u{202E} Berg\u{2066}"))")
+    check(!X.validMail("anna\u{202E}@example.org") && !X.validMail("anna@exa\u{2066}mple.org") && !X.validMail("anna@example.org\u{00AD}"), "Mail mit Formatzeichen ungueltig")
+    check(!X.validPhone("+491701234567\n") && !X.validPhone("+\u{0664}\u{0669}\u{0661}\u{0667}\u{0660}\u{0661}\u{0662}\u{0663}\u{0664}"), "E.164 nur ASCII-Ziffern, kein Zeilenende")
+
     // alles kaputt -> kein Knopf
     let broken = j("""
     {"id": 15, "ver": 1, "origin": "manual", "name": "Kaputt", "own_name": "Kaputt",

@@ -41,9 +41,19 @@ object ContactExportLogic {
         return n.takeUnless { it in inner || it.filter { ch -> !ch.isWhitespace() } in inner }
     }
 
-    /** Steuer- und unsichtbare Zeichen raus, Leerraum zusammengefasst, hoechstens 120 Zeichen */
-    fun clean(s: String): String = s.map { if (it.isISOControl() || it in INVISIBLE) ' ' else it }.joinToString("")
-        .trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.joinToString(" ").take(ContactBookLogic.OWN_NAME_MAX).trim()
+    /** Steuer-, Format- (Bidi, Nullbreite) und unsichtbare Zeichen raus, Leerraum zusammengefasst, hoechstens 120 Zeichen
+     *  (Codepunkte wie der Server - kein halbes Ersatzzeichenpaar am Ende) */
+    fun clean(s: String): String = takeCodePoints(
+        s.map { if (hidden(it)) ' ' else it }.joinToString("")
+            .trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.joinToString(" "),
+        ContactBookLogic.OWN_NAME_MAX,
+    ).trim()
+
+    /** Steuerzeichen (Cc) und Formatzeichen (Cf: U+200B-200F, U+202A-202E, U+2060-2069, U+FEFF …) wie iOS controlCharacters */
+    private fun hidden(ch: Char): Boolean = ch.isISOControl() || ch in INVISIBLE || Character.getType(ch) == Character.FORMAT.toInt()
+
+    private fun takeCodePoints(s: String, n: Int): String =
+        if (s.codePointCount(0, s.length) <= n) s else s.substring(0, s.offsetByCodePoints(0, n))
 
     /** Typ der Nummer: ohne bzw. unbekannter Typ -> Andere */
     fun phoneType(t: String?): Int = when (t) {
@@ -70,7 +80,7 @@ object ContactExportLogic {
 
     /** genau ein Empfaenger (Regel des Servers, Bugs-DB 2399) */
     fun validMail(v: String): Boolean = v.length <= MAIL_MAX && v.count { it == '@' } == 1 && !v.startsWith("@") && !v.endsWith("@") &&
-        v.none { it.isWhitespace() || it.isISOControl() || it in MAIL_BAD }
+        v.none { it.isWhitespace() || hidden(it) || it in MAIL_BAD }
 
     private fun rows(addrs: List<BookAddr>, mime: String, valid: (String) -> Boolean, type: (String?) -> Int): List<Row> {
         val seen = HashSet<String>()
