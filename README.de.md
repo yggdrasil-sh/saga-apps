@@ -75,10 +75,11 @@ Menüpunkt.
 
 ## Neu in 2.5 (mit Saga-Server 2.5)
 
-> **Beta:** Saga ist im Alltag nutzbar, aber noch jung – mach regelmäßig Backups; einige Funktionen (vor allem Anrufe
-> über Gjallarhorn) sind ausdrücklich experimentell.
+> **Beta:** Saga ist im Alltag nutzbar, aber noch jung – mach regelmäßig Backups; einige Funktionen sind ausdrücklich
+> experimentell.
 
-- **Anrufe über die Saga-Adresse hinter jedem Proxy** (Gjallarhorn, experimentell): iPhone/iPad, Android und die
+- **Anrufe über die Saga-Adresse hinter jedem Proxy** (Gjallarhorn; in 2.5 experimentell, ab Saga-Server 2.6 ab Werk
+  an): iPhone/iPad, Android und die
   Mac-App tunneln ihre Anrufe per WebSocket über die normale Saga-Adresse – auch hinter Nginx Proxy Manager mit
   „Websockets Support“. Personen in den laufenden Anruf holen und aus einem 1:1 eine Konferenz machen (iOS, Android).
 - **Die Mac-App ist jetzt die Desktop-Hülle** um die Web-Oberfläche – mit Widgets, Teilen, Mitteilungen, Menüleiste,

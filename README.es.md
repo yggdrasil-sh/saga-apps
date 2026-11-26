@@ -76,9 +76,10 @@ aparece la opción del menú.
 ## Novedades de 2.5 (con el servidor de Saga 2.5)
 
 > **Beta:** Saga ya se puede usar a diario, pero aún es joven: haz copias de seguridad con regularidad; algunas
-> funciones (sobre todo las llamadas a través de Gjallarhorn) son explícitamente experimentales.
+> funciones son explícitamente experimentales.
 
-- **Llamadas a través de la dirección de Saga detrás de cualquier proxy** (Gjallarhorn, experimental): iPhone/iPad,
+- **Llamadas a través de la dirección de Saga detrás de cualquier proxy** (Gjallarhorn; experimental en 2.5, activado de
+  fábrica desde el servidor de Saga 2.6): iPhone/iPad,
   Android y la app de Mac envían sus llamadas por un WebSocket a la dirección normal de Saga, también detrás de Nginx
   Proxy Manager con «Websockets Support». Añadir personas a una llamada en curso y convertir una llamada 1:1 en una
   conferencia (iOS, Android).

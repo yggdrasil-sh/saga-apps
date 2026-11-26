@@ -74,9 +74,10 @@ or **Stop publishing**. Public pages show **Public** in the page header; you can
 ## New in 2.5 (with Saga server 2.5)
 
 > **Beta:** Saga is ready for everyday use, but still young – keep regular backups; some features are explicitly
-> experimental (above all calls through Gjallarhorn).
+> experimental.
 
-- **Calls through your Saga address behind any proxy** (Gjallarhorn, experimental): iPhone/iPad, Android and the Mac
+- **Calls through your Saga address behind any proxy** (Gjallarhorn; experimental in 2.5, on by default from Saga
+  server 2.6): iPhone/iPad, Android and the Mac
   app tunnel their calls over a WebSocket to the normal Saga address – also behind Nginx Proxy Manager with
   "Websockets Support". Add people to a running call and turn a 1:1 into a conference (iOS, Android).
 - **The Mac app is now the desktop shell** around the web interface – with widgets, sharing, notifications, menu bar,
