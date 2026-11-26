@@ -30,6 +30,13 @@ final class SagaModel: ObservableObject {
     @Published var jobGone: Set<Int> = []
     /// Plan-Karten, an denen gerade "Aendern" offen ist (Live zeichnet sie dann nicht neu)
     var editing: Set<Int> = []
+    /// 2515: Auftraege, deren Freigabe mit 409 stale abgelehnt wurde - ihr neuer Plan zeigt "geändert – bitte neu freigeben"
+    @Published var staleSeen: Set<Int> = []
+    /// 2515: Plan-Fassungen ("job/plan_v"), die anderswo freigegeben wurden (409 state): "Passt, los" bleibt aus
+    @Published var settled: Set<String> = []
+    /// 2515: Rueckgaengig mit 409 changed je Aenderung -> Pfad der alten Fassung ("" = keine); lebt laenger als die Karte
+    @Published var undoConflicts: [Int: String] = [:]
+    private var lastResync: Date?
     // Hinweise
     /// Kurzer Hinweis unten; VoiceOver sagt ihn an (sonst hoerte man z. B. "Zurückgenommen" nach Rueckgaengig nicht)
     @Published var toast: String? { didSet { if let t = toast, t != oldValue { AccessibilityNotification.Announcement(t).post() } } }
@@ -53,6 +60,7 @@ final class SagaModel: ObservableObject {
         thread = SagaThread(); threadLoaded = false; live = nil; liveQ = nil; liveError = nil
         jobs = SagaJobList(); jobsLoaded = false; detail = nil; openJob = nil; jobMode = false; liveJob = nil
         jobState = [:]; jobGone = []; editing = []; toast = nil; cardError = nil; busy = false; reported = []
+        staleSeen = []; settled = []; undoConflicts = [:]; lastResync = nil
     }
     /// Hoechste Zugnummer des Servers im Verlauf (lokal angehaengte Zuege ohne n zaehlen nicht)
     private var maxN: Int { SagaLogic.maxN(thread.turns) }
@@ -263,12 +271,14 @@ final class SagaModel: ObservableObject {
         guard let store else { return nil }
         do {
             let (d, code) = try await store.apiResponse("api/ai/jobs/\(p.job)/approve", method: "POST", body: SagaLogic.approveBody(p))
-            switch SagaLogic.actionResult(code: code, body: d) {
+            let r = SagaLogic.actionResult(code: code, body: d)
+            switch r {
             case .ok(let st, _):
                 if let st { AccessibilityNotification.Announcement(st).post() }
                 await loadJobState(p.job); await loadJobs()
                 return nil
             case .stale(let m), .state(let m):                    // Plan geaendert/schon erledigt: neuen Stand zeigen
+                if SagaLogic.approveConflict(r) == .stale { staleSeen.insert(p.job) } else { settled.insert(Self.planKey(p)) }
                 await loadJobState(p.job); await loadJobs()
                 return m
             case .consent(let m): await consentLost(); return m
@@ -277,6 +287,8 @@ final class SagaModel: ObservableObject {
             }
         } catch { return error.localizedDescription }
     }
+    static func planKey(_ p: SagaPlan) -> String { "\(p.job)/\(p.planV)" }
+
     /// "Lieber nicht" / "Auftrag abbrechen"
     func cancel(_ job: Int) async -> String? {
         guard let store else { return nil }
@@ -305,7 +317,10 @@ final class SagaModel: ObservableObject {
                 return (np, nil)
             }
             if SagaLogic.needsConsent(code: code, body: d) { await consentLost() }
-            if code == 409 { await loadJobState(p.job) }
+            if code == 409 {
+                if SagaLogic.approveConflict(SagaLogic.actionResult(code: code, body: d)) == .stale { staleSeen.insert(p.job) }
+                await loadJobState(p.job)
+            }
             return (nil, err(d, code))
         } catch { return (nil, error.localizedDescription) }
     }
@@ -329,7 +344,7 @@ final class SagaModel: ObservableObject {
                 toast = tx ?? String(localized: "Zurückgenommen")
                 await refreshJob(job)
                 return .ok
-            case .changed(let u): await refreshJob(job); return .changed(u)
+            case .changed(let u): undoConflicts[change] = u ?? ""; await refreshJob(job); return .changed(u)
             default: return .failed(err(d, code))
             }
         } catch { return .failed(error.localizedDescription) }
@@ -354,6 +369,17 @@ final class SagaModel: ObservableObject {
             if openJob == c.id, !editing.contains(c.id) { await open(c.id) }
             if let old = jobState[c.id], !editing.contains(c.id), old.state != c.state || c.state == "erledigt" { await loadJobState(c.id) }
         }
+    }
+
+    /// 2515: beim (Wieder-)Verbinden (Live "hello") und beim Zurueckkehren in den Vordergrund den Stand der gezeigten
+    /// Auftraege einmal neu holen - ai.job.changed kann beim Wiederverbinden verloren gehen (sonst bliebe "Läuft" stehen)
+    func resync() async {
+        guard status?.consentOK == true || !jobState.isEmpty || openJob != nil else { return }
+        guard SagaLogic.resyncNow(last: lastResync, now: Date()) else { return }
+        lastResync = Date()
+        if jobsLoaded { await loadJobs() }
+        for (id, d) in jobState where SagaLogic.resyncDue(d.state) && !editing.contains(id) { await loadJobState(id) }
+        if let id = openJob, !editing.contains(id), jobState[id] == nil, SagaLogic.resyncDue(detail?.state) { await open(id) }
     }
 
     // MARK: Melden (Abschnitt 6)
@@ -416,7 +442,7 @@ final class SagaModel: ObservableObject {
     #if DEBUG
     /// Nur fuer Tests (Startparameter): Einwilligung, Frage, Auftrag, Aendern, Freigabe und Rueckgaengig ohne Antippen
     /// -hkSagaConsent ideas|no_ideas · -hkSagaAsk <frage> · -hkSagaGive <bitte> · -hkSagaEdit <text> [-hkSagaStale YES]
-    /// · -hkSagaApprove YES · -hkSagaUndo YES · -hkSagaPause s
+    /// · -hkSagaApprove YES · -hkSagaUndo YES · -hkSagaPause s · -hkSaga2515 YES [-hkSaga2515Resync YES] (anderswo aendern/freigeben)
     func debugRun() async {
         let d = UserDefaults.standard
         func log(_ s: String) {                                        // auch als Datei (Tests lesen sie aus dem App-Container)
@@ -450,6 +476,31 @@ final class SagaModel: ObservableObject {
             log("give ohne Plan: \(thread.turns.dropFirst(n0).map { $0.zug ?? "-" })"); return
         }
         log("plan job=\(job) v=\(p.planV) steps=\(p.steps.count) turns=\(thread.turns.count - n0)")
+        if d.bool(forKey: "hkSaga2515"), let store, let st = p.steps.first(where: { $0.edit.contains("text") }) {
+            // 2515 (Gegenprobe): "anderswo" = direkt am Server, am Modell vorbei - wie ein zweites Geraet
+            try? await Task.sleep(for: .seconds(pause))
+            let c1 = (try? await store.apiResponse("api/ai/jobs/\(job)/plan", method: "PUT", body: SagaLogic.editBody(p, values: [st.n: ["text": .text("Anderswo geändert")]])))?.1 ?? 0
+            let e1 = await approve(p)                                  // alte Fassung -> 409 stale
+            let np = jobState[job]?.plan
+            log("2515 stale put=\(c1) err=\(e1 ?? "ok") v=\(np?.planV ?? -1) edited=\(np?.edited.map { String($0) } ?? "nil") hint=\(np?.changed(afterStale: staleSeen.contains(job)) ?? false)")
+            guard let np else { log("fertig"); return }
+            if d.bool(forKey: "hkSaga2515Resync") {                     // Live-Ereignis geht verloren: Kanal zu, anderswo freigeben
+                store.live.stop()
+                let c3 = (try? await store.apiResponse("api/ai/jobs/\(job)/approve", method: "POST", body: SagaLogic.approveBody(np)))?.1 ?? 0
+                try? await Task.sleep(for: .seconds(3))
+                log("2515 resync approve=\(c3) vorher=\(jobState[job]?.state ?? "-")")
+                store.live.start()                                     // hello -> resync
+                _ = await wait("resync", { jobState[job]?.state != "wartet_ok" })
+                log("2515 resync nachher=\(jobState[job]?.state ?? "-") card=\(jobState[job]?.awaitingOK ?? false)")
+            } else {
+                store.live.stop()                                      // ai.job.changed kaeme sonst vor dem Tippen
+                let c2 = (try? await store.apiResponse("api/ai/jobs/\(job)/approve", method: "POST", body: SagaLogic.approveBody(np)))?.1 ?? 0
+                let e2 = await approve(np)                             // hier "Passt, los" -> 409 state
+                log("2515 state approve=\(c2) err=\(e2 ?? "ok") settled=\(settled.contains(Self.planKey(np))) state=\(jobState[job]?.state ?? "-") card=\(jobState[job]?.awaitingOK ?? false)")
+                store.live.start()
+            }
+            log("fertig"); return
+        }
         var cur = p
         if let e = d.string(forKey: "hkSagaEdit"), let st = p.steps.first(where: { $0.edit.contains("text") }) {
             try? await Task.sleep(for: .seconds(pause))

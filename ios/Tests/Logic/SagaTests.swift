@@ -103,8 +103,43 @@ func sagaTests() {
     """#
     guard case .plan(let plan)? = L.outcome(ev("plan", planJSON)) else { check(false, "Plan nicht erkannt"); return }
     check(plan.job == 12 && plan.planV == 2 && plan.planHash == "ab12cd" && plan.steps.count == 3 && plan.editable, "Plan gelesen")
-    check(plan.changed && SagaPlan(["job": 1, "plan_v": 1, "plan_hash": "x", "steps": []])?.changed == false
-          && SagaPlan(["job": 1, "plan_v": 1, "plan_hash": "x", "edited": true])?.changed == true, "geaendert: edited oder plan_v > 1")
+    // 2515: edited vom Server gilt (Detail und plan_view liefern es immer); ohne das Feld (aeltere Server) ab plan_v 2
+    check(plan.edited == false && !plan.changed, "edited false vom Server: kein Hinweis, auch bei plan_v 2")
+    check(SagaPlan(["job": 1, "plan_v": 1, "plan_hash": "x", "steps": []])?.changed == false
+          && SagaPlan(["job": 1, "plan_v": 1, "plan_hash": "x", "edited": true])?.changed == true, "geaendert: edited true auch bei plan_v 1")
+    let noEdited = SagaPlan(["job": 1, "plan_v": 2, "plan_hash": "x"])
+    check(noEdited?.edited == nil && noEdited?.changed == true && SagaPlan(["job": 1, "plan_v": 2, "plan_hash": "x", "edited": NSNull()] as [String: Any])?.edited == nil,
+          "ohne edited (Server main): Rueckfall plan_v > 1")
+    check(SagaPlan(["job": 1, "plan_v": 3, "plan_hash": "x", "edited": false])?.changed == false, "plan_v 3, edited false: Server weiss es")
+    check(plan.changed(afterStale: true) && SagaPlan(["job": 1, "plan_v": 1, "plan_hash": "x"])?.changed(afterStale: true) == true
+          && noEdited?.changed(afterStale: false) == true, "nach 409 stale immer \"geändert – bitte neu freigeben\"")
+    // Detail (GET /api/ai/jobs/<id>) mit und ohne edited
+    let dNo = SagaJobDetail(["id": 1, "state": "wartet_ok", "plan": ["job": 1, "plan_v": 2, "plan_hash": "x", "steps": []] as [String: Any]] as [String: Any])
+    let dYes = SagaJobDetail(["id": 1, "state": "wartet_ok", "plan": ["job": 1, "plan_v": 2, "plan_hash": "x", "edited": true] as [String: Any]] as [String: Any])
+    let dFalse = SagaJobDetail(["id": 1, "state": "wartet_ok", "plan": ["job": 1, "plan_v": 2, "plan_hash": "x", "edited": false] as [String: Any]] as [String: Any])
+    check(dNo?.plan?.changed == true && dYes?.plan?.changed == true && dFalse?.plan?.changed == false, "Detail: edited bzw. Rueckfall")
+    // 409 auf "Passt, los"
+    check(L.approveConflict(L.actionResult(code: 409, body: data(#"{"error":"Der Plan hat sich geändert.","code":"stale","plan_v":3}"#))) == .stale
+          && L.approveConflict(L.actionResult(code: 409, body: data(#"{"error":"Dieser Auftrag wartet nicht mehr auf dein OK.","code":"state","state":"laeuft"}"#))) == .settled
+          && L.approveConflict(L.actionResult(code: 409, body: data("<html>"))) == .settled
+          && L.approveConflict(L.actionResult(code: 200, body: data("{}"))) == nil, "409 stale -> neuer Plan mit Hinweis, state -> neu laden, Knopf aus")
+    // Neuholen beim (Wieder-)Verbinden / Vordergrund
+    check([nil, "wartet_ok", "laeuft", "wartet_dich", "erledigt", "neu"].allSatisfy { L.resyncDue($0) }
+          && !["abgebrochen", "zurueckgenommen", "fehlgeschlagen"].contains { L.resyncDue($0) }, "Neuholen ausser bei Endzustaenden")
+    let t0 = Date(timeIntervalSince1970: 1000)
+    check(L.resyncNow(last: nil, now: t0) && !L.resyncNow(last: t0, now: t0.addingTimeInterval(1)) && L.resyncNow(last: t0, now: t0.addingTimeInterval(2.5)),
+          "Verbinden + Vordergrund zusammen: einmal")
+    // Kontrast umrandeter Knoepfe auf der KI-Karte (WCAG AA: Schrift 4,5:1, Rand 3:1), hell und dunkel
+    for (n, tint, edge, gold) in [("hell", SagaPalette.tint.light, SagaPalette.edge.light, SagaPalette.gold.light),
+                                  ("dunkel", SagaPalette.tint.dark, SagaPalette.edge.dark, SagaPalette.gold.dark)] {
+        check(ChatLogic.contrast(gold, tint) >= 4.5, "Schrift Knopf auf KI-Karte \(n): \(String(format: "%.2f", ChatLogic.contrast(gold, tint)))")
+        check(ChatLogic.contrast(edge, tint) >= 3, "Rand Knopf auf KI-Karte \(n): \(String(format: "%.2f", ChatLogic.contrast(edge, tint)))")
+    }
+    if let dir = ProcessInfo.processInfo.environment["SAGA_APP_SRC"],
+       let raw = try? String(contentsOfFile: dir + "/Assets.xcassets/AccentColor.colorset/Contents.json", encoding: .utf8) {
+        let flat = raw.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "\n", with: "")
+        check(flat.contains(#""red":"0x7A","green":"0x5A","blue":"0x12""#) && flat.contains(#""red":"0xC9","green":"0xA4","blue":"0x5C""#), "SagaPalette.gold = AccentColor")
+    } else { check(false, "AccentColor nicht lesbar") }
     check(plan.steps[0].symbol == "◎" && plan.steps[1].symbol == "✎" && L.kindSymbol("out") == "↗" && L.kindSymbol("?") == "•", "Art-Symbole")
     check(plan.steps[1].classText == "rückgängig" && plan.steps[2].undoClass == "delete_only" && plan.steps[0].undoClass == nil, "Klasse je Schritt")
     check(plan.readText == "Ich lese dafür: Sommerfest" && plan.readLabels == ["Sommerfest"], "Ich lese dafür (Server)")
@@ -183,6 +218,23 @@ func sagaTests() {
     check(det?.stateText == "Erledigt" && det?.approvedDevice == "iPhone" && det?.events.count == 2 && det?.awaitingOK == false, "Detail gelesen (Protokoll ohne leere Zeilen)")
     check(det?.feedback?.text.hasPrefix("Erledigt:") == true && det?.feedback?.lines.count == 2 && det?.cancellable == false, "Rueckmeldung: Ergebnis zuerst")
     check(det?.change(6)?.why == "changed" && det?.change(6)?.versionURL == "api/ai/jobs/12/changes/6/before" && det?.change(5)?.canUndo == true, "Aenderung: Rueckgaengig bzw. alte Fassung")
+    // 2515: 409 changed bleibt (Modell bzw. why vom Server); "Alte Fassung ansehen" nur mit version_url (Aufgaben ohne)
+    check(L.oldVersionPath(conflict: nil, change: det?.change(5)) == nil && L.oldVersionPath(conflict: "", change: det?.change(5)) == nil,
+          "Aufgabe ohne version_url: keine alte Fassung")
+    check(L.oldVersionPath(conflict: nil, change: det?.change(6)) == "api/ai/jobs/12/changes/6/before"
+          && L.oldVersionPath(conflict: "", change: det?.change(6)) == "api/ai/jobs/12/changes/6/before"
+          && L.oldVersionPath(conflict: "api/ai/jobs/12/changes/5/before", change: det?.change(5)) == "api/ai/jobs/12/changes/5/before", "alte Fassung aus 409 bzw. Detail")
+    check(L.undoConflicted([5: ""], change: det?.change(5), id: 5) && L.undoConflicted([:], change: det?.change(6), id: 6)
+          && !L.undoConflicted([:], change: det?.change(5), id: 5), "Konflikt-Hinweis aus Modell oder Server")
+    let done = SagaChange(["id": 7, "target": "task:3", "why": "done", "why_text": "Schon wie vorher – die Aufgabe gibt es nicht mehr.", "version_url": NSNull(), "can_undo": false] as [String: Any])
+    let chg = SagaChange(["id": 8, "target": "note:3", "why": "changed", "why_text": "Die Seite wurde seitdem geändert.", "version_url": "/api/ai/jobs/12/changes/8/before"] as [String: Any])
+    check(L.whyNote(done) == "Schon wie vorher – die Aufgabe gibt es nicht mehr." && L.whyNote(chg) == "Die Seite wurde seitdem geändert."
+          && L.whyNote(det?.change(6)) == nil && L.whyNote(SagaChange(["id": 9, "why_text": "x"] as [String: Any])) == nil, "why_text (auch done), sonst eigener Text")
+    let taskChanged = SagaChange(["id": 10, "target": "task:3", "why": "changed", "version_url": NSNull()] as [String: Any])
+    check(L.oldVersionPath(conflict: "api/ai/jobs/12/changes/10/before", change: taskChanged) == nil
+          && L.oldVersionPath(conflict: "api/ai/jobs/12/changes/10/before", change: nil) == "api/ai/jobs/12/changes/10/before",
+          "Detail kennt den Konflikt: Adresse aus dem 409 gilt nicht (aeltere Server schicken sie auch fuer Aufgaben)")
+    check(L.oldVersionPath(conflict: nil, change: done) == nil && L.oldVersionPath(conflict: nil, change: chg) == "api/ai/jobs/12/changes/8/before", "alte Fassung nur mit version_url")
     let l1 = SagaReport.Line(change: 1, text: "Aufgabe „X“ angelegt", undone: false, canUndo: true, label: "Aufgabe „X“")
     check(SagaJobDetail.lineCaption(l1, count: 1) == nil && SagaJobDetail.lineCaption(l1, count: 2) == "Aufgabe „X“", "neben Rueckgaengig: bei einer Aenderung nur der Knopf, sonst der Gegenstand")
     check(SagaJobDetail.lineCaption(SagaReport.Line(change: 2, text: "Ganze Zeile", undone: false, canUndo: true), count: 2) == "Ganze Zeile", "aeltere Server ohne label")

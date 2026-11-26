@@ -222,7 +222,8 @@ struct RootView: View {
         }
         .onChange(of: phase) { _, p in
             if p == .active || p == .background { ClientLog.shared.life(p == .active ? "visible" : "hidden") }   // 2.5 clientlog1
-            if p == .active { Task { await store.refresh(); store.live.start(); await store.calls.checkActive(); await FirstStepsModel.shared.check(store) }; store.push.languageCheck() }   // 2.5: Push-Sprache       // im Web angelegte Seiten; Live nur im Vordergrund; 2031: Erste Schritte (gedrosselt)
+            if p == .active { Task { await store.refresh(); store.live.start(); await store.calls.checkActive(); await FirstStepsModel.shared.check(store) }; store.push.languageCheck() }
+            if p == .active { Task { await store.saga.resync() } }       // 2515: Auftragsstand nachholen (verpasstes ai.job.changed)   // 2.5: Push-Sprache       // im Web angelegte Seiten; Live nur im Vordergrund; 2031: Erste Schritte (gedrosselt)
             // 2.6 (2029-6): waehrend eines Gespraechs bleibt der Live-Kanal offen (die App laeuft per Audio weiter) - sonst
             // kaeme Anklopfen (waiting1, ohne Push) bei gesperrtem Bildschirm nie an; CallManager.finish schliesst ihn danach
             if p == .background { WidgetCenter.shared.reloadAllTimelines(); store.calls.liveFollow(background: true) }   // Widgets zeigen sofort den neuen Stand

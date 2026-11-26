@@ -103,7 +103,7 @@ struct SagaJobTurnView: View {
             SagaHead(extra: d.stateText)
             Text(verbatim: d.title.isEmpty ? (d.reasonText ?? "") : d.title).fixedSize(horizontal: false, vertical: true)
             if let r = d.reasonText, !r.isEmpty, !d.title.isEmpty { Text(verbatim: r).font(.subheadline).foregroundStyle(.secondary) }
-            Button("Ansehen") { openJob(d.id) }.buttonStyle(.bordered).frame(minHeight: 44)
+            Button("Ansehen") { openJob(d.id) }.buttonStyle(SagaOutlineButtonStyle()).frame(minHeight: 44)
         }
         .sagaCard()
         .accessibilityElement(children: .contain)
@@ -123,7 +123,7 @@ struct SagaAskCard: View {
             Text(verbatim: question).fixedSize(horizontal: false, vertical: true)
             ForEach(choices, id: \.self) { c in
                 Button { choose(c) } label: { Text(verbatim: c).frame(maxWidth: .infinity, minHeight: 30, alignment: .leading) }
-                    .buttonStyle(.bordered).controlSize(.large).disabled(disabled)
+                    .buttonStyle(SagaOutlineButtonStyle()).controlSize(.large).disabled(disabled)
             }
         }.sagaCard()
     }
@@ -184,7 +184,7 @@ struct SagaPlanCard: View {
         let plan = editingPlan ?? self.plan
         VStack(alignment: .leading, spacing: 12) {
             SagaHead(extra: String(localized: "Wartet auf dein OK"))
-            if plan.changed { Label("geändert – bitte neu freigeben", systemImage: "pencil").font(.subheadline).foregroundStyle(.secondary) }
+            if plan.changed(afterStale: m.staleSeen.contains(plan.job)) { Label("geändert – bitte neu freigeben", systemImage: "pencil").font(.subheadline).foregroundStyle(.secondary) }
             Text(verbatim: plan.say ?? String(localized: "So würde ich es machen:")).fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(Array(plan.steps.enumerated()), id: \.element.id) { i, s in step(s, i: i, of: plan.steps.count) }
@@ -250,7 +250,7 @@ struct SagaPlanCard: View {
                 } else {
                     Text(verbatim: name)
                     Spacer()
-                    Button("Datum wählen") { b.wrappedValue = .text(SagaLogic.string(Date(), kind: kind)) }.buttonStyle(.bordered).frame(minHeight: 44)
+                    Button("Datum wählen") { b.wrappedValue = .text(SagaLogic.string(Date(), kind: kind)) }.buttonStyle(SagaOutlineButtonStyle()).frame(minHeight: 44)
                 }
             }
         } else {
@@ -272,11 +272,13 @@ struct SagaPlanCard: View {
         } else {
             VStack(spacing: 10) {
                 // Enter gibt nie frei: kein Tastenkuerzel auf "Passt, los"
+                // 2515: anderswo freigegeben (409 state) - bis der neue Stand da ist, bleibt "Passt, los" aus
+                let settled = m.settled.contains(SagaModel.planKey(plan))
                 Button { Task { await approve() } } label: { Text("Passt, los").frame(maxWidth: .infinity, minHeight: 30) }
-                    .prominentGold().controlSize(.large).disabled(working || !store.reachable)
+                    .prominentGold().controlSize(.large).disabled(working || !store.reachable || settled)
                 if plan.editable {
                     Button { editingPlan = plan; m.editing.insert(plan.job); err = nil } label: { Text("Ändern").frame(maxWidth: .infinity, minHeight: 30) }
-                        .buttonStyle(.bordered).controlSize(.large).disabled(working)
+                        .buttonStyle(SagaOutlineButtonStyle()).controlSize(.large).disabled(working || settled)
                 }
                 Button { Task { await cancel() } } label: { Text("Lieber nicht").frame(maxWidth: .infinity, minHeight: 44) }
                     .buttonStyle(.borderless).padding(.top, 6).disabled(working)
@@ -301,7 +303,6 @@ struct SagaFeedbackCard: View {
     @ObservedObject var m: SagaModel
     let detail: SagaJobDetail
     var onOpen: (() -> Void)?
-    @State private var changed: [Int: String] = [:]                 // Aenderung -> alte-Fassung-Pfad ("" = ohne)
     @State private var askDelete: Int?
     @State private var err: String?
     @State private var working: Int?
@@ -315,7 +316,7 @@ struct SagaFeedbackCard: View {
             AnswerText(text: rep.text, sources: [], openPage: { _ in })
             ForEach(rep.lines) { ln in line(ln, count: rep.lines.count) }
             if let err { Label(err, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(.orange) }
-            if let onOpen { Button("Ansehen", action: onOpen).buttonStyle(.bordered).frame(minHeight: 44) }
+            if let onOpen { Button("Ansehen", action: onOpen).buttonStyle(SagaOutlineButtonStyle()).frame(minHeight: 44) }
             if !rep.text.isEmpty {
                 SagaReportButton(m: m, key: "f\(detail.id)") { reporting = SagaReportItem(where: "job", job: detail.id, text: rep.text, key: "f\(detail.id)") }
             }
@@ -337,26 +338,31 @@ struct SagaFeedbackCard: View {
             if let cap = SagaJobDetail.lineCaption(ln, count: count) { Text(verbatim: cap).fixedSize(horizontal: false, vertical: true) }
             if ln.undone || ch?.undone == true {
                 Text("Zurückgenommen").font(.subheadline).foregroundStyle(.secondary)
-            } else if let path = changed[ln.change] ?? (ch?.why == "changed" ? (ch?.versionURL ?? "") : nil) {
-                changedNote(path)
+            } else if SagaLogic.undoConflicted(m.undoConflicts, change: ch, id: ln.change) {
+                // 409 changed: im Modell (lebt laenger als die Karte) bzw. nach dem Neuladen vom Server (why)
+                changedNote(SagaLogic.whyNote(ch), SagaLogic.oldVersionPath(conflict: m.undoConflicts[ln.change], change: ch))
+            } else if let w = SagaLogic.whyNote(ch), ch?.canUndo != true {
+                Text(verbatim: w).font(.subheadline).foregroundStyle(.secondary)   // z. B. "schon wie vorher" (why done)
             } else if ln.canUndo {
                 Button {
                     if ch?.undoClass == "delete_only" { askDelete = ln.change } else { Task { await undo(ln.change) } }
                 } label: { Text("Rückgängig").frame(minWidth: 120, minHeight: 30) }
-                .buttonStyle(.bordered).controlSize(.large).disabled(working != nil)
+                .buttonStyle(SagaOutlineButtonStyle()).disabled(working != nil)
                 .accessibilityLabel(Text("Rückgängig: \(ln.text)"))
             }
         }
         .padding(.vertical, 2)
     }
 
-    @ViewBuilder private func changedNote(_ path: String) -> some View {
+    /// "Alte Fassung ansehen" nur mit Adresse (bei Aufgaben fehlt sie)
+    @ViewBuilder private func changedNote(_ text: String?, _ path: String?) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Das wurde seitdem geändert.").font(.subheadline).foregroundStyle(.secondary)
-            if !path.isEmpty {
+            if let text { Text(verbatim: text).font(.subheadline).foregroundStyle(.secondary) }
+            else { Text("Das wurde seitdem geändert.").font(.subheadline).foregroundStyle(.secondary) }
+            if let path {
                 Button("Alte Fassung ansehen") {
                     Task { if let (t, x) = await m.before(path) { old = SagaOldVersion(title: t, text: x) } else { err = String(localized: "Das hat nicht geklappt.") } }
-                }.buttonStyle(.bordered).frame(minHeight: 44)
+                }.buttonStyle(SagaOutlineButtonStyle()).frame(minHeight: 44)
             }
         }
     }
@@ -365,7 +371,7 @@ struct SagaFeedbackCard: View {
         working = c; err = nil
         switch await m.undo(job: detail.id, change: c) {
         case .ok: break
-        case .changed(let u): changed[c] = u ?? ""
+        case .changed: break                                         // Hinweis steht im Modell (m.undoConflicts)
         case .failed(let e): err = e
         }
         working = nil

@@ -7,9 +7,13 @@ import SwiftUI
 
 extension Color {
     /// --ai-tint (Kartenflaeche der KI): hell #f7f0df, dunkel #1e2530
-    static let sagaTint = Color.adaptive(light: (0xF7, 0xF0, 0xDF), dark: (0x1E, 0x25, 0x30))
+    static let sagaTint = Color.adaptive(SagaPalette.tint)
     /// --ai-edge (Kante, >= 3:1): hell #a07c2c, dunkel #8f7440
-    static let sagaEdge = Color.adaptive(light: (0xA0, 0x7C, 0x2C), dark: (0x8F, 0x74, 0x40))
+    static let sagaEdge = Color.adaptive(SagaPalette.edge)
+    static func adaptive(_ c: (light: UInt32, dark: UInt32)) -> Color {
+        func t(_ x: UInt32) -> (Int, Int, Int) { (Int(x >> 16 & 0xFF), Int(x >> 8 & 0xFF), Int(x & 0xFF)) }
+        return adaptive(light: t(c.light), dark: t(c.dark))
+    }
     static func adaptive(light l: (Int, Int, Int), dark d: (Int, Int, Int)) -> Color {
         func c(_ x: (Int, Int, Int)) -> (CGFloat, CGFloat, CGFloat) { (CGFloat(x.0) / 255, CGFloat(x.1) / 255, CGFloat(x.2) / 255) }
         let a = c(l), b = c(d)
@@ -42,6 +46,23 @@ struct SagaCardStyle: ViewModifier {
     }
 }
 extension View { func sagaCard() -> some View { modifier(SagaCardStyle()) } }
+
+/// Umrandeter Knopf auf der KI-Karte ("Ja, ohne Ideen", "Rückgängig", 2515): Gold-Schrift (>= 4,5:1) und Kante
+/// sagaEdge (>= 3:1) auf sagaTint, hell und dunkel - .bordered legt eine graue Flaeche ohne Rand darunter (dunkel: Flaeche
+/// 1,48:1 zur Karte, Gold darauf 4,43:1 - beides unter AA). Kapsel wie die Systemknoepfe, gesperrt grau, Hoehe >= 44 pt.
+/// Pruefung: SagaTests (SagaPalette).
+struct SagaOutlineButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var enabled
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.body.weight(.medium))
+            .padding(.horizontal, 14).padding(.vertical, 7).frame(minHeight: 44)
+            .foregroundStyle(enabled ? Color.gold : Color.secondary)
+            .background(Capsule().fill(Color.gold.opacity(configuration.isPressed ? 0.16 : 0)))
+            .overlay(Capsule().strokeBorder(enabled ? Color.sagaEdge : Color.secondary.opacity(0.4), lineWidth: 1))
+            .contentShape(Capsule())
+    }
+}
 
 /// B1 KI-Kopf: Persona-Bild · "Marin · KI" · rechts Zustandswort oder Uhrzeit. VoiceOver: "Marin · KI, 14:12"
 struct SagaHead: View {
@@ -152,7 +173,7 @@ struct SagaIntroCard: View {
             Button { go() } label: { Text("Ja, mit Ideen").frame(maxWidth: .infinity, minHeight: 30) }.prominentGold().controlSize(.large)
         case .noIdeas:
             if intro.ideasAllowed {
-                Button { go() } label: { Text("Ja, ohne Ideen").frame(maxWidth: .infinity, minHeight: 30) }.buttonStyle(.bordered).controlSize(.large)
+                Button { go() } label: { Text("Ja, ohne Ideen").frame(maxWidth: .infinity, minHeight: 30) }.buttonStyle(SagaOutlineButtonStyle())
             } else {
                 Button { go() } label: { Text("Ja, einverstanden").frame(maxWidth: .infinity, minHeight: 30) }.prominentGold().controlSize(.large)
             }
@@ -391,10 +412,10 @@ struct SagaConversation: View {
             SagaHead()
             if let e = lj.error {
                 Label(e.isEmpty ? String(localized: "Das hat nicht geklappt.") : e, systemImage: "exclamationmark.circle").foregroundStyle(.orange)
-                Button("Schließen") { m.dismissLiveJob() }.buttonStyle(.bordered).frame(minHeight: 44)
+                Button("Schließen") { m.dismissLiveJob() }.buttonStyle(SagaOutlineButtonStyle()).frame(minHeight: 44)
             } else if lj.stopped {
                 Text("Abgebrochen – nichts ist passiert.").foregroundStyle(.secondary)
-                Button("Schließen") { m.dismissLiveJob() }.buttonStyle(.bordered).frame(minHeight: 44)
+                Button("Schließen") { m.dismissLiveJob() }.buttonStyle(SagaOutlineButtonStyle()).frame(minHeight: 44)
             } else {
                 HStack(spacing: 8) { ProgressView().controlSize(.small); Text(verbatim: lj.status).foregroundStyle(.secondary) }
                     .accessibilityElement(children: .combine)
@@ -413,7 +434,7 @@ struct SagaConversation: View {
             }
             if let e = m.liveError {
                 Label(e.isEmpty ? String(localized: "Das hat nicht geklappt.") : e, systemImage: "exclamationmark.circle").foregroundStyle(.orange)
-                Button("Schließen") { m.dismissLiveError() }.buttonStyle(.bordered).frame(minHeight: 44)
+                Button("Schließen") { m.dismissLiveError() }.buttonStyle(SagaOutlineButtonStyle()).frame(minHeight: 44)
             }
         }
         .sagaCard()

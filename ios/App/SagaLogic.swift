@@ -234,6 +234,14 @@ struct SagaStep: Identifiable, Equatable {
     }
 }
 
+/// Farben der KI-Karte (Web --ai-tint/--ai-edge, AccentColor) als 0xRRGGBB - Kontrast-Pruefung in SagaTests (2515)
+enum SagaPalette {
+    static let tint: (light: UInt32, dark: UInt32) = (0xF7F0DF, 0x1E2530)
+    static let edge: (light: UInt32, dark: UInt32) = (0xA07C2C, 0x8F7440)
+    /// AccentColor (Assets): Schrift umrandeter Knoepfe auf der Karte
+    static let gold: (light: UInt32, dark: UInt32) = (0x7A5A12, 0xC9A45C)
+}
+
 /// Plan (Ereignis "plan" und detail.plan) - ein Vertrag: Freigabe nur mit genau diesem plan_v + plan_hash
 struct SagaPlan: Equatable {
     var job: Int
@@ -245,7 +253,8 @@ struct SagaPlan: Equatable {
     var readText: String
     var readLabels: [String]
     var say: String?
-    var edited: Bool
+    /// "geändert – bitte neu freigeben" vom Server (2515: Detail und plan_view liefern es immer); nil = aelterer Server ohne Feld
+    var edited: Bool?
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let job = ShareJSON.int(d["job"]), let pv = ShareJSON.int(d["plan_v"]),
               let ph = ShareJSON.str(d["plan_hash"]) else { return nil }
@@ -256,11 +265,13 @@ struct SagaPlan: Equatable {
         readText = d["read_text"] as? String ?? ""
         readLabels = (d["read"] as? [Any] ?? []).compactMap { ($0 as? [String: Any]).flatMap { ShareJSON.str($0["label"]) } }
         say = ShareJSON.str(d["say"])
-        edited = ShareJSON.bool(d["edited"])
+        edited = d["edited"] == nil || d["edited"] is NSNull ? nil : ShareJSON.bool(d["edited"])
     }
     var editable: Bool { steps.contains { !$0.edit.isEmpty } }
-    /// "geändert – bitte neu freigeben": nach "Ändern" (edited) - auch nach dem Neuladen, das edited nicht mitliefert
-    var changed: Bool { edited || planV > 1 }
+    /// "geändert – bitte neu freigeben" (2515): edited vom Server; fehlt es (aeltere Server, Neuladen ohne edited), ab plan_v 2
+    var changed: Bool { edited ?? (planV > 1) }
+    /// ... und nach 409 stale immer (die Karte wechselt nie still zum neuen Plan)
+    func changed(afterStale: Bool) -> Bool { afterStale || changed }
 }
 
 /// Ausgang von POST /api/ai/jobs (SSE): genau eines von plan, ask, refuse, error (status davor nur als Text)
@@ -326,6 +337,8 @@ struct SagaChange: Identifiable, Equatable {
     var undone: Bool
     var canUndo: Bool
     var why: String?
+    /// Satz zu why (Systemtext, 2515; neuere Server) - unveraendert zeigen
+    var whyText: String?
     var versionURL: String?
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let id = ShareJSON.int(d["id"]) else { return nil }
@@ -335,6 +348,7 @@ struct SagaChange: Identifiable, Equatable {
         classText = d["class_text"] as? String ?? ""
         undone = ShareJSON.bool(d["undone"]); canUndo = ShareJSON.bool(d["can_undo"])
         why = ShareJSON.str(d["why"])
+        whyText = ShareJSON.str(d["why_text"])
         versionURL = SagaLogic.beforePath(ShareJSON.str(d["version_url"]))
     }
 }
@@ -595,6 +609,35 @@ enum SagaLogic {
         }
         return .failed(msg)
     }
+    /// Was nach einem 409 auf "Passt, los" geschieht (2515): stale -> neuer Plan mit Hinweis; state -> neu laden, Knopf aus
+    enum ApproveConflict: Equatable { case stale, settled }
+    static func approveConflict(_ r: ActionResult) -> ApproveConflict? {
+        switch r {
+        case .stale: return .stale
+        case .state: return .settled
+        default: return nil
+        }
+    }
+    /// Endzustaende aendern sich nicht mehr; alles andere (auch unbekannt/erledigt) beim (Wieder-)Verbinden einmal neu holen
+    static func resyncDue(_ state: String?) -> Bool { !["abgebrochen", "zurueckgenommen", "fehlgeschlagen"].contains(state ?? "") }
+    /// Nicht oefter als alle `gap` Sekunden (Verbinden und Vordergrund kommen oft zusammen)
+    static func resyncNow(last: Date?, now: Date, gap: TimeInterval = 2) -> Bool { last.map { now.timeIntervalSince($0) >= gap } ?? true }
+    /// "Alte Fassung ansehen" nur mit Adresse (bei Aufgaben fehlt sie). Kennt das Detail den Konflikt schon (why changed),
+    /// gilt seine version_url (aeltere Server schicken im 409 auch fuer Aufgaben eine Adresse); sonst die aus dem 409
+    static func oldVersionPath(conflict: String?, change: SagaChange?) -> String? {
+        let p = change?.why == "changed" ? change?.versionURL : conflict
+        return p.flatMap { $0.isEmpty ? nil : $0 }
+    }
+    /// Satz, warum eine Aenderung nicht (mehr) rueckgaengig geht: why_text bei changed | gone | no_undo | done (schon wie
+    /// vorher); fehlt er (aeltere Server), nil -> eigener Text bzw. nichts
+    static func whyNote(_ c: SagaChange?) -> String? {
+        guard let c, let t = c.whyText?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty,
+              ["changed", "gone", "no_undo", "done"].contains(c.why ?? "") else { return nil }
+        return t
+    }
+    /// 409 changed fuer diese Zeile (im Speicher oder schon vom Server markiert)
+    static func undoConflicted(_ conflicts: [Int: String], change: SagaChange?, id: Int) -> Bool { conflicts[id] != nil || change?.why == "changed" }
+
     /// "Alte Fassung holen": nur ein Pfad dieses Servers unter /api/ai/jobs/{id}/changes/{c}/before (nie fremde Hosts)
     static func beforePath(_ s: String?) -> String? {
         guard let s, !s.contains("://"), !s.hasPrefix("//"), !s.contains(".."), !s.contains("?"), !s.contains("#") else { return nil }

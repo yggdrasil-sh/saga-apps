@@ -109,6 +109,7 @@ final class LiveHub: ObservableObject {
             Task { await store?.calls.checkActive() }                     // verpasstes Klingeln nachholen
             Task { await store?.liveConnected() }                         // (wieder) verbunden: verpasste Seitenaenderungen nachholen
             Task { await store?.ustatus.load() }                          // 2.6: eigener Status (Ablauf/Ruhezeit verpasst)
+            Task { await store?.saga.resync() }                           // 2515: Auftraege (ai.job.changed verpasst)
         case "bye": return LiveReconnect.after(bye: d["reason"] as? String ?? "closed")
         case "reset":
             lastID = nil
