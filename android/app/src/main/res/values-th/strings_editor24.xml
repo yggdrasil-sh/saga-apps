@@ -91,6 +91,9 @@
     <string name="bm_category">หมวดหมู่</string>
     <string name="bm_icon">ไอคอน (ไม่บังคับ)</string>
     <string name="bm_icon_hint">ชื่อจาก selfh.st/icons เช่น nextcloud</string>
+    <string name="bm_logo_own">โลโก้ของตัวเอง</string>
+    <string name="bm_logo_remove">นำโลโก้ออก</string>
+    <string name="bm_logo_hint">ใช้แทนไอคอน อัปโหลดหรือเปลี่ยนโลโก้ได้ในเว็บ (การตั้งค่า → บุ๊กมาร์ก)</string>
     <string name="bm_add">เพิ่ม</string>
     <string name="bm_added">เพิ่มบุ๊กมาร์กแล้ว</string>
     <string name="bm_saved">บันทึกบุ๊กมาร์กแล้ว</string>

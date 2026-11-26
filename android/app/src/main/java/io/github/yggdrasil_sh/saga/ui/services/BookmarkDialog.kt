@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.services
 
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcon
+import io.github.yggdrasil_sh.saga.ui.theme.SagaIcons
 import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -38,7 +41,12 @@ fun BookmarkDialog(repo: SagaRepository, item: ServiceItem?, defaultCategory: St
     var name by remember { mutableStateOf(item?.name.orEmpty()) }
     var url by remember { mutableStateOf(item?.url.orEmpty()) }
     var category by remember { mutableStateOf(item?.category ?: defaultCategory) }
-    var icon by remember { mutableStateOf(item?.icon.orEmpty()) }
+    // Bugs-DB 2460: eigenes Logo (/files/<id>, nur im Web hochladbar) nicht als Pfad ins Feld - "Eigenes Logo" mit Vorschau,
+    // Feld gesperrt wie im Web; Entfernen gibt das Feld frei (leer = automatisches Symbol). Unveraendert gespeichert geht
+    // icon genau so zurueck, wie es kam (der Server prueft ein unveraendertes Logo nicht neu).
+    val start = remember { BookmarkLogic.splitIcon(item?.icon) }
+    var logo by remember { mutableStateOf(start.first) }
+    var icon by remember { mutableStateOf(start.second) }
     var error by remember { mutableStateOf<UiText?>(null) }
     var busy by remember { mutableStateOf(false) }
     var askDelete by remember { mutableStateOf(false) }
@@ -75,14 +83,24 @@ fun BookmarkDialog(repo: SagaRepository, item: ServiceItem?, defaultCategory: St
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
                 OutlinedTextField(category, { category = it.take(40) }, singleLine = true, label = { Text(stringResource(R.string.bm_category)) },
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-                OutlinedTextField(icon, { icon = it.take(64) }, singleLine = true, label = { Text(stringResource(R.string.bm_icon)) },
-                    supportingText = { Text(stringResource(R.string.bm_icon_hint)) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                if (logo.isNotEmpty() && item != null) {
+                    OutlinedTextField(stringResource(R.string.bm_logo_own), {}, readOnly = true, singleLine = true,
+                        label = { Text(stringResource(R.string.bm_icon)) },
+                        leadingIcon = { ServiceIcon(item, repo) },
+                        trailingIcon = {
+                            IconButton(onClick = { logo = "" }, enabled = !busy) { SagaIcon(SagaIcons.x, stringResource(R.string.bm_logo_remove)) }
+                        },
+                        supportingText = { Text(stringResource(R.string.bm_logo_hint)) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                } else {
+                    OutlinedTextField(icon, { icon = it.take(64) }, singleLine = true, label = { Text(stringResource(R.string.bm_icon)) },
+                        supportingText = { Text(stringResource(R.string.bm_icon_hint)) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                }
                 error?.let { Text(it.resolve(), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
             }
         },
         confirmButton = {
             SagaTextButton(enabled = urlOk && !busy, onClick = {
-                val body = BookmarkLogic.payload(name, url, category, icon)
+                val body = BookmarkLogic.payload(name, url, category, BookmarkLogic.iconToSave(logo, icon))
                 if (id == null) run({ repo.addBookmark(body) }, UiText.Res(R.string.r4t_link_added))
                 else run({ repo.updateBookmark(id, body) }, UiText.Res(R.string.r4t_link_saved))
             }) { Text(stringResource(if (item == null) R.string.bm_add else R.string.ev_save)) }

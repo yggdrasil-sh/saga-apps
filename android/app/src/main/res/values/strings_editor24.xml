@@ -91,6 +91,9 @@
     <string name="bm_category">Category</string>
     <string name="bm_icon">Icon (optional)</string>
     <string name="bm_icon_hint">Name from selfh.st/icons, e.g. nextcloud</string>
+    <string name="bm_logo_own">Custom logo</string>
+    <string name="bm_logo_remove">Remove logo</string>
+    <string name="bm_logo_hint">Replaces the icon. Upload or replace a logo on the web (Settings → Bookmarks).</string>
     <string name="bm_add">Add</string>
     <string name="bm_added">Bookmark added</string>
     <string name="bm_saved">Bookmark saved</string>

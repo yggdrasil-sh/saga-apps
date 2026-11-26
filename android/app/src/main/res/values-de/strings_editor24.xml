@@ -91,6 +91,9 @@
     <string name="bm_category">Kategorie</string>
     <string name="bm_icon">Symbol (optional)</string>
     <string name="bm_icon_hint">Name aus selfh.st/icons, z. B. nextcloud</string>
+    <string name="bm_logo_own">Eigenes Logo</string>
+    <string name="bm_logo_remove">Logo entfernen</string>
+    <string name="bm_logo_hint">Ersetzt das Symbol. Hochladen oder ersetzen im Web (Einstellungen → Lesezeichen).</string>
     <string name="bm_add">Hinzufügen</string>
     <string name="bm_added">Lesezeichen hinzugefügt</string>
     <string name="bm_saved">Lesezeichen gespeichert</string>

@@ -170,7 +170,7 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
 private val IconPlaque = Color(0xFFF6F3EC)
 
 @Composable
-private fun ServiceIcon(s: ServiceItem, repo: SagaRepository) {
+internal fun ServiceIcon(s: ServiceItem, repo: SagaRepository) {
     val letter: @Composable () -> Unit = {
         Box(
             Modifier.size(32.dp).clip(RoundedCornerShape(SagaRadius.s)).background(MaterialTheme.colorScheme.surfaceVariant),

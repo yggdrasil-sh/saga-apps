@@ -230,6 +230,16 @@ data class EventForm(
 object BookmarkLogic {
     fun idOf(s: ServiceItem): Long? = if (s.own) s.key.removePrefix("bm").toLongOrNull() else null
 
+    /** Bugs-DB 2460: eigenes Logo (Server 2.6, Bugs-DB 1530) = icon "/files/<24 hex>" - wie LOGO_RE im Server */
+    private val logoRe = Regex("/files/[0-9a-f]{24}")
+    fun isLogo(icon: String?): Boolean = icon != null && logoRe.matches(icon)
+
+    /** Startwerte des Dialogs: (gesetztes Logo oder "", Inhalt des Feldes Symbol) - das Logo steht nie als Pfad im Feld */
+    fun splitIcon(icon: String?): Pair<String, String> = if (isLogo(icon)) icon!! to "" else "" to icon.orEmpty()
+
+    /** Feld icon beim Speichern: gesetztes Logo unveraendert (der Server prueft es dann nicht neu), sonst das Symbolfeld */
+    fun iconToSave(logo: String, symbol: String): String = if (isLogo(logo)) logo else symbol
+
     fun payload(name: String, url: String, category: String, icon: String): JsonObject = buildJsonObject {
         put("name", name.trim())
         put("url", url.trim())

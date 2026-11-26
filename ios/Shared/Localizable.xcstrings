@@ -87163,6 +87163,108 @@
           }
         }
       }
+    },
+    "Eigenes Logo" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eigenes Logo"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom logo"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Logotipo propio"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Свой логотип"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โลโก้ของตัวเอง"
+          }
+        }
+      }
+    },
+    "Logo entfernen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Logo entfernen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove logo"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar logotipo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить логотип"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นำโลโก้ออก"
+          }
+        }
+      }
+    },
+    "Ersetzt das Symbol. Hochladen oder ersetzen im Web (Einstellungen → Lesezeichen)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ersetzt das Symbol. Hochladen oder ersetzen im Web (Einstellungen → Lesezeichen)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replaces the icon. Upload or replace a logo on the web (Settings → Bookmarks)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sustituye al icono. Súbelo o cámbialo en la web (Ajustes → Marcadores)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Заменяет значок. Загрузить или заменить логотип можно в веб-версии (Настройки → Закладки)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้แทนไอคอน อัปโหลดหรือเปลี่ยนโลโก้ได้ในเว็บ (การตั้งค่า → บุ๊กมาร์ก)"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -341,6 +341,7 @@ struct BookmarkSheet: View {
     @State private var name = ""
     @State private var category = ""
     @State private var icon = ""
+    @State private var logo = ""                 // Bugs-DB 2460: eigenes Logo (/files/<id>) - nie als Pfad im Feld Symbol
     @State private var err = ""
     @State private var busy = false
     private var editID: Int? { if case .edit(let s) = target { return BookmarkLogic.id(key: s.key) } else { return nil } }
@@ -360,12 +361,27 @@ struct BookmarkSheet: View {
                 Section { TextField("Name", text: $name) } header: { Text("Name") }
                 Section { TextField("Kategorie", text: $category) } header: { Text("Kategorie") }
                 Section {
-                    TextField("Symbol (optional)", text: $icon, prompt: Text(verbatim: "nextcloud"))
-                        #if os(iOS)
-                        .textInputAutocapitalization(.never)
-                        #endif
-                        .autocorrectionDisabled()
-                } header: { Text("Symbol (optional)") } footer: { Text("Name aus selfh.st/icons, z. B. nextcloud") }
+                    if !logo.isEmpty, case .edit(let s) = target {
+                        // Bugs-DB 2460: wie im Web gesperrt - Vorschau statt Pfad; Entfernen gibt das Feld frei (Hochladen nur im Web)
+                        HStack(spacing: 10) {
+                            ServiceIcon(icon: nil, iconURL: s.icon_url, name: s.name, size: 28)
+                            Text("Eigenes Logo")
+                            Spacer(minLength: 8)
+                            Button("Entfernen", role: .destructive) { logo = "" }
+                                .buttonStyle(.borderless).disabled(busy)
+                                .accessibilityLabel(Text("Logo entfernen"))
+                        }
+                    } else {
+                        TextField("Symbol (optional)", text: $icon, prompt: Text(verbatim: "nextcloud"))
+                            #if os(iOS)
+                            .textInputAutocapitalization(.never)
+                            #endif
+                            .autocorrectionDisabled()
+                    }
+                } header: { Text("Symbol (optional)") } footer: {
+                    if logo.isEmpty { Text("Name aus selfh.st/icons, z. B. nextcloud") }
+                    else { Text("Ersetzt das Symbol. Hochladen oder ersetzen im Web (Einstellungen → Lesezeichen).") }
+                }
                 if !err.isEmpty { Text(err).foregroundStyle(.red) }
             }
             .formStyle(.grouped)
@@ -387,7 +403,8 @@ struct BookmarkSheet: View {
         .onAppear {
             switch target {
             case .new(let c): category = BookmarkLogic.displayCategory(c ?? "Lesezeichen")
-            case .edit(let s): url = s.url; name = s.name; category = BookmarkLogic.displayCategory(s.category); icon = s.icon ?? ""
+            case .edit(let s): url = s.url; name = s.name; category = BookmarkLogic.displayCategory(s.category)
+                let start = BookmarkLogoLogic.split(s.icon); logo = start.logo; icon = start.symbol
             }
             #if DEBUG
             let d = UserDefaults.standard
@@ -400,7 +417,7 @@ struct BookmarkSheet: View {
 
     private func save() async {
         busy = true; err = ""
-        let body = BookmarkLogic.payload(name: String(name.prefix(80)), url: url, category: String(category.prefix(40)), icon: String(icon.prefix(64)))
+        let body = BookmarkLogic.payload(name: String(name.prefix(80)), url: url, category: String(category.prefix(40)), icon: BookmarkLogoLogic.iconToSave(logo: logo, symbol: String(icon.prefix(64))))
         do {
             if let id = editID { _ = try await store.api("api/bookmarks/\(id)", method: "PATCH", body: body) }
             else { _ = try await store.api("api/bookmarks", method: "POST", body: body) }

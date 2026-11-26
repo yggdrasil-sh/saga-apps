@@ -91,6 +91,9 @@
     <string name="bm_category">Categoría</string>
     <string name="bm_icon">Icono (opcional)</string>
     <string name="bm_icon_hint">Nombre de selfh.st/icons, p. ej. nextcloud</string>
+    <string name="bm_logo_own">Logotipo propio</string>
+    <string name="bm_logo_remove">Quitar logotipo</string>
+    <string name="bm_logo_hint">Sustituye al icono. Súbelo o cámbialo en la web (Ajustes → Marcadores).</string>
     <string name="bm_add">Añadir</string>
     <string name="bm_added">Marcador añadido</string>
     <string name="bm_saved">Marcador guardado</string>

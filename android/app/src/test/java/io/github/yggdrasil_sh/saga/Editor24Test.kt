@@ -417,6 +417,27 @@ class Editor24Test {
 
     // ---------------------------------------------------------------- Lesezeichen, Einbetten
 
+    /** Bugs-DB 2460: eigenes Logo nie als Pfad im Feld Symbol; unveraendert gespeichert geht icon genau so zurueck */
+    @Test
+    fun bookmarkLogo() {
+        val logo = "/files/0123456789abcdef01234567"
+        assertTrue(BookmarkLogic.isLogo(logo))
+        assertFalse(BookmarkLogic.isLogo("/files/0123456789ABCDEF01234567"))       // wie LOGO_RE im Server: nur Kleinbuchstaben
+        assertFalse(BookmarkLogic.isLogo("/files/0123"))
+        assertFalse(BookmarkLogic.isLogo("jellyfin"))
+        assertFalse(BookmarkLogic.isLogo(null))
+        assertEquals(logo to "", BookmarkLogic.splitIcon(logo))
+        assertEquals("" to "jellyfin", BookmarkLogic.splitIcon("jellyfin"))
+        assertEquals("" to "", BookmarkLogic.splitIcon(null))
+        // nichts geaendert -> icon unveraendert (der Server prueft es dann nicht neu)
+        val (l, sym) = BookmarkLogic.splitIcon(logo)
+        val body = BookmarkLogic.payload("Router", "https://router.example", "Lesezeichen", BookmarkLogic.iconToSave(l, sym))
+        assertEquals(logo, BlockDoc.str(body, "icon"))
+        // Logo entfernt -> Symbolfeld (leer = automatisch bzw. getipptes Symbol)
+        assertEquals("", BookmarkLogic.iconToSave("", sym))
+        assertEquals("openwrt", BlockDoc.str(BookmarkLogic.payload("R", "https://r.example", "L", BookmarkLogic.iconToSave("", "OpenWrt ")), "icon"))
+    }
+
     @Test
     fun bookmarksAndEmbeds() {
         assertEquals(7L, BookmarkLogic.idOf(ServiceItem(name = "x", own = true, key = "bm7")))

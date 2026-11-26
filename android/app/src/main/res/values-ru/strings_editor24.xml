@@ -91,6 +91,9 @@
     <string name="bm_category">Категория</string>
     <string name="bm_icon">Значок (необязательно)</string>
     <string name="bm_icon_hint">Имя из selfh.st/icons, например nextcloud</string>
+    <string name="bm_logo_own">Свой логотип</string>
+    <string name="bm_logo_remove">Удалить логотип</string>
+    <string name="bm_logo_hint">Заменяет значок. Загрузить или заменить логотип можно в веб-версии (Настройки → Закладки).</string>
     <string name="bm_add">Добавить</string>
     <string name="bm_added">Закладка добавлена</string>
     <string name="bm_saved">Закладка сохранена</string>
