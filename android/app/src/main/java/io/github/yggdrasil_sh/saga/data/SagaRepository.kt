@@ -226,6 +226,8 @@ class SagaRepository(
     val ai = io.github.yggdrasil_sh.saga.ai.AiService(this, scope)
     /** 2.6 (K-I 2269, K-B 2267): Ort "Saga" - Einwilligung, Gespraech, Auftraege, Meine Daten */
     val saga = io.github.yggdrasil_sh.saga.ai.SagaService(this)
+    /** 2.6 (2271): Tageszeile „Kurz gesagt“ auf „Heute“ (aitoday1) */
+    val todayLine = TodayLineService(this, scope)
 
     @Volatile private var pushChecked = false
 
@@ -1584,11 +1586,30 @@ class SagaRepository(
      * Sitzung; null = Server ohne tasksrc1
      */
     suspend fun widgetTasksWithSources(): TasksWithSources? {
-        if (!tasksSourcesOn) return null
+        val lineOn = TodayLine.FEATURE in serverFeatures.value
+        if (!tasksSourcesOn) {
+            widgetLine = if (lineOn) widgetLineViaSession() else null
+            return null
+        }
         val key = withContext(Dispatchers.IO) { secure.appKeyFor(settings.server.value) }
-        val text = if (key != null) api.request("GET", "api/app/today?sources=1", bearer = key)
+        // 2.6 (2271): line=1&tz= haengt die Tageszeile an (aeltere Server ignorieren beides)
+        val text = if (key != null) api.request("GET", TodayLine.widgetPath(tz()), bearer = key)
         else api.get("api/tasks?with_sources=1&today=${today()}&tz=${q(tz())}")
+        widgetLine = if (key != null) TodayLine.widgetLine(text) else if (lineOn) widgetLineViaSession() else null
         return withContext(Dispatchers.Default) { TaskSourcesLogic.parse(text) }
+    }
+
+    /** 2.6 (2271): Tageszeile aus der letzten Widget-Abfrage (null = aelterer Server, ohne "ai" oder Fehler) */
+    @Volatile var widgetLine: TodayLineState? = null
+        private set
+
+    /** Ohne App-Schluessel: Tageszeile ueber die Sitzung (Fehler -> keine Zeile, Aufgaben laden trotzdem) */
+    private suspend fun widgetLineViaSession(): TodayLineState? = try {
+        TodayLine.parse(api.get(TodayLine.path(tz())))?.takeIf { it.enabled }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        null
     }
 
     /** Widget: Zeile abhaken - POST api/app/tasks/src/{zeile}/done (App-Schluessel), sonst PATCH api/tasks/src/{zeile} */
@@ -1941,6 +1962,7 @@ class SagaRepository(
         tasks.value = emptyList()
         doneTasks.value = emptyList()
         todayEvents.value = emptyList()
+        todayLine.reset()                                                // 2.6 (2271): Tageszeile gehoert zum Konto
         // Homescreen-Widgets: Aufgaben, Termine und Seitentexte des bisherigen Kontos sofort entfernen
         appContext?.let { ctx ->
             withContext(Dispatchers.IO) { io.github.yggdrasil_sh.saga.widget.WidgetStore(ctx).clearContent(signedOut = true) }

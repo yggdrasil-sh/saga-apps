@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.6 Tageszeile „Kurz gesagt“ (Bugs-DB 2271): nur Knopf-/Schaltertexte; alle Inhalte kommen fertig vom Server -->
+<resources>
+    <string name="tl_not_now">ไม่ใช่ตอนนี้</string>
+    <string name="tl_options">ตัวเลือก</string>
+    <string name="tl_hide">ซ่อนบรรทัดประจำวัน</string>
+    <string name="tl_why">ทำไมฉันถึงเห็นสิ่งนี้</string>
+    <string name="tl_switch">บรรทัดประจำวันในหน้า “วันนี้”</string>
+    <string name="tl_ok">ตกลง</string>
+</resources>

@@ -191,6 +191,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             ) { refresh() }
         }
         scope.launch { repo.refresh() }
+        scope.launch { repo.todayLine.load() }                      // 2.6 (2271): Tageszeile mit
         readingTick++
     }
     Scaffold(topBar = {
@@ -265,6 +266,19 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                             res.getQuantityString(R.plurals.today_tasks_open, open, open),
                         ).joinToString(" · ")
                         Text(summary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = SagaSpace.xxs))
+                        // 2.6 (2271): Tageszeile „Kurz gesagt“ unter der Zahlenzeile - nennt Dinge beim Namen, oeffnet nur
+                        TodayLineBlock(repo, open = { n ->
+                            when (n) {
+                                is io.github.yggdrasil_sh.saga.data.TodayLineNav.Task -> {
+                                    val t = tasks.firstOrNull { it.id.toLong() == n.id }
+                                    if (t != null) editing = t else nav.push(Dest.Tasks)
+                                }
+                                is io.github.yggdrasil_sh.saga.data.TodayLineNav.Row -> nav.push(Dest.Page(n.id))
+                                is io.github.yggdrasil_sh.saga.data.TodayLineNav.Tasks -> nav.push(Dest.Tasks)
+                                is io.github.yggdrasil_sh.saga.data.TodayLineNav.Events -> nav.push(Dest.Events)
+                                is io.github.yggdrasil_sh.saga.data.TodayLineNav.Jobs -> { repo.todayLine.wantJobs.value = true; nav.top(Dest.Saga) }
+                            }
+                        })
                         QuickActions(
                             creating = creating, galleryOn = galleryOn,
                             onNewPage = { newPage() }, onTemplate = { galleryOpen = true },

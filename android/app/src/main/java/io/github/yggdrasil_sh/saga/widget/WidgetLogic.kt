@@ -57,6 +57,9 @@ data class TodaySnapshot(
     val eventsFailed: Boolean = false,
     /** 2.5 E2: Aufgaben fertig sortiert vom Server (mit Aufgabenquellen) - Reihenfolge nicht aendern */
     val ordered: Boolean = false,
+    /** 2.6 (2271): Tageszeile (fertiger Text vom Server, nur Mittel/Gross) und „Wartet auf dich“ (nur Gross) */
+    val line: String? = null,
+    val waiting: String? = null,
 )
 
 /** Zuletzt bekannter Stand einer Seite */

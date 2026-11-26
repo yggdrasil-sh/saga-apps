@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.6 Tageszeile „Kurz gesagt“ (Bugs-DB 2271): nur Knopf-/Schaltertexte; alle Inhalte kommen fertig vom Server -->
+<resources>
+    <string name="tl_not_now">Ahora no</string>
+    <string name="tl_options">Opciones</string>
+    <string name="tl_hide">Ocultar la línea del día</string>
+    <string name="tl_why">¿Por qué veo esto?</string>
+    <string name="tl_switch">Línea del día en «Hoy»</string>
+    <string name="tl_ok">Aceptar</string>
+</resources>

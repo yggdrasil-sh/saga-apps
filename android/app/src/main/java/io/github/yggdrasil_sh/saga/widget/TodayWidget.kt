@@ -117,6 +117,16 @@ private fun TodayContent(store: WidgetStore, @Suppress("UNUSED_PARAMETER") versi
             is WidgetUi.Content -> {
                 val s = snap ?: return@Column
                 StatusLine(ctx, ui, s.eventsFailed, store.doneFailed)
+                // 2.6 (2271): Tageszeile nur Mittel/Gross, „Wartet auf dich“ nur Gross; Klein wie bisher nur Zahlen
+                val lsize = io.github.yggdrasil_sh.saga.data.TodayLine.widgetSize(size.width.value, size.height.value)
+                val lineText = s.line?.takeIf { lsize == io.github.yggdrasil_sh.saga.data.TodayWidgetSize.MEDIUM || lsize == io.github.yggdrasil_sh.saga.data.TodayWidgetSize.LARGE }
+                val waitText = s.waiting?.takeIf { lsize == io.github.yggdrasil_sh.saga.data.TodayWidgetSize.LARGE }
+                val lineRows = (if (lineText != null) (if (lsize == io.github.yggdrasil_sh.saga.data.TodayWidgetSize.LARGE) 2 else 1) else 0) + (if (waitText != null) 1 else 0)
+                lineText?.let {
+                    Text(it, style = WidgetLook.text(), maxLines = if (lsize == io.github.yggdrasil_sh.saga.data.TodayWidgetSize.LARGE) 2 else 1,
+                        modifier = GlanceModifier.fillMaxWidth().padding(bottom = 2.dp))
+                }
+                waitText?.let { Text(it, style = WidgetLook.muted(), maxLines = 1, modifier = GlanceModifier.fillMaxWidth().padding(bottom = 2.dp)) }
                 if (ui.empty) {
                     Hint(ctx.getString(R.string.widget_today_empty))
                 } else {
@@ -124,7 +134,7 @@ private fun TodayContent(store: WidgetStore, @Suppress("UNUSED_PARAMETER") versi
                     val tasks = TodayLogic.tasks(s.tasks, today, hidden, s.ordered)
                     val status = ui.staleSince != null || s.eventsFailed || store.doneFailed
                     val head = if (wide) 72f else 56f                     // Kopf mit 48-dp-Knopf "+"
-                    val all = TodayLayout.rows(size.height.value, chromeDp = if (status) head + 16f else head)
+                    val all = TodayLayout.rows(size.height.value, chromeDp = (if (status) head + 16f else head) + lineRows * 18f)
                     val rows = if (evs.size + tasks.size > all) all - 1 else all       // Platz fuer "+N weitere"
                     val (ne, nt) = TodayLayout.split(rows.coerceAtLeast(1), evs.size, tasks.size)
                     evs.take(ne).forEach { EventRow(ctx, it, wide) }

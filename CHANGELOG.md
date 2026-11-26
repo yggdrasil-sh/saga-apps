@@ -26,7 +26,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   „Passt, los“/„Rückgängig“. Abgebrochene oder zurückgenommene Aufträge schließen ihre Mitteilung (`job.changed`
   `removed`). Beide Kanäle aus → Bereich „Aufträge“ beim Server aus. Glocken-Einträge `job.*` öffnen den Auftrag.
   Einstellungen › Saga › Mitteilungen wie iOS.
-
+- **iPhone/iPad, Android: Tageszeile „Kurz gesagt“ auf „Heute“** (2271, Server mit `aitoday1`, APP-API-KI §13): Oben
+  in „Heute“ nennt eine Zeile bis zu drei Dinge beim Namen – nächster Termin, wichtigste überfällige bzw. heute fällige
+  Aufgabe (auch aus Aufgabenquellen), abends der erste Termin von morgen – fertig vom Server, ohne KI berechnet
+  („Warum sehe ich das?“). Antippen öffnet nur (Aufgabe, Seite, Termine, Aufgaben), hakt nie ab. ✕ „Gerade nicht“ (auch
+  Wischen) lässt die Zeile bis morgen 05:00 auf allen Geräten ruhen; an ihrer Stelle die Pille „Ruhe bis morgen · Wieder
+  an“, nach dem dritten ✕ einmal die Frage „Tageszeile ausblenden?“. ⋯ „Tageszeile ausblenden“, Schalter „Tageszeile auf
+  „Heute““ unter Einstellungen › Saga. Darunter „Wartet auf dich“ (Aufträge) → Saga › Aufträge. Live über
+  `ai.today.changed` (400 ms entprellt). Widget „Heute“ Mittel/Groß mit der Zeile (iOS `privacySensitive`), Klein und
+  Sperrbildschirm wie bisher nur Zahlen. Ältere Server: nichts Neues zu sehen.
 - **Android: Aufträge nach dem Widerruf erreichbar** (Bugs-DB 2518, wie das Web): Ohne Einwilligung (widerrufen bzw.
   KI umgestellt) zeigt der Bereich „Saga“ bei vorhandenen Aufträgen weiter den Reiter „Aufträge“ – Liste, Detail,
   Abbrechen, Rückgängig – mit dem Hinweis, warum nichts Neues geht; Gespräch und „Als Auftrag“ bleiben gesperrt.

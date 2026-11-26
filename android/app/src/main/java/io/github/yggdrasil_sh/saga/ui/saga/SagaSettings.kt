@@ -131,6 +131,7 @@ fun SagaSettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) 
                     return@Column
                 }
                 if (p == null || s == null) return@Column
+                TodayLineSwitch(repo)                                   // 2.6 (2271): Tageszeile auf „Heute“
                 SagaSettingsBody(repo, nav, s, p, busy, ::put, onWithdraw = { askWithdraw = true }, onDelete = { askDelete = true },
                     adminOpen = adminOpen, onAdmin = { adminOpen = !adminOpen },
                     onExport = { fmt ->
@@ -351,4 +352,27 @@ private suspend fun shareExport(ctx: Context, name: String, bytes: ByteArray, mi
     val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", f)
     val send = Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     ctx.startActivity(Intent.createChooser(send, title).addFlags(if (ctx is android.app.Activity) 0 else Intent.FLAG_ACTIVITY_NEW_TASK))
+}
+
+/** 2.6 (2271): Schalter „Tageszeile auf „Heute““ (PUT /api/ai/today {on}) - nur, wenn der Server sie liefert (aitoday1) */
+@Composable
+private fun TodayLineSwitch(repo: SagaRepository) {
+    val svc = repo.todayLine
+    val st by svc.state.collectAsState()
+    val busy by svc.busy.collectAsState()
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) { svc.load() }
+    val s = st ?: return
+    val on = s.on ?: return
+    if (!s.enabled) return
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(on, enabled = !busy, role = Role.Switch) { v -> scope.launch { svc.setOn(v) } },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.tl_switch), style = MaterialTheme.typography.bodyLarge)
+            s.info?.takeIf { it.isNotEmpty() }?.let { Hint(it) }
+        }
+        Switch(checked = on, onCheckedChange = null)
+    }
 }

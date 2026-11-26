@@ -44,6 +44,7 @@ object WidgetSync {
             val tasks = withSrc?.let { TodayLogic.forSnapshot(it, today.plusDays(1)) }
                 ?: TodayLogic.forSnapshot(repo.json.decodeFromString(TasksResponse.serializer(), repo.api.get("api/tasks")).open, today.plusDays(1))
             val evs = repo.events(2)
+            val tl = repo.widgetLine                                  // 2.6 (2271): aus derselben Abfrage (line=1)
             val old = store.today()
             store.setToday(
                 TodaySnapshot(
@@ -55,6 +56,8 @@ object WidgetSync {
                     events = evs?.map { WEvent(it.summary, it.start, it.end, it.allday, it.color, it.location) }
                         ?: old?.events?.takeIf { old.day == today.toString() }.orEmpty(),
                     eventsFailed = evs == null,
+                    line = io.github.yggdrasil_sh.saga.data.TodayLine.widgetText(tl, io.github.yggdrasil_sh.saga.data.TodayWidgetSize.LARGE),
+                    waiting = io.github.yggdrasil_sh.saga.data.TodayLine.widgetWaiting(tl, io.github.yggdrasil_sh.saga.data.TodayWidgetSize.LARGE),
                 ),
             )
             store.doneFailed = false

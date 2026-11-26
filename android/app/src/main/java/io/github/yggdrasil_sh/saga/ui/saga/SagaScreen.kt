@@ -152,6 +152,9 @@ fun SagaScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             }
             SagaBar(s)
             var tab by rememberSaveable { mutableIntStateOf(0) }
+            // 2.6 (2271): „Wartet auf dich“ aus der Tageszeile -> Reiter „Aufträge“
+            val wantJobs by repo.todayLine.wantJobs.collectAsState()
+            LaunchedEffect(wantJobs) { if (wantJobs) { tab = 1; repo.todayLine.wantJobs.value = false } }
             if (!consent) {
                 // 2518 A1: ohne Einwilligung nur die Karte - hat die Person Auftraege, bleibt der Reiter "Auftraege"
                 // erreichbar (Liste, Detail, Abbrechen, Rueckgaengig); Gespraech und "Als Auftrag" bleiben gesperrt
