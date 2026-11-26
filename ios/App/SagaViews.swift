@@ -398,23 +398,22 @@ struct SagaConversation: View {
         }
     }
 
+    /// Eingabe: Feld ueber die volle Breite, darunter "Als Auftrag" (Umschalter mit Wort, 11.7) und der Knopf
     private var input: some View {
         let jobs = store.sagaStatus?.jobsOn == true
         let asJob = jobs && m.jobMode
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .bottom, spacing: 8) {
-                if jobs {                                              // "Als Auftrag": klarer Umschalter, kein Raten (11.7)
+        return VStack(alignment: .leading, spacing: 8) {
+            TextField(asJob ? String(localized: "Sag \(store.sagaName), was du brauchst …") : String(localized: "Schreib \(store.sagaName) …"),
+                      text: $q, axis: .vertical)
+                .lineLimit(1...5).textFieldStyle(.roundedBorder).focused($focused)
+                .accessibilityLabel(asJob ? Text("Auftrag an \(store.sagaName)") : Text("Nachricht an \(store.sagaName)"))
+                .disabled(busy)
+            HStack(spacing: 8) {
+                if jobs {                                              // klarer Umschalter, kein Raten, ob es ein Auftrag ist
                     Toggle(isOn: $m.jobMode) { Label("Als Auftrag", systemImage: "checklist") }
-                        .toggleStyle(.button).labelStyle(.iconOnly).controlSize(.large)
-                        .frame(minWidth: 44, minHeight: 44)
-                        .accessibilityLabel(Text("Als Auftrag"))
-                        .help(Text("Als Auftrag"))
+                        .toggleStyle(.button).controlSize(.large).frame(minHeight: 44).disabled(busy)
                 }
-                TextField(asJob ? String(localized: "Sag \(store.sagaName), was du brauchst …") : String(localized: "Schreib \(store.sagaName) …"),
-                          text: $q, axis: .vertical)
-                    .lineLimit(1...5).textFieldStyle(.roundedBorder).focused($focused)
-                    .accessibilityLabel(asJob ? Text("Auftrag an \(store.sagaName)") : Text("Nachricht an \(store.sagaName)"))
-                    .disabled(busy)
+                Spacer(minLength: 4)
                 if busy {
                     Button("Stopp") { if m.liveJob != nil { m.stopPlanning() } else { m.stop() } }.buttonStyle(.bordered).controlSize(.large)
                 } else {
@@ -422,7 +421,7 @@ struct SagaConversation: View {
                         let t = q; q = ""
                         if asJob { m.giveInThread(t) } else { m.send(t) }
                     }
-                    .prominentGold().controlSize(.large)
+                    .prominentGold().controlSize(.large).lineLimit(1)
                     .disabled(!AILogic.validQuestion(q, max: store.sagaStatus?.qMax ?? 1000) || !store.reachable)
                 }
             }
