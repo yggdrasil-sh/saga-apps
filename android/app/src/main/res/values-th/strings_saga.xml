@@ -75,6 +75,10 @@
     <string name="saga_f_location">สถานที่</string>
     <string name="saga_f_allday">ทั้งวัน</string>
     <string name="saga_job">งาน</string>
+    <string name="saga_as_job">เป็นงานที่มอบหมาย</string>
+    <string name="saga_job_label">งานสำหรับ %1$s</string>
+    <string name="saga_job_gone">งานที่มอบหมายนี้ไม่มีอยู่แล้ว</string>
+    <string name="saga_stopped">ยกเลิกแล้ว – ไม่มีอะไรเกิดขึ้น</string>
     <string name="saga_g_wait">ต้องการคุณ</string>
     <string name="saga_g_run">กำลังทำ</string>
     <string name="saga_g_done">เสร็จสิ้น</string>

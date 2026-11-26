@@ -23,6 +23,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -164,16 +165,21 @@ fun SagaScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 return@Column
             }
             val jobsOn = SagaLogic.jobsOn(s)
+            if (!jobsOn && session.asJob) session.asJob = false            // Server bietet keine Auftraege (mehr)
+            var tab by rememberSaveable { mutableIntStateOf(0) }
+            val thinking = thinkingText(AiPersonaLogic.effective(s))
+            val ready = stringResource(R.string.saga_plan_ready)
+            // Beispiel aus der leeren Auftrags-Liste: im Gespraech als Auftrag geben (11.7: ein Ort fuer die Eingabe)
+            val giveFromList: (String) -> Unit = { text -> tab = 0; session.asJob = true; session.giveInThread(text, thinking = thinking, ready = ready) }
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val wide = maxWidth >= 840.dp
                 if (wide && jobsOn) {
                     Row(Modifier.fillMaxSize()) {
                         Box(Modifier.weight(1f).fillMaxHeight()) { SagaTalk(repo, nav, s, session) }
                         VerticalDivider()
-                        Box(Modifier.width(420.dp).fillMaxHeight()) { SagaJobsPane(repo, nav, s, session) }
+                        Box(Modifier.width(420.dp).fillMaxHeight()) { SagaJobsPane(repo, nav, s, session, giveFromList) }
                     }
                 } else {
-                    var tab by rememberSaveable { mutableIntStateOf(0) }
                     Column(Modifier.fillMaxSize()) {
                         if (jobsOn) {
                             PrimaryTabRow(selectedTabIndex = tab) {
@@ -182,7 +188,7 @@ fun SagaScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                             }
                         }
                         Box(Modifier.weight(1f)) {
-                            if (tab == 1 && jobsOn) SagaJobsPane(repo, nav, s, session) else SagaTalk(repo, nav, s, session)
+                            if (tab == 1 && jobsOn) SagaJobsPane(repo, nav, s, session, giveFromList) else SagaTalk(repo, nav, s, session)
                         }
                     }
                 }
@@ -224,7 +230,11 @@ fun SagaTalk(repo: SagaRepository, nav: AppNavigator, st: AiStatus, session: Sag
             }
             itemsIndexed(session.turns, key = { i, _ -> i }) { _, t ->
                 Box(Modifier.widthIn(max = 760.dp).fillMaxWidth()) {
-                    if (t.me) MeBubble(t.text) else AiTurnCard(repo, st, t) { id -> nav.push(Dest.Page(id)) }
+                    when {
+                        t.me -> MeBubble(t.text, job = t.zug == "job")
+                        t.jobTurn -> JobTurnView(repo, nav, st, session, t)
+                        else -> AiTurnCard(repo, st, t) { id -> nav.push(Dest.Page(id)) }
+                    }
                 }
             }
             session.talkError?.let { e ->
@@ -240,23 +250,46 @@ fun SagaTalk(repo: SagaRepository, nav: AppNavigator, st: AiStatus, session: Sag
                 }
             }
         }
+        val jobsOn = SagaLogic.jobsOn(st)
+        val job = jobsOn && session.asJob
+        val thinking = thinkingText(AiPersonaLogic.effective(st))
+        val ready = stringResource(R.string.saga_plan_ready)
+        val submit = {
+            if (job) session.giveInThread(session.draft, thinking = thinking, ready = ready) else session.ask(session.draft)
+        }
         Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                val label = stringResource(R.string.saga_write_label, name)
-                OutlinedTextField(
-                    value = session.draft, onValueChange = { if (it.length <= (st.qMax.takeIf { q -> q > 0 } ?: 1000)) session.draft = it },
-                    placeholder = { Text(stringResource(R.string.saga_write_hint, name)) }, maxLines = 5, enabled = !session.talking,
-                    modifier = Modifier.weight(1f).semantics { contentDescription = label },
-                )
-                if (session.talking) {
-                    SagaOutlinedButton(onClick = { session.stopTalk() }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.saga_stop)) }
-                } else {
-                    SagaButton(onClick = { session.ask(session.draft) }, enabled = session.draft.isNotBlank(), modifier = Modifier.heightIn(min = 48.dp)) {
-                        Text(stringResource(R.string.saga_send))
+            Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+                // 11.7: Umschalter "Als Auftrag" - kein Raten, ob ein Satz ein Auftrag ist
+                if (jobsOn) {
+                    FilterChip(
+                        selected = job, onClick = { session.asJob = !session.asJob }, enabled = !session.talking,
+                        label = { Text(stringResource(R.string.saga_as_job)) },
+                        leadingIcon = if (job) ({ SagaIcon(SagaIcons.check, null) }) else null,
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val label = stringResource(if (job) R.string.saga_job_label else R.string.saga_write_label, name)
+                    val max = if (job) 1000 else (st.qMax.takeIf { q -> q > 0 } ?: 1000)
+                    OutlinedTextField(
+                        value = session.draft, onValueChange = { if (it.length <= max) session.draft = it },
+                        placeholder = { Text(stringResource(if (job) R.string.saga_jobs_hint else R.string.saga_write_hint, name)) },
+                        maxLines = 5, enabled = !session.talking,
+                        modifier = Modifier.weight(1f).semantics { contentDescription = label },
+                    )
+                    if (session.talking) {
+                        SagaOutlinedButton(onClick = { session.stopTalk() }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.saga_stop)) }
+                    } else {
+                        SagaButton(onClick = submit, enabled = session.draft.isNotBlank(), modifier = Modifier.heightIn(min = 48.dp)) {
+                            Text(stringResource(if (job) R.string.saga_give else R.string.saga_send))
+                        }
                     }
+                }
+                if (session.live.isNotBlank()) {
+                    Text(
+                        session.live, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2,
+                        overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                    )
                 }
             }
         }
@@ -276,10 +309,14 @@ private fun TalkEmpty(st: AiStatus, onAsk: (String) -> Unit) {
 }
 
 @Composable
-private fun MeBubble(text: String) {
+private fun MeBubble(text: String, job: Boolean = false) {
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
         Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.large, modifier = Modifier.widthIn(max = 560.dp)) {
-            Text(text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                // Bitte als Auftrag: kleine Marke "Auftrag" (Systemtext)
+                if (job) Text(stringResource(R.string.saga_job), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Text(text, style = MaterialTheme.typography.bodyLarge)
+            }
         }
     }
 }

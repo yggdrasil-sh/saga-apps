@@ -75,6 +75,10 @@
     <string name="saga_f_location">Ort</string>
     <string name="saga_f_allday">ganztägig</string>
     <string name="saga_job">Auftrag</string>
+    <string name="saga_as_job">Als Auftrag</string>
+    <string name="saga_job_label">Auftrag an %1$s</string>
+    <string name="saga_job_gone">Diesen Auftrag gibt es nicht mehr.</string>
+    <string name="saga_stopped">Abgebrochen – nichts ist passiert.</string>
     <string name="saga_g_wait">Wartet auf dich</string>
     <string name="saga_g_run">Läuft</string>
     <string name="saga_g_done">Fertig</string>

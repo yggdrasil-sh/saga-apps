@@ -130,7 +130,14 @@ data class JobPlan(
 )
 
 @Serializable
-data class ReportLine(val change: Long = 0, val text: String = "", val undone: Boolean = false, @SerialName("can_undo") val canUndo: Boolean = false)
+data class ReportLine(
+    val change: Long = 0,
+    val text: String = "",
+    /** nur der Gegenstand (neben "Rueckgaengig", ohne den Ergebnis-Satz zu wiederholen; neuere Server) */
+    val label: String? = null,
+    val undone: Boolean = false,
+    @SerialName("can_undo") val canUndo: Boolean = false,
+)
 
 @Serializable
 data class JobReport(val text: String = "", val lines: List<ReportLine> = emptyList())
@@ -413,11 +420,51 @@ object SagaLogic {
     }
 
     /** Body fuer "Als Aufgabe anlegen" (Rezept direkt, ohne Modell): nur die Kennung, nie ein Rezept-Objekt (RT-21) */
-    fun recipeBody(text: String, alt: RefuseAlternative): JsonObject = buildJsonObject {
+    fun recipeBody(text: String, alt: RefuseAlternative, thread: Boolean = false): JsonObject = buildJsonObject {
         put("text", text.ifBlank { " " })
         put("recipe", alt.recipe)
         alt.fields?.let { put("fields", it) }
+        if (thread) put("thread", true)
     }
+
+    /**
+     * POST /api/ai/jobs: Bitte, ggf. Wahl aus der Rueckfrage und Kontext-Seite. thread = aus dem Gespraech im Ort "Saga"
+     * (APP-API-KI 11.7): der Server legt die Bitte (me/job) und das Ergebnis (plan mit job_id, ask, refuse) als Zuege an.
+     */
+    fun giveBody(text: String, choice: String? = null, note: Long? = null, thread: Boolean = false): JsonObject = buildJsonObject {
+        put("text", text)
+        if (choice != null) put("choice", choice)
+        if (note != null && note > 0) put("context", buildJsonObject { put("note", note) })
+        if (thread) put("thread", true)
+    }
+
+    /** Zuege des Gespraechs, die Auftraege zeigen (11.7): plan (mit job_id), ask, refuse - sonst eine normale Antwort */
+    fun isJobTurn(t: ThreadTurn): Boolean = !t.me && ((t.zug == "plan" && t.jobId != null && t.jobId > 0) || t.zug == "ask" || t.zug == "refuse")
+
+    /** Rueckfrage im Verlauf: fields {choices, q} */
+    fun turnChoices(t: ThreadTurn): List<String> = (t.fields?.get("choices") as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+
+    /** urspruengliche Bitte eines ask-/refuse-Zugs (fields.q) */
+    fun turnRequest(t: ThreadTurn): String = str(t.fields?.get("q")).orEmpty()
+
+    /** Absage im Verlauf: fields.alternative {recipe, fields, label} */
+    fun turnAlternative(t: ThreadTurn): RefuseAlternative? {
+        val a = t.fields?.get("alternative") as? JsonObject ?: return null
+        val recipe = str(a["recipe"]) ?: return null
+        return RefuseAlternative(recipe, a["fields"] as? JsonObject, str(a["label"]))
+    }
+
+    /** Baustein fuer den jetzigen Stand eines Auftrags (11.7): Plan-Karte, Rueckmeldung oder Zustand + "Ansehen" */
+    enum class JobView { PLAN, REPORT, STATE }
+
+    fun jobView(d: JobDetail): JobView = when {
+        d.state == "wartet_ok" && d.plan != null && d.plan.steps.isNotEmpty() -> JobView.PLAN
+        d.state == "erledigt" || d.state == "zurueckgenommen" -> JobView.REPORT
+        else -> JobView.STATE
+    }
+
+    /** Rueckgaengig-Antwort: 200 {already, text} (Termin schon weg) -> diesen Satz zeigen, sonst null */
+    fun undoText(body: JsonObject): String? = str(body["text"])?.takeIf { it.isNotBlank() }
 
     /** Quellen eines KI-Zugs (fields.sources [{n, id, title}]) fuer [n] und "aus:" */
     fun turnSources(t: ThreadTurn): List<AiSource> = (t.fields?.get("sources") as? JsonArray).orEmpty().mapNotNull {

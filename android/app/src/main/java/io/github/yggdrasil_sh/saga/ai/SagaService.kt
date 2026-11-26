@@ -75,14 +75,11 @@ class SagaService(private val repo: SagaRepository) {
     // ------------------------------------------------------------------ Auftraege
 
     /** POST /api/ai/jobs (SSE): status, dann plan | ask | refuse | error */
-    fun give(text: String, choice: String? = null, note: Long? = null): Flow<JobStreamEvent> = jobStream(buildJsonObject {
-        put("text", text)
-        if (choice != null) put("choice", choice)
-        if (note != null && note > 0) put("context", buildJsonObject { put("note", note) })
-    })
+    fun give(text: String, choice: String? = null, note: Long? = null, thread: Boolean = false): Flow<JobStreamEvent> =
+        jobStream(SagaLogic.giveBody(text, choice, note, thread))
 
-    /** Rezept direkt (refuse.alternative, z. B. "Als Aufgabe anlegen") */
-    fun giveRecipe(text: String, alt: RefuseAlternative): Flow<JobStreamEvent> = jobStream(SagaLogic.recipeBody(text, alt))
+    /** Rezept direkt (refuse.alternative, z. B. "Als Aufgabe anlegen"); thread = aus dem Gespraech (Zuege im Verlauf) */
+    fun giveRecipe(text: String, alt: RefuseAlternative, thread: Boolean = false): Flow<JobStreamEvent> = jobStream(SagaLogic.recipeBody(text, alt, thread))
 
     private fun jobStream(body: JsonObject): Flow<JobStreamEvent> = sse("api/ai/jobs", body).mapNotNull { s ->
         when (s) {

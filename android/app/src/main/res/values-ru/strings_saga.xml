@@ -75,6 +75,10 @@
     <string name="saga_f_location">Место</string>
     <string name="saga_f_allday">весь день</string>
     <string name="saga_job">Поручение</string>
+    <string name="saga_as_job">Как поручение</string>
+    <string name="saga_job_label">Поручение для %1$s</string>
+    <string name="saga_job_gone">Этого поручения больше нет.</string>
+    <string name="saga_stopped">Отменено — ничего не произошло.</string>
     <string name="saga_g_wait">Нужен ты</string>
     <string name="saga_g_run">Выполняется</string>
     <string name="saga_g_done">Завершено</string>

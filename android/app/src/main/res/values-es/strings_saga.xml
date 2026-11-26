@@ -75,6 +75,10 @@
     <string name="saga_f_location">Lugar</string>
     <string name="saga_f_allday">todo el día</string>
     <string name="saga_job">Encargo</string>
+    <string name="saga_as_job">Como encargo</string>
+    <string name="saga_job_label">Encargo para %1$s</string>
+    <string name="saga_job_gone">Este encargo ya no existe.</string>
+    <string name="saga_stopped">Cancelado: no ha pasado nada.</string>
     <string name="saga_g_wait">Te necesita</string>
     <string name="saga_g_run">En curso</string>
     <string name="saga_g_done">Terminados</string>

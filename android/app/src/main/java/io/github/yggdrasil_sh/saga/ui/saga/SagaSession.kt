@@ -12,6 +12,8 @@ import io.github.yggdrasil_sh.saga.ai.JobPlan
 import io.github.yggdrasil_sh.saga.ai.JobStreamEvent
 import io.github.yggdrasil_sh.saga.ai.RefuseAlternative
 import io.github.yggdrasil_sh.saga.ai.SagaLogic
+import io.github.yggdrasil_sh.saga.ai.ThreadTurn
+import io.github.yggdrasil_sh.saga.data.ApiException
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.util.UiText
 import kotlinx.coroutines.CancellationException
@@ -22,26 +24,40 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
-/** Ein Zug im Gespraech (eigene Frage oder KI-Antwort); die laufende Antwort waechst ueber delta */
-class TalkTurn(val me: Boolean, text: String, sources: List<AiSource> = emptyList(), zug: String? = null, val created: Double? = null) {
+/**
+ * Ein Zug im Gespraech: eigene Frage bzw. Bitte (zug "job"), KI-Antwort, oder ein Auftrags-Zug (APP-API-KI 11.7):
+ * "plan" (job_id; gezeigt wird immer der jetzige Stand aus GET /api/ai/jobs/{id}), "ask" (Rueckfrage mit Chips), "refuse"
+ * (Absage mit Alternative). Lokal waehrend des Planens: "wait" (Status), bei Fehlern "job_error" (der Server legt dann keinen
+ * Zug an).
+ */
+class TalkTurn(
+    val me: Boolean, text: String, sources: List<AiSource> = emptyList(), zug: String? = null, val created: Double? = null,
+    jobId: Long? = null, val choices: List<String> = emptyList(), val request: String = "", val alternative: RefuseAlternative? = null,
+) {
     var text by mutableStateOf(text)
     var sources by mutableStateOf(sources)
     var zug by mutableStateOf(zug)
     var running by mutableStateOf(false)
     var error by mutableStateOf<UiText?>(null)
-}
+    var jobId by mutableStateOf(jobId)
+    /** Plan direkt aus dem Strom (bevor das Detail geladen ist) */
+    var plan by mutableStateOf<JobPlan?>(null)
+    /** jetziger Stand des Auftrags */
+    var detail by mutableStateOf<JobDetail?>(null)
+    /** Auftrag gibt es nicht mehr (404) */
+    var gone by mutableStateOf(false)
+    var stopped by mutableStateOf(false)
 
-/** Buehne ueber der Auftrags-Liste: was nach "Auftrag geben" gerade zu sehen ist */
-sealed interface JobStage {
-    data class Thinking(val text: String) : JobStage
-    data class Plan(val plan: JobPlan) : JobStage
-    data class Ask(val question: String, val choices: List<String>, val text: String) : JobStage
-    data class Refuse(val text: String, val alternative: RefuseAlternative?, val request: String) : JobStage
-    data class Failed(val error: String) : JobStage
-    /** Karte nach "Passt, los" / "Lieber nicht": Zustandswort + Satz (klein) */
-    data class Small(val job: Long, val stateText: String, val text: String) : JobStage
-    /** Rueckmeldung an Ort und Stelle (Ergebnis zuerst), sobald ein freigegebener Auftrag fertig ist */
-    data class Feedback(val detail: JobDetail) : JobStage
+    val jobTurn: Boolean get() = !me && zug in JOB_ZUEGE
+
+    companion object {
+        val JOB_ZUEGE = setOf("plan", "ask", "refuse", "wait", "job_error")
+
+        fun of(x: ThreadTurn): TalkTurn = TalkTurn(
+            x.me, x.text, SagaLogic.turnSources(x), x.zug, x.created, x.jobId,
+            SagaLogic.turnChoices(x), SagaLogic.turnRequest(x), SagaLogic.turnAlternative(x),
+        )
+    }
 }
 
 /**
@@ -58,18 +74,15 @@ class SagaSession(private val repo: SagaRepository) {
     var history by mutableStateOf(false)
     var draft by mutableStateOf("")
     var talking by mutableStateOf(false)
+    /** Umschalter "Als Auftrag" (11.7): aus = Frage (POST /api/ai/thread), an = Auftrag (POST /api/ai/jobs, thread: true) */
+    var asJob by mutableStateOf(false)
     private var talkJob: Job? = null
 
-    // ---- Auftraege
-    var jobDraft by mutableStateOf("")
-    var stage by mutableStateOf<JobStage?>(null)
-    var giving by mutableStateOf(false)
-    private var giveJob: Job? = null
+    // ---- Auftraege (Liste)
     var groups by mutableStateOf<List<JobGroup>?>(null)
     var jobsError by mutableStateOf<UiText?>(null)
     /** Ansage fuer TalkBack (role=status, hoeflich) */
     var live by mutableStateOf("")
-    private val watch = HashSet<Long>()
 
     init {
         scope.launch {
@@ -78,20 +91,15 @@ class SagaSession(private val repo: SagaRepository) {
                     "ai.job.changed" -> {
                         val id = ev.long("id") ?: return@collect
                         refreshJobs()
-                        val st = ev.str("state")
-                        if (id in watch && st != null && st != "laeuft") {
-                            watch.remove(id)
-                            try {
-                                val d = repo.saga.job(id)
-                                stage = JobStage.Feedback(d)
-                                live = d.report?.text ?: d.stateText
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (_: Exception) {
-                            }
+                        turns.filter { it.jobId == id && it.zug == "plan" }.forEach { t ->
+                            val before = t.detail?.state
+                            loadJob(t) { d -> if (before != null && before != d.state) live = d.report?.text ?: d.stateText }
                         }
                     }
-                    "reset" -> if (groups != null) refreshJobs()
+                    "reset" -> {
+                        if (groups != null) refreshJobs()
+                        turns.filter { it.zug == "plan" && it.jobId != null }.forEach { loadJob(it) }
+                    }
                 }
             }
         }
@@ -107,7 +115,8 @@ class SagaSession(private val repo: SagaRepository) {
                 val t = repo.saga.thread()
                 if (!talking) {
                     turns.clear()
-                    t.turns.forEach { x -> turns.add(TalkTurn(x.me, x.text, SagaLogic.turnSources(x), x.zug, x.created)) }
+                    t.turns.forEach { x -> turns.add(TalkTurn.of(x)) }
+                    turns.filter { it.zug == "plan" && it.jobId != null }.forEach { loadJob(it) }
                 }
                 history = t.history
                 talkError = null
@@ -117,6 +126,24 @@ class SagaSession(private val repo: SagaRepository) {
                 talkError = repo.friendly(e)
             } finally {
                 talkLoaded = true
+            }
+        }
+    }
+
+    /** jetzigen Stand eines Auftrags-Zugs holen (Plan-Karte, Rueckmeldung oder Zustand) */
+    fun loadJob(t: TalkTurn, then: (JobDetail) -> Unit = {}) {
+        val id = t.jobId ?: return
+        scope.launch {
+            try {
+                val d = repo.saga.job(id)
+                t.detail = d
+                t.gone = false
+                then(d)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: ApiException) {
+                if (e.code == 404) t.gone = true
+            } catch (_: Exception) {
             }
         }
     }
@@ -158,6 +185,54 @@ class SagaSession(private val repo: SagaRepository) {
         }
     }
 
+    /**
+     * Auftrag aus dem Gespraech (11.7): eigener Zug "Auftrag" (said = was die Person getippt bzw. gewaehlt hat), dann der
+     * Strom von POST /api/ai/jobs mit thread: true - plan (Plan-Karte), ask (Rueckfrage), refuse (Absage) oder Fehler.
+     */
+    fun giveInThread(text: String, choice: String? = null, recipe: RefuseAlternative? = null, said: String? = null, thinking: String, ready: String) {
+        val t = text.trim()
+        if ((t.isEmpty() && recipe == null) || talking) return
+        turns.add(TalkTurn(true, said ?: t, zug = "job"))
+        val ai = TalkTurn(false, thinking, zug = "wait", created = System.currentTimeMillis() / 1000.0).apply { running = true }
+        turns.add(ai)
+        if (choice == null && recipe == null) draft = ""
+        talking = true
+        talkJob = scope.launch {
+            try {
+                val flow = if (recipe != null) repo.saga.giveRecipe(t, recipe, thread = true) else repo.saga.give(t, choice, thread = true)
+                flow.collect { ev ->
+                    when (ev) {
+                        is JobStreamEvent.Status -> if (ev.text.isNotBlank()) ai.text = ev.text
+                        is JobStreamEvent.Plan -> {
+                            ai.jobId = ev.plan.job
+                            ai.plan = ev.plan
+                            ai.text = ev.plan.title
+                            ai.zug = "plan"
+                            live = ready
+                            refreshJobs()
+                        }
+                        is JobStreamEvent.Ask -> replace(ai, TalkTurn(false, ev.question, zug = "ask", created = ai.created, choices = ev.choices, request = t))
+                        is JobStreamEvent.Refuse -> replace(ai, TalkTurn(false, ev.text, zug = "refuse", created = ai.created, request = t, alternative = ev.alternative))
+                        is JobStreamEvent.Failed -> {
+                            ai.zug = "job_error"
+                            ai.text = ""
+                            ai.error = if (ev.error.isNotBlank()) UiText.Raw(ev.error) else null
+                        }
+                    }
+                }
+            } finally {
+                ai.running = false
+                talking = false
+                if (ai.zug == "wait") ai.stopped = true                   // gestoppt oder Strom ohne Ergebnis
+            }
+        }
+    }
+
+    private fun replace(old: TalkTurn, new: TalkTurn) {
+        val i = turns.indexOf(old)
+        if (i >= 0) turns[i] = new else turns.add(new)
+    }
+
     fun stopTalk() {
         talkJob?.cancel()
     }
@@ -175,7 +250,7 @@ class SagaSession(private val repo: SagaRepository) {
         }
     }
 
-    // ------------------------------------------------------------------ Auftraege
+    // ------------------------------------------------------------------ Auftraege (Liste)
 
     fun refreshJobs() {
         scope.launch {
@@ -188,43 +263,6 @@ class SagaSession(private val repo: SagaRepository) {
                 jobsError = repo.friendly(e)
             }
         }
-    }
-
-    fun give(text: String, choice: String? = null, recipe: RefuseAlternative? = null, thinking: String) {
-        val t = text.trim()
-        if ((t.isEmpty() && recipe == null) || giving) return
-        giving = true
-        stage = JobStage.Thinking(thinking)
-        giveJob = scope.launch {
-            try {
-                val flow = if (recipe != null) repo.saga.giveRecipe(t, recipe) else repo.saga.give(t, choice)
-                flow.collect { ev ->
-                    when (ev) {
-                        is JobStreamEvent.Status -> if (ev.text.isNotBlank()) stage = JobStage.Thinking(ev.text)
-                        is JobStreamEvent.Plan -> {
-                            stage = JobStage.Plan(ev.plan)
-                            jobDraft = ""
-                            refreshJobs()
-                        }
-                        is JobStreamEvent.Ask -> stage = JobStage.Ask(ev.question, ev.choices, t)
-                        is JobStreamEvent.Refuse -> stage = JobStage.Refuse(ev.text, ev.alternative, t)
-                        is JobStreamEvent.Failed -> stage = if (ev.consentNeeded) null else JobStage.Failed(ev.error)
-                    }
-                }
-            } finally {
-                giving = false
-                if (stage is JobStage.Thinking) stage = null            // gestoppt oder Strom ohne Ergebnis
-            }
-        }
-    }
-
-    fun stopGive() {
-        giveJob?.cancel()
-    }
-
-    /** Nach "Passt, los": Rueckmeldung an Ort und Stelle, sobald der Auftrag nicht mehr laeuft */
-    fun watch(job: Long) {
-        watch.add(job)
     }
 }
 

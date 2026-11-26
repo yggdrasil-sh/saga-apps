@@ -8,6 +8,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Neu
 
+- **Android: „Melden“ für KI-Ausgaben** (Bugs-DB 2507, APP-API-KI §6): Unter jeder fertigen KI-Antwort ein
+  unauffälliger Knopf „Melden …“ – im Gespräch des Bereichs „Saga“, an Plan-Karte und Rückmeldung (`where: job`), bei
+  „Frag deine Seiten“ (`ask`) und den Seiten-Hilfen (`page`). Dialog wie im Web: Grund, „Antwort der KI mitschicken“
+  (vorbelegt, änderbar), Hinweis an die Admins; bleibt bei Fehlern (zu viele Meldungen, Netz) offen, danach „Gemeldet“.
+  KI im Chat: die eigene KI-Antwort mit passendem Beleg über „KI-Antwort melden …“ im Nachrichtenmenü.
+- **Android: Aufträge im Gespräch** (APP-API-KI §11.7, wie das Web): Umschalter „Als Auftrag“ am Eingabefeld des
+  Gesprächs; die Bitte und das Ergebnis stehen im Verlauf und zeigen immer den jetzigen Stand des Auftrags (Plan-Karte,
+  Rückmeldung mit „Rückgängig“ oder Zustand + „Ansehen“), Rückfrage mit Chips, Absage mit „Als Aufgabe anlegen“. Der
+  Reiter „Aufträge“ zeigt Liste und Detail. Englisch heißen Aufträge jetzt „Jobs“ (Aufgaben bleiben „Tasks“). Rückgängig
+  eines inzwischen gelöschten Termins meldet „Schon erledigt – …“.
 - **Android: Bereich „Saga“ – Gespräch, Aufträge und „Meine Daten“** (Bugs-DB 2269 K-I Apps, 2267 K-B „Rückmeldung in
   der App“, Konzept K10/K11/K19, M1/M3/M4/M7): Neues Navigationsziel „Saga“ (untere Leiste und Rail hinter „Chats“, feste
   Seitenleiste unter „Heute“), nicht in der Chat-Liste; Kopf „{Persona} · KI“ mit Persona-Bild. Oben die feste Leiste

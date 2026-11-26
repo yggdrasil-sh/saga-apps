@@ -200,7 +200,6 @@ fun SagaSettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) 
 private fun rememberedSessionReset(repo: SagaRepository) {
     val s = SagaSessions.of(repo, "${repo.server.value}|${repo.account.value}")
     s.turns.clear()
-    s.stage = null
     s.refreshJobs()
 }
 

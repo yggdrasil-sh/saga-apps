@@ -99,47 +99,18 @@ private fun rememberOnline(): Boolean {
     return on
 }
 
-/** Reiter "Auftraege": Eingabe, Buehne (Plan-Karte, Rueckfrage, Absage, Rueckmeldung) und Liste in 4 Gruppen */
+/**
+ * Reiter "Auftraege" (11.7): Liste in 4 Gruppen + Detail; gegeben wird ein Auftrag im Gespraech (Umschalter "Als Auftrag").
+ * Leer: Satz + Beispiel-Chip - der Chip gibt den Auftrag im Gespraech (onGive).
+ */
 @Composable
-fun SagaJobsPane(repo: SagaRepository, nav: AppNavigator, st: AiStatus, session: SagaSession) {
+fun SagaJobsPane(repo: SagaRepository, nav: AppNavigator, st: AiStatus, session: SagaSession, onGive: (String) -> Unit) {
     LaunchedEffect(session) { session.refreshJobs() }
-    val name = sagaName(st)
-    val thinking = thinkingText(AiPersonaLogic.effective(st))
     LazyColumn(
         Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
-        item(key = "give") {
-            Column(w, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                val hint = stringResource(R.string.saga_jobs_hint, name)
-                OutlinedTextField(
-                    value = session.jobDraft, onValueChange = { if (it.length <= 1000) session.jobDraft = it },
-                    placeholder = { Text(hint) }, maxLines = 4, enabled = !session.giving,
-                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = hint },
-                )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    if (session.giving) {
-                        SagaOutlinedButton(onClick = { session.stopGive() }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.saga_stop)) }
-                    } else {
-                        SagaButton(
-                            onClick = { session.give(session.jobDraft, thinking = thinking) }, enabled = session.jobDraft.isNotBlank(),
-                            modifier = Modifier.heightIn(min = 48.dp),
-                        ) { Text(stringResource(R.string.saga_give)) }
-                    }
-                }
-                // TalkBack: Statuswechsel hoeflich (role=status)
-                if (session.live.isNotBlank()) {
-                    Text(
-                        session.live, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-                    )
-                }
-            }
-        }
-        session.stage?.let { stage ->
-            item(key = "stage") { Box(w) { JobStageView(repo, nav, st, session, stage) } }
-        }
         val groups = session.groups
         session.jobsError?.let { e -> item(key = "jerr") { Text(e.resolve(), color = MaterialTheme.colorScheme.error, modifier = w) } }
         if (groups != null) {
@@ -148,7 +119,7 @@ fun SagaJobsPane(repo: SagaRepository, nav: AppNavigator, st: AiStatus, session:
                     Column(w, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(stringResource(R.string.saga_jobs_empty), style = MaterialTheme.typography.bodyLarge)
                         val ex = stringResource(R.string.saga_jobs_ex)
-                        AssistChip(onClick = { session.jobDraft = ex; session.give(ex, thinking = thinking) }, label = { Text(ex) }, modifier = Modifier.heightIn(min = 48.dp))
+                        AssistChip(onClick = { onGive(ex) }, label = { Text(ex) }, modifier = Modifier.heightIn(min = 48.dp))
                     }
                 }
             } else {
@@ -215,71 +186,89 @@ private fun JobRow(group: String, title: String, line: String, modifier: Modifie
     }
 }
 
-/** Buehne nach "Auftrag geben" */
+/**
+ * Auftrags-Zug im Gespraech (11.7): waehrend des Planens der Status; danach genau ein Baustein - Plan-Karte (wartet_ok),
+ * Rueckmeldung (erledigt/zurueckgenommen), sonst Zustandswort + Titel/Grund + "Ansehen"; Rueckfrage mit Chips; Absage mit
+ * Alternative und "Anders formulieren". Dieselben Bausteine wie im Detail.
+ */
 @Composable
-private fun JobStageView(repo: SagaRepository, nav: AppNavigator, st: AiStatus, session: SagaSession, stage: JobStage) {
+fun JobTurnView(repo: SagaRepository, nav: AppNavigator, st: AiStatus, session: SagaSession, t: TalkTurn) {
     val thinking = thinkingText(AiPersonaLogic.effective(st))
-    when (stage) {
-        is JobStage.Thinking -> SagaCard {
-            SagaHead(st)
-            Text(stage.text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-        }
-        is JobStage.Plan -> {
-            val ready = stringResource(R.string.saga_plan_ready)
-            LaunchedEffect(stage.plan.job, stage.plan.planV) { session.live = ready }
-            PlanCard(
-                repo, st, stage.plan,
-                onPlan = { p -> session.stage = JobStage.Plan(p); session.refreshJobs() },
-                onDone = { job, stateText, text, approved ->
-                    session.stage = JobStage.Small(job, stateText, text)
-                    session.live = text.ifBlank { stateText }
-                    if (approved) session.watch(job)
-                    session.refreshJobs()
-                },
+    val ready = stringResource(R.string.saga_plan_ready)
+    val asTask = stringResource(R.string.saga_as_task)
+    when (t.zug) {
+        "wait" -> SagaCard {
+            SagaHead(st, extra = clockText(t.created))
+            Text(
+                if (t.stopped) stringResource(R.string.saga_stopped) else t.text, style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
-        is JobStage.Ask -> SagaCard {
-            SagaHead(st)
-            Text(stage.question, style = MaterialTheme.typography.bodyLarge)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                stage.choices.forEach { c ->
-                    AssistChip(onClick = { session.give(stage.text, choice = c, thinking = thinking) }, label = { Text(c) }, modifier = Modifier.heightIn(min = 48.dp))
-                }
-            }
-        }
-        is JobStage.Refuse -> SagaCard {
-            SagaHead(st)
-            Text(stage.text, style = MaterialTheme.typography.bodyLarge)
-            stage.alternative?.let { alt ->
-                SagaButton(
-                    onClick = { session.give(stage.request, recipe = alt, thinking = thinking) },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                ) { Text(alt.label ?: stringResource(R.string.saga_as_task)) }
-            }
-            SagaTextButton(onClick = { session.stage = null; session.jobDraft = stage.request }, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(stringResource(R.string.saga_rephrase))
-            }
-        }
-        is JobStage.Failed -> SagaCard {
-            SagaHead(st)
+        "job_error" -> SagaCard {
+            SagaHead(st, extra = clockText(t.created))
             Text(
-                stage.error.ifBlank { stringResource(R.string.saga_failed) }, color = MaterialTheme.colorScheme.error,
+                t.error?.resolve() ?: stringResource(R.string.saga_failed), color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
-        is JobStage.Small -> SagaCard(Modifier.clickable(role = Role.Button) { nav.push(Dest.SagaJob(stage.job)) }) {
-            SagaHead(st, extra = stage.stateText)
-            if (stage.text.isNotBlank()) Text(stage.text, style = MaterialTheme.typography.bodyLarge)
-        }
-        is JobStage.Feedback -> ReportCard(repo, st, stage.detail, onOpen = { nav.push(Dest.SagaJob(stage.detail.id)) }) {
-            session.scope.launch {
-                try {
-                    session.stage = JobStage.Feedback(repo.saga.job(stage.detail.id))
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
+        "ask" -> SagaCard {
+            SagaHead(st, extra = clockText(t.created))
+            Text(t.text, style = MaterialTheme.typography.bodyLarge)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                t.choices.forEach { c ->
+                    AssistChip(
+                        onClick = { session.giveInThread(t.request, choice = c, said = c, thinking = thinking, ready = ready) },
+                        enabled = !session.talking, label = { Text(c) }, modifier = Modifier.heightIn(min = 48.dp),
+                    )
                 }
-                session.refreshJobs()
+            }
+        }
+        "refuse" -> SagaCard {
+            SagaHead(st, extra = clockText(t.created))
+            Text(t.text, style = MaterialTheme.typography.bodyLarge)
+            t.alternative?.let { alt ->
+                val label = alt.label ?: asTask
+                SagaButton(
+                    onClick = { session.giveInThread(t.request.ifBlank { " " }, recipe = alt, said = label, thinking = thinking, ready = ready) },
+                    enabled = !session.talking, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                ) { Text(label) }
+            }
+            SagaTextButton(onClick = { session.asJob = true; session.draft = t.request }, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(stringResource(R.string.saga_rephrase))
+            }
+        }
+        else -> {                                                         // "plan": jetziger Stand des Auftrags
+            val d = t.detail
+            val p = t.plan
+            val id = t.jobId ?: 0L
+            when {
+                t.gone -> SagaCard {
+                    SagaHead(st)
+                    Text(stringResource(R.string.saga_job_gone), style = MaterialTheme.typography.bodyLarge)
+                }
+                d == null && p != null && p.steps.isNotEmpty() -> PlanCard(
+                    repo, st, p, onPlan = { np -> t.plan = np; session.refreshJobs() },
+                    onDone = { _, _, text, _ -> session.live = text; session.loadJob(t); session.refreshJobs() },
+                )
+                d == null -> SagaCard {
+                    SagaHead(st)
+                    Text(t.text, style = MaterialTheme.typography.bodyLarge)
+                }
+                else -> when (SagaLogic.jobView(d)) {
+                    SagaLogic.JobView.PLAN -> PlanCard(
+                        repo, st, d.plan!!, onPlan = { np -> t.detail = d.copy(plan = np); session.refreshJobs() },
+                        onDone = { _, _, text, _ -> session.live = text; session.loadJob(t); session.refreshJobs() },
+                    )
+                    SagaLogic.JobView.REPORT -> ReportCard(repo, st, d, onOpen = { nav.push(Dest.SagaJob(id)) }) { session.loadJob(t); session.refreshJobs() }
+                    SagaLogic.JobView.STATE -> SagaCard {
+                        SagaHead(st, extra = d.stateText)
+                        Text(d.title.ifBlank { d.reasonText.orEmpty() }, style = MaterialTheme.typography.bodyLarge)
+                        if (d.title.isNotBlank() && !d.reasonText.isNullOrBlank()) {
+                            Text(d.reasonText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        SagaTextButton(onClick = { nav.push(Dest.SagaJob(id)) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.saga_view)) }
+                    }
+                }
             }
         }
     }
@@ -479,8 +468,8 @@ fun ReportCard(repo: SagaRepository, st: AiStatus, d: JobDetail, onOpen: (() -> 
         busy = change
         scope.launch {
             try {
-                repo.saga.undo(d.id, change)
-                repo.notify(UiText.Raw(undoneText))
+                val r = repo.saga.undo(d.id, change)
+                repo.notify(UiText.Raw(SagaLogic.undoText(r) ?: undoneText))      // Termin schon weg: "Schon erledigt – …"
                 onChanged()
             } catch (e: CancellationException) {
                 throw e
@@ -510,7 +499,7 @@ fun ReportCard(repo: SagaRepository, st: AiStatus, d: JobDetail, onOpen: (() -> 
             val ch = d.changes.firstOrNull { it.id == ln.change }
             HorizontalDivider()
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(ln.text, style = MaterialTheme.typography.bodyLarge)
+                Text(ln.label?.takeIf { it.isNotBlank() } ?: ln.text, style = MaterialTheme.typography.bodyLarge)
                 val conflictUrl = conflicts[ln.change]
                 when {
                     ln.undone -> Text(undoneText, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -596,8 +585,7 @@ fun SagaJobScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, id: L
                 )
                 val plan = x.plan
                 if (x.state == "wartet_ok" && plan != null && plan.steps.isNotEmpty() && s != null) {
-                    PlanCard(repo, s, plan, onPlan = { p -> d = x.copy(plan = p) }, onDone = { job, _, _, approved ->
-                        if (approved) session.watch(job)
+                    PlanCard(repo, s, plan, onPlan = { p -> d = x.copy(plan = p) }, onDone = { _, _, _, _ ->
                         session.refreshJobs()
                         load()
                     })
