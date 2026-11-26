@@ -77,7 +77,7 @@ object ContactExportLogic {
         val out = ArrayList<Row>()
         for (a in addrs) {
             if (out.size >= ContactBookLogic.MAX_PER_KIND) break
-            val v = a.value.trim()
+            val v = a.value // wie gespeichert (normalisiert vom Server) - nicht trimmen
             if (!valid(v) || !seen.add(v.lowercase())) continue
             out += Row(mime, v, type(a.type))
         }

@@ -89,7 +89,7 @@ enum ContactExportLogic {
         var seen = Set<String>()
         var out: [Value] = []
         for a in addrs where out.count < maxPerKind {
-            let v = a.value.trimmingCharacters(in: .whitespacesAndNewlines)
+            let v = a.value                                                 // wie gespeichert - nicht trimmen (Foundation zaehlt U+200B zu Leerraum)
             guard valid(v), seen.insert(v.lowercased()).inserted else { continue }
             out.append(Value(value: v, label: label(a.type)))
         }
