@@ -470,7 +470,11 @@ extension RootView {
     func copyPageLink(_ id: Int) { HlidskjalfApp_copyPageLink(id) }
     /// 2270: Ort "Saga", Bereich "Auftraege", ggf. mit geoeffnetem Auftrag (nur mit Ort "Saga" - sonst nichts)
     func openJob(_ id: Int?) {
-        guard store.sagaStatus != nil else { return }
+        guard store.sagaStatus != nil else {
+            // Kaltstart per Mitteilung: /api/ai/status laeuft noch (refresh startet ihn nur) - einmal abwarten, dann oeffnen
+            Task { await store.loadAIStatus(); if store.sagaStatus != nil { openJob(id) } }
+            return
+        }
         nav.peek = nil; nav.path = []; showNotifs = false
         JobPush.wantJobsTab = true
         selection = SagaLogic.tag
