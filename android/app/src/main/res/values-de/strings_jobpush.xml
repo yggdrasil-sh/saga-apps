@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.6 (Bugs-DB 2270, K-C): Mitteilungen der Kollegin zu Auftraegen. Kanaele, Knoepfe und Hinweis = Vertragstexte (push_kollegin.json texts) -->
+<resources>
+    <string name="jp_ch_needs">Braucht dich</string>
+    <string name="jp_ch_needs_desc">Ein Auftrag wartet auf dich (Plan zum OK, Rückfrage)</string>
+    <string name="jp_ch_feedback">Rückmeldungen</string>
+    <string name="jp_ch_feedback_desc">Ein Auftrag ist erledigt oder hat nicht geklappt</string>
+    <string name="jp_btn_approve">Passt, los</string>
+    <string name="jp_btn_undo">Rückgängig</string>
+    <string name="jp_btn_later">Später</string>
+    <string name="jp_btn_quiet">Gerade nicht</string>
+    <string name="jp_btn_open">Ansehen</string>
+    <string name="jp_hint">Bitte in Saga ansehen</string>
+    <string name="jp_push_cat_jobs">Rückmeldungen der KI zu Aufträgen</string>
+    <string name="jp_set_title">Mitteilungen</string>
+    <string name="jp_set_from">Mitteilungen von %1$s</string>
+    <string name="jp_set_content">Inhalt in Mitteilungen</string>
+    <string name="jp_set_content_on">Titel und Ergebnis in der Mitteilung – sichtbar, sobald das Gerät entsperrt ist.</string>
+    <string name="jp_set_content_off">Nur „In Saga ansehen“ – ohne „Passt, los“ und „Rückgängig“.</string>
+    <string name="jp_set_quiet">Ruhe bis %1$s</string>
+    <string name="jp_set_quiet_off">Wieder an</string>
+    <string name="jp_set_hint">Rückmeldungen von %1$s zu deinen Aufträgen, mit Knöpfen direkt in der Mitteilung. „Gerade nicht“ hält sie bis 7:00 an.</string>
+</resources>

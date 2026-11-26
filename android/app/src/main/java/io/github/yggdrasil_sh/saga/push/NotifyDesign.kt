@@ -33,4 +33,20 @@ object NotifyDesign {
         c.drawText(text, px / 2f, y, p)
         return bmp
     }
+
+    /** 2270: Persona-Symbol (Funkeln auf Gold) fuer Auftrags-Mitteilungen der Kollegin - kein Personenbild, kein Shortcut */
+    fun persona(context: android.content.Context, px: Int = 192): Bitmap {
+        val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        p.color = ACCENT
+        c.drawCircle(px / 2f, px / 2f, px / 2f, p)
+        androidx.core.content.ContextCompat.getDrawable(context, io.github.yggdrasil_sh.saga.R.drawable.si_sparkles)?.let { d ->
+            val m = (px * 0.22f).toInt()
+            d.setBounds(m, m, px - m, px - m)
+            d.setTint(android.graphics.Color.WHITE)
+            d.draw(c)
+        }
+        return bmp
+    }
 }

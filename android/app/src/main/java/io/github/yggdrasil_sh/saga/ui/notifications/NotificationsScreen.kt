@@ -150,6 +150,7 @@ fun open(repo: SagaRepository, nav: AppNavigator, n: NotifItem) {
         // 2.3: Systemmeldungen (Backups): Einstellungen bzw. Admin-Bereich
         note == null -> when (val t = NotifLogic.target(n.url)) {
             is NotifLogic.Target.Settings -> io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, t.section, replace = false, contacts = repo.chat.hasContactBook())
+            is NotifLogic.Target.Job -> if (t.id > 0) nav.push(Dest.SagaJob(t.id)) else nav.top(Dest.Saga)          // 2270: Glocke job.*
             else -> NotifLogic.adminLink(n)?.let { repo.openExternalRequest.value = it }
         }
         note != null -> {

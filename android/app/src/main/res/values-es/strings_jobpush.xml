@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.6 (Bugs-DB 2270, K-C): Mitteilungen der Kollegin zu Auftraegen. Kanaele, Knoepfe und Hinweis = Vertragstexte (push_kollegin.json texts) -->
+<resources>
+    <string name="jp_ch_needs">Te necesita</string>
+    <string name="jp_ch_needs_desc">Un encargo te espera (plan para confirmar, pregunta)</string>
+    <string name="jp_ch_feedback">Novedades</string>
+    <string name="jp_ch_feedback_desc">Un encargo está hecho o no ha funcionado</string>
+    <string name="jp_btn_approve">Adelante</string>
+    <string name="jp_btn_undo">Deshacer</string>
+    <string name="jp_btn_later">Más tarde</string>
+    <string name="jp_btn_quiet">Ahora no</string>
+    <string name="jp_btn_open">Ver</string>
+    <string name="jp_hint">Échale un vistazo en Saga</string>
+    <string name="jp_push_cat_jobs">Novedades de la IA sobre encargos</string>
+    <string name="jp_set_title">Notificaciones</string>
+    <string name="jp_set_from">Notificaciones de %1$s</string>
+    <string name="jp_set_content">Contenido en las notificaciones</string>
+    <string name="jp_set_content_on">Título y resultado en la notificación: visibles en cuanto el dispositivo está desbloqueado.</string>
+    <string name="jp_set_content_off">Solo «Ver en Saga», sin «Adelante» ni «Deshacer».</string>
+    <string name="jp_set_quiet">En silencio hasta las %1$s</string>
+    <string name="jp_set_quiet_off">Volver a activar</string>
+    <string name="jp_set_hint">Novedades de %1$s sobre tus encargos, con botones en la propia notificación. «Ahora no» las pausa hasta las 7:00.</string>
+</resources>

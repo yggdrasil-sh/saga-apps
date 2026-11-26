@@ -227,6 +227,15 @@ fun MainScreen(
             repo.openSettingsRequest.value = null
         }
     }
+    // 2.6 (2270): Mitteilung eines Auftrags -> Ort "Saga" (mit Auftrag: dessen Detail)
+    val openJob by repo.openJobRequest.collectAsState()
+    LaunchedEffect(openJob) {
+        openJob?.let { id ->
+            nav.top(Dest.Saga)
+            if (id > 0) nav.push(Dest.SagaJob(id))
+            repo.openJobRequest.value = null
+        }
+    }
     val openExternal by repo.openExternalRequest.collectAsState()
     val ctx = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(openExternal) {

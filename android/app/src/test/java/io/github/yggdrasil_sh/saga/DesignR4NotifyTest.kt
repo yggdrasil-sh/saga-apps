@@ -158,7 +158,7 @@ class DesignR4NotifyTest {
             assertEquals(k, NotifyChannels.MENTIONS, NotifyChannels.forKind(k))
         }
         assertEquals("saga_push", NotifyChannels.MENTIONS)          // bisherige ID bleibt (Nutzereinstellungen)
-        assertEquals(4, NotifyChannels.ALL.toSet().size)
+        assertEquals(6, NotifyChannels.ALL.toSet().size)            // 2270: dazu saga.jobs.needs.v1, saga.jobs.feedback.v1
         assertEquals("saga-chat", NotifyChannels.group(NotifyChannels.CHATS))
         assertEquals("saga", NotifyChannels.group(NotifyChannels.MENTIONS))
         // Migration: Wichtigkeit des alten Kanals gewinnt, sonst Vorgabe

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.6 (Bugs-DB 2270, K-C): Mitteilungen der Kollegin zu Auftraegen. Kanaele, Knoepfe und Hinweis = Vertragstexte (push_kollegin.json texts) -->
+<resources>
+    <string name="jp_ch_needs">Needs you</string>
+    <string name="jp_ch_needs_desc">A job is waiting for you (plan to OK, question)</string>
+    <string name="jp_ch_feedback">Updates</string>
+    <string name="jp_ch_feedback_desc">A job is done or didn\'t work</string>
+    <string name="jp_btn_approve">Go ahead</string>
+    <string name="jp_btn_undo">Undo</string>
+    <string name="jp_btn_later">Later</string>
+    <string name="jp_btn_quiet">Not now</string>
+    <string name="jp_btn_open">View</string>
+    <string name="jp_hint">Please take a look in Saga</string>
+    <string name="jp_push_cat_jobs">AI updates on jobs</string>
+    <string name="jp_set_title">Notifications</string>
+    <string name="jp_set_from">Notifications from %1$s</string>
+    <string name="jp_set_content">Content in notifications</string>
+    <string name="jp_set_content_on">Title and result in the notification – visible once the device is unlocked.</string>
+    <string name="jp_set_content_off">Only “View in Saga” – without “Go ahead” and “Undo”.</string>
+    <string name="jp_set_quiet">Quiet until %1$s</string>
+    <string name="jp_set_quiet_off">Turn back on</string>
+    <string name="jp_set_hint">Updates from %1$s on your jobs, with buttons right in the notification. “Not now” pauses them until 7:00.</string>
+</resources>

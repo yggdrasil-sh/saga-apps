@@ -187,6 +187,11 @@
             android:name=".push.NotifyReplyReceiver"
             android:exported="false" />
 
+        <!-- 2.6 (2270, K-C): Knoepfe an Auftrags-Mitteilungen der Kollegin (act mit Geraete-Schluessel, ohne App-Start) -->
+        <receiver
+            android:name=".push.JobActReceiver"
+            android:exported="false" />
+
         <!-- 2.5: Sprachnachrichten im Hintergrund weiter abspielen -->
         <service
             android:name=".chat.voice.VoicePlaybackService"

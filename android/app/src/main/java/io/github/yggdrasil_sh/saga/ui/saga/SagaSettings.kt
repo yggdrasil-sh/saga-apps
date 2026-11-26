@@ -273,6 +273,7 @@ private fun SagaSettingsBody(
             Switch(checked = on, onCheckedChange = null)
         }
     }
+    SagaNotifyBlock(repo, name)                                   // 2.6 (2270, K-C): Mitteilungen von {Persona}
     // Meine Daten (M7)
     HorizontalDivider(Modifier.padding(vertical = 8.dp))
     Heading(stringResource(R.string.saga_mydata))

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.6 (Bugs-DB 2270, K-C): Mitteilungen der Kollegin zu Auftraegen. Kanaele, Knoepfe und Hinweis = Vertragstexte (push_kollegin.json texts) -->
+<resources>
+    <string name="jp_ch_needs">ต้องการคุณ</string>
+    <string name="jp_ch_needs_desc">มีงานรอคุณอยู่ (แผนรอการยืนยัน คำถาม)</string>
+    <string name="jp_ch_feedback">อัปเดต</string>
+    <string name="jp_ch_feedback_desc">งานเสร็จแล้วหรือไม่สำเร็จ</string>
+    <string name="jp_btn_approve">ตกลง ทำเลย</string>
+    <string name="jp_btn_undo">เลิกทำ</string>
+    <string name="jp_btn_later">ภายหลัง</string>
+    <string name="jp_btn_quiet">ไม่ใช่ตอนนี้</string>
+    <string name="jp_btn_open">ดู</string>
+    <string name="jp_hint">โปรดดูใน Saga</string>
+    <string name="jp_push_cat_jobs">อัปเดตจาก AI เกี่ยวกับงาน</string>
+    <string name="jp_set_title">การแจ้งเตือน</string>
+    <string name="jp_set_from">การแจ้งเตือนจาก %1$s</string>
+    <string name="jp_set_content">เนื้อหาในการแจ้งเตือน</string>
+    <string name="jp_set_content_on">ชื่อและผลลัพธ์ในการแจ้งเตือน – เห็นได้เมื่อปลดล็อกอุปกรณ์แล้ว</string>
+    <string name="jp_set_content_off">แสดงเพียง “ดูใน Saga” – ไม่มี “ตกลง ทำเลย” และ “เลิกทำ”</string>
+    <string name="jp_set_quiet">เงียบจนถึง %1$s</string>
+    <string name="jp_set_quiet_off">เปิดอีกครั้ง</string>
+    <string name="jp_set_hint">อัปเดตจาก %1$s เกี่ยวกับงานของคุณ พร้อมปุ่มในการแจ้งเตือน “ไม่ใช่ตอนนี้” จะหยุดไว้จนถึง 7:00</string>
+</resources>

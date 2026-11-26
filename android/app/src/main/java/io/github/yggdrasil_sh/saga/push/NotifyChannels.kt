@@ -22,14 +22,19 @@ object NotifyChannels {
     const val CHATS = "saga_chats"
     const val TASKS = "saga_tasks"
     const val CALLS = "saga_calls_missed"
+    /** 2.6 (Bugs-DB 2270, K-C): Auftraege der Kollegin - IDs fest (nie umbenennen, Vertrag APP-API.md "Push-Nutzlast 3") */
+    const val JOBS_NEEDS = "saga.jobs.needs.v1"
+    const val JOBS_FEEDBACK = "saga.jobs.feedback.v1"
+    val JOBS = listOf(JOBS_NEEDS, JOBS_FEEDBACK)
 
-    val ALL = listOf(CHATS, MENTIONS, TASKS, CALLS)
+    val ALL = listOf(CHATS, MENTIONS, TASKS, CALLS, JOBS_NEEDS, JOBS_FEEDBACK)
 
     /** System-Gruppe je Kanal (Sammel-Mitteilung je Gruppe); "saga-chat" und "saga" wie bisher */
     fun group(channel: String): String = when (channel) {
         CHATS -> "saga-chat"
         TASKS -> "saga-tasks"
         CALLS -> "saga-calls"
+        JOBS_NEEDS, JOBS_FEEDBACK -> "saga-jobs"
         else -> "saga"
     }
 
@@ -38,11 +43,17 @@ object NotifyChannels {
         "chat.message", "chat.mention" -> CHATS
         "call", "call.group", "call.missed" -> CALLS
         "task.due", "db.assigned" -> TASKS
+        "job.needs_you" -> JOBS_NEEDS                                   // 2270: "braucht dich" (hoch)
+        "job.done", "job.failed", "job.changed" -> JOBS_FEEDBACK       // 2270: Rueckmeldungen (normal)
         else -> MENTIONS            // comment.*, page.mention, share.*, publish.withdrawn, backup.failed, chat.report, test ...
     }
 
     /** Wichtigkeit eines neuen Kanals: die des alten (vom Nutzer eingestellt) oder die Vorgabe. Rein (Tests). */
-    fun importance(old: Int?, channel: String): Int = old ?: if (channel == CHATS) NotificationManager.IMPORTANCE_HIGH else NotificationManager.IMPORTANCE_DEFAULT
+    fun importance(old: Int?, channel: String): Int = when (channel) {
+        JOBS_NEEDS -> NotificationManager.IMPORTANCE_HIGH               // 2270: feste Vorgabe, nicht vom alten Kanal
+        JOBS_FEEDBACK -> NotificationManager.IMPORTANCE_DEFAULT
+        else -> old ?: if (channel == CHATS) NotificationManager.IMPORTANCE_HIGH else NotificationManager.IMPORTANCE_DEFAULT
+    }
 
     /** Kanalgruppen (Nachbesserung): statt "Other" in den System-Einstellungen; Kanal-IDs bleiben unveraendert */
     const val G_NOTIFY = "saga_g_notify"
@@ -51,7 +62,7 @@ object NotifyChannels {
 
     /** Gruppe je Kanal-ID (auch Kanaele anderer Teile: Klingeln, laufender Anruf, Hintergrund-Verbindung). Rein (Tests). */
     fun channelGroup(id: String): String? = when (id) {
-        CHATS, MENTIONS, TASKS -> G_NOTIFY
+        CHATS, MENTIONS, TASKS, JOBS_NEEDS, JOBS_FEEDBACK -> G_NOTIFY
         CALLS, io.github.yggdrasil_sh.saga.call.CallNotify.CH_RING, io.github.yggdrasil_sh.saga.call.CallNotify.CH_RING_SOUND,
         io.github.yggdrasil_sh.saga.call.CallNotify.CH_CALL -> G_CALLS
         PushStreamService.CHANNEL, "saga_voice", "video_upload" -> G_BACKGROUND
@@ -82,7 +93,8 @@ object NotifyChannels {
             val ch = NotificationChannel(id, name, importance(old?.importance, id))
             ch.description = desc
             ch.group = channelGroup(id)
-            if (old != null) {
+            if (id in JOBS) ch.lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE   // 2270: Sperrbildschirm neutral
+            if (old != null && id !in JOBS) {
                 ch.setSound(old.sound, old.audioAttributes)
                 ch.enableVibration(old.shouldVibrate())
                 old.vibrationPattern?.let { ch.vibrationPattern = it }
@@ -128,6 +140,8 @@ object NotifyChannels {
         CHATS -> context.getString(R.string.r4n_ch_chats) to context.getString(R.string.r4n_ch_chats_desc)
         TASKS -> context.getString(R.string.r4n_ch_tasks) to context.getString(R.string.r4n_ch_tasks_desc)
         CALLS -> context.getString(R.string.r4n_ch_calls) to context.getString(R.string.r4n_ch_calls_desc)
+        JOBS_NEEDS -> context.getString(R.string.jp_ch_needs) to context.getString(R.string.jp_ch_needs_desc)
+        JOBS_FEEDBACK -> context.getString(R.string.jp_ch_feedback) to context.getString(R.string.jp_ch_feedback_desc)
         else -> context.getString(R.string.r4n_ch_mentions) to context.getString(R.string.r4n_ch_mentions_desc)
     }
 }

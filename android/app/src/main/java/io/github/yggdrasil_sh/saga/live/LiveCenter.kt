@@ -98,7 +98,7 @@ object NotifLogic {
         list.map { if (!it.read && (all || (ids != null && it.id in ids))) it.copy(read = true) else it }
 
     /** Antippbar nur mit Zugriff; 2.3: Systemmeldungen (Backups) mit Ziel in den Einstellungen bzw. im Admin-Bereich */
-    fun tappable(n: NotifItem): Boolean = n.access && (n.note != null || n.chat != null || target(n.url) is Target.Settings || adminLink(n) != null)
+    fun tappable(n: NotifItem): Boolean = n.access && (n.note != null || n.chat != null || target(n.url) is Target.Settings || target(n.url) is Target.Job || adminLink(n) != null)
 
     /**
      * 2.3: Admin-Meldung "Server-Backup fehlgeschlagen" verweist in den Admin-Bereich (eigene Adresse, ADMIN_URL) -
@@ -115,6 +115,8 @@ object NotifLogic {
         data class Chat(val id: Long) : Target
         /** "/?settings=backup" -> Einstellungen -> Mein Backup (2.3) */
         data class Settings(val section: String) : Target
+        /** 2.6 (2270): "/saga?tab=jobs&job=42" -> Ort "Saga", Auftrag 42 (0 = nur der Bereich "Auftraege") */
+        data class Job(val id: Long) : Target
     }
 
     /** 4.11.: Mitteilung zu einer Chat-Nachricht nicht anzeigen, wenn genau dieser Chat offen und die App vorne ist */
@@ -130,6 +132,7 @@ object NotifLogic {
         }
         Regex("^/chats#c?(\\d{1,19})$").find(url)?.let { m -> return m.groupValues[1].toLongOrNull()?.let { Target.Chat(it) } }
         Regex("^/\\?settings=([a-z]{1,20})$").find(url)?.let { m -> return Target.Settings(m.groupValues[1]) }
+        io.github.yggdrasil_sh.saga.push.JobNotifyLogic.jobOf(url)?.let { return Target.Job(it) }
         return null
     }
 }

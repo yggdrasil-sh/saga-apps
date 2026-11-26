@@ -114,11 +114,22 @@ data class PushMessage(
     val silent: Boolean = false,
     /** 2.6: Sammelmeldung nach "Nicht stoeren" (kind status.digest) - nur Zahlen {messages, calls, other} */
     val digest: kotlinx.serialization.json.JsonObject? = null,
+    /** 2.6 (Bugs-DB 2270, Nutzlast 3): Auftrag der Kollegin - needs|done|failed, Kennung, Planversion, Faden, Inhalt, Token */
+    val state: String? = null,
+    val job: Long? = null,
+    val pv: Int? = null,
+    val thread: String? = null,
+    val detail: kotlinx.serialization.json.JsonObject? = null,
+    val actions: List<JobToken> = emptyList(),
 ) {
     /** Name aus actor (Text); ohne actor nie ein Name */
     val actorName: String?
         get() = (actor as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it.isString }?.content?.trim()?.ifEmpty { null }
 }
+
+/** 2270: Einmal-Token je Knopf ({a, t}) */
+@Serializable
+data class JobToken(val a: String = "", val t: String = "")
 
 /** Anmeldung dieses Geraets beim Verteiler (je Server + Konto) */
 @Serializable
@@ -139,6 +150,8 @@ data class PushLocal(
     val caps: Boolean = false,
     /** 2.6 (Bugs-DB 2188): caps "widgets" (stiller Widget-Push) gemeldet */
     val wcaps: Boolean = false,
+    /** 2.6 (Bugs-DB 2270): caps "detail" + "actions" (Auftraege der Kollegin) gemeldet */
+    val jcaps: Boolean = false,
 )
 
 enum class PushState { OFF, REGISTERING, ON, ERROR }
@@ -186,12 +199,18 @@ object PushSubLogic {
      *  wenn er sie nennt) */
     fun caps(server: PushServerInfo?): List<String> =
         if (!v2(server)) emptyList() else listOf(CAP_UPDATE).filter { server!!.subCaps.isEmpty() || it in server.subCaps } +
-            listOf(CAP_WIDGETS).filter { it in server!!.subCaps }
+            listOf(CAP_WIDGETS).filter { it in server!!.subCaps } +
+            JOB_CAPS.filter { it in server!!.subCaps }                       // 2270: nur, wenn der Server sie nennt
+
+    /** 2.6 (Bugs-DB 2270): Inhalt (t1/t2) und Knopf-Token der Auftrags-Mitteilungen */
+    val JOB_CAPS = listOf("detail", "actions")
+    fun jobCaps(c: List<String>): Boolean = JOB_CAPS.all { it in c }
 
     /** Abo erneuern? Server kann Nutzlast 2, Abo besteht, und Sprache oder Faehigkeiten sind noch nicht gemeldet */
     fun needsRenew(local: PushLocal?, server: PushServerInfo?, lang: String): Boolean =
         v2(server) && local != null && local.subId != null && local.endpoint != null &&
-            (local.lang != lang || local.caps != caps(server).contains(CAP_UPDATE) || local.wcaps != caps(server).contains(CAP_WIDGETS))
+            (local.lang != lang || local.caps != caps(server).contains(CAP_UPDATE) || local.wcaps != caps(server).contains(CAP_WIDGETS) ||
+                local.jcaps != jobCaps(caps(server)))
 }
 
 /**
@@ -406,6 +425,10 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
             } else if (l?.endpoint != null && i.server.enabled && i.devices.none { it.id == l.subId }) subscribe(l.endpoint)
             ensure()
             if (i.server.enabled) renewSub()
+            // 2.6 (2270): beide Auftrags-Kanaele in den System-Einstellungen aus -> Bereich jobs beim Server abschalten
+            if (JobNotifyLogic.cat in i.categories && i.settings.cats[JobNotifyLogic.cat] != false && JobNotify.channelsBlocked(context)) {
+                putSettings(buildJsonObject { putJsonObject("cats") { put(JobNotifyLogic.cat, false) } })
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
@@ -505,7 +528,7 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
         val s = info.value?.server
         return if (PushSubLogic.v2(s)) {
             val c = PushSubLogic.caps(s)
-            l.copy(lang = appLang(), caps = PushSubLogic.CAP_UPDATE in c, wcaps = PushSubLogic.CAP_WIDGETS in c)
+            l.copy(lang = appLang(), caps = PushSubLogic.CAP_UPDATE in c, wcaps = PushSubLogic.CAP_WIDGETS in c, jcaps = PushSubLogic.jobCaps(c))
         } else l
     }
 
@@ -630,6 +653,11 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
             io.github.yggdrasil_sh.saga.widget.WidgetUpdates.requestNow(context)
             return null
         }
+        // 2.6 (2270): Auftrag abgebrochen/zurueckgenommen - Mitteilung mit diesem tag schliessen (still)
+        if (JobNotifyLogic.removeTag(msg)?.let { Notifier.cancel(context, it) } != null) {
+            scope.launch { repo.live.loadNotificationCount() }
+            return null
+        }
         // 2.5 Nutzlast 2: stille Aktualisierung (Nachricht geloescht) - gezeigte Mitteilung anpassen/schliessen, nie klingeln
         if (msg.update) {
             if (msg.v >= 2) {
@@ -648,6 +676,11 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
         if (msg.kind == "status.digest" && fg && repo.live.connected.value) return null
         // Design-Runde 4: Glocken-Zaehler auch ohne Live-Kanal (App im Hintergrund) nachziehen
         if (msg.kind != "test") scope.launch { repo.live.loadNotificationCount() }
+        // 2.6 (2270): Auftrag der Kollegin - eigene Darstellung (BigText, Knoepfe nach K15), nie MessagingStyle/Shortcut
+        if (JobNotifyLogic.isJob(msg.kind)) {
+            JobNotify.show(context, msg, accountTag())
+            return null
+        }
         // Nachbesserung: Satz in der App-Sprache (NotifyText), Chat-Name/Seitentitel aus dem lokalen Stand - im Hintergrund
         // ggf. erst nachladen (hoechstens ~4 s; der Empfaenger wartet auf diese Arbeit)
         return scope.launch {
@@ -800,7 +833,7 @@ object Notifier {
 
     /** Gespraechseinheit (group_key) einer gezeigten Mitteilung - fuer "anderswo gelesen" */
     const val EXTRA_GROUP = "saga_group"
-    private const val ID = 1
+    internal const val ID = 1                                    // 2270: auch JobNotify (gleicher tag ersetzt, cancel)
     private const val ID_SUMMARY = 0
     private const val MAX_LINES = 6
 

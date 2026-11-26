@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.6 (Bugs-DB 2270, K-C): Mitteilungen der Kollegin zu Auftraegen. Kanaele, Knoepfe und Hinweis = Vertragstexte (push_kollegin.json texts) -->
+<resources>
+    <string name="jp_ch_needs">Ждёт тебя</string>
+    <string name="jp_ch_needs_desc">Поручение ждёт тебя (план на подтверждение, вопрос)</string>
+    <string name="jp_ch_feedback">Новости</string>
+    <string name="jp_ch_feedback_desc">Поручение выполнено или не получилось</string>
+    <string name="jp_btn_approve">Давай</string>
+    <string name="jp_btn_undo">Отменить</string>
+    <string name="jp_btn_later">Позже</string>
+    <string name="jp_btn_quiet">Не сейчас</string>
+    <string name="jp_btn_open">Открыть</string>
+    <string name="jp_hint">Посмотри в Saga</string>
+    <string name="jp_push_cat_jobs">Новости ИИ о поручениях</string>
+    <string name="jp_set_title">Уведомления</string>
+    <string name="jp_set_from">Уведомления от %1$s</string>
+    <string name="jp_set_content">Содержимое в уведомлениях</string>
+    <string name="jp_set_content_on">Название и результат в уведомлении – видны, когда устройство разблокировано.</string>
+    <string name="jp_set_content_off">Только «Открыть в Saga» – без «Давай» и «Отменить».</string>
+    <string name="jp_set_quiet">Тихо до %1$s</string>
+    <string name="jp_set_quiet_off">Снова включить</string>
+    <string name="jp_set_hint">Новости от %1$s о твоих поручениях – с кнопками прямо в уведомлении. «Не сейчас» отключает их до 7:00.</string>
+</resources>

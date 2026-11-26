@@ -235,6 +235,8 @@ class SagaRepository(
     /** 2.3: Einstellungs-Bereich oeffnen ("backup") bzw. Link im Browser (Admin-Bereich) - aus Mitteilung/Benachrichtigung */
     val openSettingsRequest = MutableStateFlow<String?>(null)
     val openExternalRequest = MutableStateFlow<String?>(null)
+    /** 2.6 (2270): Auftrag oeffnen (Mitteilung der Kollegin, Hinweis nach act 409/410): Kennung, 0 = nur der Bereich */
+    val openJobRequest = MutableStateFlow<Long?>(null)
 
     /** Link aus einer Mitteilung/Benachrichtigung ("/notes#12:block", "/chats#c5") oeffnen und als gelesen markieren */
     fun openUrl(url: String) {
@@ -245,6 +247,7 @@ class SagaRepository(
             }
             is io.github.yggdrasil_sh.saga.live.NotifLogic.Target.Chat -> openChatRequest.value = t.id
             is io.github.yggdrasil_sh.saga.live.NotifLogic.Target.Settings -> openSettingsRequest.value = t.section
+            is io.github.yggdrasil_sh.saga.live.NotifLogic.Target.Job -> openJobRequest.value = t.id         // 2270
             null -> {}
         }
         scope.launch {

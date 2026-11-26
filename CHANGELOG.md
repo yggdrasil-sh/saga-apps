@@ -8,6 +8,25 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Neu
 
+- **Mitteilungen der Kollegin zu Aufträgen mit Knöpfen** (2270, K-C, `jobpush1`, Push-Nutzlast 3): „Braucht dich“,
+  „Erledigt“ und „Hat nicht geklappt“ kommen als Mitteilung aufs Gerät – Titel und Ergebnis (`t1`/`t2`) nur Ende-zu-Ende,
+  sonst der neutrale Satz. Knöpfe direkt in der Mitteilung nach der Knopf-Regel K15: „Passt, los“ und „Rückgängig“ nur
+  entsperrt (iOS `.authenticationRequired`, Android ab 12 `setAuthenticationRequired`) und nur auf Geräten mit Code,
+  „Später“, „Gerade nicht“ und „Ansehen“; kein Textfeld. Der Knopf läuft im Hintergrund (`POST /api/ai/jobs/{id}/act` mit
+  dem Geräte-Schlüssel); passt der Stand nicht mehr (409/410), kommt ein ruhiger Hinweis „Bitte in Saga ansehen“, der den
+  Auftrag öffnet (`saga://job/<id>`). Abo meldet `detail`/`actions`.
+- **iOS (2270):** Die Mitteilungs-Erweiterung wählt die Kategorie aus Zustand und Token (das Push-Relais erlaubt keine
+  `category`), Faden `job-<id>`, Ton nach „Beschäftigt ohne Ton“; Auftrags- und Anruf-Kategorien werden gemeinsam
+  angemeldet. Kein Banner, wenn der Auftrag gerade offen ist. Einstellungen › Saga › Mitteilungen: „Mitteilungen von
+  Marin“, „Inhalt in Mitteilungen“, „Ruhe bis 7:00 · Wieder an“. Mac-Hülle: Links `saga://saga`, `saga://jobs`,
+  `saga://job/<id>`.
+- **Android (2270):** Zwei feste Kanäle „Braucht dich“ (`saga.jobs.needs.v1`, hoch) und „Rückmeldungen“
+  (`saga.jobs.feedback.v1`, normal) in der Gruppe Mitteilungen; `BigTextStyle` mit Persona-Symbol, neutrale Fassung auf
+  dem Sperrbildschirm, keine Unterhaltung/Verknüpfung/Blase; Wear OS nur „Später“/„Gerade nicht“, Android < 12 nie
+  „Passt, los“/„Rückgängig“. Abgebrochene oder zurückgenommene Aufträge schließen ihre Mitteilung (`job.changed`
+  `removed`). Beide Kanäle aus → Bereich „Aufträge“ beim Server aus. Glocken-Einträge `job.*` öffnen den Auftrag.
+  Einstellungen › Saga › Mitteilungen wie iOS.
+
 - **Android: Aufträge nach dem Widerruf erreichbar** (Bugs-DB 2518, wie das Web): Ohne Einwilligung (widerrufen bzw.
   KI umgestellt) zeigt der Bereich „Saga“ bei vorhandenen Aufträgen weiter den Reiter „Aufträge“ – Liste, Detail,
   Abbrechen, Rückgängig – mit dem Hinweis, warum nichts Neues geht; Gespräch und „Als Auftrag“ bleiben gesperrt.
