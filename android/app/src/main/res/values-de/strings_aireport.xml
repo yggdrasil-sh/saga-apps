@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.6 KI-Ausgaben melden (Bugs-DB 2507): Texte wie im Web (Server saga/i18n) -->
+<resources>
+    <string name="ai_report_btn">Melden …</string>
+    <string name="ai_reported">Gemeldet</string>
+    <string name="ai_report_title">KI-Antwort melden</string>
+    <string name="ai_report_include">Antwort der KI mitschicken</string>
+    <string name="ai_report_hint">Die Meldung geht an die Admins dieses Saga-Servers – mit dem Text, den du hier mitschickst.</string>
+    <string name="ai_report_chat_menu">KI-Antwort melden …</string>
+</resources>

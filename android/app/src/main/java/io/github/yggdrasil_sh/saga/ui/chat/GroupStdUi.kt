@@ -295,7 +295,7 @@ fun ReportDialog(repo: SagaRepository, s: ChatSession, msgs: List<ChatMessage>, 
         onDismissRequest = onDismiss,
         properties = io.github.yggdrasil_sh.saga.ui.common.ImeDialog.properties, // CH-05/A11Y-26: Tastatur verdeckt nichts
         modifier = Modifier.imeDialog(),
-        title = { Text(stringResource(R.string.std_report)) },
+        title = { Text(stringResource(if (msgs.size == 1 && msgs[0].ai == io.github.yggdrasil_sh.saga.ai.AiReplyCheck.OK) R.string.ai_report_title else R.string.std_report)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.std_report_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

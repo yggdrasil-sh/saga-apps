@@ -95,6 +95,8 @@ data class AiDone(
     val assign: JsonObject? = null,
     val more: Int = 0,
     val message: String? = null,
+    /** nichts gefunden (Antwort ohne Modell) - dann kein "Melden" */
+    val noMatch: Boolean = false,
 )
 
 /** 2.5: Datenbank auf der Seite (GET api/ai/page/<id>/dbs) mit Eigenschaften, denen der Assistent Werte vorschlagen kann */
@@ -237,6 +239,7 @@ object AiLogic {
                     assign = o["assign"] as? JsonObject,
                     more = (o["more"] as? JsonPrimitive)?.intOrNull ?: 0,
                     message = (o["message"] as? JsonPrimitive)?.contentOrNull,
+                    noMatch = (o["no_match"] as? JsonPrimitive)?.booleanOrNull ?: false,
                 ),
             )
             "reset" -> AiChunk.Reset
@@ -400,6 +403,11 @@ class AiService(private val repo: SagaRepository, scope: CoroutineScope? = null)
             job.cancel()
         }
     }.flowOn(Dispatchers.IO)
+
+    /** 2.6 (Bugs-DB 2507): KI-Ausgabe melden - POST /api/ai/report (Fehler 400/403/429 als ApiException) */
+    suspend fun report(t: AiReportLogic.Target, reason: String, text: String?) {
+        repo.api.post("api/ai/report", AiReportLogic.body(t, reason, text))
+    }
 
     suspend fun history(): AiHistory = json.decodeFromString(AiHistory.serializer(), repo.api.get("api/ai/history"))
 

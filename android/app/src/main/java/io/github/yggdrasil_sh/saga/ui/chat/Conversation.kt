@@ -2292,6 +2292,10 @@ private fun StdMessageMenu(
     if (!m.mine && m.sender != null && std.report && m.content != null) {
         DropdownMenuItem(text = { Text(stringResource(R.string.std_report_menu)) }, onClick = { close(); onReport() })
     }
+    // 2.6 (Bugs-DB 2258a/2507): die eigene KI-Antwort (Beleg passt) laesst sich ebenfalls melden - wie im Web
+    if (ChatStd.aiReportable(m.mine, m.ai, std.report, m.content != null)) {
+        DropdownMenuItem(text = { Text(stringResource(R.string.ai_report_chat_menu)) }, onClick = { close(); onReport() })
+    }
 }
 
 /** 2.5 Medien 1: uebersetzte Platzhalter fuer Zitate ohne Text */

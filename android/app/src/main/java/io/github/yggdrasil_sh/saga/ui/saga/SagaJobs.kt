@@ -445,6 +445,8 @@ fun PlanCard(
                 }, enabled = !busy, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.saga_no)) }
             }
         }
+        // 2.6 (Bugs-DB 2507): Plan der KI melden (where=job, page = Auftrag)
+        io.github.yggdrasil_sh.saga.ui.ai.AiReportButton(repo, io.github.yggdrasil_sh.saga.ai.AiReportLogic.job(plan.job, io.github.yggdrasil_sh.saga.ai.AiReportLogic.planText(plan)))
     }
 }
 
@@ -520,7 +522,12 @@ fun ReportCard(repo: SagaRepository, st: AiStatus, d: JobDetail, onOpen: (() -> 
                 }
             }
         }
-        if (onOpen != null) SagaTextButton(onClick = onOpen, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.saga_view)) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (onOpen != null) SagaTextButton(onClick = onOpen, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.saga_view)) }
+            rep?.text?.takeIf { it.isNotBlank() }?.let { tx ->
+                io.github.yggdrasil_sh.saga.ui.ai.AiReportButton(repo, io.github.yggdrasil_sh.saga.ai.AiReportLogic.job(d.id, tx))
+            }
+        }
     }
     confirm?.let { c ->
         AlertDialog(

@@ -224,7 +224,7 @@ fun SagaTalk(repo: SagaRepository, nav: AppNavigator, st: AiStatus, session: Sag
             }
             itemsIndexed(session.turns, key = { i, _ -> i }) { _, t ->
                 Box(Modifier.widthIn(max = 760.dp).fillMaxWidth()) {
-                    if (t.me) MeBubble(t.text) else AiTurnCard(st, t) { id -> nav.push(Dest.Page(id)) }
+                    if (t.me) MeBubble(t.text) else AiTurnCard(repo, st, t) { id -> nav.push(Dest.Page(id)) }
                 }
             }
             session.talkError?.let { e ->
@@ -286,7 +286,7 @@ private fun MeBubble(text: String) {
 
 /** KI-Zug als Karte (B1 + Antwort + "aus:" Quellen); laufend: "{name} denkt nach …" */
 @Composable
-private fun AiTurnCard(st: AiStatus, t: TalkTurn, onOpenPage: (Long) -> Unit) {
+private fun AiTurnCard(repo: SagaRepository, st: AiStatus, t: TalkTurn, onOpenPage: (Long) -> Unit) {
     SagaCard {
         SagaHead(st, 24, clockText(t.created))
         when {
@@ -313,6 +313,10 @@ private fun AiTurnCard(st: AiStatus, t: TalkTurn, onOpenPage: (Long) -> Unit) {
                     )
                 }
             }
+        }
+        // 2.6 (Bugs-DB 2507): fertige Antwort melden (nicht "nichts gefunden" - die kommt ohne Modell)
+        if (!t.running && t.text.isNotEmpty() && t.zug != "no_match" && t.error == null) {
+            io.github.yggdrasil_sh.saga.ui.ai.AiReportButton(repo, io.github.yggdrasil_sh.saga.ai.AiReportLogic.ask(t.text))
         }
     }
 }

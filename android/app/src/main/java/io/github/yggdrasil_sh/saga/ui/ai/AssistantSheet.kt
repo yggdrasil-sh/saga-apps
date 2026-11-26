@@ -94,6 +94,8 @@ class AskTurn(val q: String) {
     var sources by mutableStateOf<List<AiSource>?>(null)
     var error by mutableStateOf<UiText?>(null)
     var running by mutableStateOf(true)
+    /** nichts gefunden (ohne Modell) - kein "Melden" */
+    var noMatch by mutableStateOf(false)
 }
 
 /**
@@ -252,6 +254,10 @@ private fun AskTab(repo: SagaRepository, st: AiStatus?, onOpenPage: (Long) -> Un
                     if (t.answer.isNotEmpty()) Box(Modifier.padding(top = 8.dp)) { AnswerText(t.answer, t.sources.orEmpty(), onOpenPage) }
                     t.error?.let { Text(it.resolve(), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 6.dp)) }
                     if (!t.running) t.sources?.let { SourceChips(it, onOpenPage) }
+                    // 2.6 (Bugs-DB 2507): unter jeder fertigen Antwort ein unauffaelliger Knopf "Melden …"
+                    if (!t.running && t.answer.isNotEmpty() && !t.noMatch && t.error == null) {
+                        AiReportButton(repo, io.github.yggdrasil_sh.saga.ai.AiReportLogic.ask(t.answer))
+                    }
                 }
             }
         }
@@ -279,7 +285,10 @@ private fun AskTab(repo: SagaRepository, st: AiStatus?, onOpenPage: (Long) -> Un
                                     is AiChunk.Sources -> t.sources = c.sources
                                     is AiChunk.Delta -> t.answer += c.text
                                     AiChunk.Reset -> t.answer = ""
-                                    is AiChunk.Done -> updateQuota(repo, c.done)
+                                    is AiChunk.Done -> {
+                                        t.noMatch = c.done.noMatch
+                                        updateQuota(repo, c.done)
+                                    }
                                     is AiChunk.Failed -> {
                                         t.error = c.error
                                         if (!c.partial) t.answer = ""
@@ -544,6 +553,8 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
                         SagaOutlinedButton(onClick = { ed.insertParagraphsAfter(bl?.lastOrNull()?.id ?: selected.lastOrNull(), text) }) { Text(stringResource(R.string.ai_insert_below)) }
                     }
                     SagaOutlinedButton(onClick = { copyText(context, text); repo.notify(UiText.Res(R.string.text_copied)) }) { Text(stringResource(R.string.text_copy)) }
+                    // 2.6 (Bugs-DB 2507): Seiten-Hilfe melden (where=page, Seite dieser Instanz)
+                    AiReportButton(repo, io.github.yggdrasil_sh.saga.ai.AiReportLogic.page(ed.id, text))
                 }
             }
         }

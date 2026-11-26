@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.6 KI-Ausgaben melden (Bugs-DB 2507): Texte wie im Web (Server saga/i18n) -->
+<resources>
+    <string name="ai_report_btn">Пожаловаться …</string>
+    <string name="ai_reported">Жалоба отправлена</string>
+    <string name="ai_report_title">Пожаловаться на ответ ИИ</string>
+    <string name="ai_report_include">Приложить ответ ИИ</string>
+    <string name="ai_report_hint">Жалоба уйдёт администраторам этого сервера Saga — с текстом, который вы здесь приложите.</string>
+    <string name="ai_report_chat_menu">Пожаловаться на ответ ИИ …</string>
+</resources>
