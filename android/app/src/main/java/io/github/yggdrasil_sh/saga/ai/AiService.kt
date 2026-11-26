@@ -204,6 +204,22 @@ object AiLogic {
         return out
     }
 
+    /**
+     * SSE-Zeilen lesen (next = naechste Zeile, null = Ende) und jedes Stueck an emit geben. emit darf warten (Kanal
+     * send) - nichts wird verworfen (Bugs-DB 2514). Endet nach done/error; ein letztes Ereignis ohne Leerzeile zaehlt mit.
+     */
+    suspend fun pump(next: () -> String?, json: Json, emit: suspend (AiChunk) -> Unit) {
+        val parser = SseParser()
+        while (true) {
+            val line = next() ?: break
+            val ev = parser.feed(line) ?: continue
+            val c = chunk(ev.event, ev.data, json) ?: continue
+            emit(c)
+            if (c is AiChunk.Done || c is AiChunk.Failed) return
+        }
+        parser.feed("")?.let { ev -> chunk(ev.event, ev.data, json)?.let { emit(it) } }
+    }
+
     /** Ein Ereignis des Stroms lesen */
     fun chunk(event: String, data: String, json: Json): AiChunk? {
         val o = try {
@@ -377,23 +393,23 @@ class AiService(private val repo: SagaRepository, scope: CoroutineScope? = null)
                         } catch (_: Exception) {
                             null
                         }
-                        trySend(AiChunk.Failed(msg?.let { UiText.Raw(it) } ?: repo.friendly(ApiException(resp.code, UiText.Raw("HTTP ${resp.code}"))), false))
+                        send(AiChunk.Failed(msg?.let { UiText.Raw(it) } ?: repo.friendly(ApiException(resp.code, UiText.Raw("HTTP ${resp.code}"))), false))
                         return@use
                     }
                     val src = resp.body.source()
-                    val parser = SseParser()
-                    while (true) {
-                        val line = src.readUtf8Line() ?: break
-                        val ev = parser.feed(line) ?: continue
-                        val c = AiLogic.chunk(ev.event, ev.data, json) ?: continue
-                        trySend(c)
-                        if (c is AiChunk.Done || c is AiChunk.Failed) break
-                    }
+                    // Bugs-DB 2514: send statt trySend - bei vollem Puffer (64) wartet der Leser auf den Sammler, statt
+                    // delta-Stuecke oder gar done/error still zu verwerfen
+                    AiLogic.pump({ src.readUtf8Line() }, json) { send(it) }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (!call.isCanceled()) trySend(AiChunk.Failed(repo.friendly(e), true))
+                if (!call.isCanceled()) {
+                    try {
+                        send(AiChunk.Failed(repo.friendly(e), true))
+                    } catch (_: kotlinx.coroutines.channels.ClosedSendChannelException) {   // Sammler schon weg
+                    }
+                }
             } finally {
                 close()
             }
