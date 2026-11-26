@@ -68,18 +68,26 @@ class Contacts2027bShotsTest {
         assertTrue(f.length() > 1000)
     }
 
-    /** Knoten mit passendem Text (bzw. content-desc) in der Bildschirm-Struktur antippen */
+    /** Knoten mit passendem Text (bzw. Beschreibung) im aktiven Fenster antippen - auch in der Kontakte-App */
     private fun tap(re: Regex): Boolean {
-        sh("uiautomator dump /sdcard/k27b-ui.xml")
-        val xml = sh("cat /sdcard/k27b-ui.xml")
-        val node = Regex("<node [^>]*>").findAll(xml).map { it.value }.firstOrNull { n ->
-            val t = Regex("(?:text|content-desc)=\"([^\"]*)\"").findAll(n).map { it.groupValues[1] }
-            t.any { re.containsMatchIn(it) }
-        } ?: return false
-        val m = Regex("bounds=\"\\[(\\d+),(\\d+)]\\[(\\d+),(\\d+)]\"").find(node) ?: return false
-        val (x1, y1, x2, y2) = m.destructured
-        sh("input tap ${(x1.toInt() + x2.toInt()) / 2} ${(y1.toInt() + y2.toInt()) / 2}")
-        return true
+        repeat(10) {
+            val n = ins.uiAutomation.rootInActiveWindow?.let { find(it, re) }
+            if (n != null) {
+                val r = android.graphics.Rect()
+                n.getBoundsInScreen(r)
+                sh("input tap ${r.centerX()} ${r.centerY()}")
+                return true
+            }
+            Thread.sleep(800)
+        }
+        return false
+    }
+
+    private fun find(n: android.view.accessibility.AccessibilityNodeInfo, re: Regex): android.view.accessibility.AccessibilityNodeInfo? {
+        val t = listOfNotNull(n.text?.toString(), n.contentDescription?.toString())
+        if (!n.isEditable && t.any { re.containsMatchIn(it) }) return n
+        for (i in 0 until n.childCount) n.getChild(i)?.let { c -> find(c, re)?.let { return it } }
+        return null
     }
 
     private fun anna(): BookContact = runBlocking { app.repo.chat.book.list("Anna").contacts.first { it.name == "Anna Berg" } }
@@ -109,10 +117,10 @@ class Contacts2027bShotsTest {
                 snap("2-detail-knopf$d")
                 if (dark) return@use
                 // Knopf antippen (wie die Person) -> System-Auswahl "neu oder vorhanden"
-                log.append("tap Knopf: ").append(tap(Regex("^Add to Contacts$"))).append('\n')
+                log.append("tap Knopf: ").append(tap(Regex("Add to Contacts"))).append('\n')
                 Thread.sleep(4000)
                 snap("3-auswahl")
-                log.append("tap neu: ").append(tap(Regex("(?i)create new contact|^new contact$|create contact"))).append('\n')
+                log.append("tap neu: ").append(tap(Regex("(?i)create a new contact|create new contact|^new contact$"))).append('\n')
                 Thread.sleep(4000)
                 snap("4-editor")
                 sh("input swipe 540 1700 540 700 400")
@@ -121,11 +129,21 @@ class Contacts2027bShotsTest {
                 log.append("tap sichern: ").append(tap(Regex("(?i)^save$"))).append('\n')
                 Thread.sleep(4000)
                 snap("6-nach-sichern")
-                log.append("aktiv: ").append(sh("dumpsys activity activities").lineSequence().firstOrNull { it.contains("topResumedActivity") || it.contains("mResumedActivity") }).append('\n')
-                // zweiter Aufruf: jetzt steht Anna als vorhandener Kontakt zur Auswahl
-                sc.onActivity { act -> log.append("open: ").append(ContactExportUi.open(act, p!!)).append('\n') }
+                log.append("aktiv: ").append(sh("dumpsys activity activities").lineSequence().firstOrNull { it.contains("topResumedActivity") }?.trim()).append('\n')
+                // zweiter Aufruf ueber den Knopf: jetzt steht Anna als vorhandener Kontakt zur Auswahl -> ergaenzen
+                val top = sh("dumpsys activity activities").lineSequence().firstOrNull { it.contains("topResumedActivity") }.orEmpty()
+                if (top.contains("ComponentActivity")) {
+                    log.append("tap Knopf 2: ").append(tap(Regex("Add to Contacts"))).append('\n')
+                } else {
+                    sh("input keyevent 4")
+                    Thread.sleep(1500)
+                    sc.onActivity { act -> log.append("open: ").append(ContactExportUi.open(act, p!!)).append('\n') }
+                }
                 Thread.sleep(4000)
                 snap("7-auswahl-vorhanden")
+                log.append("tap Anna: ").append(tap(Regex("^Anna Berg$"))).append('\n')
+                Thread.sleep(4000)
+                snap("8-ergaenzen")
                 sh("input keyevent 4")
                 Thread.sleep(1500)
             }
