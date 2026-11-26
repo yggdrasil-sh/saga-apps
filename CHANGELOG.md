@@ -187,6 +187,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Behoben
 
+- **Plan-Karte und Rückmeldung im Ort „Saga“** (Bugs-DB 2515, iOS/iPadOS und Android): Wurde der Plan anderswo
+  geändert, zeigt die Karte nach „Passt, los“ den neuen Plan mit „geändert – bitte neu freigeben“ statt still zu wechseln
+  (`edited` vom Server, bei älteren Servern ab Plan-Fassung 2). Wurde er anderswo schon freigegeben, lädt die Karte den
+  neuen Stand und „Passt, los“ ist aus (Android blieb der Knopf aktiv stehen). Beim (Wieder-)Verbinden und beim Zurückkehren
+  in den Vordergrund holt die App den Stand gezeigter Aufträge einmal neu – ein verlorenes Live-Ereignis ließ sonst „Läuft“
+  bzw. die Plan-Karte stehen. „Das wurde seitdem geändert.“ nach „Rückgängig“ bleibt auch nach Drehen bzw. Wechsel auf
+  zwei Spalten (Android zeigte wieder „Rückgängig“); „Alte Fassung ansehen“ nur, wenn es eine gibt (bei Aufgaben nicht).
+  Umrandete Knöpfe auf der KI-Karte („Ja, ohne Ideen“, „Rückgängig“; iOS auch „Ansehen“, „Ändern“, Rückfrage-Chips)
+  mit sichtbarem Rand und goldener Schrift (WCAG AA, hell und dunkel; vorher Rand bzw. Fläche unter 3:1, Schrift 4,4:1).
+  Android: Der Hinweis „Verlauf an/aus“ im Gespräch stimmt nach dem Umschalten in Einstellungen › Saga sofort.
 - **Android: Absturz bei jeder KI-Antwort** (Bugs-DB 2506): Die KI-Darstellung nutzte das Regex-Kennzeichen `(?U)`, das Androids
   Regex-Engine (ICU) nicht kennt – „Frag deine Seiten“, Seiten-Hilfen und KI im Chat brachen auf echten Geräten ab. Jetzt feste
   Zeichenklassen wie auf dem Server (`ai_md.py`); Wächter-Test gegen `(?U)`/`UNICODE_CHARACTER_CLASS`, Unicode-Vektoren auf JVM
