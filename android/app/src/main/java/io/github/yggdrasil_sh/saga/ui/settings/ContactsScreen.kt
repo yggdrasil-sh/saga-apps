@@ -65,6 +65,7 @@ import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.chat.BookContact
 import io.github.yggdrasil_sh.saga.chat.ContactBook
 import io.github.yggdrasil_sh.saga.chat.ContactBookLogic
+import io.github.yggdrasil_sh.saga.chat.ContactExportLogic
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.ui.chat.ChatAvatar
 import io.github.yggdrasil_sh.saga.ui.common.Chrome
@@ -491,6 +492,21 @@ fun ContactDetailScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
                             openUri(context, Intent.ACTION_SENDTO, ContactBookLogic.mailUri(a.value), repo, R.string.cb_no_app_mail)
                         }
                     }
+                }
+            }
+            // 2027b: einzeln ins Adressbuch des Geraets (System-Dialog vorausgefuellt, keine Berechtigung)
+            ContactExportLogic.prefill(cur)?.let { p ->
+                item(key = "export") {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.cb_export), color = MaterialTheme.colorScheme.primary) },
+                        supportingContent = { Text(stringResource(R.string.cb_export_hint)) },
+                        leadingContent = { SagaIcon(SagaIcons.userPlus, null, tint = MaterialTheme.colorScheme.primary) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = w.padding(top = 12.dp).sagaSegment(0, 1).heightIn(min = 56.dp)
+                            .clickable(role = Role.Button, onClickLabel = stringResource(R.string.cb_export_desc)) {
+                                if (!ContactExportUi.open(context, p)) repo.notify(UiText.Res(R.string.cb_no_app_contacts))
+                            },
+                    )
                 }
             }
             if (cur.form != null || !cur.salutation.isNullOrBlank()) {

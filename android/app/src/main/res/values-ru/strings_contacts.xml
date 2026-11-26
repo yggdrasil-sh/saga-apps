@@ -78,6 +78,11 @@
     <string name="cb_p_many_mails">Не более 10 адресов.</string>
     <string name="cb_p_bad_phone">Проверьте номер: начинается с + или 0, только цифры.</string>
     <string name="cb_p_bad_mail">Проверьте адрес: ровно один @, без пробелов.</string>
+    <!-- 2027b: einzeln ins Adressbuch des Geraets -->
+    <string name="cb_export">Добавить в контакты</string>
+    <string name="cb_export_hint">Переносит имя, номера и адреса эл. почты в контакты устройства. Затем вы выбираете новый или существующий контакт — ничего не сохраняется без вашего подтверждения. Saga не читает ваши контакты.</string>
+    <string name="cb_export_desc">открыть контакты устройства</string>
+    <string name="cb_no_app_contacts">Приложение «Контакты» не найдено</string>
     <plurals name="cb_count">
         <item quantity="one">%1$d контакт</item>
         <item quantity="few">%1$d контакта</item>

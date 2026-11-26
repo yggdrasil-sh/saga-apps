@@ -23,6 +23,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Rückmeldung mit „Rückgängig“ oder Zustand + „Ansehen“), Rückfrage mit Chips, Absage mit „Als Aufgabe anlegen“. Der
   Reiter „Aufträge“ zeigt Liste und Detail. Englisch heißen Aufträge jetzt „Jobs“ (Aufgaben bleiben „Tasks“). Rückgängig
   eines inzwischen gelöschten Termins meldet „Schon erledigt – …“.
+- **Kontakte einzeln ins Adressbuch des Geräts** (Bugs-DB 2027b, iOS/iPadOS und Android, Server mit `contacts2`): Im
+  Kontakt-Detail (Einstellungen › Kontakte) steht „Zu Kontakten hinzufügen“, sobald der Kontakt mindestens eine Nummer
+  oder E-Mail-Adresse hat. Der Knopf öffnet den Dialog des Systems vorausgefüllt – iOS die Karte „Neuen Kontakt
+  erstellen · Zu vorhandenem Kontakt hinzufügen“ (iPad als Formular-Blatt), Android die Auswahl „Neuer Kontakt“ oder ein
+  vorhandener Kontakt der Kontakte-App. Gesichert wird nur dort, durch die Person selbst. Übernommen werden Name für mich
+  (sonst Name der Person), Telefonnummern (E.164) und Mails mit Typ (Mobil/Privat/Arbeit/Andere; ohne Typ: Andere) –
+  nie die Saga-Adresse (interner Handle), Anrede, Grußform oder Chatinhalte. Saga bekommt keine Kontakte-Berechtigung
+  (kein `NSContactsUsageDescription`, kein `READ/WRITE_CONTACTS`), liest das Adressbuch nicht und gleicht nichts ab.
+  Mac-Hülle und Linux-App: unverändert.
 - **Android: Bereich „Saga“ – Gespräch, Aufträge und „Meine Daten“** (Bugs-DB 2269 K-I Apps, 2267 K-B „Rückmeldung in
   der App“, Konzept K10/K11/K19, M1/M3/M4/M7): Neues Navigationsziel „Saga“ (untere Leiste und Rail hinter „Chats“, feste
   Seitenleiste unter „Heute“), nicht in der Chat-Liste; Kopf „{Persona} · KI“ mit Persona-Bild. Oben die feste Leiste

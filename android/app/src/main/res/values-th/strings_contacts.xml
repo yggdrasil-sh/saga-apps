@@ -78,6 +78,11 @@
     <string name="cb_p_many_mails">ไม่เกิน 10 อีเมล</string>
     <string name="cb_p_bad_phone">ตรวจสอบเบอร์: ขึ้นต้นด้วย + หรือ 0 และมีแต่ตัวเลข</string>
     <string name="cb_p_bad_mail">ตรวจสอบอีเมล: มี @ เพียงตัวเดียว และไม่มีช่องว่าง</string>
+    <!-- 2027b: einzeln ins Adressbuch des Geraets -->
+    <string name="cb_export">เพิ่มในรายชื่อติดต่อ</string>
+    <string name="cb_export_hint">คัดลอกชื่อ หมายเลข และอีเมลไปยังรายชื่อติดต่อของอุปกรณ์ จากนั้นเลือกรายชื่อใหม่หรือที่มีอยู่ จะยังไม่บันทึกจนกว่าคุณจะยืนยัน Saga ไม่อ่านรายชื่อติดต่อของคุณ</string>
+    <string name="cb_export_desc">เปิดรายชื่อติดต่อของอุปกรณ์</string>
+    <string name="cb_no_app_contacts">ไม่พบแอปรายชื่อติดต่อ</string>
     <plurals name="cb_count">
         <item quantity="other">%1$d รายชื่อ</item>
     </plurals>

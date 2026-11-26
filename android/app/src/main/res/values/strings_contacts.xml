@@ -78,6 +78,11 @@
     <string name="cb_p_many_mails">At most 10 emails.</string>
     <string name="cb_p_bad_phone">Check the number: start with + or 0, digits only.</string>
     <string name="cb_p_bad_mail">Check the email: exactly one @, no spaces.</string>
+    <!-- 2027b: einzeln ins Adressbuch des Geraets -->
+    <string name="cb_export">Add to Contacts</string>
+    <string name="cb_export_hint">Copies the name, numbers and emails to this device\'s contacts. Next you choose a new or an existing contact – nothing is saved until you confirm. Saga does not read your contacts.</string>
+    <string name="cb_export_desc">open this device\'s contacts</string>
+    <string name="cb_no_app_contacts">No contacts app found</string>
     <plurals name="cb_count">
         <item quantity="one">%1$d contact</item>
         <item quantity="other">%1$d contacts</item>
