@@ -23,6 +23,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Lebhaftigkeit, Ideen, Verlauf, „Meine Daten“ (Einwilligung widerrufen, Export JSON/Markdown teilen, „Alles löschen“
   mit Rückfrage, „Was mein Admin sehen kann“). Alles nur, wenn `/api/ai/status` den Ort meldet (`consent`, `intro`,
   Fähigkeit `ai`); ältere Server: unverändert. Texte de/en/es/ru/th wie im Web.
+- **Widgets sofort aktuell** (Bugs-DB 2188, iOS/iPadOS und Android, Server mit `sub_caps` „widgets“): Ändert sich auf
+  einem anderen Gerät (oder im Widget selbst) etwas, das ein Homescreen-Widget zeigt, schickt der Server einen stillen
+  Push ohne Inhalt, und die Widgets laden neu – iOS über `content-available` (`WidgetCenter.reloadAllTimelines`),
+  Android als Daten-Nachricht über UnifiedPush bzw. die eigene Verbindung (Glance-Widgets per WorkManager). Die Widgets
+  merken sich ihr Ziel, die App meldet die Liste (`PUT /api/app/widgets`, nur Seiten-IDs und „Heute“) bei Änderung; das
+  Mitteilungs-Abo meldet die Fähigkeit `widgets` (nie über VoIP). Seiten-Karte (iOS) holt nur noch ihre Seite
+  (`GET /api/app/page/{id}`, ältere Server: Liste) und lädt Titelbild und Symbol nur neu, wenn sich ihr
+  Versionsschlüssel (`cover_v`) ändert. Ohne Push (Mitteilungen aus, älterer Server) laden die Widgets wie bisher nach Plan.
 - **Sprechring nur noch in Gruppen** (Bugs-DB 2125, iOS/iPadOS/Mac und Android): Der grüne Ring um Bild bzw. Profilbild erscheint
   nur, wenn mindestens drei verschiedene Personen im Anruf sind – im 1:1 (direkt und über den Knoten) wirkte er nur wie
   Umgebungslicht. Eigene Begleitgeräte zählen nicht als weitere Person; kommt eine dritte Person dazu, erscheint der

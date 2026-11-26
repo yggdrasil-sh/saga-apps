@@ -137,6 +137,8 @@ data class PushLocal(
     /** 2.5 Push-Nutzlast 2: zuletzt beim Server gemeldete App-Sprache ("" = System; null = nie gemeldet), caps "update" gemeldet */
     val lang: String? = null,
     val caps: Boolean = false,
+    /** 2.6 (Bugs-DB 2188): caps "widgets" (stiller Widget-Push) gemeldet */
+    val wcaps: Boolean = false,
 )
 
 enum class PushState { OFF, REGISTERING, ON, ERROR }
@@ -175,17 +177,21 @@ object PushLogic {
  */
 object PushSubLogic {
     const val CAP_UPDATE = "update"
+    /** 2.6 (Bugs-DB 2188): stiller Widget-Push (Glance-Widgets neu laden) - nur, wenn der Server ihn ausdruecklich nennt */
+    const val CAP_WIDGETS = "widgets"
 
     fun v2(server: PushServerInfo?): Boolean = server != null && server.payload >= 2
 
-    /** Faehigkeiten, die dieses Geraet meldet (nur "update", und nur, wenn der Server sie kennt bzw. keine Liste nennt) */
+    /** Faehigkeiten, die dieses Geraet meldet ("update", wenn der Server sie kennt bzw. keine Liste nennt; "widgets" nur,
+     *  wenn er sie nennt) */
     fun caps(server: PushServerInfo?): List<String> =
-        if (!v2(server)) emptyList() else listOf(CAP_UPDATE).filter { server!!.subCaps.isEmpty() || it in server.subCaps }
+        if (!v2(server)) emptyList() else listOf(CAP_UPDATE).filter { server!!.subCaps.isEmpty() || it in server.subCaps } +
+            listOf(CAP_WIDGETS).filter { it in server!!.subCaps }
 
     /** Abo erneuern? Server kann Nutzlast 2, Abo besteht, und Sprache oder Faehigkeiten sind noch nicht gemeldet */
     fun needsRenew(local: PushLocal?, server: PushServerInfo?, lang: String): Boolean =
         v2(server) && local != null && local.subId != null && local.endpoint != null &&
-            (local.lang != lang || local.caps != caps(server).contains(CAP_UPDATE))
+            (local.lang != lang || local.caps != caps(server).contains(CAP_UPDATE) || local.wcaps != caps(server).contains(CAP_WIDGETS))
 }
 
 /**
@@ -497,7 +503,10 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
     /** Gemeldete Felder merken (fuer [renewSub]) */
     private fun sentFields(l: PushLocal): PushLocal {
         val s = info.value?.server
-        return if (PushSubLogic.v2(s)) l.copy(lang = appLang(), caps = PushSubLogic.CAP_UPDATE in PushSubLogic.caps(s)) else l
+        return if (PushSubLogic.v2(s)) {
+            val c = PushSubLogic.caps(s)
+            l.copy(lang = appLang(), caps = PushSubLogic.CAP_UPDATE in c, wcaps = PushSubLogic.CAP_WIDGETS in c)
+        } else l
     }
 
     /**
@@ -616,6 +625,11 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
         val l = local() ?: return null
         if (l.token != token) return null
         val msg = PushParse.parse(bytes, keysOf(l)) ?: return null
+        // 2.6 (Bugs-DB 2188): stiller Widget-Push ohne Inhalt - Glance-Widgets neu laden (WorkManager, mit Netz), nie anzeigen
+        if (io.github.yggdrasil_sh.saga.widget.WidgetPushLogic.isWidgetPush(msg.kind)) {
+            io.github.yggdrasil_sh.saga.widget.WidgetUpdates.requestNow(context)
+            return null
+        }
         // 2.5 Nutzlast 2: stille Aktualisierung (Nachricht geloescht) - gezeigte Mitteilung anpassen/schliessen, nie klingeln
         if (msg.update) {
             if (msg.v >= 2) {

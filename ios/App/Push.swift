@@ -166,7 +166,8 @@ final class PushModel: ObservableObject {
         let lang = PushLogic.pushLang(AppConfig.appLanguage, payload: state?.payload ?? 0)
         let f = e2eFields()
         let body = PushLogic.subscription(token: t, env: Self.env, name: DeviceKey.deviceName, lang: lang, payload: state?.payload ?? 0,
-                                          e2e: f.e2e, keys: f.keys, topic: f.topic)
+                                          e2e: f.e2e, keys: f.keys, topic: f.topic,
+                                          caps: WidgetPushLogic.subscriptionCaps(serverCaps: state?.subCaps ?? []))   // 2188
         do {
             let (d, code) = try await store.apiResponse("api/push/subscriptions", method: "POST", body: body)
             if !(200..<300).contains(code) { message = ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "\(code)" }
@@ -178,6 +179,9 @@ final class PushModel: ObservableObject {
                 for id in dup { _ = try? await store.api("api/push/subscriptions/\(id)", method: "DELETE") }
                 if !dup.isEmpty { await load() }
             }
+            #if os(iOS)
+            if (200..<300).contains(code) { await WidgetPush.report(store, force: true) }      // 2188: Widgets dieses Geraets melden
+            #endif
             return
         } catch { message = error.localizedDescription }
         await load()
@@ -296,6 +300,7 @@ final class IOSAppDelegate: NSObject, UIApplicationDelegate {
         UNUserNotificationCenter.current().delegate = PushCenterDelegate.shared
         ImagePaste.install()                                                         // Bilder aus der Zwischenablage (Seite, Chat)
         MainActor.assumeIsolated { CallSystem.shared.setup() }                       // Anrufe: PushKit (VoIP) + Mitteilungs-Aktionen
+        MainActor.assumeIsolated { WidgetPush.install() }                            // 2188: stiller Widget-Push -> Widgets neu laden
         return true
     }
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {

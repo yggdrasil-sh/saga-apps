@@ -93,12 +93,44 @@ object WidgetSync {
         }
     }
 
+    /**
+     * 2.6 (Bugs-DB 2188): eingerichtete Widgets dem Server melden (PUT api/app/widgets {pages, today}) - nur bei Aenderung;
+     * aeltere Server (404) einen Tag lang nicht mehr fragen. Fehler: still (naechster Abgleich versucht es erneut).
+     */
+    suspend fun report(context: Context, repo: SagaRepository, pages: Collection<Long>, today: Boolean) {
+        if (repo.needsLogin.value) return
+        val prefs = context.getSharedPreferences("saga_widget_push", Context.MODE_PRIVATE)
+        val acct = repo.settings.server.value + "|" + repo.settings.accountKey.value
+        val list = WidgetPushLogic.pages(pages)
+        val fp = WidgetPushLogic.fingerprint(acct, list, today)
+        if (prefs.getString("sent", null) == fp) return
+        val off = prefs.getLong("off:$acct", 0L)
+        if (off > 0 && System.currentTimeMillis() - off < WidgetPushLogic.RETRY_UNSUPPORTED_MS) return
+        try {
+            repo.api.put("api/app/widgets", kotlinx.serialization.json.buildJsonObject {
+                put("pages", kotlinx.serialization.json.JsonArray(list.map { kotlinx.serialization.json.JsonPrimitive(it) }))
+                put("today", kotlinx.serialization.json.JsonPrimitive(today))
+            })
+            prefs.edit().putString("sent", fp).remove("off:$acct").apply()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ApiException) {
+            if (WidgetPushLogic.unsupported(e.code)) prefs.edit().putLong("off:$acct", System.currentTimeMillis()).apply()
+        } catch (_: Exception) {
+        }
+    }
+
     /** Alles aktualisieren, was ein Widget auf dem Homescreen braucht */
     suspend fun refreshAll(context: Context) {
         val store = WidgetStore(context)
         val has = WidgetUpdates.present(context)
         if (!has.today && !has.page) {                        // letztes Widget entfernt: periodischen Abgleich beenden
             WidgetUpdates.cancel(context)
+            if (!(BuildConfig.DEBUG && ShotMode.on)) {         // 2188: Server vergisst die Widgets dieses Geraets
+                val repo = (context.applicationContext as SagaApplication).repo
+                repo.awaitReady()
+                report(context, repo, emptyList(), false)
+            }
             return
         }
         if (BuildConfig.DEBUG && ShotMode.on) {                 // nur Debug: neutrale Beispieldaten fuer Bildschirmfotos
@@ -112,6 +144,7 @@ object WidgetSync {
                 if (store.signedOut) store.signedOut = false
                 if (has.today) refreshToday(repo, store)
                 if (has.page) store.configuredPages().forEach { refreshPage(repo, store, it) }
+                report(context, repo, if (has.page) store.configuredPages() else emptyList(), has.today)   // 2188: Widget-Push
             }
         }
         WidgetUpdates.redraw(context)

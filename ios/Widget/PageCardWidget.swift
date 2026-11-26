@@ -51,7 +51,9 @@ struct PageCardEntry: TimelineEntry {
 }
 
 /// Letzter guter Stand der Seiten-Karte (Bilder als Dateien in der App-Gruppe, siehe PageCardStore)
-struct PageCardSnap: Codable { var title: String; var emoji: String?; var coverPos: Double; var cover: Bool; var icon: Bool }
+/// 2188: coverV/iconRef = Versionsschluessel der gemerkten Bilder (aeltere Staende: nil -> einmal neu laden)
+struct PageCardSnap: Codable { var title: String; var emoji: String?; var coverPos: Double; var cover: Bool; var icon: Bool
+    var coverV: String? = nil; var iconRef: String? = nil }
 
 /// Bilder des letzten guten Stands (Titelbild/Symbol, wie vom Server geliefert) - Library/Caches der App-Gruppe
 enum PageCardStore {
@@ -108,31 +110,49 @@ struct PageCardProvider: AppIntentTimelineProvider {
         guard let sel else { e.hint = String(localized: "Gedrückt halten → Widget bearbeiten"); return (e, true, nil) }
         e.id = sel.id; e.title = sel.name; e.emoji = sel.icon
         let key = Self.snapKey(sel.id)
-        guard let pages = try? await API.pages() else {
+        WidgetPushLogic.record(kind: "pagecard", target: String(sel.id), server: AppConfig.serverOrigin ?? "", token: AppConfig.token,
+                               to: AppConfig.store)                              // 2188: Meldung an den Server (Widget-Push)
+        let snap = WidgetSnapshot<PageCardSnap>.load(key, from: AppConfig.store)
+        // 2188: nur diese Seite holen (GET /api/app/page/{id}; aeltere Server: aus der Liste)
+        guard let res = try? await API.page(sel.id) else {
             // offline/Fehler: letzter guter Stand mit Bildern und "Stand: ...", sonst Namen aus der Auswahl
-            guard let s = WidgetSnapshot<PageCardSnap>.load(key, from: AppConfig.store) else { return (e, false, nil) }
+            guard let s = snap else { return (e, false, nil) }
             e.title = s.value.title; e.emoji = s.value.emoji; e.coverPos = s.value.coverPos
             e.cover = s.value.cover ? thumb(PageCardStore.read(key, "cover"), max: 900) : nil
             e.iconImage = s.value.icon ? thumb(PageCardStore.read(key, "icon"), max: 120) : nil
             return (e, false, s.at)
         }
-        guard let p = pages.first(where: { $0.id == sel.id }) else { e.hint = String(localized: "Seite gelöscht"); return (e, true, nil) }
+        guard case .page(let p) = res else { e.hint = String(localized: "Seite gelöscht"); return (e, true, nil) }
         e.title = p.title.isEmpty ? String(localized: "Unbenannt") : p.title
         e.emoji = p.emoji ?? (p.imageIcon ? nil : (p.isDatabase ? "🗂" : "📄"))
         e.coverPos = p.cover_pos ?? 50
-        // 2185: Bilder immer frisch (gleiche Adresse fuer neues Titelbild); Netzfehler -> gemerktes Bild statt keins
-        async let cov = API.pageImageResult(p.id, "cover")                              // ohne Titelbild: erstes Bild im Inhalt
-        async let ico = p.imageIcon ? API.pageImageResult(p.id, "icon") : WidgetImage.none   // 2.5: Siegel als PNG
+        // 2188: Bilder nach Versionsschluessel - gleicher Schluessel und Bild gemerkt: nicht neu laden; sonst unter neuer
+        // Adresse. Aeltere Server (ohne cover_v): wie 2185 immer frisch. Netzfehler -> gemerktes Bild statt keins
+        let cachedCover = PageCardStore.read(key, "cover"), cachedIcon = PageCardStore.read(key, "icon")
+        let coverPlan = WidgetFeed.imagePlan(version: p.cover_v, cached: snap?.value.coverV, hasData: cachedCover != nil)
+        let iconPlan: WidgetFeed.ImagePlan = p.imageIcon
+            ? WidgetFeed.imagePlan(version: p.cover_v == nil ? nil : p.icon, cached: snap?.value.iconRef, hasData: cachedIcon != nil) : .none
+        func load(_ plan: WidgetFeed.ImagePlan, _ which: String, _ cached: Data?) async -> WidgetImage {
+            switch plan {
+            case .none: return .none
+            case .reuse: return cached.map { .image($0) } ?? .none
+            case .fetch(let v): return await API.pageImageResult(p.id, which, version: v)   // ohne Titelbild: erstes Bild im Inhalt
+            }
+        }
+        async let cov = load(coverPlan, "cover", cachedCover)
+        async let ico = load(iconPlan, "icon", cachedIcon)                                  // 2.5: Siegel als PNG
         let (rc, ri) = (await cov, await ico)
-        let cd = rc.resolved(cached: PageCardStore.read(key, "cover")), icd = ri.resolved(cached: PageCardStore.read(key, "icon"))
+        let cd = rc.resolved(cached: cachedCover), icd = ri.resolved(cached: cachedIcon)
         e.cover = thumb(cd, max: 900)
         e.iconImage = thumb(icd, max: 120)
-        if rc != .failed { PageCardStore.write(cd, key, "cover") }
-        if ri != .failed { PageCardStore.write(icd, key, "icon") }
+        if rc != .failed && coverPlan != .reuse { PageCardStore.write(cd, key, "cover") }
+        if ri != .failed && iconPlan != .reuse { PageCardStore.write(icd, key, "icon") }
         // Bild nicht abrufbar: gemerktes Bild mit dem Stand, aus dem es stammt
         let ok = rc != .failed && ri != .failed
-        let prev = ok ? nil : WidgetSnapshot<PageCardSnap>.load(key, from: AppConfig.store)?.at
-        WidgetSnapshot.save(PageCardSnap(title: e.title, emoji: e.emoji, coverPos: e.coverPos, cover: cd != nil, icon: icd != nil),
+        let prev = ok ? nil : snap?.at
+        WidgetSnapshot.save(PageCardSnap(title: e.title, emoji: e.emoji, coverPos: e.coverPos, cover: cd != nil, icon: icd != nil,
+                                         coverV: rc == .failed ? snap?.value.coverV : p.cover_v,
+                                         iconRef: ri == .failed ? snap?.value.iconRef : (p.imageIcon ? p.icon : nil)),
                             at: prev ?? .now, key: key, to: AppConfig.store)
         return (e, ok, prev)
     }

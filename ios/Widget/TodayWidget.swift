@@ -35,6 +35,8 @@ struct TodayProvider: TimelineProvider {
     /// -> (Eintrag, frisch?, Zeitpunkt des gemerkten Stands bei Fehler)
     private func fetch() async -> (TodayEntry, Bool, Date?) {
         var d: TodayData, ok = true, at: Date? = nil
+        WidgetPushLogic.record(kind: "today", target: "today", server: AppConfig.serverOrigin ?? "", token: AppConfig.token,
+                               to: AppConfig.store)                              // 2188: Meldung an den Server (Widget-Push)
         do {
             d = try await API.today()
             WidgetSnapshot.save(d, at: .now, key: Self.snapKey, to: AppConfig.store)

@@ -42,6 +42,8 @@ struct PushState: Equatable {
     /// Push-Relais (server.apns_relay): Zustand ok|down|pending|blocked|auth, Topics des Relais; nil = kein Relais
     var relayState: String?
     var relayTopics: [String] = []
+    /// 2.5/2.6: Faehigkeiten, die das Abo melden darf (server.sub_caps) - 2188: "widgets" = stiller Widget-Push
+    var subCaps: [String] = []
     init() {}
     init?(data: Data) {
         guard let j = ShareJSON.obj(data) else { return nil }
@@ -51,6 +53,7 @@ struct PushState: Equatable {
         e2e = ShareJSON.int(s["apns_e2e"]) ?? 0
         topics = (s["apns_topics"] as? [Any] ?? []).compactMap { $0 as? String }
         apnsBundle = s["apns_bundle"] as? String ?? ""
+        subCaps = (s["sub_caps"] as? [Any] ?? []).compactMap { $0 as? String }
         if let r = s["apns_relay"] as? [String: Any] {
             relayState = r["state"] as? String ?? ""
             relayTopics = (r["topics"] as? [Any] ?? []).compactMap { $0 as? String }
@@ -89,12 +92,14 @@ enum PushLogic {
     /// Debug-Builds: sandbox, sonst production
     static func env(debug: Bool) -> String { debug ? "sandbox" : "production" }
     /// lang (2.5, push2): Sprache der Mitteilungen dieses Geraets - nur an Server mit payload >= 2 (aeltere Server: Feld
-    /// unbekannt). Bewusst KEIN caps:["update"]: stille Aktualisierungen (content-available) kann die App noch nicht.
+    /// unbekannt). Bewusst KEIN caps:["update"]: Chat-Aktualisierungen (geloeschte Nachricht) kann die App noch nicht.
     /// 2262: keys {p256dh, auth} und topic (eigene App-ID) nur an Server mit apns_e2e >= 1 - aeltere Server kennen die Felder nicht
+    /// 2188: caps ["widgets"] (stiller Widget-Push) nur, wenn der Server es anbietet (WidgetPushLogic.subscriptionCaps); leer = Feld fehlt
     static func subscription(token: String, env: String, name: String, type: String = "apns", lang: String? = nil, payload: Int = 0,
-                             e2e: Int = 0, keys: [String: String]? = nil, topic: String? = nil) -> [String: Any] {
+                             e2e: Int = 0, keys: [String: String]? = nil, topic: String? = nil, caps: [String] = []) -> [String: Any] {
         var b: [String: Any] = ["type": type, "token": token, "env": env, "name": String(name.prefix(80))]
         if let l = pushLang(lang, payload: payload) { b["lang"] = l }
+        if !caps.isEmpty && type == "apns" { b["caps"] = caps }
         if e2e >= 1, let keys, keys["p256dh"]?.isEmpty == false, keys["auth"]?.isEmpty == false, let topic, !topic.isEmpty {
             b["keys"] = keys; b["topic"] = topic
         }

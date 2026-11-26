@@ -78,3 +78,68 @@ func widgetFeedTests() {
     check(WidgetImage.none.resolved(cached: img) == nil, "Feed: Titelbild entfernt -> keins (nicht das alte)")
     check(WidgetImage.image(Data([9])).resolved(cached: img) == Data([9]), "Feed: neues Titelbild gewinnt")
 }
+
+// Bugs-DB 2188: Widget-Push (stiller Push ohne Inhalt), Meldung der Widgets, Titelbild nach Versionsschluessel
+func widgetPushTests() {
+    typealias W = WidgetPushLogic
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    check(W.isWidgetPush(["kind": "widgets.update", "update": true]) && !W.isWidgetPush(["kind": "chat.message"]) && !W.isWidgetPush([:]),
+          "WPush: nur kind widgets.update laedt Widgets neu")
+    check(W.subscriptionCaps(serverCaps: ["update", "widgets"]) == ["widgets"] && W.subscriptionCaps(serverCaps: ["update"]).isEmpty,
+          "WPush: caps widgets nur, wenn der Server sie anbietet (nie update)")
+    let sub = PushLogic.subscription(token: "ab", env: "production", name: "iPhone", payload: 2, caps: ["widgets"])
+    check((sub["caps"] as? [String]) == ["widgets"], "WPush: Abo apns mit caps widgets")
+    check(PushLogic.subscription(token: "ab", env: "production", name: "iPhone", type: "apns-voip", payload: 2, caps: ["widgets"])["caps"] == nil,
+          "WPush: VoIP-Abo nie mit caps (nie Widget-Push ueber VoIP)")
+    check(PushLogic.subscription(token: "ab", env: "production", name: "iPhone", payload: 2)["caps"] == nil, "WPush: ohne Server-Faehigkeit kein Feld caps")
+    let st = PushState(data: Data(#"{"server": {"enabled": true, "sub_caps": ["update", "widgets"]}}"#.utf8))
+    check(st?.subCaps == ["update", "widgets"], "WPush: PushState liest sub_caps")
+    check(PushState(data: Data(#"{"server": {"enabled": true}}"#.utf8))?.subCaps == [], "WPush: aeltere Server ohne sub_caps")
+
+    // Eintraege der Widgets -> Meldung
+    check(W.account(server: "", token: "hk_x") == nil && W.account(server: "https://s", token: "") == nil, "WPush: ohne Server/Schluessel nichts merken")
+    let a = W.account(server: "https://s.example", token: "hk_1")!, b = W.account(server: "https://s.example", token: "hk_2")!
+    check(a != b, "WPush: Konto-Kennung je App-Schluessel")
+    let t = now.timeIntervalSince1970
+    let e: [String: Double] = [W.regKey(account: a, kind: "pagecard", target: "12"): t - 60, W.regKey(account: a, kind: "page", target: "7"): t - 3600,
+                               W.regKey(account: a, kind: "page", target: "12"): t - 10, W.regKey(account: a, kind: "today", target: "today"): t - 5,
+                               W.regKey(account: a, kind: "pagecard", target: "99"): t - 3 * 86400,       // zu alt
+                               W.regKey(account: b, kind: "page", target: "5"): t,                          // anderes Konto
+                               W.regKey(account: a, kind: "page", target: "x"): t, "w.snap.page.1": t]
+    let r = W.collect(e, account: a, present: nil, now: now)
+    check(r.pages == [7, 12] && r.today, "WPush: Seiten sortiert ohne doppelte, Heute erkannt (\(r.pages))")
+    check(Set(r.stale) == [W.regKey(account: a, kind: "pagecard", target: "99"), W.regKey(account: b, kind: "page", target: "5")],
+          "WPush: zu alte und fremde Eintraege weg, kaputtes Ziel bleibt nur ungemeldet (\(r.stale))")
+    let r2 = W.collect(e, account: a, present: ["pagecard", "lock"], now: now)
+    check(r2.pages == [12] && r2.today && r2.stale.contains(W.regKey(account: a, kind: "page", target: "7")),
+          "WPush: Widget-Art nicht mehr auf dem Homescreen -> Eintraege weg; Sperrbildschirm zaehlt als Heute")
+    let r3 = W.collect(e, account: a, present: [], now: now)
+    check(r3.pages.isEmpty && !r3.today, "WPush: keine Widgets mehr -> leere Meldung (Server vergisst das Geraet)")
+    let many = Dictionary(uniqueKeysWithValues: (1...100).map { (W.regKey(account: a, kind: "page", target: String($0)), t) })
+    check(W.collect(many, account: a, present: nil, now: now).pages.count == W.pagesMax, "WPush: hoechstens 64 Seiten")
+    check(W.fingerprint(pages: [7, 12], today: true) != W.fingerprint(pages: [7, 12], today: false)
+          && W.fingerprint(pages: [7], today: false) != W.fingerprint(pages: [7, 12], today: false), "WPush: Fingerabdruck aendert sich mit der Meldung")
+    let body = W.body(pages: [7, 12], today: true)
+    check((body["pages"] as? [Int]) == [7, 12] && (body["today"] as? Bool) == true && body.count == 2, "WPush: Meldung nur Kennungen und Heute")
+    let d = UserDefaults(suiteName: "wpush-test-\(UUID().uuidString)")!
+    W.record(kind: "pagecard", target: "12", server: "https://s.example", token: "hk_1", now: now, to: d)
+    W.record(kind: "pagecard", target: "13", server: "", token: "hk_1", now: now, to: d)
+    check(d.double(forKey: W.regKey(account: a, kind: "pagecard", target: "12")) == t
+          && d.dictionaryRepresentation().keys.filter { $0.hasPrefix(W.regPrefix) }.count == 1, "WPush: record merkt Ziel und Zeit (ohne Server nichts)")
+
+    // Einzelseite und Titelbild nach Versionsschluessel
+    typealias F = WidgetFeed
+    check(F.pageGone(status: 404, data: Data(#"{"error": "not found"}"#.utf8)) == true, "Karte: 404 mit error -> Seite weg")
+    check(F.pageGone(status: 404, data: Data(#"{"detail": "Not Found"}"#.utf8)) == nil, "Karte: 404 ohne error -> aelterer Server (Liste)")
+    check(F.pageGone(status: 200, data: nil) == false, "Karte: 200 -> nicht weg")
+    check(F.imagePlan(version: nil, cached: "abc", hasData: true) == .fetch(version: nil), "Karte: ohne cover_v (aelterer Server) immer frisch")
+    check(F.imagePlan(version: "", cached: "abc", hasData: true) == .none, "Karte: cover_v leer -> kein Bild, kein Abruf")
+    check(F.imagePlan(version: "abc", cached: "abc", hasData: true) == .reuse, "Karte: gleicher Schluessel + Bild gemerkt -> kein Abruf")
+    check(F.imagePlan(version: "abc", cached: "abc", hasData: false) == .fetch(version: "abc"), "Karte: Bild fehlt -> laden")
+    check(F.imagePlan(version: "def", cached: "abc", hasData: true) == .fetch(version: "def"), "Karte: neuer Schluessel -> neues Bild")
+    let p1 = F.imagePath(id: 5, which: "cover", version: "abc"), p2 = F.imagePath(id: 5, which: "cover", version: "def")
+    check(p1.hasPrefix("api/app/page-image/5/cover?w=640&v=") && p1 != p2, "Karte: Adresse mit Version (\(p1))")
+    check(F.imagePath(id: 5, which: "icon", version: nil) == "api/app/page-image/5/icon?w=160", "Karte: ohne Version Adresse wie bisher")
+    check(F.imagePath(id: 5, which: "icon", version: "/siegel/rot/x.svg").contains("&v=") && !F.imagePath(id: 5, which: "icon", version: "/siegel/rot/x.svg").contains("siegel"),
+          "Karte: Symbol-Adresse nur als Pruefsumme in der Adresse")
+}

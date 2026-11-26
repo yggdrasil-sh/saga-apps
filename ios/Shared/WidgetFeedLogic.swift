@@ -123,3 +123,82 @@ enum WidgetImage: Equatable {
         }
     }
 }
+
+// MARK: - 2.6 (Bugs-DB 2188): Widget-Push, Meldung der Widgets, Titelbild nach Versionsschluessel
+
+/// Stiller Push "widgets.update" (ohne Inhalt) -> Widgets neu laden. Welche Seiten als Widget eingerichtet sind, merken die
+/// Widgets selbst in der App-Gruppe (record); die App meldet sie dem Server (PUT /api/app/widgets {pages, today}).
+enum WidgetPushLogic {
+    static let kind = "widgets.update"
+    static let cap = "widgets"
+    static let regPrefix = "w.reg."
+    /// so lange gilt ein Eintrag ohne erneutes Laden des Widgets (danach: Widget vermutlich entfernt)
+    static let regMaxAge: TimeInterval = 2 * 86400
+    static let pagesMax = 64
+
+    static func isWidgetPush(_ info: [AnyHashable: Any]) -> Bool { (info["kind"] as? String) == kind }
+
+    /// Faehigkeit fuers Abo: "widgets" nur, wenn der Server sie anbietet (server.sub_caps)
+    static func subscriptionCaps(serverCaps: [String]) -> [String] { serverCaps.contains(cap) ? [cap] : [] }
+
+    /// Konto-Kennung (Server + App-Schluessel, nur als Pruefsumme) - nach Kontowechsel keine fremden Eintraege
+    static func account(server: String, token: String) -> String? {
+        guard !server.isEmpty, !token.isEmpty else { return nil }
+        return WidgetFeed.fnv(server + "|" + token)
+    }
+    /// Schluessel eines Eintrags: w.reg.<konto>.<art>.<ziel> (art: today | page | pagecard)
+    static func regKey(account: String, kind: String, target: String) -> String { "\(regPrefix)\(account).\(kind).\(target)" }
+
+    /// Widget hat geladen: Ziel merken (Zeitpunkt)
+    static func record(kind: String, target: String, server: String, token: String, now: Date = .now, to d: UserDefaults) {
+        guard let a = account(server: server, token: token) else { return }
+        d.set(now.timeIntervalSince1970, forKey: regKey(account: a, kind: kind, target: target))
+    }
+
+    /// Meldung aus den Eintraegen (Schluessel -> Zeitpunkt). present: Widget-Arten auf dem Homescreen (WidgetCenter; nil =
+    /// unbekannt). Zu alte Eintraege, fremde Konten und Arten, die es nicht mehr gibt, kommen in stale (zum Loeschen).
+    static func collect(_ entries: [String: Double], account: String, present: Set<String>?, now: Date)
+        -> (pages: [Int], today: Bool, stale: [String]) {
+        var pages = Set<Int>(), today = false, stale: [String] = []
+        let mine = regPrefix + account + "."
+        for (k, at) in entries where k.hasPrefix(regPrefix) {
+            guard k.hasPrefix(mine) else { stale.append(k); continue }
+            let rest = k.dropFirst(mine.count).split(separator: ".", maxSplits: 1).map(String.init)
+            guard rest.count == 2 else { stale.append(k); continue }
+            let kind = rest[0], target = rest[1]
+            let shown: Bool = {
+                guard let present else { return true }
+                return kind == "today" ? (present.contains("today") || present.contains("lock")) : present.contains(kind)
+            }()
+            guard now.timeIntervalSince1970 - at < regMaxAge, shown else { stale.append(k); continue }
+            if kind == "today" { today = true } else if let id = Int(target), id > 0 { pages.insert(id) }
+        }
+        return (Array(pages.sorted().prefix(pagesMax)), today, stale.sorted())
+    }
+    static func body(pages: [Int], today: Bool) -> [String: Any] { ["pages": pages, "today": today] }
+    /// Was zuletzt gemeldet wurde (nur bei Aenderung erneut senden)
+    static func fingerprint(pages: [Int], today: Bool) -> String { pages.map(String.init).joined(separator: ",") + (today ? "|t" : "|-") }
+}
+
+extension WidgetFeed {
+    /// 404 von GET /api/app/page/{id}: mit {"error"} = Seite weg (true); ohne = aelterer Server ohne den Endpunkt (nil)
+    static func pageGone(status: Int, data: Data?) -> Bool? {
+        guard status == 404 else { return false }
+        let j = data.flatMap { (try? JSONSerialization.jsonObject(with: $0)) as? [String: Any] }
+        return j?["error"] != nil ? true : nil
+    }
+
+    enum ImagePlan: Equatable { case none, reuse, fetch(version: String?) }
+    /// Titelbild/Symbol der Seiten-Karte (2188): Versionsschluessel vom Server (cover_v bzw. Symbol-Adresse) gleich dem
+    /// gemerkten und Bild vorhanden -> wiederverwenden; anderer Schluessel -> unter neuer Adresse (?v=) laden; "" -> kein
+    /// Bild; ohne Schluessel (aelterer Server) -> wie 2185 immer frisch laden.
+    static func imagePlan(version: String?, cached: String?, hasData: Bool) -> ImagePlan {
+        guard let v = version else { return .fetch(version: nil) }
+        if v.isEmpty { return .none }
+        return v == cached && hasData ? .reuse : .fetch(version: v)
+    }
+    /// Adresse des Bildes; mit Versionsschluessel darf es aus dem URL-Zwischenspeicher kommen (Adresse aendert sich mit dem Bild)
+    static func imagePath(id: Int, which: String, version: String?) -> String {
+        "api/app/page-image/\(id)/\(which)?w=\(which == "icon" ? 160 : 640)" + (version.map { "&v=" + fnv($0) } ?? "")
+    }
+}

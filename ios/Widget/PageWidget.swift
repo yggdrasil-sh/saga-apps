@@ -62,6 +62,8 @@ struct PageProvider: AppIntentTimelineProvider {
         var e = PageEntry(date: .now)
         guard let t, let id = t.pageID else { e.message = String(localized: "Widget gedrückt halten → „Widget bearbeiten“ → Seite oder Datenbank wählen"); return (e, true, nil) }
         e.name = t.name; e.emoji = t.icon ?? "📄"; e.targetID = id
+        WidgetPushLogic.record(kind: "page", target: String(id), server: AppConfig.serverOrigin ?? "", token: AppConfig.token,
+                               to: AppConfig.store)                              // 2188: Meldung an den Server (Widget-Push)
         if t.isDatabase { e.dbID = id; e.viewID = t.viewID }
         do {
             if t.isDatabase {

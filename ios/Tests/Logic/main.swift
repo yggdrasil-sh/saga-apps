@@ -104,6 +104,7 @@ siegelTests()
 callFullTests()
 slashCreateTests()
 widgetFeedTests()
+widgetPushTests()
 widgetLiveTests()
 notifTapTests()                  // Bugs-DB 2187: Mitteilung antippen -> Ziel
 hornViewTests()                  // Bugs-DB 2193: Teilen mitten im Knoten-Anruf -> Ansicht neu

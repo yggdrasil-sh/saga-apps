@@ -4,6 +4,8 @@ struct AppView: Codable, Hashable { var id: String?; var name: String?; var type
 struct AppPage: Codable, Hashable {
     var id: Int; var title: String; var icon: String; var kind: String; var parent_id: Int?; var views: [AppView]?
     var cover: Bool?; var cover_pos: Double?
+    /// 2.6 (2188): Versionsschluessel des Titelbilds ("" = keins; aeltere Server: nil) und letzte Aenderung
+    var cover_v: String?; var updated: Double?
     var isDatabase: Bool { kind == "database" }
     /// Symbol nur, wenn es ein Emoji ist (eigene Bilder koennen Widgets nicht laden)
     var emoji: String? { icon.isEmpty || icon.count > 4 || icon.hasPrefix("/") ? nil : icon }
@@ -60,6 +62,20 @@ enum API {
     static func pages() async throws -> [AppPage] {
         try await PagesMemo.shared.get { try JSONDecoder().decode([AppPage].self, from: try await request("api/app/pages")) }
     }
+    /// 2.6 (2188): EINE Seite (Seiten-Karte) - .gone bei 404 {error}; aelterer Server ohne den Endpunkt: aus der Liste
+    enum PageResult { case page(AppPage), gone }
+    static func page(_ id: Int) async throws -> PageResult {
+        let (data, code) = try await response("api/app/page/\(id)")
+        if (200..<300).contains(code) { return .page(try JSONDecoder().decode(AppPage.self, from: data)) }
+        switch WidgetFeed.pageGone(status: code, data: data) {
+        case .some(true): return .gone
+        case .none:                                                            // Server vor 2.6: ganze Liste
+            return try await pages().first { $0.id == id }.map { .page($0) } ?? .gone
+        default:
+            let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String ?? ""
+            throw APIError.http(code, msg)
+        }
+    }
     static func rows(_ db: Int) async throws -> Data { try await request("api/app/rows/\(db)") }
     /// 2185: Ansicht rechnet der Server (nur die ersten Zeilen + matched) - nicht mehr die ganze Datenbank ins Widget
     static func rows(_ db: Int, view: String?) async throws -> Data {
@@ -71,8 +87,9 @@ enum API {
         return nil
     }
     /// 2185: immer frisch (kein Versionsschluessel in der Adresse) und Fehler von "kein Bild" unterscheidbar
-    static func pageImageResult(_ id: Int, _ which: String) async -> WidgetImage {
-        let r = try? await response("api/app/page-image/\(id)/\(which)?w=\(which == "icon" ? 160 : 640)", fresh: true)
+    /// 2.6 (2188): mit Versionsschluessel (cover_v bzw. Symbol-Adresse) eigene Adresse - darf aus dem Zwischenspeicher kommen
+    static func pageImageResult(_ id: Int, _ which: String, version: String? = nil) async -> WidgetImage {
+        let r = try? await response(WidgetFeed.imagePath(id: id, which: which, version: version), fresh: version == nil)
         return WidgetImage.from(status: r?.1, data: r?.0)
     }
     static func taskDone(_ id: Int, done: Bool) async throws {

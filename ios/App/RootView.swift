@@ -224,6 +224,9 @@ struct RootView: View {
             // 2.6 (2029-6): waehrend eines Gespraechs bleibt der Live-Kanal offen (die App laeuft per Audio weiter) - sonst
             // kaeme Anklopfen (waiting1, ohne Push) bei gesperrtem Bildschirm nie an; CallManager.finish schliesst ihn danach
             if p == .background { WidgetCenter.shared.reloadAllTimelines(); store.calls.liveFollow(background: true) }   // Widgets zeigen sofort den neuen Stand
+            #if os(iOS)
+            if p == .background { Task { await WidgetPush.report(store) } }     // 2188: eingerichtete Widgets dem Server melden (nur bei Aenderung)
+            #endif
         }
         .onChange(of: store.needsLogin) { _, v in
             if v { store.live.stop(); FirstStepsModel.shared.reset() }
