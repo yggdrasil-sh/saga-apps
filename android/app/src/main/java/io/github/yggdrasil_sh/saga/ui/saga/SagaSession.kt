@@ -47,6 +47,8 @@ class TalkTurn(
     /** Auftrag gibt es nicht mehr (404) */
     var gone by mutableStateOf(false)
     var stopped by mutableStateOf(false)
+    /** Zaehler der Lade-Anfragen (loadJob): nur die zuletzt gestellte gilt - eine aeltere Antwort, die spaeter ankommt, setzt den Stand nicht zurueck */
+    internal var loadSeq = 0
 
     val jobTurn: Boolean get() = !me && zug in JOB_ZUEGE
 
@@ -91,10 +93,7 @@ class SagaSession(private val repo: SagaRepository) {
                     "ai.job.changed" -> {
                         val id = ev.long("id") ?: return@collect
                         refreshJobs()
-                        turns.filter { it.jobId == id && it.zug == "plan" }.forEach { t ->
-                            val before = t.detail?.state
-                            loadJob(t) { d -> if (before != null && before != d.state) live = d.report?.text ?: d.stateText }
-                        }
+                        turns.filter { it.jobId == id && it.zug == "plan" }.forEach { loadJob(it) }
                     }
                     "reset" -> {
                         if (groups != null) refreshJobs()
@@ -130,19 +129,27 @@ class SagaSession(private val repo: SagaRepository) {
         }
     }
 
-    /** jetzigen Stand eines Auftrags-Zugs holen (Plan-Karte, Rueckmeldung oder Zustand) */
+    /**
+     * jetzigen Stand eines Auftrags-Zugs holen (Plan-Karte, Rueckmeldung oder Zustand). Wechselt der Zustand gegenueber dem
+     * gezeigten, sagt die Statuszeile das Ergebnis an - verglichen erst beim Eintreffen (Pruefer pmelden: sonst verpasste
+     * die Ansage einen schnell erledigten Auftrag, wenn ein anderes Laden den neuen Stand schon eingetragen hatte).
+     */
     fun loadJob(t: TalkTurn, then: (JobDetail) -> Unit = {}) {
         val id = t.jobId ?: return
+        val my = ++t.loadSeq
         scope.launch {
             try {
                 val d = repo.saga.job(id)
+                if (my != t.loadSeq) return@launch                     // inzwischen neuer angefragt
+                val before = t.detail?.state
                 t.detail = d
+                if (before != null && before != d.state) live = d.report?.text ?: d.stateText
                 t.gone = false
                 then(d)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: ApiException) {
-                if (e.code == 404) t.gone = true
+                if (e.code == 404 && my == t.loadSeq) t.gone = true
             } catch (_: Exception) {
             }
         }
