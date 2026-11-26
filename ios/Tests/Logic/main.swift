@@ -114,5 +114,6 @@ userStatusTests()                // Bugs-DB 2029-6: eigener Status, Erreichbarke
 contactBookTests()               // Bugs-DB 2027a-5: Adressbuch (contacts2)
 pushE2ETests()                   // Bugs-DB 2262: Apple-Mitteilungen Ende-zu-Ende (pushrelay1)
 hornSpeakTests()                 // Bugs-DB 2457: Sprechring ueber den Knoten - Pausen, Rueckfall, eigener Pegel
+sagaTests()                      // Bugs-DB 2269/2267: Ort "Saga" - Einwilligung, Gespraech, Plan-Karte, Auftraege
 print("Logik-Tests 2.0: \(passed) ok, \(failed) fehlgeschlagen")
 exit(failed == 0 ? 0 : 1)

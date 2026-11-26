@@ -14,7 +14,7 @@ enum SidebarLayout {
     }
 
     /// Zeilen in den Mac/iPad-Teilen (Tags: siehe Sidebar.part in RootView)
-    enum Row: String, CaseIterable { case today, chats, tasks, events, services, graph }
+    enum Row: String, CaseIterable { case today, saga, chats, tasks, events, services, graph }   // saga: Ort "Saga" (2.6, nur mit Faehigkeit)
 
     /// Mac/iPad (normale Breite) wie Notion: wichtige Werkzeuge oben fest, Seitenbaum darunter, Rest unten einklappbar
     static func parts(desk: Bool) -> [Part] {
@@ -26,7 +26,7 @@ enum SidebarLayout {
     static func todayCount(events: Int, tasksDueTodayOrUndated: Int) -> Int { max(0, events) + min(max(0, tasksDueTodayOrUndated), 5) }
 
     /// Oben fest (immer sichtbar)
-    static let deskTopRows: [Row] = [.today, .chats, .tasks, .events]
+    static let deskTopRows: [Row] = [.today, .saga, .chats, .tasks, .events]
 
     /// Fach "Mehr" (einklappbar): Dienste immer, Graph nur wenn der Server ihn kann
     static func moreRows(graph: Bool) -> [Row] { graph ? [.services, .graph] : [.services] }

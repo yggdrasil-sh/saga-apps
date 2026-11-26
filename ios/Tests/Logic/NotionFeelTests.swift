@@ -44,7 +44,7 @@ func notionSidebarTests() {
     check(desk.firstIndex(of: .pages)! < desk.firstIndex(of: .moreFolded)!, "Mac/iPad: Seitenbaum vor dem Fach Mehr")
     check(desk.firstIndex(of: .pages)! <= 2, "Mac/iPad: Seitenbaum weit oben")
     check(!desk.contains(.tools) && !desk.contains(.today), "Mac/iPad: kein offener Werkzeug-Block, Heute nur als Zeile")
-    check(SidebarLayout.deskTopRows == [.today, .chats, .tasks, .events], "oben fest: Heute, Chats, Aufgaben, Termine")
+    check(SidebarLayout.deskTopRows == [.today, .saga, .chats, .tasks, .events], "oben fest: Heute, Saga (nur mit Faehigkeit), Chats, Aufgaben, Termine")
     check(SidebarLayout.moreRows(graph: true) == [.services, .graph] && SidebarLayout.moreRows(graph: false) == [.services], "Mehr: Dienste, Graph nur wenn unterstuetzt")
     let all = SidebarLayout.deskTopRows + SidebarLayout.moreRows(graph: true)
     check(Set(all).count == all.count && Set(all) == Set(SidebarLayout.Row.allCases), "jede Zeile genau einmal (nichts geht verloren)")
