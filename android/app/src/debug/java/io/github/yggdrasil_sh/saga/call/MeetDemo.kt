@@ -68,6 +68,9 @@ object MeetDemo {
                 Meeting.Dev("erik", "Erik", "e-lap", "Laptop", me = true, mic = true, cam = true, screen = true, sharedAt = 1),
                 Meeting.Dev("erik", "Erik", "me", "Pixel", companion = true, me = true),
             )
+            // Bugs-DB 2125: 1:1 in der Galerie (+ eigenes Begleitgeraet), Anna spricht - kein Ring; zu dritt mit Ring
+            "duo-galerie" -> listOf(p(0, speaking = true), me, Meeting.Dev("erik", "Erik", "e-tab", "Tablet", companion = true, me = true))
+            "trio" -> listOf(p(0, speaking = true), p(1), me)
             else -> listOf(Meeting.Dev("anna", "Anna", "a-mac", "MacBook", mic = true, cam = true), me)
         }
     }
@@ -75,7 +78,7 @@ object MeetDemo {
     fun speaker(scenario: String): String? = if (scenario == "speaker") "cem" else null
 
     fun pref(scenario: String): Meeting.Pref = when (scenario) {
-        "gallery", "novideo" -> Meeting.Pref.GALLERY
+        "gallery", "novideo", "duo-galerie", "trio" -> Meeting.Pref.GALLERY
         "speaker" -> Meeting.Pref.SPEAKER
         else -> Meeting.Pref.AUTO
     }
@@ -121,14 +124,14 @@ fun MeetDemoContent(scenario: String, hidden: Boolean = false) {
             header = {
                 if (flat) {
                     Box(Modifier.fillMaxWidth().safeDrawingPadding().padding(6.dp), contentAlignment = Alignment.Center) {
-                        val title = if (scenario == "duo" || scenario == "presentation" || scenario.startsWith("eigen")) "Anna" else "Projekt Nordlicht"
+                        val title = if (scenario.startsWith("duo") || scenario == "presentation" || scenario.startsWith("eigen")) "Anna" else "Projekt Nordlicht"
                         MeetPill(title, "12:34" + if (model.persons > 2) " · " + meetPersons(model.persons) else "", stringResource(R.string.call_e2e),
                             Modifier.padding(horizontal = 56.dp))
                     }
                     return@MeetingLayer
                 }
                 Column(Modifier.fillMaxWidth().safeDrawingPadding().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(if (scenario == "duo" || scenario == "presentation" || scenario.startsWith("eigen")) "Anna" else "Projekt Nordlicht", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                    Text(if (scenario.startsWith("duo") || scenario == "presentation" || scenario.startsWith("eigen")) "Anna" else "Projekt Nordlicht", color = Color.White, style = MaterialTheme.typography.titleMedium)
                     Text("12:34 · " + stringResource(R.string.call_e2e), color = Color.White, style = MaterialTheme.typography.labelMedium)
                     if (model.persons > 2) Text(meetPersons(model.persons), color = Color.White, style = MaterialTheme.typography.labelMedium)
                 }

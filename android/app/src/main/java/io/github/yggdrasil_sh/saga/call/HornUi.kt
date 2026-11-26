@@ -323,7 +323,7 @@ private fun Tile(
     Box(
         modifier.clip(tileShape)
             .background(if (t.video) androidx.compose.ui.graphics.SolidColor(TILE_BG) else androidx.compose.ui.graphics.Brush.verticalGradient(listOf(tint.copy(alpha = 0.55f).compositeOver(TILE_BG), TILE_BG)))
-            .then(if (t.speaking) Modifier.border(3.dp, SPEAK, tileShape) else Modifier)
+            .then(if (t.speaking && LocalSpeakRing.current) Modifier.border(3.dp, SPEAK, tileShape) else Modifier)   // 2125: nur ab 3 Personen
             .then(if (!self) Modifier.clickable(onClickLabel = stringResource(R.string.horn_view_speaker)) { onPin(t.dev) } else Modifier)
             .semantics(mergeDescendants = true) { contentDescription = desc },
         contentAlignment = Alignment.Center,

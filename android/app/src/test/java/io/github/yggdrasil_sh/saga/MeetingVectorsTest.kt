@@ -223,6 +223,40 @@ class MeetingVectorsTest {
         assertEquals(120f to 90f, Meeting.selfPipSize(4f / 3f, 9f / 16f, 390f, 844f))
     }
 
+    /** Bugs-DB 2125: Sprechring nur ab 3 verschiedenen Personen, Begleitgeraete zaehlen nicht (gemeinsame Vektoren) */
+    @Test
+    fun speakRing() {
+        val cases = list("speakRing")
+        assertTrue(cases.size >= 12)
+        for (v in cases) {
+            val ros = v["roster"]!!.jsonArray.map { it.jsonObject }.map { o ->
+                Meeting.RingMember(o.s("device"), o.sn("who"), companion = o.s("role") == "companion", me = o.b("me"))
+            }
+            assertEquals("speakRing ${v.s("name")}", v.b("expect"), Meeting.speakRingOn(ros, v.sn("self")))
+        }
+    }
+
+    /** 2125: Ablauf in der Meeting-Ansicht (Geraete wie CallManager.meetDevs, Model.ring aus Meeting.tiles) */
+    @Test
+    fun speakRingAblauf() {
+        val me = Meeting.Dev("erik", "Erik", "me", "Pixel", me = true, mic = true)
+        val comp = Meeting.Dev("erik", "Erik", "me2", "Tablet", companion = true, me = true)
+        val anna = Meeting.Dev("anna", "Anna", "a1", "Laptop", mic = true, speaking = true)
+        val annaComp = Meeting.Dev("anna", "Anna", "a2", "iPhone", companion = true)
+        val ben = Meeting.Dev("ben", "Ben", "b1", "Laptop", mic = true)
+        assertFalse("1:1", Meeting.tiles(listOf(anna, me), "me").ring)
+        assertFalse("1:1 + eigenes Begleitgeraet", Meeting.tiles(listOf(anna, me, comp), "me").ring)
+        assertFalse("1:1 + Begleitgeraet der anderen Person", Meeting.tiles(listOf(anna, annaComp, me), "me").ring)
+        assertTrue("dritte Person kommt", Meeting.tiles(listOf(anna, ben, me, comp), "me").ring)
+        assertFalse("dritte Person geht", Meeting.tiles(listOf(anna, me, comp), "me").ring)
+        // Sprecher-Erkennung bleibt unabhaengig vom Ring (Symbol, TalkBack, Liste)
+        assertTrue(Meeting.tiles(listOf(anna, me), "me").people.first { it.who == "anna" }.speaking)
+        // dieses Geraet ist selbst das Begleitgeraet: zaehlt trotzdem als die eigene Person
+        val here = Meeting.Dev("erik", "Erik", "me", "Pixel", companion = true, me = true)
+        assertTrue(Meeting.speakRingOn(listOf(here, anna, ben)))
+        assertFalse(Meeting.speakRingOn(listOf(here, anna)))
+    }
+
     // ---------------------------------------------------------------- weitere Regeln (nur Android)
 
     /** §4.2 auf dem Hauptgeraet: Begleitgeraet im Chip, teilt es, kommt sein Bildschirm; eigene Freigabe = rote Leiste */

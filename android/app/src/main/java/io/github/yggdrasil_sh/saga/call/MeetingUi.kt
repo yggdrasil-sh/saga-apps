@@ -298,7 +298,7 @@ private fun MeetTile(
     Box(
         modifier.clip(shape)
             .background(if (t.screen) Color.Black else if (showVideo && t.video) MEET_TILE else tint.copy(alpha = 0.45f).compositeOver(MEET_TILE))
-            .then(if (speaking && !t.screen) Modifier.border(3.dp, MEET_SPEAK, shape) else Modifier)
+            .then(if (speaking && !t.screen && LocalSpeakRing.current) Modifier.border(3.dp, MEET_SPEAK, shape) else Modifier)
             .combinedClickable(
                 onClickLabel = if (t.me) null else stringResource(if (pinned) R.string.meet_unpin else R.string.meet_pin),
                 onClick = { onTap?.invoke() }, onLongClick = if (t.me) null else ({ menu = true }),
@@ -374,7 +374,7 @@ private fun StageView(
                 else -> ChatAvatar(t.name, 120.dp, avatar = t.avatar)
             }
         }
-        if (speaking && !t.screen) Box(Modifier.fillMaxSize().border(3.dp, MEET_SPEAK))
+        if (speaking && !t.screen && LocalSpeakRing.current) Box(Modifier.fillMaxSize().border(3.dp, MEET_SPEAK))
         // Hinweis-Chip "Anna teilt den Bildschirm" bzw. Namensleiste der Buehne (blenden mit den Leisten aus)
         val chip = t.screen && t.id !in ms.chipOff
         AnimatedVisibility(
@@ -421,6 +421,13 @@ private fun ShareChip(t: Meeting.Tile, modifier: Modifier, onClose: () -> Unit) 
     }
 }
 
+/**
+ * Bugs-DB 2125: gruener Sprechring erlaubt? Nur ab 3 verschiedenen Personen ([Meeting.speakRingOn]) - MeetingStage gibt
+ * Model.ring weiter, der Anruf-Bildschirm (Knoten-/Mesh-Kacheln ausserhalb der Meeting-Ansicht) dieselbe Regel aus
+ * CallUiState.meet. Ohne Angabe (Vorschauen) wie bisher an.
+ */
+internal val LocalSpeakRing = androidx.compose.runtime.compositionLocalOf { true }
+
 // ---------------------------------------------------------------- Ebene: Buehne + Streifen bzw. Galerie
 
 /**
@@ -462,64 +469,67 @@ internal fun MeetingStage(
     val bottom by animateDpAsState(if (controls) insetBottom else 0.dp, anim, label = "bottom")
     val end by animateDpAsState(if (controls) insetEnd else 0.dp, anim, label = "end")
     val speakingWho = m.people.filter { it.speaking }.map { it.who }.toSet()
-    BoxWithConstraints(modifier.background(Color.Black)) {
-        val w = maxWidth.value
-        val h = maxHeight.value
-        when (view) {
-            Meeting.View.GALLERY -> Box(Modifier.fillMaxSize().padding(end = end)) {
-                Gallery(m, ms, speaker, controls, w - end.value, h, bottom, insetTop, tileVideo, speakingWho, onShown)
+    // Bugs-DB 2125: gruener Ring nur ab 3 Personen (Model.ring); Symbol und TalkBack "spricht" bleiben (speakingWho)
+    androidx.compose.runtime.CompositionLocalProvider(LocalSpeakRing provides model.ring) {
+        BoxWithConstraints(modifier.background(Color.Black)) {
+            val w = maxWidth.value
+            val h = maxHeight.value
+            when (view) {
+                Meeting.View.GALLERY -> Box(Modifier.fillMaxSize().padding(end = end)) {
+                    Gallery(m, ms, speaker, controls, w - end.value, h, bottom, insetTop, tileVideo, speakingWho, onShown)
+                }
+                else -> {
+                    val st = Meeting.stage(view, m, ms.pin, speaker)
+                    // eigenes Bild schwebt im 1:1 (DUO) und im Sprecher-Layout bis zwei Personen (wie Web); in der Praesentation
+                    // steht es im Streifen und ueberdeckt so nie den geteilten Bildschirm (§7 letzter Punkt)
+                    val floats = Meeting.selfFloats(view, m)
+                    val strip = st.strip.filter { !(it.me && floats) } + (if (!floats && st.strip.none { it.me }) listOfNotNull(m.self) else emptyList())
+                    val sp = Meeting.strip(w, h, view == Meeting.View.PRESENTATION)
+                    val showStrip = view != Meeting.View.DUO && strip.isNotEmpty() && !ms.fullscreen
+                    val right = sp.side == Meeting.Side.RIGHT
+                    val shown = (listOfNotNull(st.stage?.takeIf { !it.screen }?.device) +
+                        (if (showStrip && !ms.stripCollapsed) Meeting.videoSlots(strip, sp.videos, ms.pin, null, emptyMap()).let { v -> strip.filter { it.id in v && !it.screen }.map { it.device } } else emptyList())).toSet()
+                    LaunchedEffect(shown) { onShown(shown) }
+                    val stage: @Composable (Modifier) -> Unit = { mod ->
+                        val t = st.stage
+                        if (t != null) StageView(
+                            t, t.who in speakingWho && view != Meeting.View.DUO, ms.pin == t.id, controls, ms, mod, tileVideo,
+                            chipBottom = if (right || !showStrip) bottom else 0.dp,
+                        ) else Box(mod)
+                    }
+                    if (!showStrip) stage(Modifier.fillMaxSize())
+                    else if (right) Row(Modifier.fillMaxSize()) {
+                        stage(Modifier.weight(1f).fillMaxHeight())
+                        Strip(strip, ms, sp, true, Modifier.fillMaxHeight().padding(top = insetTop.coerceAtMost(48.dp), bottom = bottom, end = end), tileVideo, speakingWho)
+                    }
+                    else Column(Modifier.fillMaxSize()) {
+                        stage(Modifier.weight(1f).fillMaxWidth())
+                        Strip(strip, ms, sp, false, Modifier.fillMaxWidth().padding(bottom = bottom), tileVideo, speakingWho)
+                    }
+                    if (floats && ms.showSelf) m.self?.let { self ->
+                        SelfFloat(self, ms, w, h, insetTop, bottom, phone, selfVideo)
+                    }
+                }
             }
-            else -> {
-                val st = Meeting.stage(view, m, ms.pin, speaker)
-                // eigenes Bild schwebt im 1:1 (DUO) und im Sprecher-Layout bis zwei Personen (wie Web); in der Praesentation
-                // steht es im Streifen und ueberdeckt so nie den geteilten Bildschirm (§7 letzter Punkt)
-                val floats = Meeting.selfFloats(view, m)
-                val strip = st.strip.filter { !(it.me && floats) } + (if (!floats && st.strip.none { it.me }) listOfNotNull(m.self) else emptyList())
-                val sp = Meeting.strip(w, h, view == Meeting.View.PRESENTATION)
-                val showStrip = view != Meeting.View.DUO && strip.isNotEmpty() && !ms.fullscreen
-                val right = sp.side == Meeting.Side.RIGHT
-                val shown = (listOfNotNull(st.stage?.takeIf { !it.screen }?.device) +
-                    (if (showStrip && !ms.stripCollapsed) Meeting.videoSlots(strip, sp.videos, ms.pin, null, emptyMap()).let { v -> strip.filter { it.id in v && !it.screen }.map { it.device } } else emptyList())).toSet()
-                LaunchedEffect(shown) { onShown(shown) }
-                val stage: @Composable (Modifier) -> Unit = { mod ->
-                    val t = st.stage
-                    if (t != null) StageView(
-                        t, t.who in speakingWho && view != Meeting.View.DUO, ms.pin == t.id, controls, ms, mod, tileVideo,
-                        chipBottom = if (right || !showStrip) bottom else 0.dp,
-                    ) else Box(mod)
-                }
-                if (!showStrip) stage(Modifier.fillMaxSize())
-                else if (right) Row(Modifier.fillMaxSize()) {
-                    stage(Modifier.weight(1f).fillMaxHeight())
-                    Strip(strip, ms, sp, true, Modifier.fillMaxHeight().padding(top = insetTop.coerceAtMost(48.dp), bottom = bottom, end = end), tileVideo, speakingWho)
-                }
-                else Column(Modifier.fillMaxSize()) {
-                    stage(Modifier.weight(1f).fillMaxWidth())
-                    Strip(strip, ms, sp, false, Modifier.fillMaxWidth().padding(bottom = bottom), tileVideo, speakingWho)
-                }
-                if (floats && ms.showSelf) m.self?.let { self ->
-                    SelfFloat(self, ms, w, h, insetTop, bottom, phone, selfVideo)
+            // "+ 3 ohne Video" am Ende von Raster/Streifen (oeffnet die Teilnehmerliste)
+            if (noVideo > 0) {
+                val label = stringResource(R.string.meet_more_novideo, noVideo)
+                Surface(
+                    color = MEET_BAR, contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.pill),
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp + end, bottom = bottom + 12.dp)
+                        .then(if (onPeople != null) Modifier.clip(RoundedCornerShape(SagaRadius.pill)).clickable(role = androidx.compose.ui.semantics.Role.Button) { onPeople() } else Modifier),
+                ) {
+                    Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
                 }
             }
-        }
-        // "+ 3 ohne Video" am Ende von Raster/Streifen (oeffnet die Teilnehmerliste)
-        if (noVideo > 0) {
-            val label = stringResource(R.string.meet_more_novideo, noVideo)
-            Surface(
+            val ended = ms.pinEnded
+            LaunchedEffect(ended) { if (ended > 0) { delay(3000); ms.pinEnded = 0 } }
+            if (ended > 0) Surface(
                 color = MEET_BAR, contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.pill),
-                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp + end, bottom = bottom + 12.dp)
-                    .then(if (onPeople != null) Modifier.clip(RoundedCornerShape(SagaRadius.pill)).clickable(role = androidx.compose.ui.semantics.Role.Button) { onPeople() } else Modifier),
+                modifier = Modifier.align(Alignment.Center),
             ) {
-                Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
+                Text(stringResource(R.string.meet_pin_ended), modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite })
             }
-        }
-        val ended = ms.pinEnded
-        LaunchedEffect(ended) { if (ended > 0) { delay(3000); ms.pinEnded = 0 } }
-        if (ended > 0) Surface(
-            color = MEET_BAR, contentColor = Color.White, shape = RoundedCornerShape(SagaRadius.pill),
-            modifier = Modifier.align(Alignment.Center),
-        ) {
-            Text(stringResource(R.string.meet_pin_ended), modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite })
         }
     }
 }

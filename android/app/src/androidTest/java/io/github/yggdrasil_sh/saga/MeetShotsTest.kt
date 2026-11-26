@@ -77,6 +77,13 @@ class MeetShotsTest {
         shot("eigen-gegen-hoch", "eigen-gegen", false)
     }
 
+    /** Bugs-DB 2125: Sprechring nur ab 3 Personen - 1:1 in der Galerie ohne Ring, zu dritt mit Ring */
+    @Test
+    fun sprechring2125() {
+        shot("2125-duo-galerie-hoch", "duo-galerie", false)
+        shot("2125-trio-hoch", "trio", false)
+    }
+
     @Test
     fun duo() {
         shot("duo-hoch", "duo", false)

@@ -581,24 +581,27 @@ private fun CallScreen(
             val horn = room?.horn
             if (meshOn && horn != null) {
                 val me = stringResource(R.string.room_you)
-                HornStage(
-                    horn, Modifier.weight(1f).fillMaxWidth().padding(vertical = if (flat) 4.dp else 8.dp),
-                    self = if (st.cam) HornTile("self", me, "", video = true, mic = st.mic, speaking = false) else null,
-                    // zu zweit (HornStage: Gegenueber gross, eigenes Bild klein darueber): das grosse Bild darf kein
-                    // Medien-Overlay sein, sonst liegen beide SurfaceViews auf einer Ebene und das kleine verschwindet
-                    video = { t, m ->
-                        val duo = horn.screenFrom == null && horn.tiles.size == 1 && st.cam
-                        calls.tileSink(t.dev)?.let { VideoView(calls, remote = true, visible = true, modifier = m, sink = it, overlay = !duo) }
-                    },
-                    big = { m -> VideoView(calls, remote = true, visible = true, modifier = m, sink = calls.remoteSink, overlay = false) },
-                    selfVideo = { m ->
-                        Box(m) {
-                            VideoView(calls, remote = false, visible = true, modifier = Modifier.fillMaxSize())
-                            SelfSwitch(calls, Modifier.align(Alignment.TopEnd))
-                        }
-                    },
-                    onPin = { calls.hornPin(it) },
-                )
+                // Bugs-DB 2125: Sprechring nur ab 3 Personen (gleiche Regel wie die Meeting-Ansicht)
+                androidx.compose.runtime.CompositionLocalProvider(LocalSpeakRing provides Meeting.speakRingOn(st.meet)) {
+                    HornStage(
+                        horn, Modifier.weight(1f).fillMaxWidth().padding(vertical = if (flat) 4.dp else 8.dp),
+                        self = if (st.cam) HornTile("self", me, "", video = true, mic = st.mic, speaking = false) else null,
+                        // zu zweit (HornStage: Gegenueber gross, eigenes Bild klein darueber): das grosse Bild darf kein
+                        // Medien-Overlay sein, sonst liegen beide SurfaceViews auf einer Ebene und das kleine verschwindet
+                        video = { t, m ->
+                            val duo = horn.screenFrom == null && horn.tiles.size == 1 && st.cam
+                            calls.tileSink(t.dev)?.let { VideoView(calls, remote = true, visible = true, modifier = m, sink = it, overlay = !duo) }
+                        },
+                        big = { m -> VideoView(calls, remote = true, visible = true, modifier = m, sink = calls.remoteSink, overlay = false) },
+                        selfVideo = { m ->
+                            Box(m) {
+                                VideoView(calls, remote = false, visible = true, modifier = Modifier.fillMaxSize())
+                                SelfSwitch(calls, Modifier.align(Alignment.TopEnd))
+                            }
+                        },
+                        onPin = { calls.hornPin(it) },
+                    )
+                }
             } else if (meshOn) TileGrid(calls, st, Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp))
             else Spacer(Modifier.weight(1f))
             if (!showVideo && !meshOn) {
@@ -1416,6 +1419,7 @@ private fun RoomActions(calls: CallManager, st: CallUiState, withMic: (() -> Uni
 @Composable
 private fun TileGrid(calls: CallManager, st: CallUiState, modifier: Modifier) {
     val room = st.room ?: return
+    val ring = Meeting.speakRingOn(st.meet)                                  // Bugs-DB 2125: Ring nur ab 3 Personen
     val me = stringResource(R.string.room_you)
     // Nr. 70 / ANRUF-UI: die eigene Kachel immer zeigen (ohne Kamera mit Name), auch waehrend es noch klingelt
     val all = room.tiles.map { it to false } + listOf(CallTile("", me, "", st.cam, st.mic, false, false, true, true) to true)
@@ -1426,7 +1430,7 @@ private fun TileGrid(calls: CallManager, st: CallUiState, modifier: Modifier) {
             Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { (t, self) ->
                     androidx.compose.runtime.key(if (self) "self" else t.device) {
-                        Tile(calls, t, self, Modifier.weight(1f).fillMaxSize())
+                        Tile(calls, t, self, Modifier.weight(1f).fillMaxSize(), ring)
                     }
                 }
                 if (row.size < cols) Spacer(Modifier.weight(1f))
@@ -1436,7 +1440,7 @@ private fun TileGrid(calls: CallManager, st: CallUiState, modifier: Modifier) {
 }
 
 @Composable
-private fun Tile(calls: CallManager, t: CallTile, self: Boolean, modifier: Modifier) {
+private fun Tile(calls: CallManager, t: CallTile, self: Boolean, modifier: Modifier, ring: Boolean = true) {
     val label = buildString {
         append(t.name)
         if (t.devName.isNotEmpty()) append(" (").append(t.devName).append(")")
@@ -1446,7 +1450,7 @@ private fun Tile(calls: CallManager, t: CallTile, self: Boolean, modifier: Modif
     val desc = listOfNotNull(label, speaking.takeIf { t.speaking }, muted.takeIf { !t.mic }).joinToString(", ")
     Box(
         modifier.clip(RoundedCornerShape(SagaRadius.l)).background(SagaColors.current.callBtn)
-            .then(if (t.speaking) Modifier.border(3.dp, SagaColors.current.callOk, RoundedCornerShape(SagaRadius.l)) else Modifier)
+            .then(if (t.speaking && ring) Modifier.border(3.dp, SagaColors.current.callOk, RoundedCornerShape(SagaRadius.l)) else Modifier)
             .semantics(mergeDescendants = true) { contentDescription = desc },
         contentAlignment = Alignment.Center,
     ) {

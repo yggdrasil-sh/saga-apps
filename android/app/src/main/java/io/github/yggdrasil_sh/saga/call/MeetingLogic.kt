@@ -82,6 +82,8 @@ object Meeting {
         val selfSharing: Boolean,
         /** Anzahl Personen (Kopf "3 Personen") */
         val persons: Int,
+        /** Bugs-DB 2125: Sprechring erlaubt (erst ab 3 verschiedenen Personen, [speakRingOn]) */
+        val ring: Boolean = false,
     ) {
         val all: List<Tile> get() = screens + people
         val self: Tile? get() = people.firstOrNull { it.me }
@@ -145,7 +147,40 @@ object Meeting {
         self?.let { people.add(it) }
         // zuletzt gestartete Freigabe zuerst (Buehne), gleiche Zeit: Reihenfolge der Liste
         val sortedScreens = screens.withIndex().sortedWith(compareByDescending<IndexedValue<Tile>> { it.value.sharedAt }.thenBy { it.index }).map { it.value }
-        return Model(people, sortedScreens, companions, selfSharing, order.size)
+        return Model(people, sortedScreens, companions, selfSharing, order.size, ring = speakRingOn(devs))
+    }
+
+    // ------------------------------------------------------------ Sprechring nur in Gruppen (Bugs-DB 2125)
+
+    /** Eintrag fuer die Ring-Regel (Roster wie GET /api/calls/{id}: who, device, role, me) */
+    data class RingMember(val device: String, val who: String?, val companion: Boolean = false, val me: Boolean = false)
+
+    const val RING_MIN_PERSONS = 3
+
+    /**
+     * Sprechring nur, wenn im Anruf MINDESTENS 3 VERSCHIEDENE PERSONEN sind - im 1:1 wirkt der gruene Ring nur wie
+     * Umgebungslicht (FaceTime/WhatsApp zeigen ihn dort auch nicht). Wie meeting.js speakRingOn, Vektoren "speakRing":
+     * Person = who (ohne who: Geraet); eigene Geraete (me bzw. who == self) sind eine Person; Begleitgeraete (role companion)
+     * zaehlen nie als weitere Person; self zaehlt immer mit. Gilt gleich fuer Mesh, 1:1 ueber den Knoten und Gruppen: kommt
+     * eine dritte Person dazu, erscheint der Ring, geht sie, verschwindet er. Nur der Ring - Sprecher-Erkennung, Buehne,
+     * Lautsprechersymbol, TalkBack "spricht" und die Markierung in der Teilnehmerliste bleiben.
+     */
+    fun speakRingOn(roster: List<RingMember>, self: String?): Boolean {
+        val me = "\u0000me"
+        val w = HashSet<String>()
+        if (!self.isNullOrEmpty()) w.add(me)
+        for (x in roster) {
+            if (x.companion) continue
+            val k = if (x.me || (!self.isNullOrEmpty() && x.who == self)) me else x.who?.ifEmpty { null } ?: x.device
+            if (k.isNotEmpty()) w.add(k)
+        }
+        return w.size >= RING_MIN_PERSONS
+    }
+
+    /** dieselbe Regel fuer die Geraete der Meeting-Ansicht (CallManager.meetDevs: me = eigene Geraete) */
+    fun speakRingOn(devs: List<Dev>): Boolean {
+        val self = devs.firstOrNull { it.me && !it.companion }?.who ?: devs.firstOrNull { it.me }?.who
+        return speakRingOn(devs.map { RingMember(it.device, it.who, it.companion, it.me) }, self ?: "\u0000self")
     }
 
     /** §3 Kacheln ohne Video ausgeblendet: Nachlauf, solange eine Person nach dem Sprechen sichtbar bleibt */
