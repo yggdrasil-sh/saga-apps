@@ -78,29 +78,51 @@ struct SagaStatus: Equatable {
     var jobsOn: Bool { hasPlace && jobs && level != "answers" }
 }
 
-/// Ein Zug im Gespraech (GET /api/ai/thread bzw. nach "done")
+/// Ein Zug im Gespraech (GET /api/ai/thread bzw. nach "done"). Auftraege (11.7): Bitte {me, zug job}, dann {ai, zug plan
+/// + job_id} · {ai, zug ask, fields {choices, q}} · {ai, zug refuse, fields {alternative, q}}
 struct SagaTurn: Identifiable, Equatable {
     var n: Int?
     var role: String                 // me | ai
-    var zug: String?                 // answer | no_match | (spaeter plan/report)
+    var zug: String?                 // answer | no_match | job | plan | ask | refuse
     var text: String
     var sources: [AISource]
     var created: Double?
+    var jobID: Int?
+    var choices: [String] = []
+    var q: String?
+    var alternative: SagaJobOutcome.Alternative?
     var local = UUID()
     var id: String { n.map { "t\($0)" } ?? local.uuidString }
     var mine: Bool { role == "me" }
-    init(n: Int? = nil, role: String, zug: String? = nil, text: String, sources: [AISource] = [], created: Double? = nil) {
+    init(n: Int? = nil, role: String, zug: String? = nil, text: String, sources: [AISource] = [], created: Double? = nil,
+         jobID: Int? = nil, choices: [String] = [], q: String? = nil, alternative: SagaJobOutcome.Alternative? = nil) {
         self.n = n; self.role = role; self.zug = zug; self.text = text; self.sources = sources; self.created = created
+        self.jobID = jobID; self.choices = choices; self.q = q; self.alternative = alternative
     }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let r = d["role"] as? String, r == "me" || r == "ai" else { return nil }
-        let src = ((d["fields"] as? [String: Any])?["sources"] as? [Any] ?? []).compactMap(AISource.init)
+        let f = d["fields"] as? [String: Any] ?? [:]
+        let src = (f["sources"] as? [Any] ?? []).compactMap(AISource.init)
         self.init(n: ShareJSON.int(d["n"]), role: r, zug: ShareJSON.str(d["zug"]), text: d["text"] as? String ?? "", sources: src,
-                  created: ShareJSON.num(d["created"]))
+                  created: ShareJSON.num(d["created"]), jobID: ShareJSON.int(d["job_id"]),
+                  choices: (f["choices"] as? [Any] ?? []).compactMap { $0 as? String }, q: ShareJSON.str(f["q"]),
+                  alternative: SagaLogic.alternative(f["alternative"]))
     }
-    static func ==(a: Self, b: Self) -> Bool { a.id == b.id && a.text == b.text && a.zug == b.zug }
-    /// "Melden …" nur unter echten Antworten (nicht unter "nichts gefunden" ohne Modell)
-    var reportable: Bool { !mine && zug != "no_match" && !text.isEmpty }
+    static func ==(a: Self, b: Self) -> Bool { a.id == b.id && a.text == b.text && a.zug == b.zug && a.jobID == b.jobID }
+    /// Darstellung des Zugs
+    enum Kind: Equatable { case mine, mineJob, answer, plan(Int), ask, refuse }
+    func kind(jobsOn: Bool) -> Kind {
+        if mine { return zug == "job" ? .mineJob : .mine }
+        guard jobsOn else { return .answer }
+        switch zug {
+        case "plan": return jobID.map { .plan($0) } ?? .answer
+        case "ask": return .ask
+        case "refuse": return .refuse
+        default: return .answer
+        }
+    }
+    /// "Melden …" nur unter echten Antworten (nicht unter "nichts gefunden" ohne Modell, nicht an Auftrags-Zuegen)
+    var reportable: Bool { !mine && (zug == nil || zug == "answer") && !text.isEmpty }
 }
 
 struct SagaThread: Equatable {
@@ -237,6 +259,8 @@ struct SagaPlan: Equatable {
         edited = ShareJSON.bool(d["edited"])
     }
     var editable: Bool { steps.contains { !$0.edit.isEmpty } }
+    /// "geändert – bitte neu freigeben": nach "Ändern" (edited) - auch nach dem Neuladen, das edited nicht mitliefert
+    var changed: Bool { edited || planV > 1 }
 }
 
 /// Ausgang von POST /api/ai/jobs (SSE): genau eines von plan, ask, refuse, error (status davor nur als Text)
@@ -317,7 +341,10 @@ struct SagaChange: Identifiable, Equatable {
 
 /// Rueckmeldung (B4): Ergebnis zuerst, je Aenderung eine Zeile
 struct SagaReport: Equatable {
-    struct Line: Identifiable, Equatable { var change: Int; var text: String; var undone: Bool; var canUndo: Bool; var id: Int { change } }
+    struct Line: Identifiable, Equatable {
+        var change: Int; var text: String; var undone: Bool; var canUndo: Bool; var label: String? = nil
+        var id: Int { change }
+    }
     var text: String
     var lines: [Line]
     init(text: String, lines: [Line] = []) { self.text = text; self.lines = lines }
@@ -326,7 +353,8 @@ struct SagaReport: Equatable {
         text = d["text"] as? String ?? ""
         lines = (d["lines"] as? [Any] ?? []).compactMap { x -> Line? in
             guard let l = x as? [String: Any], let c = ShareJSON.int(l["change"]) else { return nil }
-            return Line(change: c, text: l["text"] as? String ?? "", undone: ShareJSON.bool(l["undone"]), canUndo: ShareJSON.bool(l["can_undo"]))
+            return Line(change: c, text: l["text"] as? String ?? "", undone: ShareJSON.bool(l["undone"]), canUndo: ShareJSON.bool(l["can_undo"]),
+                        label: ShareJSON.str(l["label"]))
         }
     }
 }
@@ -379,6 +407,9 @@ struct SagaJobDetail: Equatable {
     /// "Auftrag abbrechen" ausserhalb der Plan-Karte
     var cancellable: Bool { actions.contains("cancel") && state != "wartet_ok" }
     func change(_ id: Int) -> SagaChange? { changes.first { $0.id == id } }
+    /// Text neben "Rückgängig": das Ergebnis nennt die Aenderungen schon - bei einer Aenderung nur der Knopf, sonst der
+    /// Gegenstand (label; aeltere Server: die ganze Zeile)
+    static func lineCaption(_ l: SagaReport.Line, count: Int) -> String? { count <= 1 ? nil : (l.label ?? l.text) }
 }
 
 /// Einstellungen der Person (GET /api/ai/prefs, K-H + K-I)
@@ -450,6 +481,14 @@ enum SagaLogic {
         default: return "circle.fill"
         }
     }
+    /// Symbol einer Zeile: in "Fertig" je Zustand (✓ nur bei Erledigt, – Abgebrochen, ↶ Zurueckgenommen), sonst je Gruppe
+    static func itemSymbol(group: String, state: String) -> String {
+        switch state {
+        case "abgebrochen": return "minus.circle"
+        case "zurueckgenommen": return "arrow.uturn.backward.circle"
+        default: return groupSymbol(group)
+        }
+    }
     static func kindSymbol(_ klass: String) -> String {
         switch klass {
         case "read": return "◎"
@@ -504,17 +543,17 @@ enum SagaLogic {
         switch e.event {
         case "plan": return SagaPlan(d).map { .plan($0) } ?? .error("", status: nil)
         case "ask": return .ask(question: d["question"] as? String ?? "", choices: (d["choices"] as? [Any] ?? []).compactMap { $0 as? String })
-        case "refuse":
-            var alt: SagaJobOutcome.Alternative?
-            if let a = d["alternative"] as? [String: Any], let r = ShareJSON.str(a["recipe"]) {
-                var f: [String: String] = [:]
-                for (k, v) in a["fields"] as? [String: Any] ?? [:] { if let s = v as? String { f[k] = s } }
-                alt = .init(recipe: r, label: ShareJSON.str(a["label"]), fields: f)
-            }
-            return .refuse(text: d["text"] as? String ?? "", alternative: alt)
+        case "refuse": return .refuse(text: d["text"] as? String ?? "", alternative: alternative(d["alternative"]))
         case "error": return .error(ShareJSON.str(d["error"]) ?? "", status: ShareJSON.int(d["status"]))
         default: return nil
         }
+    }
+    /// Alternative einer Absage ({recipe, fields, label}) - nur Kennung + Textfelder
+    static func alternative(_ v: Any?) -> SagaJobOutcome.Alternative? {
+        guard let a = v as? [String: Any], let r = ShareJSON.str(a["recipe"]) else { return nil }
+        var f: [String: String] = [:]
+        for (k, x) in a["fields"] as? [String: Any] ?? [:] { if let s = x as? String { f[k] = s } }
+        return .init(recipe: r, label: ShareJSON.str(a["label"]), fields: f)
     }
     /// "Passt, los": genau dieser Plan (plan_v + plan_hash) - der Server lehnt alles andere mit 409 ab
     static func approveBody(_ p: SagaPlan) -> [String: Any] { ["plan_v": p.planV, "plan_hash": p.planHash] }

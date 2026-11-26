@@ -5,92 +5,24 @@ import SwiftUI
 // Liste in 4 Gruppen mit Detail (genaues Zustandswort, Protokoll). Zustandswoerter, Klassen, "Ich lese dafuer: …" und
 // Saetze kommen als Systemtext vom Server und werden unveraendert gezeigt. Neue Karten nehmen nie den Fokus.
 
-/// Bereich "Auftraege": Eingabe, Buehne (Karte nach "Auftrag geben"), Liste - bzw. das Detail (iPhone, inlineDetail)
+/// Bereich "Auftraege" (Segment): Liste in 4 Gruppen bzw. das Detail (iPhone, inlineDetail). Auftraege gibt man im
+/// Gespraech ("Als Auftrag", 11.7) - hier gibt es keine eigene Eingabe.
 struct SagaJobsPane: View {
     @EnvironmentObject var store: Store
     @ObservedObject var m: SagaModel
     /// iPhone: Detail ersetzt die Liste (mit "‹ Aufträge"); iPad: Detail steht rechts
     var inlineDetail: Bool
-    @State private var text = ""
+    /// Beispiel-Auftrag: ins Gespraech wechseln und dort geben
+    var give: (String) -> Void
 
     var body: some View {
         if inlineDetail && m.openJob != nil {
             SagaJobDetailView(m: m, closeLabel: false)
         } else {
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        if let s = m.stage { stage(s) }
-                        list
-                    }
-                    .padding()
-                }
-                .refreshable { await m.loadJobs() }
-                Divider()
-                input
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) { list }.padding()
             }
-        }
-    }
-
-    private var input: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            TextField(String(localized: "Sag \(store.sagaName), was du brauchst …"), text: $text, axis: .vertical)
-                .lineLimit(1...4).textFieldStyle(.roundedBorder)
-                .accessibilityLabel(Text("Auftrag an \(store.sagaName)"))
-            if m.planning {
-                Button("Stopp") { m.stopPlanning() }.buttonStyle(.bordered).controlSize(.large)
-            } else {
-                Button("Auftrag geben") { let t = text; text = ""; m.give(t) }
-                    .prominentGold().controlSize(.large)
-                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !store.reachable)
-            }
-        }
-        .padding(.horizontal).padding(.vertical, 10)
-    }
-
-    @ViewBuilder private func stage(_ s: SagaModel.Stage) -> some View {
-        switch s {
-        case .thinking(let t):
-            VStack(alignment: .leading, spacing: 8) {
-                SagaHead()
-                HStack(spacing: 8) { ProgressView().controlSize(.small); Text(verbatim: t).foregroundStyle(.secondary) }.accessibilityElement(children: .combine)
-            }.sagaCard()
-        case .plan(let p):
-            SagaPlanCard(m: m, plan: p).id("plan-\(p.job)-\(p.planV)")
-        case .ask(let q, let choices, let asked):
-            VStack(alignment: .leading, spacing: 10) {
-                SagaHead()
-                Text(verbatim: q).fixedSize(horizontal: false, vertical: true)
-                ForEach(choices, id: \.self) { c in
-                    Button { m.choose(c, text: asked) } label: { Text(verbatim: c).frame(maxWidth: .infinity, minHeight: 30, alignment: .leading) }
-                        .buttonStyle(.bordered).controlSize(.large)
-                }
-            }.sagaCard()
-        case .refuse(let t, let alt, let asked):
-            VStack(alignment: .leading, spacing: 10) {
-                SagaHead()
-                Text(verbatim: t).fixedSize(horizontal: false, vertical: true)
-                if let alt {
-                    Button { m.alternative(alt, text: asked) } label: {
-                        Text(verbatim: alt.label ?? String(localized: "Als Aufgabe anlegen")).frame(maxWidth: .infinity, minHeight: 30)
-                    }.prominentGold().controlSize(.large)
-                }
-                Button { text = asked; m.stage = nil } label: { Text("Anders formulieren").frame(maxWidth: .infinity, minHeight: 44) }.buttonStyle(.borderless)
-            }.sagaCard()
-        case .done(let job, let st, let t):
-            VStack(alignment: .leading, spacing: 8) {
-                SagaHead(extra: st)
-                if !t.isEmpty { Text(verbatim: t).fixedSize(horizontal: false, vertical: true) }
-                Button("Ansehen") { Task { await m.open(job) } }.buttonStyle(.bordered).frame(minHeight: 44)
-            }.sagaCard()
-        case .feedback(let d):
-            SagaFeedbackCard(m: m, detail: d, onOpen: { Task { await m.open(d.id) } })
-        case .error(let e):
-            VStack(alignment: .leading, spacing: 8) {
-                SagaHead()
-                Label(e, systemImage: "exclamationmark.circle").foregroundStyle(.orange)
-                Button("Schließen") { m.stage = nil }.buttonStyle(.bordered).frame(minHeight: 44)
-            }.sagaCard()
+            .refreshable { await m.loadJobs() }
         }
     }
 
@@ -99,10 +31,10 @@ struct SagaJobsPane: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Noch keine Aufträge. Gib mir einen, z. B. ‚Erinnere mich Freitag an den Pavillon‘.").foregroundStyle(.secondary)
                 let ex = String(localized: "Erinnere mich Freitag an den Pavillon")
-                Button { m.give(ex) } label: {
+                Button { give(ex) } label: {
                     Text(verbatim: ex).padding(.horizontal, 14).frame(minHeight: 44)
                         .background(Color.sagaTint, in: Capsule()).overlay(Capsule().strokeBorder(Color.sagaEdge.opacity(0.5)))
-                }.buttonStyle(.plain).disabled(m.planning)
+                }.buttonStyle(.plain).disabled(m.liveJob != nil)
             }
         }
         ForEach(m.jobs.visible) { g in
@@ -121,7 +53,7 @@ struct SagaJobsPane: View {
     private func row(_ it: SagaJobItem, group: String) -> some View {
         Button { Task { await m.open(it.id) } } label: {
             HStack(spacing: 12) {
-                Image(systemName: SagaLogic.groupSymbol(group))
+                Image(systemName: SagaLogic.itemSymbol(group: group, state: it.state))
                     .foregroundStyle(group == "wartet_auf_dich" ? Color.gold : group == "nicht_geklappt" ? Color.red : Color.secondary)
                     .font(group == "wartet_auf_dich" ? .caption : .body).frame(width: 22).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
@@ -136,6 +68,85 @@ struct SagaJobsPane: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Zug eines Auftrags im Gespraech: immer der jetzige Stand (Plan-Karte, Rueckmeldung oder Zustand + "Ansehen")
+struct SagaJobTurnView: View {
+    @EnvironmentObject var store: Store
+    @ObservedObject var m: SagaModel
+    let job: Int
+    let title: String
+    var openJob: (Int) -> Void
+    var body: some View {
+        Group {
+            if let d = m.jobState[job] {
+                if d.awaitingOK, let p = d.plan { SagaPlanCard(m: m, plan: p) }
+                else if d.feedback != nil { SagaFeedbackCard(m: m, detail: d, onOpen: { openJob(job) }) }
+                else { state(d) }
+            } else if m.jobGone.contains(job) {
+                VStack(alignment: .leading, spacing: 8) { SagaHead(); Text("Diesen Auftrag gibt es nicht mehr.") }.sagaCard()
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    SagaHead()
+                    if !title.isEmpty { Text(verbatim: title) }
+                    ProgressView().controlSize(.small)
+                }.sagaCard()
+            }
+        }
+        .id("job-\(job)")
+        .task(id: job) { if m.jobState[job] == nil { await m.loadJobState(job) } }
+    }
+    /// Laeuft / Wartet auf dich / Abgebrochen / Hat nicht geklappt
+    private func state(_ d: SagaJobDetail) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SagaHead(extra: d.stateText)
+            Text(verbatim: d.title.isEmpty ? (d.reasonText ?? "") : d.title).fixedSize(horizontal: false, vertical: true)
+            if let r = d.reasonText, !r.isEmpty, !d.title.isEmpty { Text(verbatim: r).font(.subheadline).foregroundStyle(.secondary) }
+            Button("Ansehen") { openJob(d.id) }.buttonStyle(.bordered).frame(minHeight: 44)
+        }
+        .sagaCard()
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text(verbatim: d.stateText))
+    }
+}
+
+/// Rueckfrage (ask): genau eine Frage mit Chips
+struct SagaAskCard: View {
+    let question: String
+    let choices: [String]
+    var disabled = false
+    var choose: (String) -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SagaHead()
+            Text(verbatim: question).fixedSize(horizontal: false, vertical: true)
+            ForEach(choices, id: \.self) { c in
+                Button { choose(c) } label: { Text(verbatim: c).frame(maxWidth: .infinity, minHeight: 30, alignment: .leading) }
+                    .buttonStyle(.bordered).controlSize(.large).disabled(disabled)
+            }
+        }.sagaCard()
+    }
+}
+
+/// Absage (refuse): Satz vom Server + ggf. "Als Aufgabe anlegen" + "Anders formulieren"
+struct SagaRefuseCard: View {
+    let text: String
+    let alternative: SagaJobOutcome.Alternative?
+    var disabled = false
+    var take: (SagaJobOutcome.Alternative) -> Void
+    var rephrase: () -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SagaHead()
+            Text(verbatim: text).fixedSize(horizontal: false, vertical: true)
+            if let a = alternative {
+                Button { take(a) } label: {
+                    Text(verbatim: a.label ?? String(localized: "Als Aufgabe anlegen")).frame(maxWidth: .infinity, minHeight: 30)
+                }.prominentGold().controlSize(.large).disabled(disabled)
+            }
+            Button(action: rephrase) { Text("Anders formulieren").frame(maxWidth: .infinity, minHeight: 44) }.buttonStyle(.borderless)
+        }.sagaCard()
     }
 }
 
@@ -162,19 +173,21 @@ struct SagaPlanCard: View {
     @EnvironmentObject var store: Store
     @ObservedObject var m: SagaModel
     let plan: SagaPlan
-    @State private var editing = false
+    @State private var editingPlan: SagaPlan?                       // "Ändern" offen: diese Fassung bleibt stehen
+    private var editing: Bool { editingPlan != nil }
     @State private var values: [Int: [String: SagaField]] = [:]
     @State private var err: String?
     @State private var working = false
     @State private var reporting: SagaReportItem?
 
     var body: some View {
+        let plan = editingPlan ?? self.plan
         VStack(alignment: .leading, spacing: 12) {
             SagaHead(extra: String(localized: "Wartet auf dein OK"))
-            if plan.edited { Label("geändert – bitte neu freigeben", systemImage: "pencil").font(.subheadline).foregroundStyle(.secondary) }
+            if plan.changed { Label("geändert – bitte neu freigeben", systemImage: "pencil").font(.subheadline).foregroundStyle(.secondary) }
             Text(verbatim: plan.say ?? String(localized: "So würde ich es machen:")).fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: 10) {
-                ForEach(Array(plan.steps.enumerated()), id: \.element.id) { i, s in step(s, i: i) }
+                ForEach(Array(plan.steps.enumerated()), id: \.element.id) { i, s in step(s, i: i, of: plan.steps.count) }
             }
             if !plan.readText.isEmpty { Text(verbatim: plan.readText).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
             if let err { Label(err, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(.orange) }
@@ -189,9 +202,10 @@ struct SagaPlanCard: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text("Plan: \(plan.title)"))
         .sheet(item: $reporting) { r in SagaReportSheet(m: m, item: r) }
+        .onDisappear { if editing { m.editing.remove(self.plan.job) } }
     }
 
-    @ViewBuilder private func step(_ s: SagaStep, i: Int) -> some View {
+    @ViewBuilder private func step(_ s: SagaStep, i: Int, of count: Int) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(verbatim: s.symbol).font(.body.weight(.semibold)).frame(width: 20).accessibilityHidden(true)
@@ -201,7 +215,7 @@ struct SagaPlanCard: View {
                 }
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text("Schritt \(i + 1) von \(plan.steps.count), \(s.kindText), \(s.classText): \(s.text)"))
+            .accessibilityLabel(Text("Schritt \(i + 1) von \(count), \(s.kindText), \(s.classText): \(s.text)"))
             if editing && !s.edit.isEmpty {
                 VStack(alignment: .leading, spacing: 8) { ForEach(s.edit, id: \.self) { k in field(s, k) } }
                     .padding(.leading, 28)
@@ -254,7 +268,7 @@ struct SagaPlanCard: View {
             VStack(spacing: 10) {
                 Button { Task { await save() } } label: { Text("Speichern").frame(maxWidth: .infinity, minHeight: 30) }
                     .prominentGold().controlSize(.large).disabled(working)
-                Button { editing = false; values = [:]; err = nil } label: { Text("Abbrechen").frame(maxWidth: .infinity, minHeight: 44) }.buttonStyle(.borderless)
+                Button { stopEditing(); values = [:]; err = nil } label: { Text("Abbrechen").frame(maxWidth: .infinity, minHeight: 44) }.buttonStyle(.borderless)
             }
         } else {
             VStack(spacing: 10) {
@@ -262,7 +276,7 @@ struct SagaPlanCard: View {
                 Button { Task { await approve() } } label: { Text("Passt, los").frame(maxWidth: .infinity, minHeight: 30) }
                     .prominentGold().controlSize(.large).disabled(working || !store.reachable)
                 if plan.editable {
-                    Button { editing = true; err = nil } label: { Text("Ändern").frame(maxWidth: .infinity, minHeight: 30) }
+                    Button { editingPlan = plan; m.editing.insert(plan.job); err = nil } label: { Text("Ändern").frame(maxWidth: .infinity, minHeight: 30) }
                         .buttonStyle(.bordered).controlSize(.large).disabled(working)
                 }
                 Button { Task { await cancel() } } label: { Text("Lieber nicht").frame(maxWidth: .infinity, minHeight: 44) }
@@ -273,11 +287,12 @@ struct SagaPlanCard: View {
 
     private func approve() async { working = true; err = await m.approve(plan); working = false }
     private func cancel() async { working = true; err = await m.cancel(plan.job); working = false }
+    private func stopEditing() { editingPlan = nil; m.editing.remove(plan.job) }
     private func save() async {
         working = true
-        let (np, e) = await m.saveEdit(plan, values: values)
+        let (np, e) = await m.saveEdit(editingPlan ?? plan, values: values)
         working = false
-        if np != nil { editing = false; values = [:]; err = nil } else { err = e }
+        if np != nil { stopEditing(); values = [:]; err = nil } else { err = e }
     }
 }
 
@@ -299,7 +314,7 @@ struct SagaFeedbackCard: View {
         VStack(alignment: .leading, spacing: 10) {
             SagaHead(extra: detail.stateText)
             AnswerText(text: rep.text, sources: [], openPage: { _ in })
-            ForEach(rep.lines) { ln in line(ln) }
+            ForEach(rep.lines) { ln in line(ln, count: rep.lines.count) }
             if let err { Label(err, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(.orange) }
             if let onOpen { Button("Ansehen", action: onOpen).buttonStyle(.bordered).frame(minHeight: 44) }
             if !rep.text.isEmpty {
@@ -318,10 +333,10 @@ struct SagaFeedbackCard: View {
         .sheet(item: $reporting) { r in SagaReportSheet(m: m, item: r) }
     }
 
-    @ViewBuilder private func line(_ ln: SagaReport.Line) -> some View {
+    @ViewBuilder private func line(_ ln: SagaReport.Line, count: Int) -> some View {
         let ch = detail.change(ln.change)
         VStack(alignment: .leading, spacing: 6) {
-            Text(verbatim: ln.text).fixedSize(horizontal: false, vertical: true)
+            if let cap = SagaJobDetail.lineCaption(ln, count: count) { Text(verbatim: cap).fixedSize(horizontal: false, vertical: true) }
             if ln.undone || ch?.undone == true {
                 Text("Zurückgenommen").font(.subheadline).foregroundStyle(.secondary)
             } else if let path = changed[ln.change] ?? (ch?.why == "changed" ? (ch?.versionURL ?? "") : nil) {
@@ -419,7 +434,7 @@ struct SagaJobDetailView: View {
         }
         .onAppear { titleFocus = true }                          // eigener Schritt (antippen): Fokus auf den Titel
         if d.awaitingOK, let p = d.plan {
-            SagaPlanCard(m: m, plan: p).id("dplan-\(p.job)-\(p.planV)")
+            SagaPlanCard(m: m, plan: p).id("dplan-\(p.job)")
         } else {
             if d.feedback != nil { SagaFeedbackCard(m: m, detail: d) }
             if !d.planSteps.isEmpty {

@@ -62,6 +62,20 @@ func sagaTests() {
     check(th?.turns[1].sources.first?.pageID == 7 && th?.turns[1].reportable == true, "KI-Zug mit Quelle, meldbar")
     check(th?.turns[0].mine == true && th?.turns[0].reportable == false && th?.turns[2].reportable == false, "eigener Zug / no_match nicht meldbar")
 
+    // Auftraege im Gespraech (11.7): Zuege job/plan/ask/refuse
+    let jt = SagaThread(data: data(#"""
+    {"turns":[{"n":5,"role":"me","zug":"job","text":"Erinnere mich"},{"n":6,"role":"ai","zug":"plan","job_id":12,"text":"Plan: Pavillon"},
+              {"n":7,"role":"ai","zug":"ask","text":"Welcher Ben?","fields":{"choices":["Ben B.","Ben K."],"q":"Frag Ben"}},
+              {"n":8,"role":"ai","zug":"refuse","text":"Kann ich nicht.","fields":{"alternative":{"recipe":"aufgabe","fields":{"text":"Kohle"},"label":"Als Aufgabe anlegen"},"q":"Bestell Kohle"}},
+              {"n":9,"role":"ai","zug":"plan","text":"ohne job_id"}],"history":false}
+    """#))
+    let tk = jt?.turns.map { $0.kind(jobsOn: true) } ?? []
+    check(tk == [.mineJob, .plan(12), .ask, .refuse, .answer], "Zug-Arten im Gespraech")
+    check(jt?.turns.map { $0.kind(jobsOn: false) } == [.mineJob, .answer, .answer, .answer, .answer], "ohne Auftraege: alles als Text")
+    check(jt?.turns[2].choices == ["Ben B.", "Ben K."] && jt?.turns[2].q == "Frag Ben", "Rueckfrage mit Wahl und Bitte")
+    check(jt?.turns[3].alternative == .init(recipe: "aufgabe", label: "Als Aufgabe anlegen", fields: ["text": "Kohle"]) && jt?.turns[3].q == "Bestell Kohle", "Absage mit Alternative")
+    check(jt?.turns.contains { $0.reportable } == false, "Auftrags-Zuege ohne Melden-Knopf am Text")
+
     var s = SagaStream()
     var p = SSEParser()
     let raw = ":" + String(repeating: " ", count: 40) + "\n\nevent: sources\ndata: {\"sources\":[{\"n\":1,\"id\":7,\"title\":\"Sommerfest\"}]}\n\nevent: status\ndata: {\"text\":\"Marin denkt nach …\"}\n\nevent: delta\ndata: {\"t\":\"Hal\"}\n\n"
@@ -89,6 +103,8 @@ func sagaTests() {
     """#
     guard case .plan(let plan)? = L.outcome(ev("plan", planJSON)) else { check(false, "Plan nicht erkannt"); return }
     check(plan.job == 12 && plan.planV == 2 && plan.planHash == "ab12cd" && plan.steps.count == 3 && plan.editable, "Plan gelesen")
+    check(plan.changed && SagaPlan(["job": 1, "plan_v": 1, "plan_hash": "x", "steps": []])?.changed == false
+          && SagaPlan(["job": 1, "plan_v": 1, "plan_hash": "x", "edited": true])?.changed == true, "geaendert: edited oder plan_v > 1")
     check(plan.steps[0].symbol == "◎" && plan.steps[1].symbol == "✎" && L.kindSymbol("out") == "↗" && L.kindSymbol("?") == "•", "Art-Symbole")
     check(plan.steps[1].classText == "rückgängig" && plan.steps[2].undoClass == "delete_only" && plan.steps[0].undoClass == nil, "Klasse je Schritt")
     check(plan.readText == "Ich lese dafür: Sommerfest" && plan.readLabels == ["Sommerfest"], "Ich lese dafür (Server)")
@@ -125,6 +141,7 @@ func sagaTests() {
     check(L.actionResult(code: 409, body: data(#"{"code":"changed","version_url":null}"#)) == .changed(versionURL: nil), "409 changed ohne alte Fassung")
     check(L.actionResult(code: 403, body: data(#"{"error":"Lerne Marin zuerst kennen","consent":"needed"}"#)) == .consent("Lerne Marin zuerst kennen"), "403 Einwilligung")
     check(L.actionResult(code: 500, body: data("x")) == .failed(""), "sonst Fehler")
+    check(L.actionResult(code: 200, body: data(#"{"ok":true,"already":true,"text":"Schon erledigt – der Termin ist weg."}"#)) == .ok(stateText: nil, text: "Schon erledigt – der Termin ist weg."), "Rueckgaengig: Termin schon weg = 200 already")
     check(L.actionResult(code: 200, body: data(#"{"ok":true,"state":"abgebrochen","state_text":"Abgebrochen","text":"Nichts ist passiert."}"#)) == .ok(stateText: "Abgebrochen", text: "Nichts ist passiert."), "Abbruch-Text")
     // Pfad der alten Fassung: nur eigener Server
     check(L.beforePath("/api/ai/jobs/1/changes/2/before") == "api/ai/jobs/1/changes/2/before", "eigener Pfad")
@@ -166,6 +183,12 @@ func sagaTests() {
     check(det?.stateText == "Erledigt" && det?.approvedDevice == "iPhone" && det?.events.count == 2 && det?.awaitingOK == false, "Detail gelesen (Protokoll ohne leere Zeilen)")
     check(det?.feedback?.text.hasPrefix("Erledigt:") == true && det?.feedback?.lines.count == 2 && det?.cancellable == false, "Rueckmeldung: Ergebnis zuerst")
     check(det?.change(6)?.why == "changed" && det?.change(6)?.versionURL == "api/ai/jobs/12/changes/6/before" && det?.change(5)?.canUndo == true, "Aenderung: Rueckgaengig bzw. alte Fassung")
+    let l1 = SagaReport.Line(change: 1, text: "Aufgabe „X“ angelegt", undone: false, canUndo: true, label: "Aufgabe „X“")
+    check(SagaJobDetail.lineCaption(l1, count: 1) == nil && SagaJobDetail.lineCaption(l1, count: 2) == "Aufgabe „X“", "neben Rueckgaengig: bei einer Aenderung nur der Knopf, sonst der Gegenstand")
+    check(SagaJobDetail.lineCaption(SagaReport.Line(change: 2, text: "Ganze Zeile", undone: false, canUndo: true), count: 2) == "Ganze Zeile", "aeltere Server ohne label")
+    check(SagaReport(["text": "t", "lines": [["change": 3, "text": "a", "label": "b", "can_undo": true]]])?.lines.first?.label == "b", "label gelesen")
+    check(L.itemSymbol(group: "fertig", state: "erledigt") == "checkmark.circle" && L.itemSymbol(group: "fertig", state: "abgebrochen") == "minus.circle"
+          && L.itemSymbol(group: "fertig", state: "zurueckgenommen") == "arrow.uturn.backward.circle" && L.itemSymbol(group: "laeuft", state: "laeuft") == "clock", "Listen-Symbole je Zustand")
     check(det?.planSteps.count == 3 && det?.readText == "Ich lese dafür: Sommerfest", "Plan im Detail")
     let waiting = SagaJobDetail(data: data(#"{"id":12,"title":"P","state":"wartet_ok","state_text":"Wartet auf dein OK","plan":\#(planJSON),"changes":[],"events":[],"actions":["approve","edit","cancel"]}"#))
     check(waiting?.awaitingOK == true && waiting?.cancellable == false && waiting?.feedback == nil, "wartet_ok: Plan-Karte, kein Abbrechen-Knopf daneben")

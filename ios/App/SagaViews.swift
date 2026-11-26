@@ -175,6 +175,11 @@ struct SagaScreen: View {
     private var wide: Bool { true }
     #endif
 
+    /// "Ansehen" an einem Auftrag im Gespraech: Detail im Segment "Aufträge" (iPad: rechts)
+    private func openJob(_ id: Int) { tab = 1; Task { await m.open(id) } }
+    /// Beispiel aus der leeren Liste: ins Gespraech, als Auftrag geben
+    private func giveExample(_ t: String) { tab = 0; m.close(); m.jobMode = true; m.giveInThread(t) }
+
     var body: some View {
         VStack(spacing: 0) {
             if let st = store.sagaStatus {
@@ -189,9 +194,9 @@ struct SagaScreen: View {
                     }
                 } else if st.jobsOn && wide {
                     HStack(spacing: 0) {
-                        SagaJobsPane(m: m, inlineDetail: false).frame(width: 360)
+                        SagaJobsPane(m: m, inlineDetail: false, give: giveExample).frame(width: 360)
                         Divider()
-                        if m.openJob != nil { SagaJobDetailView(m: m, closeLabel: true) } else { SagaConversation(m: m) }
+                        if m.openJob != nil { SagaJobDetailView(m: m, closeLabel: true) } else { SagaConversation(m: m, openJob: openJob) }
                     }
                 } else {
                     if st.jobsOn {
@@ -201,7 +206,7 @@ struct SagaScreen: View {
                         }
                         .pickerStyle(.segmented).labelsHidden().padding(.horizontal).padding(.vertical, 8)
                     }
-                    if tab == 1 && st.jobsOn { SagaJobsPane(m: m, inlineDetail: true) } else { SagaConversation(m: m) }
+                    if tab == 1 && st.jobsOn { SagaJobsPane(m: m, inlineDetail: true, give: giveExample) } else { SagaConversation(m: m, openJob: openJob) }
                 }
             } else {
                 ContentUnavailableView { Label("Saga", systemImage: "sparkles") } description: { Text("Der KI-Assistent ist für dich nicht eingeschaltet.") }
@@ -238,7 +243,7 @@ struct SagaScreen: View {
         #if DEBUG
         .task {                                                        // nur fuer Tests: Bereich und Ablauf per Startparameter
             if UserDefaults.standard.integer(forKey: "hkSagaTab") == 1 { tab = 1 }
-            if UserDefaults.standard.integer(forKey: "hkSagaOpen") > 0 { tab = 1; await m.loadJobs(); await m.open(UserDefaults.standard.integer(forKey: "hkSagaOpen")) }
+            if UserDefaults.standard.integer(forKey: "hkSagaOpen") > 0 { openJob(UserDefaults.standard.integer(forKey: "hkSagaOpen")) }
             await m.debugRun()
         }
         #endif
@@ -254,6 +259,7 @@ struct SagaConversation: View {
     @EnvironmentObject var store: Store
     @EnvironmentObject var nav: NavModel
     @ObservedObject var m: SagaModel
+    var openJob: (Int) -> Void = { _ in }
     @State private var q = ""
     @State private var reporting: SagaReportItem?
     @FocusState private var focused: Bool
@@ -263,11 +269,15 @@ struct SagaConversation: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 14) {
-                        if m.thread.turns.isEmpty && m.liveQ == nil && m.threadLoaded { empty }
+                        if m.thread.turns.isEmpty && m.liveQ == nil && m.liveJob == nil && m.threadLoaded { empty }
                         ForEach(m.thread.turns) { t in turn(t).id(t.id) }
                         if let lq = m.liveQ {
                             mine(lq)
                             liveCard
+                        }
+                        if let lj = m.liveJob {
+                            mine(lj.said, job: true)
+                            liveJobCard(lj)
                         }
                         keepLine
                         Color.clear.frame(height: 1).id("sg-end")
@@ -278,6 +288,7 @@ struct SagaConversation: View {
                 .scrollDismissesKeyboard(.interactively)
                 .onChange(of: m.live?.text) { _, _ in proxy.scrollTo("sg-end", anchor: .bottom) }
                 .onChange(of: m.thread.turns.count) { _, _ in proxy.scrollTo("sg-end", anchor: .bottom) }
+                .onChange(of: m.liveJob?.said) { _, _ in proxy.scrollTo("sg-end", anchor: .bottom) }
                 .onAppear { proxy.scrollTo("sg-end", anchor: .bottom) }
             }
             Divider()
@@ -302,15 +313,31 @@ struct SagaConversation: View {
         .padding(.top, 12)
     }
 
-    private func mine(_ text: String) -> some View {
-        Text(verbatim: text).padding(12).background(Color.gold.opacity(0.16), in: RoundedRectangle(cornerRadius: 14))
-            .frame(maxWidth: .infinity, alignment: .trailing).padding(.leading, 40)
-            .textSelection(.enabled)
+    /// Eigene Bitte; als Auftrag mit kleiner Marke "Auftrag"
+    private func mine(_ text: String, job: Bool = false) -> some View {
+        VStack(alignment: .trailing, spacing: 4) {
+            if job {
+                Label("Auftrag", systemImage: "checklist").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            }
+            Text(verbatim: text).textSelection(.enabled)
+        }
+        .padding(12).background(Color.gold.opacity(0.16), in: RoundedRectangle(cornerRadius: 14))
+        .frame(maxWidth: .infinity, alignment: .trailing).padding(.leading, 40)
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder private func turn(_ t: SagaTurn) -> some View {
-        if t.mine { mine(t.text) }
-        else {
+        switch t.kind(jobsOn: store.sagaStatus?.jobsOn == true) {
+        case .mine: mine(t.text)
+        case .mineJob: mine(t.text, job: true)
+        case .plan(let id): SagaJobTurnView(m: m, job: id, title: t.text, openJob: openJob)
+        case .ask:
+            SagaAskCard(question: t.text, choices: t.choices, disabled: busy) { c in m.giveInThread(t.q ?? "", choice: c, said: c) }
+        case .refuse:
+            SagaRefuseCard(text: t.text, alternative: t.alternative, disabled: busy,
+                           take: { a in m.giveInThread(t.q ?? " ", alternative: a, said: a.label ?? String(localized: "Als Aufgabe anlegen")) },
+                           rephrase: { m.jobMode = true; q = t.q ?? ""; focused = true })
+        case .answer:
             VStack(alignment: .leading, spacing: 8) {
                 SagaHead(extra: t.created.map { Date(timeIntervalSince1970: $0).formatted(date: .omitted, time: .shortened) })
                 AnswerText(text: t.text, sources: t.sources, openPage: open)
@@ -322,6 +349,26 @@ struct SagaConversation: View {
             }
             .sagaCard()
         }
+    }
+
+    /// Frage oder Auftrag laeuft gerade
+    private var busy: Bool { (m.live != nil && m.liveError == nil) || (m.liveJob != nil && m.liveJob?.error == nil && m.liveJob?.stopped != true) }
+
+    @ViewBuilder private func liveJobCard(_ lj: SagaModel.LiveJob) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SagaHead()
+            if let e = lj.error {
+                Label(e.isEmpty ? String(localized: "Das hat nicht geklappt.") : e, systemImage: "exclamationmark.circle").foregroundStyle(.orange)
+                Button("Schließen") { m.dismissLiveJob() }.buttonStyle(.bordered).frame(minHeight: 44)
+            } else if lj.stopped {
+                Text("Abgebrochen – nichts ist passiert.").foregroundStyle(.secondary)
+                Button("Schließen") { m.dismissLiveJob() }.buttonStyle(.bordered).frame(minHeight: 44)
+            } else {
+                HStack(spacing: 8) { ProgressView().controlSize(.small); Text(verbatim: lj.status).foregroundStyle(.secondary) }
+                    .accessibilityElement(children: .combine)
+            }
+        }
+        .sagaCard()
     }
 
     @ViewBuilder private var liveCard: some View {
@@ -352,18 +399,31 @@ struct SagaConversation: View {
     }
 
     private var input: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        let jobs = store.sagaStatus?.jobsOn == true
+        let asJob = jobs && m.jobMode
+        return VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .bottom, spacing: 8) {
-                TextField(String(localized: "Schreib \(store.sagaName) …"), text: $q, axis: .vertical)
+                if jobs {                                              // "Als Auftrag": klarer Umschalter, kein Raten (11.7)
+                    Toggle(isOn: $m.jobMode) { Label("Als Auftrag", systemImage: "checklist") }
+                        .toggleStyle(.button).labelStyle(.iconOnly).controlSize(.large)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .accessibilityLabel(Text("Als Auftrag"))
+                        .help(Text("Als Auftrag"))
+                }
+                TextField(asJob ? String(localized: "Sag \(store.sagaName), was du brauchst …") : String(localized: "Schreib \(store.sagaName) …"),
+                          text: $q, axis: .vertical)
                     .lineLimit(1...5).textFieldStyle(.roundedBorder).focused($focused)
-                    .accessibilityLabel(Text("Nachricht an \(store.sagaName)"))
-                    .disabled(m.live != nil && m.liveError == nil)
-                if m.live != nil && m.liveError == nil {
-                    Button("Stopp") { m.stop() }.buttonStyle(.bordered).controlSize(.large)
+                    .accessibilityLabel(asJob ? Text("Auftrag an \(store.sagaName)") : Text("Nachricht an \(store.sagaName)"))
+                    .disabled(busy)
+                if busy {
+                    Button("Stopp") { if m.liveJob != nil { m.stopPlanning() } else { m.stop() } }.buttonStyle(.bordered).controlSize(.large)
                 } else {
-                    Button("Senden") { let t = q; q = ""; m.send(t) }
-                        .prominentGold().controlSize(.large)
-                        .disabled(!AILogic.validQuestion(q, max: store.sagaStatus?.qMax ?? 1000) || !store.reachable)
+                    Button(asJob ? String(localized: "Auftrag geben") : String(localized: "Senden")) {
+                        let t = q; q = ""
+                        if asJob { m.giveInThread(t) } else { m.send(t) }
+                    }
+                    .prominentGold().controlSize(.large)
+                    .disabled(!AILogic.validQuestion(q, max: store.sagaStatus?.qMax ?? 1000) || !store.reachable)
                 }
             }
             if !store.reachable {

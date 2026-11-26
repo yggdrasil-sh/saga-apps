@@ -87651,7 +87651,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tasks"
+            "value" : "Jobs"
           }
         },
         "es" : {
@@ -88297,7 +88297,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Task for %@"
+            "value" : "Job for %@"
           }
         },
         "es" : {
@@ -88331,7 +88331,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Give task"
+            "value" : "Give job"
           }
         },
         "es" : {
@@ -88467,7 +88467,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No tasks yet. Give me one, e.g. ‘Remind me on Friday about the gazebo’."
+            "value" : "No jobs yet. Give me one, e.g. ‘Remind me on Friday about the gazebo’."
           }
         },
         "es" : {
@@ -88535,7 +88535,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Task"
+            "value" : "Job"
           }
         },
         "es" : {
@@ -89317,7 +89317,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cancel task"
+            "value" : "Cancel job"
           }
         },
         "es" : {
@@ -89385,7 +89385,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "After that %1$@ no longer carries out tasks (running ones pause), brings no ideas, and the conversation in “Saga” is off. Questions elsewhere, such as “Ask your pages”, still go to %2$@ – only when you ask them. You can meet %3$@ again at any time."
+            "value" : "After that %1$@ no longer carries out jobs (running ones pause), brings no ideas, and the conversation in “Saga” is off. Questions elsewhere, such as “Ask your pages”, still go to %2$@ – only when you ask them. You can meet %3$@ again at any time."
           }
         },
         "es" : {
@@ -89453,7 +89453,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This deletes your tasks with their log, your conversation with %@ and your history. Messages that were already sent stay with their recipients. This can't be undone."
+            "value" : "This deletes your jobs with their log, your conversation with %@ and your history. Messages that were already sent stay with their recipients. This can't be undone."
           }
         },
         "es" : {
@@ -89759,7 +89759,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You've withdrawn your consent: %1$@ carries out no tasks, brings no ideas, and the conversation in “Saga” is off. Questions elsewhere, such as “Ask your pages”, still go to %2$@ – only when you ask them."
+            "value" : "You've withdrawn your consent: %1$@ carries out no jobs, brings no ideas, and the conversation in “Saga” is off. Questions elsewhere, such as “Ask your pages”, still go to %2$@ – only when you ask them."
           }
         },
         "es" : {
@@ -90099,7 +90099,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Export history and tasks (JSON)"
+            "value" : "Export history and jobs (JSON)"
           }
         },
         "es" : {
@@ -90201,7 +90201,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your admin runs this server. Technically they can read everything stored on it – including your pages, tasks and events, your tasks for the AI and your conversation with %@ while it is stored."
+            "value" : "Your admin runs this server. Technically they can read everything stored on it – including your pages, tasks and events, your jobs and your conversation with %@ while it is stored."
           }
         },
         "es" : {
@@ -90371,7 +90371,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Here you can see and control what %@ has stored about you: consent, conversation, tasks and history."
+            "value" : "Here you can see and control what %@ has stored about you: consent, conversation, jobs and history."
           }
         },
         "es" : {
@@ -90454,13 +90454,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Withdrawn – %lld task paused."
+                  "value" : "Withdrawn – %lld job paused."
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "Withdrawn – %lld tasks paused."
+                  "value" : "Withdrawn – %lld jobs paused."
                 }
               }
             }
@@ -90654,6 +90654,142 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ปิดประวัติอยู่ – บทสนทนาจะหายไปหลังจาก 24 ชั่วโมง"
+          }
+        }
+      }
+    },
+    "Als Auftrag" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als Auftrag"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As a job"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Como encargo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Как поручение"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เป็นงานที่มอบหมาย"
+          }
+        }
+      }
+    },
+    "Diesen Auftrag gibt es nicht mehr." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diesen Auftrag gibt es nicht mehr."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This job no longer exists."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este encargo ya no existe."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этого поручения больше нет."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "งานที่มอบหมายนี้ไม่มีอยู่แล้ว"
+          }
+        }
+      }
+    },
+    "Abgebrochen – nichts ist passiert." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abgebrochen – nichts ist passiert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelled – nothing happened."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelado: no ha pasado nada."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отменено — ничего не произошло."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยกเลิกแล้ว – ไม่มีอะไรเกิดขึ้น"
+          }
+        }
+      }
+    },
+    "Plan bereit – wartet auf dein OK" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan bereit – wartet auf dein OK"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan ready – needs your OK"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plan listo: espera tu OK"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "План готов — ждёт твоего OK"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แผนพร้อมแล้ว – รอให้คุณตกลง"
           }
         }
       }
