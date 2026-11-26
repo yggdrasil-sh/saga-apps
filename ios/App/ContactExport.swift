@@ -63,7 +63,7 @@ enum ContactExport {
     }
 
     /// Schliesst die Karte, sobald ein neuer bzw. ergaenzter Kontakt gesichert ist
-    @MainActor private final class Closer: NSObject, CNContactViewControllerDelegate {
+    @MainActor private final class Closer: NSObject, @preconcurrency CNContactViewControllerDelegate {
         static var key = 0
         weak var nav: UINavigationController?
         init(_ nav: UINavigationController) { self.nav = nav }
