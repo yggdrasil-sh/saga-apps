@@ -119,5 +119,6 @@ sagaTests()                      // Bugs-DB 2269/2267: Ort "Saga" - Einwilligung
 pushJobTests()                   // Bugs-DB 2270: Mitteilungen und Aktionen der Kollegin (jobpush1, push_kollegin.json)
 todayLineTests()                 // Bugs-DB 2271: Tageszeile "Kurz gesagt" gegen tests/today_vectors.json
 sagaIntentTests()                // Bugs-DB 2275 K-G: Siri (Kuerzen, Sperren, RT-32), Widget-Zaehler, 2508, 2531
+shareDraftTests()                // Bugs-DB 2275 K-G: iOS-Teilen (Entwurf 24 h/einer/nie macOS, shared, Herkunft, share_contract)
 print("Logik-Tests 2.0: \(passed) ok, \(failed) fehlgeschlagen")
 exit(failed == 0 ? 0 : 1)

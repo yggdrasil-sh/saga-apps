@@ -9,7 +9,7 @@ final class SagaModel: ObservableObject {
     weak var store: Store?
 
     /// Laufendes Planen im Gespraech ("Als Auftrag"): Bitte, Statuszeile, Fehler bzw. abgebrochen
-    struct LiveJob: Equatable { var said: String; var status: String; var error: String?; var stopped = false }
+    struct LiveJob: Equatable { var said: String; var status: String; var error: String?; var stopped = false; var mark: ShareMark? = nil }
 
     // Gespraech
     @Published var thread = SagaThread()
@@ -32,6 +32,11 @@ final class SagaModel: ObservableObject {
     @Published var noteContext: NoteContext?
     /// 2.6 K-G: Siri bzw. "soll sich kümmern …" - SagaScreen zeigt das Gespraech (nicht die Auftrags-Liste)
     @Published var wantConversation = false
+    /// 2.6 K-G (2275): geteilter Inhalt aus der Teilen-Erweiterung (Entwurf uebernommen) - Zeile "Geteilt: host ×" ueber dem
+    /// Feld; geht nur mit dem naechsten Auftrag (bzw. der Antwort auf seine Rueckfrage) als shared an den Server
+    @Published var shareLine: SharePayload?
+    /// Rueckfragen zu geteiltem Inhalt: Zug -> Inhalt (geht mit der Wahl erneut mit; nur im Speicher, nach Neustart weg)
+    var askShared: [String: SharePayload] = [:]
     @Published var liveJob: LiveJob?
     /// Jetziger Stand je Auftrag (Zuege mit job_id im Gespraech); weg = 404
     @Published var jobState: [Int: SagaJobDetail] = [:]
@@ -66,7 +71,7 @@ final class SagaModel: ObservableObject {
     func reset() {
         streamTask?.cancel(); jobTask?.cancel()
         thread = SagaThread(); threadLoaded = false; live = nil; liveQ = nil; liveError = nil
-        jobs = SagaJobList(); jobsLoaded = false; detail = nil; openJob = nil; jobMode = false; liveJob = nil; noteContext = nil
+        jobs = SagaJobList(); jobsLoaded = false; detail = nil; openJob = nil; jobMode = false; liveJob = nil; noteContext = nil; shareLine = nil; askShared = [:]
         jobState = [:]; jobGone = []; editing = []; toast = nil; cardError = nil; busy = false; reported = []
         staleSeen = []; settled = []; undoConflicts = [:]; lastResync = nil
     }
@@ -198,17 +203,23 @@ final class SagaModel: ObservableObject {
 
     /// "Auftrag geben" im Gespraech (POST /api/ai/jobs mit thread: true): status → plan | ask | refuse | error.
     /// Bitte und Ergebnis stehen danach als Zuege im Verlauf (Server); aeltere Server ohne thread: lokal angehaengt.
-    func giveInThread(_ text: String, choice: String? = nil, alternative alt: SagaJobOutcome.Alternative? = nil, said: String? = nil) {
+    func giveInThread(_ text: String, choice: String? = nil, alternative alt: SagaJobOutcome.Alternative? = nil, said: String? = nil,
+                      askShared: SharePayload? = nil) {
         clearFinished()
         guard let store, liveJob == nil, live == nil else { return }
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard alt != nil || !t.isEmpty else { return }
+        // 2275: geteilter Inhalt nur mit einem neuen Auftrag (aus der Zeile) bzw. der Antwort auf seine Rueckfrage - nie mit
+        // einem Rezept; dann auch ohne eigene Worte (Systembitte des Servers)
+        let sh = ShareDraftLogic.sharedFor(recipe: alt != nil, choice: choice, askShared: askShared,
+                                           line: ShareDraftLogic.line(shareLine, asJob: true, allowed: store.shareJobsAllowed))
+        guard alt != nil || !t.isEmpty || sh != nil else { return }
         // 2508: mit offener Seite als Kontext (nicht bei Rezepten, wie das Web)
-        var b = alt.map { SagaLogic.recipeBody($0, text: t) } ?? SagaLogic.giveBody(text: t, choice: choice, note: noteContext?.id)
+        var b = alt.map { SagaLogic.recipeBody($0, text: t) } ?? SagaLogic.giveBody(text: t, choice: choice, note: noteContext?.id, shared: sh)
         b["thread"] = true
-        let shown = said ?? t
+        let shown = said ?? (t.isEmpty && sh != nil ? String(localized: "Kümmere dich darum.") : t)
         let n0 = maxN
-        liveJob = LiveJob(said: shown, status: store.aiThinking)
+        let fresh = alt == nil && choice == nil
+        liveJob = LiveJob(said: shown, status: store.aiThinking, mark: sh.map(ShareDraftLogic.mark))
         jobTask = Task { [weak self] in
             guard let self else { return }
             defer { self.jobTask = nil }
@@ -227,7 +238,9 @@ final class SagaModel: ObservableObject {
                     for e in evs {
                         if e.event == "status", let s = ShareJSON.str(e.json["text"]) { self.liveJob?.status = s; continue }
                         guard let o = SagaLogic.outcome(e) else { continue }
-                        await self.landed(o, said: shown, q: t, after: n0)
+                        // 2275: einmal verbraucht, sobald der Server etwas daraus gemacht hat (bei Fehlern bleibt die Zeile)
+                        if case .error = o {} else if fresh, sh != nil, self.shareLine == sh { self.shareLine = nil }
+                        await self.landed(o, said: shown, q: t, after: n0, shared: sh)
                         return
                     }
                 }
@@ -250,7 +263,7 @@ final class SagaModel: ObservableObject {
         return true
     }
     /// Ergebnis des Planens in den Verlauf (Server-Zuege, sonst lokal)
-    private func landed(_ o: SagaJobOutcome, said: String, q: String, after n0: Int) async {
+    private func landed(_ o: SagaJobOutcome, said: String, q: String, after n0: Int, shared: SharePayload? = nil) async {
         let now = Date().timeIntervalSince1970
         var ai: SagaTurn?
         switch o {
@@ -267,8 +280,12 @@ final class SagaModel: ObservableObject {
         }
         await loadThread()
         if !serverTurns(after: n0), let ai {                          // Server ohne Zuege fuer Auftraege (aelter als 11.7)
-            thread.turns.append(SagaTurn(role: "me", zug: "job", text: said, created: now))
+            thread.turns.append(SagaTurn(role: "me", zug: "job", text: said, created: now, shareMark: shared.map(ShareDraftLogic.mark)))
             thread.turns.append(ai)
+        }
+        // 2275: Rueckfrage zu geteiltem Inhalt merken - die Wahl schickt ihn erneut mit (14.1)
+        if case .ask = o, let shared, let at = thread.turns.last(where: { $0.zug == "ask" && !$0.mine && (($0.n ?? 0) > n0 || $0.n == nil) }) {
+            askShared[at.id] = shared
         }
         liveJob = nil
     }
@@ -286,6 +303,27 @@ final class SagaModel: ObservableObject {
         noteContext = NoteContext(id: id, title: j["title"] as? String ?? "")
     }
     func dismissLiveJob() { liveJob = nil }
+
+    /// 2.6 K-G (2275): Entwurf aus der Teilen-Erweiterung uebernehmen (saga://share, Mitteilung, App vorne) - Gespraech,
+    /// "Als Auftrag" an, Zeile "Geteilt: …"; gesendet wird erst auf Tippen. Der Entwurf ist danach geloescht. Ohne Entwurf
+    /// (verfallen, schon uebernommen, nach einem Neustart weg) bzw. ohne Freigabe: kurzer Hinweis statt Stille (2600).
+    /// - Returns: true, wenn etwas uebernommen wurde
+    @discardableResult
+    func takeShareDraft(allowed: Bool, server: String?, quietIfNone: Bool = false, now: Date = Date()) -> Bool {
+        let d = AppConfig.store
+        guard let x = ShareDraftLogic.take(in: d, now: now.timeIntervalSince1970, server: server) else {
+            if !quietIfNone && shareLine == nil { toast = String(localized: "Nichts Geteiltes mehr da – bitte teile es noch einmal.") }
+            return false
+        }
+        guard allowed else {
+            toast = String(localized: "\(store?.sagaName ?? "Saga") kann gerade nichts Geteiltes übernehmen.")
+            return false
+        }
+        shareLine = x.payload
+        jobMode = true
+        wantConversation = true
+        return true
+    }
 
     /// "Passt, los" - Ergebnis fuer die Karte (nil = ok)
     func approve(_ p: SagaPlan) async -> String? {
@@ -551,7 +589,8 @@ final class SagaModel: ObservableObject {
 /// RootView es beim Erscheinen nach) bzw. aus dem KI-Bereich einer Seite ("{Name} soll sich kümmern …", mit Seite)
 @MainActor
 enum SagaOpen {
-    enum Target: Equatable { case conversation, note(Int) }
+    /// share = Entwurf der Teilen-Erweiterung uebernehmen (2275)
+    enum Target: Equatable { case conversation, note(Int), share }
     static var pending: Target?
     static func request(_ t: Target) {
         pending = t

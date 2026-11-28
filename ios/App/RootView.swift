@@ -223,7 +223,13 @@ struct RootView: View {
         .onChange(of: phase) { _, p in
             if p == .active || p == .background { ClientLog.shared.life(p == .active ? "visible" : "hidden") }   // 2.5 clientlog1
             if p == .active { Task { await store.refresh(); store.live.start(); await store.calls.checkActive(); await FirstStepsModel.shared.check(store) }; store.push.languageCheck() }
-            if p == .active { Task { await store.saga.resync() } }       // 2515: Auftragsstand nachholen (verpasstes ai.job.changed)   // 2.5: Push-Sprache       // im Web angelegte Seiten; Live nur im Vordergrund; 2031: Erste Schritte (gedrosselt)
+            if p == .active { Task { await store.saga.resync() } }
+            // 2.6 K-G (2275): Entwurf der Teilen-Erweiterung liegt bereit (Mitteilung nicht erlaubt bzw. nicht angetippt) - still,
+            // wenn keiner da ist
+            if p == .active, ShareDraftLogic.platformOK,
+               ShareDraftLogic.peek(in: AppConfig.store, now: Date().timeIntervalSince1970, server: AppConfig.serverOrigin) != nil {
+                openSaga(.share)
+            }       // 2515: Auftragsstand nachholen (verpasstes ai.job.changed)   // 2.5: Push-Sprache       // im Web angelegte Seiten; Live nur im Vordergrund; 2031: Erste Schritte (gedrosselt)
             // 2.6 (2029-6): waehrend eines Gespraechs bleibt der Live-Kanal offen (die App laeuft per Audio weiter) - sonst
             // kaeme Anklopfen (waiting1, ohne Push) bei gesperrtem Bildschirm nie an; CallManager.finish schliesst ihn danach
             if p == .background { WidgetCenter.shared.reloadAllTimelines(); store.calls.liveFollow(background: true) }   // Widgets zeigen sofort den neuen Stand
@@ -487,7 +493,8 @@ extension RootView {
     /// 2.6 K-G: Ort "Saga", Gespraech (mit "Als Auftrag" und Seite bei .note) - nur mit Ort "Saga", sonst nichts
     func openSaga(_ t: SagaOpen.Target, retry: Bool = true) {
         guard store.sagaStatus != nil else {
-            if retry { Task { await store.loadAIStatus(); if store.sagaStatus != nil { openSaga(t, retry: false) } else { SagaOpen.pending = nil } } }
+            if retry { Task { await store.loadAIStatus(); if store.sagaStatus != nil { openSaga(t, retry: false) } else { SagaOpen.pending = nil; shareOff(t) } } }
+            else { shareOff(t) }
             return
         }
         SagaOpen.pending = nil
@@ -497,6 +504,18 @@ extension RootView {
         store.saga.close()
         store.saga.wantConversation = true
         if case .note(let id) = t { Task { await store.saga.startForNote(id) } }
+        if t == .share {                                                   // 2275: Status frisch (Admin kann umstellen), dann uebernehmen
+            Task { await store.loadAIStatus(); store.takeShareDraft() }
+        }
+    }
+    /// 2275: Entwurf da, aber kein Ort "Saga" (KI aus, abgemeldet) - verwerfen und sagen (2600: nie still); Server nicht
+    /// erreichbar: Entwurf bleibt fuer spaeter (24 h), nur der Hinweis
+    private func shareOff(_ t: SagaOpen.Target) {
+        guard t == .share else { return }
+        let had = ShareDraftLogic.takeWithoutPlace(reachable: store.reachable, in: AppConfig.store, now: Date().timeIntervalSince1970,
+                                                   server: AppConfig.serverOrigin) != nil
+        store.error = had ? String(localized: "\(store.sagaName) kann gerade nichts Geteiltes übernehmen.")
+                          : String(localized: "Nichts Geteiltes mehr da – bitte teile es noch einmal.")
     }
     /// hlidskjalf:// bzw. saga:// - page/12 · today · tasks · events · new-task · new?db=7&view=tab · new?parent=12 · pair?u=…&c=…
     func openLink(_ url: URL) {
@@ -513,6 +532,7 @@ extension RootView {
         case "events": selection = -2
         case "new-task": selection = -1; nav.wantQuickAdd = true
         case "saga": openSaga(.conversation)                                // 2.6 K-G: Gespraech (wie die Mac-Huelle)
+        case ShareDraftLogic.linkHost: openSaga(.share)                     // 2.6 K-G (2275): Entwurf aus der Teilen-Erweiterung
         case "jobs": openJob(nil)                                           // 2270 (K-C)
         case "job": openJob(PushJobLogic.jobTarget(url: PushJobLogic.linkRoute(host: "job", arg: arg))?.job)
         case "new":                                                        // eigene Widgets duerfen ohne Rueckfrage anlegen

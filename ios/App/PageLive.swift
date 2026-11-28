@@ -99,6 +99,7 @@ extension Store {
         let chatOn = on && (st?.chat ?? false)
         if chatOn != aiChat { aiChat = chatOn }
         if let h = st?.host, h != aiHost { aiHost = h }
+        defer { syncShareJobs() }                                        // 2.6 K-G (2275): Teilen-Option der Erweiterung
         if let p = st?.persona { setPersona(p) }
         else if code == 200 || code == 403 {
             // Assistent fuer mich aus: Persona trotzdem holen (KI-Antworten anderer im Chat mit Bild + Name zeigen)

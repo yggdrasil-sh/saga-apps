@@ -167,6 +167,31 @@ enum SagaFieldNames {
     }
 }
 
+/// 2275: Herkunft eines Plans (origin.text, Systemtext) und bei warn ⚠ + warn_text - Symbol UND Text, nie nur Farbe;
+/// VoiceOver liest die Warnung als eine Zeile
+struct SagaOriginLines: View {
+    let origin: SagaPlanOrigin?
+    var body: some View {
+        if let o = origin, o.shown {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(verbatim: o.text).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("kg-origin")
+                if let w = o.warnShown {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).accessibilityHidden(true)
+                        Text(verbatim: w).font(.subheadline.weight(.medium)).fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(8).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(Text(verbatim: "⚠ " + w))
+                    .accessibilityIdentifier("kg-warn")
+                }
+            }
+        }
+    }
+}
+
 /// B3 Plan-Karte: "Wartet auf dein OK" · "So würde ich es machen:" · Schritte (Symbol + Text + Klasse als Wort) ·
 /// Wortlaut · "Ich lese dafür: …" · Passt, los (volle Breite) · Ändern · Lieber nicht (Textknopf mit Abstand)
 struct SagaPlanCard: View {
@@ -190,6 +215,7 @@ struct SagaPlanCard: View {
                 ForEach(Array(plan.steps.enumerated()), id: \.element.id) { i, s in step(s, i: i, of: plan.steps.count) }
             }
             if !plan.readText.isEmpty { Text(verbatim: plan.readText).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
+            SagaOriginLines(origin: plan.origin)                          // 2275: unter "Ich lese dafür: …"
             if let err { Label(err, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(.orange) }
             if !store.reachable && !editing {
                 Text("Offline – gespeicherter Stand. Freigeben geht, sobald du wieder verbunden bist.").font(.footnote).foregroundStyle(.secondary)
@@ -463,6 +489,10 @@ struct SagaJobDetailView: View {
         }
         if let r = d.requestShown {                                   // 2531: die Bitte im Wortlaut (wie das Web)
             section("Deine Bitte") { Text(verbatim: r).fixedSize(horizontal: false, vertical: true).textSelection(.enabled) }
+        }
+        // 2275: Herkunft auch nach der Freigabe (solange die Plan-Karte steht, zeigt sie sie selbst)
+        if !d.showsPlanCard(consentOK: store.sagaStatus?.consentOK == true), let o = d.plan?.origin, o.shown {
+            section("Herkunft") { SagaOriginLines(origin: o) }
         }
         if let labels = d.plan?.readLabels, !labels.isEmpty {
             section("Was ich gelesen habe") { Text(verbatim: labels.joined(separator: ", ")).fixedSize(horizontal: false, vertical: true) }

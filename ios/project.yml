@@ -119,7 +119,8 @@ targets:
   HlidskjalfShare:
     type: app-extension
     platform: iOS
-    sources: [Share, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/WidgetFeedLogic.swift, Shared/TaskSourceLogic.swift, Shared/TodayLineLogic.swift, Shared/ShareView.swift, Shared/ShareBookmarkLogic.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
+    # 2.6 K-G (2275): ShareDraftLogic nur hier (iOS) - die Mac-Erweiterungen bauen ShareView ohne die Option "soll sich kuemmern"
+    sources: [Share, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/WidgetFeedLogic.swift, Shared/TaskSourceLogic.swift, Shared/TodayLineLogic.swift, Shared/ShareView.swift, Shared/ShareBookmarkLogic.swift, Shared/ShareDraftLogic.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
     info:
       path: Share/Info.plist
       properties:

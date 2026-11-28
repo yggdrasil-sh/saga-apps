@@ -242,6 +242,11 @@ final class PushModel: ObservableObject {
             Task { @MainActor in CallSystem.shared.notificationAction(a, info: info) }
             return
         }
+        // 2.6 K-G (2275): lokale Mitteilung der Teilen-Erweiterung -> Ort "Saga" uebernimmt den Entwurf (kein Server-Ziel)
+        if (userInfo["kind"] as? String) == ShareDraftLogic.notifyKind {
+            Task { @MainActor in SagaOpen.request(.share) }
+            return
+        }
         let t = PushLogic.tapTarget(userInfo)
         Task { @MainActor in
             PushModel.pending = t                                   // Kaltstart: RootView holt es beim Erscheinen ab

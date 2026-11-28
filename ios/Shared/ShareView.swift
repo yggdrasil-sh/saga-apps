@@ -1,5 +1,8 @@
 import SwiftUI
 import UniformTypeIdentifiers
+#if os(iOS)
+import UserNotifications
+#endif
 
 /// Inhalte aus dem Teilen-Blatt auslesen (Link, Text, Titel) - gleich fuer iOS und macOS.
 struct SharedContent { var url: String?; var text: String; var title: String }
@@ -51,11 +54,14 @@ struct ShareView: View {
     @State private var standardCategory = String(localized: "Lesezeichen")
     @State private var bookmarkUnsupported = false      // Server ohne /api/app/bookmarks (vor 2.5)
     private let preset: [String]?                       // nur Bilder (Debug): Kategorien ohne Server
+    // 2.6 K-G (2275, nur iOS): "{Name} soll sich kümmern …" -> lokaler Entwurf; nil = noch nicht, sonst mit/ohne Mitteilung
+    @State private var jobSaved: Bool?
 
-    init(content: SharedContent, categories preset: [String]? = nil, done: @escaping (Bool) -> Void) {
+    init(content: SharedContent, categories preset: [String]? = nil, jobSaved: Bool? = nil, done: @escaping (Bool) -> Void) {
         _content = State(initialValue: content)
         self.done = done
         self.preset = preset
+        _jobSaved = State(initialValue: jobSaved)
         _kind = State(initialValue: ShareBookmarkLogic.initialKind(last: AppConfig.store.string(forKey: ShareBookmarkLogic.lastKindKey),
                                                                    hasURL: content.url != nil))
         _name = State(initialValue: ShareBookmarkLogic.defaultName(title: content.title, url: content.url))
@@ -80,6 +86,14 @@ struct ShareView: View {
     }
 
     var body: some View {
+        #if os(iOS)
+        if let n = jobSaved { jobSavedView(notified: n) } else { form }
+        #else
+        form
+        #endif
+    }
+
+    private var form: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Button("Abbrechen") { done(false) }
@@ -124,6 +138,9 @@ struct ShareView: View {
                 Text("Noch kein App-Schlüssel – bitte einmal die Saga-App öffnen und unter Einstellungen eintragen.").font(.caption).foregroundStyle(.orange)
             }
             if !error.isEmpty { Text(error).font(.caption).foregroundStyle(.red) }
+            #if os(iOS)
+            jobOption
+            #endif
             Spacer(minLength: 0)
         }
         .padding()
@@ -200,4 +217,79 @@ struct ShareView: View {
             done(true)
         } catch { self.error = error.localizedDescription; busy = false }
     }
+
+    #if os(iOS)
+    // MARK: 2.6 K-G (Bugs-DB 2275, F1 a): an die Kollegin - nur lokaler Entwurf, kein Serveraufruf, kein hkd_
+
+    private var agentName: String {
+        let n = AppConfig.store.string(forKey: ShareDraftLogic.nameKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return n.isEmpty ? String(localized: "Saga KI") : n
+    }
+    /// Text der Option auf der getoenten Flaeche (.bordered auf dem grauen Blatt): hell ein dunkleres Gold (gemessen
+    /// 3,9:1 mit shareGold -> 5,1:1), dunkel wie shareGold (5,3:1)
+    private var jobText: Color {
+        Color(UIColor { t in t.userInterfaceStyle == .dark ? UIColor(red: 0xC9 / 255, green: 0xA4 / 255, blue: 0x5C / 255, alpha: 1)
+                                                           : UIColor(red: 0x64 / 255, green: 0x49 / 255, blue: 0x0F / 255, alpha: 1) })
+    }
+    private var jobPayload: SharePayload? { ShareDraftLogic.payload(text: content.text, url: content.url, title: content.title) }
+
+    /// Option nur, wenn die App sie freigegeben hat (aishare1 ∧ Auftraege ∧ ai_act ∧ Einwilligung) und es Inhalt gibt
+    @ViewBuilder private var jobOption: some View {
+        if ShareDraftLogic.optionShown(in: AppConfig.store), let p = jobPayload {
+            Button { Task { await giveToAgent(p) } } label: {
+                Label(String(localized: "\(agentName) soll sich kümmern …"), systemImage: "sparkles")
+                    .foregroundStyle(jobText)
+                    .frame(maxWidth: .infinity, minHeight: 44).lineLimit(2)
+            }
+            .buttonStyle(.bordered).tint(.shareGold).disabled(busy)
+            .accessibilityIdentifier("kg-share-job")
+            Text("Du sagst in Saga, was damit passieren soll – vorher wird nichts gesendet.").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func giveToAgent(_ p: SharePayload) async {
+        busy = true
+        guard ShareDraftLogic.save(p, server: AppConfig.serverOrigin, now: Date().timeIntervalSince1970, in: AppConfig.store) else {
+            busy = false; return
+        }
+        let n = await ShareNotify.post()
+        busy = false
+        jobSaved = n
+    }
+
+    /// Bestaetigung: liegt in Saga bereit (die Erweiterung kann die App nicht selbst oeffnen)
+    private func jobSavedView(notified: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Liegt in Saga bereit", systemImage: "checkmark.circle.fill").font(.headline).foregroundStyle(Color.shareGold)
+            Text(notified ? String(localized: "Tippe auf die Mitteilung oder öffne Saga – dort sagst du \(agentName), was damit passieren soll.")
+                          : String(localized: "Öffne Saga – dort sagst du \(agentName), was damit passieren soll."))
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Der Entwurf bleibt 24 Stunden auf diesem Gerät.").font(.caption).foregroundStyle(.secondary)
+            Button { done(true) } label: { Text("Fertig").bold().frame(maxWidth: .infinity, minHeight: 44) }
+                .buttonStyle(.borderedProminent).tint(.shareGold)
+            Spacer(minLength: 0)
+        }
+        .padding()
+        .frame(minWidth: 360, minHeight: 240)
+        .tint(.shareGold)
+    }
+    #endif
 }
+
+#if os(iOS)
+/// Neutrale lokale Mitteilung der Erweiterung (ohne Inhalt) - nur, wenn Saga Mitteilungen schon erlaubt sind; Erweiterungen
+/// fragen nie selbst nach. Feste Kennung: hoechstens eine. Antippen -> App, Ort "Saga" (PushModel.handleTap, kind saga.share).
+enum ShareNotify {
+    static func post() async -> Bool {
+        let c = UNUserNotificationCenter.current()
+        let s = await c.notificationSettings()
+        guard [.authorized, .provisional, .ephemeral].contains(s.authorizationStatus) else { return false }
+        let n = UNMutableNotificationContent()
+        n.body = String(localized: "Saga: Geteiltes wartet auf deinen Auftrag.")
+        n.userInfo = ["kind": ShareDraftLogic.notifyKind]
+        c.removeDeliveredNotifications(withIdentifiers: [ShareDraftLogic.notifyID])
+        do { try await c.add(UNNotificationRequest(identifier: ShareDraftLogic.notifyID, content: n, trigger: nil)) } catch { return false }
+        return true
+    }
+}
+#endif

@@ -30,6 +30,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   „Wartet auf dich“ aus `/api/ai/today` vor, ohne Sprachmodell; nur mit Fähigkeit `ai`). Alle drei nur entsperrt, ohne
   Einwilligung öffnet sich die App mit dem Kennenlernen; Siri nennt immer „Saga“, nie den Namen der Persona. Sätze in
   de/en/es/th/ru, 7 von 10 Kurzbefehlen. Link `saga://saga` öffnet das Gespräch.
+- **iPhone/iPad: Geteiltes an Saga als Auftrag** (2275, K-G, Server mit `aishare1`, APP-API-KI §14.1): Im Teilen-Blatt
+  (Text oder Link aus einer anderen App) gibt es unter „Eingang“/„Aufgabe“/„Lesezeichen“ die Option „{Name} soll sich
+  kümmern …“ – nur mit Aufträgen, Fähigkeit `ai_act` und Einwilligung (die App gibt sie frei). Die Erweiterung legt nur
+  einen lokalen Entwurf ab (höchstens einer, 24 Stunden, nur iPhone/iPad, kein Serveraufruf) und meldet „Saga: Geteiltes
+  wartet auf deinen Auftrag.“ (wenn Mitteilungen erlaubt sind, sonst Hinweis im Blatt). Antippen bzw. Öffnen von Saga
+  (`saga://share`) übernimmt ihn in den Ort „Saga“: „Als Auftrag“ an, „Geteilt: host ×“, darunter der Hinweis des Servers
+  (`share_notice`), Feld „Was soll {Name} damit tun?“; gesendet wird erst auf Tippen, auch ohne eigene Worte. Der Inhalt
+  geht nur als `shared`, nie als eigene Bitte (auch nicht nach einer Rückfrage, nie mit einem Rezept); Plan-Karte und
+  Detail zeigen die Herkunft und bei Anweisungen an die KI ⚠ mit dem Warntext. Kein Entwurf mehr da: kurzer Hinweis.
+  Mac: unverändert ohne die Option.
 - **iOS-Widget „Heute“ (2275):** Klein und Sperrbildschirm zeigen „Wartet auf dich“ nur als Zahl (`counts.waiting`, nie
   Texte), Tippen öffnet Saga › Aufträge; im großen Widget ist „Wartet auf dich“ ein Link dorthin.
 - **iOS: „{Name} soll sich kümmern …“ aus einer Seite** (2508): im KI-Bereich „Diese Seite“ (nur mit Aufträgen) – führt

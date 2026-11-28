@@ -65,6 +65,7 @@ final class Store: ObservableObject {
         serverVersion = j["version"] as? String; minApp = j["min_app"] as? String
         let f = ServerFeatures.parse(j); if f != features { features = f }
         AppConfig.store.set(f.has(CaptureTargetLogic.feature), forKey: CaptureTargetLogic.featureKey)   // Kurzbefehl offline
+        syncShareJobs()                                                  // 2.6 K-G (2275): Teilen-Option der Erweiterung
     }
     @Published var loading = false
     /// Eigenes Profilbild (2.1, aus /api/account): relative Adresse oder nil
@@ -1266,6 +1267,7 @@ final class Store: ObservableObject {
         live.stop(); live.forgetServer(); notifs.reset(); calls.signedOut(); chat.signedOut(); push.signedOut()   // 2.0: Live, Glocke, Chat-Schluessel im Speicher, Push-Abo
         contacts.clear()                                                  // 2.6 (2027a): Adressbuch gehoert zum Konto
         sagaStatus = nil; saga.reset()                                    // 2.6 (2269): Ort "Saga" gehoert zum Konto
+        ShareDraftLogic.setJobs(false, name: nil, in: AppConfig.store); ShareDraftLogic.clear(in: AppConfig.store)   // 2275: Entwurf gehoert zum Konto
         todayLine.reset()                                                // 2.6 (2271): Tageszeile gehoert zum Konto
         cursorEpoch += 1; noteCursor = nil; savedCursor = nil; listUnsaved = false; cacheLoad?.cancel(); cacheLoad = nil   // Abgleich-Stand gehoert zum Konto
         pages = []; archivedPages = []; list = PageList(); listGen += 1; shared = []; fedShared = []; aiEnabled = false; aiPersona = nil; aiChat = false; aiHost = ""; fedUnreachable = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")

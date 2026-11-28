@@ -57,6 +57,8 @@ struct SagaStatus: Equatable {
     var notice = ""
     var caps: [String] = []
     var qMax = 1000
+    /// 2.6 K-G (2275): "Was du teilst, liest die KI auf {label}." - vor dem ersten Senden mit geteiltem Inhalt (RT-17)
+    var shareNotice: String?
     init() {}
     init?(data: Data) {
         guard let j = ShareJSON.obj(data) else { return nil }
@@ -70,12 +72,17 @@ struct SagaStatus: Equatable {
         notice = j["notice"] as? String ?? ""
         caps = (j["caps"] as? [Any] ?? []).compactMap { $0 as? String }
         qMax = ShareJSON.int(j["q_max"]) ?? 1000
+        shareNotice = ShareJSON.str(j["share_notice"])
     }
     /// Tab "Saga" nur mit KI fuer diese Person UND einem Server, der Einwilligung + Kennenlernen-Text kennt (K-I)
     var hasPlace: Bool { enabled && consent != nil && intro != nil }
     var consentOK: Bool { consent?.granted == true }
     /// Auftraege (K-B): Faehigkeit vom Server und Einwilligung
     var jobsOn: Bool { hasPlace && jobs && level != "answers" }
+    /// 2.6 K-G (2275): Teilen an die Kollegin - aishare1, Auftraege, ai_act, Einwilligung (F4, RT-17)
+    func shareJobs(features: Set<String>) -> Bool {
+        ShareDraftLogic.jobsAllowed(feature: features.contains(ShareDraftLogic.feature), jobsOn: jobsOn, consentOK: consentOK, caps: caps)
+    }
 }
 
 /// Ein Zug im Gespraech (GET /api/ai/thread bzw. nach "done"). Auftraege (11.7): Bitte {me, zug job}, dann {ai, zug plan
@@ -91,13 +98,15 @@ struct SagaTurn: Identifiable, Equatable {
     var choices: [String] = []
     var q: String?
     var alternative: SagaJobOutcome.Alternative?
+    /// 2.6 K-G (2275): eigener Zug zu geteiltem Inhalt (fields.shared {host, from}) - nur Host, nie der Text
+    var shareMark: ShareMark?
     var local = UUID()
     var id: String { n.map { "t\($0)" } ?? local.uuidString }
     var mine: Bool { role == "me" }
     init(n: Int? = nil, role: String, zug: String? = nil, text: String, sources: [AISource] = [], created: Double? = nil,
-         jobID: Int? = nil, choices: [String] = [], q: String? = nil, alternative: SagaJobOutcome.Alternative? = nil) {
+         jobID: Int? = nil, choices: [String] = [], q: String? = nil, alternative: SagaJobOutcome.Alternative? = nil, shareMark: ShareMark? = nil) {
         self.n = n; self.role = role; self.zug = zug; self.text = text; self.sources = sources; self.created = created
-        self.jobID = jobID; self.choices = choices; self.q = q; self.alternative = alternative
+        self.jobID = jobID; self.choices = choices; self.q = q; self.alternative = alternative; self.shareMark = shareMark
     }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let r = d["role"] as? String, r == "me" || r == "ai" else { return nil }
@@ -106,7 +115,7 @@ struct SagaTurn: Identifiable, Equatable {
         self.init(n: ShareJSON.int(d["n"]), role: r, zug: ShareJSON.str(d["zug"]), text: d["text"] as? String ?? "", sources: src,
                   created: ShareJSON.num(d["created"]), jobID: ShareJSON.int(d["job_id"]),
                   choices: (f["choices"] as? [Any] ?? []).compactMap { $0 as? String }, q: ShareJSON.str(f["q"]),
-                  alternative: SagaLogic.alternative(f["alternative"]))
+                  alternative: SagaLogic.alternative(f["alternative"]), shareMark: ShareDraftLogic.turnMark(role: r, fields: f))
     }
     static func ==(a: Self, b: Self) -> Bool { a.id == b.id && a.text == b.text && a.zug == b.zug && a.jobID == b.jobID }
     /// Darstellung des Zugs
@@ -255,6 +264,8 @@ struct SagaPlan: Equatable {
     var say: String?
     /// "geändert – bitte neu freigeben" vom Server (2515: Detail und plan_view liefern es immer); nil = aelterer Server ohne Feld
     var edited: Bool?
+    /// 2.6 K-G (2275): Herkunft bei geteiltem Inhalt (nil = ohne Teilen); Texte fertig vom Server
+    var origin: SagaPlanOrigin?
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let job = ShareJSON.int(d["job"]), let pv = ShareJSON.int(d["plan_v"]),
               let ph = ShareJSON.str(d["plan_hash"]) else { return nil }
@@ -266,12 +277,41 @@ struct SagaPlan: Equatable {
         readLabels = (d["read"] as? [Any] ?? []).compactMap { ($0 as? [String: Any]).flatMap { ShareJSON.str($0["label"]) } }
         say = ShareJSON.str(d["say"])
         edited = d["edited"] == nil || d["edited"] is NSNull ? nil : ShareJSON.bool(d["edited"])
+        origin = SagaPlanOrigin(d["origin"])
     }
     var editable: Bool { steps.contains { !$0.edit.isEmpty } }
     /// "geändert – bitte neu freigeben" (2515): edited vom Server; fehlt es (aeltere Server, Neuladen ohne edited), ab plan_v 2
     var changed: Bool { edited ?? (planV > 1) }
     /// ... und nach 409 stale immer (die Karte wechselt nie still zum neuen Plan)
     func changed(afterStale: Bool) -> Bool { afterStale || changed }
+}
+
+/// plan.origin (APP-API-KI 14.1): "Angeregt durch: …" und bei warn ⚠ + warn_text (Symbol UND Text, nie nur Farbe)
+struct SagaPlanOrigin: Equatable {
+    var kind: String
+    var host: String?
+    var from: String?
+    var text: String
+    var warn: Bool
+    var warnText: String?
+    init(kind: String = "share", host: String? = nil, from: String? = nil, text: String, warn: Bool = false, warnText: String? = nil) {
+        self.kind = kind; self.host = host; self.from = from; self.text = text; self.warn = warn; self.warnText = warnText
+    }
+    init?(_ v: Any?) {
+        guard let d = v as? [String: Any] else { return nil }
+        kind = ShareJSON.str(d["kind"]) ?? ""
+        host = ShareJSON.str(d["host"]); from = ShareJSON.str(d["from"])
+        text = d["text"] as? String ?? ""
+        warn = ShareJSON.bool(d["warn"])
+        warnText = ShareJSON.str(d["warn_text"])
+    }
+    /// Herkunft zeigen? nur mit Text
+    var shown: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    /// Warnzeile nur bei warn mit Text
+    var warnShown: String? {
+        guard warn, let w = warnText?.trimmingCharacters(in: .whitespacesAndNewlines), !w.isEmpty else { return nil }
+        return w
+    }
 }
 
 /// Ausgang von POST /api/ai/jobs (SSE): genau eines von plan, ask, refuse, error (status davor nur als Text)
@@ -554,10 +594,16 @@ enum SagaLogic {
     // MARK: Auftraege
 
     /// Body fuer POST /api/ai/jobs: Bitte (+ Rueckfrage-Wahl) oder Rezept direkt (nur die Kennung, nie ein Objekt - RT-21)
-    static func giveBody(text: String, choice: String? = nil, note: Int? = nil) -> [String: Any] {
+    /// 2.6 K-G (2275): mit geteiltem Inhalt source "share" + shared {text, url, title, from: "app"} - text sind nur die
+    /// eigenen Worte (leer = Systembitte des Servers), der geteilte Text geht nie in text (K17, kein Rueckfall)
+    static func giveBody(text: String, choice: String? = nil, note: Int? = nil, shared: SharePayload? = nil) -> [String: Any] {
         var b: [String: Any] = ["text": String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1000)), "source": "saga"]
         if let choice { b["choice"] = String(choice.prefix(200)) }
         if let note, note > 0 { b["context"] = ["note": note] }
+        if let shared {
+            b["source"] = "share"
+            b["shared"] = ShareDraftLogic.sharedJSON(shared)
+        }
         return b
     }
     static func recipeBody(_ alt: SagaJobOutcome.Alternative, text: String) -> [String: Any] {

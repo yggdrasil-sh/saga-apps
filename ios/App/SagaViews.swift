@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 // Ort "Saga" (2.6, Bugs-DB 2269 K-I, Konzept K10/K11/K19, M1/M3/M4, UX §0/§3/§6): Tab "Saga" (nicht in der Chat-Liste),
 // Leiste B6, Kennenlernen-Karte, Gespraech mit der KI (eigene Tabelle, kein E2E-Chat). Auftraege: SagaJobsViews.swift.
@@ -33,6 +34,18 @@ extension Store {
         return p.customName ? String(localized: "\(p.name) · KI") : p.name
     }
     var sagaName: String { aiPersona?.name ?? String(localized: "Saga KI") }
+    /// 2.6 K-G (2275): Teilen an die Kollegin erlaubt (aishare1 ∧ Auftraege ∧ ai_act ∧ Einwilligung)
+    var shareJobsAllowed: Bool { sagaStatus?.shareJobs(features: features.set) ?? false }
+    /// ... als Schalter fuer die Teilen-Erweiterung in die App-Gruppe (sie hat keine Sitzung und fragt den Server nie)
+    func syncShareJobs() {
+        ShareDraftLogic.setJobs(shareJobsAllowed && ShareDraftLogic.platformOK, name: sagaName, in: AppConfig.store)
+    }
+    /// Entwurf der Teilen-Erweiterung uebernehmen (saga://share, Mitteilung, App vorne)
+    @discardableResult
+    func takeShareDraft(quietIfNone: Bool = false) -> Bool {
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [ShareDraftLogic.notifyID])
+        return saga.takeShareDraft(allowed: shareJobsAllowed, server: AppConfig.serverOrigin, quietIfNone: quietIfNone)
+    }
     /// Einstellungen › Saga oeffnen (aus dem Tab)
     func openSagaSettings() { NotificationCenter.default.post(name: .hkOpenSettings, object: "saga") }
 }
@@ -335,7 +348,7 @@ struct SagaConversation: View {
                             liveCard
                         }
                         if let lj = m.liveJob {
-                            mine(lj.said, job: true)
+                            mine(lj.said, job: true, mark: lj.mark)
                             liveJobCard(lj)
                         }
                         keepLine
@@ -354,6 +367,8 @@ struct SagaConversation: View {
             input
         }
         .sheet(item: $reporting) { r in SagaReportSheet(m: m, item: r) }
+        // 2275: Teilen-Option weg (Admin, Merkmal, ai_act, Einwilligung) -> nie mit dem alten geteilten Inhalt senden
+        .onChange(of: store.shareJobsAllowed) { _, ok in if !ok { m.shareLine = nil } }
     }
 
     private var empty: some View {
@@ -372,13 +387,14 @@ struct SagaConversation: View {
         .padding(.top, 12)
     }
 
-    /// Eigene Bitte; als Auftrag mit kleiner Marke "Auftrag"
-    private func mine(_ text: String, job: Bool = false) -> some View {
+    /// Eigene Bitte; als Auftrag mit kleiner Marke "Auftrag"; 2275: zu geteiltem Inhalt darunter "Geteilt: host" (nie der Text)
+    private func mine(_ text: String, job: Bool = false, mark: ShareMark? = nil) -> some View {
         VStack(alignment: .trailing, spacing: 4) {
             if job {
                 Label("Auftrag", systemImage: "checklist").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }
             Text(verbatim: text).textSelection(.enabled)
+            if let mark { Text(verbatim: SagaShareText.label(mark)).font(.caption).foregroundStyle(.secondary) }
         }
         .padding(12).background(Color.gold.opacity(0.16), in: RoundedRectangle(cornerRadius: 14))
         .frame(maxWidth: .infinity, alignment: .trailing).padding(.leading, 40)
@@ -388,10 +404,10 @@ struct SagaConversation: View {
     @ViewBuilder private func turn(_ t: SagaTurn) -> some View {
         switch t.kind(jobsOn: store.sagaStatus?.jobsOn == true) {
         case .mine: mine(t.text)
-        case .mineJob: mine(t.text, job: true)
+        case .mineJob: mine(t.text, job: true, mark: t.shareMark)
         case .plan(let id): SagaJobTurnView(m: m, job: id, title: t.text, openJob: openJob)
         case .ask:
-            SagaAskCard(question: t.text, choices: t.choices, disabled: busy) { c in m.giveInThread(t.q ?? "", choice: c, said: c) }
+            SagaAskCard(question: t.text, choices: t.choices, disabled: busy) { c in m.giveInThread(t.q ?? "", choice: c, said: c, askShared: m.askShared[t.id]) }
         case .refuse:
             SagaRefuseCard(text: t.text, alternative: t.alternative, disabled: busy,
                            take: { a in m.giveInThread(t.q ?? " ", alternative: a, said: a.label ?? String(localized: "Als Aufgabe anlegen")) },
@@ -462,7 +478,9 @@ struct SagaConversation: View {
     private var input: some View {
         let jobs = store.sagaStatus?.jobsOn == true
         let asJob = jobs && m.jobMode
+        let shared = ShareDraftLogic.line(m.shareLine, asJob: asJob, allowed: store.shareJobsAllowed)   // 2275: nur mit "Als Auftrag" + Freigabe
         return VStack(alignment: .leading, spacing: 8) {
+            if let p = shared { sharedLine(p) }
             if asJob, let nc = m.noteContext {                         // 2508: Auftrag zu einer offenen Seite, × = ohne sie
                 HStack(spacing: 6) {
                     Image(systemName: "doc.text").foregroundStyle(.secondary).accessibilityHidden(true)
@@ -474,7 +492,8 @@ struct SagaConversation: View {
                         .disabled(busy)
                 }
             }
-            TextField(asJob ? String(localized: "Sag \(store.sagaName), was du brauchst …") : String(localized: "Schreib \(store.sagaName) …"),
+            TextField(shared != nil ? String(localized: "Was soll \(store.sagaName) damit tun?")
+                      : asJob ? String(localized: "Sag \(store.sagaName), was du brauchst …") : String(localized: "Schreib \(store.sagaName) …"),
                       text: $q, axis: .vertical)
                 .lineLimit(1...5).textFieldStyle(.roundedBorder).focused($focused)
                 .accessibilityLabel(asJob ? Text("Auftrag an \(store.sagaName)") : Text("Nachricht an \(store.sagaName)"))
@@ -494,7 +513,8 @@ struct SagaConversation: View {
                         if asJob { m.giveInThread(t) } else { m.send(t) }
                     }
                     .prominentGold().controlSize(.large).lineLimit(1)
-                    .disabled(!AILogic.validQuestion(q, max: store.sagaStatus?.qMax ?? 1000) || !store.reachable)
+                    .disabled(!(shared != nil ? ShareDraftLogic.canSend(q, shared: shared) : AILogic.validQuestion(q, max: store.sagaStatus?.qMax ?? 1000))
+                              || !store.reachable)
                 }
             }
             if !store.reachable {
@@ -505,6 +525,34 @@ struct SagaConversation: View {
     }
 
     private func open(_ id: Int) { nav.push(PageRoute(id: id)) }
+
+    /// 2275: "Geteilt: host ×" ueber dem Feld, darunter share_notice des Servers (RT-17: vor dem Senden sichtbar)
+    private func sharedLine(_ p: SharePayload) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Image(systemName: "square.and.arrow.down").foregroundStyle(.secondary).accessibilityHidden(true)
+                Text(verbatim: SagaShareText.label(ShareDraftLogic.mark(p))).font(.subheadline).lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: 4)
+                Button { m.shareLine = nil; focused = true } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                    .buttonStyle(.borderless).frame(minWidth: 44, minHeight: 44).accessibilityLabel(Text("Geteiltes weglassen"))
+                    .disabled(busy).accessibilityIdentifier("kg-share-remove")
+            }
+            if let n = store.sagaStatus?.shareNotice?.trimmingCharacters(in: .whitespacesAndNewlines), !n.isEmpty {
+                Text(verbatim: n).font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+/// 2275: Zeile "Geteilt: host" | "Geteilt: „Titel“" | "Geteilt"
+enum SagaShareText {
+    static func label(_ m: ShareMark) -> String {
+        switch ShareDraftLogic.labelKind(m) {
+        case .host: return String(localized: "Geteilt: \(m.host ?? "")")
+        case .title: return String(localized: "Geteilt: „\(m.title ?? "")“")
+        case .plain: return String(localized: "Geteilter Inhalt")
+        }
+    }
 }
 
 /// "aus: Sommerfest, Einladung" (antippbar)
