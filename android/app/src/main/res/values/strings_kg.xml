@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.6 K-G (Bugs-DB 2275 Teilen/Kurzbefehle/Widget, 2508 Auftrag zu einer Seite, 2531 "Deine Bitte"); Wortlaut wie Web (saga/i18n) -->
+<resources>
+    <string name="kg_share_care">Let %1$s take care of it …</string>
+    <string name="kg_share_request">Take care of it.</string>
+    <string name="kg_share_hint">What should %1$s do with it?</string>
+    <string name="kg_shared_what">Shared: %1$s</string>
+    <string name="kg_shared">Shared</string>
+    <string name="kg_quoted">“%1$s”</string>
+    <string name="kg_share_remove">Leave out the shared content</string>
+    <string name="kg_note_line">About the page “%1$s”</string>
+    <string name="kg_note_remove">Without this page</string>
+    <string name="kg_untitled">Untitled</string>
+    <string name="kg_note_unreadable">You can\'t open this page.</string>
+    <string name="kg_your_request">Your request</string>
+    <string name="kg_origin">Origin</string>
+    <string name="kg_widget_waiting_a11y">Needs you: %1$d</string>
+    <string name="kg_shortcut_ask_short">Ask Saga</string>
+    <string name="kg_shortcut_ask_long">Ask Saga something</string>
+    <string name="kg_shortcut_job_short">Give a job</string>
+    <string name="kg_shortcut_job_long">Give Saga a job</string>
+</resources>

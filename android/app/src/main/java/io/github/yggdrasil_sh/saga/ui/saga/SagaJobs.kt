@@ -39,6 +39,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -227,7 +228,7 @@ fun JobTurnView(repo: SagaRepository, nav: AppNavigator, st: AiStatus, session: 
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 t.choices.forEach { c ->
                     AssistChip(
-                        onClick = { session.giveInThread(t.request, choice = c, said = c, thinking = thinking, ready = ready) },
+                        onClick = { session.giveInThread(t.request, choice = c, said = c, thinking = thinking, ready = ready, shared = t.shared) },
                         enabled = !session.talking, label = { Text(c) }, modifier = Modifier.heightIn(min = 48.dp),
                     )
                 }
@@ -398,6 +399,7 @@ fun PlanCard(
             }
         }
         if (plan.readText.isNotBlank()) Text(plan.readText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OriginLines(plan.origin)                                          // 2275: unter "Ich lese dafür: …"
         error?.let { Text(it.resolve(), color = MaterialTheme.colorScheme.error, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
         if (editing) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -658,6 +660,16 @@ fun SagaJobScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, id: L
                         }
                     }
                 }
+                // 2531: die Bitte im Wortlaut (wie Web/iOS), nur wenn sie mehr sagt als der Titel
+                io.github.yggdrasil_sh.saga.ai.SagaShare.requestShown(x)?.let { r ->
+                    Section(stringResource(R.string.kg_your_request))
+                    SelectionContainer { Text(r, style = MaterialTheme.typography.bodyLarge) }
+                }
+                // 2275: Herkunft auch nach der Freigabe (die Plan-Karte zeigt sie selbst)
+                if (x.state != "wartet_ok" && io.github.yggdrasil_sh.saga.ai.SagaShare.originShown(plan?.origin)) {
+                    Section(stringResource(R.string.kg_origin))
+                    OriginLines(plan?.origin)
+                }
                 if (plan != null && plan.read.isNotEmpty()) {
                     Section(stringResource(R.string.saga_read))
                     Text(plan.read.joinToString(", ") { it.label }, style = MaterialTheme.typography.bodyLarge)
@@ -688,6 +700,22 @@ fun SagaJobScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, id: L
                     }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.saga_cancel_job)) }
                 }
             }
+        }
+    }
+}
+
+/**
+ * 2275: Herkunft eines Plans (origin.text, Systemtext) und bei warn ⚠ + warn_text - Symbol UND Text, nie nur Farbe;
+ * TalkBack liest beides als eine Zeile.
+ */
+@Composable
+internal fun OriginLines(o: io.github.yggdrasil_sh.saga.ai.PlanOrigin?) {
+    if (!io.github.yggdrasil_sh.saga.ai.SagaShare.originShown(o) || o == null) return
+    Text(o.text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("kg-origin"))
+    io.github.yggdrasil_sh.saga.ai.SagaShare.warnShown(o)?.let { w ->
+        Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.testTag("kg-warn"), verticalAlignment = Alignment.Top) {
+            Text("⚠", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(end = 6.dp))
+            Text(w, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
         }
     }
 }

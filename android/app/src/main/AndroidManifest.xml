@@ -103,6 +103,10 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="saga" android:host="pair" />
             </intent-filter>
+            <!-- 2.6 K-G (2275): statische Kurzbefehle "Saga fragen" / "Auftrag geben" (nur oeffnen, nie senden) -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
 
         <!-- UnifiedPush: Antworten der Verteiler-App (Adresse, Mitteilungen) - kein Google FCM -->

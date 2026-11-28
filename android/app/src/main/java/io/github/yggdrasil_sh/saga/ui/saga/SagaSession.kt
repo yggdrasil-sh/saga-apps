@@ -12,7 +12,11 @@ import io.github.yggdrasil_sh.saga.ai.JobGroup
 import io.github.yggdrasil_sh.saga.ai.JobPlan
 import io.github.yggdrasil_sh.saga.ai.JobStreamEvent
 import io.github.yggdrasil_sh.saga.ai.RefuseAlternative
+import io.github.yggdrasil_sh.saga.ai.SagaEntry
 import io.github.yggdrasil_sh.saga.ai.SagaLogic
+import io.github.yggdrasil_sh.saga.ai.SagaShare
+import io.github.yggdrasil_sh.saga.ai.SharedMark
+import io.github.yggdrasil_sh.saga.ai.SharedPayload
 import io.github.yggdrasil_sh.saga.ai.ThreadTurn
 import io.github.yggdrasil_sh.saga.data.ApiException
 import io.github.yggdrasil_sh.saga.data.SagaRepository
@@ -34,6 +38,10 @@ import kotlinx.coroutines.launch
 class TalkTurn(
     val me: Boolean, text: String, sources: List<AiSource> = emptyList(), zug: String? = null, val created: Double? = null,
     jobId: Long? = null, val choices: List<String> = emptyList(), val request: String = "", val alternative: RefuseAlternative? = null,
+    /** 2275: eigener Zug zu geteiltem Inhalt - nur Host/Titel ("Geteilt: host"), nie der Text */
+    val mark: SharedMark? = null,
+    /** 2275: Rueckfrage zu geteiltem Inhalt - geht mit der Antwort erneut mit (14.1; nur lokal, nie aus dem Verlauf) */
+    val shared: SharedPayload? = null,
 ) {
     var text by mutableStateOf(text)
     var sources by mutableStateOf(sources)
@@ -58,7 +66,7 @@ class TalkTurn(
 
         fun of(x: ThreadTurn): TalkTurn = TalkTurn(
             x.me, x.text, SagaLogic.turnSources(x), x.zug, x.created, x.jobId,
-            SagaLogic.turnChoices(x), SagaLogic.turnRequest(x), SagaLogic.turnAlternative(x),
+            SagaLogic.turnChoices(x), SagaLogic.turnRequest(x), SagaLogic.turnAlternative(x), SagaShare.turnMark(x),
         )
     }
 }
@@ -80,6 +88,14 @@ class SagaSession(private val repo: SagaRepository) {
     /** Umschalter "Als Auftrag" (11.7): aus = Frage (POST /api/ai/thread), an = Auftrag (POST /api/ai/jobs, thread: true) */
     var asJob by mutableStateOf(false)
     private var talkJob: Job? = null
+
+    /** 2275: geteilter Inhalt aus dem Teilen-Ziel ("{Name} soll sich kümmern …") - Zeile "Geteilt: host ×" ueber dem Feld */
+    var share by mutableStateOf<SharedPayload?>(null)
+    /** 2508: Auftrag zu einer offenen Seite - Zeile "Zur Seite „…“ ×", Auftraege gehen mit context.note */
+    data class NoteCtx(val id: Long, val title: String)
+    var note by mutableStateOf<NoteCtx?>(null)
+    /** Einstieg verlangt das Gespraech (nicht die Auftrags-Liste) - SagaScreen setzt den Reiter und loescht es */
+    var wantTalk by mutableStateOf(false)
 
     // ---- Auftraege (Liste)
     var groups by mutableStateOf<List<JobGroup>?>(null)
@@ -216,18 +232,29 @@ class SagaSession(private val repo: SagaRepository) {
      * Auftrag aus dem Gespraech (11.7): eigener Zug "Auftrag" (said = was die Person getippt bzw. gewaehlt hat), dann der
      * Strom von POST /api/ai/jobs mit thread: true - plan (Plan-Karte), ask (Rueckfrage), refuse (Absage) oder Fehler.
      */
-    fun giveInThread(text: String, choice: String? = null, recipe: RefuseAlternative? = null, said: String? = null, thinking: String, ready: String) {
+    fun giveInThread(
+        text: String, choice: String? = null, recipe: RefuseAlternative? = null, said: String? = null, thinking: String, ready: String,
+        shared: SharedPayload? = null,
+    ) {
         val t = text.trim()
-        if ((t.isEmpty() && recipe == null) || talking) return
-        turns.add(TalkTurn(true, said ?: t, zug = "job"))
+        // 2275: geteilter Inhalt nur mit einem neuen Auftrag (aus der Zeile) bzw. der Antwort auf seine Rueckfrage - nie mit
+        // einem Rezept; dann auch ohne eigene Worte (Systembitte)
+        val fresh = recipe == null && choice == null
+        val sh = SagaShare.sharedFor(recipe = recipe != null, choice = choice, askShared = shared, line = share)
+        if ((t.isEmpty() && recipe == null && sh == null) || talking) return
+        val noteId = if (recipe == null) note?.id else null              // 2508 (wie Web/iOS: nicht bei Rezepten)
+        turns.add(TalkTurn(true, said ?: t, zug = "job", mark = sh?.let { SagaShare.mark(it) }))
         val ai = TalkTurn(false, thinking, zug = "wait", created = System.currentTimeMillis() / 1000.0).apply { running = true }
         turns.add(ai)
         if (choice == null && recipe == null) draft = ""
         talking = true
         talkJob = scope.launch {
             try {
-                val flow = if (recipe != null) repo.saga.giveRecipe(t, recipe, thread = true) else repo.saga.give(t, choice, thread = true)
+                val flow = if (recipe != null) repo.saga.giveRecipe(t, recipe, thread = true)
+                    else repo.saga.give(t, choice, note = noteId, thread = true, shared = sh)
                 flow.collect { ev ->
+                    // einmal verbraucht, sobald der Server etwas daraus gemacht hat (bei Fehlern bleibt die Zeile stehen)
+                    if (fresh && sh != null && share === sh && (ev is JobStreamEvent.Plan || ev is JobStreamEvent.Ask || ev is JobStreamEvent.Refuse)) share = null
                     when (ev) {
                         is JobStreamEvent.Status -> if (ev.text.isNotBlank()) ai.text = ev.text
                         is JobStreamEvent.Plan -> {
@@ -238,7 +265,7 @@ class SagaSession(private val repo: SagaRepository) {
                             live = ready
                             refreshJobs()
                         }
-                        is JobStreamEvent.Ask -> replace(ai, TalkTurn(false, ev.question, zug = "ask", created = ai.created, choices = ev.choices, request = t))
+                        is JobStreamEvent.Ask -> replace(ai, TalkTurn(false, ev.question, zug = "ask", created = ai.created, choices = ev.choices, request = t, shared = sh))
                         is JobStreamEvent.Refuse -> replace(ai, TalkTurn(false, ev.text, zug = "refuse", created = ai.created, request = t, alternative = ev.alternative))
                         is JobStreamEvent.Failed -> {
                             ai.zug = "job_error"
@@ -251,6 +278,40 @@ class SagaSession(private val repo: SagaRepository) {
                 ai.running = false
                 talking = false
                 if (ai.zug == "wait") ai.stopped = true                   // gestoppt oder Strom ohne Ergebnis
+            }
+        }
+    }
+
+    /** Einstieg (Kurzbefehl, Widget): nur oeffnen - Gespraech mit leerer Eingabe bzw. "Als Auftrag" an; sendet nie */
+    fun openEntry(e: SagaEntry) {
+        when (e) {
+            SagaEntry.ASK -> asJob = false
+            SagaEntry.JOB -> asJob = true
+            SagaEntry.JOBS -> {}
+        }
+    }
+
+    /** 2275: aus dem Teilen-Ziel - Gespraech, "Als Auftrag" an, Zeile "Geteilt: …"; gesendet wird erst auf Tippen */
+    fun takeShare(p: SharedPayload) {
+        share = p
+        asJob = true
+    }
+
+    /**
+     * 2508: "{Name} soll sich kümmern …" aus dem KI-Bereich einer Seite - "Als Auftrag" an, Titel vom Server (zugleich die
+     * Probe, ob die Seite lesbar ist); nicht lesbar -> onFail (Hinweis), kein Kontext.
+     */
+    fun startForNote(id: Long, onFail: () -> Unit) {
+        if (id <= 0) return
+        asJob = true
+        if (note?.id != id) note = null
+        scope.launch {
+            try {
+                note = NoteCtx(id, repo.saga.noteTitle(id))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                onFail()
             }
         }
     }

@@ -60,6 +60,8 @@ data class TodaySnapshot(
     /** 2.6 (2271): Tageszeile (fertiger Text vom Server, nur Mittel/Gross) und „Wartet auf dich“ (nur Gross) */
     val line: String? = null,
     val waiting: String? = null,
+    /** 2.6 K-G (2275): Zahl „Wartet auf dich“ (nur Klein, Tippen -> Aufträge) */
+    val waitingCount: Int? = null,
 )
 
 /** Zuletzt bekannter Stand einer Seite */

@@ -200,7 +200,11 @@ fun MainScreen(
     val openDest by repo.openDestRequest.collectAsState()
     LaunchedEffect(openDest) {
         openDest?.let { s ->
-            if (s == "new-task" || s.startsWith("new-task:")) {
+            if (s == io.github.yggdrasil_sh.saga.widget.WidgetLinks.JOBS) {
+                // 2.6 K-G (2275): Zaehler „Wartet auf dich“ im kleinen Widget -> Saga › Aufträge
+                repo.todayLine.wantJobs.value = true
+                nav.top(Dest.Saga)
+            } else if (s == "new-task" || s.startsWith("new-task:")) {
                 // 2.5 E2: optionales Ziel "new-task:<db>" (Aufgabenquelle), sonst Inbox
                 repo.newTaskTarget.value = io.github.yggdrasil_sh.saga.widget.WidgetLinks.newTaskTarget(s)
                 nav.top(Dest.Today)
@@ -234,6 +238,36 @@ fun MainScreen(
             nav.top(Dest.Saga)
             if (id > 0) nav.push(Dest.SagaJob(id))
             repo.openJobRequest.value = null
+        }
+    }
+    // 2.6 K-G (2275/2508): Einstiege in den Ort "Saga" - Kurzbefehl/Widget (nur oeffnen), Teilen-Ziel ("{Name} soll sich
+    // kümmern …", Zeile "Geteilt"), KI-Bereich einer Seite (Zur Seite „…“). Gesendet wird nie von hier.
+    val sagaSession = io.github.yggdrasil_sh.saga.ui.saga.rememberSagaSession(repo)
+    val sagaEntry by repo.sagaEntryRequest.collectAsState()
+    LaunchedEffect(sagaEntry) {
+        sagaEntry?.let { e ->
+            if (e == io.github.yggdrasil_sh.saga.ai.SagaEntry.JOBS) repo.todayLine.wantJobs.value = true
+            else { sagaSession.openEntry(e); sagaSession.wantTalk = true }
+            nav.top(Dest.Saga)
+            repo.sagaEntryRequest.value = null
+        }
+    }
+    val shareJob by repo.pendingShareJob.collectAsState()
+    LaunchedEffect(shareJob) {
+        shareJob?.let { p ->
+            sagaSession.takeShare(p)
+            sagaSession.wantTalk = true
+            nav.top(Dest.Saga)
+            repo.pendingShareJob.value = null
+        }
+    }
+    val sagaNote by repo.sagaNoteRequest.collectAsState()
+    LaunchedEffect(sagaNote) {
+        sagaNote?.let { id ->
+            sagaSession.startForNote(id) { repo.notify(UiText.Res(R.string.kg_note_unreadable)) }
+            sagaSession.wantTalk = true
+            nav.push(Dest.Saga)                                    // Zurueck fuehrt wieder auf die Seite
+            repo.sagaNoteRequest.value = null
         }
     }
     val openExternal by repo.openExternalRequest.collectAsState()

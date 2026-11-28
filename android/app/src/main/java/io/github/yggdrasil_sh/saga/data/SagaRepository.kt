@@ -1682,6 +1682,13 @@ class SagaRepository(
     /** Von einer anderen App geteilt (ACTION_SEND), wartet auf "Speichern als Seite/Aufgabe" */
     val pendingShare = MutableStateFlow<SharedContent?>(null)
 
+    /** 2.6 K-G (2275): "{Name} soll sich kümmern …" im Teilen-Dialog - der Ort "Saga" uebernimmt den Inhalt (Zeile "Geteilt") */
+    val pendingShareJob = MutableStateFlow<io.github.yggdrasil_sh.saga.ai.SharedPayload?>(null)
+    /** 2.6 K-G: Kurzbefehl/Widget -> Ort "Saga" (nur oeffnen, nie senden) */
+    val sagaEntryRequest = MutableStateFlow<io.github.yggdrasil_sh.saga.ai.SagaEntry?>(null)
+    /** 2.6 K-G (2508): Auftrag zu dieser Seite (Seiten-ID) - Ort "Saga" mit "Zur Seite „…“" */
+    val sagaNoteRequest = MutableStateFlow<Long?>(null)
+
     /** Seite oeffnen (aus Meldungen ausserhalb der Navigation, z. B. "Geteilt - Oeffnen") */
     val openPageRequest = MutableStateFlow<Long?>(null)
 

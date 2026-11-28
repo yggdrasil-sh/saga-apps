@@ -58,6 +58,9 @@ import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.ai.AiPersonaLogic
 import io.github.yggdrasil_sh.saga.ai.AiStatus
 import io.github.yggdrasil_sh.saga.ai.SagaLogic
+import io.github.yggdrasil_sh.saga.ai.SagaShare
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.ui.ai.AiAvatar
 import io.github.yggdrasil_sh.saga.ui.ai.AnswerText
@@ -155,6 +158,8 @@ fun SagaScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             // 2.6 (2271): „Wartet auf dich“ aus der Tageszeile -> Reiter „Aufträge“
             val wantJobs by repo.todayLine.wantJobs.collectAsState()
             LaunchedEffect(wantJobs) { if (wantJobs) { tab = 1; repo.todayLine.wantJobs.value = false } }
+            // 2.6 K-G: Kurzbefehl, Teilen-Ziel, Seite -> Gespraech
+            LaunchedEffect(session.wantTalk) { if (session.wantTalk) { tab = 0; session.wantTalk = false } }
             if (!consent) {
                 // 2518 A1: ohne Einwilligung nur die Karte - hat die Person Auftraege, bleibt der Reiter "Auftraege"
                 // erreichbar (Liste, Detail, Abbrechen, Rueckgaengig); Gespraech und "Als Auftrag" bleiben gesperrt
@@ -205,6 +210,9 @@ fun SagaScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             }
             val jobsOn = SagaLogic.jobsOn(s)
             if (!jobsOn && session.asJob) session.asJob = false            // Server bietet keine Auftraege (mehr)
+            // 2275: Teilen-Option weg (Admin/Feature/ai_act) -> nie mit dem alten geteilten Inhalt senden
+            val features by repo.serverFeatures.collectAsState()
+            if (session.share != null && !SagaShare.enabled(s, features)) session.share = null
             val thinking = thinkingText(AiPersonaLogic.effective(s))
             val ready = stringResource(R.string.saga_plan_ready)
             // Beispiel aus der leeren Auftrags-Liste: im Gespraech als Auftrag geben (11.7: ein Ort fuer die Eingabe)
@@ -269,7 +277,7 @@ fun SagaTalk(repo: SagaRepository, nav: AppNavigator, st: AiStatus, session: Sag
             itemsIndexed(session.turns, key = { i, _ -> i }) { _, t ->
                 Box(Modifier.widthIn(max = 760.dp).fillMaxWidth()) {
                     when {
-                        t.me -> MeBubble(t.text, job = t.zug == "job")
+                        t.me -> MeBubble(t.text, job = t.zug == "job", mark = t.mark)
                         t.jobTurn -> JobTurnView(repo, nav, st, session, t)
                         else -> AiTurnCard(repo, st, t) { id -> nav.push(Dest.Page(id)) }
                     }
@@ -292,8 +300,12 @@ fun SagaTalk(repo: SagaRepository, nav: AppNavigator, st: AiStatus, session: Sag
         val job = jobsOn && session.asJob
         val thinking = thinkingText(AiPersonaLogic.effective(st))
         val ready = stringResource(R.string.saga_plan_ready)
+        val shared = if (job) session.share else null
+        val careSaid = stringResource(R.string.kg_share_request)
         val submit = {
-            if (job) session.giveInThread(session.draft, thinking = thinking, ready = ready) else session.ask(session.draft)
+            // 2275: mit geteiltem Inhalt auch ohne eigene Worte (der Server setzt die Systembitte; im Verlauf steht dieselbe)
+            if (job) session.giveInThread(session.draft, thinking = thinking, ready = ready, said = if (session.draft.isBlank() && shared != null) careSaid else null)
+            else session.ask(session.draft)
         }
         Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
@@ -306,19 +318,23 @@ fun SagaTalk(repo: SagaRepository, nav: AppNavigator, st: AiStatus, session: Sag
                         modifier = Modifier.heightIn(min = 48.dp),
                     )
                 }
+                if (job) {
+                    session.note?.let { nc -> NoteLine(nc.title, enabled = !session.talking) { session.note = null } }
+                    shared?.let { p -> SharedLine(p, st.shareNotice, enabled = !session.talking) { session.share = null } }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val label = stringResource(if (job) R.string.saga_job_label else R.string.saga_write_label, name)
                     val max = if (job) 1000 else (st.qMax.takeIf { q -> q > 0 } ?: 1000)
                     OutlinedTextField(
                         value = session.draft, onValueChange = { if (it.length <= max) session.draft = it },
-                        placeholder = { Text(stringResource(if (job) R.string.saga_jobs_hint else R.string.saga_write_hint, name)) },
+                        placeholder = { Text(stringResource(if (shared != null) R.string.kg_share_hint else if (job) R.string.saga_jobs_hint else R.string.saga_write_hint, name)) },
                         maxLines = 5, enabled = !session.talking,
                         modifier = Modifier.weight(1f).semantics { contentDescription = label },
                     )
                     if (session.talking) {
                         SagaOutlinedButton(onClick = { session.stopTalk() }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.saga_stop)) }
                     } else {
-                        SagaButton(onClick = submit, enabled = session.draft.isNotBlank(), modifier = Modifier.heightIn(min = 48.dp)) {
+                        SagaButton(onClick = submit, enabled = SagaShare.canSend(session.draft, shared), modifier = Modifier.heightIn(min = 48.dp)) {
                             Text(stringResource(if (job) R.string.saga_give else R.string.saga_send))
                         }
                     }
@@ -346,14 +362,49 @@ private fun TalkEmpty(st: AiStatus, onAsk: (String) -> Unit) {
     }
 }
 
+/** 2508: "Zur Seite „…“" ueber dem Eingabefeld, × = ohne die Seite */
 @Composable
-private fun MeBubble(text: String, job: Boolean = false) {
+internal fun NoteLine(title: String, enabled: Boolean, onRemove: () -> Unit) {
+    val t = title.ifBlank { stringResource(R.string.kg_untitled) }
+    ContextLine("📄", stringResource(R.string.kg_note_line, t), stringResource(R.string.kg_note_remove), enabled, onRemove)
+}
+
+/** 2275: "Geteilt: host ×" ueber dem Eingabefeld; darunter share_notice des Servers (RT-17: vor dem Senden sichtbar) */
+@Composable
+internal fun SharedLine(p: io.github.yggdrasil_sh.saga.ai.SharedPayload, notice: String?, enabled: Boolean, onRemove: () -> Unit) {
+    ContextLine("↪", sharedLabel(SagaShare.mark(p)), stringResource(R.string.kg_share_remove), enabled, onRemove)
+    notice?.trim()?.takeIf { it.isNotEmpty() }?.let {
+        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
+    }
+}
+
+/** "Geteilt: host" | "Geteilt: „Titel“" | "Geteilt" */
+@Composable
+internal fun sharedLabel(m: io.github.yggdrasil_sh.saga.ai.SharedMark): String = when (SagaShare.labelKind(m)) {
+    SagaShare.LabelKind.HOST -> stringResource(R.string.kg_shared_what, m.host.orEmpty())
+    SagaShare.LabelKind.TITLE -> stringResource(R.string.kg_shared_what, stringResource(R.string.kg_quoted, m.title.orEmpty()))
+    SagaShare.LabelKind.PLAIN -> stringResource(R.string.kg_shared)
+}
+
+@Composable
+private fun ContextLine(symbol: String, text: String, removeLabel: String, enabled: Boolean, onRemove: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(symbol, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 6.dp).clearAndSetSemantics {})
+        Text(text, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        IconButton(onClick = onRemove, enabled = enabled, modifier = Modifier.testTag("kg-remove")) { SagaIcon(SagaIcons.x, removeLabel) }
+    }
+}
+
+@Composable
+private fun MeBubble(text: String, job: Boolean = false, mark: io.github.yggdrasil_sh.saga.ai.SharedMark? = null) {
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
         Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = MaterialTheme.shapes.large, modifier = Modifier.widthIn(max = 560.dp)) {
             Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                 // Bitte als Auftrag: kleine Marke "Auftrag" (Systemtext)
                 if (job) Text(stringResource(R.string.saga_job), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 Text(text, style = MaterialTheme.typography.bodyLarge)
+                // 2275: eigener Zug zu geteiltem Inhalt - nur Host/Titel, nie der geteilte Text
+                mark?.let { Text(sharedLabel(it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
     }

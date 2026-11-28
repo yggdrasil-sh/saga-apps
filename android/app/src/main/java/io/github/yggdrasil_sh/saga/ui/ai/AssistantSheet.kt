@@ -55,6 +55,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -142,7 +143,11 @@ fun AssistantSheet(repo: SagaRepository, editor: PageEditor?, initialTab: Int, o
                     }
                 }
                 Box(Modifier.weight(1f, fill = false).heightIn(min = 200.dp)) {
-                    if (tab == 0 || editor == null) AskTab(repo, st, onOpenPage) else PageTab(repo, editor, st, onOpenPage)
+                    if (tab == 0 || editor == null) AskTab(repo, st, onOpenPage) else PageTab(repo, editor, st, onOpenPage) {
+                        // 2.6 K-G (2508): Auftrag zu dieser Seite im Ort "Saga" (context.note; der Server prueft das Leserecht)
+                        repo.sagaNoteRequest.value = editor.id
+                        onDismiss()
+                    }
                 }
                 Footer(st)
             }
@@ -317,7 +322,7 @@ private fun updateQuota(repo: SagaRepository, d: AiDone) {
 }
 
 @Composable
-private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenPage: (Long) -> Unit) {
+private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenPage: (Long) -> Unit, onSagaJob: () -> Unit = {}) {
     val context = LocalContext.current
     val blocks = remember(ed.doc) { ed.textBlocks() }
     // Vorauswahl: Block mit dem Cursor
@@ -401,6 +406,13 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
                     l.firstOrNull()?.let { d -> asgDb = d.id; asgProp = (d.props.firstOrNull { it.third == "select" } ?: d.props.first()).first }
                 }
             }, enabled = !running) { Text(stringResource(R.string.ai_assign)) }
+            // 2508: "{Name} soll sich kümmern …" (nur mit Auftraegen, nur Seiten dieses Servers - wie das Web)
+            if (io.github.yggdrasil_sh.saga.ai.SagaLogic.jobsOn(st) && !ed.isRemote && ed.id > 0) {
+                SagaOutlinedButton(
+                    onClick = { job?.cancel(); onSagaJob() }, enabled = !running,
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("kg-note-job"),
+                ) { Text(stringResource(R.string.kg_share_care, io.github.yggdrasil_sh.saga.ui.saga.sagaName(st))) }
+            }
         }
         FlowRow(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             SagaOutlinedButton(onClick = { run("improve") }, enabled = !running && selected.isNotEmpty()) { Text(stringResource(R.string.ai_improve)) }

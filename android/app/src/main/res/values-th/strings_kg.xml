@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.6 K-G (Bugs-DB 2275 Teilen/Kurzbefehle/Widget, 2508 Auftrag zu einer Seite, 2531 "Deine Bitte"); Wortlaut wie Web (saga/i18n) -->
+<resources>
+    <string name="kg_share_care">ให้ %1$s จัดการ …</string>
+    <string name="kg_share_request">ช่วยจัดการเรื่องนี้ให้หน่อย</string>
+    <string name="kg_share_hint">%1$s ควรทำอะไรกับสิ่งนี้</string>
+    <string name="kg_shared_what">แชร์แล้ว: %1$s</string>
+    <string name="kg_shared">แชร์แล้ว</string>
+    <string name="kg_quoted">“%1$s”</string>
+    <string name="kg_share_remove">ไม่ใช้เนื้อหาที่แชร์</string>
+    <string name="kg_note_line">เกี่ยวกับหน้า “%1$s”</string>
+    <string name="kg_note_remove">ไม่ใช้หน้านี้</string>
+    <string name="kg_untitled">ไม่มีชื่อ</string>
+    <string name="kg_note_unreadable">คุณเปิดหน้านี้ไม่ได้</string>
+    <string name="kg_your_request">คำขอของคุณ</string>
+    <string name="kg_origin">ที่มา</string>
+    <string name="kg_widget_waiting_a11y">ต้องการคุณ: %1$d</string>
+    <string name="kg_shortcut_ask_short">ถาม Saga</string>
+    <string name="kg_shortcut_ask_long">ถาม Saga</string>
+    <string name="kg_shortcut_job_short">สั่งงาน</string>
+    <string name="kg_shortcut_job_long">สั่งงานให้ Saga</string>
+</resources>

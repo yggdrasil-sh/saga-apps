@@ -67,6 +67,14 @@ class MainActivity : ComponentActivity() {
             ) app.repo.openUrl(url)
             return
         }
+        // 2.6 K-G (2275): statische Kurzbefehle ("Saga fragen", "Auftrag geben") - nur die Aktion zaehlt, Extras/Daten
+        // werden ignoriert; oeffnet nur den Ort "Saga", sendet nie (APP-API-KI 14.3)
+        val fromHistory = (intent?.flags ?: 0) and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
+        if (intent?.action == io.github.yggdrasil_sh.saga.ai.SagaShare.ACTION_ASK || intent?.action == io.github.yggdrasil_sh.saga.ai.SagaShare.ACTION_JOB) {
+            io.github.yggdrasil_sh.saga.ai.SagaShare.shortcut(intent.action, fromHistory)?.let { app.repo.sagaEntryRequest.value = it }
+            intent.action = Intent.ACTION_MAIN                  // nicht ein zweites Mal verarbeiten
+            return
+        }
         if (intent?.action == Intent.ACTION_SEND && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) {
             SharedContent.from(intent.getStringExtra(Intent.EXTRA_SUBJECT), intent.getStringExtra(Intent.EXTRA_TEXT))
                 ?.let { app.repo.pendingShare.value = it }

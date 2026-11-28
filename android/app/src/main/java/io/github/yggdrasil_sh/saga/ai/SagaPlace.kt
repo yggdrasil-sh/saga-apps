@@ -128,6 +128,19 @@ data class JobPlan(
     val recipe: String? = null,
     /** "geaendert – bitte neu freigeben" (2515: Detail und plan_view liefern es immer; aeltere Server nur nach PUT /plan) */
     val edited: Boolean? = null,
+    /** 2.6 K-G (2275): Herkunft bei geteiltem Inhalt (null = ohne Teilen); Texte fertig vom Server */
+    val origin: PlanOrigin? = null,
+)
+
+/** plan.origin (APP-API-KI 14.1): "Angeregt durch: …" und bei warn ⚠ + warn_text (Symbol UND Text, nie nur Farbe) */
+@Serializable
+data class PlanOrigin(
+    val kind: String = "",
+    val host: String? = null,
+    val from: String? = null,
+    val text: String = "",
+    val warn: Boolean = false,
+    @SerialName("warn_text") val warnText: String? = null,
 )
 
 @Serializable
@@ -180,6 +193,8 @@ data class JobDetail(
     val report: JobReport? = null,
     val events: List<JobEventRow> = emptyList(),
     val actions: List<String> = emptyList(),
+    /** 2531: die Bitte im Wortlaut (bei geteiltem Inhalt: nur die eigenen Worte, leer bei der Systembitte) */
+    val request: String = "",
 )
 
 /** "Alte Fassung" (GET …/changes/{c}/before) */
@@ -484,11 +499,16 @@ object SagaLogic {
      * POST /api/ai/jobs: Bitte, ggf. Wahl aus der Rueckfrage und Kontext-Seite. thread = aus dem Gespraech im Ort "Saga"
      * (APP-API-KI 11.7): der Server legt die Bitte (me/job) und das Ergebnis (plan mit job_id, ask, refuse) als Zuege an.
      */
-    fun giveBody(text: String, choice: String? = null, note: Long? = null, thread: Boolean = false): JsonObject = buildJsonObject {
-        put("text", text)
+    fun giveBody(text: String, choice: String? = null, note: Long? = null, thread: Boolean = false, shared: SharedPayload? = null): JsonObject = buildJsonObject {
+        // 2275: geteilter Inhalt nur in "shared" (Datenrahmen), text = nur die eigenen Worte - nie der geteilte Text
+        put("text", if (shared != null) text.trim() else text)
         if (choice != null) put("choice", choice)
         if (note != null && note > 0) put("context", buildJsonObject { put("note", note) })
         if (thread) put("thread", true)
+        if (shared != null) {
+            put("source", "share")
+            put("shared", SagaShare.sharedJson(shared))
+        }
     }
 
     /** Zuege des Gespraechs, die Auftraege zeigen (11.7): plan (mit job_id), ask, refuse - sonst eine normale Antwort */

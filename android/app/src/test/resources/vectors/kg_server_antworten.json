@@ -1,0 +1,1626 @@
+{
+ "features": [
+  "formula1",
+  "rollup1",
+  "dbgroup1",
+  "person1",
+  "file1",
+  "move1",
+  "render1",
+  "relfilter1",
+  "datetime1",
+  "status1",
+  "subtasks1",
+  "tableopts1",
+  "weather1",
+  "habit1",
+  "upcoming1",
+  "chart1",
+  "tasksrc1",
+  "taskdue1",
+  "capsrc1",
+  "timeline1",
+  "api1",
+  "webhook1",
+  "mcp1",
+  "import_notion1",
+  "import_trilium1",
+  "mention1",
+  "synced1",
+  "chatadm1",
+  "contacts1",
+  "pagechatmembers1",
+  "groupinfo2",
+  "moddel1",
+  "msgpin1",
+  "block2",
+  "report1",
+  "mute2",
+  "chatpin1",
+  "markunread1",
+  "chathide1",
+  "chatmention1",
+  "chatfmt1",
+  "chatmedia1",
+  "bookorbit1",
+  "bookorbit2",
+  "bookorbit3",
+  "subpages1",
+  "siegel1",
+  "pm1",
+  "userstatus1",
+  "contacts2",
+  "pushrelay1",
+  "jobpush1",
+  "aitoday1",
+  "memory1",
+  "aishare1",
+  "unfurl1",
+  "calldiag1",
+  "pmdiag1",
+  "clientlog1"
+ ],
+ "status": {
+  "enabled": true,
+  "host": "127.0.0.1:18290",
+  "model": "fake-plan",
+  "provider": "openai",
+  "quota": 0,
+  "used": 0,
+  "quota_left": null,
+  "history_allowed": false,
+  "history": false,
+  "notice": "Was du hier fragst, liest die KI auf 127.0.0.1:18290 (im Heimnetz).",
+  "targets": [
+   "cs",
+   "da",
+   "de",
+   "en",
+   "es",
+   "fi",
+   "fr",
+   "it",
+   "ja",
+   "nb",
+   "nl",
+   "pl",
+   "pt",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "uk",
+   "zh"
+  ],
+  "q_max": 1000,
+  "blocks_max": 50,
+  "persona": {
+   "name": "Saga KI",
+   "custom_name": false,
+   "avatar": null,
+   "avatar_etag": null
+  },
+  "chat": false,
+  "web": false,
+  "caps": [
+   "ai",
+   "ai_act",
+   "ai_ideas"
+  ],
+  "sources": {
+   "pages": true,
+   "tasks": true,
+   "calendar": true,
+   "chat": true
+  },
+  "units": {
+   "left": null,
+   "of": null
+  },
+  "style": {
+   "label": "Saga KI",
+   "form": "sie",
+   "lively": "warm",
+   "salutation": "du"
+  },
+  "jobs": true,
+  "level": "plans",
+  "endpoint": {
+   "host": "127.0.0.1:18290",
+   "net": "home",
+   "label": "127.0.0.1:18290 (im Heimnetz)"
+  },
+  "consent": {
+   "state": "granted",
+   "at": 1795863788.76586,
+   "version": "k19-1",
+   "ideas": "off",
+   "host": "127.0.0.1"
+  },
+  "intro": {
+   "version": "k19-1",
+   "host": "127.0.0.1:18290",
+   "lines": [
+    "Ich bin Saga KI, die KI eures Servers.",
+    "Ich sehe nur, was du sehen darfst; deine Frage und passende Ausschnitte aus deinen Seiten, Aufgaben und Terminen gehen an 127.0.0.1:18290 (im Heimnetz).",
+    "Ich ändere nichts und schreibe niemandem ohne dein OK."
+   ],
+   "details": [
+    "Nicht Ende-zu-Ende verschlüsselt: Was du Saga KI schreibst, liest die KI auf 127.0.0.1:18290 im Klartext.",
+    "Was genau rausgeht: deine Frage, die letzten Sätze dieses Gesprächs und Ausschnitte aus Seiten, Aufgaben und Terminen, die zur Frage passen – nur, was du selbst sehen darfst, und nur aus Quellen, die du eingeschaltet hast. Chats und Seiten von anderen Servern liest sie nicht.",
+    "Die Adresse liegt in eurem Heimnetz.",
+    "Widerrufen kannst du jederzeit unter Einstellungen › Saga › Meine Daten. Dann erledigt Saga KI keine Aufträge mehr, bringt keine Ideen, und das Gespräch hier ist aus. Fragen an anderen Stellen, etwa „Frag deine Seiten“, gehen weiter an die KI – aber nur, wenn du sie stellst."
+   ],
+   "ideas_allowed": true,
+   "question": "Soll ich dir ab und zu Ideen zeigen – nur auf „Heute“, nie als Mitteilung?",
+   "bar": "Was du hier schreibst, liest die KI auf 127.0.0.1:18290 (im Heimnetz)"
+  },
+  "ask_details": [
+   "Nicht Ende-zu-Ende verschlüsselt: Was du hier fragst, liest die KI auf 127.0.0.1:18290 im Klartext.",
+   "Was genau rausgeht: deine Frage und Ausschnitte aus deinen Seiten, die zur Frage passen – Aufgaben und Termine nur, wenn du sie dazunimmst. Nur, was du selbst sehen darfst, und nur aus Quellen, die du eingeschaltet hast. Frühere Fragen gehen nicht mit.",
+   "Bei „Diese Seite“ geht der Text der offenen Seite mit – beim Verbessern oder Übersetzen nur der markierte Text.",
+   "Die Adresse liegt in eurem Heimnetz.",
+   "Dafür brauchst du Saga KI nicht kennenzulernen: Diese Fragen gehen nur an die KI, wenn du sie stellst."
+  ],
+  "share_notice": "Was du teilst, liest die KI auf 127.0.0.1:18290 (im Heimnetz)."
+ },
+ "voll": {
+  "status": 200,
+  "events": [
+   [
+    "status",
+    {
+     "phase": "planning",
+     "text": "Saga KI denkt nach …"
+    }
+   ],
+   [
+    "plan",
+    {
+     "job": 1,
+     "plan_v": 1,
+     "plan_hash": "ad84c332e9c266a45b6e2db9b932d784d2ce4382d6e5a6cc5003d9ea783168fe",
+     "title": "Mach daraus eine Aufgabe",
+     "state": "wartet_ok",
+     "steps": [
+      {
+       "n": 0,
+       "tool": "create_task",
+       "klass": "own",
+       "kind_text": "Eigenes ändern",
+       "undo_class": "delete_only",
+       "class_text": "nur löschbar",
+       "text": "Aufgabe anlegen: „Mach daraus eine Aufgabe“",
+       "wording": null,
+       "state": "offen",
+       "edit": [
+        "text",
+        "due"
+       ],
+       "fields": {
+        "text": "Mach daraus eine Aufgabe"
+       }
+      }
+     ],
+     "read": [
+      {
+       "ref": "tasks:open",
+       "label": "deine offenen Aufgaben"
+      },
+      {
+       "ref": "cal:2026-11-28/14",
+       "label": "deine Termine"
+      },
+      {
+       "ref": "share",
+       "label": "den geteilten Inhalt (schule.example)"
+      }
+     ],
+     "read_text": "Ich lese dafür: deine offenen Aufgaben, deine Termine, den geteilten Inhalt (schule.example)",
+     "wording": [
+      null
+     ],
+     "classes": [
+      "delete_only"
+     ],
+     "say": "So würde ich es machen:",
+     "recipe": null,
+     "edited": false,
+     "origin": {
+      "kind": "share",
+      "host": "schule.example",
+      "from": "app",
+      "text": "Angeregt durch: geteilten Inhalt (schule.example)",
+      "warn": false,
+      "warn_text": null
+     },
+     "turn": 2
+    }
+   ]
+  ],
+  "error": null,
+  "detail": {
+   "id": 1,
+   "title": "Mach daraus eine Aufgabe",
+   "state": "wartet_ok",
+   "state_text": "Wartet auf dein OK",
+   "group": "wartet_auf_dich",
+   "group_text": "Wartet auf dich",
+   "sub": null,
+   "reason": null,
+   "reason_text": "",
+   "created": 1795863794.568803,
+   "updated": 1795863794.568803,
+   "ended_at": null,
+   "plan": {
+    "job": 1,
+    "plan_v": 1,
+    "plan_hash": "ad84c332e9c266a45b6e2db9b932d784d2ce4382d6e5a6cc5003d9ea783168fe",
+    "title": "Mach daraus eine Aufgabe",
+    "state": "wartet_ok",
+    "steps": [
+     {
+      "n": 0,
+      "tool": "create_task",
+      "klass": "own",
+      "kind_text": "Eigenes ändern",
+      "undo_class": "delete_only",
+      "class_text": "nur löschbar",
+      "text": "Aufgabe anlegen: „Mach daraus eine Aufgabe“",
+      "wording": null,
+      "state": "offen",
+      "edit": [
+       "text",
+       "due"
+      ],
+      "fields": {
+       "text": "Mach daraus eine Aufgabe"
+      }
+     }
+    ],
+    "read": [
+     {
+      "ref": "tasks:open",
+      "label": "deine offenen Aufgaben"
+     },
+     {
+      "ref": "cal:2026-11-28/14",
+      "label": "deine Termine"
+     },
+     {
+      "ref": "share",
+      "label": "den geteilten Inhalt (schule.example)"
+     }
+    ],
+    "read_text": "Ich lese dafür: deine offenen Aufgaben, deine Termine, den geteilten Inhalt (schule.example)",
+    "wording": [
+     null
+    ],
+    "classes": [
+     "delete_only"
+    ],
+    "say": "So würde ich es machen:",
+    "recipe": null,
+    "edited": false,
+    "origin": {
+     "kind": "share",
+     "host": "schule.example",
+     "from": "app",
+     "text": "Angeregt durch: geteilten Inhalt (schule.example)",
+     "warn": false,
+     "warn_text": null
+    }
+   },
+   "changes": [],
+   "edited": false,
+   "request": "Mach daraus eine Aufgabe",
+   "events": [
+    {
+     "at": 1795863794.568803,
+     "kind": "state",
+     "text": "Plan vorgeschlagen"
+    },
+    {
+     "at": 1795863794.5716207,
+     "kind": "read",
+     "text": "Gelesen: deine offenen Aufgaben, deine Termine, den geteilten Inhalt (schule.example)"
+    }
+   ],
+   "actions": [
+    "approve",
+    "edit",
+    "cancel"
+   ]
+  },
+  "act_approve": {
+   "status": 409,
+   "body": {
+    "error": "Das geht nur in Saga selbst.",
+    "code": "open",
+    "url": "/saga?tab=jobs&job=1"
+   }
+  }
+ },
+ "ohne_worte": {
+  "status": 200,
+  "events": [
+   [
+    "status",
+    {
+     "phase": "planning",
+     "text": "Saga KI denkt nach …"
+    }
+   ],
+   [
+    "plan",
+    {
+     "job": 2,
+     "plan_v": 1,
+     "plan_hash": "806db58e599c086adda8fb04b67a072155c609f83ba74eaf0bebb2c9be42a71f",
+     "title": "Kümmere dich darum",
+     "state": "wartet_ok",
+     "steps": [
+      {
+       "n": 0,
+       "tool": "create_task",
+       "klass": "own",
+       "kind_text": "Eigenes ändern",
+       "undo_class": "delete_only",
+       "class_text": "nur löschbar",
+       "text": "Aufgabe anlegen: „Kümmere dich darum“",
+       "wording": null,
+       "state": "offen",
+       "edit": [
+        "text",
+        "due"
+       ],
+       "fields": {
+        "text": "Kümmere dich darum"
+       }
+      }
+     ],
+     "read": [
+      {
+       "ref": "tasks:open",
+       "label": "deine offenen Aufgaben"
+      },
+      {
+       "ref": "cal:2026-11-28/14",
+       "label": "deine Termine"
+      },
+      {
+       "ref": "share",
+       "label": "den geteilten Inhalt"
+      }
+     ],
+     "read_text": "Ich lese dafür: deine offenen Aufgaben, deine Termine, den geteilten Inhalt",
+     "wording": [
+      null
+     ],
+     "classes": [
+      "delete_only"
+     ],
+     "say": "So würde ich es machen:",
+     "recipe": null,
+     "edited": false,
+     "origin": {
+      "kind": "share",
+      "host": null,
+      "from": "app",
+      "text": "Angeregt durch: geteilten Inhalt",
+      "warn": false,
+      "warn_text": null
+     },
+     "turn": 4
+    }
+   ]
+  ],
+  "error": null,
+  "detail": {
+   "id": 2,
+   "title": "Kümmere dich darum",
+   "state": "wartet_ok",
+   "state_text": "Wartet auf dein OK",
+   "group": "wartet_auf_dich",
+   "group_text": "Wartet auf dich",
+   "sub": null,
+   "reason": null,
+   "reason_text": "",
+   "created": 1795863794.7028608,
+   "updated": 1795863794.7028608,
+   "ended_at": null,
+   "plan": {
+    "job": 2,
+    "plan_v": 1,
+    "plan_hash": "806db58e599c086adda8fb04b67a072155c609f83ba74eaf0bebb2c9be42a71f",
+    "title": "Kümmere dich darum",
+    "state": "wartet_ok",
+    "steps": [
+     {
+      "n": 0,
+      "tool": "create_task",
+      "klass": "own",
+      "kind_text": "Eigenes ändern",
+      "undo_class": "delete_only",
+      "class_text": "nur löschbar",
+      "text": "Aufgabe anlegen: „Kümmere dich darum“",
+      "wording": null,
+      "state": "offen",
+      "edit": [
+       "text",
+       "due"
+      ],
+      "fields": {
+       "text": "Kümmere dich darum"
+      }
+     }
+    ],
+    "read": [
+     {
+      "ref": "tasks:open",
+      "label": "deine offenen Aufgaben"
+     },
+     {
+      "ref": "cal:2026-11-28/14",
+      "label": "deine Termine"
+     },
+     {
+      "ref": "share",
+      "label": "den geteilten Inhalt"
+     }
+    ],
+    "read_text": "Ich lese dafür: deine offenen Aufgaben, deine Termine, den geteilten Inhalt",
+    "wording": [
+     null
+    ],
+    "classes": [
+     "delete_only"
+    ],
+    "say": "So würde ich es machen:",
+    "recipe": null,
+    "edited": false,
+    "origin": {
+     "kind": "share",
+     "host": null,
+     "from": "app",
+     "text": "Angeregt durch: geteilten Inhalt",
+     "warn": false,
+     "warn_text": null
+    }
+   },
+   "changes": [],
+   "edited": false,
+   "request": "",
+   "events": [
+    {
+     "at": 1795863794.7028608,
+     "kind": "state",
+     "text": "Plan vorgeschlagen"
+    },
+    {
+     "at": 1795863794.7046244,
+     "kind": "read",
+     "text": "Gelesen: deine offenen Aufgaben, deine Termine, den geteilten Inhalt"
+    }
+   ],
+   "actions": [
+    "approve",
+    "edit",
+    "cancel"
+   ]
+  }
+ },
+ "warnung": {
+  "status": 200,
+  "events": [
+   [
+    "status",
+    {
+     "phase": "planning",
+     "text": "Saga KI denkt nach …"
+    }
+   ],
+   [
+    "plan",
+    {
+     "job": 3,
+     "plan_v": 1,
+     "plan_hash": "92136f9bea41bc180f64f442b43bc665f9851ec1c409fb9b1e9c781e6a62d7ae",
+     "title": "Mach daraus eine Aufgabe",
+     "state": "wartet_ok",
+     "steps": [
+      {
+       "n": 0,
+       "tool": "create_task",
+       "klass": "own",
+       "kind_text": "Eigenes ändern",
+       "undo_class": "delete_only",
+       "class_text": "nur löschbar",
+       "text": "Aufgabe anlegen: „Mach daraus eine Aufgabe“",
+       "wording": null,
+       "state": "offen",
+       "edit": [
+        "text",
+        "due"
+       ],
+       "fields": {
+        "text": "Mach daraus eine Aufgabe"
+       }
+      }
+     ],
+     "read": [
+      {
+       "ref": "tasks:open",
+       "label": "deine offenen Aufgaben"
+      },
+      {
+       "ref": "cal:2026-11-28/14",
+       "label": "deine Termine"
+      },
+      {
+       "ref": "share",
+       "label": "den geteilten Inhalt"
+      }
+     ],
+     "read_text": "Ich lese dafür: deine offenen Aufgaben, deine Termine, den geteilten Inhalt",
+     "wording": [
+      null
+     ],
+     "classes": [
+      "delete_only"
+     ],
+     "say": "So würde ich es machen:",
+     "recipe": null,
+     "edited": false,
+     "origin": {
+      "kind": "share",
+      "host": null,
+      "from": "app",
+      "text": "Angeregt durch: geteilten Inhalt",
+      "warn": true,
+      "warn_text": "Der geteilte Inhalt enthält Anweisungen an die KI. Sie zählen nicht als deine Bitte."
+     },
+     "turn": 6
+    }
+   ]
+  ],
+  "error": null,
+  "detail": {
+   "id": 3,
+   "title": "Mach daraus eine Aufgabe",
+   "state": "wartet_ok",
+   "state_text": "Wartet auf dein OK",
+   "group": "wartet_auf_dich",
+   "group_text": "Wartet auf dich",
+   "sub": null,
+   "reason": null,
+   "reason_text": "",
+   "created": 1795863794.810508,
+   "updated": 1795863794.810508,
+   "ended_at": null,
+   "plan": {
+    "job": 3,
+    "plan_v": 1,
+    "plan_hash": "92136f9bea41bc180f64f442b43bc665f9851ec1c409fb9b1e9c781e6a62d7ae",
+    "title": "Mach daraus eine Aufgabe",
+    "state": "wartet_ok",
+    "steps": [
+     {
+      "n": 0,
+      "tool": "create_task",
+      "klass": "own",
+      "kind_text": "Eigenes ändern",
+      "undo_class": "delete_only",
+      "class_text": "nur löschbar",
+      "text": "Aufgabe anlegen: „Mach daraus eine Aufgabe“",
+      "wording": null,
+      "state": "offen",
+      "edit": [
+       "text",
+       "due"
+      ],
+      "fields": {
+       "text": "Mach daraus eine Aufgabe"
+      }
+     }
+    ],
+    "read": [
+     {
+      "ref": "tasks:open",
+      "label": "deine offenen Aufgaben"
+     },
+     {
+      "ref": "cal:2026-11-28/14",
+      "label": "deine Termine"
+     },
+     {
+      "ref": "share",
+      "label": "den geteilten Inhalt"
+     }
+    ],
+    "read_text": "Ich lese dafür: deine offenen Aufgaben, deine Termine, den geteilten Inhalt",
+    "wording": [
+     null
+    ],
+    "classes": [
+     "delete_only"
+    ],
+    "say": "So würde ich es machen:",
+    "recipe": null,
+    "edited": false,
+    "origin": {
+     "kind": "share",
+     "host": null,
+     "from": "app",
+     "text": "Angeregt durch: geteilten Inhalt",
+     "warn": true,
+     "warn_text": "Der geteilte Inhalt enthält Anweisungen an die KI. Sie zählen nicht als deine Bitte."
+    }
+   },
+   "changes": [],
+   "edited": false,
+   "request": "Mach daraus eine Aufgabe",
+   "events": [
+    {
+     "at": 1795863794.810508,
+     "kind": "state",
+     "text": "Plan vorgeschlagen"
+    },
+    {
+     "at": 1795863794.8121576,
+     "kind": "read",
+     "text": "Gelesen: deine offenen Aufgaben, deine Termine, den geteilten Inhalt"
+    }
+   ],
+   "actions": [
+    "approve",
+    "edit",
+    "cancel"
+   ]
+  }
+ },
+ "lang": {
+  "status": 200,
+  "events": [
+   [
+    "status",
+    {
+     "phase": "planning",
+     "text": "Saga KI denkt nach …"
+    }
+   ],
+   [
+    "plan",
+    {
+     "job": 4,
+     "plan_v": 1,
+     "plan_hash": "9f9ab735f063b62a339b230f9982a46868d0330b4d48ae28a338c84a43d4688b",
+     "title": "Fass das als Aufgabe zusammen",
+     "state": "wartet_ok",
+     "steps": [
+      {
+       "n": 0,
+       "tool": "create_task",
+       "klass": "own",
+       "kind_text": "Eigenes ändern",
+       "undo_class": "delete_only",
+       "class_text": "nur löschbar",
+       "text": "Aufgabe anlegen: „Fass das als Aufgabe zusammen“",
+       "wording": null,
+       "state": "offen",
+       "edit": [
+        "text",
+        "due"
+       ],
+       "fields": {
+        "text": "Fass das als Aufgabe zusammen"
+       }
+      }
+     ],
+     "read": [
+      {
+       "ref": "tasks:open",
+       "label": "deine offenen Aufgaben"
+      },
+      {
+       "ref": "cal:2026-11-28/14",
+       "label": "deine Termine"
+      },
+      {
+       "ref": "share",
+       "label": "den geteilten Inhalt"
+      }
+     ],
+     "read_text": "Ich lese dafür: deine offenen Aufgaben, deine Termine, den geteilten Inhalt",
+     "wording": [
+      null
+     ],
+     "classes": [
+      "delete_only"
+     ],
+     "say": "So würde ich es machen:",
+     "recipe": null,
+     "edited": false,
+     "origin": {
+      "kind": "share",
+      "host": null,
+      "from": "app",
+      "text": "Angeregt durch: geteilten Inhalt",
+      "warn": false,
+      "warn_text": null
+     },
+     "turn": 8
+    }
+   ]
+  ],
+  "error": null,
+  "detail": {
+   "id": 4,
+   "title": "Fass das als Aufgabe zusammen",
+   "state": "wartet_ok",
+   "state_text": "Wartet auf dein OK",
+   "group": "wartet_auf_dich",
+   "group_text": "Wartet auf dich",
+   "sub": null,
+   "reason": null,
+   "reason_text": "",
+   "created": 1795863794.965167,
+   "updated": 1795863794.965167,
+   "ended_at": null,
+   "plan": {
+    "job": 4,
+    "plan_v": 1,
+    "plan_hash": "9f9ab735f063b62a339b230f9982a46868d0330b4d48ae28a338c84a43d4688b",
+    "title": "Fass das als Aufgabe zusammen",
+    "state": "wartet_ok",
+    "steps": [
+     {
+      "n": 0,
+      "tool": "create_task",
+      "klass": "own",
+      "kind_text": "Eigenes ändern",
+      "undo_class": "delete_only",
+      "class_text": "nur löschbar",
+      "text": "Aufgabe anlegen: „Fass das als Aufgabe zusammen“",
+      "wording": null,
+      "state": "offen",
+      "edit": [
+       "text",
+       "due"
+      ],
+      "fields": {
+       "text": "Fass das als Aufgabe zusammen"
+      }
+     }
+    ],
+    "read": [
+     {
+      "ref": "tasks:open",
+      "label": "deine offenen Aufgaben"
+     },
+     {
+      "ref": "cal:2026-11-28/14",
+      "label": "deine Termine"
+     },
+     {
+      "ref": "share",
+      "label": "den geteilten Inhalt"
+     }
+    ],
+    "read_text": "Ich lese dafür: deine offenen Aufgaben, deine Termine, den geteilten Inhalt",
+    "wording": [
+     null
+    ],
+    "classes": [
+     "delete_only"
+    ],
+    "say": "So würde ich es machen:",
+    "recipe": null,
+    "edited": false,
+    "origin": {
+     "kind": "share",
+     "host": null,
+     "from": "app",
+     "text": "Angeregt durch: geteilten Inhalt",
+     "warn": false,
+     "warn_text": null
+    }
+   },
+   "changes": [],
+   "edited": false,
+   "request": "Fass das als Aufgabe zusammen",
+   "events": [
+    {
+     "at": 1795863794.965167,
+     "kind": "state",
+     "text": "Plan vorgeschlagen"
+    },
+    {
+     "at": 1795863794.9681714,
+     "kind": "read",
+     "text": "Gelesen: deine offenen Aufgaben, deine Termine, den geteilten Inhalt"
+    }
+   ],
+   "actions": [
+    "approve",
+    "edit",
+    "cancel"
+   ]
+  }
+ },
+ "adresse_ftp": {
+  "status": 200,
+  "events": [
+   [
+    "status",
+    {
+     "phase": "planning",
+     "text": "Saga KI denkt nach …"
+    }
+   ],
+   [
+    "plan",
+    {
+     "job": 5,
+     "plan_v": 1,
+     "plan_hash": "30110dd7ce17684f6e3f2fcadef239bbd1f138a6d7a8e8134a3d6bdbb86462e5",
+     "title": "Merk dir das als Aufgabe",
+     "state": "wartet_ok",
+     "steps": [
+      {
+       "n": 0,
+       "tool": "create_task",
+       "klass": "own",
+       "kind_text": "Eigenes ändern",
+       "undo_class": "delete_only",
+       "class_text": "nur löschbar",
+       "text": "Aufgabe anlegen: „Merk dir das als Aufgabe“",
+       "wording": null,
+       "state": "offen",
+       "edit": [
+        "text",
+        "due"
+       ],
+       "fields": {
+        "text": "Merk dir das als Aufgabe"
+       }
+      }
+     ],
+     "read": [
+      {
+       "ref": "tasks:open",
+       "label": "deine offenen Aufgaben"
+      },
+      {
+       "ref": "cal:2026-11-28/14",
+       "label": "deine Termine"
+      },
+      {
+       "ref": "share",
+       "label": "den geteilten Inhalt"
+      }
+     ],
+     "read_text": "Ich lese dafür: deine offenen Aufgaben, deine Termine, den geteilten Inhalt",
+     "wording": [
+      null
+     ],
+     "classes": [
+      "delete_only"
+     ],
+     "say": "So würde ich es machen:",
+     "recipe": null,
+     "edited": false,
+     "origin": {
+      "kind": "share",
+      "host": null,
+      "from": "app",
+      "text": "Angeregt durch: geteilten Inhalt",
+      "warn": false,
+      "warn_text": null
+     },
+     "turn": 10
+    }
+   ]
+  ],
+  "error": null,
+  "detail": {
+   "id": 5,
+   "title": "Merk dir das als Aufgabe",
+   "state": "wartet_ok",
+   "state_text": "Wartet auf dein OK",
+   "group": "wartet_auf_dich",
+   "group_text": "Wartet auf dich",
+   "sub": null,
+   "reason": null,
+   "reason_text": "",
+   "created": 1795863795.0942547,
+   "updated": 1795863795.0942547,
+   "ended_at": null,
+   "plan": {
+    "job": 5,
+    "plan_v": 1,
+    "plan_hash": "30110dd7ce17684f6e3f2fcadef239bbd1f138a6d7a8e8134a3d6bdbb86462e5",
+    "title": "Merk dir das als Aufgabe",
+    "state": "wartet_ok",
+    "steps": [
+     {
+      "n": 0,
+      "tool": "create_task",
+      "klass": "own",
+      "kind_text": "Eigenes ändern",
+      "undo_class": "delete_only",
+      "class_text": "nur löschbar",
+      "text": "Aufgabe anlegen: „Merk dir das als Aufgabe“",
+      "wording": null,
+      "state": "offen",
+      "edit": [
+       "text",
+       "due"
+      ],
+      "fields": {
+       "text": "Merk dir das als Aufgabe"
+      }
+     }
+    ],
+    "read": [
+     {
+      "ref": "tasks:open",
+      "label": "deine offenen Aufgaben"
+     },
+     {
+      "ref": "cal:2026-11-28/14",
+      "label": "deine Termine"
+     },
+     {
+      "ref": "share",
+      "label": "den geteilten Inhalt"
+     }
+    ],
+    "read_text": "Ich lese dafür: deine offenen Aufgaben, deine Termine, den geteilten Inhalt",
+    "wording": [
+     null
+    ],
+    "classes": [
+     "delete_only"
+    ],
+    "say": "So würde ich es machen:",
+    "recipe": null,
+    "edited": false,
+    "origin": {
+     "kind": "share",
+     "host": null,
+     "from": "app",
+     "text": "Angeregt durch: geteilten Inhalt",
+     "warn": false,
+     "warn_text": null
+    }
+   },
+   "changes": [],
+   "edited": false,
+   "request": "Merk dir das als Aufgabe",
+   "events": [
+    {
+     "at": 1795863795.0942547,
+     "kind": "state",
+     "text": "Plan vorgeschlagen"
+    },
+    {
+     "at": 1795863795.0957103,
+     "kind": "read",
+     "text": "Gelesen: deine offenen Aufgaben, deine Termine, den geteilten Inhalt"
+    }
+   ],
+   "actions": [
+    "approve",
+    "edit",
+    "cancel"
+   ]
+  }
+ },
+ "seite": {
+  "status": 200,
+  "events": [
+   [
+    "status",
+    {
+     "phase": "planning",
+     "text": "Saga KI denkt nach …"
+    }
+   ],
+   [
+    "plan",
+    {
+     "job": 6,
+     "plan_v": 1,
+     "plan_hash": "81071bb54c2b567f6ee7a01bacb320fce9d948348380ea099dee40ec97b97a22",
+     "title": "Mach daraus eine Aufgabe",
+     "state": "wartet_ok",
+     "steps": [
+      {
+       "n": 0,
+       "tool": "create_task",
+       "klass": "own",
+       "kind_text": "Eigenes ändern",
+       "undo_class": "delete_only",
+       "class_text": "nur löschbar",
+       "text": "Aufgabe anlegen: „Mach daraus eine Aufgabe“",
+       "wording": null,
+       "state": "offen",
+       "edit": [
+        "text",
+        "due"
+       ],
+       "fields": {
+        "text": "Mach daraus eine Aufgabe"
+       }
+      }
+     ],
+     "read": [
+      {
+       "ref": "note:1",
+       "label": "Elternabend Klasse 3b"
+      },
+      {
+       "ref": "tasks:open",
+       "label": "deine offenen Aufgaben"
+      },
+      {
+       "ref": "cal:2026-11-28/14",
+       "label": "deine Termine"
+      }
+     ],
+     "read_text": "Ich lese dafür: Elternabend Klasse 3b, deine offenen Aufgaben, deine Termine",
+     "wording": [
+      null
+     ],
+     "classes": [
+      "delete_only"
+     ],
+     "say": "So würde ich es machen:",
+     "recipe": null,
+     "edited": false,
+     "origin": null,
+     "turn": 12
+    }
+   ]
+  ],
+  "error": null,
+  "detail": {
+   "id": 6,
+   "title": "Mach daraus eine Aufgabe",
+   "state": "wartet_ok",
+   "state_text": "Wartet auf dein OK",
+   "group": "wartet_auf_dich",
+   "group_text": "Wartet auf dich",
+   "sub": null,
+   "reason": null,
+   "reason_text": "",
+   "created": 1795863795.201493,
+   "updated": 1795863795.201493,
+   "ended_at": null,
+   "plan": {
+    "job": 6,
+    "plan_v": 1,
+    "plan_hash": "81071bb54c2b567f6ee7a01bacb320fce9d948348380ea099dee40ec97b97a22",
+    "title": "Mach daraus eine Aufgabe",
+    "state": "wartet_ok",
+    "steps": [
+     {
+      "n": 0,
+      "tool": "create_task",
+      "klass": "own",
+      "kind_text": "Eigenes ändern",
+      "undo_class": "delete_only",
+      "class_text": "nur löschbar",
+      "text": "Aufgabe anlegen: „Mach daraus eine Aufgabe“",
+      "wording": null,
+      "state": "offen",
+      "edit": [
+       "text",
+       "due"
+      ],
+      "fields": {
+       "text": "Mach daraus eine Aufgabe"
+      }
+     }
+    ],
+    "read": [
+     {
+      "ref": "note:1",
+      "label": "Elternabend Klasse 3b"
+     },
+     {
+      "ref": "tasks:open",
+      "label": "deine offenen Aufgaben"
+     },
+     {
+      "ref": "cal:2026-11-28/14",
+      "label": "deine Termine"
+     }
+    ],
+    "read_text": "Ich lese dafür: Elternabend Klasse 3b, deine offenen Aufgaben, deine Termine",
+    "wording": [
+     null
+    ],
+    "classes": [
+     "delete_only"
+    ],
+    "say": "So würde ich es machen:",
+    "recipe": null,
+    "edited": false,
+    "origin": null
+   },
+   "changes": [],
+   "edited": false,
+   "request": "Mach daraus eine Aufgabe",
+   "events": [
+    {
+     "at": 1795863795.201493,
+     "kind": "state",
+     "text": "Plan vorgeschlagen"
+    },
+    {
+     "at": 1795863795.2027695,
+     "kind": "read",
+     "text": "Gelesen: Elternabend Klasse 3b, deine offenen Aufgaben, deine Termine"
+    }
+   ],
+   "actions": [
+    "approve",
+    "edit",
+    "cancel"
+   ]
+  }
+ },
+ "ohne_teilen": {
+  "status": 200,
+  "events": [
+   [
+    "status",
+    {
+     "phase": "planning",
+     "text": "Saga KI denkt nach …"
+    }
+   ],
+   [
+    "plan",
+    {
+     "job": 7,
+     "plan_v": 1,
+     "plan_hash": "b64657c70eac638b3b9a5fc25b79a1877c781e744962a004690f790ce567a030",
+     "title": "Grillkohle kaufen",
+     "state": "wartet_ok",
+     "steps": [
+      {
+       "n": 0,
+       "tool": "create_task",
+       "klass": "own",
+       "kind_text": "Eigenes ändern",
+       "undo_class": "delete_only",
+       "class_text": "nur löschbar",
+       "text": "Aufgabe anlegen: „Grillkohle kaufen“ · fällig 04.12.2026",
+       "wording": null,
+       "state": "offen",
+       "edit": [
+        "text",
+        "due"
+       ],
+       "fields": {
+        "text": "Grillkohle kaufen",
+        "due": "2026-12-04"
+       }
+      }
+     ],
+     "read": [
+      {
+       "ref": "tasks:open",
+       "label": "deine offenen Aufgaben"
+      },
+      {
+       "ref": "cal:2026-11-28/14",
+       "label": "deine Termine"
+      }
+     ],
+     "read_text": "Ich lese dafür: deine offenen Aufgaben, deine Termine",
+     "wording": [
+      null
+     ],
+     "classes": [
+      "delete_only"
+     ],
+     "say": "So würde ich es machen:",
+     "recipe": null,
+     "edited": false,
+     "origin": null,
+     "turn": 14
+    }
+   ]
+  ],
+  "error": null,
+  "detail": {
+   "id": 7,
+   "title": "Grillkohle kaufen",
+   "state": "wartet_ok",
+   "state_text": "Wartet auf dein OK",
+   "group": "wartet_auf_dich",
+   "group_text": "Wartet auf dich",
+   "sub": null,
+   "reason": null,
+   "reason_text": "",
+   "created": 1795863795.32914,
+   "updated": 1795863795.32914,
+   "ended_at": null,
+   "plan": {
+    "job": 7,
+    "plan_v": 1,
+    "plan_hash": "b64657c70eac638b3b9a5fc25b79a1877c781e744962a004690f790ce567a030",
+    "title": "Grillkohle kaufen",
+    "state": "wartet_ok",
+    "steps": [
+     {
+      "n": 0,
+      "tool": "create_task",
+      "klass": "own",
+      "kind_text": "Eigenes ändern",
+      "undo_class": "delete_only",
+      "class_text": "nur löschbar",
+      "text": "Aufgabe anlegen: „Grillkohle kaufen“ · fällig 04.12.2026",
+      "wording": null,
+      "state": "offen",
+      "edit": [
+       "text",
+       "due"
+      ],
+      "fields": {
+       "text": "Grillkohle kaufen",
+       "due": "2026-12-04"
+      }
+     }
+    ],
+    "read": [
+     {
+      "ref": "tasks:open",
+      "label": "deine offenen Aufgaben"
+     },
+     {
+      "ref": "cal:2026-11-28/14",
+      "label": "deine Termine"
+     }
+    ],
+    "read_text": "Ich lese dafür: deine offenen Aufgaben, deine Termine",
+    "wording": [
+     null
+    ],
+    "classes": [
+     "delete_only"
+    ],
+    "say": "So würde ich es machen:",
+    "recipe": null,
+    "edited": false,
+    "origin": null
+   },
+   "changes": [],
+   "edited": false,
+   "request": "Erinnere mich Freitag an die Grillkohle",
+   "events": [
+    {
+     "at": 1795863795.32914,
+     "kind": "state",
+     "text": "Plan vorgeschlagen"
+    },
+    {
+     "at": 1795863795.3307571,
+     "kind": "read",
+     "text": "Gelesen: deine offenen Aufgaben, deine Termine"
+    }
+   ],
+   "actions": [
+    "approve",
+    "edit",
+    "cancel"
+   ]
+  }
+ },
+ "thread": {
+  "turns": [
+   {
+    "n": 1,
+    "role": "me",
+    "zug": "job",
+    "text": "Mach daraus eine Aufgabe",
+    "fields": {
+     "shared": {
+      "from": "app",
+      "host": "schule.example"
+     }
+    },
+    "read": [],
+    "job_id": null,
+    "created": 1795863794.5739017,
+    "expires": 1795950194.5739017
+   },
+   {
+    "n": 2,
+    "role": "ai",
+    "zug": "plan",
+    "text": "Plan: Mach daraus eine Aufgabe",
+    "fields": null,
+    "read": [],
+    "job_id": 1,
+    "created": 1795863794.57585,
+    "expires": 1795950194.57585
+   },
+   {
+    "n": 3,
+    "role": "me",
+    "zug": "job",
+    "text": "Kümmere dich darum.",
+    "fields": {
+     "shared": {
+      "from": "app",
+      "host": null
+     }
+    },
+    "read": [],
+    "job_id": null,
+    "created": 1795863794.7065315,
+    "expires": 1795950194.7065315
+   },
+   {
+    "n": 4,
+    "role": "ai",
+    "zug": "plan",
+    "text": "Plan: Kümmere dich darum",
+    "fields": null,
+    "read": [],
+    "job_id": 2,
+    "created": 1795863794.707777,
+    "expires": 1795950194.707777
+   },
+   {
+    "n": 5,
+    "role": "me",
+    "zug": "job",
+    "text": "Mach daraus eine Aufgabe",
+    "fields": {
+     "shared": {
+      "from": "app",
+      "host": null
+     }
+    },
+    "read": [],
+    "job_id": null,
+    "created": 1795863794.8135056,
+    "expires": 1795950194.8135056
+   },
+   {
+    "n": 6,
+    "role": "ai",
+    "zug": "plan",
+    "text": "Plan: Mach daraus eine Aufgabe",
+    "fields": null,
+    "read": [],
+    "job_id": 3,
+    "created": 1795863794.8143003,
+    "expires": 1795950194.8143003
+   },
+   {
+    "n": 7,
+    "role": "me",
+    "zug": "job",
+    "text": "Fass das als Aufgabe zusammen",
+    "fields": {
+     "shared": {
+      "from": "app",
+      "host": null
+     }
+    },
+    "read": [],
+    "job_id": null,
+    "created": 1795863794.9699116,
+    "expires": 1795950194.9699116
+   },
+   {
+    "n": 8,
+    "role": "ai",
+    "zug": "plan",
+    "text": "Plan: Fass das als Aufgabe zusammen",
+    "fields": null,
+    "read": [],
+    "job_id": 4,
+    "created": 1795863794.971041,
+    "expires": 1795950194.971041
+   },
+   {
+    "n": 9,
+    "role": "me",
+    "zug": "job",
+    "text": "Merk dir das als Aufgabe",
+    "fields": {
+     "shared": {
+      "from": "app",
+      "host": null
+     }
+    },
+    "read": [],
+    "job_id": null,
+    "created": 1795863795.097124,
+    "expires": 1795950195.097124
+   },
+   {
+    "n": 10,
+    "role": "ai",
+    "zug": "plan",
+    "text": "Plan: Merk dir das als Aufgabe",
+    "fields": null,
+    "read": [],
+    "job_id": 5,
+    "created": 1795863795.0978243,
+    "expires": 1795950195.0978243
+   },
+   {
+    "n": 11,
+    "role": "me",
+    "zug": "job",
+    "text": "Mach daraus eine Aufgabe",
+    "fields": null,
+    "read": [],
+    "job_id": null,
+    "created": 1795863795.2042773,
+    "expires": 1795950195.2042773
+   },
+   {
+    "n": 12,
+    "role": "ai",
+    "zug": "plan",
+    "text": "Plan: Mach daraus eine Aufgabe",
+    "fields": null,
+    "read": [],
+    "job_id": 6,
+    "created": 1795863795.2050703,
+    "expires": 1795950195.2050703
+   },
+   {
+    "n": 13,
+    "role": "me",
+    "zug": "job",
+    "text": "Erinnere mich Freitag an die Grillkohle",
+    "fields": null,
+    "read": [],
+    "job_id": null,
+    "created": 1795863795.3322995,
+    "expires": 1795950195.3322995
+   },
+   {
+    "n": 14,
+    "role": "ai",
+    "zug": "plan",
+    "text": "Plan: Grillkohle kaufen",
+    "fields": null,
+    "read": [],
+    "job_id": 7,
+    "created": 1795863795.3331873,
+    "expires": 1795950195.3331873
+   }
+  ],
+  "history": false,
+  "keep": 86400,
+  "consent": {
+   "state": "granted",
+   "at": 1795863788.76586,
+   "version": "k19-1",
+   "ideas": "off",
+   "host": "127.0.0.1"
+  }
+ },
+ "status_ohne_ai_act": {
+  "enabled": true,
+  "host": "127.0.0.1:18290",
+  "model": "fake-plan",
+  "provider": "openai",
+  "quota": 0,
+  "used": 0,
+  "quota_left": null,
+  "history_allowed": false,
+  "history": false,
+  "notice": "Was du hier fragst, liest die KI auf 127.0.0.1:18290 (im Heimnetz).",
+  "targets": [
+   "cs",
+   "da",
+   "de",
+   "en",
+   "es",
+   "fi",
+   "fr",
+   "it",
+   "ja",
+   "nb",
+   "nl",
+   "pl",
+   "pt",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "uk",
+   "zh"
+  ],
+  "q_max": 1000,
+  "blocks_max": 50,
+  "persona": {
+   "name": "Saga KI",
+   "custom_name": false,
+   "avatar": null,
+   "avatar_etag": null
+  },
+  "chat": false,
+  "web": false,
+  "caps": [
+   "ai",
+   "ai_ideas"
+  ],
+  "sources": {
+   "pages": true,
+   "tasks": true,
+   "calendar": true,
+   "chat": true
+  },
+  "units": {
+   "left": null,
+   "of": null
+  },
+  "style": {
+   "label": "Saga KI",
+   "form": "sie",
+   "lively": "warm",
+   "salutation": "du"
+  },
+  "jobs": true,
+  "level": "plans",
+  "endpoint": {
+   "host": "127.0.0.1:18290",
+   "net": "home",
+   "label": "127.0.0.1:18290 (im Heimnetz)"
+  },
+  "consent": {
+   "state": "granted",
+   "at": 1795863788.76586,
+   "version": "k19-1",
+   "ideas": "off",
+   "host": "127.0.0.1"
+  },
+  "intro": {
+   "version": "k19-1",
+   "host": "127.0.0.1:18290",
+   "lines": [
+    "Ich bin Saga KI, die KI eures Servers.",
+    "Ich sehe nur, was du sehen darfst; deine Frage und passende Ausschnitte aus deinen Seiten, Aufgaben und Terminen gehen an 127.0.0.1:18290 (im Heimnetz).",
+    "Ich ändere nichts und schreibe niemandem ohne dein OK."
+   ],
+   "details": [
+    "Nicht Ende-zu-Ende verschlüsselt: Was du Saga KI schreibst, liest die KI auf 127.0.0.1:18290 im Klartext.",
+    "Was genau rausgeht: deine Frage, die letzten Sätze dieses Gesprächs und Ausschnitte aus Seiten, Aufgaben und Terminen, die zur Frage passen – nur, was du selbst sehen darfst, und nur aus Quellen, die du eingeschaltet hast. Chats und Seiten von anderen Servern liest sie nicht.",
+    "Die Adresse liegt in eurem Heimnetz.",
+    "Widerrufen kannst du jederzeit unter Einstellungen › Saga › Meine Daten. Dann erledigt Saga KI keine Aufträge mehr, bringt keine Ideen, und das Gespräch hier ist aus. Fragen an anderen Stellen, etwa „Frag deine Seiten“, gehen weiter an die KI – aber nur, wenn du sie stellst."
+   ],
+   "ideas_allowed": true,
+   "question": "Soll ich dir ab und zu Ideen zeigen – nur auf „Heute“, nie als Mitteilung?",
+   "bar": "Was du hier schreibst, liest die KI auf 127.0.0.1:18290 (im Heimnetz)"
+  },
+  "ask_details": [
+   "Nicht Ende-zu-Ende verschlüsselt: Was du hier fragst, liest die KI auf 127.0.0.1:18290 im Klartext.",
+   "Was genau rausgeht: deine Frage und Ausschnitte aus deinen Seiten, die zur Frage passen – Aufgaben und Termine nur, wenn du sie dazunimmst. Nur, was du selbst sehen darfst, und nur aus Quellen, die du eingeschaltet hast. Frühere Fragen gehen nicht mit.",
+   "Bei „Diese Seite“ geht der Text der offenen Seite mit – beim Verbessern oder Übersetzen nur der markierte Text.",
+   "Die Adresse liegt in eurem Heimnetz.",
+   "Dafür brauchst du Saga KI nicht kennenzulernen: Diese Fragen gehen nur an die KI, wenn du sie stellst."
+  ],
+  "share_notice": "Was du teilst, liest die KI auf 127.0.0.1:18290 (im Heimnetz)."
+ },
+ "ohne_ai_act": {
+  "status": 403,
+  "body": {
+   "error": "Dafür fehlt dir die Berechtigung.",
+   "code": "ai_act"
+  }
+ }
+}

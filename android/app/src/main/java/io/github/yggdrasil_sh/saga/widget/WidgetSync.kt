@@ -58,6 +58,7 @@ object WidgetSync {
                     eventsFailed = evs == null,
                     line = io.github.yggdrasil_sh.saga.data.TodayLine.widgetText(tl, io.github.yggdrasil_sh.saga.data.TodayWidgetSize.LARGE),
                     waiting = io.github.yggdrasil_sh.saga.data.TodayLine.widgetWaiting(tl, io.github.yggdrasil_sh.saga.data.TodayWidgetSize.LARGE),
+                    waitingCount = io.github.yggdrasil_sh.saga.data.TodayLine.widgetCount(tl),
                 ),
             )
             store.doneFailed = false

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.6 K-G (2275): Symbol des statischen Kurzbefehls (res/xml/shortcuts.xml) - dunkler Kreis wie das App-Symbol,
+     Liniensymbol in Gold aus den Saga-Symbolen (si_checkbox) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path android:pathData="M24 0 a24 24 0 1 1 0 48 a24 24 0 1 1 0 -48 z" android:fillColor="@color/saga_icon_bg" />
+    <group android:translateX="12" android:translateY="12">
+        <path android:pathData="M7 4 h10 a3 3 0 0 1 3 3 v10 a3 3 0 0 1 -3 3 h-10 a3 3 0 0 1 -3 -3 v-10 a3 3 0 0 1 3 -3 z" android:fillColor="@android:color/transparent" android:strokeColor="#FFD4A84B" android:strokeWidth="1.75" android:strokeLineCap="round" android:strokeLineJoin="round" />
+        <path android:pathData="M8.5 12 l2.5 2.5 l5 -5" android:fillColor="@android:color/transparent" android:strokeColor="#FFD4A84B" android:strokeWidth="1.75" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    </group>
+</vector>

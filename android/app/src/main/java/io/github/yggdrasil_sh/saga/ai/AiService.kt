@@ -60,6 +60,8 @@ data class AiStatus(
     val endpoint: AiEndpoint? = null,
     val consent: AiConsent? = null,
     val intro: AiIntro? = null,
+    /** 2.6 K-G (2275): „Was du teilst, liest die KI auf …“ - im Teilen-Weg vor dem ersten Senden zeigen */
+    @SerialName("share_notice") val shareNotice: String? = null,
 )
 
 /** 2.1: Persona der KI (GET /api/ai/persona, status.persona, Live-Ereignis ai.persona.changed) */

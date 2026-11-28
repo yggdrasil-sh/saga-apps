@@ -76,6 +76,10 @@ private fun TodayContent(store: WidgetStore, @Suppress("UNUSED_PARAMETER") versi
     val snap = store.today()
     val hidden = store.hidden(now)
     val ui = WidgetStates.today(store.signedOut, snap, store.todayFailedAt(), today, zone, now, hidden)
+    // 2.6 K-G (2275): Klein zeigt „Wartet auf dich“ nur als Zahl (nie Texte, RT-31), Tippen -> Saga › Aufträge
+    val waitN = snap?.waitingCount?.takeIf {
+        ui is WidgetUi.Content && io.github.yggdrasil_sh.saga.data.TodayLine.widgetSize(size.width.value, size.height.value) == io.github.yggdrasil_sh.saga.data.TodayWidgetSize.SMALL
+    }
 
     Column(GlanceModifier.fillMaxSize().sagaBackground().padding(WidgetLook.pad).clickable(actionStartActivity(WidgetLinks.intent(ctx, WidgetLinks.TODAY)))) {
         // Kopf: "Heute" (Gold) + Datum, rechts "+" (neue Aufgabe)
@@ -91,6 +95,7 @@ private fun TodayContent(store: WidgetStore, @Suppress("UNUSED_PARAMETER") versi
                 maxLines = 1,
                 modifier = GlanceModifier.defaultWeight(),
             )
+            waitN?.let { WaitingBadge(ctx, it) }
             if (wide && ui is WidgetUi.Content) {
                 // Trefferflaeche 48 dp, sichtbarer Kreis 36 dp
                 Box(
@@ -133,7 +138,7 @@ private fun TodayContent(store: WidgetStore, @Suppress("UNUSED_PARAMETER") versi
                     val evs = TodayLogic.events(s.events, today, zone)
                     val tasks = TodayLogic.tasks(s.tasks, today, hidden, s.ordered)
                     val status = ui.staleSince != null || s.eventsFailed || store.doneFailed
-                    val head = if (wide) 72f else 56f                     // Kopf mit 48-dp-Knopf "+"
+                    val head = if (wide || waitN != null) 72f else 56f    // Kopf mit 48-dp-Knopf "+" bzw. Zaehler
                     val all = TodayLayout.rows(size.height.value, chromeDp = (if (status) head + 16f else head) + lineRows * 18f)
                     val rows = if (evs.size + tasks.size > all) all - 1 else all       // Platz fuer "+N weitere"
                     val (ne, nt) = TodayLayout.split(rows.coerceAtLeast(1), evs.size, tasks.size)
@@ -159,6 +164,26 @@ private fun TodayContent(store: WidgetStore, @Suppress("UNUSED_PARAMETER") versi
                     }
                 }
             }
+        }
+    }
+}
+
+/** 2275: Zaehler „Wartet auf dich“ - Trefferflaeche 48 dp, sichtbare Pille; TalkBack „Wartet auf dich: n“ */
+@Composable
+private fun WaitingBadge(ctx: Context, n: Int) {
+    Box(
+        GlanceModifier.height(48.dp).padding(horizontal = 5.dp)
+            .clickable(actionStartActivity(WidgetLinks.intent(ctx, WidgetLinks.JOBS)))
+            .semantics { contentDescription = ctx.getString(R.string.kg_widget_waiting_a11y, n) },
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            GlanceModifier.height(28.dp).cornerRadius(14.dp).background(GlanceTheme.colors.secondaryContainer).padding(horizontal = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Image(ImageProvider(R.drawable.si_sparkles), null, GlanceModifier.size(14.dp), colorFilter = ColorFilter.tint(GlanceTheme.colors.onSecondaryContainer))
+            Spacer(GlanceModifier.width(4.dp))
+            Text(io.github.yggdrasil_sh.saga.data.TodayLine.widgetCountText(n), style = WidgetLook.text(WidgetLook.small, bold = true, color = GlanceTheme.colors.onSecondaryContainer), maxLines = 1)
         }
     }
 }

@@ -209,6 +209,19 @@ object TodayLine {
         return l.text.ifEmpty { l.parts.joinToString(" · ") { it.text } }.ifEmpty { null }
     }
 
+    /**
+     * 2.6 K-G (2275): Zaehler „Wartet auf dich“ fuer Klein (wie iOS Klein/Sperrbildschirm) - nur die Zahl counts.waiting
+     * (sonst waiting.n), nie Texte (RT-31); auch bei Ruhe/aus wie `waiting`. 0, ohne Faehigkeit ai, aelterer Server: null
+     */
+    fun widgetCount(s: TodayLineState?): Int? {
+        if (s == null || !s.enabled) return null
+        val n = s.counts?.waiting ?: s.waiting?.n ?: return null
+        return n.takeIf { it > 0 }
+    }
+
+    /** Zahl im kleinen Widget: ab 100 „99+“ (Platz) */
+    fun widgetCountText(n: Int): String = if (n > 99) "99+" else n.toString()
+
     /** „Wartet auf dich“ im Widget: nur Gross */
     fun widgetWaiting(s: TodayLineState?, size: TodayWidgetSize): String? =
         if (size == TodayWidgetSize.LARGE && s != null && s.enabled) s.waiting?.text?.ifEmpty { null } else null

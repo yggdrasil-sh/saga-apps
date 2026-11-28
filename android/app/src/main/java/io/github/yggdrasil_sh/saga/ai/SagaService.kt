@@ -75,8 +75,14 @@ class SagaService(private val repo: SagaRepository) {
     // ------------------------------------------------------------------ Auftraege
 
     /** POST /api/ai/jobs (SSE): status, dann plan | ask | refuse | error */
-    fun give(text: String, choice: String? = null, note: Long? = null, thread: Boolean = false): Flow<JobStreamEvent> =
-        jobStream(SagaLogic.giveBody(text, choice, note, thread))
+    fun give(text: String, choice: String? = null, note: Long? = null, thread: Boolean = false, shared: SharedPayload? = null): Flow<JobStreamEvent> =
+        jobStream(SagaLogic.giveBody(text, choice, note, thread, shared))
+
+    /** 2508: Titel einer Seite fuer "Zur Seite „…“" - zugleich die Probe, ob sie lesbar ist (GET /api/notes/<id>) */
+    suspend fun noteTitle(id: Long): String {
+        val o = json.parseToJsonElement(repo.api.get("api/notes/$id")) as? JsonObject
+        return SagaLogic.str(o?.get("title")).orEmpty()
+    }
 
     /** Rezept direkt (refuse.alternative, z. B. "Als Aufgabe anlegen"); thread = aus dem Gespraech (Zuege im Verlauf) */
     fun giveRecipe(text: String, alt: RefuseAlternative, thread: Boolean = false): Flow<JobStreamEvent> = jobStream(SagaLogic.recipeBody(text, alt, thread))

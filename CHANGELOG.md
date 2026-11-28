@@ -8,6 +8,21 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Neu
 
+- **Android: Geteiltes an Saga als Auftrag** (2275, K-G, Server mit `aishare1`, APP-API-KI §14.1): Im Teilen-Dialog
+  (Text oder Link aus einer anderen App) gibt es neben „Als Seite“/„Als Aufgabe“ die Option „{Name} soll sich kümmern …“
+  – nur mit Aufträgen, Fähigkeit `ai_act` und Einwilligung. Sie führt in den Ort „Saga“: „Als Auftrag“ an, über dem Feld
+  „Geteilt: host ×“ und der Hinweis des Servers, wohin der Text geht (`share_notice`); gesendet wird erst auf Tippen,
+  auch ohne eigene Worte. Der geteilte Inhalt geht nur als `shared` (bis 20 000 Zeichen), nie als eigene Bitte; die
+  Plan-Karte und das Detail zeigen die Herkunft und bei Anweisungen an die KI ⚠ mit dem Warntext des Servers. Nie
+  „Passt, los“ von außen – die Freigabe bleibt auf der Plan-Karte.
+- **Android: Kurzbefehle „Saga fragen“ und „Auftrag geben“** (2275): langes Drücken auf das App-Symbol öffnet den Ort
+  „Saga“ mit leerer Eingabe bzw. „Als Auftrag“ an – es wird nichts gesendet. Statische Kurzbefehle, die Chat-Kurzbefehle
+  bleiben unberührt.
+- **Android-Widget „Heute“, klein** (2275): „Wartet auf dich“ als Zahl (nie Texte), Tippen öffnet Saga › Aufträge.
+- **Android: „{Name} soll sich kümmern …“ aus einer Seite** (2508): im KI-Bereich „Diese Seite“ (nur mit Aufträgen) –
+  führt in den Ort „Saga“, „Als Auftrag“ an, über dem Feld „Zur Seite „…“ ×“; Aufträge gehen mit `context.note`.
+- **Android: „Deine Bitte“ im Auftrags-Detail** (2531): die Bitte im Wortlaut (`detail.request`), wenn sie nicht nur den
+  Titel wiederholt – wie Web und iOS.
 - **iPhone/iPad: Saga per Siri und Kurzbefehl** (2275, K-G): „Frag Saga“ (Antwort in Siri, höchstens drei Sätze ohne
   Quellen-Marker; dauert es länger als ~12 s, geht es in der App weiter – die Antwort läuft dabei weiter, nichts wird
   abgebrochen), „Gib Saga einen Auftrag“ (plant gleich bis zur Plan-Karte, Siri sagt „Der Plan liegt in Saga bereit.“

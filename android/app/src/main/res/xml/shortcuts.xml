@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.6 K-G (Bugs-DB 2275, APP-API-KI 14.3): statische Kurzbefehle - oeffnen nur den Ort "Saga" (leere Eingabe bzw.
+     "Als Auftrag" an) und senden nichts; Extras werden ignoriert (MainActivity, SagaShare.shortcut). Bewusst statisch und
+     nie als Unterhaltungs-Shortcut (kein setLongLived/Person): die dynamischen Chat-Shortcuts bleiben unberuehrt (M6).
+     targetPackage = applicationId: die Debug-Fassung liegt in src/debug/res/xml (.debug) - beide gleich halten
+     (SagaShareTest.kurzbefehle_statischMainUndDebugGleich). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="saga_ask"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_ask"
+        android:shortcutShortLabel="@string/kg_shortcut_ask_short"
+        android:shortcutLongLabel="@string/kg_shortcut_ask_long">
+        <intent
+            android:action="io.github.yggdrasil_sh.saga.action.SAGA_ASK"
+            android:targetPackage="io.github.yggdrasil_sh.saga"
+            android:targetClass="io.github.yggdrasil_sh.saga.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="saga_job"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_job"
+        android:shortcutShortLabel="@string/kg_shortcut_job_short"
+        android:shortcutLongLabel="@string/kg_shortcut_job_long">
+        <intent
+            android:action="io.github.yggdrasil_sh.saga.action.SAGA_JOB"
+            android:targetPackage="io.github.yggdrasil_sh.saga"
+            android:targetClass="io.github.yggdrasil_sh.saga.MainActivity" />
+    </shortcut>
+</shortcuts>

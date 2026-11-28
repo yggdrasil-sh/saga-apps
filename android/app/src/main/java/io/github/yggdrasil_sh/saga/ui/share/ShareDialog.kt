@@ -1,6 +1,13 @@
 package io.github.yggdrasil_sh.saga.ui.share
 
 import io.github.yggdrasil_sh.saga.ui.theme.SagaTextButton
+import io.github.yggdrasil_sh.saga.ui.theme.SagaOutlinedButton
+import io.github.yggdrasil_sh.saga.ui.saga.sagaName
+import io.github.yggdrasil_sh.saga.ai.SagaShare
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,6 +36,8 @@ import io.github.yggdrasil_sh.saga.util.UiText
 /**
  * Teilen-Ziel (wie die iOS-Teilen-Erweiterung): Text oder Link aus einer anderen App als neue Seite (im Eingang)
  * oder als Aufgabe sichern. Speichern laeuft im App-Scope.
+ * 2.6 K-G (2275): dritte Option "{Name} soll sich kümmern …" (nur mit aishare1, Auftraegen, ai_act und Einwilligung,
+ * SagaShare.enabled) -> Ort "Saga" mit Zeile "Geteilt: host ×"; gesendet wird erst dort auf Tippen.
  */
 @Composable
 fun ShareDialog(repo: SagaRepository, content: SharedContent, onOpenPage: (Long) -> Unit) {
@@ -38,6 +47,11 @@ fun ShareDialog(repo: SagaRepository, content: SharedContent, onOpenPage: (Long)
         mutableStateOf(content.title.ifBlank { if (kind == "task") content.text.lineSequence().firstOrNull().orEmpty().trim().take(200) else "" })
     }
     var busy by remember { mutableStateOf(false) }
+    val st by repo.ai.status.collectAsState()
+    val features by repo.serverFeatures.collectAsState()
+    LaunchedEffect(Unit) { repo.ai.loadStatus() }               // Faehigkeiten/Einwilligung frisch (Admin kann umstellen)
+    val payload = remember(content) { SagaShare.of(content) }
+    val jobOn = payload != null && SagaShare.enabled(st, features)
     AlertDialog(
         onDismissRequest = { if (!busy) repo.pendingShare.value = null },
         title = { Text(stringResource(R.string.share_title)) },
@@ -57,6 +71,20 @@ fun ShareDialog(repo: SagaRepository, content: SharedContent, onOpenPage: (Long)
                 content.url?.let { Text("🔗 $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, maxLines = 2, overflow = TextOverflow.Ellipsis) }
                 if (content.text.isNotEmpty() && kind == "page") {
                     Text(content.text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 6, overflow = TextOverflow.Ellipsis)
+                }
+                if (jobOn && payload != null) {
+                    SagaOutlinedButton(
+                        onClick = {
+                            repo.pendingShareJob.value = payload
+                            repo.pendingShare.value = null
+                        },
+                        enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("kg-share-job"),
+                        // Kontrast wie die Knoepfe der KI-Karte (2515): Schrift und Rand in primary statt onSurfaceVariant/outlineVariant
+                        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                            contentColor = io.github.yggdrasil_sh.saga.ui.theme.sagaCardOnEdge(MaterialTheme.colorScheme),
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, io.github.yggdrasil_sh.saga.ui.theme.sagaCardEdge(MaterialTheme.colorScheme)),
+                    ) { Text(stringResource(R.string.kg_share_care, sagaName(st)), maxLines = 2, overflow = TextOverflow.Ellipsis) }
                 }
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             }

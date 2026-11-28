@@ -82,6 +82,8 @@ object WidgetLinks {
     const val TASKS = "tasks"
     const val EVENTS = "events"
     const val NEW_TASK = "new-task"
+    /** 2.6 K-G (2275): Saga › Aufträge (Zaehler „Wartet auf dich“) */
+    const val JOBS = "jobs"
     fun page(id: Long) = "page:$id"
     /** 2.5 E2: "Neue Aufgabe" mit Ziel (Aufgabenquelle) */
     fun newTask(target: Long?) = if (target == null) NEW_TASK else "$NEW_TASK:$target"
