@@ -1,0 +1,16 @@
+{
+ "assets": {
+  "android": "https://github.com/yggdrasil-sh/saga-apps/releases/download/v2.5.1-rc.145/Saga-2.5.1-rc.145.apk",
+  "flatpak-aarch64": "https://github.com/yggdrasil-sh/saga-apps/releases/download/v2.5.1-rc.145/saga-2.5.1-rc.145-aarch64.flatpak",
+  "flatpak-x86_64": "https://github.com/yggdrasil-sh/saga-apps/releases/download/v2.5.1-rc.145/saga-2.5.1-rc.145-x86_64.flatpak",
+  "macos": "https://github.com/yggdrasil-sh/saga-apps/releases/download/v2.5.1-rc.145/Saga-2.5.1-rc.145-macOS.dmg",
+  "rpm": "https://github.com/yggdrasil-sh/saga-apps/releases/download/v2.5.1-rc.145/saga-2.5.1-0.rc145.noarch.rpm"
+ },
+ "channel": "testing",
+ "commit": "8f193c4",
+ "format": 1,
+ "page": "https://github.com/yggdrasil-sh/saga-apps/releases/tag/v2.5.1-rc.145",
+ "published": "2026-11-28T12:28:06Z",
+ "tag": "v2.5.1-rc.145",
+ "version": "2.5.1-rc.145"
+}
