@@ -389,6 +389,8 @@ struct SagaJobDetail: Equatable {
     var report: SagaReport?
     var events: [Event]
     var actions: [String]
+    /// 2531: die Bitte im Wortlaut (detail.request, 2509) - z. B. hinter "Als Aufgabe anlegen"
+    var request: String
     init?(data: Data) { self.init(ShareJSON.obj(data)) }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let id = ShareJSON.int(d["id"]) else { return nil }
@@ -410,6 +412,12 @@ struct SagaJobDetail: Equatable {
             return Event(at: ShareJSON.num(e["at"]) ?? 0, kind: e["kind"] as? String ?? "", text: tx, i: i)
         }
         actions = (d["actions"] as? [Any] ?? []).compactMap { $0 as? String }
+        request = d["request"] as? String ?? ""
+    }
+    /// 2531: "Deine Bitte" nur, wenn sie etwas sagt, das der Titel nicht schon sagt (wie das Web)
+    var requestShown: String? {
+        let r = request.trimmingCharacters(in: .whitespacesAndNewlines)
+        return r.isEmpty || r == title.trimmingCharacters(in: .whitespacesAndNewlines) ? nil : r
     }
     /// Plan-Karte im Detail nur, solange der Auftrag auf das OK wartet
     var awaitingOK: Bool { state == "wartet_ok" && plan != nil && !(plan?.steps.isEmpty ?? true) }

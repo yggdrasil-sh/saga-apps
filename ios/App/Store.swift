@@ -103,6 +103,13 @@ final class Store: ObservableObject {
     let todayLine = TodayLineModel()                                 // 2.6 (2271): Tageszeile „Kurz gesagt“ auf „Heute“
     /// 2.6: laufende Sitzung fuer den Fokus-Filter (StatusFocusFilter, laeuft im App-Prozess)
     static weak var current: Store?
+    /// 2.6 K-G (2275): EINE Sitzung fuer App und Siri - HlidskjalfApp und die Saga-Intents nehmen dieselbe Instanz (startet
+    /// Siri die App im Hintergrund, gibt es noch keine Ansicht; die spaeter erscheinende uebernimmt laufende Stroeme)
+    private static var appStore: Store?
+    static func app() -> Store {
+        if let s = appStore { return s }
+        let s = Store(); appStore = s; return s
+    }
 
     init() {                                                        // sofort aus dem Zwischenspeicher
         // Seitenverweise im Text zeigen den aktuellen Titel (nur auf dem Main-Thread, dort wird gezeichnet)

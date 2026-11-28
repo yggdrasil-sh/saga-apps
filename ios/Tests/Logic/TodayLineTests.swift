@@ -65,7 +65,7 @@ func todayLineTests() {
         if status == 304 { check(r == .keep, "\(id): 304 behaelt") }
         if status >= 400 { check(r == .nothing, "\(id): \(status) -> nichts") }
         same(TodayLineLogic.show(st), show, id)
-        // `sentence` nie zeigen (nicht einmal decodiert)
+        // `sentence` nie zeigen (nur fuer Siri decodiert, K-G)
         if let sen = (c["response"] as? [String: Any])?["sentence"] as? String {
             let shown = TodayLineLogic.show(st)
             check(!(shown.kurz?.parts.map(\.text) ?? []).contains(sen) && shown.kurz?.a11y != sen, "\(id): sentence nicht angezeigt")

@@ -201,6 +201,153 @@
           }
         }
       }
+    },
+    "Ask ${applicationName}" : {
+      "localizations" : {
+        "de" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Frag ${applicationName}",
+              "Frage ${applicationName} etwas"
+            ]
+          }
+        },
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Ask ${applicationName}",
+              "Ask ${applicationName} a question"
+            ]
+          }
+        },
+        "es" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Pregunta a ${applicationName}",
+              "Hazle una pregunta a ${applicationName}"
+            ]
+          }
+        },
+        "ru" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Спроси ${applicationName}",
+              "Задай вопрос ${applicationName}"
+            ]
+          }
+        },
+        "th" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "ถาม ${applicationName}",
+              "ถามคำถาม ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "Give ${applicationName} a job" : {
+      "localizations" : {
+        "de" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Gib ${applicationName} einen Auftrag",
+              "Neuer Auftrag für ${applicationName}"
+            ]
+          }
+        },
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Give ${applicationName} a job",
+              "New job for ${applicationName}"
+            ]
+          }
+        },
+        "es" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Dale un encargo a ${applicationName}",
+              "Nuevo encargo para ${applicationName}"
+            ]
+          }
+        },
+        "ru" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Дай ${applicationName} поручение",
+              "Новое поручение для ${applicationName}"
+            ]
+          }
+        },
+        "th" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "สั่งงาน ${applicationName}",
+              "สั่งงานใหม่ให้ ${applicationName}"
+            ]
+          }
+        }
+      }
+    },
+    "What's on today in ${applicationName}" : {
+      "localizations" : {
+        "de" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Was steht heute an in ${applicationName}",
+              "${applicationName} heute"
+            ]
+          }
+        },
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "What's on today in ${applicationName}",
+              "${applicationName} today"
+            ]
+          }
+        },
+        "es" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Qué hay hoy en ${applicationName}",
+              "${applicationName} hoy"
+            ]
+          }
+        },
+        "ru" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Что сегодня в ${applicationName}",
+              "${applicationName} сегодня"
+            ]
+          }
+        },
+        "th" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "วันนี้มีอะไรใน ${applicationName}",
+              "${applicationName} วันนี้"
+            ]
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -304,6 +304,7 @@ struct SagaScreen: View {
         .onReceive(NotificationCenter.default.publisher(for: .hkSagaJobs)) { _ in tab = 1; JobPush.wantJobsTab = false }
         .onAppear { if JobPush.wantJobsTab { JobPush.wantJobsTab = false; tab = 1 } }
         .onChange(of: m.wantJobs, initial: true) { _, w in if w { tab = 1; m.wantJobs = false } }   // 2.6 (2271): aus der Tageszeile
+        .onChange(of: m.wantConversation, initial: true) { _, w in if w { tab = 0; m.wantConversation = false } }   // 2.6 K-G: Siri, 2508
         .task(id: store.sagaStatus?.consentOK) {
             await store.loadAIStatus()
             if store.sagaStatus?.consentOK == true { await m.loadThread(); await m.loadJobs() }
@@ -462,6 +463,17 @@ struct SagaConversation: View {
         let jobs = store.sagaStatus?.jobsOn == true
         let asJob = jobs && m.jobMode
         return VStack(alignment: .leading, spacing: 8) {
+            if asJob, let nc = m.noteContext {                         // 2508: Auftrag zu einer offenen Seite, × = ohne sie
+                HStack(spacing: 6) {
+                    Image(systemName: "doc.text").foregroundStyle(.secondary).accessibilityHidden(true)
+                    Text(verbatim: String(localized: "Zur Seite „\(nc.title.isEmpty ? String(localized: "Unbenannt") : nc.title)“"))
+                        .font(.subheadline).lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: 4)
+                    Button { m.noteContext = nil; focused = true } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                        .buttonStyle(.borderless).frame(minWidth: 44, minHeight: 44).accessibilityLabel(Text("Ohne diese Seite"))
+                        .disabled(busy)
+                }
+            }
             TextField(asJob ? String(localized: "Sag \(store.sagaName), was du brauchst …") : String(localized: "Schreib \(store.sagaName) …"),
                       text: $q, axis: .vertical)
                 .lineLimit(1...5).textFieldStyle(.roundedBorder).focused($focused)

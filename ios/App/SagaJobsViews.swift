@@ -461,6 +461,9 @@ struct SagaJobDetailView: View {
                 }
             }
         }
+        if let r = d.requestShown {                                   // 2531: die Bitte im Wortlaut (wie das Web)
+            section("Deine Bitte") { Text(verbatim: r).fixedSize(horizontal: false, vertical: true).textSelection(.enabled) }
+        }
         if let labels = d.plan?.readLabels, !labels.isEmpty {
             section("Was ich gelesen habe") { Text(verbatim: labels.joined(separator: ", ")).fixedSize(horizontal: false, vertical: true) }
         }

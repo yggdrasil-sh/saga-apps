@@ -277,6 +277,12 @@ struct AssistantSheet: View {
                         Button { openAssign() } label: {
                             Label("Datenbank zuordnen", systemImage: "arrow.right.square").lineLimit(2).multilineTextAlignment(.leading).frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
                         }.buttonStyle(.bordered).controlSize(.large).disabled(m.running)
+                        if store.sagaStatus?.jobsOn == true, let id = pageID {   // 2.6 K-G (2508): Auftrag zu dieser Seite im Ort "Saga"
+                            Button { m.stop(); dismiss(); SagaOpen.request(.note(id)) } label: {
+                                Label(String(localized: "\(store.sagaName) soll sich kümmern …"), systemImage: "checklist.checked")
+                                    .lineLimit(2).multilineTextAlignment(.leading).frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
+                            }.buttonStyle(.bordered).controlSize(.large).disabled(m.running)
+                        }
                     }
                     if sel == 0 { Text("Für „Verbessern“ und „Übersetzen“ zuerst Text auf der Seite markieren.").font(.caption).foregroundStyle(.secondary) }
                     else { Text(sel == 1 ? String(localized: "Markiert: 1 Block") : String(localized: "Markiert: \(sel) Blöcke")).font(.caption).foregroundStyle(.secondary) }

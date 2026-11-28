@@ -237,6 +237,9 @@ struct RootView: View {
         }
         .onChange(of: store.accountSwitches) { _, _ in Task { await FirstStepsModel.shared.accountSwitched(store) } }   // 2031: Kopplung auf ein anderes Konto
         .onReceive(NotificationCenter.default.publisher(for: .hkOpenTarget)) { n in if let t = n.object as? NotifTarget { PushModel.pending = nil; openAfterCallUI { openTarget(t) } } }
+        // 2.6 K-G (2275/2508): Siri bzw. "soll sich kümmern …" -> Ort "Saga", Gespraech (auch nach einem Start im Hintergrund)
+        .onReceive(NotificationCenter.default.publisher(for: .hkSagaOpen)) { _ in if let t = SagaOpen.pending { openAfterCallUI { openSaga(t) } } }
+        .onAppear { if let t = SagaOpen.pending { openSaga(t) } }
         .onReceive(NotificationCenter.default.publisher(for: .hkOpenSettings)) { n in
             if CloudNav.pendingSection == nil, let s = n.object as? String { CloudNav.pendingSection = s }   // Bereich (2.5: Konto/Einstellungen/Info)
             #if os(macOS)
@@ -481,6 +484,20 @@ extension RootView {
         NotificationCenter.default.post(name: .hkSagaJobs, object: id)
         if let id { Task { await store.saga.open(id); await JobPush.remove(job: id) } }
     }
+    /// 2.6 K-G: Ort "Saga", Gespraech (mit "Als Auftrag" und Seite bei .note) - nur mit Ort "Saga", sonst nichts
+    func openSaga(_ t: SagaOpen.Target, retry: Bool = true) {
+        guard store.sagaStatus != nil else {
+            if retry { Task { await store.loadAIStatus(); if store.sagaStatus != nil { openSaga(t, retry: false) } else { SagaOpen.pending = nil } } }
+            return
+        }
+        SagaOpen.pending = nil
+        nav.peek = nil; nav.path = []; showNotifs = false; showAssistant = false
+        JobPush.wantJobsTab = false
+        selection = SagaLogic.tag
+        store.saga.close()
+        store.saga.wantConversation = true
+        if case .note(let id) = t { Task { await store.saga.startForNote(id) } }
+    }
     /// hlidskjalf:// bzw. saga:// - page/12 · today · tasks · events · new-task · new?db=7&view=tab · new?parent=12 · pair?u=…&c=…
     func openLink(_ url: URL) {
         guard url.scheme == "hlidskjalf" || url.scheme == "saga" else { return }
@@ -495,6 +512,7 @@ extension RootView {
         case "tasks": selection = -1
         case "events": selection = -2
         case "new-task": selection = -1; nav.wantQuickAdd = true
+        case "saga": openSaga(.conversation)                                // 2.6 K-G: Gespraech (wie die Mac-Huelle)
         case "jobs": openJob(nil)                                           // 2270 (K-C)
         case "job": openJob(PushJobLogic.jobTarget(url: PushJobLogic.linkRoute(host: "job", arg: arg))?.job)
         case "new":                                                        // eigene Widgets duerfen ohne Rueckfrage anlegen

@@ -3,7 +3,7 @@ import UserNotifications
 
 @main
 struct HlidskjalfApp: App {
-    @StateObject private var store = Store()
+    @StateObject private var store = Store.app()                     // 2.6 K-G: dieselbe Instanz wie Siri
     #if os(macOS)
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     #else
@@ -60,6 +60,7 @@ struct HlidskjalfApp: App {
             else if CoverPreview.mode != nil { CoverPreviewView(store: store) }                        // 2.5: Titelbild-Galerie (ohne Server)
             else if SiegelPreview.mode != nil { SiegelPreviewView(store: store) }                      // 2.5: Saga-Siegel (ohne Server)
             else if EmptyPreview.mode != nil { EmptyPreviewView(store: store) }                        // 2.6 (2031): leere Zustaende (ohne Server)
+            else if KGPreview.mode != nil { KGPreviewView(store: store) }                              // 2.6 K-G: Siri-Ziele, 2508, 2531 (ohne Server)
             else { RootView(store: store).environment(\.calendar, SagaDate.calendar) }
             #else
             RootView(store: store).environment(\.calendar, SagaDate.calendar)     // Datumswahl gregorianisch

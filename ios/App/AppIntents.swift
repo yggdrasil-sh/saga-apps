@@ -137,7 +137,176 @@ struct OpenTasksIntent: AppIntent {
     func perform() async throws -> some IntentResult & OpensIntent { .result(opensIntent: OpenURLIntent(URL(string: "hlidskjalf://tasks")!)) }
 }
 
+#if os(iOS)
+// MARK: - 2.6 K-G (Bugs-DB 2275): Saga per Siri - "Frag Saga", "Gib Saga einen Auftrag", "Was steht heute an"
+// Logik: SagaIntentLogic.swift. Laeuft im App-Prozess mit derselben Sitzung wie die App (Store.app(), auch wenn Siri die
+// App im Hintergrund startet). Alle drei nur entsperrt (.requiresAuthentication: gesperrt/CarPlay kein Vorlesen).
+// Siri-Saetze nennen immer "Saga" (App-Name), nie den Persona-Namen. Fragen und Auftraege laufen ueber das SagaModel:
+// dauert es laenger, geht es in der App weiter - der Strom wird dabei NIE abgebrochen (ein Abbruch stoppte serverseitig
+// das Modell). Aus Siri wird nie freigegeben: kein approve, kein act (F3, RT-32) - der Auftrag endet an der Plan-Karte.
+
+@MainActor
+enum SagaIntentClient {
+    /// Angemeldet wie beim Start der App (Geraete-Schluessel bzw. App-Schluessel) und kein Anmeldefenster offen
+    static func signedIn(_ s: Store) -> Bool { AppConfig.hasServer && (DeviceKey.get() != nil || AppConfig.hasToken) && !s.needsLogin }
+    /// Status frisch holen (Einwilligung kann sich auf einem anderen Geraet geaendert haben)
+    static func status(_ s: Store) async -> SagaStatus? {
+        await s.loadAIStatus()
+        return s.sagaStatus
+    }
+    /// Warten, bis `done()` gilt (true) oder die Zeit um ist (false)
+    static func wait(_ seconds: TimeInterval, _ done: () -> Bool) async -> Bool {
+        let end = Date().addingTimeInterval(seconds)
+        while Date() < end {
+            if done() { return true }
+            try? await Task.sleep(for: .milliseconds(200))
+        }
+        return done()
+    }
+    /// Text vom Server unveraendert als Siri-Antwort (kein Schluessel im Katalog)
+    static func verbatim(_ s: String) -> IntentDialog { IntentDialog("\(s)") }
+}
+
+struct AskSagaIntent: AppIntent {
+    static var title: LocalizedStringResource = "Saga fragen"
+    static var description = IntentDescription("Stellt Saga eine Frage zu deinen Seiten. Die Antwort kommt in Siri – dauert es länger, geht es in der App weiter.")
+    static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+    static var supportedModes: IntentModes = [.background, .foreground(.dynamic)]
+    @Parameter(title: "Frage", requestValueDialog: "Was möchtest du Saga fragen?") var question: String
+    static var parameterSummary: some ParameterSummary { Summary("Saga \(\.$question) fragen") }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let store = Store.app()
+        let st = await SagaIntentClient.status(store)
+        switch SagaIntentLogic.gate(.ask, signedIn: SagaIntentClient.signedIn(store), status: st) {
+        case .signIn: return .result(dialog: "Melde dich zuerst in der Saga-App an.")
+        case .off: return .result(dialog: "Fragen an Saga sind für dich nicht eingeschaltet.")
+        case .intro:                                              // ohne Einwilligung nichts ans Modell: App mit Kennenlernen
+            try await continueInForeground(nil, alwaysConfirm: false)
+            SagaOpen.request(.conversation)
+            return .result(dialog: "Lerne Saga zuerst in der App kennen.")
+        case .ok: break
+        }
+        let m = store.saga
+        let q = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard AILogic.validQuestion(q, max: st?.qMax ?? 1000) else { return .result(dialog: "Die Frage ist leer oder zu lang.") }
+        // liegengebliebene Fehler-/Abbruch-Karten zaehlen nicht (send/giveInThread raeumen sie selbst weg)
+        guard !SagaIntentLogic.busy(asking: m.live != nil, askFailed: m.liveError != nil, planning: m.liveJob != nil,
+                                    planEnded: m.liveJob?.error != nil || m.liveJob?.stopped == true) else {
+            return .result(dialog: try await onward("Saga ist gerade beschäftigt – weiter in der App."))
+        }
+        m.send(q)
+        guard m.live != nil else { return .result(dialog: "Das hat nicht geklappt.") }
+        let done = await SagaIntentClient.wait(SagaIntentLogic.answerWait) { m.live == nil || m.liveError != nil }
+        let ok = done && m.live == nil && m.liveError == nil
+        let answer = ok ? m.thread.turns.last(where: { !$0.mine })?.text : nil
+        switch SagaIntentLogic.askEnd(running: !done, error: done && !ok ? (m.liveError ?? "") : nil, answer: answer) {
+        case .answer(let t, let cut):
+            return .result(dialog: SagaIntentClient.verbatim(cut ? t + " " + String(localized: "Mehr in der Saga-App.") : t))
+        case .foreground:                                         // F2: Strom laeuft im SagaModel weiter
+            return .result(dialog: try await onward("Das dauert etwas länger – die Antwort erscheint in Saga."))
+        case .failed(let e):
+            return .result(dialog: e.isEmpty ? "Das hat nicht geklappt." : SagaIntentClient.verbatim(e))
+        }
+    }
+
+    @MainActor
+    private func onward(_ dialog: IntentDialog) async throws -> IntentDialog {
+        try await continueInForeground(nil, alwaysConfirm: false)
+        SagaOpen.request(.conversation)
+        return dialog
+    }
+}
+
+struct GiveJobIntent: AppIntent {
+    static var title: LocalizedStringResource = "Saga einen Auftrag geben"
+    static var description = IntentDescription("Saga plant den Auftrag gleich. Der Plan wartet in der App auf dein OK – aus Siri wird nichts freigegeben.")
+    static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+    static var supportedModes: IntentModes = [.background, .foreground(.dynamic)]
+    @Parameter(title: "Auftrag", inputOptions: String.IntentInputOptions(multiline: true), requestValueDialog: "Was soll Saga für dich erledigen?") var text: String
+    static var parameterSummary: some ParameterSummary { Summary("Saga den Auftrag \(\.$text) geben") }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let store = Store.app()
+        let st = await SagaIntentClient.status(store)
+        switch SagaIntentLogic.gate(.give, signedIn: SagaIntentClient.signedIn(store), status: st) {
+        case .signIn: return .result(dialog: "Melde dich zuerst in der Saga-App an.")
+        case .off: return .result(dialog: "Aufträge an Saga sind für dich nicht eingeschaltet.")
+        case .intro: return .result(dialog: try await onward("Lerne Saga zuerst in der App kennen."))
+        case .ok: break
+        }
+        let m = store.saga
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard AILogic.validQuestion(t, max: st?.qMax ?? 1000) else { return .result(dialog: "Der Auftrag ist leer oder zu lang.") }
+        // liegengebliebene Fehler-/Abbruch-Karten zaehlen nicht (send/giveInThread raeumen sie selbst weg)
+        guard !SagaIntentLogic.busy(asking: m.live != nil, askFailed: m.liveError != nil, planning: m.liveJob != nil,
+                                    planEnded: m.liveJob?.error != nil || m.liveJob?.stopped == true) else {
+            return .result(dialog: try await onward("Saga ist gerade beschäftigt – weiter in der App."))
+        }
+        if !m.threadLoaded { await m.loadThread() }
+        m.noteContext = nil                                       // eine Seite von vorhin gehoert nicht zu diesem Auftrag
+        let n0 = SagaLogic.maxN(m.thread.turns), count = m.thread.turns.count
+        // Einziger Serverweg: POST /api/ai/jobs {thread: true} (SagaIntentLogic.giveRequest) - Plan-Karte, keine Freigabe
+        m.jobMode = true
+        m.giveInThread(t)
+        guard m.liveJob != nil else { return .result(dialog: "Das hat nicht geklappt.") }
+        let done = await SagaIntentClient.wait(SagaIntentLogic.planWait) { m.liveJob == nil || m.liveJob?.error != nil || m.liveJob?.stopped == true }
+        switch SagaIntentLogic.giveEnd(running: !done, error: m.liveJob?.error, turns: m.thread.turns, n0: n0, count: count) {
+        case .plan: return .result(dialog: try await onward("Der Plan liegt in Saga bereit."))
+        case .ask: return .result(dialog: try await onward("Saga hat eine Rückfrage – antworte in der App."))
+        case .refuse(let r):
+            let s = SagaIntentLogic.speech(r).text
+            return .result(dialog: try await onward(s.isEmpty ? "Das macht Saga so nicht – mehr in der App." : SagaIntentClient.verbatim(s)))
+        case .planning: return .result(dialog: try await onward("Saga plant noch – der Plan erscheint in der App."))
+        case .failed(let e): return .result(dialog: e.isEmpty ? "Das hat nicht geklappt." : SagaIntentClient.verbatim(e))
+        }
+    }
+
+    /// Weiter in der App (Ort "Saga", Gespraech mit der Plan-Karte) - das Planen laeuft im SagaModel weiter
+    @MainActor
+    private func onward(_ dialog: IntentDialog) async throws -> IntentDialog {
+        try await continueInForeground(nil, alwaysConfirm: false)
+        SagaOpen.request(.conversation)
+        return dialog
+    }
+}
+
+struct TodayIntent: AppIntent {
+    static var title: LocalizedStringResource = "Was steht heute an?"
+    static var description = IntentDescription("Liest den Tag aus Saga vor – Termine, fällige Aufgaben und was auf dich wartet. Ohne Sprachmodell berechnet.")
+    static var authenticationPolicy: IntentAuthenticationPolicy = .requiresAuthentication
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let store = Store.app()
+        let signed = SagaIntentClient.signedIn(store)
+        if signed && store.features.set.isEmpty {                         // Start im Hintergrund: Merkmale erst holen
+            await store.checkVersion()
+            if store.serverVersion == nil { return .result(dialog: "Das hat nicht geklappt.") }   // Netz weg: nicht "nicht eingeschaltet"
+        }
+        switch SagaIntentLogic.todayGate(signedIn: signed, features: store.features.set, state: nil) {
+        case .signIn: return .result(dialog: "Melde dich zuerst in der Saga-App an.")
+        case .off, .intro: return .result(dialog: "Der Tagesüberblick ist für dich nicht eingeschaltet.")
+        case .ok: break
+        }
+        guard let (d, code) = try? await store.apiResponse(TodayLineLogic.path(tz: TimeZone.current.identifier)) else {
+            return .result(dialog: "Das hat nicht geklappt.")                // Netz weg: kurzer Satz statt Siri-Fehler
+        }
+        let s = TodayLineLogic.decode(d)
+        if (200..<300).contains(code), SagaIntentLogic.todayGate(signedIn: signed, features: store.features.set, state: s) == .off {
+            return .result(dialog: "Der Tagesüberblick ist für dich nicht eingeschaltet.")
+        }
+        guard case .state(let state) = TodayLineLogic.result(status: code, data: d) else { return .result(dialog: "Das hat nicht geklappt.") }
+        guard let t = SagaIntentLogic.todaySpeech(state) else { return .result(dialog: "Für heute liegt nichts an.") }
+        return .result(dialog: SagaIntentClient.verbatim(t))
+    }
+}
+#endif
+
 struct HKShortcuts: AppShortcutsProvider {
+    // 7 von 10 moeglichen Kurzbefehlen (2.6 K-G: drei fuer Saga, nur iOS)
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: AddTaskIntent(), phrases: ["New task in \(.applicationName)", "Add a task in \(.applicationName)", "\(.applicationName) task"],
                     shortTitle: "Aufgabe anlegen", systemImageName: "checklist")
@@ -147,6 +316,14 @@ struct HKShortcuts: AppShortcutsProvider {
                     shortTitle: "Seite öffnen", systemImageName: "doc.text")
         AppShortcut(intent: OpenTasksIntent(), phrases: ["Tasks in \(.applicationName)", "Show \(.applicationName) tasks"],
                     shortTitle: "Aufgaben", systemImageName: "checkmark.circle")
+        #if os(iOS)
+        AppShortcut(intent: AskSagaIntent(), phrases: ["Ask \(.applicationName)", "Ask \(.applicationName) a question"],
+                    shortTitle: "Saga fragen", systemImageName: "sparkles")
+        AppShortcut(intent: GiveJobIntent(), phrases: ["Give \(.applicationName) a job", "New job for \(.applicationName)"],
+                    shortTitle: "Auftrag geben", systemImageName: "checklist.checked")
+        AppShortcut(intent: TodayIntent(), phrases: ["What's on today in \(.applicationName)", "\(.applicationName) today"],
+                    shortTitle: "Heute in Saga", systemImageName: "sun.max")
+        #endif
     }
 }
 

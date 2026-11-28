@@ -8,6 +8,19 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ### Neu
 
+- **iPhone/iPad: Saga per Siri und Kurzbefehl** (2275, K-G): „Frag Saga“ (Antwort in Siri, höchstens drei Sätze ohne
+  Quellen-Marker; dauert es länger als ~12 s, geht es in der App weiter – die Antwort läuft dabei weiter, nichts wird
+  abgebrochen), „Gib Saga einen Auftrag“ (plant gleich bis zur Plan-Karte, Siri sagt „Der Plan liegt in Saga bereit.“
+  und öffnet den Ort „Saga“ – aus Siri wird **nie** freigegeben) und „Was steht heute an in Saga“ (liest `sentence` und
+  „Wartet auf dich“ aus `/api/ai/today` vor, ohne Sprachmodell; nur mit Fähigkeit `ai`). Alle drei nur entsperrt, ohne
+  Einwilligung öffnet sich die App mit dem Kennenlernen; Siri nennt immer „Saga“, nie den Namen der Persona. Sätze in
+  de/en/es/th/ru, 7 von 10 Kurzbefehlen. Link `saga://saga` öffnet das Gespräch.
+- **iOS-Widget „Heute“ (2275):** Klein und Sperrbildschirm zeigen „Wartet auf dich“ nur als Zahl (`counts.waiting`, nie
+  Texte), Tippen öffnet Saga › Aufträge; im großen Widget ist „Wartet auf dich“ ein Link dorthin.
+- **iOS: „{Name} soll sich kümmern …“ aus einer Seite** (2508): im KI-Bereich „Diese Seite“ (nur mit Aufträgen) – führt
+  in den Ort „Saga“, „Als Auftrag“ an, über dem Eingabefeld „Zur Seite „…“ ×“; Aufträge gehen mit `context.note`.
+- **iOS: „Deine Bitte“ im Auftrags-Detail** (2531): die Bitte im Wortlaut (`detail.request`), wenn sie nicht nur den
+  Titel wiederholt – wie im Web.
 - **Mitteilungen der Kollegin zu Aufträgen mit Knöpfen** (2270, K-C, `jobpush1`, Push-Nutzlast 3): „Braucht dich“,
   „Erledigt“ und „Hat nicht geklappt“ kommen als Mitteilung aufs Gerät – Titel und Ergebnis (`t1`/`t2`) nur Ende-zu-Ende,
   sonst der neutrale Satz. Knöpfe direkt in der Mitteilung nach der Knopf-Regel K15: „Passt, los“ und „Rückgängig“ nur

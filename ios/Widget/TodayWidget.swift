@@ -65,6 +65,8 @@ enum WLink {
     }()
     static func url(_ s: String) -> URL { URL(string: scheme + "://" + s)! }
     static let today = url("today"), tasks = url("tasks"), events = url("events"), newTask = url("new-task")
+    /// 2.6 K-G (2275): Saga › Aufträge (RootView.openLink "jobs")
+    static let jobs = url("jobs")
     static func page(_ id: Int) -> URL { url("page/\(id)") }
 }
 
@@ -105,6 +107,20 @@ private func nextEvent(_ evs: [TodayEvent], now: Date) -> (when: String, ev: Tod
     return cands.sorted { $0.0 < $1.0 }.first.map { ($0.1, $0.2) }
 }
 
+/// 2.6 K-G (2275): Zaehler „Wartet auf dich“ (Klein, Sperrbildschirm) - nur die Zahl, nie Texte (RT-31)
+struct WaitingBadge: View {
+    let n: Int
+    var body: some View {
+        HStack(spacing: 2) {
+            Image(systemName: "sparkles").imageScale(.small)
+            Text(verbatim: "\(n)").monospacedDigit()
+        }
+        .font(.caption.weight(.semibold))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Wartet auf dich: \(n)"))
+    }
+}
+
 // MARK: - Startbildschirm: Heute (Termine + Aufgaben, abhaken direkt im Widget)
 
 struct TodayWidgetView: View {
@@ -125,6 +141,9 @@ struct TodayWidgetView: View {
                         Label(st, systemImage: "clock.arrow.circlepath").font(.caption2).foregroundStyle(.secondary).lineLimit(1)
                     }
                 }
+                if family == .systemSmall, let n = TodayLineLogic.widgetCount(entry.data?.line, size: .small) {
+                    Link(destination: WLink.jobs) { WaitingBadge(n: n).foregroundStyle(Color(red: 0.79, green: 0.64, blue: 0.36)) }
+                }
                 if family != .systemSmall {
                     Link(destination: WLink.newTask) {
                         Image(systemName: "plus").font(.caption.weight(.bold)).frame(width: 22, height: 22).background(.white.opacity(0.12), in: Circle())
@@ -141,7 +160,9 @@ struct TodayWidgetView: View {
                     Text(verbatim: t).font(.caption).lineLimit(family == .systemLarge ? 2 : 1).privacySensitive()
                 }
                 if let w = TodayLineLogic.widgetWaiting(d.line, size: lineSize) {
-                    Text(verbatim: w).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    Link(destination: WLink.jobs) {                          // 2.6 K-G: „Wartet auf dich“ -> Saga › Aufträge
+                        Text(verbatim: w).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    }
                 }
                 let evs = todays(d.events)
                 let rows = WTask.list(d)
@@ -169,7 +190,8 @@ struct TodayWidgetView: View {
         }
         .containerBackground(for: .widget) { Color(red: 0.07, green: 0.09, blue: 0.13) }
         .environment(\.colorScheme, .dark)
-        .widgetURL(WLink.today)
+        // Klein kennt kein Link-Tippziel (nur widgetURL): wartet etwas, fuehrt das ganze Widget zu den Auftraegen (Pruefer A1)
+        .widgetURL(family == .systemSmall && TodayLineLogic.widgetCount(entry.data?.line, size: .small) != nil ? WLink.jobs : WLink.today)
     }
 }
 
@@ -231,6 +253,8 @@ struct LockWidgetView: View {
     private var total: Int { tasks.count + (entry.data?.more ?? 0) }
     private var overdue: Int { tasks.filter { $0.overdue == true }.count }
     private var next: (when: String, ev: TodayEvent)? { nextEvent(entry.data?.events ?? [], now: entry.date) }
+    /// 2.6 K-G: „Wartet auf dich“ nur als Zahl; Tippen -> Saga › Aufträge
+    private var waiting: Int? { TodayLineLogic.widgetCount(entry.data?.line, size: .lock) }
 
     var body: some View {
         Group {
@@ -256,11 +280,14 @@ struct LockWidgetView: View {
                     } else {
                         Text("Keine Termine").font(.headline).widgetAccentable()
                     }
-                    Text(tasks.isEmpty ? String(localized: "Alles erledigt") : String(localized: "\(total) Aufgaben") + (overdue > 0 ? " · " + String(localized: "\(overdue) überfällig") : ""))
-                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    HStack(spacing: 6) {
+                        Text(tasks.isEmpty ? String(localized: "Alles erledigt") : String(localized: "\(total) Aufgaben") + (overdue > 0 ? " · " + String(localized: "\(overdue) überfällig") : ""))
+                            .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        if let n = waiting { Spacer(minLength: 2); WaitingBadge(n: n).widgetAccentable() }
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .widgetURL(next != nil ? WLink.events : WLink.tasks)
+                .widgetURL(waiting != nil ? WLink.jobs : next != nil ? WLink.events : WLink.tasks)
             }
         }
         .containerBackground(for: .widget) { Color.clear }

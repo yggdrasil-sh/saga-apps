@@ -4,7 +4,7 @@ import Foundation
 // Decodieren, Anzeige-Regeln, Ziele, Pfade, Widget. Testvektoren: Tests/vectors/today_vectors.json (Kopie von
 // tests/today_vectors.json aus dem Server-Repo, Format saga-today/v1), Tests/Logic/TodayLineTests.swift.
 // Grundsaetze: Texte kommen fertig vom Server (Sprache der Anfrage) - hier werden keine Saetze gebaut; Zustaende nur an
-// Feldern erkennen, nie an Texten; `sentence` (fuer K-G/Siri) wird nicht decodiert und nicht gezeigt; 4xx/5xx -> nichts.
+// Feldern erkennen, nie an Texten; `sentence` nur fuer Siri (K-G, SagaIntentLogic.todaySpeech), nie gezeigt; 4xx/5xx -> nichts.
 // Gemeinsam mit dem Widget (TodayData.line): deshalb in Shared und tolerant (ein kaputtes Feld bricht das Widget nicht).
 
 /// Ziel eines Teils bzw. von „Wartet auf dich“ - Tippen oeffnet nur (hakt nie ab)
@@ -82,7 +82,7 @@ struct TodayAsk: Codable, Hashable {
 }
 
 /// Antwort von GET/PUT /api/ai/today, POST|DELETE /api/ai/today/quiet bzw. `line` aus /api/app/today?line=1 (Widget,
-/// dort ohne ask/info). `sentence` fehlt hier absichtlich (erst mit K-G).
+/// dort ohne ask/info/sentence). `sentence` liest nur Siri vor ("Was steht heute an", K-G) - nie in der Anzeige.
 struct TodayLineState: Codable, Hashable {
     var enabled: Bool
     var on: Bool?
@@ -97,6 +97,7 @@ struct TodayLineState: Codable, Hashable {
     var ask: TodayAsk?
     var pending: [String]?
     var info: String?
+    var sentence: String?
 
     init(from d: Decoder) throws {
         // Feld fuer Feld: ein unerwarteter Wert macht nur dieses Feld leer (Widget-Antwort bleibt lesbar)
@@ -107,6 +108,7 @@ struct TodayLineState: Codable, Hashable {
         label = opt(String.self, .label); line = opt(TodayLineText.self, .line); waiting = opt(TodayWaiting.self, .waiting)
         counts = opt(TodayCounts.self, .counts); quiet = opt(TodayQuiet.self, .quiet); ask = opt(TodayAsk.self, .ask)
         pending = opt([String].self, .pending); info = opt(String.self, .info)
+        sentence = opt(String.self, .sentence)
     }
 }
 
@@ -222,6 +224,12 @@ enum TodayLineLogic {
         guard size == .medium || size == .large, let s, s.enabled, s.on != false, s.quiet == nil, let l = s.line else { return nil }
         let t = l.text.isEmpty ? l.parts.map(\.text).joined(separator: " · ") : l.text
         return t.isEmpty ? nil : t
+    }
+    /// 2.6 K-G (2275): Zaehler „Wartet auf dich“ fuer Klein und Sperrbildschirm - nur die Zahl `counts.waiting` (nie
+    /// Texte, RT-31), Tippen -> Aufträge. Auch bei Ruhe/aus (wie `waiting`); 0, ohne `ai` oder aelterer Server: nil
+    static func widgetCount(_ s: TodayLineState?, size: TodayWidgetSize) -> Int? {
+        guard size == .small || size == .lock, let s, s.enabled, let n = s.counts?.waiting ?? s.waiting?.n, n > 0 else { return nil }
+        return n
     }
     /// „Wartet auf dich“ im Widget: nur Gross (Mittel hat keinen Platz dafuer)
     static func widgetWaiting(_ s: TodayLineState?, size: TodayWidgetSize) -> String? {

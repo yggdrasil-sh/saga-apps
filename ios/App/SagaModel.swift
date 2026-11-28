@@ -26,6 +26,12 @@ final class SagaModel: ObservableObject {
     @Published var wantJobs = false
     /// "Als Auftrag" (Umschalter neben dem Eingabefeld, Abschnitt 11.7)
     @Published var jobMode = false
+    /// 2.6 K-G (2508): Auftrag zu einer offenen Seite - "Zur Seite „…“" ueber dem Eingabefeld (× weg), jeder Auftrag geht
+    /// dann mit context.note an den Server (der prueft das Leserecht; ohne Recht bleibt die Seite still draussen)
+    struct NoteContext: Equatable { var id: Int; var title: String }
+    @Published var noteContext: NoteContext?
+    /// 2.6 K-G: Siri bzw. "soll sich kümmern …" - SagaScreen zeigt das Gespraech (nicht die Auftrags-Liste)
+    @Published var wantConversation = false
     @Published var liveJob: LiveJob?
     /// Jetziger Stand je Auftrag (Zuege mit job_id im Gespraech); weg = 404
     @Published var jobState: [Int: SagaJobDetail] = [:]
@@ -60,7 +66,7 @@ final class SagaModel: ObservableObject {
     func reset() {
         streamTask?.cancel(); jobTask?.cancel()
         thread = SagaThread(); threadLoaded = false; live = nil; liveQ = nil; liveError = nil
-        jobs = SagaJobList(); jobsLoaded = false; detail = nil; openJob = nil; jobMode = false; liveJob = nil
+        jobs = SagaJobList(); jobsLoaded = false; detail = nil; openJob = nil; jobMode = false; liveJob = nil; noteContext = nil
         jobState = [:]; jobGone = []; editing = []; toast = nil; cardError = nil; busy = false; reported = []
         staleSeen = []; settled = []; undoConflicts = [:]; lastResync = nil
     }
@@ -197,7 +203,8 @@ final class SagaModel: ObservableObject {
         guard let store, liveJob == nil, live == nil else { return }
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard alt != nil || !t.isEmpty else { return }
-        var b = alt.map { SagaLogic.recipeBody($0, text: t) } ?? SagaLogic.giveBody(text: t, choice: choice)
+        // 2508: mit offener Seite als Kontext (nicht bei Rezepten, wie das Web)
+        var b = alt.map { SagaLogic.recipeBody($0, text: t) } ?? SagaLogic.giveBody(text: t, choice: choice, note: noteContext?.id)
         b["thread"] = true
         let shown = said ?? t
         let n0 = maxN
@@ -266,6 +273,18 @@ final class SagaModel: ObservableObject {
         liveJob = nil
     }
     func stopPlanning() { jobTask?.cancel() }
+
+    /// 2508: "{Name} soll sich kümmern …" aus dem KI-Bereich einer Seite - Titel vom Server (wie das Web: GET /api/notes/<id>,
+    /// zugleich die Probe, ob die Seite lesbar ist), "Als Auftrag" an. Nicht lesbar: Hinweis, kein Kontext.
+    func startForNote(_ id: Int) async {
+        guard let store, id > 0 else { return }
+        jobMode = true
+        if noteContext?.id != id { noteContext = nil }
+        guard let (d, code) = try? await store.apiResponse("api/notes/\(id)"), code == 200, let j = ShareJSON.obj(d) else {
+            toast = String(localized: "Diese Seite kannst du nicht öffnen."); return
+        }
+        noteContext = NoteContext(id: id, title: j["title"] as? String ?? "")
+    }
     func dismissLiveJob() { liveJob = nil }
 
     /// "Passt, los" - Ergebnis fuer die Karte (nil = ok)
@@ -527,3 +546,16 @@ final class SagaModel: ObservableObject {
     }
     #endif
 }
+
+/// 2.6 K-G (2275/2508): Ort "Saga" im Gespraech oeffnen - aus Siri (auch nach einem Start im Hintergrund, dann holt
+/// RootView es beim Erscheinen nach) bzw. aus dem KI-Bereich einer Seite ("{Name} soll sich kümmern …", mit Seite)
+@MainActor
+enum SagaOpen {
+    enum Target: Equatable { case conversation, note(Int) }
+    static var pending: Target?
+    static func request(_ t: Target) {
+        pending = t
+        NotificationCenter.default.post(name: .hkSagaOpen, object: nil)
+    }
+}
+extension Notification.Name { static let hkSagaOpen = Notification.Name("hk.sagaOpen") }
